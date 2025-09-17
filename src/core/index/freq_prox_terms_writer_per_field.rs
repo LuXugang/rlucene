@@ -510,7 +510,7 @@ impl Eq for FreqProxTermsWriterPerField {}
 
 impl PartialEq<Self> for FreqProxTermsWriterPerField {
     fn eq(&self, _other: &Self) -> bool {
-        todo!()
+        self.cmp(_other) == Ordering::Equal
     }
 }
 

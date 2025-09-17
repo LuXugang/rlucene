@@ -365,15 +365,20 @@ where
         PW: PostingsWriterBase,
         N: NormsProducer,
     {
+        #[cfg(debug_assertions)]
         let mut last_field: Option<String> = None;
         let field_names = fields.iterator();
         for field in field_names {
-            debug_assert!({
-                let v =
-                    last_field.is_none() || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
-                last_field = Some(field.clone());
-                v
-            });
+            #[cfg(debug_assertions)]
+            {
+                debug_assert!({
+                    let v = last_field.is_none()
+                        || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
+                    last_field = Some(field.clone());
+                    v
+                });
+            }
+
             let field_info = self.field_infos.field_info_by_name(field);
             if field_info.is_none() {
                 return Err(LuceneError::illegal_state(format!(
