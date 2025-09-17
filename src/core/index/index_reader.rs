@@ -45,3 +45,42 @@ pub trait IndexReader {
 
     fn check_integrity(&self) -> Result<()>;
 }
+
+pub enum IndexReaderEnum {}
+impl IndexReader for IndexReaderEnum {
+    fn max_doc(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn num_deleted_docs(&self) -> Result<i32> {
+        todo!()
+    }
+
+    fn inc_ref(&self) -> Result<()> {
+        todo!()
+    }
+
+    fn dec_ref(&self) -> Result<()> {
+        todo!()
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        todo!()
+    }
+
+    fn has_deletions(&self) -> Result<bool> {
+        todo!()
+    }
+
+    fn do_close(&mut self) -> Result<()> {
+        todo!()
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        todo!()
+    }
+}

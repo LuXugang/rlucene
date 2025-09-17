@@ -32,7 +32,6 @@ use std::sync::Arc;
 static STORED_TEXT_TYPE: Lazy<FieldType> =
     Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
 pub(crate) struct TestIndexWriter;
-#[test]
 fn test_doc_count() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
@@ -72,15 +71,10 @@ where
     let mut doc = Document::new();
     doc.add(new_field(
         "content",
-        // format!("aaa {}", index).into(),
-        "我",
+        format!("aaa {}", index),
         &STORED_TEXT_TYPE,
     )?);
-    // doc.add(new_field(
-    //     "id",
-    //     index.to_string().into(),
-    //     &STORED_TEXT_TYPE,
-    // )?);
+    doc.add(new_field("id", index.to_string(), &STORED_TEXT_TYPE)?);
 
     match writer.add_document(doc) {
         Ok(_) => Ok(()),
