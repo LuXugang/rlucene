@@ -36,6 +36,7 @@ pub mod scorable;
 pub mod score_doc;
 pub mod score_mode;
 mod scorer;
+mod scorer_supplier;
 mod segment_cacheable;
 pub mod similarities_impl;
 pub mod sort_field;
