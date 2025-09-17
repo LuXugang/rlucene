@@ -23,13 +23,13 @@ pub trait DocIdStream {
     /// Iterate over doc IDs contained in this stream in order,
     /// calling the given consumer on them.
     /// This is a terminal operation.
-    fn for_each<F>(&mut self, f: F) -> Result<()>
+    fn for_each<F>(&self, f: F) -> Result<()>
     where
         F: FnMut(i32) -> Result<()>;
 
     /// Count the number of entries in this stream.
     /// This is a terminal operation.
-    fn count(&mut self) -> Result<i32> {
+    fn count(&self) -> Result<i32> {
         let mut cnt: i32 = 0;
         self.for_each(|_| {
             cnt += 1;

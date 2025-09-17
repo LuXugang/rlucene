@@ -27,6 +27,7 @@ pub mod field_comparator_source;
 pub mod field_value_hit_queue;
 pub mod index_searcher;
 pub mod knn_collector;
+mod leaf_collector;
 pub mod leaf_field_comparator;
 pub mod pruning;
 pub mod query;
