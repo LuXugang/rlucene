@@ -20,7 +20,9 @@ use crate::core::index::binary_doc_values::Either2BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
@@ -262,6 +264,18 @@ impl DocValues {
                 Ok(Either2SortedSetDocValues::B(v))
             },
         }
+    }
+
+    /// Returns `true` if the specified docvalues fields have not been updated
+    pub fn is_cacheable(ctx: LeafReaderContext, fields: &[String]) -> Result<bool> {
+        for field in fields {
+            if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)
+                && fi.get_doc_values_gen() > -1
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 pub type SortedNumericDocValuesRet<LR> = Either2SortedNumericDocValues<

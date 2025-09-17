@@ -22,6 +22,7 @@ mod dummy_flush_policy;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
 pub mod dummy_index_commit;
+pub mod dummy_index_reader;
 pub mod dummy_index_sorter;
 pub mod dummy_indexable_field;
 pub mod dummy_indexable_field_type;

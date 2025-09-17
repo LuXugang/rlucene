@@ -14,5 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_index_reader::DummyIndexReader;
+use crate::core::index::index_reader_context::{
+    IndexReaderContext, IndexReaderContextBase, IndexReaderContextEnum, IndexReaderContextSealed,
+};
 
 pub struct LeafReaderContext;
+
+impl IndexReaderContextSealed for LeafReaderContext {}
+
+impl IndexReaderContext for LeafReaderContext {
+    type IndexReader = DummyIndexReader;
+
+    fn reader(&self) -> &Self::IndexReader {
+        todo!()
+    }
+
+    fn leaves(&self) -> crate::core::util::error::lucene_error::Result<&[LeafReaderContext]> {
+        todo!()
+    }
+
+    fn children(&self) -> Option<&[IndexReaderContextEnum]> {
+        todo!()
+    }
+
+    fn get_index_reader_context_base(&self) -> &IndexReaderContextBase {
+        todo!()
+    }
+
+    fn get_index_reader_context_base_mut(&mut self) -> &mut IndexReaderContextBase {
+        todo!()
+    }
+}
