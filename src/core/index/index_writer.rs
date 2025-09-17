@@ -399,10 +399,10 @@ where
             )
         } else if si.info.get_use_compound_file() {
             // cfs
-            let mut cfs = codec
+            let cfs = codec
                 .compound_format()
                 .get_compound_reader(si.info.dir.as_ref(), &si.info)?;
-            let fis = reader.read(&mut cfs, &si.info, "", &IOContext::read_once_io_context()?)?;
+            let fis = reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?)?;
             Ok(fis)
         } else {
             // no cfs

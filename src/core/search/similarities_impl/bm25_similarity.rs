@@ -44,7 +44,7 @@ impl BM25Similarity {
     /// # Errors
     /// Returns `Err(String)` if `k1` is infinite or negative,
     /// or if `b` is not within the range `[0..1]`.
-    pub fn new(k1: f32, b: f32, discount_overlaps: bool) -> Result<Self> {
+    pub fn with_k1_b_discount(k1: f32, b: f32, discount_overlaps: bool) -> Result<Self> {
         if !k1.is_finite() || k1 < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "illegal k1 value: {}, must be a non-negative finite value",
@@ -65,18 +65,18 @@ impl BM25Similarity {
     }
     /// BM25 with the supplied parameter values, defaulting `discount_overlaps = true`.
     pub fn with_k1_b(k1: f32, b: f32) -> Result<Self> {
-        Self::new(k1, b, true)
+        Self::with_k1_b_discount(k1, b, true)
     }
 
     /// BM25 with default `k1 = 1.2`, `b = 0.75`,
     /// and the supplied `discount_overlaps`.
     pub fn with_discount(discount_overlaps: bool) -> Result<Self> {
-        Self::new(1.2, 0.75, discount_overlaps)
+        Self::with_k1_b_discount(1.2, 0.75, discount_overlaps)
     }
 
     /// BM25 with default `k1 = 1.2`, `b = 0.75`, `discount_overlaps = true`.
-    pub fn default() -> Result<Self> {
-        Self::new(1.2, 0.75, true)
+    pub fn new() -> Result<Self> {
+        Self::with_k1_b_discount(1.2, 0.75, true)
     }
     /// Implemented as `log(1 + (doc_count - doc_freq + 0.5)/(doc_freq + 0.5))`.
     pub fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
