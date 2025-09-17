@@ -48,6 +48,7 @@ pub mod sorted_numeric_selector;
 pub mod sorted_numeric_sort_field;
 pub mod sorted_set_selector;
 pub mod sorted_set_sort_field;
+mod term_matches_iterator;
 pub mod term_query;
 pub mod term_statistics;
 pub mod top_docs;
