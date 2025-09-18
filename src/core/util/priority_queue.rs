@@ -419,17 +419,18 @@ mod tests {
         }
     }
     #[test]
-    fn test_zero_sized_queue() {
+    fn test_zero_sized_queue() -> Result<()> {
         let mut random = random();
-        let mut pq = PriorityQueue::new(0, I32Compare).unwrap();
+        let mut pq = PriorityQueue::new(0, I32Compare)?;
         assert_eq!(1, pq.insert_with_overflow(1).unwrap().unwrap());
         assert_eq!(0, pq.size());
 
-        pq.add(1).unwrap();
+        pq.add(1)?;
         match random.random_bool(0.5) {
             true => assert_eq!(1, *pq.top_mut()),
             false => assert_eq!(1, *pq.top()),
         }
+        Ok(())
     }
 
     #[derive(Default)]
@@ -460,10 +461,10 @@ mod tests {
     }
 
     #[test]
-    fn test_no_extra_work_on_equal_elements() {
-        let mut pq = PriorityQueue::new(5, ObjectCompare::default()).unwrap();
+    fn test_no_extra_work_on_equal_elements() -> Result<()> {
+        let mut pq = PriorityQueue::new(5, ObjectCompare::default())?;
         for i in 0..100 {
-            pq.insert_with_overflow(ObjectCompare::new(i, 0)).unwrap();
+            pq.insert_with_overflow(ObjectCompare::new(i, 0))?;
         }
         let mut indexes: Vec<i32> = Vec::new();
         let iter = pq.iterator();
@@ -471,10 +472,11 @@ mod tests {
             indexes.push(e.index)
         }
         assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+        Ok(())
     }
 
     #[test]
-    fn test_pq() {
+    fn test_pq() -> Result<()> {
         let mut random = random();
         let count: i32 = at_least(&mut random, 10000);
         let pq = PriorityQueue::new(count, I32Compare);
@@ -484,12 +486,12 @@ mod tests {
             for _i in 0..count {
                 let next: i32 = random.random();
                 sum = sum.wrapping_add(next);
-                heap.add(next).unwrap();
+                heap.add(next)?;
             }
 
             let mut last = i32::MIN;
             for _i in 0..count {
-                let next = heap.pop().unwrap().unwrap();
+                let next = heap.pop()?.unwrap();
                 assert!(next >= last);
                 last = next;
                 sum2 = sum2.wrapping_add(last);
@@ -499,36 +501,39 @@ mod tests {
         } else {
             assert!(count == 0 || count == i32::MAX);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_clear() {
-        let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
-        pq.add(2).unwrap();
-        pq.add(3).unwrap();
-        pq.add(1).unwrap();
+    fn test_clear() -> Result<()> {
+        let mut pq = PriorityQueue::new(3, I32Compare)?;
+        pq.add(2)?;
+        pq.add(3)?;
+        pq.add(1)?;
         assert_eq!(3, pq.size());
         pq.clear();
         assert_eq!(0, pq.size());
+        Ok(())
     }
 
     #[test]
-    fn test_fixed_size() {
-        let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
-        pq.insert_with_overflow(2).unwrap();
-        pq.insert_with_overflow(3).unwrap();
-        pq.insert_with_overflow(1).unwrap();
-        pq.insert_with_overflow(5).unwrap();
-        pq.insert_with_overflow(7).unwrap();
-        pq.insert_with_overflow(1).unwrap();
+    fn test_fixed_size() -> Result<()> {
+        let mut pq = PriorityQueue::new(3, I32Compare)?;
+        pq.insert_with_overflow(2)?;
+        pq.insert_with_overflow(3)?;
+        pq.insert_with_overflow(1)?;
+        pq.insert_with_overflow(5)?;
+        pq.insert_with_overflow(7)?;
+        pq.insert_with_overflow(1)?;
         assert_eq!(3, pq.size());
         assert_eq!(3, pq.pop().unwrap().unwrap());
+        Ok(())
     }
 
     #[test]
-    fn test_insert_with_overflow() {
+    fn test_insert_with_overflow() -> Result<()> {
         let size = 4;
-        let mut pq = PriorityQueue::new(size, I32Compare).unwrap();
+        let mut pq = PriorityQueue::new(size, I32Compare)?;
         let i1 = 2;
         let i2 = 3;
         let i3 = 1;
@@ -548,10 +553,11 @@ mod tests {
             true => assert_eq!(2, *pq.top_mut()),
             false => assert_eq!(2, *pq.top()),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_add_all_to_empty_queue() {
+    fn test_add_all_to_empty_queue() -> Result<()> {
         let mut random = random();
         let size = 10;
         let mut list: Vec<i32> = Vec::new();
@@ -562,15 +568,16 @@ mod tests {
             list.push(value);
             list2.push(value);
         }
-        let mut pq = PriorityQueue::new(size, I32Compare).unwrap();
-        pq.add_all(list).unwrap();
+        let mut pq = PriorityQueue::new(size, I32Compare)?;
+        pq.add_all(list)?;
         check_validity(&pq);
         assert_ordered_when_drained(&mut pq, list2);
+        Ok(())
     }
 
     #[test]
-    fn test_add_all_to_partially_filled_queue() {
-        let mut pq = PriorityQueue::new(20, I32Compare).unwrap();
+    fn test_add_all_to_partially_filled_queue() -> Result<()> {
+        let mut pq = PriorityQueue::new(20, I32Compare)?;
         let mut one_by_one: Vec<i32> = Vec::new();
         let mut bulk_added: Vec<i32> = Vec::new();
         let mut bulk_added2: Vec<i32> = Vec::new();
@@ -581,38 +588,40 @@ mod tests {
             bulk_added.push(value);
             bulk_added2.push(value);
             let x: i32 = random.random();
-            pq.add(x).unwrap();
+            pq.add(x)?;
             one_by_one.push(x);
         }
 
-        pq.add_all(bulk_added).unwrap();
+        pq.add_all(bulk_added)?;
         check_validity(&pq);
 
         one_by_one.append(&mut bulk_added2);
         assert_ordered_when_drained(&mut pq, one_by_one);
+        Ok(())
     }
 
     #[test]
-    fn test_add_all_does_not_fit_into_queue() {
-        let mut pq = PriorityQueue::new(20, I32Compare).unwrap();
+    fn test_add_all_does_not_fit_into_queue() -> Result<()> {
+        let mut pq = PriorityQueue::new(20, I32Compare)?;
         let mut list: Vec<i32> = Vec::new();
         let mut random = random();
         for _i in 0..11 {
             list.push(random.random());
-            pq.add(random.random()).unwrap();
+            pq.add(random.random())?;
         }
         let result = pq.add_all(list).unwrap_err().to_string();
         assert_eq!(
             result,
             "Cannot add 11 elements to a queue with remaining capacity: 9"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_removals_and_insertions() {
+    fn test_removals_and_insertions() -> Result<()> {
         let mut random = random();
         let num_docs_in_pq = TestUtil::next_int(&mut random, 1, 100);
-        let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare).unwrap();
+        let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare)?;
         let mut last_least: Option<i32> = None;
 
         // Basic insertion of new content
@@ -620,7 +629,7 @@ mod tests {
         for _i in 0..num_docs_in_pq * 10 {
             let new_entry = random.random::<i32>().abs();
             sds.push(new_entry);
-            let evicted = pq.insert_with_overflow(new_entry).unwrap();
+            let evicted = pq.insert_with_overflow(new_entry)?;
             check_validity(&pq);
             if let Some(evicted_value) = evicted {
                 let pos = sds.iter().position(|&x| x == evicted_value);
@@ -672,38 +681,42 @@ mod tests {
             }
             last_least = Some(*new_least);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_iterator_empty() {
-        let pq = PriorityQueue::new(3, I32Compare).unwrap();
+    fn test_iterator_empty() -> Result<()> {
+        let pq = PriorityQueue::new(3, I32Compare)?;
         let mut it = pq.iterator();
         assert_eq!(it.next(), None);
+        Ok(())
     }
 
     #[test]
-    fn test_iterator_one() {
-        let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
-        pq.add(1).unwrap();
+    fn test_iterator_one() -> Result<()> {
+        let mut pq = PriorityQueue::new(3, I32Compare)?;
+        pq.add(1)?;
         let mut it = pq.iterator();
         assert_eq!(it.next(), Some(&1));
+        Ok(())
     }
 
     #[test]
-    fn test_iterator_two() {
-        let mut pq = PriorityQueue::new(3, I32Compare).unwrap();
-        pq.add(1).unwrap();
-        pq.add(2).unwrap();
+    fn test_iterator_two() -> Result<()> {
+        let mut pq = PriorityQueue::new(3, I32Compare)?;
+        pq.add(1)?;
+        pq.add(2)?;
         let mut it = pq.iterator();
         assert_eq!(it.next(), Some(&1));
         assert_eq!(it.next(), Some(&2));
+        Ok(())
     }
 
     #[test]
-    fn test_iterator_random() {
+    fn test_iterator_random() -> Result<()> {
         let mut random = random();
         let max_size: usize = TestUtil::next_int(&mut random, 1, 20) as usize;
-        let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
+        let mut queue = PriorityQueue::new(max_size as i32, I32Compare)?;
         let iters: usize = at_least(&mut random, 100) as usize;
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
@@ -711,7 +724,7 @@ mod tests {
                 // if queue.size() == 0 || (queue.size() < max_size &&
                 // random.random::<bool>()) {
                 let value: i32 = random.random_range(0..=10);
-                queue.add(value).unwrap();
+                queue.add(value)?;
                 expected.push(value);
             } else {
                 let pos = expected
@@ -728,12 +741,14 @@ mod tests {
             actual.sort();
             assert_eq!(actual, expected);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_max_int_size() {
+    fn test_max_int_size() -> Result<()> {
         let pq = PriorityQueue::new(i32::MAX, I32Compare);
         assert!(pq.is_err());
+        Ok(())
     }
 
     fn assert_ordered_when_drained<T, C>(
