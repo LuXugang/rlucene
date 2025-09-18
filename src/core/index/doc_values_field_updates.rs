@@ -61,7 +61,6 @@ where
     inner: Mutex<DocValuesFieldInner>,
     pub(crate) sub_update: D,
 }
-#[derive(Default)]
 pub(crate) struct DocValuesFieldInner {
     finished: bool,
     pub docs: AbstractPagedMutable<PagedMutable>,
@@ -74,15 +73,6 @@ pub(crate) struct DocValuesFieldInnerIter {
     size: i32,
     // for reused iterator
     docs: Arc<AbstractPagedMutable<PagedMutable>>,
-}
-// padding Implement for sort in PriorityQueue
-impl Default for DocValuesFieldInnerIter {
-    fn default() -> Self {
-        DocValuesFieldInnerIter {
-            size: 0,
-            docs: Arc::new(AbstractPagedMutable::default()),
-        }
-    }
 }
 
 impl DocValuesFieldInner {
@@ -495,12 +485,6 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
     }
 }
 
-impl Default for DocValuesFieldIteratorEnum {
-    fn default() -> Self {
-        DocValuesFieldIteratorEnum::SingleValue(SingleValueDocValuesFieldUpdatesIterator::default())
-    }
-}
-
 impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
     fn long_value(&mut self) -> Result<i64> {
         match self {
@@ -742,10 +726,9 @@ where
         Ok(self.doc)
     }
 }
-#[derive(Default)]
 pub(crate) struct AbstractIterator<A>
 where
-    A: AbstractIteratorBase + Default,
+    A: AbstractIteratorBase,
 {
     inner: DocValuesFieldInnerIter,
     idx: i64,
@@ -757,7 +740,7 @@ where
 
 impl<A> AbstractIterator<A>
 where
-    A: AbstractIteratorBase + Default,
+    A: AbstractIteratorBase,
 {
     pub fn new(inner: DocValuesFieldInnerIter, del_gen: i64, sub: A) -> Self {
         AbstractIterator {
@@ -771,11 +754,11 @@ where
     }
 }
 
-impl<A> DocValuesIterator for AbstractIterator<A> where A: AbstractIteratorBase + Default {}
+impl<A> DocValuesIterator for AbstractIterator<A> where A: AbstractIteratorBase {}
 
 impl<A> DocIdSetIterator for AbstractIterator<A>
 where
-    A: AbstractIteratorBase + Default,
+    A: AbstractIteratorBase,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -811,7 +794,7 @@ where
 
 impl<A> DocValuesFieldIterator for AbstractIterator<A>
 where
-    A: AbstractIteratorBase + Default,
+    A: AbstractIteratorBase,
 {
     fn long_value(&mut self) -> Result<i64> {
         self.sub.long_value()
@@ -1015,21 +998,6 @@ impl SingleValueDocValuesFieldUpdatesIterator {
 
 impl DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator {}
 
-impl Default for SingleValueDocValuesFieldUpdatesIterator {
-    /// # Warning
-    /// Implementing Default is solely for enabling sorting within the
-    /// PriorityQueue.
-    fn default() -> Self {
-        Self {
-            del_gen: 0,
-            has_no_value: None,
-            iterator: BitSetIterator::new(Arc::new(SparseFixedBitSet::default()), 1)
-                .expect("should never fail"),
-            single: Arc::new(SingleValueNumericDocValuesFieldUpdates::default()),
-        }
-    }
-}
-
 impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     fn long_value(&mut self) -> Result<i64> {
         self.single.long_value()
@@ -1056,11 +1024,6 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     }
 }
 impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
-    /// # Warning
-    /// Since SingleValueDocValuesFieldUpdatesIterator may be used for
-    /// PriorityQueue sorting, and PriorityQueue requires elements to
-    /// implement Default, only SingleValueDocValuesFieldUpdatesIterator
-    /// instances generated via Default will have their iterator set to None.
     fn doc_id(&self) -> i32 {
         self.iterator.doc_id()
     }

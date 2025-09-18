@@ -147,7 +147,6 @@ impl Accountable for NumericDocValuesFieldUpdates {
         todo!()
     }
 }
-#[derive(Default)]
 pub(crate) struct AbstractIteratorNumeric {
     values: Arc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
     value: i64,

@@ -2515,19 +2515,6 @@ impl<S: PointValuesBase> MergeReader<S> {
         Ok(false)
     }
 }
-impl<S: PointValuesBase> Default for MergeReader<S> {
-    fn default() -> Self {
-        Self {
-            point_tree: None,
-            packed_bytes_length: 0,
-            doc_map: None,
-            merge_intersects_visitor: MergeIntersectsVisitor::default(),
-            doc_block_upto: 0,
-            doc_id: -1,
-            packed_value: Vec::new(),
-        }
-    }
-}
 
 #[derive(Default)]
 struct MergeIntersectsVisitor {

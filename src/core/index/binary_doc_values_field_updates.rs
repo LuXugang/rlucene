@@ -149,10 +149,6 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
 /// # Note
 /// To implement Default, we wrap the mutable reference fields here with Option.
-///
-/// Implementing Default is solely for enabling sorting within the
-/// PriorityQueue.
-#[derive(Default)]
 pub struct AbstractIteratorBinary {
     offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
     offset: i32,

@@ -270,18 +270,6 @@ where
         Ok(&self.doc_map)
     }
 }
-// used for padding
-impl<I> Default for NumericDocValuesSub<I>
-where
-    I: IndexInput,
-{
-    fn default() -> Self {
-        NumericDocValuesSub {
-            values: Lucene90NormNumericDocValuesEnum::Empty(Default::default()),
-            doc_map: Rc::new(DocMapEnum::Dummy(Default::default())),
-        }
-    }
-}
 
 pub enum NormsConsumerEnum<O>
 where

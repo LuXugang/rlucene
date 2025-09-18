@@ -190,7 +190,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
         Ok(())
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SizedFile {
     pub name: String,
     pub length: i64,

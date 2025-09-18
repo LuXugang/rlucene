@@ -519,20 +519,7 @@ where
         Ok(&self.doc_map)
     }
 }
-impl<I> Default for SortedNumericDocValuesSub<I>
-where
-    I: IndexInput,
-{
-    // for padding use
-    fn default() -> Self {
-        SortedNumericDocValuesSub {
-            values: Lucene90SortedNumericDocValuesEnum::D(
-                DocValues::empty_sorted_numeric().unwrap(),
-            ),
-            doc_map: Rc::new(DocMapEnum::default()),
-        }
-    }
-}
+
 pub struct SortedNumericDocValuesMerge<I>
 where
     I: IndexInput,

@@ -325,7 +325,6 @@ pub mod tests {
 
     #[allow(dead_code)] // for quick search
     struct TestDocIDMerger;
-    #[derive(Default)]
     pub struct TestSubUnsorted {
         doc_id: i32,
         value_start: i32,
@@ -405,7 +404,6 @@ pub mod tests {
         Ok(())
     }
 
-    #[derive(Default)]
     pub struct TestSubSorted {
         doc_id: i32,
         max_doc: i32,
