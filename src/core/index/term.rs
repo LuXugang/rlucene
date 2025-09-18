@@ -22,7 +22,13 @@ use std::hash::{Hash, Hasher};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-
+/// A `Term` represents a word from text. This is the unit of search.
+/// It is composed of two elements:
+/// - the text of the word, as a string,
+/// - and the name of the field that the text occurred in.
+///
+/// Note that terms may represent more than words from text fields,
+/// but also things like dates, email addresses, URLs, etc.
 #[derive(Clone, Debug)]
 pub struct Term {
     pub field: String,
