@@ -23,7 +23,11 @@ pub struct DummyTwoPhaseIterator;
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
     type DocIdSetIterator = DummyDocIdSetIterator;
 
-    fn approximation(&mut self) -> &mut Self::DocIdSetIterator {
+    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn approximation(&self) -> &Self::DocIdSetIterator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

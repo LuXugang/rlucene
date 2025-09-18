@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait TwoPhaseIterator {
@@ -24,7 +25,8 @@ pub trait TwoPhaseIterator {
     ///
     /// The returned iterator must advance synchronously with this
     /// `TwoPhaseIterator`.
-    fn approximation(&mut self) -> &mut Self::DocIdSetIterator;
+    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator;
+    fn approximation(&self) -> &Self::DocIdSetIterator;
 
     /// Return whether the current doc ID that `approximation()` is on matches.
     ///
@@ -42,4 +44,57 @@ pub trait TwoPhaseIterator {
     /// `approximation()`. Returns an expected cost in number of simple
     /// operations (add, multiply, compare, array index). Must be positive.
     fn match_cost(&self) -> f32;
+}
+
+pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI>
+where
+    TPI: TwoPhaseIterator,
+{
+    two_phase_iterator: TPI,
+}
+
+impl<TPI> TwoPhaseIteratorAsDocIdSetIterator<TPI>
+where
+    TPI: TwoPhaseIterator,
+{
+    pub fn new(two_phase_iterator: TPI) -> Self {
+        Self { two_phase_iterator }
+    }
+
+    fn do_next(&mut self, mut doc: i32) -> Result<i32> {
+        loop {
+            if doc == NO_MORE_DOCS {
+                return Ok(NO_MORE_DOCS);
+            } else if self.two_phase_iterator.matches()? {
+                return Ok(doc);
+            }
+            doc = self.two_phase_iterator.approximation_mut().next_doc()?;
+        }
+    }
+}
+
+impl<TPI> DocIdSetIterator for TwoPhaseIteratorAsDocIdSetIterator<TPI>
+where
+    TPI: TwoPhaseIterator,
+{
+    fn doc_id(&self) -> i32 {
+        self.two_phase_iterator.approximation().doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        let doc = self.two_phase_iterator.approximation_mut().next_doc()?;
+        self.do_next(doc)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        let doc = self
+            .two_phase_iterator
+            .approximation_mut()
+            .advance(target)?;
+        self.do_next(doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.two_phase_iterator.approximation().cost()
+    }
 }
