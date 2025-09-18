@@ -27,6 +27,7 @@ pub mod explanation;
 pub mod field_comparator;
 pub mod field_comparator_source;
 pub mod field_value_hit_queue;
+mod impacts_disi;
 pub mod index_searcher;
 pub mod knn_collector;
 pub mod leaf_collector;
