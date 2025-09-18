@@ -16,7 +16,7 @@
  */
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::search::collection_statistics::CollectionStatistics;
-use crate::core::search::dummy::dumy_sim_scorer::DummySimScorer;
+use crate::core::search::dummy::dummy_sim_scorer::DummySimScorer;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use std::fmt::{Display, Formatter};

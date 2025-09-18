@@ -14,14 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-
+use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_mode::ScoreMode;
+use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {
     fn wrap(self) -> QueryEnum {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type Weight = DummyWeight;
+
+    fn crate_weight(
+        &self,
+        _search: &IndexSearcher,
+        _score_mod: &ScoreMode,
+        _boost: f32,
+    ) -> crate::core::util::error::lucene_error::Result<Self::Weight> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type Query = DummyQuery;
+
+    fn rewrite(
+        &self,
+        _searcher: &IndexSearcher,
+    ) -> crate::core::util::error::lucene_error::Result<Option<Self::Query>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn visit<QV>(&self, _visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

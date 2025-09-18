@@ -14,12 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::weight::Weight;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn wrap(self) -> QueryEnum;
+
+    type Weight: Weight;
+    fn crate_weight(
+        &self,
+        _search: &IndexSearcher,
+        _score_mod: &ScoreMode,
+        _boost: f32,
+    ) -> Result<Self::Weight> {
+        Err(LuceneError::unsupported_operation(format!(
+            "Query {} does not implement create_weight",
+            std::any::type_name::<Self>()
+        )))
+    }
+    type Query: Query;
+    fn rewrite(&self, _searcher: &IndexSearcher) -> Result<Option<Self::Query>> {
+        Ok(None)
+    }
+    fn visit<QV>(&self, visitor: &QV)
+    where
+        QV: QueryVisitor;
 }
 
 pub enum QueryEnum {
@@ -65,5 +92,29 @@ impl Query for QueryEnum {
         match self {
             QueryEnum::Term(t) => QueryEnum::Term(t),
         }
+    }
+
+    type Weight = DummyWeight;
+
+    fn crate_weight(
+        &self,
+        _search: &IndexSearcher,
+        _score_mod: &ScoreMode,
+        _boost: f32,
+    ) -> Result<Self::Weight> {
+        todo!()
+    }
+
+    type Query = DummyQuery;
+
+    fn rewrite(&self, _searcher: &IndexSearcher) -> Result<Option<Self::Query>> {
+        todo!()
+    }
+
+    fn visit<QV>(&self, visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        todo!()
     }
 }

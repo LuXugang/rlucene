@@ -14,8 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
+use crate::core::search::dummy::dummy_matches::DummyMatches;
+use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
+use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::weight::Weight;
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
@@ -46,10 +59,79 @@ impl Query for TermQuery {
     fn wrap(self) -> QueryEnum {
         QueryEnum::Term(self)
     }
+
+    type Weight = TermWeight;
+
+    fn crate_weight(
+        &self,
+        _search: &IndexSearcher,
+        _score_mod: &ScoreMode,
+        _boost: f32,
+    ) -> Result<Self::Weight> {
+        todo!()
+    }
+
+    type Query = TermQuery;
+
+    fn visit<QV>(&self, visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        todo!()
+    }
 }
 
 impl Display for TermQuery {
     fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+pub struct TermWeight;
+
+impl SegmentCacheable for TermWeight {
+    fn is_cacheable(&self, ctx: &LeafReaderContext) -> bool {
+        todo!()
+    }
+}
+
+impl Weight for TermWeight {
+    type Matches = DummyMatches;
+
+    fn matches(&mut self, context: &LeafReaderContext, doc: i32) -> Result<Option<Self::Matches>> {
+        todo!()
+    }
+
+    fn explain(&self, context: &LeafReaderContext, doc: i32) -> Result<Explanation> {
+        todo!()
+    }
+
+    type Query = TermQuery;
+
+    fn get_query(&self) -> &Self::Query {
+        todo!()
+    }
+
+    type ScorerSupplier = DummyScorerSupplier;
+
+    fn scorer_supplier(
+        &mut self,
+        context: &LeafReaderContext,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        todo!()
+    }
+}
+
+pub(crate) struct ScorerSupplierImpl;
+impl ScorerSupplier for ScorerSupplierImpl {
+    type Scorer = DummyScorer;
+    type BulkScorer = DummyBulkScorer;
+
+    fn get(&self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+        todo!()
+    }
+
+    fn cost(&self) -> i64 {
         todo!()
     }
 }
