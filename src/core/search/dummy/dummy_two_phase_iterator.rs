@@ -14,16 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_bulk_scorer;
-pub mod dummy_disi;
-pub mod dummy_doc_id_set_iterator;
-pub mod dummy_matches;
-pub mod dummy_matches_iterator;
-pub mod dummy_query;
-pub mod dummy_scorable;
-pub mod dummy_scorer;
-pub mod dummy_scorer_supplier;
-pub mod dummy_segment_cacheable;
-pub mod dummy_similarity;
-pub mod dummy_two_phase_iterator;
-pub mod dumy_sim_scorer;
+use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::util::error::lucene_error::Result;
+
+pub struct DummyTwoPhaseIterator;
+
+impl TwoPhaseIterator for DummyTwoPhaseIterator {
+    type DocIdSetIterator = DummyDocIdSetIterator;
+
+    fn approximation(&mut self) -> &mut Self::DocIdSetIterator {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn matches(&mut self) -> Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn match_cost(&self) -> f32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
