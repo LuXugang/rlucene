@@ -27,6 +27,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::{Either2SimScorer, SimScorer};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
@@ -135,3 +136,10 @@ impl ScorerSupplier for ScorerSupplierImpl {
         todo!()
     }
 }
+pub(crate) struct SimScorerImpl;
+impl SimScorer for SimScorerImpl {
+    fn score(&self, _freq: f32, _norm: i64) -> f32 {
+        0f32
+    }
+}
+pub(crate) type TermQuerySimScorer<S> = Either2SimScorer<S, SimScorerImpl>;

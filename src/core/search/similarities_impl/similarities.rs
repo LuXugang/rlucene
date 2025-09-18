@@ -200,3 +200,28 @@ pub trait SimScorer {
         Explanation::match_(value, description, vec![freq])
     }
 }
+macro_rules! either_sim_scorer {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> SimScorer for $name<$( $T ),+>
+        where
+            $( $T: SimScorer ),+
+        {
+            fn score(&self, freq: f32, norm: i64) -> f32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.score(freq, norm), )+
+                }
+            }
+
+            fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+                match self {
+                    $( Self::$Variant(inner) => inner.explain(freq, norm), )+
+                }
+            }
+        }
+    };
+}
+either_sim_scorer!(pub Either2SimScorer { A: A, B: B});
