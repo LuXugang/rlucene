@@ -40,8 +40,8 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     /// Returns the context's children iff this context is a composite context otherwise None.
     fn children(&self) -> Option<&[IndexReaderContextEnum]>;
 
-    fn get_index_reader_context_base(&self) -> &IndexReaderContextBase;
-    fn get_index_reader_context_base_mut(&mut self) -> &mut IndexReaderContextBase;
+    fn base(&self) -> &IndexReaderContextBase;
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase;
 }
 
 pub struct IndexReaderContextBase {
@@ -106,11 +106,11 @@ impl IndexReaderContext for IndexReaderContextEnum {
         todo!()
     }
 
-    fn get_index_reader_context_base(&self) -> &IndexReaderContextBase {
+    fn base(&self) -> &IndexReaderContextBase {
         todo!()
     }
 
-    fn get_index_reader_context_base_mut(&mut self) -> &mut IndexReaderContextBase {
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
         todo!()
     }
 }

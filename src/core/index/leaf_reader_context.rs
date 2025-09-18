@@ -38,11 +38,11 @@ impl IndexReaderContext for LeafReaderContext {
         todo!()
     }
 
-    fn get_index_reader_context_base(&self) -> &IndexReaderContextBase {
+    fn base(&self) -> &IndexReaderContextBase {
         todo!()
     }
 
-    fn get_index_reader_context_base_mut(&mut self) -> &mut IndexReaderContextBase {
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
         todo!()
     }
 }
