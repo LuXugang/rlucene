@@ -18,6 +18,11 @@ use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::marker::PhantomData;
+use std::sync::Arc;
+use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::query::Query;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+
 /// A [`MatchesIterator`] that combines matches from a set of sub-iterators.
 ///
 /// Matches are sorted by their start positions, and then by their end positions,
@@ -131,4 +136,58 @@ where
         let b_end = b.end_position();
         Ok(a_start < b_start || (a_start == b_start && a_end <= b_end))
     }
+}
+// MatchesIterator over a set of terms that only loads the first matching term at construction,
+// waiting until the iterator is actually used before it loads all other matching terms.
+pub(crate) struct TermsEnumDisjunctionMatchesIterator<Q, MI, TE, BRI>
+where
+    Q: Query,
+    MI: MatchesIterator,
+    TE: TermsEnum,
+    BRI: BytesRefIterator,
+{
+    first: MI,
+    terms: BRI,
+    te: TE,
+    doc: i32,
+    query: Arc<Q>,
+    it: Option<MI>,
+}
+impl<Q, MI, TE, BRI> TermsEnumDisjunctionMatchesIterator<Q, MI, TE, BRI>
+where
+    Q: Query,
+    MI: MatchesIterator,
+    TE: TermsEnum,
+    BRI: BytesRefIterator,
+{
+    pub fn new(
+        first: MI,
+        terms: BRI,
+        te: TE,
+        doc: i32,
+        query: Arc<Q>,
+    ) -> Self {
+        TermsEnumDisjunctionMatchesIterator {
+            first,
+            terms,
+            te,
+            doc,
+            query,
+            it: None,
+        }
+    }
+}
+
+pub fn from_sub_iterators<M>(mut mis: Vec<M>) -> Result<Option<DisjunctionMatchesIterator<M>>>
+where
+    M: MatchesIterator,
+{
+    if mis.is_empty() {
+        return Ok(None);
+    }
+    if mis.len() == 1 {
+        let only = mis.pop().unwrap();
+        return Ok(Some(DisjunctionMatchesIterator::new(vec![only])?));
+    }
+    Ok(Some(DisjunctionMatchesIterator::new(mis)?))
 }
