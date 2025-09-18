@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod dummy_disi;
+pub mod dummy_matches;
 pub mod dummy_matches_iterator;
 pub mod dummy_query;
 pub mod dummy_similarity;

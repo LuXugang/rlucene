@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 /// times to retrieve new iterators, but it is not thread-safe.
 ///
 /// @lucene.experimental
-pub trait Matches {
+pub trait Matches: IntoIterator {
     type MatchesIterator: MatchesIterator;
     /// Returns a [`MatchesIterator`] over the matches for a single field,
     /// or `None` if there are no matches in that field.
@@ -34,5 +34,5 @@ pub trait Matches {
     type Matches: Matches;
     /// Returns a collection of [`Matches`] that make up this instance;
     /// if it is not a composite, then this returns an empty list.
-    fn get_sub_matches(&self) -> Vec<Self::Matches>;
+    fn get_sub_matches(&mut self) -> Vec<Self::Matches>;
 }

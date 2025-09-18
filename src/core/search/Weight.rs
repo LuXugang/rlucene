@@ -18,6 +18,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::matches::Matches;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -54,7 +55,12 @@ pub trait Weight: SegmentCacheable {
     /// # Parameters
     /// - `context`: the reader's context to create the [`Matches`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn matches(&mut self, context: &LeafReaderContext, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches(&mut self, context: &LeafReaderContext, doc: i32) -> Result<Option<Self::Matches>>;
+    fn default_matches(
+        &mut self,
+        context: &LeafReaderContext,
+        doc: i32,
+    ) -> Result<Option<MatchWithNoTerms>> {
         let scorer_supplier = self.scorer_supplier(context)?;
         let scorer_supplier = match scorer_supplier {
             None => return Ok(None),
@@ -78,9 +84,7 @@ pub trait Weight: SegmentCacheable {
                 }
             },
         };
-
-        todo!()
-        // Ok(Some(MatchesUtils::match_with_no_terms()))
+        Ok(Some(MatchWithNoTerms))
     }
 
     /// An explanation of the score computation for the named document.

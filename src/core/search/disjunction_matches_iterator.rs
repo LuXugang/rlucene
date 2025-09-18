@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::matches_iterator::MatchesIterator;
+use crate::core::search::query::Query;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::query::Query;
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 
 /// A [`MatchesIterator`] that combines matches from a set of sub-iterators.
 ///
@@ -30,7 +30,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 ///
 /// Matches may overlap, or be duplicated if they appear in more than one of the
 /// sub-iterators.
-pub(crate) struct DisjunctionMatchesIterator<M>
+pub struct DisjunctionMatchesIterator<M>
 where
     M: MatchesIterator,
 {
@@ -160,13 +160,7 @@ where
     TE: TermsEnum,
     BRI: BytesRefIterator,
 {
-    pub fn new(
-        first: MI,
-        terms: BRI,
-        te: TE,
-        doc: i32,
-        query: Arc<Q>,
-    ) -> Self {
+    pub fn new(first: MI, terms: BRI, te: TE, doc: i32, query: Arc<Q>) -> Self {
         TermsEnumDisjunctionMatchesIterator {
             first,
             terms,

@@ -34,6 +34,7 @@ pub mod leaf_collector;
 pub mod leaf_field_comparator;
 pub mod matches;
 pub mod matches_iterator;
+mod matches_utils;
 pub mod pruning;
 pub mod query;
 pub mod scorable;
