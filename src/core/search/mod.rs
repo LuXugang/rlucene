@@ -18,6 +18,7 @@ mod abstract_knn_collector;
 mod boost_attribute;
 pub mod bulk_scorer;
 pub mod collection_statistics;
+mod constant_score_scorer;
 mod disjunction_matches_iterator;
 pub mod doc_id_set;
 pub mod doc_id_set_iterator;
