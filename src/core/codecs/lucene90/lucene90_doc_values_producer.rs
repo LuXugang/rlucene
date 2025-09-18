@@ -2764,7 +2764,7 @@ where
             current_compressed_block_start: -1,
             current_compressed_block_end: -1,
         };
-        Ok(BaseTermsEnum::new(sub))
+        Ok(sub.into())
     }
 
     fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<Vec<u8>>> {

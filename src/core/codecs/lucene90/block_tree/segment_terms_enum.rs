@@ -106,7 +106,7 @@ where
             fst_reader,
             arcs,
         };
-        Ok(BaseTermsEnum::new(sub))
+        Ok(sub.into())
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
         if self.input.is_none() {

@@ -1213,7 +1213,7 @@ impl Terms for TVTerms {
                 self.term_bytes.length,
             ),
         );
-        Ok(BaseTermsEnum::new(terms_enum))
+        Ok(terms_enum.into())
     }
 
     type IntersectIter

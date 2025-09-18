@@ -14,17 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
-
+use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
+use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::TVTermsEnum;
+use crate::core::codecs::lucene90_doc_values_producer::TermsDict;
+use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::freq_prox_fields::FreqProxTermsEnum;
 use crate::core::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::store::IndexInput;
 use crate::core::util::attribute_source::Either2AttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
+use std::fmt::{Debug, Display, Formatter};
 
 /// A base `TermsEnum` that provides default implementations for:
 ///
@@ -178,6 +182,28 @@ where
 }
 impl From<FreqProxTermsEnum> for BaseTermsEnum<FreqProxTermsEnum> {
     fn from(value: FreqProxTermsEnum) -> Self {
+        BaseTermsEnum::new(value)
+    }
+}
+impl<I, P> From<SegmentTermsEnum<I, P>> for BaseTermsEnum<SegmentTermsEnum<I, P>>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
+{
+    fn from(value: SegmentTermsEnum<I, P>) -> Self {
+        BaseTermsEnum::new(value)
+    }
+}
+impl From<TVTermsEnum> for BaseTermsEnum<TVTermsEnum> {
+    fn from(value: TVTermsEnum) -> Self {
+        BaseTermsEnum::new(value)
+    }
+}
+impl<I> From<TermsDict<I>> for BaseTermsEnum<TermsDict<I>>
+where
+    I: IndexInput,
+{
+    fn from(value: TermsDict<I>) -> Self {
         BaseTermsEnum::new(value)
     }
 }
