@@ -29,7 +29,7 @@ where
     TS: TermState + Default,
 {
     top_reader_context_identity: Rc<()>,
-    states: Vec<TS>,
+    states: Vec<Rc<TS>>,
     term: Option<Rc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
@@ -38,44 +38,46 @@ impl<TS> TermStates<TS>
 where
     TS: TermState + Default,
 {
-    pub fn new<LRC, LR>(term: Option<Rc<Term>>, context: &LRC) -> Result<Self>
+    pub fn new<IRC, LR>(term: Option<Rc<Term>>, context: &IRC) -> Result<Self>
     where
-        LRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext<LR>,
     {
         debug_assert!(context.base().is_top_level);
-
+        let mut states = Vec::new();
         let num_leaves = context.leaves()?.len();
-
+        for _ in 0..num_leaves {
+            states.push(Rc::new(TS::default()))
+        }
         Ok(TermStates {
             top_reader_context_identity: context.base().identity.clone(),
             doc_freq: 0,
             total_term_freq: 0,
-            states: vec![TS::default(); num_leaves],
+            states,
             term,
         })
     }
 
-    pub fn new_empty<LRC, LR>(context: &LRC) -> Result<Self>
+    pub fn new_empty<IRC, LR>(context: &IRC) -> Result<Self>
     where
-        LRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext<LR>,
     {
         Self::new(None, context)
     }
-    pub fn was_built_for<LRC, LR>(&self, context: &LRC) -> bool
+    pub fn was_built_for<IRC, LR>(&self, context: &IRC) -> bool
     where
-        LRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext<LR>,
     {
         Rc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
     }
-    pub fn with_state_and_stats<LRC, LR>(
-        context: &LRC,
+    pub fn with_state_and_stats<IRC, LR>(
+        context: &IRC,
         state: TS,
         ord: usize,
         doc_freq: i32,
         total_term_freq: i64,
     ) -> Result<Self>
     where
-        LRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext<LR>,
     {
         let mut ts = TermStates::new_empty(context)?;
         ts.register_with_stats(state, ord, doc_freq, total_term_freq);
@@ -88,7 +90,7 @@ where
         self.total_term_freq = 0;
 
         for slot in &mut self.states {
-            *slot = TS::default();
+            *slot = Rc::new(TS::default());
         }
     }
     /// Registers and associates a TermState with an leaf ordinal.
@@ -108,7 +110,8 @@ where
     /// Unlike [`register`](Self::register_with_stats), this method does **not** update term statistics.
     pub fn register(&mut self, state: TS, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
-        self.states[ord] = state;
+        // for clone
+        self.states[ord] = Rc::new(state);
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
