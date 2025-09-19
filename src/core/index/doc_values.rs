@@ -267,7 +267,10 @@ impl DocValues {
     }
 
     /// Returns `true` if the specified docvalues fields have not been updated
-    pub fn is_cacheable(ctx: LeafReaderContext, fields: &[String]) -> Result<bool> {
+    pub fn is_cacheable<LR>(ctx: LeafReaderContext<LR>, fields: &[String]) -> Result<bool>
+    where
+        LR: LeafReader,
+    {
         for field in fields {
             if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)
                 && fi.get_doc_values_gen() > -1

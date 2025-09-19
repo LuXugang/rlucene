@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
@@ -91,7 +92,10 @@ impl Display for TermQuery {
 pub struct TermWeight;
 
 impl SegmentCacheable for TermWeight {
-    fn is_cacheable(&self, ctx: &LeafReaderContext) -> bool {
+    fn is_cacheable<LR>(&self, ctx: &LeafReaderContext<LR>) -> bool
+    where
+        LR: LeafReader,
+    {
         todo!()
     }
 }
@@ -99,11 +103,21 @@ impl SegmentCacheable for TermWeight {
 impl Weight for TermWeight {
     type Matches = DummyMatches;
 
-    fn matches(&mut self, context: &LeafReaderContext, doc: i32) -> Result<Option<Self::Matches>> {
+    fn matches<LR>(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>>
+    where
+        LR: LeafReader,
+    {
         todo!()
     }
 
-    fn explain(&self, context: &LeafReaderContext, doc: i32) -> Result<Explanation> {
+    fn explain<LR>(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>
+    where
+        LR: LeafReader,
+    {
         todo!()
     }
 
@@ -115,10 +129,13 @@ impl Weight for TermWeight {
 
     type ScorerSupplier = DummyScorerSupplier;
 
-    fn scorer_supplier(
+    fn scorer_supplier<LR>(
         &mut self,
-        context: &LeafReaderContext,
-    ) -> Result<Option<Self::ScorerSupplier>> {
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::ScorerSupplier>>
+    where
+        LR: LeafReader,
+    {
         todo!()
     }
 }

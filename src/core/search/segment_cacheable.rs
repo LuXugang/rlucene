@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 
 /// Interface defining whether or not an object can be cached against a [`LeafReader`](crate::core::index::leaf_reader::LeafReader)
@@ -29,5 +30,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 /// scores, should return `false`.
 pub trait SegmentCacheable {
     /// Returns `true` if the object can be cached against a given leaf.
-    fn is_cacheable(&self, ctx: &LeafReaderContext) -> bool;
+    fn is_cacheable<LR>(&self, ctx: &LeafReaderContext<LR>) -> bool
+    where
+        LR: LeafReader;
 }

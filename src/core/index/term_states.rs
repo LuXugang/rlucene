@@ -38,7 +38,10 @@ impl<TS> TermStates<TS>
 where
     TS: TermState + Default,
 {
-    pub fn new(term: Option<Rc<Term>>, context: &impl IndexReaderContext) -> Result<Self> {
+    pub fn new<LRC, LR>(term: Option<Rc<Term>>, context: &LRC) -> Result<Self>
+    where
+        LRC: IndexReaderContext<LR>,
+    {
         debug_assert!(context.base().is_top_level);
 
         let num_leaves = context.leaves()?.len();
@@ -52,19 +55,28 @@ where
         })
     }
 
-    pub fn new_empty(context: &impl IndexReaderContext) -> Result<Self> {
+    pub fn new_empty<LRC, LR>(context: &LRC) -> Result<Self>
+    where
+        LRC: IndexReaderContext<LR>,
+    {
         Self::new(None, context)
     }
-    pub fn was_built_for(&self, context: &impl IndexReaderContext) -> bool {
+    pub fn was_built_for<LRC, LR>(&self, context: &LRC) -> bool
+    where
+        LRC: IndexReaderContext<LR>,
+    {
         Rc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
     }
-    pub fn with_state_and_stats(
-        context: &impl IndexReaderContext,
+    pub fn with_state_and_stats<LRC, LR>(
+        context: &LRC,
         state: TS,
         ord: usize,
         doc_freq: i32,
         total_term_freq: i64,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        LRC: IndexReaderContext<LR>,
+    {
         let mut ts = TermStates::new_empty(context)?;
         ts.register_with_stats(state, ord, doc_freq, total_term_freq);
         Ok(ts)

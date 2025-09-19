@@ -16,13 +16,14 @@
  */
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 /// A struct like class that represents a hierarchical relationship between IndexReader instances.
 #[allow(private_bounds)]
-pub trait IndexReaderContext: IndexReaderContextSealed {
+pub trait IndexReaderContext<LR>: IndexReaderContextSealed {
     type IndexReader: IndexReader;
     /// Returns the [`IndexReader`], this context represents.
     fn reader(&self) -> &Self::IndexReader;
@@ -35,18 +36,18 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     ///
     /// Error with `UnsupportedOperationException` if this is not a top-level context.
     /// [`IndexReaderContext::children`]
-    fn leaves(&self) -> Result<&[LeafReaderContext]>;
+    fn leaves(&self) -> Result<&[LeafReaderContext<LR>]>;
 
     /// Returns the context's children iff this context is a composite context otherwise None.
-    fn children(&self) -> Option<&[IndexReaderContextEnum]>;
+    fn children(&self) -> Option<&[IndexReaderContextEnum<LR>]>;
 
-    fn base(&self) -> &IndexReaderContextBase;
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase;
+    fn base(&self) -> &IndexReaderContextBase<LR>;
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase<LR>;
 }
 
-pub struct IndexReaderContextBase {
+pub struct IndexReaderContextBase<LR> {
     /// The reader context for this reader's immediate parent, or `None` if none.
-    pub parent: Option<CompositeReaderContext>,
+    pub parent: Option<CompositeReaderContext<LR>>,
 
     /// `true` if this context struct represents the top-level reader within the hierarchical context.
     pub is_top_level: bool,
@@ -61,12 +62,15 @@ pub struct IndexReaderContextBase {
     pub identity: Rc<()>,
 }
 
-impl IndexReaderContextBase {
+impl<LR> IndexReaderContextBase<LR> {
     pub fn new(
-        parent: Option<CompositeReaderContext>,
+        parent: Option<CompositeReaderContext<LR>>,
         ord_in_parent: i32,
         doc_base_in_parent: i32,
-    ) -> Self {
+    ) -> Self
+    where
+        LR: IndexReader,
+    {
         let is_top_level = parent.is_none();
         Self {
             parent,
@@ -84,33 +88,36 @@ impl IndexReaderContextBase {
 // Similar to Java's sealed trait pattern
 pub(crate) trait IndexReaderContextSealed {}
 
-pub enum IndexReaderContextEnum {
-    Composite(CompositeReaderContext),
-    Leaf(LeafReaderContext),
+pub enum IndexReaderContextEnum<LR> {
+    Composite(CompositeReaderContext<LR>),
+    Leaf(LeafReaderContext<LR>),
 }
 
-impl IndexReaderContextSealed for IndexReaderContextEnum {}
+impl<LR> IndexReaderContextSealed for IndexReaderContextEnum<LR> where LR: LeafReader {}
 
-impl IndexReaderContext for IndexReaderContextEnum {
+impl<LR> IndexReaderContext<LR> for IndexReaderContextEnum<LR>
+where
+    LR: LeafReader,
+{
     type IndexReader = IndexReaderEnum;
 
     fn reader(&self) -> &Self::IndexReader {
         todo!()
     }
 
-    fn leaves(&self) -> Result<&[LeafReaderContext]> {
+    fn leaves(&self) -> Result<&[LeafReaderContext<LR>]> {
         todo!()
     }
 
-    fn children(&self) -> Option<&[IndexReaderContextEnum]> {
+    fn children(&self) -> Option<&[IndexReaderContextEnum<LR>]> {
         todo!()
     }
 
-    fn base(&self) -> &IndexReaderContextBase {
+    fn base(&self) -> &IndexReaderContextBase<LR> {
         todo!()
     }
 
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase<LR> {
         todo!()
     }
 }
