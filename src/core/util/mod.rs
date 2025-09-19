@@ -68,6 +68,7 @@ pub mod intro_selector;
 pub mod intro_sorter;
 pub mod ints_ref;
 pub mod ints_ref_builder;
+pub mod io_boolean_supplier;
 pub mod io_consumer;
 pub mod io_supplier;
 pub mod io_utils;
