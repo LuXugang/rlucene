@@ -3004,7 +3004,7 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 

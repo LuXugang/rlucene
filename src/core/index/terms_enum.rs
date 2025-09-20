@@ -67,10 +67,14 @@ pub trait TermsEnum: BytesRefIterator {
     /// after calling this method until
     /// [`seek_exact`](TermsEnum::seek_exact) is called.
     ///
-    /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that
-    /// the term may not exist without performing any I/O.
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    /// ⚠️ **Warning:** After calling this method, you **must** call
+    /// [`Self::get_prepare_seek_exact_status`] to retrieve the final result,
+    /// otherwise the state remains incomplete.
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
         Err(LuceneError::need_implemented(""))
+    }
+    fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Seeks to the specified term, if it exists, or to the next (ceiling)
@@ -212,6 +216,11 @@ pub enum SeekStatus {
     NotFound,
 }
 
+pub enum PrepareSeekStatus {
+    Pending,
+    Found,
+    NotFound,
+}
 #[derive(Default)]
 pub struct EmptyTermsEnum;
 
@@ -232,7 +241,7 @@ impl TermsEnum for EmptyTermsEnum {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
@@ -339,7 +348,7 @@ where
         }
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
         match self {
             Either2TermsEnum::A(t) => t.prepare_seek_exact(_text),
             Either2TermsEnum::B(s) => s.prepare_seek_exact(_text),

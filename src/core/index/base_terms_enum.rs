@@ -93,14 +93,18 @@ where
         }
     }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
         match self.sub.prepare_seek_exact(text) {
-            Ok(v) => Ok(v),
+            Ok(_) => Ok(()),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.seek_exact(text),
+                LuceneError::NotImplemented(_) => Ok(()),
                 _ => Err(e),
             },
         }
+    }
+
+    fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+        self.seek_exact(target)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
