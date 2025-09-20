@@ -93,11 +93,12 @@ where
         }
     }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         match self.sub.prepare_seek_exact(text) {
-            Ok(_) => Ok(()),
+            Ok(v) => Ok(v),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(()),
+                // delegate to seek_exact)
+                LuceneError::NotImplemented(_) => Ok(Some(())),
                 _ => Err(e),
             },
         }
@@ -216,7 +217,7 @@ impl From<EmptyTermsEnum> for BaseTermsEnum<EmptyTermsEnum> {
         BaseTermsEnum::new(value)
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TermStateImpl1;
 impl Display for TermStateImpl1 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

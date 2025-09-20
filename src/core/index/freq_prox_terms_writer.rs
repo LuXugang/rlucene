@@ -436,7 +436,7 @@ where
         self.base.seek_exact(term)
     }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         self.base.prepare_seek_exact(text)
     }
 

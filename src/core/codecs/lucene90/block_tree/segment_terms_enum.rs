@@ -215,7 +215,11 @@ where
         self.eof = true;
         true
     }
-    pub fn prepare_seek_exact(&mut self, target: &BytesRef<Vec<u8>>, prefetch: bool) -> Result<()> {
+    pub fn prepare_seek_exact(
+        &mut self,
+        target: &BytesRef<Vec<u8>>,
+        prefetch: bool,
+    ) -> Result<Option<()>> {
         if self.fr.index.is_none() {
             return Err(LuceneError::illegal_state("terms index was not loaded"));
         }
@@ -229,7 +233,7 @@ where
                 .to_int();
             if left < 0 || right > 0 {
                 self.prepare_seek_status = PrepareSeekStatus::NotFound;
-                return Ok(());
+                return Ok(None);
             }
         }
         self.term.grow(1 + target.length);
@@ -322,7 +326,7 @@ where
                 debug_assert_eq!(self.term.length(), target.length);
                 if self.term_exists {
                     self.prepare_seek_status = PrepareSeekStatus::Found;
-                    return Ok(());
+                    return Ok(Some(()));
                 }
             }
         } else {
@@ -391,14 +395,14 @@ where
                     self.term.set_byte_at(target_upto, target_label as u8);
                     self.term.set_length(target_upto + 1);
                     self.prepare_seek_status = PrepareSeekStatus::NotFound;
-                    return Ok(());
+                    return Ok(None);
                 }
 
                 if prefetch {
                     SegmentTermsEnumFrame::prefetch_block(self.current_frame_idx, self)?;
                 }
                 self.prepare_seek_status = PrepareSeekStatus::Pending;
-                return Ok(());
+                return Ok(Some(()));
             } else {
                 arc_index = next_arc_idx;
 
@@ -438,14 +442,14 @@ where
             self.term_exists = false;
             self.term.set_length(target_upto);
             self.prepare_seek_status = PrepareSeekStatus::NotFound;
-            return Ok(());
+            return Ok(None);
         }
 
         if prefetch {
             SegmentTermsEnumFrame::prefetch_block(self.current_frame_idx, self)?;
         }
         self.prepare_seek_status = PrepareSeekStatus::Pending;
-        Ok(())
+        Ok(Some(()))
     }
 }
 
@@ -586,11 +590,13 @@ where
     }
 
     fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.prepare_seek_exact(target, false)?;
-        self.get_prepare_seek_exact_status(target)
+        match self.prepare_seek_exact(target, false)? {
+            Some(_) => self.get_prepare_seek_exact_status(target),
+            None => Ok(false),
+        }
     }
 
-    fn prepare_seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         self.prepare_seek_exact(target, true)
     }
     fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {

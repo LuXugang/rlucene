@@ -70,7 +70,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// ⚠️ **Warning:** After calling this method, you **must** call
     /// [`Self::get_prepare_seek_exact_status`] to retrieve the final result,
     /// otherwise the state remains incomplete.
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         Err(LuceneError::need_implemented(""))
     }
     fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
@@ -241,7 +241,7 @@ impl TermsEnum for EmptyTermsEnum {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         Err(LuceneError::not_implemented(""))
     }
 
@@ -348,7 +348,7 @@ where
         }
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         match self {
             Either2TermsEnum::A(t) => t.prepare_seek_exact(_text),
             Either2TermsEnum::B(s) => s.prepare_seek_exact(_text),

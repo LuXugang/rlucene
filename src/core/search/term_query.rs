@@ -67,16 +67,28 @@ impl Query for TermQuery {
 
     type Weight = TermWeight;
 
-    fn crate_weight(
+    fn crate_weight<IRC, LR>(
         &self,
-        _search: &IndexSearcher,
+        _search: &IndexSearcher<IRC, LR>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight> {
+    ) -> Result<Self::Weight>
+    where
+        IRC: IndexReaderContext<LR>,
+        LR: LeafReader,
+    {
         todo!()
     }
 
     type Query = TermQuery;
+
+    fn rewrite<IRC, LR>(&self, _searcher: &IndexSearcher<IRC, LR>) -> Result<Option<Self::Query>>
+    where
+        IRC: IndexReaderContext<LR>,
+        LR: LeafReader,
+    {
+        todo!()
+    }
 
     fn visit<QV>(&self, visitor: &QV)
     where
