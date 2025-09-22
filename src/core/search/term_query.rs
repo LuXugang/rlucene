@@ -181,8 +181,18 @@ impl Weight for TermWeight {
     }
 }
 
-pub(crate) struct ScorerSupplierImpl;
-impl ScorerSupplier for ScorerSupplierImpl {
+pub(crate) struct ScorerSupplierImpl<TE>
+where
+    TE: TermsEnum,
+{
+    terms_enum: Option<TE>,
+    top_level_scoring_clause: bool,
+}
+impl<TE> ScorerSupplierImpl<TE> where TE: TermsEnum {}
+impl<TE> ScorerSupplier for ScorerSupplierImpl<TE>
+where
+    TE: TermsEnum,
+{
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 
@@ -191,6 +201,10 @@ impl ScorerSupplier for ScorerSupplierImpl {
     }
 
     fn cost(&self) -> i64 {
+        todo!()
+    }
+
+    fn set_top_level_scoring_clause(&mut self) -> Result<()> {
         todo!()
     }
 }

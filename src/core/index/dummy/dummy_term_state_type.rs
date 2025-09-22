@@ -18,7 +18,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::core::index::term_state::{TermState, TermStateEnum};
 use crate::core::util::error::lucene_error::Result;
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct DummyTermState;
 impl Display for DummyTermState {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Encapsulates all required internal state to position the associated
 /// [`TermsEnum`](crate::core::index::terms_enum::TermsEnum) without re-seeking.
-pub trait TermState: Display + Clone + Default {
+pub trait TermState: Display + Clone {
     /// Copies the content of the given `TermState` to this instance.
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;
 }
@@ -59,26 +59,16 @@ impl TermState for TermStateEnum {
         todo!()
     }
 }
-
 // TermState
 pub enum Either2TermState<A, B> {
     A(A),
     B(B),
 }
-impl<A, B> Default for Either2TermState<A, B>
-where
-    A: TermState + Default,
-    B: TermState + Default,
-{
-    fn default() -> Self {
-        Either2TermState::A(A::default())
-    }
-}
 
 impl<A, B> Display for Either2TermState<A, B>
 where
-    A: TermState + Default,
-    B: TermState + Default,
+    A: TermState,
+    B: TermState,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -90,8 +80,8 @@ where
 
 impl<A, B> Clone for Either2TermState<A, B>
 where
-    A: TermState + Default,
-    B: TermState + Default,
+    A: TermState,
+    B: TermState,
 {
     fn clone(&self) -> Self {
         match self {
@@ -103,8 +93,8 @@ where
 
 impl<A, B> TermState for Either2TermState<A, B>
 where
-    A: TermState + Default,
-    B: TermState + Default,
+    A: TermState,
+    B: TermState,
 {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match self {

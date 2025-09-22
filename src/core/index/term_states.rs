@@ -18,8 +18,9 @@ use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
-use crate::core::index::term_state::{Either2TermState, TermState};
+use crate::core::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -34,17 +35,17 @@ use std::rc::Rc;
 /// associated readers.
 pub struct TermStates<TS>
 where
-    TS: TermState + Default,
+    TS: TermState,
 {
     top_reader_context_identity: Rc<()>,
-    states: Vec<Rc<TS>>,
+    states: Vec<Option<Rc<EitherEmptyTermState<TS>>>>,
     term: Option<Rc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
 }
 impl<TS> TermStates<TS>
 where
-    TS: TermState + Default,
+    TS: TermState,
 {
     pub fn new<IRC, LR>(term: Option<Rc<Term>>, context: &IRC) -> Result<Self>
     where
@@ -54,7 +55,7 @@ where
         let mut states = Vec::new();
         let num_leaves = context.leaves()?.len();
         for _ in 0..num_leaves {
-            states.push(Rc::new(TS::default()))
+            states.push(None)
         }
         Ok(TermStates {
             top_reader_context_identity: context.base().identity.clone(),
@@ -98,7 +99,7 @@ where
         self.total_term_freq = 0;
 
         for slot in &mut self.states {
-            *slot = Rc::new(TS::default());
+            *slot = None;
         }
     }
     /// Registers and associates a TermState with an leaf ordinal.
@@ -119,7 +120,7 @@ where
     pub fn register(&mut self, state: TS, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
         // for clone
-        self.states[ord] = Rc::new(state);
+        self.states[ord] = Some(Rc::new(EitherEmptyTermState::A(state)));
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -132,6 +133,95 @@ where
         self.doc_freq += doc_freq;
         self.total_term_freq += total_term_freq;
     }
+    /// Returns a [`PrepareState`] for a [`TermState`] for the given [`LeafReaderContext`].
+    /// This may return `None` if some cheap checks help figure out that this term
+    /// doesn't exist in this leaf. The [`Supplier`] may then also return `None`
+    /// if the term doesn't exist.
+    ///
+    /// Calling this method typically schedules some I/O in the background, so it is
+    /// recommended to retrieve [`PrepareState`]s across all required terms first before
+    /// calling [`resolve`] on all [`PrepareState`]s so that the I/O for these terms
+    /// can be performed in parallel.
+    ///
+    /// # Arguments
+    /// * `ctx` - the [`LeafReaderContext`] to get the [`TermState`] for.
+    ///
+    /// # Returns
+    /// A [`PrepareState`] for a [`TermState`].
+    pub fn get<LR>(
+        &mut self,
+        ctx_ord: usize,
+        ctx: &LeafReaderContext<LR>,
+    ) -> Result<Option<PrepareState<LR>>>
+    where
+        LR: LeafReader,
+    {
+        debug_assert!(ctx_ord < self.states.len());
+
+        if self.term.is_none() {
+            return Ok(if self.states[ctx_ord].is_none() {
+                None
+            } else {
+                Some(PrepareState::Ready(ctx_ord))
+            });
+        }
+
+        if self.states[ctx_ord].is_none() {
+            let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
+            if terms_opt.is_none() {
+                self.states[ctx_ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)));
+                return Ok(None);
+            }
+
+            let mut te = terms_opt.unwrap().iterator()?;
+            let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
+            if io_boolean_supplier.is_none() {
+                self.states[ctx_ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)));
+                return Ok(None);
+            }
+            return Ok(Some(PrepareState::Pending(
+                self.term.as_ref().unwrap().clone(),
+                ctx_ord,
+                te,
+            )));
+        }
+        let state = self.states[ctx_ord].as_ref().unwrap();
+        if matches!(state.as_ref(), EitherEmptyTermState::B(_)) {
+            Ok(None)
+        } else {
+            Ok(Some(PrepareState::Ready(ctx_ord)))
+        }
+    }
+    pub fn resolve<LR>(
+        &mut self,
+        state: PrepareState<LR>,
+    ) -> Result<Option<Rc<EitherEmptyTermState<TS>>>>
+    where
+        LR: LeafReader,
+        <LR::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
+    {
+        match state {
+            PrepareState::Ready(ord) => Ok(self.states[ord].clone()),
+
+            PrepareState::Pending(term, ord, mut te) => {
+                if self.states[ord - 1].as_ref().is_none() {
+                    if te.get_prepare_seek_exact_status(term.bytes())? {
+                        let state = te.term_state()?;
+                        self.states[ord] = Some(Rc::new(Either2TermState::A(state)))
+                    } else {
+                        self.states[ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)))
+                    }
+                }
+                let state = self.states[ord].as_ref().unwrap();
+                if matches!(state.as_ref(), EitherEmptyTermState::B(_)) {
+                    Ok(None)
+                } else {
+                    Ok(Some(state.clone()))
+                }
+            },
+        }
+    }
+
     /// Returns the accumulated document frequency of all [`TermState`] instances
     /// passed to [`register(TermState, int, int, long)`].
     ///
@@ -163,16 +253,54 @@ where
 }
 impl<TS> Display for TermStates<TS>
 where
-    TS: TermState + Default,
+    TS: TermState,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "TermStates")?;
         for state in &self.states {
-            writeln!(f, "  state={}", state)?;
+            match state.as_ref() {
+                None => writeln!(f, "  null")?,
+                Some(s) => writeln!(f, "  {}", s)?,
+            }
         }
         Ok(())
     }
 }
+
+pub type EitherEmptyTermState<TS> = Either2TermState<TS, EmptyTermState>;
+
+pub struct EmptyTermState;
+
+impl Display for EmptyTermState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
+impl Clone for EmptyTermState {
+    fn clone(&self) -> Self {
+        todo!()
+    }
+}
+
+impl TermState for EmptyTermState {
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+        Ok(())
+    }
+}
+
+pub enum PrepareState<LR>
+where
+    LR: LeafReader,
+{
+    Ready(usize),
+    Pending(
+        Rc<Term>,
+        usize,
+        <<LR as LeafReader>::Terms as Terms>::TermsEnum,
+    ),
+}
+
 pub type TermStateTerm<T> = Either2TermState<
     <<<T as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState,
     Either2TermState<TermStateImpl1, DummyTermState>,
