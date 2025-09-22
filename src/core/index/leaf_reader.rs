@@ -172,3 +172,7 @@ pub trait LeafReader: IndexReader {
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum
 type LeafPostingsEnum<T> =
     Either2PostingsEnum<<<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum, DummyPostingsEnum>;
+
+pub type LeafReaderTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
+pub type LeafReaderTermStates<LR> =
+    <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;

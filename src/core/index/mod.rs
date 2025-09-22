@@ -140,7 +140,7 @@ pub mod stored_fields;
 pub(crate) mod stored_fields_consumer;
 pub mod term;
 pub mod term_state;
-mod term_states;
+pub mod term_states;
 pub mod term_vectors;
 pub(crate) mod term_vectors_consumer;
 pub(crate) mod term_vectors_consumer_per_field;

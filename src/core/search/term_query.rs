@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermStates, LeafReaderTermsEnum};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::core::index::term_states::{PrepareState, TermStates};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{Either2SimScorer, SimScorer};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 #[derive(Eq, Debug)]
 pub struct TermQuery {
@@ -181,33 +180,45 @@ impl Weight for TermWeight {
     }
 }
 
-pub(crate) struct ScorerSupplierImpl<TE>
+pub(crate) struct ScorerSupplierImpl<LR>
 where
-    TE: TermsEnum,
+    LR: LeafReader,
 {
-    terms_enum: Option<TE>,
+    terms_enum: Option<LeafReaderTermsEnum<LR>>,
     top_level_scoring_clause: bool,
+    term_states: TermStates<LeafReaderTermStates<LR>>,
+    prepare_state: PrepareState<LR>,
+    context: Rc<LR>,
+    term: Rc<Term>,
 }
-impl<TE> ScorerSupplierImpl<TE> where TE: TermsEnum {}
-impl<TE> ScorerSupplier for ScorerSupplierImpl<TE>
+impl<LR> ScorerSupplierImpl<LR>
 where
-    TE: TermsEnum,
+    LR: LeafReader,
 {
-    type Scorer = DummyScorer;
-    type BulkScorer = DummyBulkScorer;
-
-    fn get(&self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
-        todo!()
-    }
-
-    fn cost(&self) -> i64 {
-        todo!()
-    }
-
-    fn set_top_level_scoring_clause(&mut self) -> Result<()> {
-        todo!()
-    }
+    // pub(crate) fn get_terms_enum(
+    //     &mut self,
+    // ) -> Result<Option<&mut LeafReaderTermsEnum<LR>>>
+    // {
+    //     if self.terms_enum.is_none() {
+    //         let state_opt = self.term_states.resolve()?;
+    //         let state = match state_opt {
+    //             None => return Ok(None),
+    //             Some(s) => s,
+    //         };
+    //
+    //         let mut te = self.context
+    //             .terms(self.term.field())?
+    //             .ok_or_else(|| LuceneError::IllegalState("missing terms".into()))?
+    //             .iterator()?;
+    //
+    //         te.seek_exact_with_state(self.term.bytes(), &state)?;
+    //
+    //         self.terms_enum = Some(te);
+    //     }
+    //     Ok(self.terms_enum.as_mut())
+    // }
 }
+
 pub(crate) struct SimScorerImpl;
 impl SimScorer for SimScorerImpl {
     fn score(&self, _freq: f32, _norm: i64) -> f32 {
