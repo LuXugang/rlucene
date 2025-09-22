@@ -458,8 +458,15 @@ where
         todo!()
     }
 
-    fn cost(&mut self) -> i64 {
-        todo!()
+    fn cost(&mut self) -> Result<i64> {
+        let result: Result<i32> = (|| match self.get_terms_enum()? {
+            None => Ok(0),
+            Some(te) => Ok(te.doc_freq()?),
+        })();
+        match result {
+            Ok(v) => Ok(v as i64),
+            Err(e) => Err(LuceneError::unchecked_io_error(e)),
+        }
     }
 }
 

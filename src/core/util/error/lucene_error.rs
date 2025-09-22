@@ -30,7 +30,7 @@ use crate::core::util::error::{
     IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
     MergeAbortedError, MergeError, NeedImplementedError, NoSuchElementError, NotFoundError,
     NotImplementedError, NumberFormatError, NumberOverflow, TooComplexToDeterminizeError,
-    UnreachableError, UnsupportedOperationError,
+    UncheckedIOError, UnreachableError, UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -105,6 +105,8 @@ pub enum LuceneError {
     TooComplexToDeterminize(#[from] TooComplexToDeterminizeError),
     #[error("{0}")]
     NoSuchElement(#[from] NoSuchElementError),
+    #[error("{0}")]
+    UncheckedIO(#[from] UncheckedIOError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $fn_name_with_source:ident, $variant:ident, $error_type:ident) => {
@@ -275,6 +277,12 @@ impl LuceneError {
         no_such_element_with_source,
         NoSuchElement,
         NoSuchElementError
+    );
+    error_ctor!(
+        unchecked_io_error,
+        unchecked_io_error_with_source,
+        UncheckedIO,
+        UncheckedIOError
     );
 }
 

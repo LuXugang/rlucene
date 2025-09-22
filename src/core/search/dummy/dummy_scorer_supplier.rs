@@ -33,7 +33,7 @@ impl ScorerSupplier for DummyScorerSupplier {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn cost(&mut self) -> i64 {
+    fn cost(&mut self) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
