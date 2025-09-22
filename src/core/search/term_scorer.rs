@@ -208,7 +208,7 @@ where
 
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>
 where
-    PE: PostingsEnum + Default,
+    PE: PostingsEnum,
     SS: SimScorer,
     N: NumericDocValues,
     IE: ImpactsEnum,
@@ -253,32 +253,32 @@ where
         }
     }
 
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
-        if self.impacts_disi.is_some() {
-            debug_assert!(self.max_score_cache.is_none());
-            TermScorerDisi::C(std::mem::take(&mut self.impacts_disi).unwrap())
-        } else {
-            debug_assert!(self.impacts_disi.is_none());
-            debug_assert!(
-                self.max_score_cache
-                    .as_ref()
-                    .unwrap()
-                    .impacts_source
-                    .is_some()
-            );
-            match self
-                .max_score_cache
-                .as_mut()
-                .unwrap()
-                .impacts_source
-                .take()
-                .unwrap()
-            {
-                Either2ImpactsEnum::A(t) => TermScorerDisi::A(t),
-                Either2ImpactsEnum::B(mut s) => TermScorerDisi::B(std::mem::take(&mut s.delegate)),
-            }
-        }
-    }
+    // fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+    //     if self.impacts_disi.is_some() {
+    //         debug_assert!(self.max_score_cache.is_none());
+    //         TermScorerDisi::C(std::mem::take(&mut self.impacts_disi).unwrap())
+    //     } else {
+    //         debug_assert!(self.impacts_disi.is_none());
+    //         debug_assert!(
+    //             self.max_score_cache
+    //                 .as_ref()
+    //                 .unwrap()
+    //                 .impacts_source
+    //                 .is_some()
+    //         );
+    //         match self
+    //             .max_score_cache
+    //             .as_mut()
+    //             .unwrap()
+    //             .impacts_source
+    //             .take()
+    //             .unwrap()
+    //         {
+    //             Either2ImpactsEnum::A(t) => TermScorerDisi::A(t),
+    //             Either2ImpactsEnum::B(mut s) => TermScorerDisi::B(std::mem::take(&mut s.delegate)),
+    //         }
+    //     }
+    // }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         match self.max_score_cache {

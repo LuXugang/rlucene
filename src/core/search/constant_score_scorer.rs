@@ -132,14 +132,14 @@ where
         EitherEmpty::A(&mut self.disi)
     }
 
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
-        std::mem::replace(
-            &mut self.disi,
-            Either2DocIdSetIterator::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
-                EitherEmpty::B(EmptyDISI::new()),
-            ))),
-        )
-    }
+    // fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+    //     std::mem::replace(
+    //         &mut self.disi,
+    //         Either2DocIdSetIterator::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
+    //             EitherEmpty::B(EmptyDISI::new()),
+    //         ))),
+    //     )
+    // }
 
     fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
         match self.disi {

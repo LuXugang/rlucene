@@ -23,6 +23,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct IndexSearcher<IRC, LR, S>
 where
@@ -54,7 +55,7 @@ where
     }
     pub fn term_statistics(
         &self,
-        term: Rc<Term>,
+        term: Arc<Term>,
         doc_freq: i32,
         total_term_freq: i64,
     ) -> Result<TermStatistics> {

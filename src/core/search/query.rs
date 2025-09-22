@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::dummy::dummy_query::DummyQuery;
@@ -25,23 +26,28 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::cmp::PartialEq;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn wrap(self) -> QueryEnum;
-
-    type Weight: Weight;
+    fn as_string(&self, field: &str) -> String;
+    type Weight<S, LR>: Weight
+    where
+        S: Similarity,
+        LR: LeafReader;
     fn crate_weight<IRC, LR, S>(
-        &self,
+        self,
         _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight>
+    ) -> Result<Self::Weight<S, LR>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
         S: Similarity,
+        Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Query {} does not implement create_weight",
@@ -66,39 +72,53 @@ pub trait Query: Eq + Hash + Display + Debug {
 }
 
 pub enum QueryEnum {
-    Term(TermQuery),
+    Term(TermQuery<DummyTermState>),
 }
 
 impl Eq for QueryEnum {}
 
+impl PartialEq<QueryEnum> for TermQuery<DummyTermState> {
+    fn eq(&self, other: &QueryEnum) -> bool {
+        match other {
+            QueryEnum::Term(t) => self == t,
+        }
+    }
+}
+
 impl PartialEq<Self> for QueryEnum {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (QueryEnum::Term(t1), QueryEnum::Term(t2)) => t1 == t2,
+        match self {
+            QueryEnum::Term(t) => t == other,
         }
     }
 }
 
 impl Hash for QueryEnum {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, _state: &mut H) {
         match self {
-            QueryEnum::Term(t) => t.hash(state),
+            QueryEnum::Term(t) => {
+                t.hash(_state);
+            },
         }
     }
 }
 
 impl Display for QueryEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueryEnum::Term(t) => Display::fmt(&t, f),
+            QueryEnum::Term(t) => {
+                write!(_f, "{}", t)
+            },
         }
     }
 }
 
 impl Debug for QueryEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueryEnum::Term(t) => Debug::fmt(&t, f),
+            QueryEnum::Term(t) => {
+                write!(_f, "QueryEnum::Term({:?})", t)
+            },
         }
     }
 }
@@ -106,18 +126,28 @@ impl Debug for QueryEnum {
 impl Query for QueryEnum {
     fn wrap(self) -> QueryEnum {
         match self {
-            QueryEnum::Term(t) => QueryEnum::Term(t),
+            QueryEnum::Term(_) => self,
         }
     }
 
-    type Weight = DummyWeight;
+    fn as_string(&self, field: &str) -> String {
+        match self {
+            QueryEnum::Term(t) => t.as_string(field),
+        }
+    }
+
+    type Weight<S, LR>
+        = DummyWeight
+    where
+        S: Similarity,
+        LR: LeafReader;
 
     fn crate_weight<IRC, LR, S>(
-        &self,
+        self,
         _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight>
+    ) -> Result<Self::Weight<S, LR>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,

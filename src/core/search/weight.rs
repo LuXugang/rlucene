@@ -102,13 +102,14 @@ pub trait Weight: SegmentCacheable {
     /// # Parameters
     /// - `context`: the reader's context to create the [`Explanation`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn explain<LR>(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>
+    fn explain<LR>(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>
     where
         LR: LeafReader;
 
     type Query: Query;
     /// The query that this weight concerns.
     fn get_query(&self) -> &Self::Query;
+
     /// Optional method that delegates to [`Weight::scorer_supplier`].
     ///
     /// Returns a [`Scorer`](crate::core::search::scorer::Scorer) which can iterate in order over all matching documents

@@ -31,18 +31,27 @@ impl Query for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Weight = DummyWeight;
+    fn as_string(&self, field: &str) -> String {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type Weight<S, LR>
+        = DummyWeight
+    where
+        S: Similarity,
+        LR: LeafReader;
 
     fn crate_weight<IRC, LR, S>(
-        &self,
+        self,
         _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Weight>
+    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S, LR>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
         S: Similarity,
+        Self: Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

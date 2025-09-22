@@ -29,7 +29,7 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyWeight;
 
 impl SegmentCacheable for DummyWeight {
-    fn is_cacheable<LR>(&self, _ctx: &LeafReaderContext<LR>) -> bool
+    fn is_cacheable<LR>(&self, ctx: &LeafReaderContext<LR>) -> bool
     where
         LR: LeafReader,
     {
@@ -43,7 +43,7 @@ impl Weight for DummyWeight {
     fn matches<LR>(
         &mut self,
         _context: &LeafReaderContext<LR>,
-        doc: i32,
+        _doc: i32,
     ) -> Result<Option<Self::Matches>>
     where
         LR: LeafReader,
@@ -54,7 +54,7 @@ impl Weight for DummyWeight {
     fn default_matches<LR>(
         &mut self,
         _context: &LeafReaderContext<LR>,
-        doc: i32,
+        _doc: i32,
     ) -> Result<Option<MatchWithNoTerms>>
     where
         LR: LeafReader,
@@ -62,7 +62,7 @@ impl Weight for DummyWeight {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn explain<LR>(&self, _context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>
+    fn explain<LR>(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation>
     where
         LR: LeafReader,
     {
@@ -107,7 +107,14 @@ impl Weight for DummyWeight {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn count<LR>(&self, __context: &LeafReaderContext<LR>) -> Result<i32>
+    fn count<LR>(&self, _context: &LeafReaderContext<LR>) -> Result<i32>
+    where
+        LR: LeafReader,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn default_count<LR>(&self, _context: &LeafReaderContext<LR>) -> Result<i32>
     where
         LR: LeafReader,
     {

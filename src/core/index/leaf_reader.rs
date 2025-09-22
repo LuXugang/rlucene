@@ -174,5 +174,12 @@ type LeafPostingsEnum<T> =
     Either2PostingsEnum<<<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum, DummyPostingsEnum>;
 
 pub type LeafReaderTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
-pub type LeafReaderTermStates<LR> =
+pub type LeafReaderTermState<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
+
+pub type LeafReaderNumericDocValues<LR> = <LR as LeafReader>::NumericDocValues;
+
+pub type LeafReaderImpactsEnum<LR> =
+    <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;
+pub type LeafReaderPosting<LR> =
+    <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;

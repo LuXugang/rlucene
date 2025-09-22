@@ -19,7 +19,7 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A struct like class that represents a hierarchical relationship between IndexReader instances.
 #[allow(private_bounds)]
@@ -58,8 +58,8 @@ pub struct IndexReaderContextBase<LR> {
     /// The ord for this reader in the parent, `0` if parent is `None`.
     pub ord_in_parent: i32,
     // An object that uniquely identifies this context without referencing segments.
-    /// In Rust we model it as an `Arc<()>` so that pointer equality can be used for identity.
-    pub identity: Rc<()>,
+    /// In Rust we model it as an `AArc<()>` so that pointer equality can be used for identity.
+    pub identity: Arc<()>,
 }
 
 impl<LR> IndexReaderContextBase<LR> {
@@ -77,11 +77,11 @@ impl<LR> IndexReaderContextBase<LR> {
             is_top_level,
             doc_base_in_parent,
             ord_in_parent,
-            identity: Rc::new(()),
+            identity: Arc::new(()),
         }
     }
 
-    pub fn id(&self) -> &Rc<()> {
+    pub fn id(&self) -> &Arc<()> {
         &self.identity
     }
 }

@@ -17,7 +17,7 @@
 use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermStates};
+use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermState};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{Either2TermState, TermState, TermStateEnum};
@@ -28,7 +28,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Maintains an [`IndexReader`](crate::core::index::index_reader::IndexReader) [`TermState`] view over [`IndexReader`](crate::core::index::index_reader::IndexReader) instances
 /// containing a single term. The [`TermStates`] doesn't track if the given [`TermState`]
@@ -38,9 +38,9 @@ pub struct TermStates<TS>
 where
     TS: TermState,
 {
-    top_reader_context_identity: Rc<()>,
-    states: Vec<Option<Rc<EitherEmptyTermState<TS>>>>,
-    term: Option<Rc<Term>>,
+    top_reader_context_identity: Arc<()>,
+    states: Vec<Option<Arc<EitherEmptyTermState<TS>>>>,
+    term: Option<Arc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
 }
@@ -48,7 +48,7 @@ impl<TS> TermStates<TS>
 where
     TS: TermState,
 {
-    pub fn new<IRC, LR>(term: Option<Rc<Term>>, context: &IRC) -> Result<Self>
+    pub fn new<IRC, LR>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
     where
         IRC: IndexReaderContext<LR>,
     {
@@ -77,7 +77,7 @@ where
     where
         IRC: IndexReaderContext<LR>,
     {
-        Rc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
+        Arc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
     }
     pub fn with_state_and_stats<IRC, LR>(
         context: &IRC,
@@ -121,7 +121,7 @@ where
     pub fn register(&mut self, state: TS, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
         // for clone
-        self.states[ord] = Some(Rc::new(EitherEmptyTermState::A(state)));
+        self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)));
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -170,14 +170,14 @@ where
         if self.states[ctx_ord].is_none() {
             let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
             if terms_opt.is_none() {
-                self.states[ctx_ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)));
                 return Ok(None);
             }
 
             let mut te = terms_opt.unwrap().iterator()?;
             let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
             if io_boolean_supplier.is_none() {
-                self.states[ctx_ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)));
                 return Ok(None);
             }
             return Ok(Some(PrepareState::Pending(
@@ -196,7 +196,7 @@ where
     pub fn resolve<LR>(
         &mut self,
         state: PrepareState<LR>,
-    ) -> Result<Option<Rc<EitherEmptyTermState<TS>>>>
+    ) -> Result<Option<Arc<EitherEmptyTermState<TS>>>>
     where
         LR: LeafReader,
         <LR::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
@@ -208,9 +208,9 @@ where
                 if self.states[ord - 1].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[ord] = Some(Rc::new(Either2TermState::A(state)))
+                        self.states[ord] = Some(Arc::new(Either2TermState::A(state)))
                     } else {
-                        self.states[ord] = Some(Rc::new(Either2TermState::B(EmptyTermState)))
+                        self.states[ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)))
                     }
                 }
                 let state = self.states[ord].as_ref().unwrap();
@@ -296,17 +296,17 @@ where
 {
     Ready(usize),
     Pending(
-        Rc<Term>,
+        Arc<Term>,
         usize,
         <<LR as LeafReader>::Terms as Terms>::TermsEnum,
     ),
 }
 
 pub type TermStateTerm<T> =
-    Either2TermState<LeafReaderTermStates<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
+    Either2TermState<LeafReaderTermState<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
 pub fn build<IRC, LR, S>(
     index_searcher: &IndexSearcher<IRC, LR, S>,
-    term: Term,
+    term: Arc<Term>,
     needs_stats: bool,
 ) -> Result<TermStates<TermStateTerm<LR>>>
 where
@@ -315,7 +315,6 @@ where
     S: Similarity,
 {
     let context = index_searcher.get_top_reader_context();
-    let term = Rc::new(term);
     let mut per_reader_term_state = TermStates::new(
         if needs_stats {
             None

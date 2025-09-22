@@ -46,7 +46,7 @@ pub trait Scorer: Scorable {
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_>;
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator;
+    // fn iterator_take(&mut self) -> Self::DocIdSetIterator;
 
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
