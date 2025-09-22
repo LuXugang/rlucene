@@ -31,7 +31,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 pub trait Query: Eq + Hash + Display + Debug {
-    fn wrap(self) -> QueryEnum;
     fn as_string(&self, field: &str) -> String;
     type Weight<S, LR>: Weight
     where
@@ -124,12 +123,6 @@ impl Debug for QueryEnum {
 }
 
 impl Query for QueryEnum {
-    fn wrap(self) -> QueryEnum {
-        match self {
-            QueryEnum::Term(_) => self,
-        }
-    }
-
     fn as_string(&self, field: &str) -> String {
         match self {
             QueryEnum::Term(t) => t.as_string(field),
@@ -175,5 +168,11 @@ impl Query for QueryEnum {
         QV: QueryVisitor,
     {
         todo!()
+    }
+}
+
+impl From<TermQuery<DummyTermState>> for QueryEnum {
+    fn from(value: TermQuery<DummyTermState>) -> Self {
+        QueryEnum::Term(value)
     }
 }

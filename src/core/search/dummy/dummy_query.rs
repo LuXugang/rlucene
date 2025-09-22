@@ -18,7 +18,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query::Query;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -27,10 +27,6 @@ use std::fmt::Display;
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {
-    fn wrap(self) -> QueryEnum {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
     fn as_string(&self, field: &str) -> String {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

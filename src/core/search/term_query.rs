@@ -34,7 +34,7 @@ use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query::Query;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -121,10 +121,6 @@ impl<TS> Query for TermQuery<TS>
 where
     TS: TermState,
 {
-    fn wrap(self) -> QueryEnum {
-        todo!()
-    }
-
     fn as_string(&self, field: &str) -> String {
         let mut buffer = String::new();
         if self.term.field != field {

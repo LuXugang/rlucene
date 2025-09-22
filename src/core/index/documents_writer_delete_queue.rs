@@ -853,7 +853,6 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::index::{BytesRef, BytesRefBuilder};
 
-    use crate::core::search::query::Query;
     use crate::core::search::term_query::TermQuery;
 
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -955,7 +954,7 @@ mod tests {
             let term = Term::from_text("id", &i.to_string());
             if random.random_range(0..10) == 0 {
                 queue
-                    .add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()).wrap())]))?;
+                    .add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()).into())]))?;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
@@ -981,7 +980,7 @@ mod tests {
         for i in 0..size {
             let term = Term::from_text("id", &i.to_string());
             if random.random_range(0..10) == 0 {
-                queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()).wrap())])?;
+                queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()).into())])?;
                 queries_since_freeze += 1;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
@@ -1105,7 +1104,7 @@ mod tests {
             let result = queue.freeze_global_buffer(&mut None);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.add_delete_query(vec![Arc::new(
-                TermQuery::new(Term::from_text("foo", "bar")).wrap(),
+                TermQuery::new(Term::from_text("foo", "bar")).into(),
             )]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
 
