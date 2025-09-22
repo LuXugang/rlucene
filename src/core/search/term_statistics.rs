@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use derive_getters::Getters;
+use std::rc::Rc;
+
 /// Contains statistics for a specific term
 ///
 /// This struct holds statistics for this term across all documents for scoring purposes:
@@ -57,7 +59,7 @@ use derive_getters::Getters;
 ///   See also: [`TermsEnum::total_term_freq()`](crate::core::index::terms_enum::TermsEnum::total_term_freq)
 #[derive(Getters)]
 pub struct TermStatistics {
-    term: BytesRef<Vec<u8>>,
+    term: Rc<Term>,
     doc_freq: i64,
     total_term_freq: i64,
 }
@@ -69,8 +71,7 @@ impl TermStatistics {
     ///
     /// - Error if `doc_freq` is zero or negative.  
     /// - Error if `total_term_freq` is less than `doc_freq`.  
-    pub fn new(term: BytesRef<Vec<u8>>, doc_freq: i64, total_term_freq: i64) -> Result<Self> {
-        // In Rust, BytesRef cannot be null, so no null check is needed.
+    pub fn new(term: Rc<Term>, doc_freq: i64, total_term_freq: i64) -> Result<Self> {
         if doc_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "doc_freq must be positive, doc_freq: {doc_freq}"

@@ -17,13 +17,14 @@
 use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermStates};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
@@ -301,18 +302,17 @@ where
     ),
 }
 
-pub type TermStateTerm<T> = Either2TermState<
-    <<<T as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState,
-    Either2TermState<TermStateImpl1, DummyTermState>,
->;
-pub fn build<IRC, LR>(
-    index_searcher: &IndexSearcher<IRC, LR>,
+pub type TermStateTerm<T> =
+    Either2TermState<LeafReaderTermStates<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
+pub fn build<IRC, LR, S>(
+    index_searcher: &IndexSearcher<IRC, LR, S>,
     term: Term,
     needs_stats: bool,
 ) -> Result<TermStates<TermStateTerm<LR>>>
 where
     IRC: IndexReaderContext<LR>,
     LR: LeafReader,
+    S: Similarity,
 {
     let context = index_searcher.get_top_reader_context();
     let term = Rc::new(term);

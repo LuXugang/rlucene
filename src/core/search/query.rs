@@ -21,6 +21,7 @@ use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -31,15 +32,16 @@ pub trait Query: Eq + Hash + Display + Debug {
     fn wrap(self) -> QueryEnum;
 
     type Weight: Weight;
-    fn crate_weight<IRC, LR>(
+    fn crate_weight<IRC, LR, S>(
         &self,
-        _search: &IndexSearcher<IRC, LR>,
+        _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
     ) -> Result<Self::Weight>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Query {} does not implement create_weight",
@@ -47,10 +49,14 @@ pub trait Query: Eq + Hash + Display + Debug {
         )))
     }
     type Query: Query;
-    fn rewrite<IRC, LR>(&self, _searcher: &IndexSearcher<IRC, LR>) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, LR, S>(
+        &self,
+        _searcher: &IndexSearcher<IRC, LR, S>,
+    ) -> Result<Option<Self::Query>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         Ok(None)
     }
@@ -106,25 +112,30 @@ impl Query for QueryEnum {
 
     type Weight = DummyWeight;
 
-    fn crate_weight<IRC, LR>(
+    fn crate_weight<IRC, LR, S>(
         &self,
-        _search: &IndexSearcher<IRC, LR>,
+        _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
     ) -> Result<Self::Weight>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         todo!()
     }
 
     type Query = DummyQuery;
 
-    fn rewrite<IRC, LR>(&self, _searcher: &IndexSearcher<IRC, LR>) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, LR, S>(
+        &self,
+        _searcher: &IndexSearcher<IRC, LR, S>,
+    ) -> Result<Option<Self::Query>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         todo!()
     }

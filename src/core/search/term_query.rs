@@ -18,20 +18,26 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermStates, LeafReaderTermsEnum};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::core::index::term_state::TermState;
 use crate::core::index::term_states::{PrepareState, TermStates};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
+use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{Either2SimScorer, SimScorer};
+use crate::core::search::similarities_impl::similarities::{
+    Either2SimScorer, SimScorer, Similarity,
+};
+use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -64,27 +70,32 @@ impl Query for TermQuery {
         QueryEnum::Term(self)
     }
 
-    type Weight = TermWeight;
+    type Weight = DummyWeight;
 
-    fn crate_weight<IRC, LR>(
+    fn crate_weight<IRC, LR, S>(
         &self,
-        _search: &IndexSearcher<IRC, LR>,
+        _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
     ) -> Result<Self::Weight>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         todo!()
     }
 
     type Query = TermQuery;
 
-    fn rewrite<IRC, LR>(&self, _searcher: &IndexSearcher<IRC, LR>) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, LR, S>(
+        &self,
+        _searcher: &IndexSearcher<IRC, LR, S>,
+    ) -> Result<Option<Self::Query>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         todo!()
     }
@@ -103,8 +114,89 @@ impl Display for TermQuery {
     }
 }
 
-pub struct TermWeight;
-impl TermWeight {
+pub struct TermWeight<S, TS>
+where
+    S: Similarity,
+    TS: TermState,
+{
+    similarity: Rc<S>,
+    sim_scorer: Option<Rc<TermQuerySimScorer<S::SimScorer>>>,
+    term_states: Option<TermStates<TS>>,
+    score_mode: ScoreMode,
+    parent_query: Rc<TermQuery>,
+}
+impl<S, TS> TermWeight<S, TS>
+where
+    S: Similarity,
+    TS: TermState,
+{
+    pub fn new<IRC, LR>(
+        searcher: &IndexSearcher<IRC, LR, S>,
+        score_mode: ScoreMode,
+        boost: f32,
+        term: Rc<Term>,
+        term_states: Option<TermStates<TS>>,
+        query: Rc<TermQuery>,
+    ) -> Result<Self>
+    where
+        IRC: IndexReaderContext<LR>,
+        LR: LeafReader,
+    {
+        if score_mode.needs_scores() && term_states.is_none() {
+            return Err(LuceneError::illegal_argument(
+                "termStates are required when scores are needed",
+            ));
+        }
+
+        let similarity = searcher.get_similarity();
+
+        // collectionStats 和 termStats
+        let ts = term_states.as_ref().unwrap();
+        let (collection_stats, term_stats) = if score_mode.needs_scores() {
+            let collection_stats = searcher.collection_statistics(term.field());
+            let term_stats = if ts.doc_freq()? > 0 {
+                Some(searcher.term_statistics(
+                    term.clone(),
+                    ts.doc_freq()?,
+                    ts.total_term_freq()?,
+                )?)
+            } else {
+                None
+            };
+            (collection_stats, term_stats)
+        } else {
+            // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
+            let collection_stats = CollectionStatistics::new(term.field().to_string(), 1, 1, 1, 1)?;
+            let term_stats = Some(TermStatistics::new(term.clone(), 1, 1)?);
+            (collection_stats, term_stats)
+        };
+
+        // Assigning a dummy simScorer in case score is not needed to avoid unnecessary float[]
+        // allocations in case default BM25Scorer is used.
+        // See: https://github.com/apache/lucene/issues/12297
+        let sim_scorer = if let Some(term_stats) = term_stats {
+            if score_mode.needs_scores() {
+                Some(Rc::new(TermQuerySimScorer::A(similarity.scorer(
+                    boost,
+                    &collection_stats,
+                    &[term_stats],
+                ))))
+            } else {
+                Some(Rc::new(TermQuerySimScorer::B(SimScorerImpl)))
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            similarity,
+            sim_scorer,
+            term_states,
+            score_mode,
+            parent_query: query,
+        })
+    }
+
     fn get_terms_enum<LR>(
         &self,
         _context: &LeafReaderContext<LR>,
@@ -116,7 +208,11 @@ impl TermWeight {
     }
 }
 
-impl SegmentCacheable for TermWeight {
+impl<S, TS> SegmentCacheable for TermWeight<S, TS>
+where
+    S: Similarity,
+    TS: TermState,
+{
     fn is_cacheable<LR>(&self, ctx: &LeafReaderContext<LR>) -> bool
     where
         LR: LeafReader,
@@ -125,7 +221,11 @@ impl SegmentCacheable for TermWeight {
     }
 }
 
-impl Weight for TermWeight {
+impl<S, TS> Weight for TermWeight<S, TS>
+where
+    S: Similarity,
+    TS: TermState,
+{
     type Matches = DummyMatches;
 
     fn matches<LR>(

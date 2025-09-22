@@ -21,6 +21,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
@@ -32,28 +33,30 @@ impl Query for DummyQuery {
 
     type Weight = DummyWeight;
 
-    fn crate_weight<IRC, LR>(
+    fn crate_weight<IRC, LR, S>(
         &self,
-        _search: &IndexSearcher<IRC, LR>,
+        _search: &IndexSearcher<IRC, LR, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
     ) -> crate::core::util::error::lucene_error::Result<Self::Weight>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Query = DummyQuery;
 
-    fn rewrite<IRC, LR>(
+    fn rewrite<IRC, LR, S>(
         &self,
-        _searcher: &IndexSearcher<IRC, LR>,
+        _searcher: &IndexSearcher<IRC, LR, S>,
     ) -> crate::core::util::error::lucene_error::Result<Option<Self::Query>>
     where
         IRC: IndexReaderContext<LR>,
         LR: LeafReader,
+        S: Similarity,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
