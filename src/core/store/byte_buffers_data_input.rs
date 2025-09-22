@@ -129,7 +129,7 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
             bytes_read -= chunk;
         }
 
-        debug_assert!(bytes.len() % type_size as usize == 0);
+        debug_assert!(bytes.len().is_multiple_of(type_size as usize));
         if type_size == 1 {
             let output_bytes = unsafe {
                 std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len())

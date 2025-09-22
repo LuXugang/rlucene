@@ -183,7 +183,7 @@ mod tests {
         for _ in 0..iter {
             let len = random.random_range(0..5);
             let key: Vec<char> = (0..len)
-                .map(|_| (random.random_range(0..127) as u8 as char))
+                .map(|_| random.random_range(0..127) as u8 as char)
                 .collect();
             let key_str: String = key.iter().collect();
             let hmap_key = if ignore_case {
