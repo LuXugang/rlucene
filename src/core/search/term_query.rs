@@ -18,8 +18,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{
-    LeafReader, LeafReaderImpactsEnum, LeafReaderNumericDocValues, LeafReaderPosting,
-    LeafReaderTermState, LeafReaderTermsEnum,
+    LRImpactsEnum, LRNumericDocValues, LRPosting, LRTermState, LRTermsEnum, LeafReader,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -275,7 +274,7 @@ where
     fn get_terms_enum<LR1>(
         &self,
         _context: &LeafReaderContext<LR1>,
-    ) -> Result<Option<LeafReaderTermsEnum<LR1>>>
+    ) -> Result<Option<LRTermsEnum<LR1>>>
     where
         LR1: LeafReader,
     {
@@ -392,9 +391,9 @@ where
     LR: LeafReader,
     S: Similarity,
 {
-    terms_enum: Option<LeafReaderTermsEnum<LR>>,
+    terms_enum: Option<LRTermsEnum<LR>>,
     top_level_scoring_clause: bool,
-    term_states: TermStates<LeafReaderTermState<LR>>,
+    term_states: TermStates<LRTermState<LR>>,
     prepare_state: Option<PrepareState<LR>>,
     context: Rc<LR>,
     term: Arc<Term>,
@@ -405,7 +404,7 @@ where
     LR: LeafReader,
     S: Similarity,
 {
-    pub(crate) fn get_terms_enum(&mut self) -> Result<Option<&mut LeafReaderTermsEnum<LR>>> {
+    pub(crate) fn get_terms_enum(&mut self) -> Result<Option<&mut LRTermsEnum<LR>>> {
         // if self.terms_enum.is_none() {
         //     let state_opt = self.term_states.resolve(self.prepare_state.take().unwrap())?;
         //     let state = match state_opt {
@@ -432,10 +431,10 @@ where
     S: Similarity,
 {
     type Scorer = TermScorer<
-        LeafReaderPosting<LR>,
+        LRPosting<LR>,
         TermQuerySimScorer<S::SimScorer>,
-        LeafReaderNumericDocValues<LR>,
-        LeafReaderImpactsEnum<LR>,
+        LRNumericDocValues<LR>,
+        LRImpactsEnum<LR>,
     >;
     type BulkScorer = DummyBulkScorer;
 

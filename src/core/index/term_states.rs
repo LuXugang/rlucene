@@ -17,7 +17,7 @@
 use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::{LeafReader, LeafReaderTermState};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{Either2TermState, TermState};
@@ -303,7 +303,7 @@ where
 }
 
 pub type TermStateTerm<T> =
-    Either2TermState<LeafReaderTermState<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
+    Either2TermState<LRTermState<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
 pub fn build<IRC, S>(
     index_searcher: &IndexSearcher<IRC, S>,
     term: Arc<Term>,

@@ -173,13 +173,16 @@ pub trait LeafReader: IndexReader {
 type LeafPostingsEnum<T> =
     Either2PostingsEnum<<<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum, DummyPostingsEnum>;
 
-pub type LeafReaderTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
-pub type LeafReaderTermState<LR> =
+// TermsEnum
+pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
+// TermState
+pub type LRTermState<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
-
-pub type LeafReaderNumericDocValues<LR> = <LR as LeafReader>::NumericDocValues;
-
-pub type LeafReaderImpactsEnum<LR> =
+// NumericDocValues
+pub type LRNumericDocValues<LR> = <LR as LeafReader>::NumericDocValues;
+// ImpactsEnum
+pub type LRImpactsEnum<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;
-pub type LeafReaderPosting<LR> =
+// PostingsEnum
+pub type LRPosting<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
