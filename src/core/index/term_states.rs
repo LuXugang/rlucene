@@ -167,14 +167,14 @@ where
         if self.states[ctx_ord].is_none() {
             let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
             if terms_opt.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
                 return Ok(None);
             }
 
             let mut te = terms_opt.unwrap().iterator()?;
             let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
             if io_boolean_supplier.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)));
+                self.states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
                 return Ok(None);
             }
             return Ok(Some(PrepareState::Pending(
@@ -205,9 +205,9 @@ where
                 if self.states[ord - 1].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[ord] = Some(Arc::new(Either2TermState::A(state)))
+                        self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)))
                     } else {
-                        self.states[ord] = Some(Arc::new(Either2TermState::B(EmptyTermState)))
+                        self.states[ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)))
                     }
                 }
                 let state = self.states[ord].as_ref().unwrap();
