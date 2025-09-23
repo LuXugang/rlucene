@@ -149,14 +149,11 @@ where
     ///
     /// # Returns
     /// A [`PrepareState`] for a [`TermState`].
-    pub fn get<LR>(
-        &mut self,
-        ctx_ord: usize,
-        ctx: &LeafReaderContext<LR>,
-    ) -> Result<Option<PrepareState<LR>>>
+    pub fn get<LR>(&mut self, ctx: &LeafReaderContext<LR>) -> Result<Option<PrepareState<LR>>>
     where
         LR: LeafReader,
     {
+        let ctx_ord = ctx.ord;
         debug_assert!(ctx_ord < self.states.len());
 
         if self.term.is_none() {

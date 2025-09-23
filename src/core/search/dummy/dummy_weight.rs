@@ -101,11 +101,11 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn default_count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
