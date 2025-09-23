@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_index_reader_context::DummyIndexReaderContext;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
@@ -27,24 +27,23 @@ use std::fmt::Display;
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, _field: &str) -> String {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Weight<S, LR>
-        = DummyWeight<LR>
+    type Weight<S>
+        = DummyWeight
     where
-        S: Similarity,
-        LR: LeafReader;
+        S: Similarity;
+    type IndexReaderContext = DummyIndexReaderContext;
 
-    fn crate_weight<IRC, S>(
+    fn crate_weight<S>(
         self,
-        _search: &IndexSearcher<IRC, S>,
+        _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S, IRC::LeafReader>>
+    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S>>
     where
-        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{
     LRImpactsEnum, LRNumericDocValues, LRPosting, LRTermState, LRTermsEnum, LeafReader,
@@ -22,7 +23,7 @@ use crate::core::index::leaf_reader::{
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{PrepareState, TermStateTerm, TermStates, build};
+use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -46,7 +47,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -134,20 +134,19 @@ where
         buffer
     }
 
-    type Weight<S, LR>
-        = TermWeight<S, IRC, LR>
+    type Weight<S>
+        = TermWeight<S, IRC>
     where
-        S: Similarity,
-        LR: LeafReader;
+        S: Similarity;
+    type IndexReaderContext = IRC;
 
-    fn crate_weight<I, S>(
+    fn crate_weight<S>(
         mut self,
-        search: &IndexSearcher<I, S>,
+        search: &IndexSearcher<Self::IndexReaderContext, S>,
         score_mod: &ScoreMode,
         boost: f32,
-    ) -> Result<Self::Weight<S, I::LeafReader>>
+    ) -> Result<Self::Weight<S>>
     where
-        I: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -159,13 +158,9 @@ where
                 .unwrap()
                 .was_built_for(context)
         {
-            TermStatesENum::<IRC, I::LeafReader>::A(build(
-                search,
-                self.term.clone(),
-                score_mod.needs_scores(),
-            )?)
+            build(search, self.term.clone(), score_mod.needs_scores())?
         } else {
-            TermStatesENum::<IRC, I::LeafReader>::B(self.per_reader_term_state.take().unwrap())
+            self.per_reader_term_state.take().unwrap()
         };
         TermWeight::new(search, *score_mod, boost, Some(term_state), Rc::new(self))
     }
@@ -189,34 +184,31 @@ where
     }
 }
 
-pub struct TermWeight<S, IRC, LR>
+pub struct TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
-    LR: LeafReader,
 {
     similarity: Rc<S>,
     sim_scorer: Option<Rc<TermQuerySimScorer<S::SimScorer>>>,
-    term_states: Option<TermStatesENum<IRC, LR>>,
+    term_states: Option<TermStates<IRCTermState<IRC>>>,
     score_mode: ScoreMode,
     parent_query: Rc<TermQuery<IRC>>,
-    _marker: PhantomData<LR>,
 }
-impl<S, IRC, LR> TermWeight<S, IRC, LR>
+impl<S, IRC> TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
-    LR: LeafReader,
 {
     pub fn new<I>(
         searcher: &IndexSearcher<I, S>,
         score_mode: ScoreMode,
         boost: f32,
-        term_states: Option<TermStatesENum<IRC, LR>>,
+        term_states: Option<TermStates<IRCTermState<IRC>>>,
         query: Rc<TermQuery<IRC>>,
     ) -> Result<Self>
     where
-        I: IndexReaderContext<LeafReader = LR>,
+        I: IndexReaderContext,
     {
         if score_mode.needs_scores() && term_states.is_none() {
             return Err(LuceneError::illegal_argument(
@@ -271,44 +263,90 @@ where
             term_states,
             score_mode,
             parent_query: query,
-            _marker: PhantomData,
         })
     }
-    fn get_terms_enum(&self, _context: &LeafReaderContext<LR>) -> Result<Option<LRTermsEnum<LR>>> {
-        todo!()
+    fn get_terms_enum(
+        &mut self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<LRTermsEnum<IRC::LeafReader>>> {
+        let term_states = self
+            .term_states
+            .as_mut()
+            .expect("term_states should not be None");
+
+        // debug_assert!(
+        //     term_states.was_built_for(&context.get_top_level_context()),
+        //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
+        // );
+        let supplier = term_states.get(context)?;
+
+        let state = match supplier {
+            Some(s) => term_states.resolve(s)?,
+            None => None,
+        };
+
+        if state.is_none() {
+            debug_assert!(
+                !self.term_not_in_reader(context.reader(), self.parent_query.term.as_ref())?,
+                "no termstate found but term exists in reader"
+            );
+            return Ok(None);
+        }
+
+        let state = state.unwrap();
+        let mut terms_enum = context
+            .reader()
+            .terms(self.parent_query.term.field())?
+            .as_ref()
+            .unwrap()
+            .iterator()?;
+        match state.as_ref() {
+            EitherEmptyTermState::A(s) => {
+                terms_enum.seek_exact_with_state(self.parent_query.term.bytes(), s)?;
+                Ok(Some(terms_enum))
+            },
+            EitherEmptyTermState::B(s) => Err(LuceneError::illegal_argument(
+                "should never get empty term state here",
+            )),
+        }
+    }
+    fn term_not_in_reader(&self, reader: &IRC::LeafReader, term: &Term) -> Result<bool> {
+        Ok(LeafReader::doc_freq(reader, term)? == 0)
     }
 }
 
-impl<S, IRC, LR> SegmentCacheable for TermWeight<S, IRC, LR>
+impl<S, IRC> SegmentCacheable for TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
-    LR: LeafReader,
 {
-    type LeafReader = LR;
+    type LeafReader = IRC::LeafReader;
 
     fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         true
     }
 }
 
-impl<S, IRC, LR> Weight for TermWeight<S, IRC, LR>
+impl<S, IRC> Weight for TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
-    LR: LeafReader,
 {
     type Matches = DummyMatches;
 
     fn matches(
         &mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<Self::LeafReader>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         todo!()
     }
 
-    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &mut self,
+        context: &LeafReaderContext<Self::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
         let mut scorer_opt = self.scorer(context)?;
         if let Some(scorer) = scorer_opt.as_mut() {
             let new_doc = scorer.iterator().advance(doc)?;
@@ -361,16 +399,16 @@ where
         todo!()
     }
 
-    type ScorerSupplier = ScorerSupplierImpl<LR, S>;
+    type ScorerSupplier = ScorerSupplierImpl<Self::LeafReader, S>;
 
     fn scorer_supplier(
         &mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         todo!()
     }
 
-    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         if !context.reader().has_deletions()? {
             if let Some(mut terms_enum) = self.get_terms_enum(context)? {
                 terms_enum.doc_freq()
@@ -458,39 +496,3 @@ impl SimScorer for SimScorerImpl {
     }
 }
 pub(crate) type TermQuerySimScorer<S> = Either2SimScorer<S, SimScorerImpl>;
-
-pub enum TermStatesENum<StoredIRC, LR>
-where
-    StoredIRC: IndexReaderContext,
-    LR: LeafReader,
-{
-    A(TermStates<TermStateTerm<LR>>),
-    B(TermStates<IRCTermState<StoredIRC>>),
-}
-impl<StoredIRC, LR> TermStatesENum<StoredIRC, LR>
-where
-    StoredIRC: IndexReaderContext,
-    LR: LeafReader,
-{
-    pub fn doc_freq(&self) -> Result<i32> {
-        match self {
-            TermStatesENum::A(v) => v.doc_freq(),
-            TermStatesENum::B(v) => v.doc_freq(),
-        }
-    }
-    pub fn total_term_freq(&self) -> Result<i64> {
-        match self {
-            TermStatesENum::A(v) => v.total_term_freq(),
-            TermStatesENum::B(v) => v.total_term_freq(),
-        }
-    }
-    pub fn was_built_for<C>(&self, ctx: &C) -> bool
-    where
-        C: IndexReaderContext,
-    {
-        match self {
-            TermStatesENum::A(v) => v.was_built_for(ctx),
-            TermStatesENum::B(v) => v.was_built_for(ctx),
-        }
-    }
-}

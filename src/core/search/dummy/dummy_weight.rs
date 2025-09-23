@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_query::DummyQuery;
@@ -25,27 +25,18 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use std::marker::PhantomData;
 
-pub struct DummyWeight<LR> {
-    _phantom: PhantomData<LR>,
-}
+pub struct DummyWeight;
 
-impl<LR> SegmentCacheable for DummyWeight<LR>
-where
-    LR: LeafReader,
-{
-    type LeafReader = LR;
+impl SegmentCacheable for DummyWeight {
+    type LeafReader = DummyLeafReader;
 
     fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR> Weight for DummyWeight<LR>
-where
-    LR: LeafReader,
-{
+impl Weight for DummyWeight {
     type Matches = DummyMatches;
 
     fn matches(

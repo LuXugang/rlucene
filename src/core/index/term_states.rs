@@ -16,12 +16,12 @@
  */
 use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{Either2TermState, TermState};
-use crate::core::index::terms::{Terms, terms_util};
+use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -120,7 +120,7 @@ where
     /// Unlike [`register`](Self::register_with_stats), this method does **not** update term statistics.
     pub fn register(&mut self, state: TS, ord: usize) {
         debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
-        // for clone
+        // wrap with Arc for clone
         self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)));
     }
     /// Expert: Accumulate term statistics.
@@ -196,7 +196,7 @@ where
     ) -> Result<Option<Arc<EitherEmptyTermState<TS>>>>
     where
         LR: LeafReader,
-        <LR::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
+        <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
     {
         match state {
             PrepareState::Ready(ord) => Ok(self.states[ord].clone()),
@@ -305,7 +305,7 @@ pub fn build<IRC, S>(
     index_searcher: &IndexSearcher<IRC, S>,
     term: Arc<Term>,
     needs_stats: bool,
-) -> Result<TermStates<TermStateTerm<IRC::LeafReader>>>
+) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -324,14 +324,23 @@ where
         let mut pending_term_lookups = Vec::new();
 
         for ctx in context.leaves()? {
-            let terms = terms_util::get_terms(ctx.reader(), term.field())?;
-            let mut terms_enum = terms.iterator()?;
-            if terms_enum.prepare_seek_exact(term.bytes())?.is_some() {
-                let ord = ctx.ord;
-                if pending_term_lookups.len() <= ord {
-                    ArrayUtil::grow_with_len(&mut pending_term_lookups, ord + 1);
-                }
-                pending_term_lookups[ord] = Some(terms_enum);
+            // TODO: Important 这里跟Java Lucene 不同, 空的Term总是返回空的 为什么要加载Term呢
+            // let terms = terms_util::get_terms(ctx.reader(), term.field())?;
+            let terms = ctx.reader().terms(term.field())?;
+            match terms {
+                None => {
+                    continue;
+                },
+                Some(t) => {
+                    let mut terms_enum = t.iterator()?;
+                    if terms_enum.prepare_seek_exact(term.bytes())?.is_some() {
+                        let ord = ctx.ord;
+                        if pending_term_lookups.len() <= ord {
+                            ArrayUtil::grow_with_len(&mut pending_term_lookups, ord + 1);
+                        }
+                        pending_term_lookups[ord] = Some(terms_enum);
+                    }
+                },
             }
         }
 
@@ -348,6 +357,5 @@ where
             }
         }
     }
-
     Ok(per_reader_term_state)
 }

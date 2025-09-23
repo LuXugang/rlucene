@@ -16,7 +16,6 @@
  */
 use crate::core::index::dummy::dummy_index_reader_context::DummyIndexReaderContext;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -32,18 +31,17 @@ use std::hash::{Hash, Hasher};
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn as_string(&self, field: &str) -> String;
-    type Weight<S, LR>: Weight
+    type Weight<S>: Weight
     where
-        S: Similarity,
-        LR: LeafReader;
-    fn crate_weight<IRC, S>(
+        S: Similarity;
+    type IndexReaderContext: IndexReaderContext;
+    fn crate_weight<S>(
         self,
-        _search: &IndexSearcher<IRC, S>,
+        _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S, IRC::LeafReader>>
+    ) -> Result<Self::Weight<S>>
     where
-        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -124,21 +122,21 @@ impl Query for QueryEnum {
         }
     }
 
-    type Weight<S, LR>
-        = DummyWeight<LR>
+    type Weight<S>
+        = DummyWeight
     where
-        S: Similarity,
-        LR: LeafReader;
+        S: Similarity;
+    type IndexReaderContext = DummyIndexReaderContext;
 
-    fn crate_weight<IRC, S>(
+    fn crate_weight<S>(
         self,
-        _search: &IndexSearcher<IRC, S>,
+        _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S, IRC::LeafReader>>
+    ) -> Result<Self::Weight<S>>
     where
-        IRC: IndexReaderContext,
         S: Similarity,
+        Self: Sized,
     {
         todo!()
     }
