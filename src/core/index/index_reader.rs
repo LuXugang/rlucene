@@ -16,7 +16,8 @@
  */
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
-pub trait IndexReader {
+use std::fmt::{Display, Formatter};
+pub trait IndexReader: Display {
     fn max_doc(&self) -> Result<i32>;
 
     fn num_docs(&self) -> Result<i32>;
@@ -79,6 +80,13 @@ pub trait IndexReader {
 }
 
 pub enum IndexReaderEnum {}
+
+impl Display for IndexReaderEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 impl IndexReader for IndexReaderEnum {
     fn max_doc(&self) -> Result<i32> {
         todo!()

@@ -42,6 +42,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, Either2Bits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// IndexReader implementation over a single segment.
@@ -298,6 +299,16 @@ pub type DocValuesProducers<D> = Either2DocValuesProducer<
     SegmentDocValuesProducer<D>,
     Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
 >;
+
+impl<D> Display for SegmentReader<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // TODO
+        write!(f, "SegmentReader({})", self.info_id)
+    }
+}
 
 impl<D> IndexReader for SegmentReader<D>
 where

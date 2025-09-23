@@ -48,9 +48,9 @@ impl<TS> TermStates<TS>
 where
     TS: TermState,
 {
-    pub fn new<IRC, LR>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
+    pub fn new<IRC>(term: Option<Arc<Term>>, context: &IRC) -> Result<Self>
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
     {
         debug_assert!(context.base().is_top_level);
         let mut states = Vec::new();
@@ -67,19 +67,19 @@ where
         })
     }
 
-    pub fn new_empty<IRC, LR>(context: &IRC) -> Result<Self>
+    pub fn new_empty<IRC>(context: &IRC) -> Result<Self>
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
     {
         Self::new(None, context)
     }
-    pub fn was_built_for<IRC, LR>(&self, context: &IRC) -> bool
+    pub fn was_built_for<IRC>(&self, context: &IRC) -> bool
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
     {
         Arc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
     }
-    pub fn with_state_and_stats<IRC, LR>(
+    pub fn with_state_and_stats<IRC>(
         context: &IRC,
         state: TS,
         ord: usize,
@@ -87,7 +87,7 @@ where
         total_term_freq: i64,
     ) -> Result<Self>
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
     {
         let mut ts = TermStates::new_empty(context)?;
         ts.register_with_stats(state, ord, doc_freq, total_term_freq);
@@ -304,14 +304,13 @@ where
 
 pub type TermStateTerm<T> =
     Either2TermState<LeafReaderTermState<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC, LR, S>(
-    index_searcher: &IndexSearcher<IRC, LR, S>,
+pub fn build<IRC, S>(
+    index_searcher: &IndexSearcher<IRC, S>,
     term: Arc<Term>,
     needs_stats: bool,
-) -> Result<TermStates<TermStateTerm<LR>>>
+) -> Result<TermStates<TermStateTerm<IRC::LeafReader>>>
 where
-    IRC: IndexReaderContext<LR>,
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     S: Similarity,
 {
     let context = index_searcher.get_top_reader_context();

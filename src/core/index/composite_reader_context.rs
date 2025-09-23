@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 
-pub struct CompositeReaderContext<LR> {
+pub struct CompositeReaderContext<LR>
+where
+    LR: LeafReader,
+{
     leaves: Option<Vec<LeafReaderContext<LR>>>,
 }

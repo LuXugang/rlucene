@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -25,21 +23,18 @@ use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct IndexSearcher<IRC, LR, S>
+pub struct IndexSearcher<IRC, S>
 where
-    IRC: IndexReaderContext<LR>,
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     S: Similarity,
 {
     reader_context: IRC,
-    leaf_contexts: Vec<LeafReaderContext<LR>>,
     similarity: Rc<S>,
 }
 
-impl<IRC, LR, S> IndexSearcher<IRC, LR, S>
+impl<IRC, S> IndexSearcher<IRC, S>
 where
-    IRC: IndexReaderContext<LR>,
-    LR: LeafReader,
+    IRC: IndexReaderContext,
     S: Similarity,
 {
     pub fn stored_fields(&self) {}

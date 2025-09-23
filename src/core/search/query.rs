@@ -36,15 +36,14 @@ pub trait Query: Eq + Hash + Display + Debug {
     where
         S: Similarity,
         LR: LeafReader;
-    fn crate_weight<IRC, LR, S>(
+    fn crate_weight<IRC, S>(
         self,
-        _search: &IndexSearcher<IRC, LR, S>,
+        _search: &IndexSearcher<IRC, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S, LR>>
+    ) -> Result<Self::Weight<S, IRC::LeafReader>>
     where
-        IRC: IndexReaderContext<LR>,
-        LR: LeafReader,
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -54,13 +53,9 @@ pub trait Query: Eq + Hash + Display + Debug {
         )))
     }
     type Query: Query;
-    fn rewrite<IRC, LR, S>(
-        &self,
-        _searcher: &IndexSearcher<IRC, LR, S>,
-    ) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, S>(&self, _searcher: &IndexSearcher<IRC, S>) -> Result<Option<Self::Query>>
     where
-        IRC: IndexReaderContext<LR>,
-        LR: LeafReader,
+        IRC: IndexReaderContext,
         S: Similarity,
     {
         Ok(None)
@@ -135,15 +130,14 @@ impl Query for QueryEnum {
         S: Similarity,
         LR: LeafReader;
 
-    fn crate_weight<IRC, LR, S>(
+    fn crate_weight<IRC, S>(
         self,
-        _search: &IndexSearcher<IRC, LR, S>,
+        _search: &IndexSearcher<IRC, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S, LR>>
+    ) -> Result<Self::Weight<S, IRC::LeafReader>>
     where
-        IRC: IndexReaderContext<LR>,
-        LR: LeafReader,
+        IRC: IndexReaderContext,
         S: Similarity,
     {
         todo!()
@@ -151,13 +145,9 @@ impl Query for QueryEnum {
 
     type Query = DummyQuery;
 
-    fn rewrite<IRC, LR, S>(
-        &self,
-        _searcher: &IndexSearcher<IRC, LR, S>,
-    ) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, S>(&self, _searcher: &IndexSearcher<IRC, S>) -> Result<Option<Self::Query>>
     where
-        IRC: IndexReaderContext<LR>,
-        LR: LeafReader,
+        IRC: IndexReaderContext,
         S: Similarity,
     {
         todo!()

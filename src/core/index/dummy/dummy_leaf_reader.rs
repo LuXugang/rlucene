@@ -27,9 +27,16 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 pub struct DummyLeafReader;
+
+impl Display for DummyLeafReader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
 
 impl IndexReader for DummyLeafReader {
     fn max_doc(&self) -> Result<i32> {

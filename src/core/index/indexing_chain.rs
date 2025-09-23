@@ -1960,6 +1960,15 @@ where
     }
 }
 
+impl<D> Display for DocValuesLeafReaderImpl1<'_, D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
 impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
 where
     D: Directory,
@@ -2193,6 +2202,15 @@ where
             base,
             sort_field,
         }
+    }
+}
+
+impl<SFB> Display for DocValuesLeafReaderImpl2<'_, SFB>
+where
+    SFB: SortFiledBase,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

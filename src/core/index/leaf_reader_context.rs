@@ -23,7 +23,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
-pub struct LeafReaderContext<LR> {
+pub struct LeafReaderContext<LR>
+where
+    LR: LeafReader,
+{
     /// The reader's ord in the top-level's leaves array
     pub(crate) ord: usize,
     /// The reader's absolute doc base
@@ -57,7 +60,7 @@ where
 }
 impl<LR> IndexReaderContextSealed for LeafReaderContext<LR> where LR: LeafReader {}
 
-impl<LR> IndexReaderContext<LR> for LeafReaderContext<LR>
+impl<LR> IndexReaderContext for LeafReaderContext<LR>
 where
     LR: LeafReader,
 {
@@ -67,7 +70,9 @@ where
         &self.reader
     }
 
-    fn leaves(&self) -> Result<&[LeafReaderContext<LR>]> {
+    type LeafReader = LR;
+
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::IndexReader>]> {
         if !self.base.is_top_level {
             return Err(LuceneError::unsupported_operation(
                 "This is not a top-level context".to_string(),
@@ -76,21 +81,21 @@ where
         Ok(std::slice::from_ref(self))
     }
 
-    fn children(&self) -> Option<&[IndexReaderContextEnum<LR>]> {
+    fn children(&self) -> Option<&[IndexReaderContextEnum<Self::IndexReader>]> {
         None
     }
 
-    fn base(&self) -> &IndexReaderContextBase<LR> {
+    fn base(&self) -> &IndexReaderContextBase<Self::IndexReader> {
         &self.base
     }
 
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase<LR> {
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase<Self::IndexReader> {
         &mut self.base
     }
 }
 impl<LR> fmt::Display for LeafReaderContext<LR>
 where
-    LR: fmt::Display,
+    LR: LeafReader,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

@@ -144,15 +144,14 @@ where
         S: Similarity,
         LR: LeafReader;
 
-    fn crate_weight<IRC, LR, S>(
+    fn crate_weight<IRC, S>(
         mut self,
-        search: &IndexSearcher<IRC, LR, S>,
+        search: &IndexSearcher<IRC, S>,
         score_mod: &ScoreMode,
         boost: f32,
-    ) -> Result<Self::Weight<S, LR>>
+    ) -> Result<Self::Weight<S, IRC::LeafReader>>
     where
-        IRC: IndexReaderContext<LR>,
-        LR: LeafReader,
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -164,7 +163,7 @@ where
                 .unwrap()
                 .was_built_for(context)
         {
-            TermStatesENum::<TS, LR>::A(build(search, self.term.clone(), score_mod.needs_scores())?)
+            TermStatesENum::A(build(search, self.term.clone(), score_mod.needs_scores())?)
         } else {
             TermStatesENum::B(self.per_reader_term_state.take().unwrap())
         };
@@ -209,14 +208,14 @@ where
     LR: LeafReader,
 {
     pub fn new<IRC>(
-        searcher: &IndexSearcher<IRC, LR, S>,
+        searcher: &IndexSearcher<IRC, S>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: Option<TermStatesENum<TS, LR>>,
         query: Rc<TermQuery<TS>>,
     ) -> Result<Self>
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
         LR: LeafReader,
     {
         if score_mode.needs_scores() && term_states.is_none() {
@@ -505,7 +504,7 @@ where
     }
     pub fn was_built_for<IRC>(&self, ctx: &IRC) -> bool
     where
-        IRC: IndexReaderContext<LR>,
+        IRC: IndexReaderContext,
         LR: LeafReader,
     {
         match self {
