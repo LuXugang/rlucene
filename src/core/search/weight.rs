@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
@@ -292,4 +293,109 @@ where
     fn cost(&mut self) -> Result<i64> {
         self.scorer.as_mut().unwrap().iterator().cost()
     }
+}
+/// Specialized method to bulk-score all hits;
+/// we separate this from scoreRange to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
+fn score_all<C, S, B>(collector: &mut C, scorer: &mut S, accept_docs: Option<&B>) -> Result<()>
+where
+    C: LeafCollector,
+    S: Scorer,
+    B: Bits,
+{
+    if let Some(mut two_phase) = scorer.two_phase_iterator() {
+        loop {
+            let doc = {
+                let iter = two_phase.approximation_mut();
+                iter.next_doc()?
+            };
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            if accept_docs.is_none_or(|a| a.get(doc)) && two_phase.matches()? {
+                collector.collect(doc)?;
+            }
+        }
+    } else {
+        let mut iter = scorer.iterator();
+        loop {
+            let doc = iter.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            if accept_docs.is_none_or(|a| a.get(doc)) {
+                collector.collect(doc)?;
+            }
+        }
+    }
+    Ok(())
+}
+/// Specialized method to bulk-score a range of hits;
+/// we separate this from scoreAll to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
+fn score_range<C, S, B, DISI>(
+    collector: &mut C,
+    scorer: &mut S,
+    mut competitive_iterator: Option<&mut DISI>,
+    accept_docs: Option<&B>,
+    mut min: i32,
+    max: i32,
+) -> Result<i32>
+where
+    C: LeafCollector,
+    S: Scorer,
+    B: Bits,
+    DISI: DocIdSetIterator,
+{
+    if let Some(competitive_iterator) = competitive_iterator.as_mut()
+        && competitive_iterator.doc_id() > min
+    {
+        // The competitive iterator may not match any docs in the range.
+        min = competitive_iterator.doc_id().min(max);
+    }
+
+    let mut doc = {
+        let d = scorer.iterator().doc_id();
+        if d < min {
+            if d == min - 1 {
+                scorer.iterator().next_doc()?
+            } else {
+                scorer.iterator().advance(min)?
+            }
+        } else {
+            d
+        }
+    };
+
+    let has_two_phase = { scorer.two_phase_iterator().is_some() };
+    if !has_two_phase && competitive_iterator.is_none() {
+        // Optimize simple iterators with collectors that can't skip
+        let mut iterator = scorer.iterator();
+        while doc < max {
+            if accept_docs.is_none_or(|a| a.get(doc)) {
+                collector.collect(doc)?;
+            }
+            doc = iterator.next_doc()?;
+        }
+    } else {
+        while doc < max {
+            if let Some(competitive_iterator) = competitive_iterator.as_mut() {
+                debug_assert!(competitive_iterator.doc_id() <= doc);
+                if competitive_iterator.doc_id() < doc {
+                    competitive_iterator.advance(doc)?;
+                }
+                if competitive_iterator.doc_id() != doc {
+                    doc = scorer.iterator().advance(competitive_iterator.doc_id())?;
+                    continue;
+                }
+            }
+
+            if accept_docs.is_none_or(|a| a.get(doc))
+                && (!has_two_phase || scorer.two_phase_iterator().as_mut().unwrap().matches()?)
+            {
+                collector.collect(doc)?;
+            }
+
+            doc = scorer.iterator().next_doc()?;
+        }
+    }
+    Ok(doc)
 }
