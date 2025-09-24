@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -143,5 +145,39 @@ pub trait LeafFieldComparator {
     /// reached.
     fn set_hits_threshold_reached(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+pub enum LeafFieldComparatorEnum {}
+impl LeafFieldComparator for LeafFieldComparatorEnum {
+    fn set_bottom(&mut self, _slot: usize) -> Result<()> {
+        todo!()
+    }
+
+    fn compare_bottom(&self, _doc: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn compare_top(&self, _doc: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn copy(&mut self, _slot: usize, _doc: i32) -> Result<()> {
+        todo!()
+    }
+
+    type Scorable = DummyScorable;
+
+    fn set_scorer<S: Scorable>(&mut self, _scorer: Self::Scorable) -> Result<()> {
+        todo!()
+    }
+
+    type DocIdSetIterator = DummyDocIdSetIterator;
+
+    fn competitive_iterator(&self) -> Option<Self::DocIdSetIterator> {
+        todo!()
+    }
+
+    fn set_hits_threshold_reached(&mut self) -> Result<()> {
+        todo!()
     }
 }
