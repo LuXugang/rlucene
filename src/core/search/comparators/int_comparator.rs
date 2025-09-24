@@ -16,52 +16,58 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::comparators::numeric_comparator::{
+    NumericComparator, NumericComparatorBase,
+};
 use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
-/// Comparator that sorts by asc _doc
-pub struct DocComparator {
-    doc_ids: Vec<i32>,
-    // if skipping functionality should be enabled
-    enable_skipping: bool,
-    bottom: i32,
+use crate::core::util::numeric_utils::NumericUtils;
+
+/// Comparator based on i32 for numHits.
+/// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
+pub struct IntComparator {
+    values: Vec<i32>,
     top_value: i32,
-    top_value_set: bool,
-    bottom_value_set: bool,
-    hits_threshold_reached: bool,
+    bottom: i32,
+    missing_value: i32,
 }
 
-impl DocComparator {
-    /// Creates a new comparator based on document ids for `num_hits`.
-    pub fn new(num_hits: usize, reverse: bool, pruning: Pruning) -> Self {
-        // skipping functionality is enabled if we are sorting by _doc in asc order as a primary sort
-        let enable_skipping = !reverse && pruning != Pruning::None;
+impl IntComparator {
+    pub fn new(num_hits: usize, missing_value: i32) -> Self {
         Self {
-            doc_ids: vec![0; num_hits],
-            enable_skipping,
-            bottom: 0,
+            values: vec![0; num_hits],
             top_value: 0,
-            top_value_set: false,
-            bottom_value_set: false,
-            hits_threshold_reached: false,
+            bottom: 0,
+            missing_value,
         }
     }
 }
-impl FieldComparator for DocComparator {
-    type V = i32;
 
+impl NumericComparatorBase for IntComparator {
+    fn missing_value_as_comparable_long(&self) -> i64 {
+        self.missing_value as i64
+    }
+
+    fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64 {
+        NumericUtils::sortable_bytes_to_int(bytes, 0) as i64
+    }
+}
+
+impl FieldComparator for IntComparator {
+    type V = i32;
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.doc_ids[slot1 as usize] - self.doc_ids[slot2 as usize]
+        self.values[slot1 as usize].cmp(&self.values[slot2 as usize]) as i32
     }
 
     fn set_top_value(&mut self, value: Self::V) {
         self.top_value = value;
-        self.top_value_set = true;
     }
 
     fn value(&self, slot: i32) -> &Self::V {
-        &self.doc_ids[slot as usize]
+        &self.values[slot as usize]
     }
 
     type LeafFieldComparator = DummyLeafFieldComparator;

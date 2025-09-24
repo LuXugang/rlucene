@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod doc_comparator;
-mod numeric_comparator;
+pub mod doc_comparator;
+pub mod int_comparator;
+pub mod numeric_comparator;

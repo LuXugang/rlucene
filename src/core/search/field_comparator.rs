@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
+use crate::core::util::error::lucene_error::Result;
 
 /// Expert: a `FieldComparator` compares hits so as to determine their sort order when collecting the
 /// top results with [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector).
