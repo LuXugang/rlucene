@@ -14,29 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::util::error::lucene_error;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::leaf_field_comparator::LeafFieldComparator;
+use crate::core::search::scorable::Scorable;
+use crate::core::util::error::lucene_error::Result;
 
-pub struct DummyDISI;
-
-impl DocIdSetIterator for DummyDISI {
-    fn doc_id(&self) -> i32 {
+pub struct DummyLeafFieldComparator;
+impl LeafFieldComparator for DummyLeafFieldComparator {
+    fn set_bottom(&mut self, _slot: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn next_doc(&mut self) -> lucene_error::Result<i32> {
+    fn compare_bottom(&self, _doc: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn advance(&mut self, _target: i32) -> lucene_error::Result<i32> {
+    fn compare_top(&self, _doc: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn slow_advance(&mut self, _target: i32) -> lucene_error::Result<i32> {
+    fn copy(&mut self, _slot: usize, _doc: i32) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn cost(&self) -> lucene_error::Result<i64> {
+    type Scorable = DummyScorable;
+
+    fn set_scorer<S: Scorable>(&mut self, _scorer: Self::Scorable) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type DocIdSetIterator = DummyDISI;
+
+    fn competitive_iterator(&self) -> Option<Self::DocIdSetIterator> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn set_hits_threshold_reached(&mut self) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -66,7 +66,7 @@ pub trait FieldComparator {
     ///
     /// # Returns
     /// The value stored in this slot.
-    fn value(&self, slot: i32) -> Self::V;
+    fn value(&self, slot: i32) -> &Self::V;
 
     type LeafFieldComparator: LeafFieldComparator;
     /// Get a per-segment [`LeafFieldComparator`] to collect the given

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -116,6 +115,7 @@ pub trait LeafFieldComparator {
     /// Returns an error if an I/O error occurs.
     fn copy(&mut self, slot: usize, doc: i32) -> Result<()>;
 
+    type Scorable: Scorable;
     /// Sets the scorer to use in case a document's score is needed.
     ///
     /// # Arguments
@@ -124,16 +124,17 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S: Scorable>(&mut self, scorer: S) -> Result<()>;
+    fn set_scorer<S: Scorable>(&mut self, scorer: Self::Scorable) -> Result<()>;
 
+    type DocIdSetIterator: DocIdSetIterator;
     /// Returns a competitive iterator over documents stronger than already
     /// collected docs, or `None` if such an iterator is not available for
     /// the current comparator or segment.
     ///
     /// # Returns
     /// An iterator over competitive docs.
-    fn competitive_iterator(&self) -> Option<impl DocIdSetIterator> {
-        None::<DummyDISI>
+    fn competitive_iterator(&self) -> Option<Self::DocIdSetIterator> {
+        None
     }
 
     /// Informs this leaf comparator that the hit's threshold is reached.
