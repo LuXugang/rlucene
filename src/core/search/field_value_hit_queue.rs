@@ -14,5 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+use std::fmt;
 
 pub struct FieldValueHitQueue;
+
+pub struct Entry {
+    pub base: ScoreDoc,
+    pub slot: i32,
+}
+impl Entry {
+    pub fn new(slot: i32, doc: i32) -> Self {
+        let base = ScoreDoc::new(doc, f32::NAN);
+        Self { base, slot }
+    }
+}
+impl ScoreDocLike for Entry {
+    fn doc(&self) -> i32 {
+        self.base.doc
+    }
+
+    fn score(&self) -> f32 {
+        self.base.score
+    }
+
+    fn shard_index(&self) -> i32 {
+        self.base.shard_index
+    }
+}
+impl fmt::Display for Entry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "slot:{} {}", self.slot, self.base)
+    }
+}

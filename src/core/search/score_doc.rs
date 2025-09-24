@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+use std::fmt::Display;
 
 /// Holds one hit in [`TopDocs`](crate::core::search::top_docs::TopDocs).
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -46,6 +47,19 @@ impl ScoreDoc {
         }
     }
 }
+impl ScoreDocLike for ScoreDoc {
+    fn doc(&self) -> i32 {
+        self.doc
+    }
+
+    fn score(&self) -> f32 {
+        self.score
+    }
+
+    fn shard_index(&self) -> i32 {
+        self.shard_index
+    }
+}
 
 impl fmt::Display for ScoreDoc {
     /// A convenience method for debugging.
@@ -56,4 +70,9 @@ impl fmt::Display for ScoreDoc {
             self.doc, self.score, self.shard_index
         )
     }
+}
+pub trait ScoreDocLike: Display {
+    fn doc(&self) -> i32;
+    fn score(&self) -> f32;
+    fn shard_index(&self) -> i32;
 }

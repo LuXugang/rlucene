@@ -28,6 +28,7 @@ pub mod dummy;
 pub mod explanation;
 pub mod field_comparator;
 pub mod field_comparator_source;
+mod field_doc;
 pub mod field_value_hit_queue;
 mod impacts_disi;
 pub mod index_searcher;
