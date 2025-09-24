@@ -16,5 +16,6 @@
  */
 pub mod doc_comparator;
 mod double_comparator;
+mod float_comparator;
 pub mod int_comparator;
 pub mod numeric_comparator;
