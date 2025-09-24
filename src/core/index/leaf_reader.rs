@@ -186,3 +186,4 @@ pub type LRImpactsEnum<LR> =
 // PostingsEnum
 pub type LRPosting<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
+pub type LRNormNumericDocValues<LR> = <LR as LeafReader>::NormNumericDocValues;

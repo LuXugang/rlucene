@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 /// Different modes of search.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum ScoreMode {
     /// Produced scorers will allow visiting all matches and get their score.
     Complete,

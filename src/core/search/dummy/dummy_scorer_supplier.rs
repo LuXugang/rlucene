@@ -25,11 +25,11 @@ impl ScorerSupplier for DummyScorerSupplier {
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 
-    fn get(&self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn bulk_scorer(&self) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

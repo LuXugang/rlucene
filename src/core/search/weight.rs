@@ -66,7 +66,7 @@ pub trait Weight: SegmentCacheable {
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         let scorer_supplier = self.scorer_supplier(context)?;
-        let scorer_supplier = match scorer_supplier {
+        let mut scorer_supplier = match scorer_supplier {
             None => return Ok(None),
             Some(s) => s,
         };
@@ -133,7 +133,7 @@ pub trait Weight: SegmentCacheable {
         &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
-        let scorer_supplier = match self.scorer_supplier(context)? {
+        let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
             Some(s) => s,
         };

@@ -34,14 +34,14 @@ pub trait ScorerSupplier {
     ///   [`DocIdSetIterator::next_doc`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::next_doc), [`DocIdSetIterator::advance`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::advance), and
     ///   [`TwoPhaseIterator::matches`](crate::core::search::two_phase_iterator::TwoPhaseIterator::matches) will be called.
     ///   If in doubt, pass `i64::MAX`, which will produce a [`Scorer`] that has good iteration capabilities.
-    fn get(&self, lead_cost: i64) -> Result<Option<Self::Scorer>>;
+    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
     ///
     /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
     /// which iterates matches from the scorer. Some queries can have more efficient
     /// approaches for matching all hits.
-    fn bulk_scorer(&self) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
         let _scorer = self.get(i64::MAX)?;
         todo!()
     }
