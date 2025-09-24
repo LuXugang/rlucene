@@ -448,7 +448,7 @@ mod tests {
     fn test_zero_sized_queue() -> Result<()> {
         let mut random = random();
         let mut pq = PriorityQueue::new(0, I32Compare)?;
-        assert_eq!(1, pq.insert_with_overflow(1).unwrap().unwrap());
+        assert_eq!(1, pq.insert_with_overflow(1)?.unwrap());
         assert_eq!(0, pq.size());
 
         pq.add(1)?;
