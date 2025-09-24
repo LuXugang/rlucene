@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
@@ -24,6 +26,7 @@ use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Expert: Calculate query weights and build query scorers.
 ///
@@ -220,5 +223,73 @@ pub trait Weight: SegmentCacheable {
     }
     fn default_count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         Ok(-1)
+    }
+}
+
+pub struct DefaultBulkScorer<S>
+where
+    S: Scorer,
+{
+    scorer: S,
+}
+impl<S> DefaultBulkScorer<S>
+where
+    S: Scorer,
+{
+    pub fn new(scorer: S) -> Self {
+        Self { scorer }
+    }
+}
+impl<S> BulkScorer for DefaultBulkScorer<S>
+where
+    S: Scorer,
+{
+    fn score<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        min: i32,
+        max: i32,
+    ) -> Result<i32>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        todo!()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        self.scorer.iterator().cost()
+    }
+}
+pub struct DefaultScorerSupplier<S>
+where
+    S: Scorer,
+{
+    scorer: Option<S>,
+}
+impl<S> DefaultScorerSupplier<S>
+where
+    S: Scorer,
+{
+    pub fn new(scorer: S) -> Self {
+        Self {
+            scorer: Some(scorer),
+        }
+    }
+}
+impl<S> ScorerSupplier for DefaultScorerSupplier<S>
+where
+    S: Scorer,
+{
+    type Scorer = S;
+    type BulkScorer = DefaultBulkScorer<S>;
+
+    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+        Ok(self.scorer.take())
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        self.scorer.as_mut().unwrap().iterator().cost()
     }
 }

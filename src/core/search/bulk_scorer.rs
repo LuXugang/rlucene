@@ -65,5 +65,5 @@ pub trait BulkScorer {
         B: Bits;
 
     /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
-    fn cost(&mut self) -> i64;
+    fn cost(&mut self) -> Result<i64>;
 }
