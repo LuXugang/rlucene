@@ -18,7 +18,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
-use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::Result;
 
 pub(crate) const MIN_SKIP_INTERVAL: i32 = 32;

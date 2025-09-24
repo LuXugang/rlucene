@@ -1,0 +1,76 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::comparators::numeric_comparator::NumericComparatorBase;
+use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
+use crate::core::search::field_comparator::FieldComparator;
+use crate::core::util::numeric_utils::NumericUtils;
+/// Comparator based on partial_cmp for numHits.
+/// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
+pub struct LongComparator {
+    values: Vec<i64>,
+    top_value: i64,
+    bottom: i64,
+    missing_value: i64,
+}
+
+impl LongComparator {
+    pub fn new(num_hits: usize, missing_value: i64) -> Self {
+        Self {
+            values: vec![0; num_hits],
+            top_value: 0,
+            bottom: 0,
+            missing_value,
+        }
+    }
+}
+
+impl NumericComparatorBase for LongComparator {
+    fn missing_value_as_comparable_long(&self) -> i64 {
+        self.missing_value
+    }
+
+    fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64 {
+        NumericUtils::sortable_bytes_to_long(bytes, 0)
+    }
+}
+
+impl FieldComparator for LongComparator {
+    type V = i64;
+
+    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+        self.values[slot1 as usize].cmp(&self.values[slot2 as usize]) as i32
+    }
+
+    fn set_top_value(&mut self, value: Self::V) {
+        self.top_value = value;
+    }
+
+    fn value(&self, slot: i32) -> &Self::V {
+        &self.values[slot as usize]
+    }
+
+    type LeafFieldComparator = DummyLeafFieldComparator;
+
+    fn get_leaf_comparator<LR>(&self, _context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
+    where
+        LR: LeafReader,
+    {
+        todo!()
+    }
+}
