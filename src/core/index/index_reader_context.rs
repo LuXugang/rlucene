@@ -111,7 +111,6 @@ impl<LR> IndexReaderContext for IndexReaderContextEnum<LR>
 where
     LR: LeafReader,
 {
-    // TODO: 这里不对
     type IndexReader = LR;
 
     fn reader(&self) -> &Self::IndexReader {

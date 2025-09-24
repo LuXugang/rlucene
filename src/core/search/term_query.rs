@@ -101,7 +101,6 @@ where
     IRC: IndexReaderContext,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // TODO
         self.term.hash(state);
     }
 }
@@ -112,7 +111,7 @@ where
     IRC: IndexReaderContext,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        write!(f, "{}", self.as_string(""))
     }
 }
 
@@ -165,7 +164,7 @@ where
         } else {
             self.per_reader_term_state.take().unwrap()
         };
-        TermWeight::new(search, *score_mod, boost, Some(term_state), Rc::new(self))
+        TermWeight::new(search, *score_mod, boost, term_state, Rc::new(self))
     }
 
     type Query = TermQuery<IRC>;
@@ -193,7 +192,8 @@ where
     IRC: IndexReaderContext,
 {
     similarity: Rc<S>,
-    sim_scorer: Option<Rc<TermQuerySimScorer<S::SimScorer>>>,
+    sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
+    // wrap with Option to easily take it when needed
     term_states: Option<TermStates<IRCTermState<IRC>>>,
     score_mode: ScoreMode,
     parent_query: Rc<TermQuery<IRC>>,
@@ -207,29 +207,21 @@ where
         searcher: &IndexSearcher<I, S>,
         score_mode: ScoreMode,
         boost: f32,
-        term_states: Option<TermStates<IRCTermState<IRC>>>,
+        term_states: TermStates<IRCTermState<IRC>>,
         query: Rc<TermQuery<IRC>>,
     ) -> Result<Self>
     where
         I: IndexReaderContext,
     {
-        if score_mode.needs_scores() && term_states.is_none() {
-            return Err(LuceneError::illegal_argument(
-                "termStates are required when scores are needed",
-            ));
-        }
-
         let similarity = searcher.get_similarity();
 
-        // collectionStats 和 termStats
-        let ts = term_states.as_ref().unwrap();
         let (collection_stats, term_stats) = if score_mode.needs_scores() {
             let collection_stats = searcher.collection_statistics(query.term.field());
-            let term_stats = if ts.doc_freq()? > 0 {
+            let term_stats = if term_states.doc_freq()? > 0 {
                 Some(searcher.term_statistics(
                     query.term.clone(),
-                    ts.doc_freq()?,
-                    ts.total_term_freq()?,
+                    term_states.doc_freq()?,
+                    term_states.total_term_freq()?,
                 )?)
             } else {
                 None
@@ -248,13 +240,13 @@ where
         // See: https://github.com/apache/lucene/issues/12297
         let sim_scorer = if let Some(term_stats) = term_stats {
             if score_mode.needs_scores() {
-                Some(Rc::new(TermQuerySimScorer::A(similarity.scorer(
+                Some(TermQuerySimScorer::A(similarity.scorer(
                     boost,
                     &collection_stats,
                     &[term_stats],
-                ))))
+                )))
             } else {
-                Some(Rc::new(TermQuerySimScorer::B(SimScorerImpl)))
+                Some(TermQuerySimScorer::B(SimScorerImpl))
             }
         } else {
             None
@@ -263,7 +255,7 @@ where
         Ok(Self {
             similarity,
             sim_scorer,
-            term_states,
+            term_states: Some(term_states),
             score_mode,
             parent_query: query,
         })
@@ -400,7 +392,7 @@ where
     type Query = TermQuery<IRC>;
 
     fn get_query(&self) -> &Self::Query {
-        todo!()
+        self.parent_query.as_ref()
     }
 
     type ScorerSupplier = ScorerSupplierImpl<IRC, S>;
@@ -410,15 +402,34 @@ where
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         // TODO
-        // debug_assert!(self.term_states.is_none() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
+        // debug_assert!(self.term_states.is_some() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
         let state_supplier = self.term_states.as_mut().unwrap().get(context)?;
+        let term_enum = context
+            .reader()
+            .terms(self.parent_query.term.field())?
+            .as_mut()
+            .unwrap()
+            .iterator()?;
         match state_supplier {
             None => Ok(None),
-            Some(v) => {
-                todo!()
-            },
+            Some(v) => Ok(Some(ScorerSupplierImpl::new(
+                false,
+                self.term_states.take().unwrap(),
+                v,
+                self.parent_query.term.clone(),
+                self.sim_scorer.take(),
+                self.score_mode,
+                if self.score_mode.needs_scores() {
+                    context
+                        .reader()
+                        .get_norm_values(&self.parent_query.term.field)?
+                } else {
+                    None
+                },
+                term_enum,
+            ))),
         }
     }
 
@@ -441,39 +452,58 @@ where
     S: Similarity,
 {
     top_level_scoring_clause: bool,
-    term_states: Option<TermStates<IRCTermState<IRC>>>,
+    term_states: TermStates<IRCTermState<IRC>>,
+    // wrap with Option to easily take it when needed
     prepare_state: Option<PrepareState<IRC::LeafReader>>,
-    context: Rc<IRC::LeafReader>,
     term: Arc<Term>,
     sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
     score_mode: ScoreMode,
-    terms_enum: Option<LRTermsEnum<IRC::LeafReader>>,
+    terms_enum: LRTermsEnum<IRC::LeafReader>,
+    norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
+    init_terms_enum: bool,
 }
 impl<IRC, S> ScorerSupplierImpl<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        top_level_scoring_clause: bool,
+        term_states: TermStates<IRCTermState<IRC>>,
+        prepare_state: PrepareState<IRC::LeafReader>,
+        term: Arc<Term>,
+        sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
+        score_mode: ScoreMode,
+        norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
+        terms_enum: LRTermsEnum<IRC::LeafReader>,
+    ) -> Self {
+        debug_assert_eq!(score_mode.needs_scores(), norm.is_some());
+        Self {
+            top_level_scoring_clause,
+            term_states,
+            prepare_state: Some(prepare_state),
+            term,
+            sim_scorer,
+            score_mode,
+            terms_enum,
+            norm,
+            init_terms_enum: false,
+        }
+    }
+
     pub(crate) fn get_terms_enum(&mut self) -> Result<Option<()>> {
-        if self.terms_enum.is_none() {
+        if !self.init_terms_enum {
+            self.init_terms_enum = true;
             let state_opt = self
                 .term_states
-                .as_mut()
-                .unwrap()
                 .resolve(self.prepare_state.take().unwrap())?;
             match state_opt {
                 None => return Ok(None),
                 Some(s) => match s.as_ref() {
                     EitherEmptyTermState::A(s) => {
-                        let mut te = self
-                            .context
-                            .terms(self.term.field())?
-                            .ok_or_else(|| LuceneError::IllegalState("missing terms".into()))?
-                            .iterator()?;
-
-                        te.seek_exact_with_state(self.term.bytes(), s)?;
-
-                        self.terms_enum = Some(te);
+                        self.terms_enum
+                            .seek_exact_with_state(self.term.bytes(), s)?;
                     },
                     EitherEmptyTermState::B(_) => {
                         return Err(LuceneError::illegal_argument(
@@ -498,7 +528,7 @@ where
         match self.get_terms_enum()? {
             Some(_) => {
                 let norms = if self.score_mode.needs_scores() {
-                    self.context.get_norm_values(self.term.field())?
+                    self.norm.take()
                 } else {
                     None
                 };
@@ -510,7 +540,7 @@ where
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::new(
-                        self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
+                        self.terms_enum.impacts(FREQS as i32)?,
                         self.sim_scorer.take().unwrap(),
                         norms,
                         self.top_level_scoring_clause,
@@ -528,10 +558,7 @@ where
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::with_postings(
-                        self.terms_enum
-                            .as_mut()
-                            .unwrap()
-                            .postings_with_flags(None, flags as i32)?,
+                        self.terms_enum.postings_with_flags(None, flags as i32)?,
                         self.sim_scorer.take().unwrap(),
                         norms,
                     ))))
@@ -553,7 +580,7 @@ where
     fn cost(&mut self) -> Result<i64> {
         let result: Result<i32> = (|| match self.get_terms_enum()? {
             None => Ok(0),
-            Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),
+            Some(_) => Ok(self.terms_enum.doc_freq()?),
         })();
         match result {
             Ok(v) => Ok(v as i64),
