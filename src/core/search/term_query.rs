@@ -28,15 +28,17 @@ use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermSt
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::constant_score_scorer::ConstantScoreScorer;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
+use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Either2Scorer, Scorer};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -489,12 +491,7 @@ where
     IRC: IndexReaderContext,
     S: Similarity,
 {
-    type Scorer = TermScorer<
-        LRPosting<IRC::LeafReader>,
-        TermQuerySimScorer<S::SimScorer>,
-        LRNormNumericDocValues<IRC::LeafReader>,
-        LRImpactsEnum<IRC::LeafReader>,
-    >;
+    type Scorer = ScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DummyBulkScorer;
 
     fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
@@ -507,12 +504,17 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    Ok(Some(TermScorer::new(
+                    Ok(Some(ScorerEnum::<
+                        IRC::LeafReader,
+                        S::SimScorer,
+                        EmptyDISI,
+                        DummyTwoPhaseIterator,
+                    >::A(TermScorer::new(
                         self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
                         self.sim_scorer.take().unwrap(),
                         norms,
                         self.top_level_scoring_clause,
-                    )))
+                    ))))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
                         FREQS
@@ -520,24 +522,31 @@ where
                         NONE
                     };
 
-                    Ok(Some(TermScorer::with_postings(
+                    Ok(Some(ScorerEnum::<
+                        IRC::LeafReader,
+                        S::SimScorer,
+                        EmptyDISI,
+                        DummyTwoPhaseIterator,
+                    >::A(TermScorer::with_postings(
                         self.terms_enum
                             .as_mut()
                             .unwrap()
                             .postings_with_flags(None, flags as i32)?,
                         self.sim_scorer.take().unwrap(),
                         norms,
-                    )))
+                    ))))
                 }
             },
-            None => {
-                // Ok(Some(ScorerEnum::ConstantScore(ConstantScoreScorer::with_disi(
-                //     0.0,
-                //     *self.score_mode,
-                //     EmptyDISI::default(),
-                // ))));
-                Err(LuceneError::illegal_state(""))
-            },
+            None => Ok(Some(ScorerEnum::<
+                IRC::LeafReader,
+                S::SimScorer,
+                EmptyDISI,
+                DummyTwoPhaseIterator,
+            >::B(ConstantScoreScorer::with_disi(
+                0.0,
+                self.score_mode,
+                EmptyDISI::default(),
+            )))),
         }
     }
 
@@ -560,3 +569,13 @@ impl SimScorer for SimScorerImpl {
     }
 }
 pub(crate) type TermQuerySimScorer<S> = Either2SimScorer<S, SimScorerImpl>;
+
+pub type ScorerEnum<LR, SS, DISI, TPI> = Either2Scorer<
+    TermScorer<
+        LRPosting<LR>,
+        TermQuerySimScorer<SS>,
+        LRNormNumericDocValues<LR>,
+        LRImpactsEnum<LR>,
+    >,
+    ConstantScoreScorer<DISI, TPI>,
+>;

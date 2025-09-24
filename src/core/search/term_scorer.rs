@@ -18,6 +18,7 @@ use crate::core::index::impacts_enum::{Either2ImpactsEnum, ImpactsEnum};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
+use crate::core::search::constant_score_scorer::ConstantTPI;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator,
 };
@@ -219,7 +220,7 @@ where
     where
         Self: 'a;
 
-    type TwoPhaseIter = DummyTwoPhaseIterator;
+    type TwoPhaseIter = ConstantTPI<DummyTwoPhaseIterator>;
 
     fn doc_id(&mut self) -> Result<i32> {
         let mut postings = self.postings()?;
@@ -279,6 +280,10 @@ where
     //         }
     //     }
     // }
+
+    fn freq(&mut self) -> Result<i32> {
+        TermScorer::freq(self)
+    }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         match self.max_score_cache {

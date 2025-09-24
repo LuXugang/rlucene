@@ -18,6 +18,7 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, EitherEmpty, EmptyDISI,
 };
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -35,10 +36,9 @@ where
     score_mode: ScoreMode,
     disi: ConstantDISI_<DISI, TPI>,
 }
-impl<DISI, TPI> ConstantScoreScorer<DISI, TPI>
+impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
     DISI: DocIdSetIterator,
-    TPI: TwoPhaseIterator,
 {
     /// Constructor based on a [`DocIdSetIterator`] used to drive iteration. Two-phase
     /// iteration is not supported.
@@ -60,6 +60,12 @@ where
             disi: Either2DocIdSetIterator::A(approximation),
         }
     }
+}
+impl<DISI, TPI> ConstantScoreScorer<DISI, TPI>
+where
+    DISI: DocIdSetIterator,
+    TPI: TwoPhaseIterator,
+{
     /// Constructor based on a [`TwoPhaseIterator`]. In this case the [`Scorer`] will
     /// support two-phase iteration.
     ///
@@ -140,6 +146,10 @@ where
     //         ))),
     //     )
     // }
+
+    fn freq(&mut self) -> Result<i32> {
+        Ok(1)
+    }
 
     fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
         match self.disi {

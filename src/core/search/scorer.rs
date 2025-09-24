@@ -48,6 +48,9 @@ pub trait Scorer: Scorable {
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_>;
     // fn iterator_take(&mut self) -> Self::DocIdSetIterator;
 
+    /// Returns term frequency in the current document.
+    fn freq(&mut self) -> Result<i32>;
+
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
     /// A return value of `None` indicates that two-phase iteration is not supported.
@@ -215,6 +218,13 @@ where
         match self {
             Self::A(inner) => Either2DocIdSetIterator::A(inner.iterator()),
             Self::B(inner) => Either2DocIdSetIterator::B(inner.iterator()),
+        }
+    }
+
+    fn freq(&mut self) -> Result<i32> {
+        match self {
+            Self::A(inner) => inner.freq(),
+            Self::B(inner) => inner.freq(),
         }
     }
 

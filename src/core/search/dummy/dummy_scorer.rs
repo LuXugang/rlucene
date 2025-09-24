@@ -63,6 +63,10 @@ impl Scorer for DummyScorer {
     //     unreachable!("Dummy implementation: this method should never be called in real usage")
     // }
 
+    fn freq(&mut self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
