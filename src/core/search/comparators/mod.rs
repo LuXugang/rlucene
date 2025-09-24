@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 mod doc_comparator;
+mod numeric_comparator;
