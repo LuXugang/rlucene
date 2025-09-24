@@ -129,6 +129,10 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<TPI>;
+    type TwoPhaseIterRef<'a>
+        = &'a mut Self::TwoPhaseIter
+    where
+        Self: 'a;
 
     fn doc_id(&mut self) -> Result<i32> {
         Ok(self.disi.doc_id())
@@ -151,7 +155,7 @@ where
         Ok(1)
     }
 
-    fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
+    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         match self.disi {
             ConstantDISI_::A(_) => None,
             ConstantDISI_::B(ref mut v) => Some(&mut v.two_phase_iterator),

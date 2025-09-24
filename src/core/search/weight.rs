@@ -79,7 +79,7 @@ pub trait Weight: SegmentCacheable {
                 ));
             },
             Some(ref mut scorer) => {
-                if let Some(two_phase) = scorer.two_phase_iterator() {
+                if let Some(mut two_phase) = scorer.two_phase_iterator() {
                     if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
                         return Ok(None);
                     }

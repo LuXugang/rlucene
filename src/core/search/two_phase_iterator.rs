@@ -50,6 +50,37 @@ pub trait TwoPhaseIterator {
     fn match_cost(&self) -> f32;
 }
 
+impl<T> TwoPhaseIterator for &mut T
+where
+    T: TwoPhaseIterator + ?Sized,
+{
+    type DocIdSetIterator = T::DocIdSetIterator;
+
+    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator {
+        (**self).approximation_mut()
+    }
+
+    fn approximation(&self) -> &Self::DocIdSetIterator {
+        (**self).approximation()
+    }
+
+    fn take_approximation(&mut self) -> Self::DocIdSetIterator {
+        (**self).take_approximation()
+    }
+
+    fn set_empty(&mut self) {
+        (**self).set_empty()
+    }
+
+    fn matches(&mut self) -> Result<bool> {
+        (**self).matches()
+    }
+
+    fn match_cost(&self) -> f32 {
+        (**self).match_cost()
+    }
+}
+
 pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI>
 where
     TPI: TwoPhaseIterator,

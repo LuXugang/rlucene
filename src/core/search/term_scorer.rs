@@ -221,6 +221,10 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<DummyTwoPhaseIterator>;
+    type TwoPhaseIterRef<'a>
+        = &'a mut Self::TwoPhaseIter
+    where
+        Self: 'a;
 
     fn doc_id(&mut self) -> Result<i32> {
         let mut postings = self.postings()?;

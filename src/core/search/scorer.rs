@@ -17,7 +17,7 @@
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
 use crate::core::util::error::lucene_error::Result;
 
 /// Expert: Common scoring functionality for different types of queries.
@@ -33,6 +33,11 @@ pub trait Scorer: Scorable {
 
     /// Optional two-phase iterator type (return `None` if unsupported).
     type TwoPhaseIter: TwoPhaseIterator;
+    type TwoPhaseIterRef<'a>: TwoPhaseIterator<
+        DocIdSetIterator = <Self::TwoPhaseIter as TwoPhaseIterator>::DocIdSetIterator,
+    >
+    where
+        Self: 'a;
 
     /// Returns the doc ID that is currently being scored.
     fn doc_id(&mut self) -> Result<i32>;
@@ -60,7 +65,7 @@ pub trait Scorer: Scorable {
     /// the iterator and vice-versa.
     ///
     /// The default implementation returns `None`.
-    fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
+    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         None
     }
 
@@ -157,7 +162,7 @@ pub enum Either2Scorer<A, B> {
 impl<A, B> Scorable for Either2Scorer<A, B>
 where
     A: Scorer,
-    B: Scorer<TwoPhaseIter = A::TwoPhaseIter>,
+    B: Scorer,
 {
     fn score(&mut self) -> Result<f32> {
         match self {
@@ -197,7 +202,10 @@ where
 impl<A, B> Scorer for Either2Scorer<A, B>
 where
     A: Scorer,
-    B: Scorer<TwoPhaseIter = A::TwoPhaseIter>,
+    B: Scorer,
+    B::TwoPhaseIter: TwoPhaseIterator<
+        DocIdSetIterator = <A::TwoPhaseIter as TwoPhaseIterator>::DocIdSetIterator,
+    >,
 {
     type DocIdSetIterator = Either2DocIdSetIterator<A::DocIdSetIterator, B::DocIdSetIterator>;
     type DocIdSetIteratorRef<'a>
@@ -205,7 +213,11 @@ where
     where
         Self: 'a;
 
-    type TwoPhaseIter = A::TwoPhaseIter;
+    type TwoPhaseIter = Either2TwoPhaseIterator<A::TwoPhaseIter, B::TwoPhaseIter>;
+    type TwoPhaseIterRef<'a>
+        = Either2TwoPhaseIterator<A::TwoPhaseIterRef<'a>, B::TwoPhaseIterRef<'a>>
+    where
+        Self: 'a;
 
     fn doc_id(&mut self) -> Result<i32> {
         match self {
@@ -228,10 +240,10 @@ where
         }
     }
 
-    fn two_phase_iterator(&mut self) -> Option<&mut Self::TwoPhaseIter> {
+    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         match self {
-            Self::A(inner) => inner.two_phase_iterator(),
-            Self::B(inner) => inner.two_phase_iterator(),
+            Self::A(inner) => inner.two_phase_iterator().map(Either2TwoPhaseIterator::A),
+            Self::B(inner) => inner.two_phase_iterator().map(Either2TwoPhaseIterator::B),
         }
     }
 
