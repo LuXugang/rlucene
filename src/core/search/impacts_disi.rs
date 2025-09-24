@@ -78,7 +78,7 @@ where
         }
         let (mut impacts_source, max_score_cache) = {
             match self.in_ {
-                Either2DocIdSetIterator::A(ref mut t) => (None, &mut self.max_score_cache),
+                Either2DocIdSetIterator::A(_) => (None, &mut self.max_score_cache),
                 Either2DocIdSetIterator::B(ref mut s) => (Some(s), &mut self.max_score_cache),
             }
         };

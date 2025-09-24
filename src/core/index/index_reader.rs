@@ -82,7 +82,7 @@ pub trait IndexReader: Display {
 pub enum IndexReaderEnum {}
 
 impl Display for IndexReaderEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -120,23 +120,23 @@ impl IndexReader for IndexReaderEnum {
         todo!()
     }
 
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
+    fn doc_freq(&self, _term: &Term) -> Result<i32> {
         todo!()
     }
 
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
         todo!()
     }
 
-    fn sum_doc_freq(&self, field: &str) -> Result<i64> {
+    fn sum_doc_freq(&self, _field: &str) -> Result<i64> {
         todo!()
     }
 
-    fn doc_count(&self, field: &str) -> Result<i32> {
+    fn doc_count(&self, _field: &str) -> Result<i32> {
         todo!()
     }
 
-    fn sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    fn sum_total_term_freq(&self, _field: &str) -> Result<i64> {
         todo!()
     }
 }

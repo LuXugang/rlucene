@@ -198,7 +198,7 @@ where
                 }
 
                 segment_infos = sis;
-                let rollback_segments = segment_infos.create_backup_segment_infos();
+                let _rollback_segments = segment_infos.create_backup_segment_infos();
 
                 // Record that we have a change (zero out all segments) pending:
                 Self::changed(&mut change_count, &mut segment_infos);
