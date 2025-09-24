@@ -164,7 +164,7 @@ where
         } else {
             self.per_reader_term_state.take().unwrap()
         };
-        TermWeight::new(search, *score_mod, boost, term_state, Rc::new(self))
+        TermWeight::new(search, *score_mod, boost, term_state, self)
     }
 
     type Query = TermQuery<IRC>;
@@ -196,7 +196,7 @@ where
     // wrap with Option to easily take it when needed
     term_states: Option<TermStates<IRCTermState<IRC>>>,
     score_mode: ScoreMode,
-    parent_query: Rc<TermQuery<IRC>>,
+    parent_query: TermQuery<IRC>,
 }
 impl<S, IRC> TermWeight<S, IRC>
 where
@@ -208,7 +208,7 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
-        query: Rc<TermQuery<IRC>>,
+        query: TermQuery<IRC>,
     ) -> Result<Self>
     where
         I: IndexReaderContext,
@@ -392,10 +392,10 @@ where
     type Query = TermQuery<IRC>;
 
     fn get_query(&self) -> &Self::Query {
-        self.parent_query.as_ref()
+        &self.parent_query
     }
 
-    type ScorerSupplier = ScorerSupplierImpl<IRC, S>;
+    type ScorerSupplier = TermWeightScorerSupplier<IRC, S>;
 
     fn scorer_supplier(
         &mut self,
@@ -414,7 +414,7 @@ where
             .iterator()?;
         match state_supplier {
             None => Ok(None),
-            Some(v) => Ok(Some(ScorerSupplierImpl::new(
+            Some(v) => Ok(Some(TermWeightScorerSupplier::new(
                 false,
                 self.term_states.take().unwrap(),
                 v,
@@ -446,7 +446,7 @@ where
     }
 }
 
-pub struct ScorerSupplierImpl<IRC, S>
+pub struct TermWeightScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -462,7 +462,7 @@ where
     norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
     init_terms_enum: bool,
 }
-impl<IRC, S> ScorerSupplierImpl<IRC, S>
+impl<IRC, S> TermWeightScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -516,7 +516,7 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC, S> ScorerSupplier for ScorerSupplierImpl<IRC, S>
+impl<IRC, S> ScorerSupplier for TermWeightScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,

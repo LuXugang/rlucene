@@ -199,6 +199,7 @@ where
     }
 }
 
+// TODO: IMPORTANT 这里的约束条件需要调整
 impl<A, B> Scorer for Either2Scorer<A, B>
 where
     A: Scorer,
