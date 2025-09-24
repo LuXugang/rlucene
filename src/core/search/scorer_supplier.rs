@@ -16,6 +16,7 @@
  */
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
 ///
@@ -41,9 +42,16 @@ pub trait ScorerSupplier {
     /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
     /// which iterates matches from the scorer. Some queries can have more efficient
     /// approaches for matching all hits.
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        let _scorer = self.get(i64::MAX)?;
-        todo!()
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer>;
+    fn default_bulk_scorer(&mut self) -> Result<DefaultBulkScorer<Self::Scorer>> {
+        match self.get(i64::MAX)? {
+            None => Err(
+                crate::core::util::error::lucene_error::LuceneError::illegal_state(
+                    "ScorerSupplier returned None Scorer",
+                ),
+            ),
+            Some(scorer) => Ok(DefaultBulkScorer::new(scorer)),
+        }
     }
 
     /// Get an estimate of the [`Scorer`] that would be returned by [`ScorerSupplier::get`].

@@ -318,8 +318,12 @@ where
     type Scorer = S;
     type BulkScorer = DefaultBulkScorer<S>;
 
-    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
         Ok(self.scorer.take())
+    }
+
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+        self.default_bulk_scorer()
     }
 
     fn cost(&mut self) -> Result<i64> {

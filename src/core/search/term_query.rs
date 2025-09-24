@@ -30,7 +30,6 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
@@ -46,7 +45,7 @@ use crate::core::search::similarities_impl::similarities::{
 };
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
-use crate::core::search::weight::Weight;
+use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -301,7 +300,7 @@ where
                 terms_enum.seek_exact_with_state(self.parent_query.term.bytes(), s)?;
                 Ok(Some(terms_enum))
             },
-            EitherEmptyTermState::B(s) => Err(LuceneError::illegal_argument(
+            EitherEmptyTermState::B(_) => Err(LuceneError::illegal_argument(
                 "should never get empty term state here",
             )),
         }
@@ -522,7 +521,7 @@ where
     S: Similarity,
 {
     type Scorer = ScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
-    type BulkScorer = DummyBulkScorer;
+    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
     fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
         match self.get_terms_enum()? {
@@ -575,6 +574,10 @@ where
                 EmptyDISI::default(),
             )))),
         }
+    }
+
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+        self.default_bulk_scorer()
     }
 
     fn cost(&mut self) -> Result<i64> {

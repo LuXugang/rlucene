@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 /// on the same data.
 ///
 /// @lucene.internal
-pub(crate) struct MaxScoreCache<IS, SS>
+pub struct MaxScoreCache<IS, SS>
 where
     IS: ImpactsSource,
     SS: SimScorer,
