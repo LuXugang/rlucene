@@ -27,6 +27,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -39,7 +40,7 @@ where
     TS: TermState,
 {
     top_reader_context_identity: Arc<()>,
-    states: Vec<Option<Arc<EitherEmptyTermState<TS>>>>,
+    states: Mutex<Vec<Option<Arc<EitherEmptyTermState<TS>>>>>,
     term: Option<Arc<Term>>,
     doc_freq: i32,
     total_term_freq: i64,
@@ -62,7 +63,7 @@ where
             top_reader_context_identity: context.base().identity.clone(),
             doc_freq: 0,
             total_term_freq: 0,
-            states,
+            states: Mutex::new(states),
             term,
         })
     }
@@ -98,8 +99,7 @@ where
     pub fn clear(&mut self) {
         self.doc_freq = 0;
         self.total_term_freq = 0;
-
-        for slot in &mut self.states {
+        for slot in self.states.lock().iter_mut() {
             *slot = None;
         }
     }
@@ -119,9 +119,10 @@ where
     /// The leaf ordinal should be derived from an [`IndexReaderContext`]'s leaf ord.
     /// Unlike [`register`](Self::register_with_stats), this method does **not** update term statistics.
     pub fn register(&mut self, state: TS, ord: usize) {
-        debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
+        let mut states = self.states.lock();
+        debug_assert!(ord < states.len(), "ord {} out of bounds", ord);
         // wrap with Arc for clone
-        self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)));
+        states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)));
     }
     /// Expert: Accumulate term statistics.
     pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -149,32 +150,33 @@ where
     ///
     /// # Returns
     /// A [`PrepareState`] for a [`TermState`].
-    pub fn get<LR>(&mut self, ctx: &LeafReaderContext<LR>) -> Result<Option<PrepareState<LR>>>
+    pub fn get<LR>(&self, ctx: &LeafReaderContext<LR>) -> Result<Option<PrepareState<LR>>>
     where
         LR: LeafReader,
     {
         let ctx_ord = ctx.ord;
-        debug_assert!(ctx_ord < self.states.len());
+        let mut states = self.states.lock();
+        debug_assert!(ctx_ord < states.len());
 
         if self.term.is_none() {
-            return Ok(if self.states[ctx_ord].is_none() {
+            return Ok(if states[ctx_ord].is_none() {
                 None
             } else {
                 Some(PrepareState::Ready(ctx_ord))
             });
         }
 
-        if self.states[ctx_ord].is_none() {
+        if states[ctx_ord].is_none() {
             let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
             if terms_opt.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
+                states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
                 return Ok(None);
             }
 
             let mut te = terms_opt.unwrap().iterator()?;
             let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
             if io_boolean_supplier.is_none() {
-                self.states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
+                states[ctx_ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)));
                 return Ok(None);
             }
             return Ok(Some(PrepareState::Pending(
@@ -183,7 +185,7 @@ where
                 te,
             )));
         }
-        let state = self.states[ctx_ord].as_ref().unwrap();
+        let state = states[ctx_ord].as_ref().unwrap();
         if matches!(state.as_ref(), EitherEmptyTermState::B(_)) {
             Ok(None)
         } else {
@@ -191,26 +193,27 @@ where
         }
     }
     pub fn resolve<LR>(
-        &mut self,
+        &self,
         state: PrepareState<LR>,
     ) -> Result<Option<Arc<EitherEmptyTermState<TS>>>>
     where
         LR: LeafReader,
         <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
     {
+        let mut states = self.states.lock();
         match state {
-            PrepareState::Ready(ord) => Ok(self.states[ord].clone()),
+            PrepareState::Ready(ord) => Ok(states[ord].clone()),
 
             PrepareState::Pending(term, ord, mut te) => {
-                if self.states[ord - 1].as_ref().is_none() {
+                if states[ord - 1].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)))
+                        states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)))
                     } else {
-                        self.states[ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)))
+                        states[ord] = Some(Arc::new(EitherEmptyTermState::B(EmptyTermState)))
                     }
                 }
-                let state = self.states[ord].as_ref().unwrap();
+                let state = states[ord].as_ref().unwrap();
                 if matches!(state.as_ref(), EitherEmptyTermState::B(_)) {
                     Ok(None)
                 } else {
@@ -255,11 +258,17 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "TermStates")?;
-        for state in &self.states {
-            match state.as_ref() {
-                None => writeln!(f, "  null")?,
-                Some(s) => writeln!(f, "  {}", s)?,
-            }
+        let states = self.states.lock();
+        for (i, state) in states.iter().enumerate() {
+            writeln!(
+                f,
+                "  ord {}: {}",
+                i,
+                match state {
+                    None => "null".to_string(),
+                    Some(s) => format!("{}", s),
+                }
+            )?;
         }
         Ok(())
     }

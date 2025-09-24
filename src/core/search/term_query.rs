@@ -191,9 +191,8 @@ where
     IRC: IndexReaderContext,
 {
     similarity: Rc<S>,
-    sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
-    // wrap with Option to easily take it when needed
-    term_states: Option<TermStates<IRCTermState<IRC>>>,
+    sim_scorer: Option<Rc<TermQuerySimScorer<S::SimScorer>>>,
+    term_states: Rc<TermStates<IRCTermState<IRC>>>,
     score_mode: ScoreMode,
     parent_query: TermQuery<IRC>,
 }
@@ -239,13 +238,13 @@ where
         // See: https://github.com/apache/lucene/issues/12297
         let sim_scorer = if let Some(term_stats) = term_stats {
             if score_mode.needs_scores() {
-                Some(TermQuerySimScorer::A(similarity.scorer(
+                Some(Rc::new(TermQuerySimScorer::A(similarity.scorer(
                     boost,
                     &collection_stats,
                     &[term_stats],
-                )))
+                ))))
             } else {
-                Some(TermQuerySimScorer::B(SimScorerImpl))
+                Some(Rc::new(TermQuerySimScorer::B(SimScorerImpl)))
             }
         } else {
             None
@@ -254,29 +253,24 @@ where
         Ok(Self {
             similarity,
             sim_scorer,
-            term_states: Some(term_states),
+            term_states: Rc::new(term_states),
             score_mode,
             parent_query: query,
         })
     }
     fn get_terms_enum(
-        &mut self,
+        &self,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<LRTermsEnum<IRC::LeafReader>>> {
-        let term_states = self
-            .term_states
-            .as_mut()
-            .expect("term_states should not be None");
-
         // TODO:
         // debug_assert!(
         //     term_states.was_built_for(&context.get_top_level_context()),
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
-        let supplier = term_states.get(context)?;
+        let supplier = self.term_states.get(context)?;
 
         let state = match supplier {
-            Some(s) => term_states.resolve(s)?,
+            Some(s) => self.term_states.resolve(s)?,
             None => None,
         };
 
@@ -330,7 +324,7 @@ where
     type Matches = DummyMatches;
 
     fn matches(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<Self::LeafReader>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
@@ -338,7 +332,7 @@ where
     }
 
     fn explain(
-        &mut self,
+        &self,
         context: &LeafReaderContext<Self::LeafReader>,
         doc: i32,
     ) -> Result<Explanation> {
@@ -397,28 +391,29 @@ where
     type ScorerSupplier = TermWeightScorerSupplier<IRC, S>;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         // TODO
         // debug_assert!(self.term_states.is_some() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
-        let state_supplier = self.term_states.as_mut().unwrap().get(context)?;
+        let state_supplier = self.term_states.get(context)?;
         let term_enum = context
             .reader()
             .terms(self.parent_query.term.field())?
             .as_mut()
             .unwrap()
             .iterator()?;
+        debug_assert!(self.sim_scorer.is_some());
         match state_supplier {
             None => Ok(None),
             Some(v) => Ok(Some(TermWeightScorerSupplier::new(
                 false,
-                self.term_states.take().unwrap(),
+                self.term_states.clone(),
                 v,
                 self.parent_query.term.clone(),
-                self.sim_scorer.take(),
+                self.sim_scorer.clone().unwrap(),
                 self.score_mode,
                 if self.score_mode.needs_scores() {
                     context
@@ -432,7 +427,7 @@ where
         }
     }
 
-    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         if !context.reader().has_deletions()? {
             if let Some(mut terms_enum) = self.get_terms_enum(context)? {
                 terms_enum.doc_freq()
@@ -451,11 +446,11 @@ where
     S: Similarity,
 {
     top_level_scoring_clause: bool,
-    term_states: TermStates<IRCTermState<IRC>>,
+    term_states: Rc<TermStates<IRCTermState<IRC>>>,
     // wrap with Option to easily take it when needed
     prepare_state: Option<PrepareState<IRC::LeafReader>>,
     term: Arc<Term>,
-    sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
+    sim_scorer: Rc<TermQuerySimScorer<S::SimScorer>>,
     score_mode: ScoreMode,
     terms_enum: LRTermsEnum<IRC::LeafReader>,
     norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
@@ -469,10 +464,10 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         top_level_scoring_clause: bool,
-        term_states: TermStates<IRCTermState<IRC>>,
+        term_states: Rc<TermStates<IRCTermState<IRC>>>,
         prepare_state: PrepareState<IRC::LeafReader>,
         term: Arc<Term>,
-        sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
+        sim_scorer: Rc<TermQuerySimScorer<S::SimScorer>>,
         score_mode: ScoreMode,
         norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
         terms_enum: LRTermsEnum<IRC::LeafReader>,
@@ -540,7 +535,7 @@ where
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::new(
                         self.terms_enum.impacts(FREQS as i32)?,
-                        self.sim_scorer.take().unwrap(),
+                        self.sim_scorer.clone(),
                         norms,
                         self.top_level_scoring_clause,
                     ))))
@@ -558,7 +553,7 @@ where
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::with_postings(
                         self.terms_enum.postings_with_flags(None, flags as i32)?,
-                        self.sim_scorer.take().unwrap(),
+                        self.sim_scorer.clone(),
                         norms,
                     ))))
                 }
