@@ -16,11 +16,10 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::util::Comparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 pub(crate) const MIN_SKIP_INTERVAL: i32 = 32;
 pub(crate) const MAX_SKIP_INTERVAL: i32 = 8192;
@@ -108,7 +107,7 @@ where
         todo!()
     }
 
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
         self.sub.compare_values(first, second)
     }
 

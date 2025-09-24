@@ -19,42 +19,46 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::comparators::numeric_comparator::NumericComparatorBase;
 use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::field_comparator::FieldComparator;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
-
-/// Comparator based on i32 for numHits.
-/// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
-pub struct IntComparator {
-    values: Vec<i32>,
-    top_value: i32,
-    bottom: i32,
-    missing_value: i32,
+/// Comparator based on [`f64::partial_cmp`] (equivalent to Java's `Double.compare`) for `num_hits`.
+///
+/// This comparator provides a skipping functionality – an iterator that can skip over
+/// non-competitive documents.
+pub struct DoubleComparator {
+    values: Vec<f64>,
+    top_value: f64,
+    bottom: f64,
+    missing_value: f64,
 }
 
-impl IntComparator {
-    pub fn new(num_hits: usize, missing_value: i32) -> Self {
+impl DoubleComparator {
+    pub fn new(num_hits: usize, missing_value: f64) -> Self {
         Self {
-            values: vec![0; num_hits],
-            top_value: 0,
-            bottom: 0,
+            values: vec![0.0; num_hits],
+            top_value: 0.0,
+            bottom: 0.0,
             missing_value,
         }
     }
 }
 
-impl NumericComparatorBase for IntComparator {
+impl NumericComparatorBase for DoubleComparator {
     fn missing_value_as_comparable_long(&self) -> i64 {
-        self.missing_value as i64
+        NumericUtils::double_to_sortable_long(self.missing_value)
     }
 
     fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64 {
-        NumericUtils::sortable_bytes_to_int(bytes, 0) as i64
+        NumericUtils::sortable_bytes_to_long(bytes, 0)
     }
 }
 
-impl FieldComparator for IntComparator {
-    type V = i32;
+impl FieldComparator for DoubleComparator {
+    type V = f64;
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.values[slot1 as usize].cmp(&self.values[slot2 as usize]) as i32
+        self.values[slot1 as usize]
+            .partial_cmp(&self.values[slot2 as usize])
+            .unwrap_or(std::cmp::Ordering::Equal) as i32
     }
 
     fn set_top_value(&mut self, value: Self::V) {
@@ -72,5 +76,17 @@ impl FieldComparator for IntComparator {
         LR: LeafReader,
     {
         todo!()
+    }
+
+    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
+        if first.is_nan() && second.is_nan() {
+            Ok(0)
+        } else if first.is_nan() {
+            Ok(1)
+        } else if second.is_nan() {
+            Ok(-1)
+        } else {
+            Ok(0)
+        }
     }
 }

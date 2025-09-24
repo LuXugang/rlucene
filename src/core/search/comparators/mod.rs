@@ -15,5 +15,6 @@
  * limitations under the License.
  */
 pub mod doc_comparator;
+mod double_comparator;
 pub mod int_comparator;
 pub mod numeric_comparator;
