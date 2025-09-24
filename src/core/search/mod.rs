@@ -37,6 +37,7 @@ pub mod leaf_field_comparator;
 pub mod matches;
 pub mod matches_iterator;
 mod matches_utils;
+mod max_score_accumulator;
 mod max_score_cache;
 pub mod positive_scores_only_collector;
 pub mod pruning;
