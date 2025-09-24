@@ -40,6 +40,7 @@ where
     TS: TermState,
 {
     top_reader_context_identity: Arc<()>,
+    // TODO:IMPORTANT 也许只要在TermWeight中lock TermStates就可以了?
     states: Mutex<Vec<Option<Arc<EitherEmptyTermState<TS>>>>>,
     term: Option<Arc<Term>>,
     doc_freq: i32,

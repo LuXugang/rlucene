@@ -18,6 +18,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::weight::Weight;
 /// Expert: Collectors are primarily meant to be used to gather raw results from a search,
 /// and implement sorting or custom result filtering, collation, etc.
 ///
@@ -39,8 +40,8 @@ use crate::core::search::score_mode::ScoreMode;
 ///
 /// @lucene.experimental
 use crate::core::util::error::lucene_error::Result;
-use rand::distr::weighted::Weight;
 use std::rc::Rc;
+
 pub trait Collector {
     type LeafCollector: LeafCollector;
     /// Create a new [`LeafCollector`] to collect the given context.
@@ -59,6 +60,6 @@ pub trait Collector {
 
     type Weight: Weight;
     /// Set the [`Weight`] that will be used to produce scorers that will feed [`LeafCollector`]s.
-    /// This is typically useful to have access to [`Weight::count`](crate::core::search::weight::Weight::count) from [`Collector::get_leaf_collector`].
+    /// This is typically useful to have access to [`Weight::count`] from [`Collector::get_leaf_collector`].
     fn set_weight(&mut self, _weight: Rc<Self::Weight>) {}
 }
