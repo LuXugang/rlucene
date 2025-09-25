@@ -20,6 +20,7 @@ use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::point_values::{PointValues, PointValuesBase};
 use crate::core::index::postings_enum::{Either2PostingsEnum, FREQS};
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -163,6 +164,9 @@ pub trait LeafReader: IndexReader {
 
     type Bits: Bits;
     fn get_live_docs(&self) -> Result<Option<Self::Bits>>;
+
+    type PointValuesBase: PointValuesBase;
+    fn get_point_values(&self, field: &str) -> Result<Option<PointValues<Self::PointValuesBase>>>;
 
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))

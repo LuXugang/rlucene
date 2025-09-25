@@ -20,10 +20,12 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::point_values::PointValues;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -134,6 +136,13 @@ impl LeafReader for DocValuesLeafReader {
     fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
         Err(LuceneError::unsupported_operation(""))
     }
+
+    type PointValuesBase = DummyPointValuesBase;
+
+    fn get_point_values(&self, _field: &str) -> Result<Option<PointValues<Self::PointValuesBase>>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }

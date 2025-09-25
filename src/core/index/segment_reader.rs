@@ -21,7 +21,7 @@ use crate::core::codecs::fields_producer::FieldsProducerEnum;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
-use crate::core::codecs::points_reader::PointsReaderEnum;
+use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum};
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum;
 use crate::core::codecs::{Codec, get_default_code};
@@ -32,6 +32,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
+use crate::core::index::point_values::PointValues;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_core_readers::{CfsOrBaseInput, SegmentCoreReaders};
 use crate::core::index::segment_doc_values::SegmentDocValues;
@@ -367,26 +368,29 @@ where
         CodecReader::terms(self, field)
     }
 
-    type NumericDocValues = <DocValuesProducers<D> as DocValuesProducer>::NumericDocValues;
+    type NumericDocValues =
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::NumericDocValues;
 
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
         CodecReader::get_numeric_doc_values(self, field)
     }
 
-    type BinaryDocValues = <DocValuesProducers<D> as DocValuesProducer>::BinaryDocValues;
+    type BinaryDocValues =
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::BinaryDocValues;
 
     fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
         CodecReader::get_binary_doc_values(self, field)
     }
 
-    type SortedDocValues = <DocValuesProducers<D> as DocValuesProducer>::SortedDocValues;
+    type SortedDocValues =
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedDocValues;
 
     fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
         CodecReader::get_sorted_doc_values(self, field)
     }
 
     type SortedNumericDocValues =
-        <DocValuesProducers<D> as DocValuesProducer>::SortedNumericDocValues;
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedNumericDocValues;
 
     fn get_sorted_numeric_doc_values(
         &self,
@@ -395,20 +399,22 @@ where
         CodecReader::get_sorted_numeric_doc_values(self, field)
     }
 
-    type SortedSetDocValues = <DocValuesProducers<D> as DocValuesProducer>::SortedSetDocValues;
+    type SortedSetDocValues =
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedSetDocValues;
 
     fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         CodecReader::get_sorted_set_doc_values(self, field)
     }
 
     type NormNumericDocValues =
-        <NormsProducerEnum<CfsOrBaseInput<D>> as NormsProducer>::NumericDocValues;
+        <<Self as CodecReader>::NormsProducer as NormsProducer>::NumericDocValues;
 
     fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         CodecReader::get_norm_values(self, field)
     }
 
-    type DocValuesSkipper = <DocValuesProducers<D> as DocValuesProducer>::DocValuesSkipper;
+    type DocValuesSkipper =
+        <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::DocValuesSkipper;
 
     fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         CodecReader::get_doc_values_skipper(self, field)
@@ -432,6 +438,13 @@ where
             None => Ok(None),
         }
     }
+
+    type PointValuesBase = <<Self as CodecReader>::PointsReader as PointsReader>::PointValuesBase;
+
+    fn get_point_values(&self, field: &str) -> Result<Option<PointValues<Self::PointValuesBase>>> {
+        CodecReader::get_point_values(self, field)
+    }
+
     fn check_integrity(&self) -> Result<()> {
         CodecReader::default_check_integrity(self)?;
         if let Some(dv) = &self.core.cfs_reader {
