@@ -165,8 +165,8 @@ pub trait LeafReader: IndexReader {
     type Bits: Bits;
     fn get_live_docs(&self) -> Result<Option<Self::Bits>>;
 
-    type PointValuesType: PointValues;
-    fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValuesType>>;
+    type PointValues: PointValues;
+    fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>>;
 
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))

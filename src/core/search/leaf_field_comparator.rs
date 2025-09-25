@@ -135,7 +135,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Returns
     /// An iterator over competitive docs.
-    fn competitive_iterator(&self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
         None
     }
 
@@ -173,7 +173,7 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
 
     type DocIdSetIterator = DummyDocIdSetIterator;
 
-    fn competitive_iterator(&self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
         todo!()
     }
 

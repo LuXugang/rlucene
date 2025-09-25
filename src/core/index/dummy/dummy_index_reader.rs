@@ -154,9 +154,9 @@ impl LeafReader for DummyIndexReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type PointValuesType = DummyPointValuesBase;
+    type PointValues = DummyPointValuesBase;
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValuesType>> {
+    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

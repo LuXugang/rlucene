@@ -2177,9 +2177,9 @@ where
         self.base.get_live_docs()
     }
 
-    type PointValuesType = <DocValuesLeafReader as LeafReader>::PointValuesType;
+    type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValuesType>> {
+    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
         self.base.get_point_values(_field)
     }
 
@@ -2352,9 +2352,9 @@ where
         self.base.get_live_docs()
     }
 
-    type PointValuesType = <DocValuesLeafReader as LeafReader>::PointValuesType;
+    type PointValues = <DocValuesLeafReader as LeafReader>::PointValues;
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValuesType>> {
+    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
         self.base.get_point_values(_field)
     }
     fn check_integrity(&self) -> Result<()> {

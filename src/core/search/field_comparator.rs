@@ -86,7 +86,7 @@ pub trait FieldComparator {
     ///
     /// # Errors
     /// Returns an error if there is a low-level I/O problem.
-    fn get_leaf_comparator<LR>(&self, context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
+    fn get_leaf_comparator<LR>(self, context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
     where
         LR: LeafReader;
 

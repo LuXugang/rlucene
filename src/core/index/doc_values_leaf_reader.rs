@@ -136,9 +136,9 @@ impl LeafReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointValuesType = DummyPointValuesBase;
+    type PointValues = DummyPointValuesBase;
 
-    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValuesType>> {
+    fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 

@@ -67,7 +67,7 @@ impl FieldComparator for LongComparator {
 
     type LeafFieldComparator = DummyLeafFieldComparator;
 
-    fn get_leaf_comparator<LR>(&self, _context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
+    fn get_leaf_comparator<LR>(self, _context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
     where
         LR: LeafReader,
     {

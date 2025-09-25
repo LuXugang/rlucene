@@ -69,17 +69,6 @@ pub trait PointValues {
         Ok(count)
     }
 
-    /// Estimate if the point count that would be matched by `intersect`
-    /// with the given `IntersectVisitor` is greater than or equal to the
-    /// `upper_bound`.
-    fn is_estimated_point_count_greater_than_or_equal_to(
-        visitor: &impl IntersectVisitor,
-        point_tree: &mut impl PointTree,
-        upper_bound: i64,
-    ) -> Result<bool> {
-        Ok(estimate_point_count_with_point_tree(visitor, point_tree, upper_bound)? >= upper_bound)
-    }
-
     /// Estimate the number of documents that would be matched by `intersect`
     /// with the given `IntersectVisitor`. This should run many times faster
     /// than `intersect(IntersectVisitor)`.
@@ -113,7 +102,16 @@ pub trait PointValues {
         }
     }
 }
-
+/// Estimate if the point count that would be matched by `intersect`
+/// with the given `IntersectVisitor` is greater than or equal to the
+/// `upper_bound`.
+pub(crate) fn is_estimated_point_count_greater_than_or_equal_to(
+    visitor: &impl IntersectVisitor,
+    point_tree: &mut impl PointTree,
+    upper_bound: i64,
+) -> Result<bool> {
+    Ok(estimate_point_count_with_point_tree(visitor, point_tree, upper_bound)? >= upper_bound)
+}
 fn intersect_with_point_tree(
     visitor: &mut impl IntersectVisitor,
     point_tree: &mut impl PointTree,

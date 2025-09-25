@@ -438,9 +438,9 @@ where
         }
     }
 
-    type PointValuesType = <<Self as CodecReader>::PointsReader as PointsReader>::PointValuesType;
+    type PointValues = <<Self as CodecReader>::PointsReader as PointsReader>::PointValuesType;
 
-    fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
+    fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
         CodecReader::get_point_values(self, field)
     }
 
