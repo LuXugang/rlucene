@@ -86,7 +86,7 @@ where
             pruning,
         }
     }
-    fn set_top_value(&mut self, _value: V) {
+    pub(crate) fn set_top_value(&mut self, _value: V) {
         self.top_value_set = true;
     }
     fn set_single_sort(&mut self) {
@@ -97,10 +97,7 @@ where
         self.pruning = Pruning::None;
     }
 }
-pub trait NumericComparatorBase {
-    fn missing_value_as_comparable_long(&self) -> i64;
-    fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64;
-}
+
 pub struct NumericLeafComparator<LR, N, V, F, F1>
 where
     LR: LeafReader,

@@ -16,10 +16,11 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::comparators::numeric_comparator::NumericComparatorBase;
+use crate::core::search::comparators::numeric_comparator::NumericComparator;
 use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::field_comparator::FieldComparator;
-use crate::core::util::numeric_utils::NumericUtils;
+use crate::core::search::pruning::Pruning;
+use crate::core::util::bit_util::BitUtil;
 
 /// Comparator based on i32 for numHits.
 /// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
@@ -28,26 +29,33 @@ pub struct IntComparator {
     top_value: i32,
     bottom: i32,
     missing_value: i32,
+    base: NumericComparator<i32>,
 }
 
 impl IntComparator {
-    pub fn new(num_hits: usize, missing_value: i32) -> Self {
+    pub fn new(
+        field: String,
+        num_hits: usize,
+        missing_value: Option<i32>,
+        reverse: bool,
+        pruning: Pruning,
+    ) -> Self {
+        let missing_value = missing_value.unwrap_or(0);
+        let base = NumericComparator::new(
+            field,
+            missing_value,
+            reverse,
+            pruning,
+            BitUtil::INT_BYTES as i32,
+            missing_value as i64,
+        );
         Self {
             values: vec![0; num_hits],
             top_value: 0,
             bottom: 0,
             missing_value,
+            base,
         }
-    }
-}
-
-impl NumericComparatorBase for IntComparator {
-    fn missing_value_as_comparable_long(&self) -> i64 {
-        self.missing_value as i64
-    }
-
-    fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64 {
-        NumericUtils::sortable_bytes_to_int(bytes, 0) as i64
     }
 }
 
@@ -58,6 +66,7 @@ impl FieldComparator for IntComparator {
     }
 
     fn set_top_value(&mut self, value: Self::V) {
+        self.base.set_top_value(value);
         self.top_value = value;
     }
 
