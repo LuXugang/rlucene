@@ -16,6 +16,7 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::util::error::lucene_error::Result;
@@ -121,4 +122,45 @@ where
 pub trait NumericComparatorBase {
     fn missing_value_as_comparable_long(&self) -> i64;
     fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64;
+}
+
+pub struct CompetitiveIterator<D>
+where
+    D: DocIdSetIterator,
+{
+    competitive_iterator: D,
+    doc_id: i32,
+}
+impl<D> CompetitiveIterator<D>
+where
+    D: DocIdSetIterator,
+{
+    pub fn new(competitive_iterator: D) -> Self {
+        let doc_id = competitive_iterator.doc_id();
+        Self {
+            competitive_iterator,
+            doc_id,
+        }
+    }
+}
+impl<D> DocIdSetIterator for CompetitiveIterator<D>
+where
+    D: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.advance(self.doc_id + 1)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.doc_id = self.competitive_iterator.advance(target)?;
+        Ok(self.doc_id)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.competitive_iterator.cost()
+    }
 }
