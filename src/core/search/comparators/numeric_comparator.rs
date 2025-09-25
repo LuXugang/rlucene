@@ -16,9 +16,11 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::point_values::{IntersectVisitor, Relation};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
+use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::Result;
 
 pub(crate) const MIN_SKIP_INTERVAL: i32 = 32;
@@ -162,5 +164,81 @@ where
 
     fn cost(&self) -> Result<i64> {
         self.competitive_iterator.cost()
+    }
+}
+
+struct IntersectVisitorImpl<'a, T>
+where
+    T: NumericComparatorBase,
+{
+    result: DocIdSetBuilder,
+    max_doc_visited: i32,
+    min_value_as_long: i64,
+    max_value_as_long: i64,
+    sub_comparator: &'a T,
+}
+impl<'a, T> IntersectVisitorImpl<'a, T>
+where
+    T: NumericComparatorBase,
+{
+    fn new(
+        result: DocIdSetBuilder,
+        max_doc_visited: i32,
+        min_value_as_long: i64,
+        max_value_as_long: i64,
+        sub_comparator: &'a T,
+    ) -> Self {
+        Self {
+            result,
+            max_doc_visited,
+            min_value_as_long,
+            max_value_as_long,
+            sub_comparator,
+        }
+    }
+}
+impl<T> IntersectVisitor for IntersectVisitorImpl<'_, T>
+where
+    T: NumericComparatorBase,
+{
+    fn visit(&mut self, doc_id: i32) -> Result<()> {
+        if doc_id <= self.max_doc_visited {
+            return Ok(()); // Already visited or skipped
+        }
+        self.result.add_doc(doc_id);
+        Ok(())
+    }
+
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+        if doc_id <= self.max_doc_visited {
+            return Ok(()); // Already visited or skipped
+        }
+        let l = self.sub_comparator.sortable_bytes_to_long(packed_value);
+        if l >= self.min_value_as_long && l <= self.max_value_as_long {
+            self.result.add_doc(doc_id); // doc is competitive
+        }
+        Ok(())
+    }
+
+    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+        let min = self.sub_comparator.sortable_bytes_to_long(min_packed_value);
+        let max = self.sub_comparator.sortable_bytes_to_long(max_packed_value);
+
+        if min > self.max_value_as_long || max < self.min_value_as_long {
+            // 1. cmp ==0 and pruning==Pruning.GREATER_THAN_OR_EQUAL_TO : if the sort is
+            // ascending then maxValueAsLong is bottom's next less value, so it is competitive
+            // 2. cmp ==0 and pruning==Pruning.GREATER_THAN: maxValueAsLong equals to
+            // bottom, but there are multiple comparators, so it could be competitive
+            Ok(Relation::CellOutsideQuery)
+        } else if min < self.min_value_as_long || max > self.max_value_as_long {
+            Ok(Relation::CellCrossesQuery)
+        } else {
+            Ok(Relation::CellInsideQuery)
+        }
+    }
+
+    fn grow(&mut self, count: i32) -> Result<()> {
+        self.result.grow(count);
+        Ok(())
     }
 }

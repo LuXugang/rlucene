@@ -81,7 +81,7 @@ impl DocIdSetBuilder {
         let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
-            let _ = BitSet::or(self.bit_set.as_mut().unwrap(), iter);
+            BitSet::or(self.bit_set.as_mut().unwrap(), iter)?;
             return Ok(());
         }
         for _i in 0..cost {
