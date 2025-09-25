@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
 /// Allows access to the score of a query.
@@ -88,4 +89,13 @@ where
             relationship,
         }
     }
+}
+
+pub enum ScorerEnum<S, C>
+where
+    S: Scorer,
+    C: Scorable,
+{
+    Scorer(S),
+    Scorable(C),
 }

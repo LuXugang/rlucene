@@ -23,6 +23,7 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
+use crate::core::search::scorable::ScorerEnum;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -257,7 +258,7 @@ where
         max: i32,
     ) -> Result<i32>
     where
-        LC: LeafCollector<Scorer = S>,
+        LC: LeafCollector,
         B: Bits,
     {
         let has_two_phase = { self.scorer.as_mut().unwrap().two_phase_iterator().is_some() };
@@ -274,7 +275,9 @@ where
             self.scorer.as_mut().unwrap().iterator().doc_id()
         };
 
-        collector.set_scorer(self.scorer.take().unwrap())?;
+        collector.set_scorer(ScorerEnum::<S, S::Scorable>::Scorer(
+            self.scorer.take().unwrap(),
+        ))?;
 
         let has_competitive_iterator = collector.competitive_iterator()?.is_some();
 
