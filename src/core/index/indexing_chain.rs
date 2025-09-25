@@ -224,7 +224,7 @@ where
             return Ok(None);
         }
 
-        let mut doc_values_reader = DocValuesLeafReaderImpl1::new(self);
+        let doc_values_reader = DocValuesLeafReaderImpl1::new(self);
         let max_doc = segment_info.max_doc()?;
         let has_blocks = segment_info.get_has_blocks();
         let parent_field = state.field_infos.get_parent_field();
@@ -254,12 +254,12 @@ where
         }
         let mut comparators = Vec::new();
         for sort_field in &index_sort.as_ref().unwrap().fields {
-            let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+            let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
                 LuceneError::unsupported_operation(format!(
                     "Cannot sort index using sort field {sort_field}"
                 ))
             })?;
-            let doc_comparator = sorter.get_doc_comparator(&mut doc_values_reader, max_doc)?;
+            let doc_comparator = sorter.get_doc_comparator(&doc_values_reader, max_doc)?;
             let v = match &parent_bit_set {
                 Some(parent_bit_set) => Either2DocComparator::A(DocComparatorImpl::new(
                     parent_bit_set.clone(),
@@ -1105,14 +1105,14 @@ where
         dv_type: &DocValuesType,
     ) -> Result<()> {
         for sort_field in index_sort.get_sort() {
-            let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+            let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
                 LuceneError::illegal_state(format!(
                     "Cannot sort index with sort order {sort_field}"
                 ))
             })?;
-            let mut doc_values_leaf_reader =
+            let doc_values_leaf_reader =
                 DocValuesLeafReaderImpl2::new(field_to_validate, dv_type, sort_field);
-            sorter.get_doc_comparator(&mut doc_values_leaf_reader, 0)?;
+            sorter.get_doc_comparator(&doc_values_leaf_reader, 0)?;
         }
         Ok(())
     }

@@ -27,8 +27,8 @@ impl IndexSorter for DummyIndexSorter {
     type DocComparator = DummyDocComparator;
 
     fn get_doc_comparator<LR>(
-        &mut self,
-        _leaf_reader: &mut LR,
+        &self,
+        _leaf_reader: &LR,
         _max_doc: i32,
     ) -> crate::core::util::error::lucene_error::Result<Self::DocComparator>
     where

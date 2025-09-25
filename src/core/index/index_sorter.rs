@@ -27,11 +27,7 @@ pub trait IndexSorter {
     fn get_provider_name(&self) -> &str;
 
     type DocComparator: DocComparator;
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader;
 }
@@ -84,11 +80,7 @@ where
 
     type DocComparator = DocComparatorImplDouble;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -176,11 +168,7 @@ where
 
     type DocComparator = DocComparatorImplInt;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -269,11 +257,7 @@ where
 
     type DocComparator = DocComparatorImplLong;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -366,11 +350,7 @@ where
 
     type DocComparator = DocComparatorImplFloat;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -452,11 +432,7 @@ where
 
     type DocComparator = DocComparatorImplString;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -516,7 +492,7 @@ pub trait NumericDocValuesProvider {
     where
         LR: LeafReader;
     /// Returns the NumericDocValues instance for this LeafReader
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
     where
         LR: LeafReader;
 }
@@ -526,7 +502,7 @@ pub trait SortedDocValuesProvider {
     where
         LR: LeafReader;
     /// Returns the SortedDocValues instance for this LeafReader
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::SortedDocValues<LR>>
     where
         LR: LeafReader;
 }

@@ -143,11 +143,7 @@ impl IndexSorter for IndexSortEnum {
 
     type DocComparator = DocComparatorEnum;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {

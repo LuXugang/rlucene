@@ -208,7 +208,7 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     where
         LR: LeafReader;
 
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::SortedDocValues<LR>>
     where
         LR: LeafReader,
     {

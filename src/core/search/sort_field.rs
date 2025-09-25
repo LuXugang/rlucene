@@ -506,7 +506,7 @@ impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
         = Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>
     where
         LR: LeafReader;
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
     where
         LR: LeafReader,
     {
@@ -800,7 +800,7 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     where
         LR: LeafReader;
 
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::SortedDocValues<LR>>
     where
         LR: LeafReader,
     {
@@ -821,7 +821,7 @@ impl NumericDocValuesProvider for NumericDocValuesProviderImpl1 {
     where
         LR: LeafReader;
 
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
     where
         LR: LeafReader,
     {
@@ -848,11 +848,7 @@ impl IndexSorter for IndexSorterEnumSorter {
 
     type DocComparator = DocComparatorEnum;
 
-    fn get_doc_comparator<LR>(
-        &mut self,
-        leaf_reader: &mut LR,
-        max_doc: i32,
-    ) -> Result<Self::DocComparator>
+    fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {

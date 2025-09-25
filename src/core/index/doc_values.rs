@@ -136,7 +136,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
     pub fn get_numeric<LR>(
-        reader: &mut LR,
+        reader: &LR,
         field: &str,
     ) -> Result<Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>>
     where
@@ -161,7 +161,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
     pub fn get_binary<LR>(
-        reader: &mut LR,
+        reader: &LR,
         field: &str,
     ) -> Result<Either2BinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
     where
@@ -186,7 +186,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
     pub fn get_sorted<LR>(
-        reader: &mut LR,
+        reader: &LR,
         field: &str,
     ) -> Result<Either2SortedDocValues<LR::SortedDocValues, EmptySorted>>
     where
@@ -210,10 +210,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
-    pub fn get_sorted_numeric<LR>(
-        reader: &mut LR,
-        field: &str,
-    ) -> Result<SortedNumericDocValuesRet<LR>>
+    pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumericDocValuesRet<LR>>
     where
         LR: LeafReader,
     {
@@ -243,7 +240,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
-    pub fn get_sorted_set<LR>(reader: &mut LR, field: &str) -> Result<SortedSetRet<LR>>
+    pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSetRet<LR>>
     where
         LR: LeafReader,
     {

@@ -54,7 +54,6 @@ pub trait BulkScorer {
     /// # Returns
     ///
     /// An under-estimation of the next matching doc after `max`.
-
     fn score<LC, B>(
         &mut self,
         collector: &mut LC,
