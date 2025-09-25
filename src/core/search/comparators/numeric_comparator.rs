@@ -29,7 +29,8 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorer::Scorer;
 use crate::core::util::ToInt;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -474,10 +475,23 @@ where
         Ok(())
     }
 
-    type Scorable = NCB::Scorable;
-
-    fn set_scorer<S: Scorable>(&mut self, _scorer: Self::Scorable) -> Result<()> {
-        todo!()
+    fn set_scorer<S1, S2>(&mut self, mut scorer: ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        if self.iterator_cost == -1 {
+            match scorer {
+                ScorerEnum::Scorer(ref mut s) => {
+                    self.iterator_cost = s.iterator().cost()?;
+                },
+                ScorerEnum::Scorable(_) => {
+                    self.iterator_cost = self.max_doc as i64;
+                },
+            }
+            self.update_competitive_iterator()?;
+        }
+        Ok(())
     }
 
     type DocIdSetIterator = CompetitiveIterator<CompetitiveIteratorType<NCB::NumericDocValues>>;

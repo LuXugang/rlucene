@@ -16,8 +16,8 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
 /// Expert: comparator that gets instantiated on each leaf from a top-level
@@ -117,7 +117,6 @@ pub trait LeafFieldComparator {
     /// Returns an error if an I/O error occurs.
     fn copy(&mut self, slot: usize, doc: i32) -> Result<()>;
 
-    type Scorable: Scorable;
     /// Sets the scorer to use in case a document's score is needed.
     ///
     /// # Arguments
@@ -126,7 +125,10 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S: Scorable>(&mut self, scorer: Self::Scorable) -> Result<()>;
+    fn set_scorer<S1, S2>(&mut self, scorer: ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable;
 
     type DocIdSetIterator: DocIdSetIterator;
     /// Returns a competitive iterator over documents stronger than already
@@ -165,9 +167,11 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    type Scorable = DummyScorable;
-
-    fn set_scorer<S: Scorable>(&mut self, _scorer: Self::Scorable) -> Result<()> {
+    fn set_scorer<S1, S2>(&mut self, scorer: ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
         todo!()
     }
 

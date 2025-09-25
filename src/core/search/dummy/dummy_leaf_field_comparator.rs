@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyLeafFieldComparator;
@@ -38,9 +38,11 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Scorable = DummyScorable;
-
-    fn set_scorer<S: Scorable>(&mut self, _scorer: Self::Scorable) -> Result<()> {
+    fn set_scorer<S1, S2>(&mut self, scorer: ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
