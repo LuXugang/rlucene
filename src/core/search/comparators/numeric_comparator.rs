@@ -220,7 +220,7 @@ where
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         let min = self.sub_comparator.sortable_bytes_to_long(min_packed_value);
         let max = self.sub_comparator.sortable_bytes_to_long(max_packed_value);
 

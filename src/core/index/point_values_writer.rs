@@ -395,7 +395,7 @@ where
             .visit_with_packed_value(self.doc_map.old_to_new(doc_id), packed_value)
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         self.visitor.compare(min_packed_value, max_packed_value)
     }
 }

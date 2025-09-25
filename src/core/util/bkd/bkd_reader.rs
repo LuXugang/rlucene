@@ -1225,7 +1225,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Err(LuceneError::not_implemented(""))
     }
 }

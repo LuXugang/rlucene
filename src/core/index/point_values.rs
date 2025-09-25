@@ -62,7 +62,7 @@ pub trait PointValues {
     /// Estimate the number of points that would be visited by `intersect`
     /// with the given `IntersectVisitor`. This should run many times faster
     /// than `intersect(IntersectVisitor)`.
-    fn estimate_point_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
+    fn estimate_point_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
         let mut point_tree = self.get_point_tree()?;
         let count = estimate_point_count_with_point_tree(visitor, &mut point_tree, i64::MAX)?;
         debug_assert!(!point_tree.move_to_parent()?);
@@ -73,7 +73,7 @@ pub trait PointValues {
     /// with the given `IntersectVisitor` is greater than or equal to the
     /// `upper_bound`.
     fn is_estimated_point_count_greater_than_or_equal_to(
-        visitor: &mut impl IntersectVisitor,
+        visitor: &impl IntersectVisitor,
         point_tree: &mut impl PointTree,
         upper_bound: i64,
     ) -> Result<bool> {
@@ -85,7 +85,7 @@ pub trait PointValues {
     /// than `intersect(IntersectVisitor)`.
     ///
     /// See also: `DocIdSetIterator::cost`
-    fn estimate_doc_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
+    fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;
         let size = self.size()?;
@@ -155,7 +155,7 @@ fn intersect_with_point_tree(
 }
 
 fn estimate_point_count_with_point_tree(
-    visitor: &mut impl IntersectVisitor,
+    visitor: &impl IntersectVisitor,
     point_tree: &mut impl PointTree,
     upper_bound: i64,
 ) -> Result<i64> {
@@ -359,7 +359,7 @@ pub trait IntersectVisitor {
 
     /// Called for non-leaf cells to test how the cell relates to the query,
     /// to determine how to further recurse down the tree.
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation>;
+    fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation>;
 
     /// Notifies the caller that this many documents are about to be visited.
     fn grow(&mut self, _count: i32) -> Result<()> {

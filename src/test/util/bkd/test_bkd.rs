@@ -14,14 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use bit_set::BitSet;
-use num_bigint::{BigInt, Sign};
-use num_traits::Zero;
-use rand::{Rng, RngCore};
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
-
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
@@ -40,8 +32,18 @@ use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP}
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt};
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    at_least, new_directory, random, random_from_seed,
+};
 use crate::test::util::test_util::TestUtil;
+use bit_set::BitSet;
+use num_bigint::{BigInt, Sign};
+use num_traits::Zero;
+use rand::prelude::StdRng;
+use rand::{Rng, RngCore};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestBKD;
@@ -1165,7 +1167,7 @@ impl IntersectVisitor for IntersectVisitorMock1<'_> {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1301,7 +1303,7 @@ where
         Ok(())
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
+    fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
         let num_index_dims = self.config.num_index_dims as usize;
         let bytes_per_dim = self.config.bytes_per_dim as usize;
         let mut crosses = false;
@@ -1373,7 +1375,7 @@ impl IntersectVisitor for IntersectVisitorMock2 {
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1456,7 +1458,7 @@ impl IntersectVisitor for IntersectVisitorMock3 {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
@@ -1528,26 +1530,18 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     ))?;
     Ok(())
 }
-struct IntersectVisitorMock4<'a, R>
-where
-    R: Rng + ?Sized,
-{
+struct IntersectVisitorMock4<'a> {
     count: &'a mut [i32],
-    random: &'a mut R,
+    random: RefCell<StdRng>,
 }
 
-impl<'a, R> IntersectVisitorMock4<'a, R>
-where
-    R: Rng + ?Sized,
-{
-    fn new(count: &'a mut [i32], random: &'a mut R) -> Self {
+impl<'a> IntersectVisitorMock4<'a> {
+    fn new(count: &'a mut [i32], random: u64) -> Self {
+        let random = RefCell::new(random_from_seed(random));
         Self { count, random }
     }
 }
-impl<R> IntersectVisitor for IntersectVisitorMock4<'_, R>
-where
-    R: Rng + ?Sized,
-{
+impl IntersectVisitor for IntersectVisitorMock4<'_> {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
@@ -1557,8 +1551,8 @@ where
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
-        if self.random.random_range(0..7) == 1 {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+        if self.random.borrow_mut().random_range(0..7) == 1 {
             Ok(Relation::CellCrossesQuery)
         } else {
             Ok(Relation::CellInsideQuery)
@@ -1603,29 +1597,38 @@ fn test_2d_long_ords_offline() -> Result<()> {
     let point_values = sub_point_values;
 
     let mut count = [0];
-    let mut visitor = IntersectVisitorMock4 {
-        count: &mut count,
-        random: &mut random,
-    };
+    let mut visitor = IntersectVisitorMock4::new(&mut count, random.next_u64());
     point_values.intersect(&mut visitor)?;
     assert_eq!(count[0], num_docs);
 
     Ok(())
 }
-struct IntersectVisitorMock5<'a, R>
-where
-    R: Rng + ?Sized,
-{
+struct IntersectVisitorMock5<'a> {
     count: &'a mut [i32],
-    random: &'a mut R,
+    random: RefCell<StdRng>,
     num_index_dims: i32,
     bytes_per_dim: i32,
     num_dims: i32,
 }
-impl<R> IntersectVisitor for IntersectVisitorMock5<'_, R>
-where
-    R: Rng + ?Sized,
-{
+impl<'a> IntersectVisitorMock5<'a> {
+    fn new(
+        count: &'a mut [i32],
+        random: u64,
+        num_index_dims: i32,
+        bytes_per_dim: i32,
+        num_dims: i32,
+    ) -> Self {
+        let random = RefCell::new(random_from_seed(random));
+        Self {
+            count,
+            random,
+            num_index_dims,
+            bytes_per_dim,
+            num_dims,
+        }
+    }
+}
+impl IntersectVisitor for IntersectVisitorMock5<'_> {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
@@ -1639,7 +1642,7 @@ where
         self.visit(doc_id)
     }
 
-    fn compare(&mut self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
+    fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
         assert_eq!(
             min_packed.len(),
             (self.num_index_dims * self.bytes_per_dim) as usize
@@ -1648,7 +1651,7 @@ where
             max_packed.len(),
             (self.num_index_dims * self.bytes_per_dim) as usize
         );
-        if self.random.random_range(0..7) == 1 {
+        if self.random.borrow_mut().random_range(0..7) == 1 {
             Ok(Relation::CellCrossesQuery)
         } else {
             Ok(Relation::CellInsideQuery)
@@ -1703,13 +1706,13 @@ fn test_wasted_leading_bytes() -> Result<()> {
     let point_values = sub_point_values;
 
     let mut count = [0];
-    let mut visitor = IntersectVisitorMock5 {
-        count: &mut count,
-        random: &mut random,
+    let mut visitor = IntersectVisitorMock5::new(
+        &mut count,
+        random.next_u64(),
         num_index_dims,
         bytes_per_dim,
         num_dims,
-    };
+    );
     point_values.intersect(&mut visitor)?;
     assert_eq!(count[0], num_docs);
 
@@ -1725,7 +1728,7 @@ impl IntersectVisitor for IntersectVisitorMock6 {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellInsideQuery)
     }
 }
@@ -1739,7 +1742,7 @@ impl IntersectVisitor for IntersectVisitorMock7 {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellOutsideQuery)
     }
 }
@@ -1756,7 +1759,7 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
         Ok(())
     }
 
-    fn compare(&mut self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
         if self.unique_point_value[..self.num_bytes_per_dim as usize]
             .cmp(&max_packed_value[..self.num_bytes_per_dim as usize])
             .to_int()
@@ -1829,18 +1832,18 @@ fn test_estimate_point_count() -> Result<()> {
 
     // If all points match, then the point count is numValues
     assert_eq!(
-        point_values.estimate_point_count(&mut IntersectVisitorMock6)?,
+        point_values.estimate_point_count(&IntersectVisitorMock6)?,
         num_values as i64
     );
     // Return 0 if no points match
     assert_eq!(
-        point_values.estimate_point_count(&mut IntersectVisitorMock7)?,
+        point_values.estimate_point_count(&IntersectVisitorMock7)?,
         0
     );
     // If only one point matches, then the point count is
     // (actualMaxPointsInLeafNode + 1) / 2 in general, or maybe 2x that if
     // the point is a split value
-    let point_count = point_values.estimate_point_count(&mut IntersectVisitorMock8 {
+    let point_count = point_values.estimate_point_count(&IntersectVisitorMock8 {
         unique_point_value: &unique_point_value,
         num_bytes_per_dim,
     })?;

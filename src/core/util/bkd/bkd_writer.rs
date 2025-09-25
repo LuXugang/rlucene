@@ -2550,7 +2550,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         Ok(())
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 
@@ -2737,7 +2737,7 @@ where
         self.one_dim_writer.add(packed_value, doc_id)
     }
 
-    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }
