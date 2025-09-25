@@ -71,7 +71,7 @@ pub trait FieldComparator {
     /// The value stored in this slot.
     fn value(&self, slot: i32) -> &Self::V;
 
-    type LeafFieldComparator: LeafFieldComparator;
+    type LeafFieldComparator<LR>: LeafFieldComparator;
     /// Get a per-segment [`LeafFieldComparator`] to collect the given
     /// [`LeafReaderContext`].
     ///
@@ -86,7 +86,10 @@ pub trait FieldComparator {
     ///
     /// # Errors
     /// Returns an error if there is a low-level I/O problem.
-    fn get_leaf_comparator<LR>(self, context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
+    fn get_leaf_comparator<LR>(
+        self,
+        context: &LeafReaderContext<LR>,
+    ) -> Self::LeafFieldComparator<LR>
     where
         LR: LeafReader;
 

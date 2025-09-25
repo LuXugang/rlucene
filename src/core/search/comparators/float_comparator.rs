@@ -68,9 +68,12 @@ impl FieldComparator for FloatComparator {
         &self.values[slot as usize]
     }
 
-    type LeafFieldComparator = DummyLeafFieldComparator;
+    type LeafFieldComparator<LR> = DummyLeafFieldComparator;
 
-    fn get_leaf_comparator<LR>(self, _context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
+    fn get_leaf_comparator<LR>(
+        self,
+        _context: &LeafReaderContext<LR>,
+    ) -> Self::LeafFieldComparator<LR>
     where
         LR: LeafReader,
     {

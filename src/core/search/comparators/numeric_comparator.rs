@@ -26,8 +26,6 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{
     AllDocIdSetIterator, DocIdSetIterator, Either3DocIdSetIterator,
 };
-use crate::core::search::field_comparator::FieldComparator;
-use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
@@ -47,84 +45,50 @@ const MAX_SKIP_INTERVAL: i32 = 8192;
 ///
 /// You can pass a dummy value for a field name (e.g. when sorting by script),
 /// but in this case you must override both of these methods.
-pub struct NumericComparator<S>
+pub struct NumericComparator<V>
 where
-    S: NumericComparatorBase + FieldComparator + Default,
+    V: PartialOrd + Copy,
 {
     pub(crate) field: String,
-    pub(crate) missing_value: S::V,
     missing_value_as_long: i64,
     pub(crate) reverse: bool,
     bytes_count: i32, // how many bytes are used to encode this number
-
+    pub(crate) missing_value: V,
     pub(crate) top_value_set: bool,
     pub(crate) single_sort: bool, // true if sort is based on a single sort field
     pub(crate) hits_threshold_reached: bool,
     pub(crate) queue_full: bool,
     pub(crate) pruning: Pruning,
-    sub: S,
 }
 
-impl<S> NumericComparator<S>
+impl<V> NumericComparator<V>
 where
-    S: NumericComparatorBase + FieldComparator + Default,
+    V: PartialOrd + Copy,
 {
     pub fn new(
         field: String,
-        missing_value: S::V,
+        missing_value: V,
         reverse: bool,
         pruning: Pruning,
         bytes_count: i32,
-        sub: S,
+        missing_value_as_long: i64,
     ) -> Self {
-        let missing_value_as_long = sub.missing_value_as_comparable_long();
         Self {
             field,
-            missing_value,
             missing_value_as_long,
             reverse,
             bytes_count,
+            missing_value,
             top_value_set: false,
             single_sort: false,
             hits_threshold_reached: false,
             queue_full: false,
             pruning,
-            sub,
         }
     }
-}
-impl<S> FieldComparator for NumericComparator<S>
-where
-    S: NumericComparatorBase + FieldComparator + Default,
-{
-    type V = S::V;
-
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.sub.compare(slot1, slot2)
-    }
-
-    fn set_top_value(&mut self, value: Self::V) {
+    fn set_top_value(&mut self, _value: V) {
         self.top_value_set = true;
-        self.sub.set_top_value(value)
     }
-
-    fn value(&self, slot: i32) -> &Self::V {
-        self.sub.value(slot)
-    }
-
-    type LeafFieldComparator = S::LeafFieldComparator;
-
-    fn get_leaf_comparator<LR>(self, _context: &LeafReaderContext<LR>) -> Self::LeafFieldComparator
-    where
-        LR: LeafReader,
-    {
-        todo!()
-    }
-
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
-        self.sub.compare_values(first, second)
-    }
-
     fn set_single_sort(&mut self) {
         self.single_sort = true;
     }
@@ -137,13 +101,15 @@ pub trait NumericComparatorBase {
     fn missing_value_as_comparable_long(&self) -> i64;
     fn sortable_bytes_to_long(&self, bytes: &[u8]) -> i64;
 }
-pub struct NumericLeafComparator<LR, NCB, NC>
+pub struct NumericLeafComparator<LR, N, V, F, F1>
 where
     LR: LeafReader,
-    NCB: NumericLeafComparatorBase + LeafFieldComparator,
-    NC: NumericComparatorBase + FieldComparator + Default,
+    N: NumericDocValues,
+    V: PartialOrd + Copy,
+    F: Fn(V) -> i64,
+    F1: Fn(&[u8]) -> i64,
 {
-    pub(crate) doc_values: NCB::NumericDocValues,
+    pub(crate) doc_values: N,
     point_values: Option<LR::PointValues>,
     // lazily constructed to avoid performance overhead when this is not used
     point_tree: Option<<LR::PointValues as PointValues>::PointTree>,
@@ -153,31 +119,36 @@ where
     leaf_top_set: bool,
     min_value_as_long: i64,
     max_value_as_long: i64,
-    competitive_iterator: Option<CompetitiveIteratorType<NCB::NumericDocValues>>,
+    competitive_iterator: Option<CompetitiveIteratorType<N>>,
     iterator_cost: i64,
     max_doc_visited: i32,
     update_counter: i32,
     current_skip_interval: i32,
     // helps to be conservative about increasing the sampling interval
     try_update_fail_count: i32,
-    sub: NCB,
-    parent: NumericComparator<NC>,
-    candidate: Option<NCB::NumericDocValues>,
+    parent: NumericComparator<V>,
+    candidate: Option<N>,
+    v_to_long: F,
+    bytes_to_long: F1,
 }
-impl<LR, NCB, NC> NumericLeafComparator<LR, NCB, NC>
+impl<LR, N, V, F, F1> NumericLeafComparator<LR, N, V, F, F1>
 where
     LR: LeafReader,
-    NCB: NumericLeafComparatorBase + LeafFieldComparator,
-    NC: NumericComparatorBase + FieldComparator + Default,
+    N: NumericDocValues,
+    V: PartialOrd + Copy,
+    F: Fn(V) -> i64,
+    F1: Fn(&[u8]) -> i64,
 {
     pub fn new(
         context: &LeafReaderContext<LR>,
-        sub: NCB,
-        parent: NumericComparator<NC>,
+        parent: NumericComparator<V>,
+        doc_values: N,
+        candidate: N,
+        v_to_long: F,
+        bytes_to_long: F1,
+        top: V,
     ) -> Result<Self> {
         let field = &parent.field;
-        let doc_values = sub.get_numeric_doc_values(context, field)?;
-        let candidate = Some(sub.get_numeric_doc_values(context, field)?);
 
         let point_values = if parent.pruning != Pruning::None {
             context.reader().get_point_values(field)?
@@ -185,7 +156,7 @@ where
             None
         };
 
-        let (enable_skipping, max_doc, competitive_iterator) = if let Some(ref pv) = point_values {
+        let (enable_skipping, max_doc, competitive_iterator) = if let Some(_) = point_values {
             if let Some(info) = context
                 .reader()
                 .get_field_infos()?
@@ -240,16 +211,17 @@ where
             update_counter: 0,
             current_skip_interval: MIN_SKIP_INTERVAL,
             try_update_fail_count: 0,
-            sub,
             parent,
-            candidate,
+            candidate: Some(candidate),
+            v_to_long,
+            bytes_to_long,
         };
         if v.point_values.is_some() && v.leaf_top_set {
-            v.encode_top();
+            v.encode_top(top);
         }
         Ok(v)
     }
-    fn update_competitive_iterator(&mut self) -> Result<()> {
+    fn update_competitive_iterator(&mut self, bottom: V, top: V) -> Result<()> {
         if !self.enable_skipping
             || !self.parent.hits_threshold_reached
             || (!self.leaf_top_set && !self.parent.queue_full)
@@ -259,7 +231,7 @@ where
         // if some documents have missing points, check that missing values prohibits optimization
         if let Some(ref pv) = self.point_values
             && pv.get_doc_count()? < self.max_doc
-            && self.is_missing_value_competitive()
+            && self.is_missing_value_competitive(bottom, top)
         {
             return Ok(()); // we can't filter out documents, as documents with missing values are competitive
         }
@@ -275,7 +247,7 @@ where
         }
 
         if self.parent.queue_full {
-            self.encode_bottom();
+            self.encode_bottom(bottom);
         }
 
         let result = DocIdSetBuilder::new(self.max_doc);
@@ -286,7 +258,7 @@ where
             self.max_doc_visited,
             self.min_value_as_long,
             self.max_value_as_long,
-            &self.parent.sub,
+            &self.bytes_to_long,
         );
 
         let threshold = ((self.iterator_cost as u64) >> 3) as i64;
@@ -356,10 +328,10 @@ where
             }
         }
     }
-    fn encode_bottom(&mut self) {
+    fn encode_bottom(&mut self, bottom: V) {
         if !self.parent.reverse {
             // ascending order
-            self.max_value_as_long = self.sub.bottom_as_comparable_long();
+            self.max_value_as_long = (self.v_to_long)(bottom);
             if self.parent.pruning == Pruning::GreaterThanOrEqualTo
                 && self.max_value_as_long != i64::MIN
             {
@@ -367,7 +339,7 @@ where
             }
         } else {
             // descending order
-            self.min_value_as_long = self.sub.bottom_as_comparable_long();
+            self.min_value_as_long = (self.v_to_long)(bottom);
             if self.parent.pruning == Pruning::GreaterThanOrEqualTo
                 && self.min_value_as_long != i64::MAX
             {
@@ -375,9 +347,9 @@ where
             }
         }
     }
-    fn encode_top(&mut self) {
+    fn encode_top(&mut self, top: V) {
         if !self.parent.reverse {
-            self.min_value_as_long = self.sub.top_as_comparable_long();
+            self.min_value_as_long = (self.v_to_long)(top);
             if self.parent.single_sort
                 && self.parent.pruning == Pruning::GreaterThanOrEqualTo
                 && self.parent.queue_full
@@ -387,7 +359,7 @@ where
             }
         } else {
             // descending order
-            self.max_value_as_long = self.sub.top_as_comparable_long();
+            self.max_value_as_long = (self.v_to_long)(top);
             if self.parent.single_sort
                 && self.parent.pruning == Pruning::GreaterThanOrEqualTo
                 && self.parent.queue_full
@@ -398,14 +370,14 @@ where
         }
     }
     #[allow(clippy::collapsible_else_if)]
-    fn is_missing_value_competitive(&self) -> bool {
+    fn is_missing_value_competitive(&self, bottom: V, top: V) -> bool {
         // if queue is full, compare with bottom first,
         // if competitive, then check if we can compare with topValue
         if self.parent.queue_full {
             let result = self
                 .parent
                 .missing_value_as_long
-                .cmp(&self.sub.bottom_as_comparable_long())
+                .cmp(&(self.v_to_long)(bottom))
                 .to_int();
             // in reverse (desc) sort missingValue is competitive when it's greater or equal to bottom,
             // in asc sort missingValue is competitive when it's smaller or equal to bottom
@@ -432,7 +404,7 @@ where
             let result = self
                 .parent
                 .missing_value_as_long
-                .cmp(&self.sub.top_as_comparable_long())
+                .cmp(&(self.v_to_long)(top))
                 .to_int();
             // in reverse (desc) sort missingValue is competitive when it's smaller or equal to
             // topValue,
@@ -447,35 +419,24 @@ where
         // by default competitive
         true
     }
-}
-impl<LR, NCB, NC> LeafFieldComparator for NumericLeafComparator<LR, NCB, NC>
-where
-    LR: LeafReader,
-    NCB: NumericLeafComparatorBase + LeafFieldComparator,
-    NC: NumericComparatorBase + FieldComparator + Default,
-{
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        self.sub.set_bottom(slot)?;
+
+    fn set_bottom(&mut self, bottom: V, top: V) -> Result<()> {
         self.parent.queue_full = true; // if we are setting bottom, it means that we have collected enough hits
-        self.update_competitive_iterator()?; // update an iterator if we set a new bottom
+        self.update_competitive_iterator(bottom, top)?; // update an iterator if we set a new bottom
         Ok(())
     }
 
-    fn compare_bottom(&self, doc: i32) -> Result<i32> {
-        self.sub.compare_bottom(doc)
-    }
-
-    fn compare_top(&self, doc: i32) -> Result<i32> {
-        self.sub.compare_top(doc)
-    }
-
-    fn copy(&mut self, slot: usize, doc: i32) -> Result<()> {
-        self.sub.copy(slot, doc)?;
+    fn copy(&mut self, doc: i32) -> Result<()> {
         self.max_doc_visited = doc;
         Ok(())
     }
 
-    fn set_scorer<S1, S2>(&mut self, mut scorer: ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S1, S2>(
+        &mut self,
+        mut scorer: ScorerEnum<S1, S2>,
+        bottom: V,
+        top: V,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
@@ -489,14 +450,12 @@ where
                     self.iterator_cost = self.max_doc as i64;
                 },
             }
-            self.update_competitive_iterator()?;
+            self.update_competitive_iterator(bottom, top)?;
         }
         Ok(())
     }
 
-    type DocIdSetIterator = CompetitiveIterator<CompetitiveIteratorType<NCB::NumericDocValues>>;
-
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(&mut self) -> Option<CompetitiveIterator<CompetitiveIteratorType<N>>> {
         debug_assert!(self.competitive_iterator.is_some());
         match self.enable_skipping {
             true => Some(CompetitiveIterator::new(
@@ -506,12 +465,11 @@ where
         }
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
+    fn set_hits_threshold_reached(&mut self, bottom: V, top: V) -> Result<()> {
         self.parent.hits_threshold_reached = true;
-        self.update_competitive_iterator()
+        self.update_competitive_iterator(bottom, top)
     }
 }
-
 pub struct CompetitiveIterator<D>
 where
     D: DocIdSetIterator,
@@ -553,39 +511,39 @@ where
     }
 }
 
-struct IntersectVisitorImpl<'a, T>
+struct IntersectVisitorImpl<'a, F>
 where
-    T: NumericComparatorBase,
+    F: Fn(&[u8]) -> i64,
 {
     result: DocIdSetBuilder,
     max_doc_visited: i32,
     min_value_as_long: i64,
     max_value_as_long: i64,
-    sub_comparator: &'a T,
+    as_long: &'a F,
 }
-impl<'a, T> IntersectVisitorImpl<'a, T>
+impl<'a, F> IntersectVisitorImpl<'a, F>
 where
-    T: NumericComparatorBase,
+    F: Fn(&[u8]) -> i64,
 {
     fn new(
         result: DocIdSetBuilder,
         max_doc_visited: i32,
         min_value_as_long: i64,
         max_value_as_long: i64,
-        sub_comparator: &'a T,
+        as_long: &'a F,
     ) -> Self {
         Self {
             result,
             max_doc_visited,
             min_value_as_long,
             max_value_as_long,
-            sub_comparator,
+            as_long,
         }
     }
 }
-impl<T> IntersectVisitor for IntersectVisitorImpl<'_, T>
+impl<F> IntersectVisitor for IntersectVisitorImpl<'_, F>
 where
-    T: NumericComparatorBase,
+    F: Fn(&[u8]) -> i64,
 {
     fn visit(&mut self, doc_id: i32) -> Result<()> {
         if doc_id <= self.max_doc_visited {
@@ -599,7 +557,7 @@ where
         if doc_id <= self.max_doc_visited {
             return Ok(()); // Already visited or skipped
         }
-        let l = self.sub_comparator.sortable_bytes_to_long(packed_value);
+        let l = (self.as_long)(packed_value);
         if l >= self.min_value_as_long && l <= self.max_value_as_long {
             self.result.add_doc(doc_id); // doc is competitive
         }
@@ -607,8 +565,8 @@ where
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        let min = self.sub_comparator.sortable_bytes_to_long(min_packed_value);
-        let max = self.sub_comparator.sortable_bytes_to_long(max_packed_value);
+        let min = (self.as_long)(min_packed_value);
+        let max = (self.as_long)(max_packed_value);
 
         if min > self.max_value_as_long || max < self.min_value_as_long {
             // 1. cmp ==0 and pruning==Pruning.GREATER_THAN_OR_EQUAL_TO : if the sort is
