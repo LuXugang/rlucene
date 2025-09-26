@@ -70,7 +70,7 @@ impl FieldComparator for FloatComparator {
     }
 
     fn set_top_value(&mut self, value: Self::V) {
-        self.base.set_top_value(value);
+        self.base.set_top_value();
         self.top_value = value;
     }
 
