@@ -30,7 +30,7 @@ where
     /// The reader's ord in the top-level's leaves array
     pub(crate) ord: usize,
     /// The reader's absolute doc base
-    doc_base: i32,
+    pub(crate) doc_base: i32,
     reader: LR,
     base: IndexReaderContextBase<LR>,
 }
