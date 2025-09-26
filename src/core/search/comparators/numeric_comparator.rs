@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, EmptyNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
     IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
@@ -582,29 +581,6 @@ where
         self.result.grow(count);
         Ok(())
     }
-}
-pub trait NumericLeafComparatorBase {
-    type NumericDocValues: NumericDocValues;
-    fn get_numeric_doc_values<LR>(
-        &self,
-        context: &LeafReaderContext<LR>,
-        field: &str,
-    ) -> Result<Self::NumericDocValues>
-    where
-        LR: LeafReader;
-    fn default_get_numeric_doc_values<LR>(
-        &self,
-        context: &LeafReaderContext<LR>,
-        field: &str,
-    ) -> Result<Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>>
-    where
-        LR: LeafReader,
-    {
-        DocValues::get_numeric(context.reader(), field)
-    }
-
-    fn bottom_as_comparable_long(&self) -> i64;
-    fn top_as_comparable_long(&self) -> i64;
 }
 pub type CompetitiveIteratorType<T> =
     Either3DocIdSetIterator<AllDocIdSetIterator, T, DocIdSetBuilderIterator>;
