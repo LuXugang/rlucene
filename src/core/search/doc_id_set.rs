@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
+use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, EmptyDISI};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use crate::core::util::error::lucene_error::Result;
@@ -73,10 +73,10 @@ impl All {
 }
 /// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
-    type DocIdSetIterator = AllDocIdSetIterator;
+    type DocIdSetIterator = AllDISI;
 
     fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(Some(AllDocIdSetIterator::new(self.max_doc)))
+        Ok(Some(AllDISI::new(self.max_doc)))
     }
 
     type BitType = MatchAllBits;

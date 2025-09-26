@@ -137,16 +137,16 @@ impl DocIdSetIterator for EmptyDISI {
 }
 
 /// A [`DocIdSetIterator`] that matches all documents up to `maxDoc - 1`.  */
-pub struct AllDocIdSetIterator {
+pub struct AllDISI {
     doc: i32,
     max_doc: i32,
 }
-impl AllDocIdSetIterator {
+impl AllDISI {
     pub fn new(max_doc: i32) -> Self {
-        AllDocIdSetIterator { doc: -1, max_doc }
+        AllDISI { doc: -1, max_doc }
     }
 }
-impl DocIdSetIterator for AllDocIdSetIterator {
+impl DocIdSetIterator for AllDISI {
     fn doc_id(&self) -> i32 {
         self.doc
     }

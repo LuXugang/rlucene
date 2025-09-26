@@ -23,7 +23,7 @@ use crate::core::index::point_values::{
 };
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{
-    AllDocIdSetIterator, DocIdSetIterator, Either3DocIdSetIterator,
+    AllDISI, DocIdSetIterator, Either3DocIdSetIterator,
 };
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
@@ -181,9 +181,7 @@ where
             }
 
             let max_doc = context.reader().max_doc()?;
-            let competitive_iterator = Some(CompetitiveIteratorType::A(AllDocIdSetIterator::new(
-                max_doc,
-            )));
+            let competitive_iterator = Some(CompetitiveIteratorType::A(AllDISI::new(max_doc)));
             (true, max_doc, competitive_iterator)
         } else {
             (false, 0, None)
@@ -581,8 +579,7 @@ where
         Ok(())
     }
 }
-pub type CompetitiveIteratorType<T> =
-    Either3DocIdSetIterator<AllDocIdSetIterator, T, DocIdSetBuilderIterator>;
+pub type CompetitiveIteratorType<T> = Either3DocIdSetIterator<AllDISI, T, DocIdSetBuilderIterator>;
 pub trait ToLong {
     type V: PartialOrd + Copy;
     fn value_to_long(&self, v: Self::V) -> i64;
