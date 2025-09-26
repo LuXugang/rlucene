@@ -16,6 +16,7 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
@@ -131,4 +132,81 @@ pub trait FieldComparator {
     /// An example could be when search sort is a part of the index sort, and can be already efficiently
     /// handled by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector), and doing extra work for skipping in the comparator is redundant.
     fn disable_skipping(&mut self) {}
+}
+pub struct RelevanceComparator {
+    pub(crate) scores: Vec<f32>,
+    pub(crate) bottom: f32,
+    pub(crate) top_value: f32,
+}
+impl RelevanceComparator {
+    pub fn new(num_hits: i32) -> Self {
+        Self {
+            scores: vec![0.0; num_hits as usize],
+            bottom: 0.0,
+            top_value: 0.0,
+        }
+    }
+}
+impl FieldComparator for RelevanceComparator {
+    type V = f32;
+
+    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+        let slot1_v = self.scores[slot1 as usize];
+        let slot2_v = self.scores[slot2 as usize];
+        match slot1_v.partial_cmp(&slot2_v) {
+            Some(r) => r.to_int(),
+            None => self.fallback_compare(&slot1_v, &slot2_v),
+        }
+    }
+
+    fn set_top_value(&mut self, value: Self::V) {
+        self.top_value = value
+    }
+
+    fn value(&self, slot: i32) -> &Self::V {
+        &self.scores[slot as usize]
+    }
+
+    type LeafFieldComparator<LR>
+        = DummyLeafFieldComparator
+    where
+        LR: LeafReader;
+
+    fn get_leaf_comparator<LR>(
+        self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self::LeafFieldComparator<LR>>
+    where
+        LR: LeafReader,
+    {
+        todo!()
+    }
+
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+        match (first, second) {
+            (Some(&f), Some(&s)) => {
+                // Reversed intentionally because relevance by default
+                // sorts descending:
+                match s.partial_cmp(&f) {
+                    Some(r) => r.to_int(),
+                    None => self.fallback_compare(&s, &f),
+                }
+            },
+            (None, Some(_)) => 1,
+            (Some(_), None) => -1,
+            (None, None) => 0,
+        }
+    }
+
+    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+        if first.is_nan() && second.is_nan() {
+            0
+        } else if first.is_nan() {
+            1
+        } else if second.is_nan() {
+            -1
+        } else {
+            0
+        }
+    }
 }
