@@ -14,13 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::doc_values::{DocValues, Numeric};
+use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::comparators::numeric_comparator::NumericComparator;
-use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
+use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::search::comparators::numeric_comparator::{
+    CompetitiveIterator, CompetitiveIteratorType, NumericComparator, NumericLeafComparator, ToLong,
+};
 use crate::core::search::field_comparator::FieldComparator;
+use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
+use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorer::Scorer;
+use crate::core::util::ToInt;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::numeric_utils::NumericUtils;
 
 /// Comparator based on i32 for numHits.
 /// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
@@ -28,7 +39,6 @@ pub struct IntComparator {
     values: Vec<i32>,
     top_value: i32,
     bottom: i32,
-    missing_value: i32,
     base: NumericComparator<i32>,
 }
 
@@ -53,7 +63,6 @@ impl IntComparator {
             values: vec![0; num_hits],
             top_value: 0,
             bottom: 0,
-            missing_value,
             base,
         }
     }
@@ -75,17 +84,109 @@ impl FieldComparator for IntComparator {
     }
 
     type LeafFieldComparator<LR>
-        = DummyLeafFieldComparator
+        = IntLeafComparator<LR>
     where
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Self::LeafFieldComparator<LR>
+        mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
-        todo!()
+        let v = std::mem::take(&mut self.base);
+        IntLeafComparator::new(self, context, v)
+    }
+}
+
+pub struct IntLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    comparator: IntComparator,
+    base: NumericLeafComparator<LR, Numeric<LR>, i32, IntConverter>,
+}
+impl<LR> IntLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    pub fn new(
+        comparator: IntComparator,
+        context: &LeafReaderContext<LR>,
+        nc: NumericComparator<i32>,
+    ) -> Result<Self> {
+        let doc_value = DocValues::get_numeric(context.reader(), &comparator.base.field)?;
+        let candidate = DocValues::get_numeric(context.reader(), &comparator.base.field)?;
+        let top_value = comparator.top_value;
+        let base =
+            NumericLeafComparator::new(context, nc, doc_value, candidate, IntConverter, top_value)?;
+        Ok(Self { comparator, base })
+    }
+    fn get_value_for_doc(&mut self, doc: i32) -> Result<i32> {
+        let doc_values = &mut self.base.doc_values;
+        if doc_values.advance_exact(doc)? {
+            Ok(doc_values.long_value()? as i32)
+        } else {
+            Ok(self.base.parent.missing_value)
+        }
+    }
+}
+impl<LR> LeafFieldComparator for IntLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    fn set_bottom(&mut self, slot: usize) -> Result<()> {
+        self.comparator.bottom = self.comparator.values[slot];
+        self.base
+            .set_bottom(self.comparator.bottom, self.comparator.top_value)
+    }
+
+    fn compare_bottom(&mut self, doc: i32) -> Result<i32> {
+        let v = self.get_value_for_doc(doc)?;
+        Ok(self.comparator.bottom.cmp(&v).to_int())
+    }
+
+    fn compare_top(&mut self, doc: i32) -> Result<i32> {
+        let v = self.get_value_for_doc(doc)?;
+        Ok(self.comparator.top_value.cmp(&v).to_int())
+    }
+
+    fn copy(&mut self, slot: usize, doc: i32) -> Result<()> {
+        let v = self.get_value_for_doc(doc)?;
+        self.comparator.values[slot] = v;
+        self.base.copy(doc)
+    }
+
+    fn set_scorer<S1, S2>(&mut self, scorer: ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        self.base
+            .set_scorer(scorer, self.comparator.bottom, self.comparator.top_value)
+    }
+
+    type DocIdSetIterator = CompetitiveIterator<CompetitiveIteratorType<Numeric<LR>>>;
+
+    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+        self.base.competitive_iterator()
+    }
+
+    fn set_hits_threshold_reached(&mut self) -> Result<()> {
+        self.base
+            .set_hits_threshold_reached(self.comparator.bottom, self.comparator.top_value)
+    }
+}
+pub(crate) struct IntConverter;
+impl ToLong for IntConverter {
+    type V = i32;
+
+    fn value_to_long(&self, v: Self::V) -> i64 {
+        v as i64
+    }
+
+    fn bytes_to_long(&self, bytes: &[u8]) -> i64 {
+        NumericUtils::sortable_bytes_to_int(bytes, 0) as i64
     }
 }

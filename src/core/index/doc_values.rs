@@ -135,10 +135,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
-    pub fn get_numeric<LR>(
-        reader: &LR,
-        field: &str,
-    ) -> Result<Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>>
+    pub fn get_numeric<LR>(reader: &LR, field: &str) -> Result<Numeric<LR>>
     where
         LR: LeafReader,
     {
@@ -278,6 +275,7 @@ impl DocValues {
         Ok(true)
     }
 }
+pub type Numeric<LR> = Either2NumericDocValues<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
 pub type SortedNumericDocValuesRet<LR> = Either2SortedNumericDocValues<
     <LR as LeafReader>::SortedNumericDocValues,
     Either2SortedNumericDocValues<

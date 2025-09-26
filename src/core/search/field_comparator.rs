@@ -91,7 +91,7 @@ pub trait FieldComparator {
     fn get_leaf_comparator<LR>(
         self,
         context: &LeafReaderContext<LR>,
-    ) -> Self::LeafFieldComparator<LR>
+    ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader;
 

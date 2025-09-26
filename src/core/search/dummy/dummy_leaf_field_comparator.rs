@@ -26,11 +26,11 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_bottom(&self, _doc: i32) -> Result<i32> {
+    fn compare_bottom(&mut self, _doc: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_top(&self, _doc: i32) -> Result<i32> {
+    fn compare_top(&mut self, _doc: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

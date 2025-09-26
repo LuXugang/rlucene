@@ -81,7 +81,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_bottom(&self, doc: i32) -> Result<i32>;
+    fn compare_bottom(&mut self, doc: i32) -> Result<i32>;
 
     /// Compare the top value with this document.
     ///
@@ -102,7 +102,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_top(&self, doc: i32) -> Result<i32>;
+    fn compare_top(&mut self, doc: i32) -> Result<i32>;
 
     /// Called when a new hit is competitive.
     ///
@@ -155,11 +155,11 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    fn compare_bottom(&self, _doc: i32) -> Result<i32> {
+    fn compare_bottom(&mut self, _doc: i32) -> Result<i32> {
         todo!()
     }
 
-    fn compare_top(&self, _doc: i32) -> Result<i32> {
+    fn compare_top(&mut self, _doc: i32) -> Result<i32> {
         todo!()
     }
 

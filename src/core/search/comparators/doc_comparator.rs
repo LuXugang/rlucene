@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::pruning::Pruning;
+use crate::core::util::error::lucene_error::Result;
 /// Comparator that sorts by asc _doc
 pub struct DocComparator {
     doc_ids: Vec<i32>,
@@ -71,7 +72,7 @@ impl FieldComparator for DocComparator {
     fn get_leaf_comparator<LR>(
         self,
         _context: &LeafReaderContext<LR>,
-    ) -> Self::LeafFieldComparator<LR>
+    ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
