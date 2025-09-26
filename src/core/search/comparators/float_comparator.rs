@@ -72,9 +72,12 @@ impl FieldComparator for FloatComparator {
     type V = f32;
 
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.values[slot1 as usize]
-            .partial_cmp(&self.values[slot2 as usize])
-            .unwrap_or(std::cmp::Ordering::Equal) as i32
+        let slot1_v = self.values[slot1 as usize];
+        let slot2_v = self.values[slot2 as usize];
+        match slot1_v.partial_cmp(&slot2_v) {
+            Some(r) => r.to_int(),
+            None => self.fallback_compare(&slot1_v, &slot2_v),
+        }
     }
 
     fn set_top_value(&mut self, value: Self::V) {
@@ -102,15 +105,15 @@ impl FieldComparator for FloatComparator {
         FloatLeafComparator::new(self, context, v)
     }
 
-    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
+    fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
         if first.is_nan() && second.is_nan() {
-            Ok(0)
+            0
         } else if first.is_nan() {
-            Ok(1)
+            1
         } else if second.is_nan() {
-            Ok(-1)
+            -1
         } else {
-            Ok(0)
+            0
         }
     }
 }

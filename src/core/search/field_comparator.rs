@@ -18,7 +18,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::util::ToInt;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// Expert: a `FieldComparator` compares hits so as to determine their sort order when collecting the
 /// top results with [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector).
@@ -103,24 +103,22 @@ pub trait FieldComparator {
     ///
     /// Be sure to override this method if your `FieldComparator`'s type isn't comparable
     /// or if your values may sometimes be `null` (represented as [`Option::None`] in Rust).
-    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
         match (first, second) {
-            (None, None) => Ok(0),
-            (None, Some(_)) => Ok(-1),
-            (Some(_), None) => Ok(1),
+            (None, None) => 0,
+            (None, Some(_)) => -1,
+            (Some(_), None) => 1,
             (Some(f), Some(s)) => {
                 match f.partial_cmp(s) {
-                    Some(ord) => Ok(ord.to_int()),
+                    Some(ord) => ord.to_int(),
                     // In case of NaN for f64 or other non-comparable values
                     None => self.fallback_compare(f, s),
                 }
             },
         }
     }
-    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "compare_values cannot compare value ,you should Implement this method",
-        ))
+    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+        unimplemented!("fallback_compare must be implemented if the type isn't fully comparable");
     }
     /// Informs the comparator that sort is done on this single field.
     /// This is useful to enable some optimizations for skipping non-competitive documents.
