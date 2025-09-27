@@ -179,10 +179,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
-    pub fn get_sorted<LR>(
-        reader: &LR,
-        field: &str,
-    ) -> Result<Either2SortedDocValues<LR::SortedDocValues, EmptySorted>>
+    pub fn get_sorted<LR>(reader: &LR, field: &str) -> Result<Sorted<LR>>
     where
         LR: LeafReader,
     {
@@ -204,7 +201,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
-    pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumericDocValuesRet<LR>>
+    pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumeric<LR>>
     where
         LR: LeafReader,
     {
@@ -234,7 +231,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
-    pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSetRet<LR>>
+    pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSet<LR>>
     where
         LR: LeafReader,
     {
@@ -274,14 +271,15 @@ impl DocValues {
 }
 pub type Numeric<LR> = Either2NumericDocValues<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
 pub type Binary<LR> = Either2BinaryDocValues<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
-pub type SortedNumericDocValuesRet<LR> = Either2SortedNumericDocValues<
+pub type Sorted<LR> = Either2SortedDocValues<<LR as LeafReader>::SortedDocValues, EmptySorted>;
+pub type SortedNumeric<LR> = Either2SortedNumericDocValues<
     <LR as LeafReader>::SortedNumericDocValues,
     Either2SortedNumericDocValues<
         SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
         SingletonSortedNumericDocValues<EmptyNumeric>,
     >,
 >;
-pub type SortedSetRet<LR> = Either2SortedSetDocValues<
+pub type SortedSet<LR> = Either2SortedSetDocValues<
     <LR as LeafReader>::SortedSetDocValues,
     Either2SortedSetDocValues<
         SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,

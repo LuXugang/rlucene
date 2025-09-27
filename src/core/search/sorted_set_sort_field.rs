@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, SortedSetRet};
+use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::index_sorter::{SortedDocValuesProvider, StringSorter};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::sort_field_provider::SortFieldProvider;
@@ -204,7 +204,7 @@ impl SortedDocValuesProviderImpl {
 }
 impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     type SortedDocValues<LR>
-        = SortedDocValuesWrapEnum<SortedSetRet<LR>>
+        = SortedDocValuesWrapEnum<SortedSet<LR>>
     where
         LR: LeafReader;
 

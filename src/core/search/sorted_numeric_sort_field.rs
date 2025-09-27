@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, SortedNumericDocValuesRet};
+use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_sorter::{
     DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
     NumericDocValuesProvider,
@@ -333,7 +333,7 @@ impl NumericDocValuesProviderImpl {
 }
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
     type NumericDocValues<LR>
-        = NumericDocValuesImpl<SortedNumericDocValuesRet<LR>>
+        = NumericDocValuesImpl<SortedNumeric<LR>>
     where
         LR: LeafReader;
 
