@@ -303,6 +303,11 @@ impl LeafFieldComparator for RelevanceLeafComparator {
 
     type DocIdSetIterator = DummyDocIdSetIterator;
 }
+/// Sorts by field's natural Term sort order.
+///
+/// All comparisons are done using [`BytesRef::compareTo`],
+/// which is slow for medium to large result sets but possibly
+/// very fast for very small result sets.
 pub struct TermValComparator {
     pub(crate) values: Vec<Option<BytesRef<Vec<u8>>>>,
     pub(crate) field: String,
@@ -380,11 +385,6 @@ impl FieldComparator for TermValComparator {
         }
     }
 }
-/// Sorts by field's natural Term sort order.
-///
-/// All comparisons are done using [`BytesRef::compareTo`],
-/// which is slow for medium to large result sets but possibly
-/// very fast for very small result sets.
 pub struct TermValLeafComparator<LR>
 where
     LR: LeafReader,

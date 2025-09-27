@@ -21,3 +21,4 @@ pub mod int_comparator;
 mod long_comparator;
 pub mod min_doc_iterator;
 pub mod numeric_comparator;
+mod term_ord_val_comparator;
