@@ -26,7 +26,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_bottom<S1, S2>(&mut self, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -34,7 +34,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_top<S1, S2>(&mut self, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -42,7 +42,12 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn copy<S1, S2>(&mut self, _slot: usize, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        _slot: usize,
+        _doc: i32,
+        _scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
@@ -50,7 +55,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,

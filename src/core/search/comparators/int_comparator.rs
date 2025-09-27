@@ -142,7 +142,7 @@ where
             .set_bottom(self.comparator.bottom, self.comparator.top_value)
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -151,7 +151,7 @@ where
         Ok(self.comparator.bottom.cmp(&v).to_int())
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -160,7 +160,12 @@ where
         Ok(self.comparator.top_value.cmp(&v).to_int())
     }
 
-    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
@@ -170,7 +175,7 @@ where
         self.base.copy(doc)
     }
 
-    fn set_scorer<S1, S2>(&mut self, scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S1, S2>(&mut self, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,

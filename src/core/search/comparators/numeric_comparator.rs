@@ -424,7 +424,7 @@ where
 
     pub(crate) fn set_scorer<S1, S2>(
         &mut self,
-        _scorer: &ScorerEnum<S1, S2>,
+        _scorer: &mut ScorerEnum<S1, S2>,
         bottom: V,
         top: V,
     ) -> Result<()>

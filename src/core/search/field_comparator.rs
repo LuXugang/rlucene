@@ -16,8 +16,10 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::dummy::dummy_leaf_field_comparator::DummyLeafFieldComparator;
+use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
+use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorer::Scorer;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
 
@@ -133,6 +135,12 @@ pub trait FieldComparator {
     /// handled by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector), and doing extra work for skipping in the comparator is redundant.
     fn disable_skipping(&mut self) {}
 }
+/// Sorts by descending relevance.
+///
+/// NOTE: if you are sorting only by descending relevance and then
+/// secondarily by ascending docID, performance is faster using
+/// [`TopScoreDocCollector`](crate::core::search::top_score_doc_collector::TopScoreDocCollector) directly (which [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher) uses
+/// when no [`Sort`] is specified).
 pub struct RelevanceComparator {
     pub(crate) scores: Vec<f32>,
     pub(crate) bottom: f32,
@@ -168,18 +176,18 @@ impl FieldComparator for RelevanceComparator {
     }
 
     type LeafFieldComparator<LR>
-        = DummyLeafFieldComparator
+        = RelevanceLeafComparator
     where
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
         self,
-        context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
-        todo!()
+        Ok(RelevanceLeafComparator::new(self))
     }
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
@@ -209,4 +217,78 @@ impl FieldComparator for RelevanceComparator {
             0
         }
     }
+}
+pub struct RelevanceLeafComparator {
+    comparator: RelevanceComparator,
+}
+impl RelevanceLeafComparator {
+    pub fn new(comparator: RelevanceComparator) -> Self {
+        Self { comparator }
+    }
+}
+impl LeafFieldComparator for RelevanceLeafComparator {
+    fn set_bottom(&mut self, slot: usize) -> Result<()> {
+        self.comparator.bottom = self.comparator.scores[slot];
+        Ok(())
+    }
+
+    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        let doc_value = match scorer {
+            ScorerEnum::Scorer(s) => s.score()?,
+            ScorerEnum::Scorable(s) => s.score()?,
+        };
+        debug_assert!(!doc_value.is_nan());
+        match doc_value.partial_cmp(&self.comparator.bottom) {
+            Some(r) => Ok(r.to_int()),
+            None => Ok(self
+                .comparator
+                .fallback_compare(&doc_value, &self.comparator.bottom)),
+        }
+    }
+
+    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        let doc_value = match scorer {
+            ScorerEnum::Scorer(s) => s.score()?,
+            ScorerEnum::Scorable(s) => s.score()?,
+        };
+        debug_assert!(!doc_value.is_nan());
+        match doc_value.partial_cmp(&self.comparator.top_value) {
+            Some(r) => Ok(r.to_int()),
+            None => Ok(self
+                .comparator
+                .fallback_compare(&doc_value, &self.comparator.top_value)),
+        }
+    }
+
+    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        let score = match scorer {
+            ScorerEnum::Scorer(s) => s.score()?,
+            ScorerEnum::Scorable(s) => s.score()?,
+        };
+        self.comparator.scores[slot] = score;
+        debug_assert!(!score.is_nan());
+        Ok(())
+    }
+
+    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        Ok(())
+    }
+
+    type DocIdSetIterator = DummyDocIdSetIterator;
 }

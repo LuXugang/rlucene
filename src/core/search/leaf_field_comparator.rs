@@ -82,7 +82,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable;
@@ -106,7 +106,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable;
@@ -123,7 +123,12 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable;
@@ -136,7 +141,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S1, S2>(&mut self, scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S1, S2>(&mut self, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable;
@@ -166,7 +171,7 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    fn compare_bottom<S1, S2>(&mut self, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -174,7 +179,7 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    fn compare_top<S1, S2>(&mut self, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -182,7 +187,12 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    fn copy<S1, S2>(&mut self, _slot: usize, _doc: i32, _scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        _slot: usize,
+        _doc: i32,
+        _scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
@@ -190,7 +200,7 @@ impl LeafFieldComparator for LeafFieldComparatorEnum {
         todo!()
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
