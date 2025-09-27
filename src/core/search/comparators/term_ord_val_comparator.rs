@@ -147,12 +147,13 @@ impl FieldComparator for TermOrdValComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
+        self.current_reader_gen += 1;
         let v = get_sorted_doc_values(context, &self.field)?;
         TermOrdValLeafComparator::new(context, v, self)
     }
@@ -284,21 +285,20 @@ where
             }
         };
 
-        let doc_values_terms = leaf.terms_index.terms_enum()?;
-
-        let docs_with_field = match leaf.dense {
-            true => None,
-            false => Some(get_sorted_doc_values(context, &leaf.comparator.field)?),
-        };
-        let terms = context.reader().terms(&leaf.comparator.field)?;
-        let terms_iter = match terms {
-            None => {
-                return Err(LuceneError::illegal_state("terms is None"));
-            },
-            Some(terms_enum) => terms_enum.iterator()?,
-        };
-
         if enable_skipping {
+            let doc_values_terms = leaf.terms_index.terms_enum()?;
+
+            let docs_with_field = match leaf.dense {
+                true => None,
+                false => Some(get_sorted_doc_values(context, &leaf.comparator.field)?),
+            };
+            let terms = context.reader().terms(&leaf.comparator.field)?;
+            let terms_iter = match terms {
+                None => {
+                    return Err(LuceneError::illegal_state("terms is None"));
+                },
+                Some(terms_enum) => terms_enum.iterator()?,
+            };
             leaf.competitive_iterator = Some(CompetitiveIterator::new(
                 context,
                 leaf.dense,
@@ -427,16 +427,17 @@ where
             self.bottom_ord = self.comparator.ords[bottom];
             self.bottom_same_reader = true;
         } else {
-            match &self.comparator.bottom_value {
-                None => {
+            let has_value = self.comparator.values[bottom].is_some();
+            match has_value {
+                false => {
                     // missingOrd is null for all segments
                     debug_assert!(self.comparator.ords[bottom] == self.missing_ord);
                     self.bottom_ord = self.missing_ord;
                     self.bottom_same_reader = true;
                     self.comparator.reader_gen[bottom] = self.comparator.current_reader_gen;
                 },
-                Some(bottom_value) => {
-                    let target = match self.comparator.values[*bottom_value].as_ref() {
+                true => {
+                    let target = match self.comparator.values[bottom].as_ref() {
                         None => {
                             return Err(LuceneError::illegal_state(
                                 "bottomValue is None but ords[bottomSlot] is not missingOrd",
