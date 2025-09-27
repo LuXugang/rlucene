@@ -289,13 +289,13 @@ where
     ///
     /// # Returns
     /// The new 'top' element.
-    pub fn update_top(&mut self) -> Result<&T> {
+    pub fn update_top(&mut self) -> Result<&mut T> {
         self.down_heap(1)?;
-        Ok(self.heap_value(1))
+        Ok(self.heap_value_mut(1))
     }
 
     /// Replace the top of the pq with `newTop` and run `updateTop()`.
-    pub fn update_top_with_new_top(&mut self, new_top: T) -> Result<&T> {
+    pub fn update_top_with_new_top(&mut self, new_top: T) -> Result<&mut T> {
         self.heap[1] = Some(new_top);
         self.update_top()
     }
@@ -359,13 +359,30 @@ where
     ///
     /// # Note
     /// This is an internal API.
-    fn get_heap_array(&self) -> &Vec<Option<T>> {
+    pub(crate) fn get_heap_array(&self) -> &Vec<Option<T>> {
         &self.heap
+    }
+    pub(crate) fn take_heap_array(&mut self) -> Vec<T> {
+        if self.size == 0 {
+            return Vec::new();
+        }
+        let mut heap = std::mem::take(&mut self.heap);
+        let taken = heap
+            .drain(1..=self.size)
+            .map(|opt| opt.expect("all heap elements must be Some"))
+            .collect::<Vec<_>>();
+        self.size = 0;
+        taken
     }
 
     fn heap_value(&self, index: usize) -> &T {
         self.heap[index]
             .as_ref()
+            .expect("priority queue element should exist")
+    }
+    fn heap_value_mut(&mut self, index: usize) -> &mut T {
+        self.heap[index]
+            .as_mut()
             .expect("priority queue element should exist")
     }
 

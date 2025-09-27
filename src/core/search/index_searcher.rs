@@ -23,6 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 use std::sync::Arc;
 
+pub(crate) const MAX_CLAUSE_COUNT: i32 = 1024;
 pub struct IndexSearcher<IRC, S>
 where
     IRC: IndexReaderContext,
@@ -56,4 +57,7 @@ where
     ) -> Result<TermStatistics> {
         TermStatistics::new(term, doc_freq as i64, total_term_freq)
     }
+}
+pub fn get_max_clause_count() -> i32 {
+    MAX_CLAUSE_COUNT
 }
