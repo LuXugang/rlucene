@@ -157,10 +157,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
-    pub fn get_binary<LR>(
-        reader: &LR,
-        field: &str,
-    ) -> Result<Either2BinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
+    pub fn get_binary<LR>(reader: &LR, field: &str) -> Result<Binary<LR>>
     where
         LR: LeafReader,
     {
@@ -276,6 +273,7 @@ impl DocValues {
     }
 }
 pub type Numeric<LR> = Either2NumericDocValues<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
+pub type Binary<LR> = Either2BinaryDocValues<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
 pub type SortedNumericDocValuesRet<LR> = Either2SortedNumericDocValues<
     <LR as LeafReader>::SortedNumericDocValues,
     Either2SortedNumericDocValues<

@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
+use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::doc_values::{Binary, DocValues};
+use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
@@ -22,6 +27,7 @@ use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 /// Expert: a `FieldComparator` compares hits so as to determine their sort order when collecting the
 /// top results with [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector).
@@ -232,7 +238,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         Ok(())
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S1, S2>(&mut self, _doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -250,7 +256,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         }
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S1, S2>(&mut self, _doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
     where
         S1: Scorer,
         S2: Scorable,
@@ -268,7 +274,12 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         }
     }
 
-    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        slot: usize,
+        _doc: i32,
+        scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
@@ -279,6 +290,186 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         };
         self.comparator.scores[slot] = score;
         debug_assert!(!score.is_nan());
+        Ok(())
+    }
+
+    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        Ok(())
+    }
+
+    type DocIdSetIterator = DummyDocIdSetIterator;
+}
+pub struct TermValComparator {
+    pub(crate) values: Vec<Option<BytesRef<Vec<u8>>>>,
+    pub(crate) field: String,
+    pub(crate) bottom: usize,
+    pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
+    pub(crate) missing_sort_cmp: i32,
+}
+
+impl TermValComparator {
+    pub fn new(num_hits: i32, field: String, sort_missing_last: bool) -> Self {
+        Self {
+            values: vec![None; num_hits as usize],
+            field,
+            bottom: 0,
+            top_value: None,
+            missing_sort_cmp: if sort_missing_last { 1 } else { -1 },
+        }
+    }
+
+    fn compare_values(
+        &self,
+        val1: Option<&BytesRef<Vec<u8>>>,
+        val2: Option<&BytesRef<Vec<u8>>>,
+    ) -> i32 {
+        match (val1, val2) {
+            (None, None) => 0,
+            (None, Some(_)) => self.missing_sort_cmp,
+            (Some(_), None) => -self.missing_sort_cmp,
+            (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
+        }
+    }
+}
+
+impl FieldComparator for TermValComparator {
+    type V = BytesRef<Vec<u8>>;
+
+    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+        let val1 = self.values[slot1 as usize].as_ref();
+        let val2 = self.values[slot2 as usize].as_ref();
+        self.compare_values(val1, val2)
+    }
+
+    fn set_top_value(&mut self, value: Self::V) {
+        self.top_value = Some(value);
+    }
+
+    fn value(&self, slot: i32) -> &Self::V {
+        self.values[slot as usize]
+            .as_ref()
+            .expect("value in slot must be present")
+    }
+
+    type LeafFieldComparator<LR>
+        = TermValLeafComparator<LR>
+    where
+        LR: LeafReader;
+
+    fn get_leaf_comparator<LR>(
+        self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self::LeafFieldComparator<LR>>
+    where
+        LR: LeafReader,
+    {
+        let doc_terms = DocValues::get_binary(context.reader(), &self.field)?;
+        Ok(TermValLeafComparator::new(self, doc_terms))
+    }
+
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+        match (first, second) {
+            (Some(f), Some(s)) => f.cmp(s).to_int(),
+            (None, Some(_)) => self.missing_sort_cmp,
+            (Some(_), None) => -self.missing_sort_cmp,
+            (None, None) => 0,
+        }
+    }
+}
+/// Sorts by field's natural Term sort order.
+///
+/// All comparisons are done using [`BytesRef::compareTo`],
+/// which is slow for medium to large result sets but possibly
+/// very fast for very small result sets.
+pub struct TermValLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    comparator: TermValComparator,
+    doc_terms: Binary<LR>,
+}
+
+impl<LR> TermValLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    pub fn new(comparator: TermValComparator, doc_terms: Binary<LR>) -> Self {
+        Self {
+            comparator,
+            doc_terms,
+        }
+    }
+
+    fn get_value_for_doc(
+        doc_terms: &mut Binary<LR>,
+        doc: i32,
+    ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        if doc_terms.advance_exact(doc)? {
+            Ok(Some(doc_terms.binary_value()?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<LR> LeafFieldComparator for TermValLeafComparator<LR>
+where
+    LR: LeafReader,
+{
+    fn set_bottom(&mut self, slot: usize) -> Result<()> {
+        self.comparator.bottom = slot;
+        Ok(())
+    }
+
+    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
+        let val = Self::get_value_for_doc(doc_terms, doc)?;
+        let bottom_value = match &comparator.values[comparator.bottom] {
+            Some(v) => Some(v),
+            None => None,
+        };
+        match val {
+            Some(v) => Ok(comparator.compare_values(bottom_value, Some(v.as_ref()))),
+            None => Ok(comparator.compare_values(bottom_value, None)),
+        }
+    }
+
+    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
+        match Self::get_value_for_doc(doc_terms, doc)? {
+            None => Ok(comparator.compare_values(comparator.top_value.as_ref(), None)),
+            Some(val) => {
+                Ok(comparator.compare_values(comparator.top_value.as_ref(), Some(val.as_ref())))
+            },
+        }
+    }
+
+    fn copy<S1, S2>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
+    where
+        S1: Scorer,
+        S2: Scorable,
+    {
+        match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
+            None => self.comparator.values[slot] = None,
+            Some(val) => self.comparator.values[slot] = Some(val.into_owned()),
+        }
         Ok(())
     }
 
