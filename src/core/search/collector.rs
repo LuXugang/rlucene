@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
@@ -40,7 +39,6 @@ use crate::core::search::weight::Weight;
 ///
 /// @lucene.experimental
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
 
 pub trait Collector {
     type LeafCollector<'a>: LeafCollector

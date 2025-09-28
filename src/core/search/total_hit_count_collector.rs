@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
@@ -25,15 +24,19 @@ use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
-
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+/// Just counts the total number of hits. This is the collector behind [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count).
+/// When the [`Weight`] implements [`Weight::count`], this collector will skip collecting segments.
 pub struct TotalHitCountCollector {
     total_hit: i32,
 }
 impl TotalHitCountCollector {
     pub fn new() -> Self {
         Self { total_hit: 0 }
+    }
+    /// Returns how many hits matched the search.
+    pub fn get_total_hits(&self) -> i32 {
+        self.total_hit
     }
 }
 impl Collector for TotalHitCountCollector {
@@ -54,6 +57,10 @@ impl Collector for TotalHitCountCollector {
             Some(w) => w.count(context)?,
             None => -1,
         };
+        if leaf_count != -1 {
+            self.total_hit += leaf_count;
+            return Err(LuceneError::collection_terminated_error(""));
+        }
         Ok(TotalHitCountLeafCollector::new(self))
     }
 
