@@ -1086,7 +1086,5 @@ pub trait SortFiledBase: Display {
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>>;
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()>;
     type FieldComparator: FieldComparator;
-    fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
-        todo!()
-    }
+    fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator>;
 }
