@@ -78,7 +78,11 @@ impl SortField {
     ///
     /// Returns an error if the field is `None` and the type is not `SCORE` or
     /// `DOC`.
-    pub fn new(field: Option<String>, field_type: SortFieldType) -> Result<Self> {
+    pub fn new<T>(field: Option<T>, field_type: SortFieldType) -> Result<Self>
+    where
+        T: Into<String>,
+    {
+        let field = field.map(|f| f.into());
         SortField::init_field_type(field, field_type)
     }
     /// Creates a sort, possibly in reverse, by terms in the given field with
@@ -98,11 +102,14 @@ impl SortField {
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not
     /// `SCORE` or `DOC`.
-    pub fn with_reverse(
-        field: Option<String>,
+    pub fn with_reverse<T>(
+        field: Option<T>,
         field_type: SortFieldType,
         reverse: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         let mut result = Self::new(field, field_type)?;
         result.reverse = reverse;
         Ok(result)
@@ -122,10 +129,14 @@ impl SortField {
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not
     /// `SCORE` or `DOC`.
-    pub fn with_comparator(
-        field: Option<String>,
+    pub fn with_comparator<T>(
+        field: Option<T>,
         comparator: Option<FieldComparatorSourceEnum>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+    {
+        let field = field.map(|f| f.into());
         let mut result = SortField::init_field_type(field, SortFieldType::Custom)?;
         debug_assert!(comparator.is_some());
         result.comparator_source = comparator;
@@ -147,11 +158,14 @@ impl SortField {
     ///
     /// Returns an error if the `field` is `None` and the `field_type` is not
     /// `SCORE` or `DOC`.
-    pub fn with_comparator_reverse(
-        field: Option<String>,
+    pub fn with_comparator_reverse<T>(
+        field: Option<T>,
         comparator: Option<FieldComparatorSourceEnum>,
         reverse: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         let mut result = Self::with_comparator(field, comparator)?;
         result.reverse = reverse;
         Ok(result)
@@ -160,13 +174,13 @@ impl SortField {
     /// # Note
     /// Replace Java's `SortField.FIELD_SCORE` with this method.
     pub fn get_field_score() -> Result<Self> {
-        SortField::new(None, SortFieldType::Score)
+        SortField::new::<String>(None, SortFieldType::Score)
     }
     /// Represents sorting by document number (index order).
     /// # Note
     /// Replace Java's `SortField.FIELD_DOC` with this method.
     pub fn get_field_doc() -> Result<Self> {
-        SortField::new(None, SortFieldType::Doc)
+        SortField::new::<String>(None, SortFieldType::Doc)
     }
     // Sets field & type, and ensures field is not NULL unless
     // type is SCORE or DOC

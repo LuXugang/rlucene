@@ -44,7 +44,10 @@ impl SortedNumericSortField {
     ///
     /// * `field` - Name of the field to sort by. Must not be empty.
     /// * `sort_field_type` - Type of values.
-    pub fn new(field: String, sort_field_type: SortFieldType) -> Result<Self> {
+    pub fn new<T>(field: T, sort_field_type: SortFieldType) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         Self::with_reverse(field, sort_field_type, false)
     }
 
@@ -56,11 +59,10 @@ impl SortedNumericSortField {
     /// * `field` - Name of the field to sort by. Must not be empty.
     /// * `sort_field_type` - Type of values.
     /// * `reverse` - `true` if natural order should be reversed.
-    pub fn with_reverse(
-        field: String,
-        sort_field_type: SortFieldType,
-        reverse: bool,
-    ) -> Result<Self> {
+    pub fn with_reverse<T>(field: T, sort_field_type: SortFieldType, reverse: bool) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         Self::with_selector(
             field,
             sort_field_type,
@@ -78,13 +80,16 @@ impl SortedNumericSortField {
     /// * `reverse` - `true` if natural order should be reversed.
     /// * `selector` - Custom selector type for choosing the sort value from the
     ///   set.
-    pub fn with_selector(
-        field: String,
+    pub fn with_selector<T>(
+        field: T,
         sort_field_type: SortFieldType,
         reverse: bool,
         selector: SortedNumericSelectorType,
-    ) -> Result<Self> {
-        let sort_field = SortField::with_reverse(Some(field.clone()), sort_field_type, reverse)?;
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+    {
+        let sort_field = SortField::with_reverse(Some(field), sort_field_type, reverse)?;
         Ok(SortedNumericSortField {
             selector,
             parent_sort: sort_field,

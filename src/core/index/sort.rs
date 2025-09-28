@@ -79,8 +79,8 @@ impl Sort {
     /// use rlucene::core::search::sort_field_enum::SortFieldVecExt;
     /// use rlucene::core::search::sorted_numeric_sort_field::SortedNumericSortField;
     /// use rlucene::core::search::sorted_set_sort_field::SortedSetSortField;
-    /// let sort_field1 = SortField::new(Some("field1".to_string()), SortFieldType::Custom).unwrap();
-    /// let sort_field2 = SortedSetSortField::new("field2".to_string(), false).unwrap();
+    /// let sort_field1 = SortField::new(Some("field1"), SortFieldType::Custom).unwrap();
+    /// let sort_field2 = SortedSetSortField::new("field2", false).unwrap();
     /// let mut fileds = Vec::new();
     /// fileds.push_sort_fields(sort_field1);
     /// fileds.push_sort_fields(sort_field2);

@@ -41,7 +41,10 @@ impl SortedSetSortField {
     ///
     /// * `field` - Name of the field to sort by.
     /// * `reverse` - `true` if natural order should be reversed.
-    pub fn new(field: String, reverse: bool) -> Result<Self> {
+    pub fn new<T>(field: T, reverse: bool) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         Self::with_selector(field, reverse, SortedSetSelectorType::Min)
     }
 
@@ -58,11 +61,14 @@ impl SortedSetSortField {
     /// selectors other than
     /// [`SortedSetSelectorType#Min`](SortedSetSelectorType::Min) require
     /// optional codec support.
-    pub fn with_selector(
-        field: String,
+    pub fn with_selector<T>(
+        field: T,
         reverse: bool,
         selector: SortedSetSelectorType,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
