@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, Numeric, SortedNumeric};
+use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
     DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
@@ -22,12 +22,12 @@ use crate::core::index::index_sorter::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::Either2NumericDocValues;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::search::comparators::double_comparator::{DoubleComparator, DoubleLeafComparator};
 use crate::core::search::comparators::float_comparator::{FloatComparator, FloatLeafComparator};
 use crate::core::search::comparators::int_comparator::{IntComparator, IntLeafComparator};
 use crate::core::search::comparators::long_comparator::{LongComparator, LongLeafComparator};
+use crate::core::search::comparators::numeric_comparator::NumericLeafComparatorDocValues;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
@@ -504,23 +504,19 @@ macro_rules! impl_sorted_numeric_comparator {
             {
                 let numeric_comparator = std::mem::take(&mut self.base.base);
 
-                let selector_a: Either2NumericDocValues<
-                    SortedNumericSelectorWrap<SortedNumeric<LR>>,
-                    Numeric<LR>,
-                > = Either2NumericDocValues::A(SortedNumericSelector::wrap(
-                    DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
-                    self.selector,
-                    self.type_,
-                )?);
+                let selector_a =
+                    NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+                        DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
+                        self.selector,
+                        self.type_,
+                    )?);
 
-                let selector_b: Either2NumericDocValues<
-                    SortedNumericSelectorWrap<SortedNumeric<LR>>,
-                    Numeric<LR>,
-                > = Either2NumericDocValues::A(SortedNumericSelector::wrap(
-                    DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
-                    self.selector,
-                    self.type_,
-                )?);
+                let selector_b =
+                    NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+                        DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
+                        self.selector,
+                        self.type_,
+                    )?);
 
                 $leaf::new(
                     self.base,

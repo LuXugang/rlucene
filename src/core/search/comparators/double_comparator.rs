@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, Numeric, SortedNumeric};
+use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::comparators::numeric_comparator::{
     NumericComparator, NumericCompetitiveIterator, NumericLeafComparator,
     NumericLeafComparatorDocValues, ToLong,
@@ -29,7 +29,6 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
-use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
 use crate::core::util::ToInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -142,17 +141,11 @@ where
         let (doc_value, candidate) = match (doc_values, candidate) {
             (Some(v1), Some(v2)) => (v1, v2),
             (None, None) => {
-                let v1: Either2NumericDocValues<
-                    SortedNumericSelectorWrap<SortedNumeric<LR>>,
-                    Numeric<LR>,
-                > = Either2NumericDocValues::B(DocValues::get_numeric(
+                let v1 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
                     context.reader(),
                     &comparator.base.field,
                 )?);
-                let v2: Either2NumericDocValues<
-                    SortedNumericSelectorWrap<SortedNumeric<LR>>,
-                    Numeric<LR>,
-                > = Either2NumericDocValues::B(DocValues::get_numeric(
+                let v2 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
                     context.reader(),
                     &comparator.base.field,
                 )?);
