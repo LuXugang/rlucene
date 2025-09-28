@@ -26,6 +26,7 @@ use crate::core::search::comparators::double_comparator::DoubleComparator;
 use crate::core::search::comparators::float_comparator::FloatComparator;
 use crate::core::search::comparators::int_comparator::IntComparator;
 use crate::core::search::comparators::long_comparator::LongComparator;
+use crate::core::search::comparators::term_ord_val_comparator::TermOrdValComparator;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::scorable::{Scorable, ScorerEnum};
@@ -423,6 +424,7 @@ pub enum FieldComparatorEnum {
     Int(IntComparator),
     Long(LongComparator),
     TermVal(TermValComparator),
+    TermOrdValue(TermOrdValComparator),
 }
 
 impl From<DocComparator> for FieldComparatorEnum {
@@ -460,6 +462,11 @@ impl From<TermValComparator> for FieldComparatorEnum {
         FieldComparatorEnum::TermVal(comparator)
     }
 }
+impl From<TermOrdValComparator> for FieldComparatorEnum {
+    fn from(comparator: TermOrdValComparator) -> Self {
+        FieldComparatorEnum::TermOrdValue(comparator)
+    }
+}
 
 impl FieldComparator for FieldComparatorEnum {
     type V = FieldComparatorValue;
@@ -472,6 +479,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::Int(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::Long(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::TermVal(comparator) => comparator.compare(slot1, slot2),
+            FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare(slot1, slot2),
         }
     }
 
@@ -503,6 +511,12 @@ impl FieldComparator for FieldComparatorEnum {
                     .expect("expected term value comparator value");
                 comparator.set_top_value(v);
             },
+            FieldComparatorEnum::TermOrdValue(comparator) => {
+                let v = value
+                    .into_term_val()
+                    .expect("expected term ord value comparator value");
+                comparator.set_top_value(v);
+            },
         }
     }
 
@@ -524,6 +538,9 @@ impl FieldComparator for FieldComparatorEnum {
                 FieldComparatorValue::Long(comparator.value(slot))
             },
             FieldComparatorEnum::TermVal(comparator) => {
+                FieldComparatorValue::TermVal(comparator.value(slot))
+            },
+            FieldComparatorEnum::TermOrdValue(comparator) => {
                 FieldComparatorValue::TermVal(comparator.value(slot))
             },
         }
@@ -560,6 +577,9 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::TermVal(comparator) => comparator
                 .get_leaf_comparator(context)
                 .map(LeafFieldComparatorEnum::TermVal),
+            FieldComparatorEnum::TermOrdValue(comparator) => comparator
+                .get_leaf_comparator(context)
+                .map(LeafFieldComparatorEnum::TermOrdVal),
         }
     }
 
@@ -589,6 +609,10 @@ impl FieldComparator for FieldComparatorEnum {
                 first.and_then(FieldComparatorValue::as_term_val),
                 second.and_then(FieldComparatorValue::as_term_val),
             ),
+            FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare_values(
+                first.and_then(FieldComparatorValue::as_term_val),
+                second.and_then(FieldComparatorValue::as_term_val),
+            ),
         }
     }
 
@@ -614,6 +638,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::Int(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::Long(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::TermVal(comparator) => comparator.set_single_sort(),
+            FieldComparatorEnum::TermOrdValue(comparator) => comparator.set_single_sort(),
         }
     }
 
@@ -625,6 +650,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::Int(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::Long(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::TermVal(comparator) => comparator.disable_skipping(),
+            FieldComparatorEnum::TermOrdValue(comparator) => comparator.disable_skipping(),
         }
     }
 }

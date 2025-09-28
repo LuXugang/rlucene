@@ -198,7 +198,7 @@ where
     pub(crate) top_ord: i32,
     /// Which ordinal to use for a missing value.
     pub(crate) missing_ord: i32,
-    competitive_iterator: Option<CompetitiveIterator<LR>>,
+    competitive_iterator: Option<TermOrdValCompetitiveIterator<LR>>,
     dense: bool,
     comparator: TermOrdValComparator,
 }
@@ -301,7 +301,7 @@ where
                 },
                 Some(terms_enum) => terms_enum.iterator()?,
             };
-            leaf.competitive_iterator = Some(CompetitiveIterator::new(
+            leaf.competitive_iterator = Some(TermOrdValCompetitiveIterator::new(
                 context,
                 leaf.dense,
                 doc_values_terms,
@@ -542,7 +542,7 @@ where
         Ok(())
     }
 
-    type DocIdSetIterator = CompetitiveIterator<LR>;
+    type DocIdSetIterator = TermOrdValCompetitiveIterator<LR>;
 
     fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
         self.competitive_iterator.take()
@@ -555,7 +555,7 @@ where
 }
 
 const MAX_TERMS: i32 = 1024;
-pub struct CompetitiveIterator<LR>
+pub struct TermOrdValCompetitiveIterator<LR>
 where
     LR: LeafReader,
 {
@@ -571,7 +571,7 @@ where
     using_skip: bool,
     disjunction: Option<PriorityQueue<PostingsEnumAndOrd<LR>, PostingsEnumAndOrdCmp>>,
 }
-impl<LR> CompetitiveIterator<LR>
+impl<LR> TermOrdValCompetitiveIterator<LR>
 where
     LR: LeafReader,
 {
@@ -700,7 +700,7 @@ where
         Ok(())
     }
 }
-impl<LR> DocIdSetIterator for CompetitiveIterator<LR>
+impl<LR> DocIdSetIterator for TermOrdValCompetitiveIterator<LR>
 where
     LR: LeafReader,
 {

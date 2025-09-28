@@ -24,7 +24,10 @@ use crate::core::search::comparators::long_comparator::LongLeafComparator;
 use crate::core::search::comparators::numeric_comparator::{
     CompetitiveIterator, CompetitiveIteratorType,
 };
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either3DocIdSetIterator};
+use crate::core::search::comparators::term_ord_val_comparator::{
+    TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
+};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::field_comparator::TermValLeafComparator;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
@@ -179,10 +182,11 @@ pub trait LeafFieldComparator {
 
 type NumericCompetitiveIterator<LR> = CompetitiveIterator<CompetitiveIteratorType<Numeric<LR>>>;
 
-pub type LeafFieldComparatorDocIdSetIterator<LR> = Either3DocIdSetIterator<
+pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     DocComparatorIterator,
     NumericCompetitiveIterator<LR>,
     DummyDocIdSetIterator,
+    TermOrdValCompetitiveIterator<LR>,
 >;
 
 pub enum LeafFieldComparatorEnum<LR>
@@ -195,6 +199,7 @@ where
     Int(IntLeafComparator<LR>),
     Long(LongLeafComparator<LR>),
     TermVal(TermValLeafComparator<LR>),
+    TermOrdVal(TermOrdValLeafComparator<LR>),
 }
 
 impl<LR> LeafFieldComparator for LeafFieldComparatorEnum<LR>
@@ -209,6 +214,7 @@ where
             Self::Int(comparator) => comparator.set_bottom(slot),
             Self::Long(comparator) => comparator.set_bottom(slot),
             Self::TermVal(comparator) => comparator.set_bottom(slot),
+            Self::TermOrdVal(comparator) => comparator.set_bottom(slot),
         }
     }
 
@@ -224,6 +230,7 @@ where
             Self::Int(comparator) => comparator.compare_bottom(doc, scorer),
             Self::Long(comparator) => comparator.compare_bottom(doc, scorer),
             Self::TermVal(comparator) => comparator.compare_bottom(doc, scorer),
+            Self::TermOrdVal(comparator) => comparator.compare_bottom(doc, scorer),
         }
     }
 
@@ -239,6 +246,7 @@ where
             Self::Int(comparator) => comparator.compare_top(doc, scorer),
             Self::Long(comparator) => comparator.compare_top(doc, scorer),
             Self::TermVal(comparator) => comparator.compare_top(doc, scorer),
+            Self::TermOrdVal(comparator) => comparator.compare_top(doc, scorer),
         }
     }
 
@@ -254,6 +262,7 @@ where
             Self::Int(comparator) => comparator.copy(slot, doc, scorer),
             Self::Long(comparator) => comparator.copy(slot, doc, scorer),
             Self::TermVal(comparator) => comparator.copy(slot, doc, scorer),
+            Self::TermOrdVal(comparator) => comparator.copy(slot, doc, scorer),
         }
     }
 
@@ -269,6 +278,7 @@ where
             Self::Int(comparator) => comparator.set_scorer(scorer),
             Self::Long(comparator) => comparator.set_scorer(scorer),
             Self::TermVal(comparator) => comparator.set_scorer(scorer),
+            Self::TermOrdVal(comparator) => comparator.set_scorer(scorer),
         }
     }
 
@@ -294,6 +304,9 @@ where
             Self::TermVal(comparator) => comparator
                 .competitive_iterator()
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
+            Self::TermOrdVal(comparator) => comparator
+                .competitive_iterator()
+                .map(LeafFieldComparatorDocIdSetIterator::<LR>::D),
         }
     }
 
@@ -305,6 +318,7 @@ where
             Self::Int(comparator) => comparator.set_hits_threshold_reached(),
             Self::Long(comparator) => comparator.set_hits_threshold_reached(),
             Self::TermVal(comparator) => comparator.set_hits_threshold_reached(),
+            Self::TermOrdVal(comparator) => comparator.set_hits_threshold_reached(),
         }
     }
 }
