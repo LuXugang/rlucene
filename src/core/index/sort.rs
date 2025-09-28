@@ -14,25 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::Display;
-
 use crate::core::search::sort_field::{SortField, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-
+use std::fmt;
+use std::fmt::Display;
+use std::hash::Hash;
+/// Encapsulates sort criteria for returned hits.
+///
+/// A [`Sort`] can be created with an empty constructor, yielding an object
+/// that instructs searches to return hits sorted by relevance; or it can be
+/// created with one or more [`SortField`]s.
+///
+/// See also: [`SortField`].
 #[derive(Clone)]
 pub struct Sort {
     pub(crate) fields: Vec<SortFieldEnum>,
 }
 
 impl Sort {
-    /// Replace Java's `Sort.INDEXORDER` with this method.
+    /// Represents sorting by index order.
     pub fn get_index_order() -> Result<Self> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_doc()?);
         Self::with_fields(vec![sort_field])
     }
-    /// Replace Java's `Sort.RELEVANCE` with this method.
+    /// Represents sorting by computed relevance. Using this sort criteria returns the same results as
+    /// calling [`IndexSearcher::search(Query, i32)`](crate::core::search::index_searcher::IndexSearcher::search) without a sort criteria,
+    /// only with slightly more overhead.
     pub fn get_relevance() -> Result<Self> {
         Self::new()
     }
@@ -71,7 +79,7 @@ impl Sort {
     /// Returns an error if the provided `fields` vector is empty.
     /// # Note
     /// You could use
-    /// [`push_sort_fields`](crate::core::search::sort_field_enum::SortFieldVecExt::push_sort_fields)
+    /// [`push`](crate::core::search::sort_field_enum::SortFieldVecExt::push)
     /// to init SortFieldEnum vector. # Example
     /// ```rust
     /// use rlucene::core::index::sort::Sort;
@@ -82,8 +90,8 @@ impl Sort {
     /// let sort_field1 = SortField::new(Some("field1"), SortFieldType::Custom).unwrap();
     /// let sort_field2 = SortedSetSortField::new("field2", false).unwrap();
     /// let mut fileds = Vec::new();
-    /// fileds.push_sort_fields(sort_field1);
-    /// fileds.push_sort_fields(sort_field2);
+    /// fileds.push(sort_field1);
+    /// fileds.push(sort_field2);
     /// let sort = Sort::with_fields(fileds);
     /// assert!(sort.is_ok());
     /// ```
@@ -123,3 +131,9 @@ impl PartialEq for Sort {
     }
 }
 impl Eq for Sort {}
+
+impl Hash for Sort {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.fields.hash(state);
+    }
+}

@@ -132,11 +132,11 @@ impl From<SortedSetSortField> for SortFieldEnum {
 }
 
 pub trait SortFieldVecExt {
-    fn push_sort_fields(&mut self, item: impl Into<SortFieldEnum>);
+    fn push(&mut self, item: impl Into<SortFieldEnum>);
 }
 
 impl SortFieldVecExt for Vec<SortFieldEnum> {
-    fn push_sort_fields(&mut self, item: impl Into<SortFieldEnum>) {
+    fn push(&mut self, item: impl Into<SortFieldEnum>) {
         self.push(item.into());
     }
 }
