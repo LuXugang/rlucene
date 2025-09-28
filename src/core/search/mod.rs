@@ -19,6 +19,7 @@ mod boost_attribute;
 pub mod bulk_scorer;
 pub mod collection_statistics;
 pub mod collector;
+pub mod collector_manager;
 pub mod comparators;
 mod constant_score_scorer;
 mod disjunction_matches_iterator;
