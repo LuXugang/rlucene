@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_sorter::{DocComparatorEnum, IndexSorter, StringSorter};
+use crate::core::index::index_sorter::{DocComparatorImpl, IndexSorter, StringSorter};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
@@ -155,7 +155,7 @@ impl IndexSorter for IndexSortEnum {
         }
     }
 
-    type DocComparator = DocComparatorEnum;
+    type DocComparator = DocComparatorImpl;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
@@ -163,7 +163,7 @@ impl IndexSorter for IndexSortEnum {
     {
         match self {
             IndexSortEnum::SortedNumeric(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
-            IndexSortEnum::SortedSet(sorter) => Ok(DocComparatorEnum::String(
+            IndexSortEnum::SortedSet(sorter) => Ok(DocComparatorImpl::String(
                 sorter.get_doc_comparator(leaf_reader, max_doc)?,
             )),
             IndexSortEnum::Sorter(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),

@@ -17,7 +17,7 @@
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
-    DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
+    DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
     NumericDocValuesProvider,
 };
 use crate::core::index::leaf_reader::LeafReader;
@@ -442,23 +442,23 @@ impl IndexSorter for IndexSorterNumeric {
         }
     }
 
-    type DocComparator = DocComparatorEnum;
+    type DocComparator = DocComparatorImpl;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
         match self {
-            IndexSorterNumeric::Int(i) => Ok(DocComparatorEnum::Int(
+            IndexSorterNumeric::Int(i) => Ok(DocComparatorImpl::Int(
                 i.get_doc_comparator(leaf_reader, max_doc)?,
             )),
-            IndexSorterNumeric::Long(l) => Ok(DocComparatorEnum::Long(
+            IndexSorterNumeric::Long(l) => Ok(DocComparatorImpl::Long(
                 l.get_doc_comparator(leaf_reader, max_doc)?,
             )),
-            IndexSorterNumeric::Double(d) => Ok(DocComparatorEnum::Double(
+            IndexSorterNumeric::Double(d) => Ok(DocComparatorImpl::Double(
                 d.get_doc_comparator(leaf_reader, max_doc)?,
             )),
-            IndexSorterNumeric::Float(f) => Ok(DocComparatorEnum::Float(
+            IndexSorterNumeric::Float(f) => Ok(DocComparatorImpl::Float(
                 f.get_doc_comparator(leaf_reader, max_doc)?,
             )),
         }

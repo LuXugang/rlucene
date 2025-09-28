@@ -485,6 +485,34 @@ pub trait DocComparator {
     /// Compare docID1 against docID2.
     fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32;
 }
+macro_rules! either_doc_comparator {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> DocComparator for $name<$( $T ),+>
+        where
+            $( $T: DocComparator ),+
+        {
+            #[inline]
+            fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.compare(doc_id1, doc_id2), )+
+                }
+            }
+        }
+    };
+}
+either_doc_comparator!(pub Either2DocComparator { A: A, B: B });
+either_doc_comparator!(pub Either5DocComparator { Int: A, Long: B, Float: C, Double: D, String: E });
+pub type DocComparatorImpl = Either5DocComparator<
+    DocComparatorImplInt,
+    DocComparatorImplLong,
+    DocComparatorImplFloat,
+    DocComparatorImplDouble,
+    DocComparatorImplString,
+>;
 /// Provide a NumericDocValues instance for a LeafReader
 pub trait NumericDocValuesProvider {
     /// Returns the numeric value for the given doc ID.
@@ -505,44 +533,6 @@ pub trait SortedDocValuesProvider {
     fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::SortedDocValues<LR>>
     where
         LR: LeafReader;
-}
-
-pub enum DocComparatorEnum {
-    Int(DocComparatorImplInt),
-    Long(DocComparatorImplLong),
-    Float(DocComparatorImplFloat),
-    Double(DocComparatorImplDouble),
-    String(DocComparatorImplString),
-}
-impl DocComparator for DocComparatorEnum {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        match self {
-            DocComparatorEnum::Int(cmp) => cmp.compare(doc_id1, doc_id2),
-            DocComparatorEnum::Long(cmp) => cmp.compare(doc_id1, doc_id2),
-            DocComparatorEnum::Float(cmp) => cmp.compare(doc_id1, doc_id2),
-            DocComparatorEnum::Double(cmp) => cmp.compare(doc_id1, doc_id2),
-            DocComparatorEnum::String(cmp) => cmp.compare(doc_id1, doc_id2),
-        }
-    }
-}
-
-// DocComparator
-pub enum Either2DocComparator<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> DocComparator for Either2DocComparator<A, B>
-where
-    A: DocComparator,
-    B: DocComparator,
-{
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        match self {
-            Either2DocComparator::A(t) => t.compare(doc_id1, doc_id2),
-            Either2DocComparator::B(s) => s.compare(doc_id1, doc_id2),
-        }
-    }
 }
 
 #[cfg(test)]
