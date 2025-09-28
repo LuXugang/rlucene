@@ -34,7 +34,19 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-
+/// SortField for [`SortedSetDocValues`](crate::core::index::sorted_set_doc_values::SortedSetDocValues).
+///
+/// A SortedSetDocValues contains multiple values for a field, so sorting with this technique
+/// "selects" a value as the representative sort value for the document.
+///
+/// By default, the minimum value in the set is selected as the sort value, but this can be
+/// customized. Selectors other than the default do have some limitations to ensure that all
+/// selections happen in constant-time for performance.
+///
+/// Like sorting by string, this also supports sorting missing values as first or last, via
+/// [`setMissingValue`](SortFiledBase::set_missing_value).
+///
+/// See also: [`SortedSetSelector`]
 #[derive(Clone)]
 pub struct SortedSetSortField {
     selector: SortedSetSelectorType,

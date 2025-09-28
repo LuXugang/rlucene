@@ -40,7 +40,18 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-
+/// SortField for [`SortedNumericDocValues`](crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues).
+///
+/// A SortedNumericDocValues contains multiple values for a field, so sorting with this technique
+/// "selects" a value as the representative sort value for the document.
+///
+/// By default, the minimum value in the list is selected as the sort value, but this can be
+/// customized.
+///
+/// Like sorting by string, this also supports sorting missing values as first or last, via
+/// [`setMissingValue`](SortFiledBase::set_missing_value).
+///
+/// See also: [`SortedNumericSelector`]
 #[derive(Clone)]
 pub struct SortedNumericSortField {
     selector: SortedNumericSelectorType,

@@ -239,9 +239,61 @@ impl SortField {
     pub fn get_reverse(&self) -> bool {
         self.reverse
     }
-
+    /// Enables/disables numeric sort optimization to use the indexed data.
+    ///
+    /// Enabled by default. By default, sorting on a numeric field activates point sort optimization
+    /// that can efficiently skip over non-competitive hits. Sort optimization has a number of
+    /// requirements, one of which is that [`SortFieldType`] matches the Point type with which the field
+    /// was indexed (e.g. sort on IntPoint field should use [`SortFieldType::Int`]). Another requirement
+    /// is that the same data is indexed with points and doc values for the field.
+    ///
+    /// By default, sorting on a SORTED(_SET) field activates sort optimization that can efficiently
+    /// skip over non-competitive hits. Sort optimization requires that the same data is indexed with
+    /// term index and doc values for the field.
+    ///
+    /// # Parameters
+    /// - `optimizeSortWithIndexedData`: providing `false` disables the optimization, in cases where
+    ///   these requirements can't be met.
+    ///
+    /// # Deprecated
+    /// Should only be used for compatibility with 8.x indices that got created with inconsistent data
+    /// across fields, or the wrong sort configuration in the index sort.
+    pub fn set_optimize_sort_with_indexed_data(&mut self, optimize_sort_with_indexed_data: bool) {
+        self.optimize_sort_with_indexed_data = optimize_sort_with_indexed_data
+    }
+    ///  Returns whether sort optimization should be optimized with points index
     pub fn get_optimize_sort_with_indexed_data(&self) -> bool {
         self.optimize_sort_with_indexed_data
+    }
+    /// Enables/disables numeric sort optimization to use the Points index.
+    ///
+    /// Enabled by default. By default, sorting on a numeric field activates point sort optimization
+    /// that can efficiently skip over non-competitive hits. Sort optimization has a number of
+    /// requirements, one of which is that [`SortFieldType`] matches the Point type with which the field
+    /// was indexed (e.g. sort on IntPoint field should use [`SortFieldType::Int`]). Another requirement
+    /// is that the same data is indexed with points and doc values for the field.
+    ///
+    /// # Parameters
+    /// - `optimize_sort_with_points`: providing `false` disables the optimization, in cases where these
+    ///   requirements can't be met.
+    ///
+    /// # Deprecated
+    /// Should only be used for compatibility with 8.x indices that got created with inconsistent data
+    /// across fields, or the wrong sort configuration in the index sort.
+    /// This is a duplicate method for [`SortField::set_optimize_sort_with_indexed_data`].
+    pub fn set_optimize_sort_with_points(&mut self, optimize_sort_with_points: bool) {
+        self.set_optimize_sort_with_indexed_data(optimize_sort_with_points);
+    }
+
+    /// Returns whether sort optimization should be optimized with points index.
+    ///
+    /// # Returns
+    /// Whether sort optimization should be optimized with points index.
+    ///
+    /// # Deprecated
+    /// This is a duplicate method for [`SortField::get_optimize_sort_with_indexed_data`].
+    pub fn get_optimize_sort_with_points(&self) -> bool {
+        self.get_optimize_sort_with_indexed_data()
     }
 }
 impl SortFiledBase for SortField {
