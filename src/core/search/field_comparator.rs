@@ -418,6 +418,7 @@ impl PartialOrd for FieldComparatorValue {
 }
 
 pub enum FieldComparatorEnum {
+    Relevance(RelevanceComparator),
     Doc(DocComparator),
     Double(DoubleComparator),
     Float(FloatComparator),
@@ -426,7 +427,11 @@ pub enum FieldComparatorEnum {
     TermVal(TermValComparator),
     TermOrdValue(TermOrdValComparator),
 }
-
+impl From<RelevanceComparator> for FieldComparatorEnum {
+    fn from(comparator: RelevanceComparator) -> Self {
+        FieldComparatorEnum::Relevance(comparator)
+    }
+}
 impl From<DocComparator> for FieldComparatorEnum {
     fn from(comparator: DocComparator) -> Self {
         FieldComparatorEnum::Doc(comparator)
@@ -473,6 +478,7 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::Doc(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::Double(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::Float(comparator) => comparator.compare(slot1, slot2),
@@ -485,6 +491,12 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn set_top_value(&mut self, value: Self::V) {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => {
+                let v = value
+                    .into_f32()
+                    .expect("expected relevance comparator value");
+                comparator.set_top_value(v);
+            },
             FieldComparatorEnum::Doc(comparator) => {
                 let v = value.into_i32().expect("expected doc comparator value");
                 comparator.set_top_value(v);
@@ -522,6 +534,9 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn value(&self, slot: i32) -> Self::V {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => {
+                FieldComparatorValue::Float(comparator.value(slot))
+            },
             FieldComparatorEnum::Doc(comparator) => {
                 FieldComparatorValue::Doc(comparator.value(slot))
             },
@@ -559,6 +574,9 @@ impl FieldComparator for FieldComparatorEnum {
         LR: LeafReader,
     {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => comparator
+                .get_leaf_comparator(context)
+                .map(LeafFieldComparatorEnum::Relevance),
             FieldComparatorEnum::Doc(comparator) => comparator
                 .get_leaf_comparator(context)
                 .map(LeafFieldComparatorEnum::Doc),
@@ -585,6 +603,10 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => comparator.compare_values(
+                first.and_then(FieldComparatorValue::as_f32),
+                second.and_then(FieldComparatorValue::as_f32),
+            ),
             FieldComparatorEnum::Doc(comparator) => comparator.compare_values(
                 first.and_then(FieldComparatorValue::as_i32),
                 second.and_then(FieldComparatorValue::as_i32),
@@ -632,6 +654,7 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn set_single_sort(&mut self) {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::Doc(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::Double(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::Float(comparator) => comparator.set_single_sort(),
@@ -644,6 +667,7 @@ impl FieldComparator for FieldComparatorEnum {
 
     fn disable_skipping(&mut self) {
         match self {
+            FieldComparatorEnum::Relevance(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::Doc(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::Double(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::Float(comparator) => comparator.disable_skipping(),

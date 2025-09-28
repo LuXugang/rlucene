@@ -29,7 +29,7 @@ use crate::core::search::comparators::term_ord_val_comparator::{
 };
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
-use crate::core::search::field_comparator::TermValLeafComparator;
+use crate::core::search::field_comparator::{RelevanceLeafComparator, TermValLeafComparator};
 use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
@@ -193,6 +193,7 @@ pub enum LeafFieldComparatorEnum<LR>
 where
     LR: LeafReader,
 {
+    Relevance(RelevanceLeafComparator),
     Doc(DocLeafComparator),
     Double(DoubleLeafComparator<LR>),
     Float(FloatLeafComparator<LR>),
@@ -208,6 +209,7 @@ where
 {
     fn set_bottom(&mut self, slot: usize) -> Result<()> {
         match self {
+            Self::Relevance(comparator) => comparator.set_bottom(slot),
             Self::Doc(comparator) => comparator.set_bottom(slot),
             Self::Double(comparator) => comparator.set_bottom(slot),
             Self::Float(comparator) => comparator.set_bottom(slot),
@@ -224,6 +226,7 @@ where
         S2: Scorable,
     {
         match self {
+            Self::Relevance(comparator) => comparator.compare_bottom(doc, scorer),
             Self::Doc(comparator) => comparator.compare_bottom(doc, scorer),
             Self::Double(comparator) => comparator.compare_bottom(doc, scorer),
             Self::Float(comparator) => comparator.compare_bottom(doc, scorer),
@@ -240,6 +243,7 @@ where
         S2: Scorable,
     {
         match self {
+            Self::Relevance(comparator) => comparator.compare_top(doc, scorer),
             Self::Doc(comparator) => comparator.compare_top(doc, scorer),
             Self::Double(comparator) => comparator.compare_top(doc, scorer),
             Self::Float(comparator) => comparator.compare_top(doc, scorer),
@@ -256,6 +260,7 @@ where
         S2: Scorable,
     {
         match self {
+            Self::Relevance(comparator) => comparator.copy(slot, doc, scorer),
             Self::Doc(comparator) => comparator.copy(slot, doc, scorer),
             Self::Double(comparator) => comparator.copy(slot, doc, scorer),
             Self::Float(comparator) => comparator.copy(slot, doc, scorer),
@@ -272,6 +277,7 @@ where
         S2: Scorable,
     {
         match self {
+            Self::Relevance(comparator) => comparator.set_scorer(scorer),
             Self::Doc(comparator) => comparator.set_scorer(scorer),
             Self::Double(comparator) => comparator.set_scorer(scorer),
             Self::Float(comparator) => comparator.set_scorer(scorer),
@@ -286,6 +292,9 @@ where
 
     fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
         match self {
+            Self::Relevance(comparator) => comparator
+                .competitive_iterator()
+                .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
             Self::Doc(comparator) => comparator
                 .competitive_iterator()
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::A),
@@ -312,6 +321,7 @@ where
 
     fn set_hits_threshold_reached(&mut self) -> Result<()> {
         match self {
+            Self::Relevance(comparator) => comparator.set_hits_threshold_reached(),
             Self::Doc(comparator) => comparator.set_hits_threshold_reached(),
             Self::Double(comparator) => comparator.set_hits_threshold_reached(),
             Self::Float(comparator) => comparator.set_hits_threshold_reached(),
