@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::Numeric;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::comparators::doc_comparator::{DocComparatorIterator, DocLeafComparator};
 use crate::core::search::comparators::double_comparator::DoubleLeafComparator;
 use crate::core::search::comparators::float_comparator::FloatLeafComparator;
 use crate::core::search::comparators::int_comparator::IntLeafComparator;
 use crate::core::search::comparators::long_comparator::LongLeafComparator;
-use crate::core::search::comparators::numeric_comparator::{
-    CompetitiveIterator, CompetitiveIteratorType,
-};
+use crate::core::search::comparators::numeric_comparator::NumericCompetitiveIterator;
 use crate::core::search::comparators::term_ord_val_comparator::{
     TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
 };
@@ -179,8 +176,6 @@ pub trait LeafFieldComparator {
         Ok(())
     }
 }
-
-type NumericCompetitiveIterator<LR> = CompetitiveIterator<CompetitiveIteratorType<Numeric<LR>>>;
 
 pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     DocComparatorIterator,

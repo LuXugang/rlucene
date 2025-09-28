@@ -39,7 +39,7 @@ impl SortedNumericSelector {
         mut sorted_numeric: S,
         selector: SortedNumericSelectorType,
         numeric_type: SortFieldType,
-    ) -> Result<NumericDocValuesImpl<S>>
+    ) -> Result<SortedNumericSelectorWrap<S>>
     where
         S: SortedNumericDocValues,
     {
@@ -348,7 +348,7 @@ where
     }
 }
 
-pub type NumericDocValuesImpl<S> = Either3NumericDocValues<
+pub type SortedNumericSelectorWrap<S> = Either3NumericDocValues<
     FilterNumericDocValuesImpl1<
         Either3NumericDocValues<
             <S as SortedNumericDocValues>::NumericDocValues,

@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::doc_values::{Numeric, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
 use crate::core::index::point_values::{
     IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
@@ -28,6 +29,7 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
+use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
 use crate::core::util::ToInt;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -578,3 +580,8 @@ pub trait ToLong {
     fn value_to_long(&self, v: Self::V) -> i64;
     fn bytes_to_long(&self, bytes: &[u8]) -> i64;
 }
+
+pub type NumericLeafComparatorDocValues<LR> =
+    Either2NumericDocValues<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>>;
+pub type NumericCompetitiveIterator<LR> =
+    CompetitiveIterator<CompetitiveIteratorType<NumericLeafComparatorDocValues<LR>>>;

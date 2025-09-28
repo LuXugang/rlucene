@@ -14,18 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, SortedNumeric};
+use crate::core::index::doc_values::{DocValues, Numeric, SortedNumeric};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
     DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
     NumericDocValuesProvider,
 };
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::numeric_doc_values::Either2NumericDocValues;
 use crate::core::index::sort_field_provider::SortFieldProvider;
-use crate::core::search::field_comparator::FieldComparatorEnum;
+use crate::core::search::comparators::int_comparator::{IntComparator, IntLeafComparator};
+use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_selector::{
-    NumericDocValuesImpl, SortedNumericSelector, SortedNumericSelectorType,
+    SortedNumericSelector, SortedNumericSelectorType, SortedNumericSelectorWrap,
 };
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -340,7 +344,7 @@ impl NumericDocValuesProviderImpl {
 }
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
     type NumericDocValues<LR>
-        = NumericDocValuesImpl<SortedNumeric<LR>>
+        = SortedNumericSelectorWrap<SortedNumeric<LR>>
     where
         LR: LeafReader;
 
@@ -392,5 +396,85 @@ impl IndexSorter for IndexSorterNumeric {
                 f.get_doc_comparator(leaf_reader, max_doc)?,
             )),
         }
+    }
+}
+pub struct SortedNumericIntComparator {
+    base: IntComparator,
+    field: String,
+    selector: SortedNumericSelectorType,
+    type_: SortFieldType,
+}
+impl SortedNumericIntComparator {
+    pub fn new(
+        base: IntComparator,
+        field: String,
+        selector: SortedNumericSelectorType,
+        type_: SortFieldType,
+    ) -> Self {
+        Self {
+            base,
+            field,
+            selector,
+            type_,
+        }
+    }
+}
+impl FieldComparator for SortedNumericIntComparator {
+    type V = <IntComparator as FieldComparator>::V;
+
+    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+        self.base.compare(slot1, slot2)
+    }
+
+    fn set_top_value(&mut self, value: Self::V) {
+        self.base.set_top_value(value);
+    }
+
+    fn value(&self, slot: i32) -> Self::V {
+        self.base.value(slot)
+    }
+
+    type LeafFieldComparator<LR>
+        = <IntComparator as FieldComparator>::LeafFieldComparator<LR>
+    where
+        LR: LeafReader;
+
+    fn get_leaf_comparator<LR>(
+        mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self::LeafFieldComparator<LR>>
+    where
+        LR: LeafReader,
+    {
+        let numeric_comparator = std::mem::take(&mut self.base.base);
+        let v1: Either2NumericDocValues<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>> =
+            Either2NumericDocValues::A(SortedNumericSelector::wrap(
+                DocValues::get_sorted_numeric(context.reader(), &self.field)?,
+                self.selector,
+                self.type_,
+            )?);
+        let v2: Either2NumericDocValues<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>> =
+            Either2NumericDocValues::A(SortedNumericSelector::wrap(
+                DocValues::get_sorted_numeric(context.reader(), &self.field)?,
+                self.selector,
+                self.type_,
+            )?);
+        IntLeafComparator::new(self.base, context, numeric_comparator, Some(v1), Some(v2))
+    }
+
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+        self.base.compare_values(first, second)
+    }
+
+    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+        self.base.fallback_compare(_first, _second)
+    }
+
+    fn set_single_sort(&mut self) {
+        self.base.set_single_sort();
+    }
+
+    fn disable_skipping(&mut self) {
+        self.base.disable_skipping();
     }
 }
