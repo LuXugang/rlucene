@@ -43,7 +43,7 @@ pub struct DoubleComparator {
     values: Vec<f64>,
     top_value: f64,
     bottom: f64,
-    base: NumericComparator<f64>,
+    pub(crate) base: NumericComparator<f64>,
 }
 
 impl DoubleComparator {

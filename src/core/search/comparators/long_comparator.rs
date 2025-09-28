@@ -41,7 +41,7 @@ pub struct LongComparator {
     values: Vec<i64>,
     top_value: i64,
     bottom: i64,
-    base: NumericComparator<i64>,
+    pub(crate) base: NumericComparator<i64>,
 }
 
 impl LongComparator {

@@ -41,7 +41,7 @@ pub struct FloatComparator {
     values: Vec<f32>,
     top_value: f32,
     bottom: f32,
-    base: NumericComparator<f32>,
+    pub(crate) base: NumericComparator<f32>,
 }
 
 impl FloatComparator {
