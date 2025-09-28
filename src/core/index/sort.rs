@@ -79,7 +79,7 @@ impl Sort {
     /// Returns an error if the provided `fields` vector is empty.
     /// # Note
     /// You could use
-    /// [`push`](crate::core::search::sort_field_enum::SortFieldVecExt::push)
+    /// [`push`](crate::core::search::sort_field_enum::SortFieldVecExt::push_iterm)
     /// to init SortFieldEnum vector. # Example
     /// ```rust
     /// use rlucene::core::index::sort::Sort;
@@ -90,8 +90,8 @@ impl Sort {
     /// let sort_field1 = SortField::new(Some("field1"), SortFieldType::Custom).unwrap();
     /// let sort_field2 = SortedSetSortField::new("field2", false).unwrap();
     /// let mut fileds = Vec::new();
-    /// fileds.push(sort_field1);
-    /// fileds.push(sort_field2);
+    /// fileds.push_iterm(sort_field1);
+    /// fileds.push_iterm(sort_field2);
     /// let sort = Sort::with_fields(fileds);
     /// assert!(sort.is_ok());
     /// ```

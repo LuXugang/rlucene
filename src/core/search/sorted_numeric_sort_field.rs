@@ -251,6 +251,11 @@ impl SortFiledBase for SortedNumericSortField {
             self.selector,
             SortedNumericSelectorType::Max | SortedNumericSelectorType::Min
         );
+        let pruning = if is_min_or_max {
+            pruning
+        } else {
+            Pruning::None
+        };
         let field = self
             .base
             .get_field()
