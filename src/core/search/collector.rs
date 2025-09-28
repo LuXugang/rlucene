@@ -48,20 +48,18 @@ pub trait Collector {
         Self: 'a;
     /// Create a new [`LeafCollector`] to collect the given context.
     ///
+    /// Set the [`Weight`] that will be used to produce scorers that will feed [`LeafCollector`]s.
+    /// This is typically useful to have access to [`Weight::count`] from [`Collector::get_leaf_collector`].
     /// # Arguments
     /// * `context` - next atomic reader context
-    fn get_leaf_collector<'a, LR>(
+    fn get_leaf_collector<'a, W>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<W::LeafReader>,
+        weight: Option<W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
-        LR: LeafReader;
+        W: Weight;
 
     /// Indicates what features are required from the scorer.
     fn score_mode(&self) -> &ScoreMode;
-
-    type Weight: Weight;
-    /// Set the [`Weight`] that will be used to produce scorers that will feed [`LeafCollector`]s.
-    /// This is typically useful to have access to [`Weight::count`] from [`Collector::get_leaf_collector`].
-    fn set_weight(&mut self, _weight: Rc<Self::Weight>) {}
 }
