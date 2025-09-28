@@ -35,6 +35,7 @@ use crate::core::search::sorted_numeric_sort_field::{
     SortedNumericDoubleComparator, SortedNumericFloatComparator, SortedNumericIntComparator,
     SortedNumericLongComparator,
 };
+use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
@@ -434,6 +435,7 @@ pub enum FieldComparatorEnum {
     SortedNumericLong(SortedNumericLongComparator),
     SortedNumericFloat(SortedNumericFloatComparator),
     SortedNumericDouble(SortedNumericDoubleComparator),
+    SortedDocValuesTermOrdVal(SortedDocValuesTermOrdValComparator),
 }
 impl From<RelevanceComparator> for FieldComparatorEnum {
     fn from(comparator: RelevanceComparator) -> Self {
@@ -504,6 +506,11 @@ impl From<SortedNumericDoubleComparator> for FieldComparatorEnum {
         FieldComparatorEnum::SortedNumericDouble(comparator)
     }
 }
+impl From<SortedDocValuesTermOrdValComparator> for FieldComparatorEnum {
+    fn from(comparator: SortedDocValuesTermOrdValComparator) -> Self {
+        FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator)
+    }
+}
 
 impl FieldComparator for FieldComparatorEnum {
     type V = FieldComparatorValue;
@@ -522,6 +529,9 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedNumericLong(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::SortedNumericDouble(comparator) => {
+                comparator.compare(slot1, slot2)
+            },
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
                 comparator.compare(slot1, slot2)
             },
         }
@@ -591,6 +601,12 @@ impl FieldComparator for FieldComparatorEnum {
                     .expect("expected sorted numeric double comparator value");
                 comparator.set_top_value(v);
             },
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+                let v = value
+                    .into_term_val()
+                    .expect("expected sorted doc values term ord val comparator value");
+                comparator.set_top_value(v);
+            },
         }
     }
 
@@ -631,6 +647,9 @@ impl FieldComparator for FieldComparatorEnum {
             },
             FieldComparatorEnum::SortedNumericDouble(comparator) => {
                 FieldComparatorValue::Double(comparator.value(slot))
+            },
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+                FieldComparatorValue::TermVal(comparator.value(slot))
             },
         }
     }
@@ -684,6 +703,9 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedNumericDouble(comparator) => comparator
                 .get_leaf_comparator(context)
                 .map(LeafFieldComparatorEnum::Double),
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
+                .get_leaf_comparator(context)
+                .map(LeafFieldComparatorEnum::TermOrdVal),
         }
     }
 
@@ -737,6 +759,11 @@ impl FieldComparator for FieldComparatorEnum {
                 first.and_then(FieldComparatorValue::as_f64),
                 second.and_then(FieldComparatorValue::as_f64),
             ),
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
+                .compare_values(
+                    first.and_then(FieldComparatorValue::as_term_val),
+                    second.and_then(FieldComparatorValue::as_term_val),
+                ),
         }
     }
 
@@ -784,6 +811,9 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedNumericLong(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.set_single_sort(),
             FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.set_single_sort(),
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+                comparator.set_single_sort()
+            },
         }
     }
 
@@ -801,6 +831,9 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedNumericLong(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.disable_skipping(),
             FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.disable_skipping(),
+            FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
+                comparator.disable_skipping()
+            },
         }
     }
 }

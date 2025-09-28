@@ -24,6 +24,7 @@ use crate::core::search::comparators::term_ord_val_comparator::{
     TermOrdValComparator, TermOrdValDocValues, TermOrdValLeafComparator,
 };
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_set_selector::{
@@ -37,7 +38,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct SortedSetSortField {
     selector: SortedSetSelectorType,
-    parent_sort: SortField,
+    base: SortField,
 }
 impl SortedSetSortField {
     /// Creates a sort, possibly in reverse, by the minimum value in the set for
@@ -78,7 +79,7 @@ impl SortedSetSortField {
         let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
-            parent_sort: sort_field,
+            base: sort_field,
         })
     }
     fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedSetSelectorType> {
@@ -98,15 +99,15 @@ impl SortedSetSortField {
 impl Display for SortedSetSortField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
-        debug_assert!(self.parent_sort.get_field().is_some());
+        debug_assert!(self.base.get_field().is_some());
         buffer.push_str(&format!(
             "<sortedset: \"{}\">",
-            self.parent_sort.get_field().unwrap()
+            self.base.get_field().unwrap()
         ));
-        if self.parent_sort.reverse {
+        if self.base.reverse {
             buffer.push('!');
         }
-        if let Some(missing_value) = &self.parent_sort.missing_value {
+        if let Some(missing_value) = &self.base.missing_value {
             buffer.push_str(&format!(" missingValue={missing_value}"));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
@@ -117,7 +118,7 @@ impl SortFiledBase for SortedSetSortField {
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
         match missing_value {
             Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
-                self.parent_sort.missing_value = missing_value;
+                self.base.missing_value = missing_value;
                 Ok(())
             },
             _ => Err(LuceneError::illegal_argument(
@@ -128,31 +129,31 @@ impl SortFiledBase for SortedSetSortField {
     }
 
     fn needs_scores(&self) -> bool {
-        self.parent_sort.needs_scores()
+        self.base.needs_scores()
     }
 
     type IndexSort = StringSorter<SortedDocValuesProviderImpl>;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
-        debug_assert!(self.parent_sort.get_field().is_some());
-        let missing_value = self.parent_sort.missing_value.clone();
+        debug_assert!(self.base.get_field().is_some());
+        let missing_value = self.base.missing_value.clone();
         Ok(Some(StringSorter::new(
             SetProvider::NAME.to_string(),
             missing_value,
-            self.parent_sort.reverse,
+            self.base.reverse,
             SortedDocValuesProviderImpl::new(
                 self.selector,
-                self.parent_sort.get_field().unwrap().to_string(),
+                self.base.get_field().unwrap().to_string(),
             ),
         )))
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-        debug_assert!(self.parent_sort.get_field().is_some());
-        out.write_string(self.parent_sort.get_field().unwrap())?;
-        out.write_int(if self.parent_sort.reverse { 1 } else { 0 })?;
+        debug_assert!(self.base.get_field().is_some());
+        out.write_string(self.base.get_field().unwrap())?;
+        out.write_int(if self.base.reverse { 1 } else { 0 })?;
         out.write_int(self.selector as i32)?;
-        match self.parent_sort.missing_value {
+        match self.base.missing_value {
             Some(MissingValueEnum::StringFirst) => out.write_int(1)?,
             Some(MissingValueEnum::StringLast) => out.write_int(2)?,
             _ => out.write_int(0)?,
@@ -161,11 +162,36 @@ impl SortFiledBase for SortedSetSortField {
     }
 
     type FieldComparator = FieldComparatorEnum;
+
+    fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
+        let final_pruning = if self.base.get_optimize_sort_with_indexed_data() {
+            pruning
+        } else {
+            Pruning::None
+        };
+        let sort_missing_last = match self.base.missing_value {
+            Some(MissingValueEnum::StringLast) => true,
+            _ => false,
+        };
+        let field = self
+            .base
+            .get_field()
+            .expect("field must not be None")
+            .clone();
+        let base = TermOrdValComparator::new(
+            field,
+            num_hits,
+            sort_missing_last,
+            self.base.reverse,
+            final_pruning,
+        );
+        Ok(SortedDocValuesTermOrdValComparator::new(base, self.selector).into())
+    }
 }
 impl Hash for SortedSetSortField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.selector.hash(state);
-        self.parent_sort.hash(state);
+        self.base.hash(state);
     }
 }
 
@@ -199,7 +225,7 @@ impl SortFieldProvider for SetProvider {
 }
 impl PartialEq for SortedSetSortField {
     fn eq(&self, other: &Self) -> bool {
-        if self.parent_sort != other.parent_sort {
+        if self.base != other.base {
             return false;
         }
         self.selector == other.selector
