@@ -99,3 +99,4 @@ message_error!(VersionError);
 message_error!(TooComplexToDeterminizeError);
 message_error!(NoSuchElementError);
 message_error!(UncheckedIOError);
+message_error!(CollectionTerminatedError);

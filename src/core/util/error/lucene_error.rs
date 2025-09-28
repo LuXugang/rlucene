@@ -25,12 +25,13 @@ use thiserror::Error;
 use crate::core::util::VersionError;
 use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{
-    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
-    IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
-    IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
-    MergeAbortedError, MergeError, NeedImplementedError, NoSuchElementError, NotFoundError,
-    NotImplementedError, NumberFormatError, NumberOverflow, TooComplexToDeterminizeError,
-    UncheckedIOError, UnreachableError, UnsupportedOperationError,
+    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError,
+    CollectionTerminatedError, CorruptIndexError, Eof, IllegalArgumentError, IllegalStateError,
+    IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
+    LockHeldByOtherError, MaxBytesLengthExceededError, MergeAbortedError, MergeError,
+    NeedImplementedError, NoSuchElementError, NotFoundError, NotImplementedError,
+    NumberFormatError, NumberOverflow, TooComplexToDeterminizeError, UncheckedIOError,
+    UnreachableError, UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -107,6 +108,8 @@ pub enum LuceneError {
     NoSuchElement(#[from] NoSuchElementError),
     #[error("{0}")]
     UncheckedIO(#[from] UncheckedIOError),
+    #[error("{0}")]
+    CollectionTerminated(#[from] CollectionTerminatedError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $fn_name_with_source:ident, $variant:ident, $error_type:ident) => {
@@ -283,6 +286,12 @@ impl LuceneError {
         unchecked_io_error_with_source,
         UncheckedIO,
         UncheckedIOError
+    );
+    error_ctor!(
+        collection_terminated_error,
+        collection_terminated_error_with_source,
+        CollectionTerminated,
+        CollectionTerminatedError
     );
 }
 
