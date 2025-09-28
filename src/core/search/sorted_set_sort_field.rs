@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values::{DocValues, SortedSet};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{SortedDocValuesProvider, StringSorter};
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort_field_provider::SortFieldProvider;
-use crate::core::search::field_comparator::FieldComparatorEnum;
+use crate::core::search::comparators::term_ord_val_comparator::{
+    TermOrdValComparator, TermOrdValDocValues, TermOrdValLeafComparator,
+};
+use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_set_selector::{
-    SortedDocValuesWrapEnum, SortedSetSelector, SortedSetSelectorType,
+    SortedDocValuesWrap, SortedSetSelector, SortedSetSelectorType,
 };
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -213,7 +218,7 @@ impl SortedDocValuesProviderImpl {
 }
 impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     type SortedDocValues<LR>
-        = SortedDocValuesWrapEnum<SortedSet<LR>>
+        = SortedDocValuesWrap<SortedSet<LR>>
     where
         LR: LeafReader;
 
@@ -226,5 +231,66 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
             self.selector,
         )?;
         Ok(v)
+    }
+}
+
+pub struct SortedDocValuesTermOrdValComparator {
+    base: TermOrdValComparator,
+    selector: SortedSetSelectorType,
+}
+impl SortedDocValuesTermOrdValComparator {
+    fn new(base: TermOrdValComparator, selector: SortedSetSelectorType) -> Self {
+        SortedDocValuesTermOrdValComparator { base, selector }
+    }
+}
+impl FieldComparator for SortedDocValuesTermOrdValComparator {
+    type V = <TermOrdValComparator as FieldComparator>::V;
+
+    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+        self.base.compare(slot1, slot2)
+    }
+
+    fn set_top_value(&mut self, value: Self::V) {
+        self.base.set_top_value(value);
+    }
+
+    fn value(&self, slot: i32) -> Self::V {
+        self.base.value(slot)
+    }
+
+    type LeafFieldComparator<LR>
+        = TermOrdValLeafComparator<LR>
+    where
+        LR: LeafReader;
+
+    fn get_leaf_comparator<LR>(
+        mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self::LeafFieldComparator<LR>>
+    where
+        LR: LeafReader,
+    {
+        self.base.current_reader_gen += 1;
+        let doc_values = TermOrdValDocValues::<LR>::A(SortedSetSelector::wrap(
+            DocValues::get_sorted_set(context.reader(), &self.base.field)?,
+            self.selector,
+        )?);
+        TermOrdValLeafComparator::new(context, Some(doc_values), self.base)
+    }
+
+    fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+        self.base.compare_values(first, second)
+    }
+
+    fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+        self.base.fallback_compare(_first, _second)
+    }
+
+    fn set_single_sort(&mut self) {
+        self.base.set_single_sort()
+    }
+
+    fn disable_skipping(&mut self) {
+        self.base.disable_skipping()
     }
 }

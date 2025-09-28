@@ -34,7 +34,7 @@ impl SortedSetSelector {
     pub fn wrap<S>(
         mut sorted_set: S,
         selector: SortedSetSelectorType,
-    ) -> Result<SortedDocValuesWrapEnum<S>>
+    ) -> Result<SortedDocValuesWrap<S>>
     where
         S: SortedSetDocValues,
     {
@@ -46,20 +46,20 @@ impl SortedSetSelector {
         }
         let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
         match singleton {
-            Some(single) => Ok(SortedDocValuesWrapEnum::Singleton(single)),
+            Some(single) => Ok(SortedDocValuesWrap::Singleton(single)),
             None => {
                 let v = match selector {
                     SortedSetSelectorType::Min => {
-                        SortedDocValuesWrapEnum::Min(MinValue::new(sorted_set))
+                        SortedDocValuesWrap::Min(MinValue::new(sorted_set))
                     },
                     SortedSetSelectorType::Max => {
-                        SortedDocValuesWrapEnum::Max(MaxValue::new(sorted_set))
+                        SortedDocValuesWrap::Max(MaxValue::new(sorted_set))
                     },
                     SortedSetSelectorType::MiddleMin => {
-                        SortedDocValuesWrapEnum::MiddleMin(MiddleMinValue::new(sorted_set))
+                        SortedDocValuesWrap::MiddleMin(MiddleMinValue::new(sorted_set))
                     },
                     SortedSetSelectorType::MiddleMax => {
-                        SortedDocValuesWrapEnum::MiddleMax(MiddleMaxValue::new(sorted_set))
+                        SortedDocValuesWrap::MiddleMax(MiddleMaxValue::new(sorted_set))
                     },
                 };
                 Ok(v)
@@ -444,7 +444,7 @@ where
     type TermsEnum = SortedDocValuesTermsEnum;
 }
 
-pub enum SortedDocValuesWrapEnum<S>
+pub enum SortedDocValuesWrap<S>
 where
     S: SortedSetDocValues,
 {
@@ -455,117 +455,117 @@ where
     MiddleMax(MiddleMaxValue<S>),
 }
 
-impl<S> DocValuesIterator for SortedDocValuesWrapEnum<S>
+impl<S> DocValuesIterator for SortedDocValuesWrap<S>
 where
     S: SortedSetDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.advance_exact(target),
-            SortedDocValuesWrapEnum::Min(min) => min.advance_exact(target),
-            SortedDocValuesWrapEnum::Max(max) => max.advance_exact(target),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.advance_exact(target),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.advance_exact(target),
+            SortedDocValuesWrap::Singleton(single) => single.advance_exact(target),
+            SortedDocValuesWrap::Min(min) => min.advance_exact(target),
+            SortedDocValuesWrap::Max(max) => max.advance_exact(target),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance_exact(target),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance_exact(target),
         }
     }
 }
 
-impl<S> DocIdSetIterator for SortedDocValuesWrapEnum<S>
+impl<S> DocIdSetIterator for SortedDocValuesWrap<S>
 where
     S: SortedSetDocValues,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.doc_id(),
-            SortedDocValuesWrapEnum::Min(min) => min.doc_id(),
-            SortedDocValuesWrapEnum::Max(max) => max.doc_id(),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.doc_id(),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.doc_id(),
+            SortedDocValuesWrap::Singleton(single) => single.doc_id(),
+            SortedDocValuesWrap::Min(min) => min.doc_id(),
+            SortedDocValuesWrap::Max(max) => max.doc_id(),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.doc_id(),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.next_doc(),
-            SortedDocValuesWrapEnum::Min(min) => min.next_doc(),
-            SortedDocValuesWrapEnum::Max(max) => max.next_doc(),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.next_doc(),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.next_doc(),
+            SortedDocValuesWrap::Singleton(single) => single.next_doc(),
+            SortedDocValuesWrap::Min(min) => min.next_doc(),
+            SortedDocValuesWrap::Max(max) => max.next_doc(),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.next_doc(),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.next_doc(),
         }
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.advance(target),
-            SortedDocValuesWrapEnum::Min(min) => min.advance(target),
-            SortedDocValuesWrapEnum::Max(max) => max.advance(target),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.advance(target),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.advance(target),
+            SortedDocValuesWrap::Singleton(single) => single.advance(target),
+            SortedDocValuesWrap::Min(min) => min.advance(target),
+            SortedDocValuesWrap::Max(max) => max.advance(target),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.advance(target),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.advance(target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.slow_advance(target),
-            SortedDocValuesWrapEnum::Min(min) => min.slow_advance(target),
-            SortedDocValuesWrapEnum::Max(max) => max.slow_advance(target),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.slow_advance(target),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.slow_advance(target),
+            SortedDocValuesWrap::Singleton(single) => single.slow_advance(target),
+            SortedDocValuesWrap::Min(min) => min.slow_advance(target),
+            SortedDocValuesWrap::Max(max) => max.slow_advance(target),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.slow_advance(target),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.slow_advance(target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.cost(),
-            SortedDocValuesWrapEnum::Min(min) => min.cost(),
-            SortedDocValuesWrapEnum::Max(max) => max.cost(),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.cost(),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.cost(),
+            SortedDocValuesWrap::Singleton(single) => single.cost(),
+            SortedDocValuesWrap::Min(min) => min.cost(),
+            SortedDocValuesWrap::Max(max) => max.cost(),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.cost(),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.cost(),
         }
     }
 }
 
-impl<S> SortedDocValues for SortedDocValuesWrapEnum<S>
+impl<S> SortedDocValues for SortedDocValuesWrap<S>
 where
     S: SortedSetDocValues,
 {
     fn ord_value(&mut self) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.ord_value(),
-            SortedDocValuesWrapEnum::Min(min) => min.ord_value(),
-            SortedDocValuesWrapEnum::Max(max) => max.ord_value(),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.ord_value(),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.ord_value(),
+            SortedDocValuesWrap::Singleton(single) => single.ord_value(),
+            SortedDocValuesWrap::Min(min) => min.ord_value(),
+            SortedDocValuesWrap::Max(max) => max.ord_value(),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.ord_value(),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.ord_value(),
         }
     }
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.lookup_ord(ord),
-            SortedDocValuesWrapEnum::Min(min) => min.lookup_ord(ord),
-            SortedDocValuesWrapEnum::Max(max) => max.lookup_ord(ord),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.lookup_ord(ord),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.lookup_ord(ord),
+            SortedDocValuesWrap::Singleton(single) => single.lookup_ord(ord),
+            SortedDocValuesWrap::Min(min) => min.lookup_ord(ord),
+            SortedDocValuesWrap::Max(max) => max.lookup_ord(ord),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_ord(ord),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_ord(ord),
         }
     }
 
     fn get_value_count(&mut self) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.get_value_count(),
-            SortedDocValuesWrapEnum::Min(min) => min.get_value_count(),
-            SortedDocValuesWrapEnum::Max(max) => max.get_value_count(),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.get_value_count(),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.get_value_count(),
+            SortedDocValuesWrap::Singleton(single) => single.get_value_count(),
+            SortedDocValuesWrap::Min(min) => min.get_value_count(),
+            SortedDocValuesWrap::Max(max) => max.get_value_count(),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.get_value_count(),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.get_value_count(),
         }
     }
 
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         match self {
-            SortedDocValuesWrapEnum::Singleton(single) => single.lookup_term(key),
-            SortedDocValuesWrapEnum::Min(min) => min.lookup_term(key),
-            SortedDocValuesWrapEnum::Max(max) => max.lookup_term(key),
-            SortedDocValuesWrapEnum::MiddleMin(middle_min) => middle_min.lookup_term(key),
-            SortedDocValuesWrapEnum::MiddleMax(middle_max) => middle_max.lookup_term(key),
+            SortedDocValuesWrap::Singleton(single) => single.lookup_term(key),
+            SortedDocValuesWrap::Min(min) => min.lookup_term(key),
+            SortedDocValuesWrap::Max(max) => max.lookup_term(key),
+            SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_term(key),
+            SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_term(key),
         }
     }
 

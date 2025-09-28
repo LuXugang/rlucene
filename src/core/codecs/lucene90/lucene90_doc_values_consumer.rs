@@ -43,7 +43,7 @@ use crate::core::index::{BytesRefBuilder, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::sorted_set_selector::{
-    SortedDocValuesWrapEnum, SortedSetSelector, SortedSetSelectorType,
+    SortedDocValuesWrap, SortedSetSelector, SortedSetSelectorType,
 };
 use crate::core::store::directory::Directory;
 use crate::core::store::{
@@ -1303,7 +1303,7 @@ where
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = SortedDocValuesWrapEnum<D::SortedSetDocValues>;
+    type SortedDocValues = SortedDocValuesWrap<D::SortedSetDocValues>;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let sorted_set = self.values_producer.get_sorted_set(field)?;

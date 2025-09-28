@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::doc_values::{DocValues, Sorted};
+use crate::core::index::doc_values::{DocValues, Sorted, SortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LRTermsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -33,6 +33,7 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::{Scorable, ScorerEnum};
 use crate::core::search::scorer::Scorer;
+use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
 use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -63,7 +64,7 @@ pub struct TermOrdValComparator {
     pub(crate) reader_gen: Vec<i32>,
     /// Gen of current reader we are on.
     pub(crate) current_reader_gen: i32,
-    field: String,
+    pub(crate) field: String,
     reverse: bool,
     sort_missing_last: bool,
     /// Bottom value (same as `values[bottomSlot]` once bottomSlot is set).  Cached for faster compares.
@@ -156,8 +157,7 @@ impl FieldComparator for TermOrdValComparator {
         LR: LeafReader,
     {
         self.current_reader_gen += 1;
-        let v = get_sorted_doc_values(context, &self.field)?;
-        TermOrdValLeafComparator::new(context, v, self)
+        TermOrdValLeafComparator::new(context, None, self)
     }
 
     fn compare_values(&self, val1: Option<&Self::V>, val2: Option<&Self::V>) -> i32 {
@@ -189,7 +189,7 @@ where
     LR: LeafReader,
 {
     /// Current reader's doc ord/values.
-    pub(crate) terms_index: Sorted<LR>,
+    pub(crate) terms_index: TermOrdValDocValues<LR>,
     /// True if current bottom slot matches the current reader.
     pub(crate) bottom_same_reader: bool,
     /// Bottom ord (same as ords[bottomSlot] once bottomSlot is set).  Cached for faster compares.
@@ -208,9 +208,15 @@ where
 {
     pub fn new(
         context: &LeafReaderContext<LR>,
-        mut terms_index: Sorted<LR>,
+        terms_index: Option<TermOrdValDocValues<LR>>,
         comparator: TermOrdValComparator,
     ) -> Result<Self> {
+        let mut terms_index = match terms_index {
+            Some(v) => v,
+            None => {
+                TermOrdValDocValues::<LR>::B(get_sorted_doc_values(context, &comparator.field)?)
+            },
+        };
         let missing_ord = if comparator.sort_missing_last {
             i32::MAX
         } else {
@@ -292,7 +298,10 @@ where
 
             let docs_with_field = match leaf.dense {
                 true => None,
-                false => Some(get_sorted_doc_values(context, &leaf.comparator.field)?),
+                false => Some(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
+                    context,
+                    &leaf.comparator.field,
+                )?)),
             };
             let terms = context.reader().terms(&leaf.comparator.field)?;
             let terms_iter = match terms {
@@ -561,12 +570,12 @@ where
 {
     max_doc: i32,
     dense: bool,
-    doc_values_terms: <Sorted<LR> as SortedDocValues>::TermsEnum,
+    doc_values_terms: <TermOrdValDocValues<LR> as SortedDocValues>::TermsEnum,
     doc: i32,
     postings: VecDeque<i32>,
     postings_init: bool,
     terms_enum: Option<LRTermsEnum<LR>>,
-    docs_with_field: Option<Sorted<LR>>,
+    docs_with_field: Option<TermOrdValDocValues<LR>>,
     // if docs_with_field is active, dense must be false
     using_skip: bool,
     disjunction: Option<PriorityQueue<PostingsEnumAndOrd<LR>, PostingsEnumAndOrdCmp>>,
@@ -578,8 +587,8 @@ where
     pub fn new(
         reader: &LeafReaderContext<LR>,
         dense: bool,
-        doc_values_terms: <Sorted<LR> as SortedDocValues>::TermsEnum,
-        docs_with_field: Option<Sorted<LR>>,
+        doc_values_terms: <TermOrdValDocValues<LR> as SortedDocValues>::TermsEnum,
+        docs_with_field: Option<TermOrdValDocValues<LR>>,
         terms_enum: LRTermsEnum<LR>,
     ) -> Result<Self> {
         let max_doc = reader.reader().max_doc()?;
@@ -779,3 +788,5 @@ where
         Ok(a.postings.doc_id() < b.postings.doc_id())
     }
 }
+pub type TermOrdValDocValues<LR> =
+    Either2SortedDocValues<SortedDocValuesWrap<SortedSet<LR>>, Sorted<LR>>;
