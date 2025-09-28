@@ -48,7 +48,7 @@ impl Collector for TotalHitCountCollector {
     fn get_leaf_collector<'a, W>(
         &'a mut self,
         context: &LeafReaderContext<W::LeafReader>,
-        weight: Option<W>,
+        weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
         W: Weight,

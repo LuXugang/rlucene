@@ -66,7 +66,7 @@ pub trait Weight: SegmentCacheable {
         doc: i32,
     ) -> Result<Option<Self::Matches>>;
     fn default_matches(
-        &self,
+        &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
@@ -102,7 +102,7 @@ pub trait Weight: SegmentCacheable {
     /// - `context`: the reader's context to create the [`Explanation`] for
     /// - `doc`: the document's id relative to the given context's reader
     fn explain(
-        &self,
+        &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
         doc: i32,
     ) -> Result<Explanation>;
@@ -135,7 +135,7 @@ pub trait Weight: SegmentCacheable {
     ///
     /// Returns an error if a low-level I/O error occurs.
     fn scorer(
-        &self,
+        &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
@@ -173,7 +173,7 @@ pub trait Weight: SegmentCacheable {
     /// - [`Scorer`]
     /// - [`DefaultScorerSupplier`]
     fn scorer_supplier(
-        &self,
+        &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>>;
     /// Helper method that delegates to [`Weight::scorer_supplier`].
@@ -181,7 +181,7 @@ pub trait Weight: SegmentCacheable {
     /// A bulk scorer for the same [`LeafReaderContext`] instance may be requested
     /// multiple times as part of a single search call.
     fn bulk_scorer(
-        &self,
+        &mut self,
         context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
@@ -220,7 +220,7 @@ pub trait Weight: SegmentCacheable {
     /// # Errors
     ///
     /// Returns an error if a low-level I/O error occurs.
-    fn count(&self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         self.default_count(context)
     }
     fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {

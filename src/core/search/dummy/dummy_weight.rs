@@ -48,7 +48,7 @@ impl Weight for DummyWeight {
     }
 
     fn default_matches(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<Self::LeafReader>,
         _doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
@@ -56,7 +56,7 @@ impl Weight for DummyWeight {
     }
 
     fn explain(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<Self::LeafReader>,
         _doc: i32,
     ) -> Result<Explanation> {
@@ -70,7 +70,7 @@ impl Weight for DummyWeight {
     }
 
     fn scorer(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -79,20 +79,20 @@ impl Weight for DummyWeight {
     type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn bulk_scorer(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
