@@ -248,8 +248,6 @@ impl<S> BulkScorer for DefaultBulkScorer<S>
 where
     S: Scorer,
 {
-    type CollectorScorer = S;
-
     fn score<LC, B>(
         &mut self,
         collector: &mut LC,

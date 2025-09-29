@@ -25,7 +25,6 @@ use crate::core::util::error::lucene_error::Result;
 /// documents need to override this. Otherwise, a default implementation is
 /// wrapped around the [`Scorer`] returned by [`Weight::scorer`](crate::core::search::weight::Weight::bulk_scorer).
 pub trait BulkScorer {
-    type CollectorScorer: Scorer;
     /// Collects matching documents in a range and returns an estimation of the
     /// next matching document which is on or after `max`.
     ///
