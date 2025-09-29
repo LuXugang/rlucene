@@ -28,7 +28,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Just counts the total number of hits. This is the collector behind [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count).
 /// When the [`Weight`] implements [`Weight::count`], this collector will skip collecting segments.
 pub struct TotalHitCountCollector {
-    total_hit: i32,
+    pub(crate) total_hit: i32,
 }
 impl TotalHitCountCollector {
     pub fn new() -> Self {

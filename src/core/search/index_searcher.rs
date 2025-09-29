@@ -76,6 +76,7 @@ pub struct LeafReaderContextPartition {
     pub min_doc_id: i32,
     pub max_doc_id: i32,
     pub ctx_ord: usize,
+    pub ctx_max_doc: i32,
     // we keep track of maxDocs separately because we use NO_MORE_DOCS as upper bound when targeting
     // the entire segment. We use this only in tests.
     max_docs: i32,
@@ -113,6 +114,7 @@ impl LeafReaderContextPartition {
         Ok(Self {
             min_doc_id,
             max_doc_id,
+            ctx_max_doc,
             ctx_ord: leaf_reader_context.ord,
             max_docs,
         })
@@ -137,5 +139,28 @@ impl LeafReaderContextPartition {
     {
         debug_assert!(max_doc_id != NO_MORE_DOCS);
         Self::new(ctx, min_doc_id, max_doc_id, max_doc_id - min_doc_id)
+    }
+}
+/// A class holding a subset of the [`IndexSearcher`]’s leaf contexts to be executed within a
+/// single thread. A leaf slice holds references to one or more [`LeafReaderContextPartition`]
+/// instances. Each partition targets a specific doc id range of a [`LeafReaderContext`].
+pub struct LeafSlice {
+    /// The leaves that make up this slice.
+    pub partitions: Vec<LeafReaderContextPartition>,
+
+    max_docs: i32,
+}
+
+impl LeafSlice {
+    pub fn new(partitions: Vec<LeafReaderContextPartition>, max_docs: i32) -> Self {
+        Self {
+            partitions,
+            max_docs,
+        }
+    }
+    /// Returns the total number of docs that a slice targets,
+    /// by summing the number of docs that each of its leaf context partitions targets.
+    pub fn max_docs(&self) -> i32 {
+        self.max_docs
     }
 }
