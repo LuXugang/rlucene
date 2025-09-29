@@ -52,12 +52,12 @@ impl Query for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Query = DummyQuery;
+    type RewriteQuery = DummyQuery;
 
     fn rewrite<IRC, S>(
         &self,
         _searcher: &IndexSearcher<IRC, S>,
-    ) -> crate::core::util::error::lucene_error::Result<Option<Self::Query>>
+    ) -> crate::core::util::error::lucene_error::Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,

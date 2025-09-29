@@ -52,8 +52,11 @@ pub trait Query: Eq + Hash + Display + Debug {
             std::any::type_name::<Self>()
         )))
     }
-    type Query: Query;
-    fn rewrite<IRC, S>(&self, _searcher: &IndexSearcher<IRC, S>) -> Result<Option<Self::Query>>
+    type RewriteQuery: Query;
+    fn rewrite<IRC, S>(
+        &self,
+        _searcher: &IndexSearcher<IRC, S>,
+    ) -> Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -145,9 +148,12 @@ impl Query for QueryEnum {
         todo!()
     }
 
-    type Query = DummyQuery;
+    type RewriteQuery = DummyQuery;
 
-    fn rewrite<IRC, S>(&self, _searcher: &IndexSearcher<IRC, S>) -> Result<Option<Self::Query>>
+    fn rewrite<IRC, S>(
+        &self,
+        _searcher: &IndexSearcher<IRC, S>,
+    ) -> Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,

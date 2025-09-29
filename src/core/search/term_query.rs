@@ -141,7 +141,7 @@ impl Query for TermQuery {
         TermWeight::new(search, *score_mod, boost, term_state, self)
     }
 
-    type Query = TermQuery;
+    type RewriteQuery = TermQuery;
 
     fn visit<QV>(&self, _visitor: &QV)
     where
