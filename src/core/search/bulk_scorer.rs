@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorer::Scorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
@@ -67,3 +66,40 @@ pub trait BulkScorer {
     /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
     fn cost(&mut self) -> Result<i64>;
 }
+macro_rules! either_bulk_scorer {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> BulkScorer for $name<$( $T ),+>
+        where
+            $( $T: BulkScorer ),+
+        {
+            #[inline]
+            fn score<LC, B>(
+                &mut self,
+                collector: &mut LC,
+                accept_docs: Option<&B>,
+                min: i32,
+                max: i32,
+            ) -> Result<i32>
+            where
+                LC: LeafCollector,
+                B: Bits,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.score(collector, accept_docs, min, max), )+
+                }
+            }
+
+            #[inline]
+            fn cost(&mut self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+        }
+    };
+}
+either_bulk_scorer!(pub Either2BulkScorer { A: MatchAllDocsScorer, B: OtherScorer });
