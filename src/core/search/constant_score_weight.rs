@@ -16,26 +16,18 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::query::Query;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// A Weight that has a constant score equal to the boost of the wrapped query.
 /// This is typically useful when building queries which do not produce
 /// meaningful scores and are mostly useful for filtering.
-pub struct ConstantScoreWeight<Q>
-where
-    Q: Query,
-{
+pub struct ConstantScoreWeight {
     score: f32,
-    query: Q,
 }
-impl<Q> ConstantScoreWeight<Q>
-where
-    Q: Query,
-{
-    pub fn new(score: f32, query: Q) -> Self {
-        Self { score, query }
+impl ConstantScoreWeight {
+    pub fn new(score: f32) -> Self {
+        Self { score }
     }
     /// Return the score produced by this Weight.
     pub fn score(&self) -> f32 {
