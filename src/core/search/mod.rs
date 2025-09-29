@@ -46,6 +46,7 @@ mod max_score_cache;
 pub mod positive_scores_only_collector;
 pub mod pruning;
 pub mod query;
+mod query_caching_policy;
 pub mod query_visitor;
 pub mod scorable;
 pub mod score_doc;
