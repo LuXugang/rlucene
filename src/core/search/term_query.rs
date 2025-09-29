@@ -124,7 +124,7 @@ impl Query for TermQuery {
     fn create_weight<S, IRC>(
         self,
         search: &IndexSearcher<IRC, S>,
-        score_mod: &ScoreMode,
+        score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC>>
@@ -136,9 +136,9 @@ impl Query for TermQuery {
         let context = search.get_top_reader_context();
         let term_state = match per_reader_term_state {
             Some(states) if states.was_built_for(context) => states,
-            _ => build(search, self.term.clone(), score_mod.needs_scores())?,
+            _ => build(search, self.term.clone(), score_mode.needs_scores())?,
         };
-        TermWeight::new(search, *score_mod, boost, term_state, self)
+        TermWeight::new(search, *score_mode, boost, term_state, self)
     }
 
     type RewriteQuery = TermQuery;
