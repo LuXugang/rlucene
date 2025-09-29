@@ -64,7 +64,11 @@ where
     /// # Parameters
     /// - `context`: the reader's context to create the [`Matches`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>>;
+    fn matches(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>>;
     fn default_matches(
         &mut self,
         context: &LeafReaderContext<LR>,

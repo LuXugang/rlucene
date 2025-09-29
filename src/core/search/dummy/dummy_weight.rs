@@ -44,7 +44,7 @@ where
     type Matches = DummyMatches;
 
     fn matches(
-        &self,
+        &mut self,
         _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
