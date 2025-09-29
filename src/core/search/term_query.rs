@@ -146,7 +146,7 @@ where
         S: Similarity;
     type IndexReaderContext = IRC;
 
-    fn crate_weight<S>(
+    fn create_weight<S>(
         mut self,
         search: &IndexSearcher<Self::IndexReaderContext, S>,
         score_mod: &ScoreMode,

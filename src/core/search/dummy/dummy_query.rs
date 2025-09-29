@@ -37,7 +37,7 @@ impl Query for DummyQuery {
         S: Similarity;
     type IndexReaderContext = DummyIndexReaderContext;
 
-    fn crate_weight<S>(
+    fn create_weight<S>(
         self,
         _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,

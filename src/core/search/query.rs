@@ -35,7 +35,7 @@ pub trait Query: Eq + Hash + Display + Debug {
     where
         S: Similarity;
     type IndexReaderContext: IndexReaderContext;
-    fn crate_weight<S>(
+    fn create_weight<S>(
         self,
         _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,
@@ -128,7 +128,7 @@ impl Query for QueryEnum {
         S: Similarity;
     type IndexReaderContext = DummyIndexReaderContext;
 
-    fn crate_weight<S>(
+    fn create_weight<S>(
         self,
         _search: &IndexSearcher<Self::IndexReaderContext, S>,
         _score_mod: &ScoreMode,
