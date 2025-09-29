@@ -256,8 +256,8 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         S2: Scorable,
     {
         let doc_value = match scorer {
-            ScorerEnum::Scorer(s) => s.score()?,
-            ScorerEnum::Scorable(s) => s.score()?,
+            ScorerEnum::S(s) => s.score()?,
+            ScorerEnum::C(s) => s.score()?,
         };
         debug_assert!(!doc_value.is_nan());
         match doc_value.partial_cmp(&self.comparator.bottom) {
@@ -274,8 +274,8 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         S2: Scorable,
     {
         let doc_value = match scorer {
-            ScorerEnum::Scorer(s) => s.score()?,
-            ScorerEnum::Scorable(s) => s.score()?,
+            ScorerEnum::S(s) => s.score()?,
+            ScorerEnum::C(s) => s.score()?,
         };
         debug_assert!(!doc_value.is_nan());
         match doc_value.partial_cmp(&self.comparator.top_value) {
@@ -297,8 +297,8 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         S2: Scorable,
     {
         let score = match scorer {
-            ScorerEnum::Scorer(s) => s.score()?,
-            ScorerEnum::Scorable(s) => s.score()?,
+            ScorerEnum::S(s) => s.score()?,
+            ScorerEnum::C(s) => s.score()?,
         };
         self.comparator.scores[slot] = score;
         debug_assert!(!score.is_nan());

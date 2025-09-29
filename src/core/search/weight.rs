@@ -273,9 +273,7 @@ where
             self.scorer.as_mut().unwrap().iterator().doc_id()
         };
 
-        collector.set_scorer(ScorerEnum::<S, S::Scorable>::Scorer(
-            self.scorer.take().unwrap(),
-        ))?;
+        collector.set_scorer(ScorerEnum::<S, S::Scorable>::S(self.scorer.take().unwrap()))?;
 
         let has_competitive_iterator = collector.competitive_iterator()?.is_some();
 

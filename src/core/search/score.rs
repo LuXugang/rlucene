@@ -14,29 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::bulk_scorer::BulkScorer;
-use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::util::bits::Bits;
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
-
-pub struct DummyBulkScorer;
-
-impl BulkScorer for DummyBulkScorer {
-    fn score<LC, B>(
-        &mut self,
-        _collector: &mut LC,
-        _accept_docs: Option<&B>,
-        _min: i32,
-        _max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+/// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a Scorable to [`LeafCollector#setScorer`](crate::core::search::leaf_collector::LeafCollector::set_scorer).
+pub struct Score {
+    score: f32,
+}
+impl Score {
+    pub fn new(score: f32) -> Self {
+        Self { score }
+    }
+}
+impl Scorable for Score {
+    fn score(&mut self) -> Result<f32> {
+        Ok(self.score)
     }
 
-    fn cost(&mut self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
+    type Scorable = DummyScorable;
 }

@@ -22,6 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A Weight that has a constant score equal to the boost of the wrapped query.
 /// This is typically useful when building queries which do not produce
 /// meaningful scores and are mostly useful for filtering.
+#[derive(Default)]
 pub struct ConstantScoreWeight {
     score: f32,
 }
@@ -33,43 +34,39 @@ impl ConstantScoreWeight {
     pub fn score(&self) -> f32 {
         self.score
     }
-}
-pub fn explain<S>(
-    scorer: Option<&mut S>,
-    doc: i32,
-    score: f32,
-    query_str: &str,
-) -> Result<Explanation>
-where
-    S: Scorer,
-{
-    let exists = match scorer {
-        None => false,
-        Some(s) => {
-            let has_two_phase = s.two_phase_iterator().is_some();
-            if has_two_phase {
-                let mut two_phase = s.two_phase_iterator().unwrap();
-                two_phase.approximation().advance(doc)? == doc && two_phase.matches()?
-            } else {
-                s.iterator().advance(doc)? == doc
-            }
-        },
-    };
+    pub fn explain<S, T>(&self, scorer: Option<S>, doc: i32, query_str: T) -> Result<Explanation>
+    where
+        S: Scorer,
+        T: Into<String>,
+    {
+        let exists = match scorer {
+            None => false,
+            Some(mut s) => {
+                let has_two_phase = s.two_phase_iterator().is_some();
+                if has_two_phase {
+                    let mut two_phase = s.two_phase_iterator().unwrap();
+                    two_phase.approximation().advance(doc)? == doc && two_phase.matches()?
+                } else {
+                    s.iterator().advance(doc)? == doc
+                }
+            },
+        };
 
-    if exists {
-        if (score - 1.0).abs() < f32::EPSILON {
-            Ok(Explanation::match_(score, query_str.to_string(), vec![]))
+        if exists {
+            if (self.score - 1.0).abs() < f32::EPSILON {
+                Ok(Explanation::match_(self.score, query_str.into(), vec![]))
+            } else {
+                Ok(Explanation::match_(
+                    self.score,
+                    format!("{}^{}", query_str.into(), self.score),
+                    vec![],
+                ))
+            }
         } else {
-            Ok(Explanation::match_(
-                score,
-                format!("{}^{}", query_str, score),
+            Ok(Explanation::no_match(
+                format!("{} doesn't match id {}", query_str.into(), doc),
                 vec![],
             ))
         }
-    } else {
-        Ok(Explanation::no_match(
-            format!("{} doesn't match id {}", query_str, doc),
-            vec![],
-        ))
     }
 }

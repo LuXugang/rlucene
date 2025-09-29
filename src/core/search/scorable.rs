@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::score::Score;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
@@ -96,6 +99,34 @@ where
     S: Scorer,
     C: Scorable,
 {
-    Scorer(S),
-    Scorable(C),
+    S(S),
+    C(C),
+}
+impl<S, C> Scorable for ScorerEnum<S, C>
+where
+    S: Scorer,
+    C: Scorable,
+{
+    fn score(&mut self) -> Result<f32> {
+        todo!()
+    }
+
+    fn smoothing_score(&mut self, _doc_id: i32) -> Result<f32> {
+        todo!()
+    }
+
+    fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
+        todo!()
+    }
+
+    type Scorable = DummyScorable;
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+        todo!()
+    }
+}
+impl From<Score> for ScorerEnum<DummyScorer, Score> {
+    fn from(value: Score) -> Self {
+        ScorerEnum::C(value)
+    }
 }
