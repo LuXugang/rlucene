@@ -362,7 +362,7 @@ where
         &self.parent_query
     }
 
-    type ScorerSupplier = TermWeightScorerSupplier<IRC, S>;
+    type ScorerSupplier = TermScorerSupplier<IRC, S>;
 
     fn scorer_supplier(
         &mut self,
@@ -382,7 +382,7 @@ where
         debug_assert!(self.sim_scorer.is_some());
         match state_supplier {
             None => Ok(None),
-            Some(v) => Ok(Some(TermWeightScorerSupplier::new(
+            Some(v) => Ok(Some(TermScorerSupplier::new(
                 false,
                 std::mem::take(&mut self.term_states),
                 v,
@@ -414,7 +414,7 @@ where
     }
 }
 
-pub struct TermWeightScorerSupplier<IRC, S>
+pub struct TermScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -431,7 +431,7 @@ where
     norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
     init_terms_enum: bool,
 }
-impl<IRC, S> TermWeightScorerSupplier<IRC, S>
+impl<IRC, S> TermScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -485,12 +485,12 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC, S> ScorerSupplier for TermWeightScorerSupplier<IRC, S>
+impl<IRC, S> ScorerSupplier for TermScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,
 {
-    type Scorer = ScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
+    type Scorer = TermScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
     fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
@@ -503,7 +503,7 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    Ok(Some(ScorerEnum::<
+                    Ok(Some(TermScorerEnum::<
                         IRC::LeafReader,
                         S::SimScorer,
                         EmptyDISI,
@@ -521,7 +521,7 @@ where
                         NONE
                     };
 
-                    Ok(Some(ScorerEnum::<
+                    Ok(Some(TermScorerEnum::<
                         IRC::LeafReader,
                         S::SimScorer,
                         EmptyDISI,
@@ -533,7 +533,7 @@ where
                     ))))
                 }
             },
-            None => Ok(Some(ScorerEnum::<
+            None => Ok(Some(TermScorerEnum::<
                 IRC::LeafReader,
                 S::SimScorer,
                 EmptyDISI,
@@ -570,7 +570,7 @@ impl SimScorer for SimScorerImpl {
 }
 pub(crate) type TermQuerySimScorer<S> = Either2SimScorer<S, SimScorerImpl>;
 
-pub type ScorerEnum<LR, SS, DISI, TPI> = Either2Scorer<
+pub type TermScorerEnum<LR, SS, DISI, TPI> = Either2Scorer<
     TermScorer<
         LRPosting<LR>,
         TermQuerySimScorer<SS>,

@@ -122,13 +122,13 @@ where
         &self.parent_query
     }
 
-    type ScorerSupplier = MatchAllDocsWeightScorerSupplier;
+    type ScorerSupplier = MatchAllDocsScorerSupplier;
 
     fn scorer_supplier(
         &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        Ok(Some(MatchAllDocsWeightScorerSupplier::new(
+        Ok(Some(MatchAllDocsScorerSupplier::new(
             self.score_mode,
             std::mem::take(&mut self.base),
             context.reader().max_doc()?,
@@ -145,12 +145,12 @@ impl std::fmt::Debug for MatchAllWeight {
     }
 }
 
-pub struct MatchAllDocsWeightScorerSupplier {
+pub struct MatchAllDocsScorerSupplier {
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
     max_doc: i32,
 }
-impl MatchAllDocsWeightScorerSupplier {
+impl MatchAllDocsScorerSupplier {
     pub fn new(score_mode: ScoreMode, weight: ConstantScoreWeight, max_doc: i32) -> Self {
         Self {
             score_mode,
@@ -159,9 +159,9 @@ impl MatchAllDocsWeightScorerSupplier {
         }
     }
 }
-impl ScorerSupplier for MatchAllDocsWeightScorerSupplier {
+impl ScorerSupplier for MatchAllDocsScorerSupplier {
     type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
-    type BulkScorer = MatchAllWeightBulkScorer<Self::Scorer>;
+    type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
 
     fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
         let score = self.weight.score();
@@ -174,10 +174,10 @@ impl ScorerSupplier for MatchAllDocsWeightScorerSupplier {
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
         if !self.score_mode.is_exhaustive() {
-            Ok(MatchAllWeightBulkScorer::B(self.default_bulk_scorer()?))
+            Ok(MatchAllBulkScorerEnum::B(self.default_bulk_scorer()?))
         } else {
             let score = self.weight.score();
-            Ok(MatchAllWeightBulkScorer::A(MatchAllBulkScorer::new(
+            Ok(MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
                 self.score_mode,
                 self.max_doc,
                 score,
@@ -234,4 +234,4 @@ impl BulkScorer for MatchAllBulkScorer {
         Ok(self.max_doc as i64)
     }
 }
-pub type MatchAllWeightBulkScorer<T> = Either2BulkScorer<MatchAllBulkScorer, DefaultBulkScorer<T>>;
+pub type MatchAllBulkScorerEnum<T> = Either2BulkScorer<MatchAllBulkScorer, DefaultBulkScorer<T>>;
