@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_index_reader_context::DummyIndexReaderContext;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::term_states::TermStates;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -31,17 +31,19 @@ use std::hash::{Hash, Hasher};
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn as_string(&self, field: &str) -> String;
-    type Weight<S>: Weight
+    type Weight<S, IRC>: Weight<IRC::LeafReader>
     where
-        S: Similarity;
-    type IndexReaderContext: IndexReaderContext;
-    fn create_weight<S>(
+        S: Similarity,
+        IRC: IndexReaderContext;
+    fn create_weight<S, IRC>(
         self,
-        _search: &IndexSearcher<Self::IndexReaderContext, S>,
+        _search: &IndexSearcher<IRC, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S>>
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
     where
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -64,12 +66,12 @@ pub trait Query: Eq + Hash + Display + Debug {
 }
 
 pub enum QueryEnum {
-    Term(TermQuery<DummyIndexReaderContext>),
+    Term(TermQuery),
 }
 
 impl Eq for QueryEnum {}
 
-impl PartialEq<QueryEnum> for TermQuery<DummyIndexReaderContext> {
+impl PartialEq<QueryEnum> for TermQuery {
     fn eq(&self, other: &QueryEnum) -> bool {
         match other {
             QueryEnum::Term(t) => self == t,
@@ -96,10 +98,10 @@ impl Hash for QueryEnum {
 }
 
 impl Display for QueryEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             QueryEnum::Term(t) => {
-                write!(_f, "{}", t)
+                write!(f, "{}", t)
             },
         }
     }
@@ -122,19 +124,21 @@ impl Query for QueryEnum {
         }
     }
 
-    type Weight<S>
+    type Weight<S, IRC>
         = DummyWeight
     where
-        S: Similarity;
-    type IndexReaderContext = DummyIndexReaderContext;
+        S: Similarity,
+        IRC: IndexReaderContext;
 
-    fn create_weight<S>(
+    fn create_weight<S, IRC>(
         self,
-        _search: &IndexSearcher<Self::IndexReaderContext, S>,
+        _search: &IndexSearcher<IRC, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> Result<Self::Weight<S>>
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
     where
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
@@ -159,8 +163,8 @@ impl Query for QueryEnum {
     }
 }
 
-impl From<TermQuery<DummyIndexReaderContext>> for QueryEnum {
-    fn from(value: TermQuery<DummyIndexReaderContext>) -> Self {
+impl From<TermQuery> for QueryEnum {
+    fn from(value: TermQuery) -> Self {
         QueryEnum::Term(value)
     }
 }

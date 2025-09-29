@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
@@ -45,13 +46,14 @@ impl Collector for TotalHitCountCollector {
     where
         Self: 'a;
 
-    fn get_leaf_collector<'a, W>(
+    fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        context: &LeafReaderContext<W::LeafReader>,
+        context: &LeafReaderContext<LR>,
         weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
-        W: Weight,
+        LR: LeafReader,
+        W: Weight<LR>,
     {
         let leaf_count = match weight {
             Some(w) => w.count(context)?,

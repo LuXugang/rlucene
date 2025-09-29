@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
@@ -50,13 +51,14 @@ pub trait Collector {
     /// This is typically useful to have access to [`Weight::count`] from [`Collector::get_leaf_collector`].
     /// # Arguments
     /// * `context` - next atomic reader context
-    fn get_leaf_collector<'a, W>(
+    fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        context: &LeafReaderContext<W::LeafReader>,
+        context: &LeafReaderContext<LR>,
         weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
-        W: Weight;
+        LR: LeafReader,
+        W: Weight<LR>;
 
     /// Indicates what features are required from the scorer.
     fn score_mode(&self) -> &ScoreMode;

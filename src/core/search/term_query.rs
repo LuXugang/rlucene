@@ -52,77 +52,52 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
-pub struct TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+pub struct TermQuery {
     term: Arc<Term>,
-    per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
 }
-impl<IRC> TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl TermQuery {
     pub fn new<T>(term: T) -> Self
     where
         T: Into<Arc<Term>>,
     {
-        Self {
-            term: term.into(),
-            per_reader_term_state: None,
-        }
+        Self { term: term.into() }
     }
-    /// Expert: constructs a TermQuery that will use the provided docFreq instead of looking up the docFreq against the searcher.
-    pub fn new_with_states<T>(term: T, states: TermStates<IRCTermState<IRC>>) -> Self
+    /// Expert: constructs a [`TermQuery`] and returns it along with the provided [`TermStates`].
+    pub fn new_with_states<T, IRC>(
+        term: T,
+        states: TermStates<IRCTermState<IRC>>,
+    ) -> (Self, TermStates<IRCTermState<IRC>>)
     where
+        IRC: IndexReaderContext,
         T: Into<Arc<Term>>,
     {
-        Self {
-            term: term.into(),
-            per_reader_term_state: Some(states),
-        }
-    }
-    /// Returns the TermStates passed to the constructor, or None if it was not passed.
-    pub fn get_term_state(&self) -> Option<&TermStates<IRCTermState<IRC>>> {
-        self.per_reader_term_state.as_ref()
+        (Self { term: term.into() }, states)
     }
     pub fn get_term(&self) -> Arc<Term> {
         self.term.clone()
     }
 }
 
-impl<IRC> PartialEq<Self> for TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl PartialEq<Self> for TermQuery {
     fn eq(&self, other: &Self) -> bool {
         self.term == other.term
     }
 }
 
-impl<IRC> Hash for TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl Hash for TermQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.term.hash(state);
     }
 }
-impl<IRC> Eq for TermQuery<IRC> where IRC: IndexReaderContext {}
+impl Eq for TermQuery {}
 
-impl<IRC> Debug for TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl Debug for TermQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_string(""))
     }
 }
 
-impl<IRC> Query for TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl Query for TermQuery {
     fn as_string(&self, field: &str) -> String {
         let mut buffer = String::new();
         if self.term.field != field {
@@ -140,38 +115,33 @@ where
         buffer
     }
 
-    type Weight<S>
+    type Weight<S, IRC>
         = TermWeight<S, IRC>
     where
-        S: Similarity;
-    type IndexReaderContext = IRC;
+        S: Similarity,
+        IRC: IndexReaderContext;
 
-    fn create_weight<S>(
-        mut self,
-        search: &IndexSearcher<Self::IndexReaderContext, S>,
+    fn create_weight<S, IRC>(
+        self,
+        search: &IndexSearcher<IRC, S>,
         score_mod: &ScoreMode,
         boost: f32,
-    ) -> Result<Self::Weight<S>>
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
     where
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
         let context = search.get_top_reader_context();
-        let term_state = if self.per_reader_term_state.is_none()
-            || !self
-                .per_reader_term_state
-                .as_ref()
-                .unwrap()
-                .was_built_for(context)
-        {
-            build(search, self.term.clone(), score_mod.needs_scores())?
-        } else {
-            self.per_reader_term_state.take().unwrap()
+        let term_state = match per_reader_term_state {
+            Some(states) if states.was_built_for(context) => states,
+            _ => build(search, self.term.clone(), score_mod.needs_scores())?,
         };
         TermWeight::new(search, *score_mod, boost, term_state, self)
     }
 
-    type Query = TermQuery<IRC>;
+    type Query = TermQuery;
 
     fn visit<QV>(&self, _visitor: &QV)
     where
@@ -181,10 +151,7 @@ where
     }
 }
 // Prints a user-readable version of this query.
-impl<IRC> Display for TermQuery<IRC>
-where
-    IRC: IndexReaderContext,
-{
+impl Display for TermQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_string(""))
     }
@@ -199,7 +166,7 @@ where
     sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
     term_states: TermStates<IRCTermState<IRC>>,
     score_mode: ScoreMode,
-    parent_query: TermQuery<IRC>,
+    parent_query: TermQuery,
 }
 impl<S, IRC> TermWeight<S, IRC>
 where
@@ -211,7 +178,7 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
-        query: TermQuery<IRC>,
+        query: TermQuery,
     ) -> Result<Self>
     where
         I: IndexReaderContext,
@@ -305,24 +272,25 @@ where
             )),
         }
     }
-    fn term_not_in_reader(&self, reader: &IRC::LeafReader, term: &Term) -> Result<bool> {
+    fn term_not_in_reader<LR>(&self, reader: &LR, term: &Term) -> Result<bool>
+    where
+        LR: LeafReader,
+    {
         Ok(LeafReader::doc_freq(reader, term)? == 0)
     }
 }
 
-impl<S, IRC> SegmentCacheable for TermWeight<S, IRC>
+impl<S, IRC> SegmentCacheable<IRC::LeafReader> for TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    type LeafReader = IRC::LeafReader;
-
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRC::LeafReader>) -> bool where {
         true
     }
 }
 
-impl<S, IRC> Weight for TermWeight<S, IRC>
+impl<S, IRC> Weight<IRC::LeafReader> for TermWeight<S, IRC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
@@ -331,7 +299,7 @@ where
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<Self::LeafReader>,
+        _context: &LeafReaderContext<IRC::LeafReader>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         todo!()
@@ -339,7 +307,7 @@ where
 
     fn explain(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRC::LeafReader>,
         doc: i32,
     ) -> Result<Explanation> {
         let mut scorer_opt = self.scorer(context)?;
@@ -388,7 +356,7 @@ where
         ))
     }
 
-    type Query = TermQuery<IRC>;
+    type Query = TermQuery;
 
     fn get_query(&self) -> &Self::Query {
         &self.parent_query
@@ -398,7 +366,7 @@ where
 
     fn scorer_supplier(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         // TODO
         // debug_assert!(self.term_states.is_some() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
@@ -433,7 +401,7 @@ where
         }
     }
 
-    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
         if !context.reader().has_deletions()? {
             if let Some(mut terms_enum) = self.get_terms_enum(context)? {
                 terms_enum.doc_freq()

@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_index_reader_context::DummyIndexReaderContext;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::term_states::TermStates;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
@@ -31,19 +31,21 @@ impl Query for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Weight<S>
+    type Weight<S, IRC>
         = DummyWeight
     where
-        S: Similarity;
-    type IndexReaderContext = DummyIndexReaderContext;
+        S: Similarity,
+        IRC: IndexReaderContext;
 
-    fn create_weight<S>(
+    fn create_weight<S, IRC>(
         self,
-        _search: &IndexSearcher<Self::IndexReaderContext, S>,
+        _search: &IndexSearcher<IRC, S>,
         _score_mod: &ScoreMode,
         _boost: f32,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S>>
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S, IRC>>
     where
+        IRC: IndexReaderContext,
         S: Similarity,
         Self: Sized,
     {
