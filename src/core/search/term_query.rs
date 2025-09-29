@@ -51,7 +51,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
-
+/// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
 pub struct TermQuery<IRC>
 where
     IRC: IndexReaderContext,
@@ -72,6 +72,7 @@ where
             per_reader_term_state: None,
         }
     }
+    /// Expert: constructs a TermQuery that will use the provided docFreq instead of looking up the docFreq against the searcher.
     pub fn new_with_states<T>(term: T, states: TermStates<IRCTermState<IRC>>) -> Self
     where
         T: Into<Arc<Term>>,
@@ -81,8 +82,12 @@ where
             per_reader_term_state: Some(states),
         }
     }
+    /// Returns the TermStates passed to the constructor, or None if it was not passed.
     pub fn get_term_state(&self) -> Option<&TermStates<IRCTermState<IRC>>> {
         self.per_reader_term_state.as_ref()
+    }
+    pub fn get_term(&self) -> Arc<Term> {
+        self.term.clone()
     }
 }
 
@@ -175,7 +180,7 @@ where
         todo!()
     }
 }
-
+// Prints a user-readable version of this query.
 impl<IRC> Display for TermQuery<IRC>
 where
     IRC: IndexReaderContext,
@@ -258,6 +263,7 @@ where
             parent_query: query,
         })
     }
+    /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
     fn get_terms_enum(
         &mut self,
         context: &LeafReaderContext<IRC::LeafReader>,
