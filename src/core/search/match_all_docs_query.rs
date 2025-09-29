@@ -41,6 +41,12 @@ use std::hash::Hash;
 /// A query that matches all documents.
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub struct MatchAllDocsQuery;
+impl Default for MatchAllDocsQuery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MatchAllDocsQuery {
     pub fn new() -> Self {
         MatchAllDocsQuery

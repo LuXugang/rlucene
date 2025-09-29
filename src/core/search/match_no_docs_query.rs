@@ -34,6 +34,12 @@ pub struct MatchNoDocsQuery {
     reason: String,
 }
 
+impl Default for MatchNoDocsQuery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MatchNoDocsQuery {
     /// Default constructor
     pub fn new() -> Self {
