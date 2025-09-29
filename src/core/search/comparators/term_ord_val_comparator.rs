@@ -521,7 +521,12 @@ where
         }
     }
 
-    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S1, S2>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut ScorerEnum<S1, S2>,
+    ) -> Result<()>
     where
         S1: Scorer,
         S2: Scorable,
