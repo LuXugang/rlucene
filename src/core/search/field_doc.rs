@@ -84,6 +84,10 @@ impl ScoreDocLike for FieldDoc {
     fn shard_index(&self) -> i32 {
         self.base.shard_index
     }
+
+    fn convert_score_doc(self) -> ScoreDoc {
+        self.base
+    }
 }
 
 impl fmt::Display for FieldDoc {

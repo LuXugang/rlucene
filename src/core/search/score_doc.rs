@@ -59,6 +59,10 @@ impl ScoreDocLike for ScoreDoc {
     fn shard_index(&self) -> i32 {
         self.shard_index
     }
+
+    fn convert_score_doc(self) -> ScoreDoc {
+        self
+    }
 }
 
 impl fmt::Display for ScoreDoc {
@@ -75,4 +79,5 @@ pub trait ScoreDocLike: Display {
     fn doc(&self) -> i32;
     fn score(&self) -> f32;
     fn shard_index(&self) -> i32;
+    fn convert_score_doc(self) -> ScoreDoc;
 }
