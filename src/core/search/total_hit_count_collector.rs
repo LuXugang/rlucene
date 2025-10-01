@@ -66,8 +66,8 @@ impl Collector for TotalHitCountCollector {
         Ok(TotalHitCountLeafCollector::new(self))
     }
 
-    fn score_mode(&self) -> &ScoreMode {
-        &ScoreMode::CompleteNoScores
+    fn score_mode(&self) -> ScoreMode {
+        ScoreMode::CompleteNoScores
     }
 }
 

@@ -48,7 +48,7 @@ impl HitQueue {
         )
     }
 }
-
+#[derive(Default)]
 pub struct HitQueueComparator;
 impl Compare<ScoreDoc> for HitQueueComparator {
     fn less_than(&self, hit_a: &ScoreDoc, hit_b: &ScoreDoc) -> Result<bool> {

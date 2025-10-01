@@ -61,5 +61,5 @@ pub trait Collector {
         W: Weight<LR>;
 
     /// Indicates what features are required from the scorer.
-    fn score_mode(&self) -> &ScoreMode;
+    fn score_mode(&self) -> ScoreMode;
 }

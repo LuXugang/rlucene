@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::collector::Collector;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::{Relation, TotalHits};
@@ -32,7 +33,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 /// - This trait is analogous to Lucene's `TopDocsCollector` abstract base class.
 /// - The associated [`TopDocs`] represents the search results (hits + metadata).
 /// - The `total_hits` counter and the `PriorityQueue` are the common state shared by all implementations.
-pub trait TopDocsCollector {
+pub trait TopDocsCollector: Collector {
     type Item: ScoreDocLike;
     type Cmp: Compare<Self::Item>;
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp>;
@@ -158,12 +159,25 @@ where
     C: Compare<T>,
 {
     /// The total number of documents that the collector encountered.
-    total_hits: i32,
+    pub(crate) total_hits: usize,
     /// The priority queue which holds the top documents.
     /// Note that different implementations of PriorityQueue give different meaning to 'top documents'.
     /// HitQueue for example aggregates the top scoring documents,
     /// while other PQ implementations may hold documents sorted by other criteria.
-    pq: PriorityQueue<T, C>,
+    pub(crate) pq: PriorityQueue<T, C>,
     /// Whether totalHits is exact or a lower bound.
-    total_hits_relation: Relation,
+    pub(crate) total_hits_relation: Relation,
+}
+impl<T, C> TopDocsCollectorBase<T, C>
+where
+    T: ScoreDocLike,
+    C: Compare<T>,
+{
+    pub fn new(pq: PriorityQueue<T, C>) -> Self {
+        Self {
+            total_hits: 0,
+            pq,
+            total_hits_relation: Relation::EqualTo,
+        }
+    }
 }
