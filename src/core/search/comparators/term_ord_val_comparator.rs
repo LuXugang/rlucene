@@ -31,8 +31,7 @@ use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::index_searcher::get_max_clause_count;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
 use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -338,7 +337,7 @@ where
         let max_ord: i32;
 
         if !comparator.reverse {
-            if let Some(ref top_value) = comparator.top_value {
+            if let Some(ref _top_value) = comparator.top_value {
                 if self.top_same_reader {
                     min_ord = self.top_ord;
                 } else {
@@ -474,10 +473,9 @@ where
         Ok(())
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         debug_assert!(self.comparator.bottom_slot != -1);
 
@@ -498,10 +496,9 @@ where
         }
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let mut ord = self.get_ord_for_doc(doc)?;
         if ord == -1 {
@@ -521,15 +518,9 @@ where
         }
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let mut ord = self.get_ord_for_doc(doc)?;
         if ord == -1 {
@@ -548,10 +539,9 @@ where
         Ok(())
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         Ok(())
     }

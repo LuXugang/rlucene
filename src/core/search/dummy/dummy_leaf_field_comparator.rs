@@ -16,8 +16,7 @@
  */
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyLeafFieldComparator;
@@ -26,39 +25,30 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_bottom<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_top<S1, S2>(&mut self, _doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        _slot: usize,
-        _doc: i32,
-        _scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, _slot: usize, _doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

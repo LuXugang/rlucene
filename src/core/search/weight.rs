@@ -24,7 +24,6 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
-use crate::core::search::scorable::ScorerEnum;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -232,16 +231,14 @@ pub struct DefaultBulkScorer<S>
 where
     S: Scorer,
 {
-    scorer: Option<S>,
+    scorer: S,
 }
 impl<S> DefaultBulkScorer<S>
 where
     S: Scorer,
 {
     pub fn new(scorer: S) -> Self {
-        Self {
-            scorer: Some(scorer),
-        }
+        Self { scorer }
     }
 }
 impl<S> BulkScorer for DefaultBulkScorer<S>
@@ -259,21 +256,13 @@ where
         LC: LeafCollector,
         B: Bits,
     {
-        let has_two_phase = { self.scorer.as_mut().unwrap().two_phase_iterator().is_some() };
+        let has_two_phase = self.scorer.two_phase_iterator().is_some();
         let doc_id = if has_two_phase {
-            self.scorer
-                .as_mut()
-                .unwrap()
-                .two_phase_iterator()
-                .as_ref()
-                .unwrap()
-                .approximation()
-                .doc_id()
+            let two_phase = self.scorer.two_phase_iterator().unwrap();
+            two_phase.approximation().doc_id()
         } else {
-            self.scorer.as_mut().unwrap().iterator().doc_id()
+            self.scorer.iterator().doc_id()
         };
-
-        collector.set_scorer(ScorerEnum::<S, S::Scorable>::S(self.scorer.take().unwrap()))?;
 
         let has_competitive_iterator = collector.competitive_iterator()?.is_some();
 
@@ -283,15 +272,15 @@ where
             && min == 0
             && max == NO_MORE_DOCS
         {
-            score_all(collector, accept_docs)?;
+            score_all(collector, accept_docs, &mut self.scorer)?;
             Ok(NO_MORE_DOCS)
         } else {
-            score_range(collector, accept_docs, min, max)
+            score_range(collector, accept_docs, min, max, &mut self.scorer)
         }
     }
 
     fn cost(&mut self) -> Result<i64> {
-        self.scorer.as_mut().unwrap().iterator().cost()
+        self.scorer.iterator().cost()
     }
 }
 pub struct DefaultScorerSupplier<S>
@@ -331,20 +320,17 @@ where
 }
 /// Specialized method to bulk-score all hits;
 /// we separate this from scoreRange to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_all<C, B>(collector: &mut C, accept_docs: Option<&B>) -> Result<()>
+fn score_all<C, B, S>(collector: &mut C, accept_docs: Option<&B>, scorer: &mut S) -> Result<()>
 where
     C: LeafCollector,
     B: Bits,
+    S: Scorer,
 {
-    let has_two_phase = {
-        let scorer = collector.scorer_mut()?;
-        scorer.two_phase_iterator().is_some()
-    };
+    let has_two_phase = scorer.two_phase_iterator().is_some();
 
     if has_two_phase {
         loop {
             let (doc, matches) = {
-                let scorer = collector.scorer_mut()?;
                 let mut two_phase = scorer.two_phase_iterator().unwrap();
                 let doc = {
                     let iter = two_phase.approximation_mut();
@@ -360,13 +346,12 @@ where
                 break;
             }
             if accept_docs.is_none_or(|a| a.get(doc)) && matches {
-                collector.collect(doc)?;
+                collector.collect(doc, scorer)?;
             }
         }
     } else {
         loop {
             let doc = {
-                let scorer = collector.scorer_mut()?;
                 let mut iter = scorer.iterator();
                 iter.next_doc()?
             };
@@ -374,7 +359,7 @@ where
                 break;
             }
             if accept_docs.is_none_or(|a| a.get(doc)) {
-                collector.collect(doc)?;
+                collector.collect(doc, scorer)?;
             }
         }
     }
@@ -382,15 +367,17 @@ where
 }
 /// Specialized method to bulk-score a range of hits;
 /// we separate this from scoreAll to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_range<C, B>(
+fn score_range<C, B, S>(
     collector: &mut C,
     accept_docs: Option<&B>,
     mut min: i32,
     max: i32,
+    scorer: &mut S,
 ) -> Result<i32>
 where
     C: LeafCollector,
     B: Bits,
+    S: Scorer,
 {
     if let Some(iterator) = collector.competitive_iterator()?
         && iterator.doc_id() > min
@@ -399,7 +386,6 @@ where
     }
 
     let mut doc = {
-        let scorer = collector.scorer_mut()?;
         let mut iter = scorer.iterator();
         let d = iter.doc_id();
         if d < min {
@@ -413,20 +399,16 @@ where
         }
     };
 
-    let has_two_phase = {
-        let scorer = collector.scorer_mut()?;
-        scorer.two_phase_iterator().is_some()
-    };
+    let has_two_phase = scorer.two_phase_iterator().is_some();
 
     let has_competitive = collector.competitive_iterator()?.is_some();
 
     if !has_two_phase && !has_competitive {
         while doc < max {
             if accept_docs.is_none_or(|a| a.get(doc)) {
-                collector.collect(doc)?;
+                collector.collect(doc, scorer)?;
             }
             doc = {
-                let scorer = collector.scorer_mut()?;
                 let mut iter = scorer.iterator();
                 iter.next_doc()?
             };
@@ -451,7 +433,6 @@ where
 
             if let Some(target) = advance_to {
                 doc = {
-                    let scorer = collector.scorer_mut()?;
                     let mut iter = scorer.iterator();
                     iter.advance(target)?
                 };
@@ -460,7 +441,6 @@ where
         }
 
         let matches = if has_two_phase {
-            let scorer = collector.scorer_mut()?;
             let mut two_phase = scorer.two_phase_iterator().unwrap();
             two_phase.matches()?
         } else {
@@ -468,11 +448,10 @@ where
         };
 
         if accept_docs.is_none_or(|a| a.get(doc)) && matches {
-            collector.collect(doc)?;
+            collector.collect(doc, scorer)?;
         }
 
         doc = {
-            let scorer = collector.scorer_mut()?;
             let mut iter = scorer.iterator();
             iter.next_doc()?
         };

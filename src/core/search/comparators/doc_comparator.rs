@@ -24,8 +24,7 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
 
@@ -170,42 +169,33 @@ impl LeafFieldComparator for DocLeafComparator {
         Ok(())
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         // No overflow risk because docIDs are non-negative
         Ok(self.comparator.bottom - (self.doc_base + doc))
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let doc_value = self.doc_base + doc;
         Ok(self.comparator.top_value.cmp(&doc_value).to_int())
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         self.comparator.doc_ids[slot] = self.doc_base + doc;
         Ok(())
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         self.update_iterator();
         Ok(())

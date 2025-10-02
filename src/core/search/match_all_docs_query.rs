@@ -222,11 +222,10 @@ impl BulkScorer for MatchAllBulkScorer {
         B: Bits,
     {
         let max = std::cmp::min(max, self.max_doc);
-        let scorer = Score::new(self.score).into();
-        collector.set_scorer(scorer)?;
+        let mut scorer = Score::new(self.score);
         for doc in min..max {
             if accept_docs.is_none_or(|bits| bits.get(doc)) {
-                collector.collect(doc)?;
+                collector.collect(doc, &mut scorer)?;
             }
         }
         if max == self.max_doc {

@@ -19,11 +19,9 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Just counts the total number of hits. This is the collector behind [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count).
@@ -82,24 +80,18 @@ impl<'a> TotalHitCountLeafCollector<'a> {
 }
 
 impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
-    fn set_scorer<S, C>(&mut self, _scorer: ScorerEnum<S, C>) -> Result<()>
+    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S: Scorer,
-        C: Scorable,
+        S: Scorable,
     {
-        Ok(())
-    }
-
-    type Scorer = DummyScorer;
-
-    fn collect(&mut self, _doc: i32) -> Result<()> {
         self.collector.total_hit += 1;
         Ok(())
     }
 
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
+    fn collect_stream<DS, S>(&mut self, stream: &mut DS, _scorer: &mut S) -> Result<()>
     where
         DS: DocIdStream,
+        S: Scorable,
     {
         self.collector.total_hit += stream.count()?;
         Ok(())

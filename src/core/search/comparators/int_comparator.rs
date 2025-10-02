@@ -27,8 +27,7 @@ use crate::core::search::comparators::numeric_comparator::{
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::ToInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -162,43 +161,34 @@ where
             .set_bottom(self.comparator.bottom, self.comparator.top_value)
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let v = self.get_value_for_doc(doc)?;
         Ok(self.comparator.bottom.cmp(&v).to_int())
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let v = self.get_value_for_doc(doc)?;
         Ok(self.comparator.top_value.cmp(&v).to_int())
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let v = self.get_value_for_doc(doc)?;
         self.comparator.values[slot] = v;
         self.base.copy(doc)
     }
 
-    fn set_scorer<S1, S2>(&mut self, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         self.base
             .set_scorer(scorer, self.comparator.bottom, self.comparator.top_value)

@@ -29,8 +29,7 @@ use crate::core::search::comparators::long_comparator::LongComparator;
 use crate::core::search::comparators::term_ord_val_comparator::TermOrdValComparator;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_sort_field::{
     SortedNumericDoubleComparator, SortedNumericFloatComparator, SortedNumericIntComparator,
     SortedNumericLongComparator,
@@ -250,15 +249,11 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         Ok(())
     }
 
-    fn compare_bottom<S1, S2>(&mut self, _doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, _doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
-        let doc_value = match scorer {
-            ScorerEnum::S(s) => s.score()?,
-            ScorerEnum::C(s) => s.score()?,
-        };
+        let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
         match doc_value.partial_cmp(&self.comparator.bottom) {
             Some(r) => Ok(r.to_int()),
@@ -268,15 +263,11 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         }
     }
 
-    fn compare_top<S1, S2>(&mut self, _doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, _doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
-        let doc_value = match scorer {
-            ScorerEnum::S(s) => s.score()?,
-            ScorerEnum::C(s) => s.score()?,
-        };
+        let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
         match doc_value.partial_cmp(&self.comparator.top_value) {
             Some(r) => Ok(r.to_int()),
@@ -286,29 +277,19 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         }
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        _doc: i32,
-        scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, _doc: i32, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
-        let score = match scorer {
-            ScorerEnum::S(s) => s.score()?,
-            ScorerEnum::C(s) => s.score()?,
-        };
+        let score = scorer.score()?;
         self.comparator.scores[slot] = score;
         debug_assert!(!score.is_nan());
         Ok(())
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         Ok(())
     }
@@ -961,10 +942,9 @@ where
         Ok(())
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
         let val = Self::get_value_for_doc(doc_terms, doc)?;
@@ -978,10 +958,9 @@ where
         }
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, _scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
         match Self::get_value_for_doc(doc_terms, doc)? {
@@ -992,15 +971,9 @@ where
         }
     }
 
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        _scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
             None => self.comparator.values[slot] = None,
@@ -1009,10 +982,9 @@ where
         Ok(())
     }
 
-    fn set_scorer<S1, S2>(&mut self, _scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         Ok(())
     }

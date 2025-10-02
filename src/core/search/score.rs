@@ -17,7 +17,9 @@
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
-/// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a Scorable to [`LeafCollector#setScorer`](crate::core::search::leaf_collector::LeafCollector::set_scorer).
+/// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a
+/// [`Scorable`](crate::core::search::scorable::Scorable) to
+/// [`LeafCollector::collect`](crate::core::search::leaf_collector::LeafCollector::collect).
 pub struct Score {
     score: f32,
 }

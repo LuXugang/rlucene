@@ -27,8 +27,7 @@ use crate::core::search::doc_id_set_iterator::{
     AllDISI, DocIdSetIterator, Either3DocIdSetIterator,
 };
 use crate::core::search::pruning::Pruning;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
 use crate::core::util::ToInt;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
@@ -424,15 +423,9 @@ where
         Ok(())
     }
 
-    pub(crate) fn set_scorer<S1, S2>(
-        &mut self,
-        _scorer: &mut ScorerEnum<S1, S2>,
-        bottom: V,
-        top: V,
-    ) -> Result<()>
+    pub(crate) fn set_scorer<S>(&mut self, _scorer: &mut S, bottom: V, top: V) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         if self.iterator_cost == -1 {
             self.iterator_cost = self.max_doc as i64;

@@ -18,14 +18,12 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
+use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
 use crate::core::search::total_hits::{Relation, TotalHits};
@@ -65,8 +63,8 @@ impl Collector for TopScoreDocCollector {
 
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
-        weight: Option<&mut W>,
+        _context: &LeafReaderContext<LR>,
+        _weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
         LR: LeafReader,
@@ -129,17 +127,10 @@ impl<'a> TopScoreDocLeafCollector<'a> {
     }
 }
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
-    fn set_scorer<S, C>(&mut self, scorer: ScorerEnum<S, C>) -> Result<()>
+    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
     where
-        S: Scorer,
-        C: Scorable,
+        S: Scorable,
     {
-        Ok(())
-    }
-
-    type Scorer = DummyScorer;
-
-    fn collect(&mut self, doc: i32) -> Result<()> {
         todo!()
     }
 

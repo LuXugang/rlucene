@@ -27,8 +27,7 @@ use crate::core::search::comparators::term_ord_val_comparator::{
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::field_comparator::{RelevanceLeafComparator, TermValLeafComparator};
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
 /// Expert: comparator that gets instantiated on each leaf from a top-level
@@ -93,10 +92,9 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable;
+        S: Scorable;
 
     /// Compare the top value with this document.
     ///
@@ -117,10 +115,9 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable;
+        S: Scorable;
 
     /// Called when a new hit is competitive.
     ///
@@ -134,15 +131,9 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn copy<S1, S2>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        scorer: &mut ScorerEnum<S1, S2>,
-    ) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable;
+        S: Scorable;
 
     /// Sets the scorer to use in case a document's score is needed.
     ///
@@ -152,10 +143,9 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S1, S2>(&mut self, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable;
+        S: Scorable;
 
     type DocIdSetIterator: DocIdSetIterator;
     /// Returns a competitive iterator over documents stronger than already
@@ -215,10 +205,9 @@ where
         }
     }
 
-    fn compare_bottom<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         match self {
             Self::Relevance(comparator) => comparator.compare_bottom(doc, scorer),
@@ -232,10 +221,9 @@ where
         }
     }
 
-    fn compare_top<S1, S2>(&mut self, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<i32>
+    fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         match self {
             Self::Relevance(comparator) => comparator.compare_top(doc, scorer),
@@ -249,10 +237,9 @@ where
         }
     }
 
-    fn copy<S1, S2>(&mut self, slot: usize, doc: i32, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         match self {
             Self::Relevance(comparator) => comparator.copy(slot, doc, scorer),
@@ -266,10 +253,9 @@ where
         }
     }
 
-    fn set_scorer<S1, S2>(&mut self, scorer: &mut ScorerEnum<S1, S2>) -> Result<()>
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
-        S1: Scorer,
-        S2: Scorable,
+        S: Scorable,
     {
         match self {
             Self::Relevance(comparator) => comparator.set_scorer(scorer),

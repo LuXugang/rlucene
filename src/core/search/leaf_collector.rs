@@ -16,28 +16,10 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
-use crate::core::search::scorable::{Scorable, ScorerEnum};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait LeafCollector {
-    /// Called before successive calls to [`LeafCollector::collect`].
-    ///
-    /// Implementations that need the score of the current document (passed in
-    /// to `collect`) should save the passed-in [`Scorer`] and call
-    /// `scorer.score()` when needed.
-    fn set_scorer<S, C>(&mut self, scorer: ScorerEnum<S, C>) -> Result<()>
-    where
-        S: Scorer,
-        C: Scorable;
-
-    type Scorer: Scorer;
-    /// Returns the scorer that was most recently provided via
-    /// [`LeafCollector::set_scorer`].
-    fn scorer_mut(&mut self) -> Result<&mut Self::Scorer> {
-        unimplemented!()
-    }
-
     /// Called once for every document matching a query, with the unbased document number.
     ///
     /// # Notes
@@ -52,7 +34,9 @@ pub trait LeafCollector {
     ///   implementations of this method should **not** call
     ///   [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document) on every hit. Doing so can slow searches by an
     ///   order of magnitude or more.
-    fn collect(&mut self, doc: i32) -> Result<()>;
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable;
 
     /// Bulk-collect doc IDs.
     ///
@@ -73,11 +57,12 @@ pub trait LeafCollector {
     /// # Default
     ///
     /// The default implementation calls `stream.for_each(|doc| self.collect(doc))`.
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
+    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
     where
         DS: DocIdStream,
+        S: Scorable,
     {
-        stream.for_each(|doc| self.collect(doc))
+        stream.for_each(|doc| self.collect(doc, scorer))
     }
 
     type DocIdSetIterator: DocIdSetIterator;
