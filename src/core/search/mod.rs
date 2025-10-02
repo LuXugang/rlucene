@@ -75,6 +75,7 @@ pub mod top_docs_collector;
 pub mod top_field_collector;
 pub mod top_knn_collector;
 mod top_score_doc_collector;
+mod top_score_doc_collector_manager;
 mod total_hit_count_collector;
 mod total_hit_count_collector_manager;
 mod total_hits;

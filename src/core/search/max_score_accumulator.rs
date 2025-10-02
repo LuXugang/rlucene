@@ -14,14 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
 /// Maintains the maximum score and its corresponding document id concurrently
 pub(crate) const DEFAULT_INTERVAL: i64 = 0x3ff;
+#[derive(Clone)]
 pub(crate) struct MaxScoreAccumulator {
     // we use 2^10-1 to check the remainder with a bitwise operation
 
     // scores are always positive
-    acc: AtomicI64,
+    acc: Rc<AtomicI64>,
 
     // non-final and visible for tests
     pub(crate) mod_interval: i64,
@@ -30,7 +32,7 @@ pub(crate) struct MaxScoreAccumulator {
 impl MaxScoreAccumulator {
     pub(crate) fn new() -> Self {
         Self {
-            acc: AtomicI64::new(i64::MIN),
+            acc: Rc::new(AtomicI64::new(i64::MIN)),
             mod_interval: DEFAULT_INTERVAL,
         }
     }
