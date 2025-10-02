@@ -423,12 +423,20 @@ where
         Ok(())
     }
 
-    pub(crate) fn set_scorer<S>(&mut self, _scorer: &mut S, bottom: V, top: V) -> Result<()>
+    pub(crate) fn set_scorer<S>(&mut self, scorer: &mut S, bottom: V, top: V) -> Result<()>
     where
         S: Scorable,
     {
         if self.iterator_cost == -1 {
-            self.iterator_cost = self.max_doc as i64;
+            match scorer.cost() {
+                Ok(c) => self.iterator_cost = c,
+                Err(e) => match e {
+                    LuceneError::UnsupportedOperation(_) => {
+                        self.iterator_cost = self.max_doc as i64;
+                    },
+                    _ => return Err(e),
+                },
+            };
             self.update_competitive_iterator(bottom, top)?;
         }
         Ok(())

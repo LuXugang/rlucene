@@ -40,6 +40,10 @@ impl Scorable for DummyScorer {
     fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn cost(&mut self) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }
 
 impl Scorer for DummyScorer {

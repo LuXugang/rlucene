@@ -152,6 +152,13 @@ where
                 .map(|children| map_child_scorables(children, Either2ScorerChild::B)),
         }
     }
+
+    fn cost(&mut self) -> Result<i64> {
+        match self {
+            Self::A(inner) => inner.cost(),
+            Self::B(inner) => inner.cost(),
+        }
+    }
 }
 
 pub enum Either2Scorer<A, B> {
@@ -195,6 +202,13 @@ where
             Self::B(inner) => inner
                 .get_children()
                 .map(|children| map_child_scorables(children, Either2ScorerChild::B)),
+        }
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        match self {
+            Self::A(inner) => inner.cost(),
+            Self::B(inner) => inner.cost(),
         }
     }
 }

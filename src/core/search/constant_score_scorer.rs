@@ -115,6 +115,10 @@ where
     }
 
     type Scorable = DummyScorable;
+
+    fn cost(&mut self) -> Result<i64> {
+        self.iterator().cost()
+    }
 }
 
 impl<DISI, TPI> Scorer for ConstantScoreScorer<DISI, TPI>

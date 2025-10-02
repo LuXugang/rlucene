@@ -205,6 +205,10 @@ where
     }
 
     type Scorable = DummyScorable;
+
+    fn cost(&mut self) -> Result<i64> {
+        self.iterator().cost()
+    }
 }
 
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>

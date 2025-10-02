@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Allows access to the score of a query.
 pub trait Scorable {
@@ -58,6 +58,10 @@ pub trait Scorable {
     /// Returns child sub-scorers positioned on the current document.
     fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
         Ok(vec![])
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }
 
