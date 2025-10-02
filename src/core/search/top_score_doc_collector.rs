@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
 use crate::core::search::leaf_collector::LeafCollector;
@@ -28,21 +29,31 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
-
+/// A [`Collector`] implementation that collects the top-scoring hits,
+/// returning them as a [`TopDocs`].
+///
+/// This is used by [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) to implement [`TopDocs`]-based search.
+/// Hits are sorted by score descending and then (when the scores are tied) docID ascending.
+/// When you create an instance of this collector you should know in advance whether
+/// documents are going to be collected in doc ID order or not.
+///
+///
+/// **NOTE:** The values [`f32::NAN`] and [`f32::NEG_INFINITY`] are not valid scores.
+/// This collector will not properly collect hits with such scores.
 pub struct TopScoreDocCollector {
     base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
     after: Option<ScoreDoc>,
     total_hits_threshold: i32,
-    min_score_acc: MaxScoreAccumulator,
+    min_score_acc: Option<MaxScoreAccumulator>,
 }
 impl TopScoreDocCollector {
     pub fn new(
         num_hits: i32,
         after: Option<ScoreDoc>,
         total_hits_threshold: i32,
-        min_score_acc: MaxScoreAccumulator,
+        min_score_acc: Option<MaxScoreAccumulator>,
     ) -> Result<Self> {
         let pq = HitQueue::new(num_hits, true)?;
         let base = TopDocsCollectorBase::new(pq);
@@ -63,14 +74,30 @@ impl Collector for TopScoreDocCollector {
 
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        _context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<LR>,
         _weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
         LR: LeafReader,
         W: Weight<LR>,
     {
-        todo!()
+        let doc_base = context.doc_base;
+        let after_score: f32;
+        let after_doc: i32;
+
+        if let Some(after) = &self.after {
+            after_score = after.score;
+            after_doc = after.doc - doc_base
+        } else {
+            after_score = f32::INFINITY;
+            after_doc = NO_MORE_DOCS;
+        }
+        Ok(TopScoreDocLeafCollector::new(
+            self,
+            doc_base,
+            after_doc,
+            after_score,
+        ))
     }
 
     fn score_mode(&self) -> ScoreMode {
@@ -120,10 +147,85 @@ impl TopDocsCollector for TopScoreDocCollector {
 }
 pub struct TopScoreDocLeafCollector<'a> {
     base: &'a mut TopScoreDocCollector,
+    min_competitive_score: f32,
+    doc_base: i32,
+    after_doc: i32,
+    after_score: f32,
 }
 impl<'a> TopScoreDocLeafCollector<'a> {
-    pub fn new(base: &'a mut TopScoreDocCollector) -> Self {
-        Self { base }
+    pub fn new(
+        base: &'a mut TopScoreDocCollector,
+        doc_base: i32,
+        after_doc: i32,
+        after_score: f32,
+    ) -> Self {
+        Self {
+            base,
+            min_competitive_score: 0.0,
+            doc_base,
+            after_doc,
+            after_score,
+        }
+    }
+    fn update_global_min_competitive_score<S: Scorable>(&mut self, scorer: &mut S) -> Result<()> {
+        debug_assert!(self.base.min_score_acc.is_some());
+        let max_min_score = self.base.min_score_acc.as_ref().unwrap().get_raw();
+        if max_min_score != i64::MIN {
+            // since we tie-break on doc id and collect in doc id order we can require
+            // the next float if the global minimum score is set on a document id that is
+            // smaller than the ids in the current leaf
+            let mut score = MaxScoreAccumulator::to_score(max_min_score);
+
+            if self.doc_base >= MaxScoreAccumulator::doc_id(max_min_score) {
+                score = f32::from_bits(score.to_bits() + 1);
+            }
+            if score > self.min_competitive_score {
+                scorer.set_min_competitive_score(score)?;
+                self.min_competitive_score = score;
+                self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+            }
+        }
+        Ok(())
+    }
+    fn collect_competitive_hit<S: Scorable>(
+        &mut self,
+        scorer: &mut S,
+        doc: i32,
+        score: f32,
+    ) -> Result<()> {
+        match self.base.base.pq.top_mut() {
+            None => return Err(LuceneError::illegal_state("Priority queue is empty")),
+            Some(pq_top) => {
+                pq_top.doc = doc + self.doc_base;
+                pq_top.score = score;
+            },
+        }
+        let _ = self.base.base.pq.update_top()?;
+        self.update_min_competitive_score(scorer)?;
+        Ok(())
+    }
+
+    fn update_min_competitive_score<S: Scorable>(&mut self, scorer: &mut S) -> Result<()> {
+        if self.base.base.total_hits as i32 > self.base.total_hits_threshold
+            && let Some(pq_top) = self.base.base.pq.top()
+        {
+            // since we tie-break on doc id and collect in doc id order, we can require the next float
+            // pqTop is never null since TopScoreDocCollector fills the priority queue with sentinel
+            // values if the top element is a sentinel value, its score will be -Infty and the below
+            // logic is still valid
+            let local_min_score = f32::from_bits(pq_top.score.to_bits() + 1);
+            if local_min_score > self.min_competitive_score {
+                scorer.set_min_competitive_score(local_min_score)?;
+                self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+                self.min_competitive_score = local_min_score;
+                // we don't use the next float but we register the document id so that other leaves or
+                // leaf partitions can require it if they are after the current maximum
+                if let Some(acc) = &self.base.min_score_acc {
+                    acc.accumulate(pq_top.doc, pq_top.score);
+                }
+            }
+        }
+        Ok(())
     }
 }
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
@@ -131,14 +233,57 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
     where
         S: Scorable,
     {
-        todo!()
+        if self.base.min_score_acc.is_none() {
+            self.update_min_competitive_score(scorer)?;
+        } else {
+            self.update_global_min_competitive_score(scorer)?;
+        }
+        Ok(())
     }
 
-    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
     where
         S: Scorable,
     {
-        todo!()
+        let score = scorer.score()?;
+        self.base.base.total_hits += 1;
+        let hit_count_so_far = self.base.base.total_hits as i32;
+
+        if let Some(acc) = &self.base.min_score_acc
+            && (hit_count_so_far as i64 & acc.mod_interval) == 0
+        {
+            self.update_global_min_competitive_score(scorer)?;
+        }
+
+        if let Some(after) = &self.base.after
+            && (score > self.after_score || (score == self.after_score && doc <= self.after_doc))
+        {
+            // hit was collected on a previous page
+            if self.base.base.total_hits_relation == Relation::EqualTo {
+                // we just reached totalHitsThreshold, we can start setting the min
+                // competitive score now
+                self.update_min_competitive_score(scorer)?;
+            }
+            return Ok(());
+        }
+        match self.base.base.pq.top() {
+            None => return Err(LuceneError::illegal_state("Priority queue is empty")),
+            Some(pq_top) => {
+                if score <= pq_top.score {
+                    // Note: for queries that match lots of hits, this is the common case: most hits are not
+                    // competitive.
+                    if hit_count_so_far == self.base.total_hits_threshold + 1 {
+                        self.update_min_competitive_score(scorer)?;
+                    }
+                    // Since docs are returned in-order (i.e., increasing doc Id), a document
+                    // with equal score to pqTop.score cannot compete since HitQueue favors
+                    // documents with lower doc Ids. Therefore reject those docs too.
+                } else {
+                    self.collect_competitive_hit(scorer, doc, score)?;
+                }
+            },
+        }
+        Ok(())
     }
 
     type DocIdSetIterator = DummyDISI;
