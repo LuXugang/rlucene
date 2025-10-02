@@ -127,6 +127,13 @@ impl<'a> TopScoreDocLeafCollector<'a> {
     }
 }
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        todo!()
+    }
+
     fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
     where
         S: Scorable,

@@ -20,6 +20,17 @@ use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait LeafCollector {
+    /// Called before successive calls to [`LeafCollector::collect`].
+    ///
+    /// Implementations that need the score of the current document (passed in
+    /// to `collect`) should save the passed-in [`Scorer`] and call
+    /// `scorer.score()` when needed.
+    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        Ok(())
+    }
     /// Called once for every document matching a query, with the unbased document number.
     ///
     /// # Notes

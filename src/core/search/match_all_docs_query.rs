@@ -223,6 +223,7 @@ impl BulkScorer for MatchAllBulkScorer {
     {
         let max = std::cmp::min(max, self.max_doc);
         let mut scorer = Score::new(self.score);
+        collector.set_scorer(&mut scorer)?;
         for doc in min..max {
             if accept_docs.is_none_or(|bits| bits.get(doc)) {
                 collector.collect(doc, &mut scorer)?;
