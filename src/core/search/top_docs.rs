@@ -74,3 +74,52 @@ impl Comparator<ScoreDoc> for DefaultTieBreaker {
         }
     }
 }
+#[derive(Debug, Clone)]
+pub(crate) struct ShardRef {
+    /// Which shard (index into shardHits[]).
+    pub(crate) shard_index: i32,
+
+    /// Which hit within the shard.
+    pub(crate) hit_index: i32,
+}
+
+impl ShardRef {
+    pub fn new(shard_index: i32) -> Self {
+        ShardRef {
+            shard_index,
+            hit_index: 0,
+        }
+    }
+}
+
+impl std::fmt::Display for ShardRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ShardRef(shard_index={} hit_index={})",
+            self.shard_index, self.hit_index
+        )
+    }
+}
+pub(crate) fn tie_break_less_than<C>(
+    first: &ShardRef,
+    first_doc: &ScoreDoc,
+    second: &ShardRef,
+    second_doc: &ScoreDoc,
+    tie_breaker: &C,
+) -> bool
+where
+    C: Comparator<ScoreDoc>,
+{
+    let value = tie_breaker.compare_unchecked(first_doc, second_doc);
+
+    if value == 0 {
+        // Equal Values
+        // Tie break in same shard: resolve however the
+        // shard had resolved it:
+        debug_assert!(first.hit_index != second.hit_index);
+        return first.hit_index < second.hit_index;
+    }
+
+    value < 0
+}
