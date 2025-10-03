@@ -73,6 +73,7 @@ pub mod term_statistics;
 pub mod top_docs;
 pub mod top_docs_collector;
 pub mod top_field_collector;
+mod top_field_docs;
 pub mod top_knn_collector;
 mod top_score_doc_collector;
 mod top_score_doc_collector_manager;
