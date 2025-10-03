@@ -14,24 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::score_doc::ScoreDoc;
+use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::total_hits::TotalHits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{Comparator, ToInt};
 
 /// Represents hits returned.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TopDocs {
+pub struct TopDocs<S>
+where
+    S: ScoreDocLike,
+{
     /// The total number of hits for the query.
     pub total_hits: TotalHits,
 
     /// The top hits for the query.
-    pub score_docs: Vec<ScoreDoc>,
+    pub score_docs: Vec<S>,
 }
 
-impl TopDocs {
+impl<S> TopDocs<S>
+where
+    S: ScoreDocLike,
+{
     /// Constructs a new `TopDocs`.
-    pub fn new(total_hits: TotalHits, score_docs: Vec<ScoreDoc>) -> Self {
+    pub fn new(total_hits: TotalHits, score_docs: Vec<S>) -> Self {
         Self {
             total_hits,
             score_docs,

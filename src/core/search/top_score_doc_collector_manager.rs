@@ -128,7 +128,7 @@ impl TopScoreDocCollectorManager {
 }
 impl CollectorManager for TopScoreDocCollectorManager {
     type Collector = TopScoreDocCollector;
-    type Output = TopDocs;
+    type Output = TopDocs<ScoreDoc>;
 
     fn new_collector(&self) -> Result<Self::Collector> {
         TopScoreDocCollector::new(

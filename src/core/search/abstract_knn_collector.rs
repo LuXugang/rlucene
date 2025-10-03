@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::error::lucene_error::Result;
@@ -63,7 +64,9 @@ impl KnnCollector for AbstractKnnCollector {
         unimplemented!()
     }
 
-    fn top_docs(&mut self) -> Result<TopDocs> {
+    type Item = DummyScoreDocLike;
+
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
         unimplemented!()
     }
 }

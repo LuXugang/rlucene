@@ -98,7 +98,9 @@ impl KnnCollector for VectorSimilarityCollector {
         self.traversal_similarity.min(self.max_similarity)
     }
 
-    fn top_docs(&mut self) -> Result<TopDocs> {
+    type Item = ScoreDoc;
+
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
         // Results are not returned in a sorted order to prevent unnecessary
         // calculations (because we do not need to maintain the topK)
         let relation = if self.early_terminated() {

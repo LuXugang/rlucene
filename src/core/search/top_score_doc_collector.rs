@@ -128,7 +128,10 @@ impl TopDocsCollector for TopScoreDocCollector {
         self.base.total_hits_relation
     }
 
-    fn new_top_docs(&self, results: Option<Vec<ScoreDoc>>, _start: i32) -> TopDocs {
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
         match results {
             None => TopDocs::new(
                 TotalHits::new(self.base.total_hits, self.base.total_hits_relation),

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::error::lucene_error::Result;
 
@@ -82,5 +83,6 @@ pub trait KnnCollector {
     /// # Returns
     ///
     /// The collected top documents.
-    fn top_docs(&mut self) -> Result<TopDocs>;
+    type Item: ScoreDocLike;
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>;
 }

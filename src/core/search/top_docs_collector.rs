@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::collector::Collector;
-use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -44,11 +44,11 @@ pub trait TopDocsCollector: Collector {
 
     /// Populates the results array with the ScoreDoc instances.
     /// This can be overridden in case a different ScoreDoc type should be returned.
-    fn populate_results(&mut self, results: &mut [ScoreDoc], how_many: i32) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: i32) -> Result<()> {
         let pq = self.pq_mut();
         for i in (0..how_many).rev() {
             if let Some(item) = pq.pop()? {
-                results[i as usize] = item.convert_score_doc();
+                results[i as usize] = item
             }
         }
         Ok(())
@@ -61,9 +61,12 @@ pub trait TopDocsCollector: Collector {
     ///
     /// # Notes
     /// This method is the Rust equivalent of Lucene's `TopDocsCollector.newTopDocs(ScoreDoc[] results, int start)`.
-    fn new_top_docs(&self, results: Option<Vec<ScoreDoc>>, _start: i32) -> TopDocs {
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
         match results {
-            None => empty_top_docs(),
+            None => Self::empty_top_docs(),
             Some(res) => TopDocs::new(
                 TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
                 res,
@@ -78,7 +81,10 @@ pub trait TopDocsCollector: Collector {
     }
 
     /// Returns the top docs that were collected by this collector.
-    fn top_docs(&mut self) -> Result<TopDocs> {
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
         let size = self.top_docs_size() as i32;
         self.top_docs_with_start_limit(0, size)
     }
@@ -93,7 +99,10 @@ pub trait TopDocsCollector: Collector {
     /// If you need to call it more than once, passing each time a different `start`,
     /// you should call [`TopDocsCollector::top_docs`] and work with the returned [`TopDocs`] object,
     /// which will contain all the results this search execution collected.
-    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs> {
+    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
         // In case pq was populated with sentinel values, there might be less
         // results than pq.size(). Therefore return all results until either
         // pq.size() or totalHits.
@@ -112,7 +121,14 @@ pub trait TopDocsCollector: Collector {
     /// If you need to call it more than once, passing each time a different range,
     /// you should call [`TopDocsCollector::top_docs`] and work with the returned [`TopDocs`] object,
     /// which will contain all the results this search execution collected.
-    fn top_docs_with_start_limit(&mut self, start: i32, mut how_many: i32) -> Result<TopDocs> {
+    fn top_docs_with_start_limit(
+        &mut self,
+        start: i32,
+        mut how_many: i32,
+    ) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
         let size = self.top_docs_size() as i32;
 
         if how_many < 0 {
@@ -147,10 +163,13 @@ pub trait TopDocsCollector: Collector {
 
         Ok(self.new_top_docs(Some(results), start))
     }
-}
-/// This is used in case topDocs() is called with illegal parameters, or there simply aren't (enough) results.
-pub fn empty_top_docs() -> TopDocs {
-    TopDocs::new(TotalHits::new(0, Relation::EqualTo), vec![])
+    /// This is used in case topDocs() is called with illegal parameters, or there simply aren't (enough) results.
+    fn empty_top_docs() -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
+        TopDocs::new(TotalHits::new(0, Relation::EqualTo), vec![])
+    }
 }
 
 pub struct TopDocsCollectorBase<T, C>

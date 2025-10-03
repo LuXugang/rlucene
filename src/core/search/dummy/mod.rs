@@ -22,6 +22,7 @@ pub mod dummy_matches;
 pub mod dummy_matches_iterator;
 pub mod dummy_query;
 pub mod dummy_scorable;
+pub mod dummy_score_doc_like;
 pub mod dummy_scorer;
 pub mod dummy_scorer_supplier;
 pub mod dummy_segment_cacheable;

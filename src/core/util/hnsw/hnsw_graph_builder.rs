@@ -21,6 +21,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::RngCore;
 
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_score_doc_like::DummyScoreDocLike;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::bit_set::BitSet;
@@ -757,7 +758,9 @@ impl KnnCollector for GraphBuilderKnnCollector {
         }
     }
 
-    fn top_docs(&mut self) -> Result<TopDocs> {
+    type Item = DummyScoreDocLike;
+
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>> {
         Err(LuceneError::illegal_state(""))
     }
 }
