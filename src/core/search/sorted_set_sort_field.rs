@@ -50,7 +50,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct SortedSetSortField {
     selector: SortedSetSelectorType,
-    base: SortField,
+    pub(crate) base: SortField,
 }
 impl SortedSetSortField {
     /// Creates a sort, possibly in reverse, by the minimum value in the set for

@@ -55,7 +55,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct SortedNumericSortField {
     selector: SortedNumericSelectorType,
-    base: SortField,
+    pub(crate) base: SortField,
 }
 impl SortedNumericSortField {
     /// Creates a sort by the minimum value in the set for the document.

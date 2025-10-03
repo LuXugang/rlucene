@@ -35,6 +35,15 @@ pub enum SortFieldEnum {
     SortedSet(SortedSetSortField),
     Sorter(SortField),
 }
+impl SortFieldEnum {
+    pub fn get_reverse(&self) -> bool {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_reverse(),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_reverse(),
+            SortFieldEnum::Sorter(sort_field) => sort_field.get_reverse(),
+        }
+    }
+}
 
 impl SortFiledBase for SortFieldEnum {
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {

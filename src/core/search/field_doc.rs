@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::field::FieldDataEnum;
+use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use std::fmt;
 
-pub type FieldsValue = FieldDataEnum;
+pub type FieldsValue = FieldComparatorValue;
 /// Expert: A [`ScoreDoc`] which also contains information about how to sort the referenced document.
 /// In addition to the document number and score, this object contains an array of values for the
 /// document from the field(s) used to sort. For example, if the sort criteria was to sort by fields
