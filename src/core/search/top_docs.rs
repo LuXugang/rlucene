@@ -18,7 +18,7 @@ use crate::core::index::sort::Sort;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -49,34 +49,78 @@ where
         }
     }
 }
+pub fn merge_top_field_docs<C>(
+    sort: &Sort,
+    start: i32,
+    tod_n: i32,
+    shard_hits: Vec<TopDocs<FieldDoc>>,
+) -> Result<TopDocs<FieldDoc>> {
+    merge_top_field_docs_with_comparator(
+        sort,
+        start,
+        tod_n,
+        shard_hits,
+        DefaultTieBreaker::default(),
+    )?;
+    todo!()
+}
 
+pub fn merge_top_field_docs_with_comparator<C>(
+    sort: &Sort,
+    start: i32,
+    size: i32,
+    shard_hits: Vec<TopDocs<FieldDoc>>,
+    tie_breaker: C,
+) -> Result<TopDocs<FieldDoc>>
+where
+    C: Comparator<FieldDoc>,
+{
+    let len = shard_hits.len();
+    debug_assert!(len <= i32::MAX as usize);
+    let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
+    let queue = PriorityQueue::new(len as i32, &cmp)?;
+    merge_aux(queue, start, size, &shard_hits)?;
+    todo!()
+}
+#[derive(Default)]
 struct ShardIndexTieBreaker;
-impl Comparator<ScoreDoc> for ShardIndexTieBreaker {
+impl<S> Comparator<S> for ShardIndexTieBreaker
+where
+    S: ScoreDocLike,
+{
     const TYPE: &'static str = "ShardIndexTieBreaker";
 
-    fn compare(&self, a: &ScoreDoc, b: &ScoreDoc) -> Result<i32> {
-        Ok(a.shard_index.cmp(&b.shard_index).to_int())
+    fn compare(&self, a: &S, b: &S) -> Result<i32> {
+        Ok(a.shard_index().cmp(&b.shard_index()).to_int())
     }
 }
 
+#[derive(Default)]
 struct DocIdTieBreaker;
-impl Comparator<ScoreDoc> for DocIdTieBreaker {
+impl<S> Comparator<S> for DocIdTieBreaker
+where
+    S: ScoreDocLike,
+{
     const TYPE: &'static str = "DocIdTieBreaker";
 
-    fn compare(&self, a: &ScoreDoc, b: &ScoreDoc) -> Result<i32> {
-        Ok(a.doc.cmp(&b.doc).to_int())
+    fn compare(&self, a: &S, b: &S) -> Result<i32> {
+        Ok(a.doc().cmp(&b.doc()).to_int())
     }
 }
 
+#[derive(Default)]
 struct DefaultTieBreaker {
     shard_cmp: ShardIndexTieBreaker,
     doc_cmp: DocIdTieBreaker,
 }
 
-impl Comparator<ScoreDoc> for DefaultTieBreaker {
+impl<S> Comparator<S> for DefaultTieBreaker
+where
+    S: ScoreDocLike,
+{
     const TYPE: &'static str = "DefaultTieBreaker";
 
-    fn compare(&self, a: &ScoreDoc, b: &ScoreDoc) -> Result<i32> {
+    fn compare(&self, a: &S, b: &S) -> Result<i32> {
         let res = self.shard_cmp.compare(a, b)?;
         if res != 0 {
             Ok(res)
@@ -139,7 +183,7 @@ fn merge_aux<C, S>(
     mut queue: PriorityQueue<ShardRef, C>,
     start: i32,
     size: i32,
-    shard_hits: Vec<TopDocs<S>>,
+    shard_hits: &[TopDocs<S>],
 ) -> Result<(TotalHits, Vec<ShardRef>)>
 where
     C: Compare<ShardRef>,
@@ -213,20 +257,20 @@ where
     ))
 }
 
-pub(crate) struct ScoreMergeSortQueueCmp<C, S>
+pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S>
 where
     C: Comparator<S>,
     S: ScoreDocLike,
 {
-    shard_hits: Vec<TopDocs<S>>,
+    shard_hits: &'a Vec<TopDocs<S>>,
     tie_breaker_comparator: C,
 }
-impl<C, S> ScoreMergeSortQueueCmp<C, S>
+impl<'a, C, S> ScoreMergeSortQueueCmp<'a, C, S>
 where
     C: Comparator<S>,
     S: ScoreDocLike,
 {
-    pub fn new(shard_hits: Vec<TopDocs<S>>, tie_breaker_comparator: C) -> Self {
+    pub fn new(shard_hits: &'a Vec<TopDocs<S>>, tie_breaker_comparator: C) -> Self {
         Self {
             shard_hits,
             tie_breaker_comparator,
@@ -234,7 +278,7 @@ where
     }
 }
 
-impl<C, S> Compare<ShardRef> for ScoreMergeSortQueueCmp<C, S>
+impl<C, S> Compare<ShardRef> for ScoreMergeSortQueueCmp<'_, C, S>
 where
     C: Comparator<S>,
     S: ScoreDocLike,
@@ -263,21 +307,25 @@ where
     }
 }
 
-pub(crate) struct MergeSortQueueCmp<C>
+pub(crate) struct MergeSortQueueCmp<'a, C>
 where
     C: Comparator<FieldDoc>,
 {
-    shard_hits: Vec<TopDocs<FieldDoc>>,
+    shard_hits: &'a Vec<TopDocs<FieldDoc>>,
     comparators: Vec<FieldComparatorEnum>,
     reverse_mul: Vec<i32>,
     tie_breaker: C,
 }
 
-impl<C> MergeSortQueueCmp<C>
+impl<'a, C> MergeSortQueueCmp<'a, C>
 where
     C: Comparator<FieldDoc>,
 {
-    pub fn new(sort: &Sort, shard_hits: Vec<TopDocs<FieldDoc>>, tie_breaker: C) -> Result<Self> {
+    pub fn new(
+        sort: &Sort,
+        shard_hits: &'a Vec<TopDocs<FieldDoc>>,
+        tie_breaker: C,
+    ) -> Result<Self> {
         let mut comparators = Vec::new();
         let mut reverse_mul = Vec::new();
         for sf in &sort.fields {
@@ -294,7 +342,7 @@ where
     }
 }
 
-impl<C> Compare<ShardRef> for MergeSortQueueCmp<C>
+impl<C> Compare<ShardRef> for MergeSortQueueCmp<'_, C>
 where
     C: Comparator<FieldDoc>,
 {

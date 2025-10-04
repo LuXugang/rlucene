@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+use crate::core::search::score_doc::ScoreDocLike;
 use std::fmt::{Display, Formatter};
 
 pub struct DummyScoreDocLike;
@@ -35,10 +35,6 @@ impl ScoreDocLike for DummyScoreDocLike {
     }
 
     fn shard_index(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn convert_score_doc(self) -> ScoreDoc {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

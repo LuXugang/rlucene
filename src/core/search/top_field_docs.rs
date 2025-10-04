@@ -21,7 +21,7 @@ use crate::core::search::total_hits::TotalHits;
 
 /// Represents hits returned by IndexSearcher.search(Query, int, Sort).
 pub struct TopFieldDocs {
-    base: TopDocs<FieldDoc>,
+    pub(crate) base: TopDocs<FieldDoc>,
     /// The fields which were used to sort results by.
     fields: Vec<SortField>,
 }

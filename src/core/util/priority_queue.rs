@@ -439,6 +439,14 @@ pub trait Compare<T> {
     /// `true` if parameter `a` is less than parameter `b`.
     fn less_than(&self, a: &T, b: &T) -> Result<bool>;
 }
+impl<T, C> Compare<T> for &C
+where
+    C: Compare<T>,
+{
+    fn less_than(&self, a: &T, b: &T) -> Result<bool> {
+        (**self).less_than(a, b)
+    }
+}
 
 #[cfg(test)]
 mod tests {
