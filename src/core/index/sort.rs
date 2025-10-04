@@ -112,6 +112,9 @@ impl Sort {
     pub fn get_sort(&self) -> &[SortFieldEnum] {
         &self.fields
     }
+    pub fn take_sort(&mut self) -> Vec<SortFieldEnum> {
+        std::mem::take(&mut self.fields)
+    }
 }
 
 impl Display for Sort {

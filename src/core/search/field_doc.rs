@@ -30,6 +30,7 @@ pub type FieldsValue = FieldComparatorValue;
 /// See also:
 /// - [`ScoreDoc`]
 /// - [`TopFieldDocs`](crate::core::search::top_field_docs::TopFieldDocs)
+#[derive(Clone, Default)]
 pub struct FieldDoc {
     pub base: ScoreDoc,
     /// Expert: The values which are used to sort the referenced document. The order of these will

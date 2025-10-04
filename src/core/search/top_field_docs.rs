@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::field_doc::FieldDoc;
-use crate::core::search::sort_field::SortField;
+use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::TotalHits;
 
@@ -23,7 +23,7 @@ use crate::core::search::total_hits::TotalHits;
 pub struct TopFieldDocs {
     pub(crate) base: TopDocs<FieldDoc>,
     /// The fields which were used to sort results by.
-    fields: Vec<SortField>,
+    fields: Vec<SortFieldEnum>,
 }
 impl TopFieldDocs {
     /// Creates one of these objects.
@@ -32,7 +32,11 @@ impl TopFieldDocs {
     /// - `total_hits`: Total number of hits for the query.
     /// - `score_docs`: The top hits for the query.
     /// - `fields`: The sort criteria used to find the top hits.
-    pub fn new(total_hits: TotalHits, score_docs: Vec<FieldDoc>, fields: Vec<SortField>) -> Self {
+    pub fn new(
+        total_hits: TotalHits,
+        score_docs: Vec<FieldDoc>,
+        fields: Vec<SortFieldEnum>,
+    ) -> Self {
         let base = TopDocs::new(total_hits, score_docs);
         Self { base, fields }
     }

@@ -17,6 +17,7 @@
 use crate::core::search::score_doc::ScoreDocLike;
 use std::fmt::{Display, Formatter};
 
+#[derive(Clone, Default)]
 pub struct DummyScoreDocLike;
 
 impl Display for DummyScoreDocLike {

@@ -16,7 +16,6 @@
  */
 use std::fmt;
 use std::fmt::Display;
-use std::rc::Rc;
 
 /// Holds one hit in [`TopDocs`](crate::core::search::top_docs::TopDocs).
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -72,25 +71,8 @@ impl fmt::Display for ScoreDoc {
         )
     }
 }
-pub trait ScoreDocLike: Display {
+pub trait ScoreDocLike: Display + Clone + Default {
     fn doc(&self) -> i32;
     fn score(&self) -> f32;
     fn shard_index(&self) -> i32;
-}
-
-impl<S> ScoreDocLike for Rc<S>
-where
-    S: ScoreDocLike,
-{
-    fn doc(&self) -> i32 {
-        self.as_ref().doc()
-    }
-
-    fn score(&self) -> f32 {
-        self.as_ref().score()
-    }
-
-    fn shard_index(&self) -> i32 {
-        self.as_ref().shard_index()
-    }
 }

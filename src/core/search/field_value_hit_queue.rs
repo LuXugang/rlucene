@@ -29,6 +29,7 @@ where
     reverse_mul: Vec<i32>,
 }
 
+#[derive(Clone, Default)]
 pub struct Entry {
     pub base: ScoreDoc,
     pub slot: i32,

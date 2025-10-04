@@ -49,39 +49,123 @@ where
         }
     }
 }
-pub fn merge_top_field_docs<C>(
-    sort: &Sort,
-    start: i32,
-    tod_n: i32,
-    shard_hits: Vec<TopDocs<FieldDoc>>,
-) -> Result<TopDocs<FieldDoc>> {
-    merge_top_field_docs_with_comparator(
-        sort,
-        start,
-        tod_n,
-        shard_hits,
-        DefaultTieBreaker::default(),
-    )?;
-    todo!()
+pub mod top_docs_util {
+    use crate::core::index::sort::Sort;
+    use crate::core::search::field_doc::FieldDoc;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::top_docs::{
+        DefaultTieBreaker, MergeSortQueueCmp, ScoreMergeSortQueueCmp, TopDocs, merge_aux,
+    };
+    use crate::core::search::top_field_docs::TopFieldDocs;
+    use crate::core::util::Comparator;
+    use crate::core::util::priority_queue::PriorityQueue;
+
+    /// Returns a new [`TopFieldDocs`], containing topN results across the provided [`TopFieldDocs`],
+    /// sorting by the specified [`Sort`]. Each of the [`TopDocs`] must have been sorted by the same
+    /// [`Sort`], and sort field values must have been filled.
+    ///
+    /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
+    ///
+    /// lucene.experimental
+    pub fn merge_top_field_docs<C>(
+        sort: Sort,
+        top_n: i32,
+        shard_hits: Vec<TopDocs<FieldDoc>>,
+    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs> {
+        merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
+    }
+    /// Same as [`merge_top_field_docs(Sort, int, TopFieldDocs[])`](merge_top_field_docs) but also ignores the top `start` top docs.
+    /// This is typically useful for pagination.
+    ///
+    /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+    /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+    /// belong to the same searcher).
+    pub fn merge_top_field_docs_with_start(
+        sort: Sort,
+        start: i32,
+        top_n: i32,
+        shard_hits: Vec<TopDocs<FieldDoc>>,
+    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs> {
+        merge_top_field_docs_with_comparator(
+            sort,
+            start,
+            top_n,
+            shard_hits,
+            DefaultTieBreaker::default(),
+        )
+    }
+    /// Pass in a custom tie breaker for ordering results
+    pub fn merge_top_field_docs_with_comparator<C>(
+        mut sort: Sort,
+        start: i32,
+        size: i32,
+        shard_hits: Vec<TopDocs<FieldDoc>>,
+        tie_breaker: C,
+    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs>
+    where
+        C: Comparator<FieldDoc>,
+    {
+        let len = shard_hits.len();
+        debug_assert!(len <= i32::MAX as usize);
+        let cmp = MergeSortQueueCmp::new(&sort, &shard_hits, tie_breaker)?;
+        let queue = PriorityQueue::new(len as i32, &cmp)?;
+        let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
+        Ok(TopFieldDocs::new(total_hits, hits, sort.take_sort()))
+    }
+    /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
+    /// sorting by score. Each [`TopDocs`] instance must be sorted.
+    ///
+    /// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
+    pub fn merge_top_docs<S>(
+        top_n: i32,
+        shard_hits: Vec<TopDocs<S>>,
+    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    where
+        S: ScoreDocLike,
+    {
+        merge_top_docs_with_start(0, top_n, shard_hits)
+    }
+    /// Same as [`merge_top_docs(int, TopDocs[])`](merge_top_docs) but also ignores the top `start` top docs.
+    /// This is typically useful for pagination.
+    ///
+    /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+    /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+    /// belong to the same searcher).
+    pub fn merge_top_docs_with_start<S>(
+        start: i32,
+        size: i32,
+        shard_hits: Vec<TopDocs<S>>,
+    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    where
+        S: ScoreDocLike,
+    {
+        merge_top_docs_with_comparator(start, size, shard_hits, DefaultTieBreaker::default())
+    }
+    /// Same as above, but accepts the passed in tie breaker.
+    ///
+    /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
+    /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
+    /// belong to the same searcher).
+    pub fn merge_top_docs_with_comparator<C, S>(
+        start: i32,
+        size: i32,
+        shard_hits: Vec<TopDocs<S>>,
+        tie_breaker: C,
+    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    where
+        C: Comparator<S>,
+        S: ScoreDocLike,
+    {
+        let len = shard_hits.len();
+        debug_assert!(len <= i32::MAX as usize);
+        let cmp = ScoreMergeSortQueueCmp::new(&shard_hits, tie_breaker);
+        let queue = PriorityQueue::new(len as i32, &cmp)?;
+        let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
+        Ok(TopDocs::new(total_hits, hits))
+    }
 }
 
-pub fn merge_top_field_docs_with_comparator<C>(
-    sort: &Sort,
-    start: i32,
-    size: i32,
-    shard_hits: Vec<TopDocs<FieldDoc>>,
-    tie_breaker: C,
-) -> Result<TopDocs<FieldDoc>>
-where
-    C: Comparator<FieldDoc>,
-{
-    let len = shard_hits.len();
-    debug_assert!(len <= i32::MAX as usize);
-    let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
-    let queue = PriorityQueue::new(len as i32, &cmp)?;
-    merge_aux(queue, start, size, &shard_hits)?;
-    todo!()
-}
+/// Internal comparator with shardIndex
 #[derive(Default)]
 struct ShardIndexTieBreaker;
 impl<S> Comparator<S> for ShardIndexTieBreaker
@@ -94,7 +178,7 @@ where
         Ok(a.shard_index().cmp(&b.shard_index()).to_int())
     }
 }
-
+/// Internal comparator with docID
 #[derive(Default)]
 struct DocIdTieBreaker;
 impl<S> Comparator<S> for DocIdTieBreaker
@@ -108,6 +192,7 @@ where
     }
 }
 
+/// Default comparator
 #[derive(Default)]
 struct DefaultTieBreaker {
     shard_cmp: ShardIndexTieBreaker,
@@ -156,6 +241,9 @@ impl std::fmt::Display for ShardRef {
         )
     }
 }
+/// Use the tie breaker if provided.
+/// If the tie breaker returns `0`, signifying equal values,
+/// we use hit indices to tie break intra-shard ties.
 pub(crate) fn tie_break_less_than<C, S>(
     first: &ShardRef,
     first_doc: &S,
@@ -179,12 +267,14 @@ where
 
     value < 0
 }
+/// Auxiliary method used by the `merge` implementations.
+/// A sort value of `null` is used to indicate that docs should be sorted by score.
 fn merge_aux<C, S>(
     mut queue: PriorityQueue<ShardRef, C>,
     start: i32,
     size: i32,
     shard_hits: &[TopDocs<S>],
-) -> Result<(TotalHits, Vec<ShardRef>)>
+) -> Result<(TotalHits, Vec<S>)>
 where
     C: Compare<ShardRef>,
     S: ScoreDocLike,
@@ -204,13 +294,13 @@ where
         }
     }
 
-    let mut hits: Vec<ShardRef>;
+    let mut hits: Vec<S>;
     let mut unset_shard_index = false;
     if avail_hit_count <= start {
         hits = Vec::new();
     } else {
         let len = std::cmp::min(size, avail_hit_count - start);
-        hits = vec![ShardRef::default(); len as usize];
+        hits = vec![S::default(); len as usize];
 
         let requested_result_window = start + size;
         let num_iter_on_hits = std::cmp::min(avail_hit_count, requested_result_window);
@@ -225,7 +315,6 @@ where
 
             let shard = &shard_hits[ref_.shard_index as usize];
             let hit = &shard.score_docs[ref_.hit_index as usize];
-            let shard_ref = ref_.clone();
             ref_.hit_index += 1;
 
             // Irrespective of whether we use shard indices for tie breaking or not, we check for
@@ -239,7 +328,8 @@ where
             unset_shard_index |= hit.shard_index() == -1;
 
             if hit_upto >= start {
-                hits[(hit_upto - start) as usize] = shard_ref;
+                // TODO: here has a Clone , should not be a bottleneck right?
+                hits[(hit_upto - start) as usize] = hit.clone();
             }
 
             hit_upto += 1;
