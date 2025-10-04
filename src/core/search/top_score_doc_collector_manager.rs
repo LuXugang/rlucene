@@ -17,7 +17,7 @@
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::score_doc::ScoreDoc;
-use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs::{TopDocs, top_docs_util};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector::TopScoreDocCollector;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -143,13 +143,11 @@ impl CollectorManager for TopScoreDocCollectorManager {
     where
         I: IntoIterator<Item = Self::Collector>,
     {
-        let mut top_docs_parts = Vec::new();
+        let mut top_docs = Vec::new();
 
         for mut collector in collectors {
-            top_docs_parts.push(collector.top_docs()?);
+            top_docs.push(collector.top_docs()?);
         }
-        todo!()
-
-        // Ok(TopDocs::merge(0, self.num_hits, top_docs_parts))
+        top_docs_util::merge_top_docs_with_start(0, self.num_hits, top_docs)
     }
 }

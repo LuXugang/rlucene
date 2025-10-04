@@ -58,6 +58,7 @@ pub mod top_docs_util {
     };
     use crate::core::search::top_field_docs::TopFieldDocs;
     use crate::core::util::Comparator;
+    use crate::core::util::error::lucene_error::Result;
     use crate::core::util::priority_queue::PriorityQueue;
 
     /// Returns a new [`TopFieldDocs`], containing topN results across the provided [`TopFieldDocs`],
@@ -71,7 +72,7 @@ pub mod top_docs_util {
         sort: Sort,
         top_n: i32,
         shard_hits: Vec<TopDocs<FieldDoc>>,
-    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs> {
+    ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
     }
     /// Same as [`merge_top_field_docs(Sort, int, TopFieldDocs[])`](merge_top_field_docs) but also ignores the top `start` top docs.
@@ -85,7 +86,7 @@ pub mod top_docs_util {
         start: i32,
         top_n: i32,
         shard_hits: Vec<TopDocs<FieldDoc>>,
-    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs> {
+    ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_comparator(
             sort,
             start,
@@ -101,7 +102,7 @@ pub mod top_docs_util {
         size: i32,
         shard_hits: Vec<TopDocs<FieldDoc>>,
         tie_breaker: C,
-    ) -> crate::core::util::error::lucene_error::Result<TopFieldDocs>
+    ) -> Result<TopFieldDocs>
     where
         C: Comparator<FieldDoc>,
     {
@@ -116,10 +117,7 @@ pub mod top_docs_util {
     /// sorting by score. Each [`TopDocs`] instance must be sorted.
     ///
     /// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
-    pub fn merge_top_docs<S>(
-        top_n: i32,
-        shard_hits: Vec<TopDocs<S>>,
-    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    pub fn merge_top_docs<S>(top_n: i32, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
     where
         S: ScoreDocLike,
     {
@@ -135,7 +133,7 @@ pub mod top_docs_util {
         start: i32,
         size: i32,
         shard_hits: Vec<TopDocs<S>>,
-    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    ) -> Result<TopDocs<S>>
     where
         S: ScoreDocLike,
     {
@@ -151,7 +149,7 @@ pub mod top_docs_util {
         size: i32,
         shard_hits: Vec<TopDocs<S>>,
         tie_breaker: C,
-    ) -> crate::core::util::error::lucene_error::Result<TopDocs<S>>
+    ) -> Result<TopDocs<S>>
     where
         C: Comparator<S>,
         S: ScoreDocLike,
@@ -328,7 +326,7 @@ where
             unset_shard_index |= hit.shard_index() == -1;
 
             if hit_upto >= start {
-                // TODO: here has a Clone , should not be a bottleneck right?
+                // TODO: IMPORTANT here has a Clone , should not be a bottleneck right?
                 hits[(hit_upto - start) as usize] = hit.clone();
             }
 
