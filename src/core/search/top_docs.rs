@@ -335,7 +335,7 @@ where
             if ref_.hit_index < shard.score_docs.len() as i32 {
                 queue.update_top()?;
             } else {
-                queue.pop()?;
+                queue.pop_unchecked()?;
             }
         }
     }

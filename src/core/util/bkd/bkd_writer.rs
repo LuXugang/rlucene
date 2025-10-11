@@ -512,7 +512,7 @@ where
                 queue.update_top()?;
             } else {
                 // This segment was exhausted
-                queue.pop()?;
+                queue.pop_unchecked()?;
             }
         }
 

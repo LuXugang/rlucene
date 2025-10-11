@@ -735,7 +735,7 @@ where
                 .next_doc()?
                 == NO_MORE_DOCS
             {
-                self.queue.pop()?;
+                self.queue.pop_unchecked()?;
             } else {
                 self.queue.update_top()?;
             }

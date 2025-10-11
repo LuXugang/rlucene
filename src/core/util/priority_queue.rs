@@ -608,7 +608,7 @@ mod tests {
         pq.insert_with_overflow(7)?;
         pq.insert_with_overflow(1)?;
         assert_eq!(3, pq.size());
-        assert_eq!(3, pq.pop().unwrap().unwrap());
+        assert_eq!(3, pq.pop_unchecked()?);
         Ok(())
     }
 
@@ -623,12 +623,12 @@ mod tests {
         let i5 = 7;
         let i6 = 1;
 
-        assert_eq!(pq.insert_with_overflow(i1).unwrap(), None);
-        assert_eq!(pq.insert_with_overflow(i2).unwrap(), None);
-        assert_eq!(pq.insert_with_overflow(i3).unwrap(), None);
-        assert_eq!(pq.insert_with_overflow(i4).unwrap(), None);
-        assert_eq!(pq.insert_with_overflow(i5).unwrap().unwrap(), i3);
-        assert_eq!(pq.insert_with_overflow(i6).unwrap().unwrap(), i6);
+        assert_eq!(pq.insert_with_overflow(i1)?, None);
+        assert_eq!(pq.insert_with_overflow(i2)?, None);
+        assert_eq!(pq.insert_with_overflow(i3)?, None);
+        assert_eq!(pq.insert_with_overflow(i4)?, None);
+        assert_eq!(pq.insert_with_overflow(i5)?.unwrap(), i3);
+        assert_eq!(pq.insert_with_overflow(i6)?.unwrap(), i6);
         assert_eq!(size as usize, pq.size());
         let mut random = random();
         match random.random_bool(0.5) {
@@ -748,11 +748,11 @@ mod tests {
             let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
             let object_to_remove = sds[element as usize];
             assert_eq!(sds.remove(element as usize), object_to_remove);
-            assert!(pq.remove(&object_to_remove).unwrap());
+            assert!(pq.remove(&object_to_remove)?);
             check_validity(&pq);
             let new_entry = random.random::<i32>().abs();
             sds.push(new_entry);
-            assert_eq!(pq.insert_with_overflow(new_entry).unwrap(), None);
+            assert_eq!(pq.insert_with_overflow(new_entry)?, None);
             check_validity(&pq);
             let new_least = match random.random_bool(0.5) {
                 true => *pq
@@ -854,7 +854,7 @@ mod tests {
         let mut i = 0;
         let mut value: i32;
         while pq.size() > 0 {
-            value = pq.pop().unwrap().unwrap().into();
+            value = pq.pop_unchecked().unwrap().into();
             assert_eq!(reference_data_list[i], value);
             i += 1;
         }

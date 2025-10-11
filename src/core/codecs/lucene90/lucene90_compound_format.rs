@@ -102,9 +102,8 @@ impl Lucene90CompoundFormat {
             }
         }
         while pq.size() > 0 {
-            let sized_file = pq.pop()?;
-            debug_assert!(sized_file.is_some());
-            let file = &sized_file.unwrap().name;
+            let sized_file = pq.pop_unchecked()?;
+            let file = &sized_file.name;
             let start_offset = data.align_file_pointer(BitUtil::LONG_BYTES as i32)?;
             let mut file_input = directory.open_checksum_input(file)?;
             // just copies the index header, verifying that its id matches what

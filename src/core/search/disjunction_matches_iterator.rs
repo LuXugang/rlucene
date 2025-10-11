@@ -77,7 +77,7 @@ where
             .expect("priority queue top element should exist")
             .next()?
         {
-            self.queue.pop()?;
+            self.queue.pop_unchecked()?;
         }
 
         if self.queue.size() > 0 {

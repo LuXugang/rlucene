@@ -155,7 +155,7 @@ pub trait TopDocsCollector: Collector {
         let discard_count = self.pq().size() as i32 - start - how_many;
         let pq = self.pq_mut();
         for _ in 0..discard_count {
-            pq.pop()?;
+            pq.pop_unchecked()?;
         }
 
         self.populate_results(&mut results, how_many as usize)?;
