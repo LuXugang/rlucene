@@ -447,7 +447,26 @@ where
         (**self).less_than(a, b)
     }
 }
+macro_rules! either_compare {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
 
+        impl<T, $( $T ),+> Compare<T> for $name<$( $T ),+>
+        where
+            $( $T: Compare<T> ),+
+        {
+            #[inline]
+            fn less_than(&self, a: &T, b: &T) -> Result<bool> {
+                match self {
+                    $( Self::$Variant(inner) => inner.less_than(a, b), )+
+                }
+            }
+        }
+    };
+}
+either_compare!(pub Either2Compare { A: A, B: B });
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
