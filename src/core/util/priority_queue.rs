@@ -40,7 +40,7 @@ where
     size: usize,
     max_size: usize,
     heap: Vec<Option<T>>,
-    compare: C,
+    pub(crate) compare: C,
 }
 impl<T, C> PriorityQueue<T, C>
 where

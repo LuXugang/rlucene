@@ -28,6 +28,7 @@ use crate::core::search::comparators::int_comparator::IntComparator;
 use crate::core::search::comparators::long_comparator::LongComparator;
 use crate::core::search::comparators::term_ord_val_comparator::TermOrdValComparator;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_field_comparator::DummyFieldComparator;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_sort_field::{
@@ -417,6 +418,13 @@ pub enum FieldComparatorEnum {
     SortedNumericFloat(SortedNumericFloatComparator),
     SortedNumericDouble(SortedNumericDoubleComparator),
     SortedDocValuesTermOrdVal(SortedDocValuesTermOrdValComparator),
+    Dummy(DummyFieldComparator),
+}
+// for std::mem::take
+impl Default for FieldComparatorEnum {
+    fn default() -> Self {
+        FieldComparatorEnum::Dummy(DummyFieldComparator)
+    }
 }
 impl From<RelevanceComparator> for FieldComparatorEnum {
     fn from(comparator: RelevanceComparator) -> Self {
@@ -492,6 +500,11 @@ impl From<SortedDocValuesTermOrdValComparator> for FieldComparatorEnum {
         FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator)
     }
 }
+impl From<DummyFieldComparator> for FieldComparatorEnum {
+    fn from(comparator: DummyFieldComparator) -> Self {
+        FieldComparatorEnum::Dummy(comparator)
+    }
+}
 
 impl FieldComparator for FieldComparatorEnum {
     type V = FieldComparatorValue;
@@ -515,6 +528,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
                 comparator.compare(slot1, slot2)
             },
+            FieldComparatorEnum::Dummy(comparator) => comparator.compare(slot1, slot2),
         }
     }
 
@@ -588,6 +602,11 @@ impl FieldComparator for FieldComparatorEnum {
                     .expect("expected sorted doc values term ord val comparator value");
                 comparator.set_top_value(v);
             },
+            FieldComparatorEnum::Dummy(_comparator) => {
+                unreachable!(
+                    "Dummy implementation: this method should never be called in real usage"
+                )
+            },
         }
     }
 
@@ -631,6 +650,11 @@ impl FieldComparator for FieldComparatorEnum {
             },
             FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
                 FieldComparatorValue::TermVal(comparator.value(slot))
+            },
+            FieldComparatorEnum::Dummy(_comparator) => {
+                unreachable!(
+                    "Dummy implementation: this method should never be called in real usage"
+                )
             },
         }
     }
@@ -687,6 +711,11 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => comparator
                 .get_leaf_comparator(context)
                 .map(LeafFieldComparatorEnum::TermOrdVal),
+            FieldComparatorEnum::Dummy(_) => {
+                unreachable!(
+                    "Dummy implementation: this method should never be called in real usage"
+                )
+            },
         }
     }
 
@@ -745,6 +774,11 @@ impl FieldComparator for FieldComparatorEnum {
                     first.and_then(FieldComparatorValue::as_term_val),
                     second.and_then(FieldComparatorValue::as_term_val),
                 ),
+            FieldComparatorEnum::Dummy(_) => {
+                unreachable!(
+                    "Dummy implementation: this method should never be called in real usage"
+                )
+            },
         }
     }
 
@@ -774,6 +808,11 @@ impl FieldComparator for FieldComparatorEnum {
                     .as_f32()
                     .expect("expected sorted numeric float comparator value"),
             ),
+            FieldComparatorEnum::Dummy(_) => {
+                unreachable!(
+                    "Dummy implementation: this method should never be called in real usage"
+                )
+            },
             _ => 0,
         }
     }
@@ -795,6 +834,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
                 comparator.set_single_sort()
             },
+            FieldComparatorEnum::Dummy(comparator) => comparator.set_single_sort(),
         }
     }
 
@@ -815,6 +855,7 @@ impl FieldComparator for FieldComparatorEnum {
             FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
                 comparator.disable_skipping()
             },
+            FieldComparatorEnum::Dummy(comparator) => comparator.disable_skipping(),
         }
     }
 }

@@ -258,7 +258,7 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
             self.update_global_min_competitive_score(scorer)?;
         }
 
-        if let Some(after) = &self.base.after
+        if let Some(_) = &self.base.after
             && (score > self.after_score || (score == self.after_score && doc <= self.after_doc))
         {
             // hit was collected on a previous page
