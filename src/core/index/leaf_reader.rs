@@ -19,6 +19,7 @@ use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::postings_enum::{Either2PostingsEnum, FREQS};
@@ -171,6 +172,8 @@ pub trait LeafReader: IndexReader {
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData>;
 }
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum

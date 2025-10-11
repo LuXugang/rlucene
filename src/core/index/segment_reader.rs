@@ -451,6 +451,10 @@ where
         }
         Ok(())
     }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
+        Ok(&self.meta_data)
+    }
 }
 impl<D> CodecReader for SegmentReader<D>
 where

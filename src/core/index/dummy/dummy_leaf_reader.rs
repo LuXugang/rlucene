@@ -24,6 +24,7 @@ use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_bits::DummyBits;
@@ -142,6 +143,10 @@ impl LeafReader for DummyLeafReader {
     }
 
     fn check_integrity(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

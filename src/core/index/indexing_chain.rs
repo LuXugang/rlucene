@@ -55,6 +55,7 @@ use crate::core::document::field::FieldDataEnum;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::norm_values_writer::NormValuesWriter;
@@ -2186,6 +2187,10 @@ where
     fn check_integrity(&self) -> Result<()> {
         self.base.check_integrity()
     }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
+        self.base.get_metadata()
+    }
 }
 struct DocValuesLeafReaderImpl2<'a, SFB>
 where
@@ -2359,6 +2364,10 @@ where
     }
     fn check_integrity(&self) -> Result<()> {
         self.base.check_integrity()
+    }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
+        self.base.get_metadata()
     }
 }
 
