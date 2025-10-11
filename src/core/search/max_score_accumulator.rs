@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 /// Maintains the maximum score and its corresponding document id concurrently
 pub(crate) const DEFAULT_INTERVAL: i64 = 0x3ff;
 #[derive(Clone)]
-pub(crate) struct MaxScoreAccumulator {
+pub struct MaxScoreAccumulator {
     // we use 2^10-1 to check the remainder with a bitwise operation
 
     // scores are always positive

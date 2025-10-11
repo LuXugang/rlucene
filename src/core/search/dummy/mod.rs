@@ -18,6 +18,7 @@ pub mod dummy_bulk_scorer;
 pub mod dummy_disi;
 pub mod dummy_doc_id_set_iterator;
 pub mod dummy_field_comparator;
+pub mod dummy_leaf_collector;
 pub mod dummy_leaf_field_comparator;
 pub mod dummy_matches;
 pub mod dummy_matches_iterator;

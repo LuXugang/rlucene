@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_field_comparator::LeafFieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -25,13 +26,15 @@ use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, Either2Compare, PriorityQueue};
 use std::fmt;
+use std::fmt::{Display, Formatter};
+
 /// A hit queue for sorting by hits by terms in more than one field
 pub struct FieldValueHitQueue;
 impl FieldValueHitQueue {
     pub fn new(
         fields: &[SortFieldEnum],
         size: i32,
-    ) -> Result<PriorityQueue<Entry, FieldValueHitQueueComparator>> {
+    ) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
         let num_comparators = fields.len();
         let mut comparators = Vec::with_capacity(num_comparators);
         let mut reverse_mul = Vec::with_capacity(num_comparators);
@@ -76,7 +79,7 @@ impl FieldValueHitQueue {
 pub fn create(
     fields: &[SortFieldEnum],
     size: i32,
-) -> Result<PriorityQueue<Entry, FieldValueHitQueueComparator>> {
+) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
     if fields.is_empty() {
         return Err(LuceneError::illegal_state(
             "Sort must contain at least one field",
@@ -130,19 +133,19 @@ impl OneComparatorComparator {
         }
     }
 }
-impl Compare<Entry> for OneComparatorComparator {
-    fn less_than(&self, hit_a: &Entry, hit_b: &Entry) -> Result<bool> {
+impl Compare<TopFieldScoreDoc> for OneComparatorComparator {
+    fn less_than(&self, hit_a: &TopFieldScoreDoc, hit_b: &TopFieldScoreDoc) -> Result<bool> {
         debug_assert!(self.one_comparator.len() == self.one_reverse_mul.len());
         debug_assert_ne!(hit_a as *const _, hit_b as *const _);
-        debug_assert_ne!(hit_a.slot, hit_b.slot);
+        debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
 
-        let cmp_result = self.one_comparator[0].compare(hit_a.slot, hit_b.slot);
+        let cmp_result = self.one_comparator[0].compare(hit_a.slot()?, hit_b.slot()?);
         let c = self.one_reverse_mul[0] * cmp_result;
 
         if c != 0 {
             Ok(c > 0)
         } else {
-            Ok(hit_a.base.doc > hit_b.base.doc)
+            Ok(hit_a.doc() > hit_b.doc())
         }
     }
 }
@@ -166,33 +169,33 @@ impl MultiComparatorsComparator {
     }
 }
 
-impl Compare<Entry> for MultiComparatorsComparator {
-    fn less_than(&self, hit_a: &Entry, hit_b: &Entry) -> Result<bool> {
+impl Compare<TopFieldScoreDoc> for MultiComparatorsComparator {
+    fn less_than(&self, hit_a: &TopFieldScoreDoc, hit_b: &TopFieldScoreDoc) -> Result<bool> {
         debug_assert_eq!(
             self.comparators.len(),
             self.reverse_mul.len(),
             "comparators/reverse_mul length mismatch"
         );
         debug_assert_ne!(hit_a as *const _, hit_b as *const _);
-        debug_assert_ne!(hit_a.slot, hit_b.slot);
+        debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
 
         let num_comparators = self.comparators.len();
 
         for i in 0..num_comparators {
-            let cmp_result = self.comparators[i].compare(hit_a.slot, hit_b.slot);
+            let cmp_result = self.comparators[i].compare(hit_a.slot()?, hit_b.slot()?);
             let c = self.reverse_mul[i] * cmp_result;
 
             if c != 0 {
                 return Ok(c > 0);
             }
         }
-        Ok(hit_a.base.doc > hit_b.base.doc)
+        Ok(hit_a.doc() > hit_b.doc())
     }
 }
 pub type FieldValueHitQueueComparator =
     Either2Compare<OneComparatorComparator, MultiComparatorsComparator>;
 
-impl PriorityQueue<Entry, FieldValueHitQueueComparator> {
+impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     pub fn get_leaf_comparator<LR>(
         self,
         context: &LeafReaderContext<LR>,
@@ -213,7 +216,13 @@ impl PriorityQueue<Entry, FieldValueHitQueueComparator> {
                 .collect(),
         }
     }
-    pub fn get_reverse_mul(self) -> Vec<i32> {
+    pub fn get_reverse_mul(&self) -> &[i32] {
+        match &self.compare {
+            Either2Compare::A(one_comp) => one_comp.one_reverse_mul.as_slice(),
+            Either2Compare::B(multi_comp) => multi_comp.reverse_mul.as_slice(),
+        }
+    }
+    pub fn take_reverse_mul(self) -> Vec<i32> {
         match self.compare {
             Either2Compare::A(one_comp) => one_comp.one_reverse_mul,
             Either2Compare::B(multi_comp) => multi_comp.reverse_mul,
@@ -224,5 +233,110 @@ impl PriorityQueue<Entry, FieldValueHitQueueComparator> {
             Either2Compare::A(one_comp) => &one_comp.one_comparator,
             Either2Compare::B(multi_comp) => &multi_comp.comparators,
         }
+    }
+    /// Given a queue [`Entry`], creates a corresponding [`FieldDoc`] that contains the values used to sort the
+    /// given document. These values are not the raw values out of the index, but the internal
+    /// representation of them. This is so the given search hit can be collated by a `MultiSearcher` with
+    /// other search hits.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` – The [`Entry`] used to create a [`FieldDoc`].
+    ///
+    /// # Returns
+    ///
+    /// The newly created [`FieldDoc`].
+    pub(crate) fn fill_fields(&self, entry: TopFieldScoreDoc) -> Result<TopFieldScoreDoc> {
+        match entry {
+            TopFieldScoreDoc::FieldDoc(_) => Err(LuceneError::illegal_state(
+                "TopFieldScoreDoc's variant should be Entry here",
+            )),
+            TopFieldScoreDoc::Entry(entry) => {
+                let comparators = self.get_comparators();
+                let n = comparators.len();
+                let mut fields = Vec::with_capacity(n);
+                for comp in comparators {
+                    fields.push(comp.value(entry.slot));
+                }
+                Ok(FieldDoc::with_fields(entry.base.doc, entry.base.score, fields).into())
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum TopFieldScoreDoc {
+    Entry(Entry),
+    FieldDoc(FieldDoc),
+}
+impl TopFieldScoreDoc {
+    pub fn slot(&self) -> Result<i32> {
+        match self {
+            TopFieldScoreDoc::Entry(e) => Ok(e.slot),
+            TopFieldScoreDoc::FieldDoc(_) => {
+                Err(LuceneError::illegal_state("FieldDoc does not have slot"))
+            },
+        }
+    }
+    pub fn doc(&self) -> i32 {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.doc(),
+            TopFieldScoreDoc::FieldDoc(fd) => fd.doc(),
+        }
+    }
+    pub fn base(&mut self) -> &mut ScoreDoc {
+        match self {
+            TopFieldScoreDoc::Entry(e) => &mut e.base,
+            TopFieldScoreDoc::FieldDoc(fd) => &mut fd.base,
+        }
+    }
+}
+
+impl Display for TopFieldScoreDoc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TopFieldScoreDoc::Entry(e) => write!(f, "Entry: {}", e),
+            TopFieldScoreDoc::FieldDoc(fd) => write!(f, "FieldDoc: {}", fd),
+        }
+    }
+}
+
+impl Default for TopFieldScoreDoc {
+    fn default() -> Self {
+        TopFieldScoreDoc::Entry(Entry::default())
+    }
+}
+
+impl ScoreDocLike for TopFieldScoreDoc {
+    fn doc(&self) -> i32 {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.doc(),
+            TopFieldScoreDoc::FieldDoc(fd) => fd.doc(),
+        }
+    }
+
+    fn score(&self) -> f32 {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.score(),
+            TopFieldScoreDoc::FieldDoc(fd) => fd.score(),
+        }
+    }
+
+    fn shard_index(&self) -> i32 {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.shard_index(),
+            TopFieldScoreDoc::FieldDoc(fd) => fd.shard_index(),
+        }
+    }
+}
+impl From<Entry> for TopFieldScoreDoc {
+    fn from(entry: Entry) -> Self {
+        TopFieldScoreDoc::Entry(entry)
+    }
+}
+
+impl From<FieldDoc> for TopFieldScoreDoc {
+    fn from(field_doc: FieldDoc) -> Self {
+        TopFieldScoreDoc::FieldDoc(field_doc)
     }
 }

@@ -14,12 +14,234 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
+use crate::core::search::collector::Collector;
+use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
+use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::field_value_hit_queue::{
+    Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
+};
+use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
+use crate::core::search::scorable::Scorable;
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
+use crate::core::search::total_hits::Relation;
+use crate::core::search::weight::Weight;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::priority_queue::PriorityQueue;
 
-pub trait TopFieldCollector {}
+pub struct TopFieldCollector {
+    base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    num_hits: i32,
+    total_hits_threshold: i32,
+    can_set_min_score: bool,
+    search_sort_part_of_index_sort: Option<bool>,
+    min_score_acc: Option<MaxScoreAccumulator>,
+    min_competitive_score: f32,
+    num_comparators: i32,
+    queue_full: bool,
+    doc_base: i32,
+    needs_scores: bool,
+    score_mode: ScoreMode,
+}
+impl TopFieldCollector {
+    pub fn new(
+        pq: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+        num_hits: i32,
+        total_hits_threshold: i32,
+        needs_scores: bool,
+        min_score_acc: Option<MaxScoreAccumulator>,
+    ) -> Result<Self> {
+        let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
+
+        let num_comparators = pq.get_comparators().len() as i32;
+
+        let first_comparator = &pq.get_comparators()[0];
+        let reverse_mul = pq.get_reverse_mul()[0];
+
+        let (score_mode, can_set_min_score) = if matches!(first_comparator, FieldComparatorEnum::Relevance(_))
+                && reverse_mul == 1// if the natural sort is preserved (sort by descending relevance)
+                && total_hits_threshold != i32::MAX
+        {
+            (ScoreMode::TopScores, true)
+        } else {
+            let can_set_min_score = false;
+            let score_mode = if total_hits_threshold != i32::MAX {
+                if needs_scores {
+                    ScoreMode::TopDocsWithScores
+                } else {
+                    ScoreMode::TopDocs
+                }
+            } else if needs_scores {
+                ScoreMode::Complete
+            } else {
+                ScoreMode::CompleteNoScores
+            };
+            (score_mode, can_set_min_score)
+        };
+
+        let base = TopDocsCollectorBase::new(pq);
+        Ok(Self {
+            base,
+            num_hits,
+            total_hits_threshold,
+            can_set_min_score,
+            search_sort_part_of_index_sort: None,
+            min_score_acc,
+            min_competitive_score: 0.0,
+            num_comparators,
+            queue_full: false,
+            doc_base: 0,
+            needs_scores,
+            score_mode,
+        })
+    }
+    pub(crate) fn update_global_min_competitive_score<S: Scorable>(
+        &mut self,
+        scorer: &mut S,
+    ) -> Result<()> {
+        match &self.min_score_acc {
+            Some(acc) if self.can_set_min_score => {
+                // we can start checking the global maximum score even if the local queue
+                // is not full or the threshold is not reached on the local competitor:
+                // the fact that there is a shared min competitive score implies that one
+                // of the collectors hit its totalHitsThreshold already
+                let max_min_score = acc.get_raw();
+
+                if max_min_score != i64::MIN {
+                    let score = MaxScoreAccumulator::to_score(max_min_score);
+                    if score > self.min_competitive_score {
+                        scorer.set_min_competitive_score(score)?;
+                        self.min_competitive_score = score;
+                        self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+                    }
+                }
+                Ok(())
+            },
+            _ => Ok(()),
+        }
+    }
+
+    pub(crate) fn update_min_competitive_score<S: Scorable>(
+        &mut self,
+        scorer: &mut S,
+    ) -> Result<()> {
+        debug_assert!(self.total_hits_threshold >= 0);
+        if self.can_set_min_score
+            && self.queue_full
+            && self.base.total_hits > self.total_hits_threshold as usize
+        {
+            let bottom = self.base.pq.top().ok_or_else(|| {
+                LuceneError::illegal_state("bottom entry is missing in priority queue")
+            })?;
+
+            let first_comparator = &self.base.pq.get_comparators()[0];
+            let min_score = *first_comparator
+                .value(bottom.slot()?)
+                .as_f32()
+                .expect("first comparator is not a float");
+
+            if min_score > self.min_competitive_score {
+                scorer.set_min_competitive_score(min_score)?;
+                self.min_competitive_score = min_score;
+                self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+
+                if let Some(acc) = &self.min_score_acc {
+                    acc.accumulate(self.doc_base, min_score);
+                }
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn add(&mut self, slot: i32, doc: i32) -> Result<()> {
+        let global_doc = doc + self.doc_base;
+        self.pq_mut().add(Entry::new(slot, global_doc).into())?;
+
+        // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
+        // in which case slot = total_hits - 1, or when hits_collected == num_hits (in
+        // PagingFieldCollector this is hits on the current page) and slot = hits_collected - 1.
+        debug_assert!(slot < self.num_hits);
+
+        self.queue_full = slot == self.num_hits - 1;
+        Ok(())
+    }
+    pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
+        let global_doc = doc + self.doc_base;
+        let pq = self.pq_mut();
+        let bottom_entry = pq
+            .top_mut()
+            .expect("priority queue top element should exist");
+        bottom_entry.base().doc = global_doc;
+        pq.update_top()?;
+        Ok(())
+    }
+}
+
+impl Collector for TopFieldCollector {
+    type LeafCollector<'a>
+        = DummyLeafCollector
+    where
+        Self: 'a;
+
+    fn get_leaf_collector<'a, W, LR>(
+        &'a mut self,
+        context: &LeafReaderContext<LR>,
+        weight: Option<&mut W>,
+    ) -> Result<Self::LeafCollector<'a>>
+    where
+        LR: LeafReader,
+        W: Weight<LR>,
+    {
+        todo!()
+    }
+
+    fn score_mode(&self) -> ScoreMode {
+        self.score_mode
+    }
+}
+
+impl TopDocsCollector for TopFieldCollector {
+    type Item = TopFieldScoreDoc;
+    type Cmp = FieldValueHitQueueComparator;
+
+    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+        &self.base.pq
+    }
+
+    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+        &mut self.base.pq
+    }
+
+    fn total_hits(&self) -> usize {
+        self.base.total_hits
+    }
+
+    fn get_total_hits_relation(&self) -> Relation {
+        self.base.total_hits_relation
+    }
+
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+        let pq = &mut self.base.pq;
+        for i in (0..how_many).rev() {
+            let entry = pq.pop_unchecked()?;
+            results[i] = pq.fill_fields(entry)?;
+        }
+        Ok(())
+    }
+
+    fn new_top_docs(&self, _results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+}
+
 fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
     Ok(can_early_terminate_on_doc_id(search_sort)?
         || can_early_terminate_on_prefix(search_sort, index_sort)?)

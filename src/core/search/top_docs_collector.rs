@@ -44,12 +44,11 @@ pub trait TopDocsCollector: Collector {
 
     /// Populates the results array with the ScoreDoc instances.
     /// This can be overridden in case a different ScoreDoc type should be returned.
-    fn populate_results(&mut self, results: &mut [Self::Item], how_many: i32) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         let pq = self.pq_mut();
+        debug_assert!(how_many <= pq.size());
         for i in (0..how_many).rev() {
-            if let Some(item) = pq.pop()? {
-                results[i as usize] = item
-            }
+            results[i] = pq.pop_unchecked()?
         }
         Ok(())
     }
@@ -159,7 +158,7 @@ pub trait TopDocsCollector: Collector {
             pq.pop()?;
         }
 
-        self.populate_results(&mut results, how_many)?;
+        self.populate_results(&mut results, how_many as usize)?;
 
         Ok(self.new_top_docs(Some(results), start))
     }

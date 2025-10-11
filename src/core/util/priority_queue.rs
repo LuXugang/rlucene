@@ -259,16 +259,21 @@ where
     /// time.
     pub fn pop(&mut self) -> Result<Option<T>> {
         if self.size > 0 {
-            self.heap.swap(1, self.size);
-            let result = self.heap[self.size]
-                .take()
-                .expect("priority queue element should exist");
-            self.size -= 1;
-            self.down_heap(1)?;
+            let result = self.pop_unchecked()?;
             Ok(Some(result))
         } else {
             Ok(None)
         }
+    }
+    pub(crate) fn pop_unchecked(&mut self) -> Result<T> {
+        debug_assert!(self.size > 0, "pop_unchecked called on empty queue");
+        self.heap.swap(1, self.size);
+        let result = self.heap[self.size]
+            .take()
+            .expect("priority queue element should exist");
+        self.size -= 1;
+        self.down_heap(1)?;
+        Ok(result)
     }
 
     /// Should be called when the object at the top changes values. It's still

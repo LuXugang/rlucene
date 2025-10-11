@@ -343,7 +343,7 @@ impl FieldComparatorValue {
         }
     }
 
-    fn as_f32(&self) -> Option<&f32> {
+    pub fn as_f32(&self) -> Option<&f32> {
         match self {
             FieldComparatorValue::Float(v) => Some(v),
             _ => None,
