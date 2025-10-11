@@ -24,7 +24,9 @@ use crate::core::search::comparators::numeric_comparator::NumericCompetitiveIter
 use crate::core::search::comparators::term_ord_val_comparator::{
     TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
 };
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{
+    DocIdSetIterator, Either2DocIdSetIterator, Either4DocIdSetIterator,
+};
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::field_comparator::{RelevanceLeafComparator, TermValLeafComparator};
 use crate::core::search::scorable::Scorable;
@@ -166,6 +168,64 @@ pub trait LeafFieldComparator {
         Ok(())
     }
 }
+macro_rules! either_leaf_field_comparator {
+    (
+        $vis:vis $name:ident
+        => { disi: $disi:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> LeafFieldComparator for $name<$( $T ),+>
+        where
+            $( $T: LeafFieldComparator ),+
+        {
+            type DocIdSetIterator = $disi::<$( <$T as LeafFieldComparator>::DocIdSetIterator ),+>;
+
+            fn set_bottom(&mut self, slot: usize) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_bottom(slot), )+ }
+            }
+
+            fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+            where S: Scorable {
+                match self { $( Self::$Variant(inner) => inner.compare_bottom(doc, scorer), )+ }
+            }
+
+            fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+            where S: Scorable {
+                match self { $( Self::$Variant(inner) => inner.compare_top(doc, scorer), )+ }
+            }
+
+            fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
+            where S: Scorable {
+                match self { $( Self::$Variant(inner) => inner.copy(slot, doc, scorer), )+ }
+            }
+
+            fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+            where S: Scorable {
+                match self { $( Self::$Variant(inner) => inner.set_scorer(scorer), )+ }
+            }
+
+            fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+                match self {
+                    $( Self::$Variant(inner) => inner.competitive_iterator().map($disi::$Variant), )+
+                }
+            }
+
+            fn set_hits_threshold_reached(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_hits_threshold_reached(), )+ }
+            }
+        }
+    };
+}
+
+either_leaf_field_comparator!(
+    pub Either2LeafFieldComparator
+    => { disi: Either2DocIdSetIterator }
+    { A: A, B: B}
+);
 
 pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     DocComparatorIterator,
