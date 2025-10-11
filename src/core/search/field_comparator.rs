@@ -110,7 +110,7 @@ pub trait FieldComparator {
     /// # Errors
     /// Returns an error if there is a low-level I/O problem.
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
@@ -199,13 +199,13 @@ impl FieldComparator for RelevanceComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
-        Ok(RelevanceLeafComparator::new(self))
+        Ok(RelevanceLeafComparator::new())
     }
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
@@ -236,59 +236,80 @@ impl FieldComparator for RelevanceComparator {
         }
     }
 }
-pub struct RelevanceLeafComparator {
-    comparator: RelevanceComparator,
+pub struct RelevanceLeafComparator;
+impl Default for RelevanceLeafComparator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
+
 impl RelevanceLeafComparator {
-    pub fn new(comparator: RelevanceComparator) -> Self {
-        Self { comparator }
+    pub fn new() -> Self {
+        Self
     }
 }
 impl LeafFieldComparator for RelevanceLeafComparator {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        self.comparator.bottom = self.comparator.scores[slot];
+    type FieldComparator = RelevanceComparator;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.bottom = comparator.scores[slot];
         Ok(())
     }
 
-    fn compare_bottom<S>(&mut self, _doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        _doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
-        match doc_value.partial_cmp(&self.comparator.bottom) {
+        match doc_value.partial_cmp(&comparator.bottom) {
             Some(r) => Ok(r.to_int()),
-            None => Ok(self
-                .comparator
-                .fallback_compare(&doc_value, &self.comparator.bottom)),
+            None => Ok(comparator.fallback_compare(&doc_value, &comparator.bottom)),
         }
     }
 
-    fn compare_top<S>(&mut self, _doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        _doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
-        match doc_value.partial_cmp(&self.comparator.top_value) {
+        match doc_value.partial_cmp(&comparator.top_value) {
             Some(r) => Ok(r.to_int()),
-            None => Ok(self
-                .comparator
-                .fallback_compare(&doc_value, &self.comparator.top_value)),
+            None => Ok(comparator.fallback_compare(&doc_value, &comparator.top_value)),
         }
     }
 
-    fn copy<S>(&mut self, slot: usize, _doc: i32, scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        _doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         let score = scorer.score()?;
-        self.comparator.scores[slot] = score;
+        comparator.scores[slot] = score;
         debug_assert!(!score.is_nan());
         Ok(())
     }
 
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
@@ -665,7 +686,7 @@ impl FieldComparator for FieldComparatorEnum {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
@@ -924,14 +945,14 @@ impl FieldComparator for TermValComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
         let doc_terms = DocValues::get_binary(context.reader(), &self.field)?;
-        Ok(TermValLeafComparator::new(self, doc_terms))
+        Ok(TermValLeafComparator::new(doc_terms))
     }
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
@@ -947,7 +968,6 @@ pub struct TermValLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    comparator: TermValComparator,
     doc_terms: Binary<LR>,
 }
 
@@ -955,11 +975,8 @@ impl<LR> TermValLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(comparator: TermValComparator, doc_terms: Binary<LR>) -> Self {
-        Self {
-            comparator,
-            doc_terms,
-        }
+    pub fn new(doc_terms: Binary<LR>) -> Self {
+        Self { doc_terms }
     }
 
     fn get_value_for_doc(
@@ -978,16 +995,22 @@ impl<LR> LeafFieldComparator for TermValLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        self.comparator.bottom = slot;
+    type FieldComparator = TermValComparator;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.bottom = slot;
         Ok(())
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
+        let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
         let val = Self::get_value_for_doc(doc_terms, doc)?;
         let bottom_value = match &comparator.values[comparator.bottom] {
             Some(v) => Some(v),
@@ -999,11 +1022,16 @@ where
         }
     }
 
-    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        let (comparator, doc_terms) = (&self.comparator, &mut self.doc_terms);
+        let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
         match Self::get_value_for_doc(doc_terms, doc)? {
             None => Ok(comparator.compare_values(comparator.top_value.as_ref(), None)),
             Some(val) => {
@@ -1012,18 +1040,28 @@ where
         }
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
-            None => self.comparator.values[slot] = None,
-            Some(val) => self.comparator.values[slot] = Some(val.into_owned()),
+            None => comparator.values[slot] = None,
+            Some(val) => comparator.values[slot] = Some(val.into_owned()),
         }
         Ok(())
     }
 
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        _scorer: &mut S,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {

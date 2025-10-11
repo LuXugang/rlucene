@@ -28,9 +28,11 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either4DocIdSetIterator,
 };
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
-use crate::core::search::field_comparator::{RelevanceLeafComparator, TermValLeafComparator};
+use crate::core::search::field_comparator::{
+    FieldComparator, FieldComparatorEnum, RelevanceLeafComparator, TermValLeafComparator,
+};
 use crate::core::search::scorable::Scorable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Expert: comparator that gets instantiated on each leaf from a top-level
 /// [`FieldComparator`](crate::core::search::field_comparator::FieldComparator)
@@ -60,6 +62,7 @@ use crate::core::util::error::lucene_error::Result;
 /// # Lucene Experimental
 /// This API is experimental and may change in future versions.
 pub trait LeafFieldComparator {
+    type FieldComparator: FieldComparator;
     /// Set the bottom slot, i.e., the "weakest" (sorted last) entry in the
     /// queue. When `compare_bottom` is called, you should compare against
     /// this slot.
@@ -71,7 +74,7 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_bottom(&mut self, slot: usize) -> Result<()>;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()>;
 
     /// Compare the bottom of the queue with this document.
     ///
@@ -85,6 +88,7 @@ pub trait LeafFieldComparator {
     /// # Arguments
     /// - `doc`: The docID that was hit.
     /// - `scorer`: The scorer instance currently used to evaluate the hit.
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
     ///
     /// # Returns
     /// - `N < 0` if the doc's value is sorted after the bottom entry (not
@@ -94,7 +98,12 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable;
 
@@ -108,6 +117,7 @@ pub trait LeafFieldComparator {
     /// # Arguments
     /// - `doc`: The docID that was hit.
     /// - `scorer`: The scorer instance currently used to evaluate the hit.
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
     ///
     /// # Returns
     /// - `N < 0` if the doc's value is sorted after the top entry (not
@@ -117,7 +127,12 @@ pub trait LeafFieldComparator {
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable;
 
@@ -130,10 +145,17 @@ pub trait LeafFieldComparator {
     /// - `slot`: The slot to copy the hit to.
     /// - `doc`: The docID relative to the current reader.
     /// - `scorer`: The scorer instance currently used to evaluate the hit.
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable;
 
@@ -142,10 +164,15 @@ pub trait LeafFieldComparator {
     /// # Arguments
     /// - `scorer`: Scorer instance to get the current hit's score, if
     ///   necessary.
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
     ///
     /// # Errors
     /// Returns an error if an I/O error occurs.
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable;
 
@@ -156,7 +183,13 @@ pub trait LeafFieldComparator {
     ///
     /// # Returns
     /// An iterator over competitive docs.
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    ///
+    /// # Arguments
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
+    fn competitive_iterator(
+        &mut self,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
         None
     }
 
@@ -164,68 +197,121 @@ pub trait LeafFieldComparator {
     ///
     /// This method is called from a collector when the hit's threshold is
     /// reached.
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
+    ///
+    /// # Arguments
+    /// - `comparator`: The parent field comparator associated with this leaf comparator.
+    fn set_hits_threshold_reached(
+        &mut self,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<()> {
         Ok(())
     }
 }
-macro_rules! either_leaf_field_comparator {
-    (
-        $vis:vis $name:ident
-        => { disi: $disi:ident }
-        { $( $Variant:ident : $T:ident ),+ $(,)? }
-    ) => {
-        $vis enum $name<$( $T ),+> {
-            $( $Variant($T), )+
-        }
-
-        impl<$( $T ),+> LeafFieldComparator for $name<$( $T ),+>
-        where
-            $( $T: LeafFieldComparator ),+
-        {
-            type DocIdSetIterator = $disi::<$( <$T as LeafFieldComparator>::DocIdSetIterator ),+>;
-
-            fn set_bottom(&mut self, slot: usize) -> Result<()> {
-                match self { $( Self::$Variant(inner) => inner.set_bottom(slot), )+ }
-            }
-
-            fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
-            where S: Scorable {
-                match self { $( Self::$Variant(inner) => inner.compare_bottom(doc, scorer), )+ }
-            }
-
-            fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
-            where S: Scorable {
-                match self { $( Self::$Variant(inner) => inner.compare_top(doc, scorer), )+ }
-            }
-
-            fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
-            where S: Scorable {
-                match self { $( Self::$Variant(inner) => inner.copy(slot, doc, scorer), )+ }
-            }
-
-            fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-            where S: Scorable {
-                match self { $( Self::$Variant(inner) => inner.set_scorer(scorer), )+ }
-            }
-
-            fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
-                match self {
-                    $( Self::$Variant(inner) => inner.competitive_iterator().map($disi::$Variant), )+
-                }
-            }
-
-            fn set_hits_threshold_reached(&mut self) -> Result<()> {
-                match self { $( Self::$Variant(inner) => inner.set_hits_threshold_reached(), )+ }
-            }
-        }
-    };
+pub enum Either2LeafFieldComparator<A, B> {
+    A(A),
+    B(B),
 }
 
-either_leaf_field_comparator!(
-    pub Either2LeafFieldComparator
-    => { disi: Either2DocIdSetIterator }
-    { A: A, B: B}
-);
+impl<A, B> LeafFieldComparator for Either2LeafFieldComparator<A, B>
+where
+    A: LeafFieldComparator,
+    B: LeafFieldComparator<FieldComparator = A::FieldComparator>,
+{
+    // TODO: IMPORTANT: 这里不对
+    type FieldComparator = A::FieldComparator;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        match self {
+            Self::A(inner) => inner.set_bottom(slot, comparator),
+            Self::B(inner) => inner.set_bottom(slot, comparator),
+        }
+    }
+
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::A(inner) => inner.compare_bottom(doc, scorer, comparator),
+            Self::B(inner) => inner.compare_bottom(doc, scorer, comparator),
+        }
+    }
+
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::A(inner) => inner.compare_top(doc, scorer, comparator),
+            Self::B(inner) => inner.compare_top(doc, scorer, comparator),
+        }
+    }
+
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::A(inner) => inner.copy(slot, doc, scorer, comparator),
+            Self::B(inner) => inner.copy(slot, doc, scorer, comparator),
+        }
+    }
+
+    fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::A(inner) => inner.set_scorer(scorer, comparator),
+            Self::B(inner) => inner.set_scorer(scorer, comparator),
+        }
+    }
+
+    type DocIdSetIterator = Either2DocIdSetIterator<
+        <A as LeafFieldComparator>::DocIdSetIterator,
+        <B as LeafFieldComparator>::DocIdSetIterator,
+    >;
+
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
+        match self {
+            Self::A(inner) => inner
+                .competitive_iterator(comparator)
+                .map(Either2DocIdSetIterator::A),
+            Self::B(inner) => inner
+                .competitive_iterator(comparator)
+                .map(Either2DocIdSetIterator::B),
+        }
+    }
+
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        match self {
+            Self::A(inner) => inner.set_hits_threshold_reached(comparator),
+            Self::B(inner) => inner.set_hits_threshold_reached(comparator),
+        }
+    }
+}
 
 pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     DocComparatorIterator,
@@ -252,124 +338,247 @@ impl<LR> LeafFieldComparator for LeafFieldComparatorEnum<LR>
 where
     LR: LeafReader,
 {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        match self {
-            Self::Relevance(comparator) => comparator.set_bottom(slot),
-            Self::Doc(comparator) => comparator.set_bottom(slot),
-            Self::Double(comparator) => comparator.set_bottom(slot),
-            Self::Float(comparator) => comparator.set_bottom(slot),
-            Self::Int(comparator) => comparator.set_bottom(slot),
-            Self::Long(comparator) => comparator.set_bottom(slot),
-            Self::TermVal(comparator) => comparator.set_bottom(slot),
-            Self::TermOrdVal(comparator) => comparator.set_bottom(slot),
+    type FieldComparator = FieldComparatorEnum;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => comparator.set_bottom(slot, c),
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator.set_bottom(slot, c),
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.set_bottom(slot, c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        match self {
-            Self::Relevance(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::Doc(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::Double(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::Float(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::Int(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::Long(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::TermVal(comparator) => comparator.compare_bottom(doc, scorer),
-            Self::TermOrdVal(comparator) => comparator.compare_bottom(doc, scorer),
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.compare_bottom(doc, scorer, c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 
-    fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        match self {
-            Self::Relevance(comparator) => comparator.compare_top(doc, scorer),
-            Self::Doc(comparator) => comparator.compare_top(doc, scorer),
-            Self::Double(comparator) => comparator.compare_top(doc, scorer),
-            Self::Float(comparator) => comparator.compare_top(doc, scorer),
-            Self::Int(comparator) => comparator.compare_top(doc, scorer),
-            Self::Long(comparator) => comparator.compare_top(doc, scorer),
-            Self::TermVal(comparator) => comparator.compare_top(doc, scorer),
-            Self::TermOrdVal(comparator) => comparator.compare_top(doc, scorer),
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.compare_top(doc, scorer, c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        match self {
-            Self::Relevance(comparator) => comparator.copy(slot, doc, scorer),
-            Self::Doc(comparator) => comparator.copy(slot, doc, scorer),
-            Self::Double(comparator) => comparator.copy(slot, doc, scorer),
-            Self::Float(comparator) => comparator.copy(slot, doc, scorer),
-            Self::Int(comparator) => comparator.copy(slot, doc, scorer),
-            Self::Long(comparator) => comparator.copy(slot, doc, scorer),
-            Self::TermVal(comparator) => comparator.copy(slot, doc, scorer),
-            Self::TermOrdVal(comparator) => comparator.copy(slot, doc, scorer),
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.copy(slot, doc, scorer, c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        match self {
-            Self::Relevance(comparator) => comparator.set_scorer(scorer),
-            Self::Doc(comparator) => comparator.set_scorer(scorer),
-            Self::Double(comparator) => comparator.set_scorer(scorer),
-            Self::Float(comparator) => comparator.set_scorer(scorer),
-            Self::Int(comparator) => comparator.set_scorer(scorer),
-            Self::Long(comparator) => comparator.set_scorer(scorer),
-            Self::TermVal(comparator) => comparator.set_scorer(scorer),
-            Self::TermOrdVal(comparator) => comparator.set_scorer(scorer),
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.set_scorer(scorer, c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 
     type DocIdSetIterator = LeafFieldComparatorDocIdSetIterator<LR>;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
-        match self {
-            Self::Relevance(comparator) => comparator
-                .competitive_iterator()
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
-            Self::Doc(comparator) => comparator
-                .competitive_iterator()
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::A),
-            Self::Double(comparator) => comparator
-                .competitive_iterator()
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
-            Self::Float(comparator) => comparator
-                .competitive_iterator()
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
-            Self::Int(comparator) => comparator
-                .competitive_iterator()
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
-            Self::Long(comparator) => comparator
-                .competitive_iterator()
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
-            Self::TermVal(comparator) => comparator
-                .competitive_iterator()
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
-            Self::TermOrdVal(comparator) => comparator
-                .competitive_iterator()
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => comparator
+                .competitive_iterator(c)
                 .map(LeafFieldComparatorDocIdSetIterator::<LR>::D),
+            _ => None,
         }
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
-        match self {
-            Self::Relevance(comparator) => comparator.set_hits_threshold_reached(),
-            Self::Doc(comparator) => comparator.set_hits_threshold_reached(),
-            Self::Double(comparator) => comparator.set_hits_threshold_reached(),
-            Self::Float(comparator) => comparator.set_hits_threshold_reached(),
-            Self::Int(comparator) => comparator.set_hits_threshold_reached(),
-            Self::Long(comparator) => comparator.set_hits_threshold_reached(),
-            Self::TermVal(comparator) => comparator.set_hits_threshold_reached(),
-            Self::TermOrdVal(comparator) => comparator.set_hits_threshold_reached(),
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        match (self, comparator) {
+            (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
+                comparator.set_hits_threshold_reached(c)
+            },
+            _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
 }

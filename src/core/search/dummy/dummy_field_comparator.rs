@@ -41,7 +41,7 @@ impl FieldComparator for DummyFieldComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         _context: &LeafReaderContext<LR>,
     ) -> crate::core::util::error::lucene_error::Result<Self::LeafFieldComparator<LR>>
     where

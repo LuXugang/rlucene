@@ -95,14 +95,13 @@ impl FieldComparator for FloatComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        mut self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
         LR: LeafReader,
     {
-        let v = std::mem::take(&mut self.base);
-        FloatLeafComparator::new(self, context, v, None, None)
+        FloatLeafComparator::new(self, context, None, None)
     }
 
     fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
@@ -121,7 +120,6 @@ pub struct FloatLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    comparator: FloatComparator,
     base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, f32, FloatConverter>,
 }
 
@@ -130,9 +128,8 @@ where
     LR: LeafReader,
 {
     pub fn new(
-        comparator: FloatComparator,
+        comparator: &mut FloatComparator,
         context: &LeafReaderContext<LR>,
-        nc: NumericComparator<f32>,
         doc_values: Option<NumericLeafComparatorDocValues<LR>>,
         candidate: Option<NumericLeafComparatorDocValues<LR>>,
     ) -> Result<Self> {
@@ -158,21 +155,25 @@ where
         let top_value = comparator.top_value;
         let base = NumericLeafComparator::new(
             context,
-            nc,
+            &mut comparator.base,
             doc_value,
             candidate,
             FloatConverter,
             top_value,
         )?;
-        Ok(Self { comparator, base })
+        Ok(Self { base })
     }
-    fn get_value_for_doc(&mut self, doc: i32) -> Result<f32> {
+    fn get_value_for_doc(
+        &mut self,
+        doc: i32,
+        comparator: &mut NumericComparator<f32>,
+    ) -> Result<f32> {
         let doc_values = &mut self.base.doc_values;
         if doc_values.advance_exact(doc)? {
             let bits = doc_values.long_value()? as u32;
             Ok(f32::from_bits(bits))
         } else {
-            Ok(self.base.parent.missing_value)
+            Ok(comparator.missing_value)
         }
     }
 }
@@ -181,54 +182,88 @@ impl<LR> LeafFieldComparator for FloatLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        self.comparator.bottom = self.comparator.values[slot];
-        self.base
-            .set_bottom(self.comparator.bottom, self.comparator.top_value)
+    type FieldComparator = FloatComparator;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.bottom = comparator.values[slot];
+        self.base.set_bottom(
+            comparator.bottom,
+            comparator.top_value,
+            &mut comparator.base,
+        )
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        let v = self.get_value_for_doc(doc)?;
-        Ok(self.comparator.bottom.total_cmp(&v).to_int())
+        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+        Ok(comparator.bottom.total_cmp(&v).to_int())
     }
 
-    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        let v = self.get_value_for_doc(doc)?;
-        Ok(self.comparator.top_value.total_cmp(&v).to_int())
+        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+        Ok(comparator.top_value.total_cmp(&v).to_int())
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        let v = self.get_value_for_doc(doc)?;
-        self.comparator.values[slot] = v;
+        let v = self.get_value_for_doc(doc, &mut comparator.base)?;
+        comparator.values[slot] = v;
         self.base.copy(doc)
     }
 
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        self.base
-            .set_scorer(scorer, self.comparator.bottom, self.comparator.top_value)
+        self.base.set_scorer(
+            scorer,
+            comparator.bottom,
+            comparator.top_value,
+            &mut comparator.base,
+        )
     }
 
     type DocIdSetIterator = NumericCompetitiveIterator<LR>;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
         self.base.competitive_iterator()
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
-        self.base
-            .set_hits_threshold_reached(self.comparator.bottom, self.comparator.top_value)
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        self.base.set_hits_threshold_reached(
+            comparator.bottom,
+            comparator.top_value,
+            &mut comparator.base,
+        )
     }
 }
 pub(crate) struct FloatConverter;

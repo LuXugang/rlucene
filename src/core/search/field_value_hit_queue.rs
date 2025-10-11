@@ -197,23 +197,25 @@ pub type FieldValueHitQueueComparator =
 
 impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     pub fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Vec<LeafFieldComparatorEnum<LR>>>
     where
         LR: LeafReader,
     {
-        match self.compare {
+        match &mut self.compare {
             Either2Compare::A(one_comp) => {
                 debug_assert!(one_comp.one_comparator.len() == 1);
-                let comp = one_comp.one_comparator.into_iter().next().unwrap();
+                let comp = &mut one_comp.one_comparator[0];
                 Ok(vec![comp.get_leaf_comparator(context)?])
             },
-            Either2Compare::B(multi_comp) => multi_comp
-                .comparators
-                .into_iter()
-                .map(|c| c.get_leaf_comparator(context))
-                .collect(),
+            Either2Compare::B(multi_comp) => {
+                let mut v = Vec::new();
+                for x in &mut multi_comp.comparators {
+                    v.push(x.get_leaf_comparator(context)?);
+                }
+                Ok(v)
+            },
         }
     }
     pub fn get_reverse_mul(&self) -> &[i32] {

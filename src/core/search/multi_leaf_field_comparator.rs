@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::leaf_field_comparator::{
     LeafFieldComparator, LeafFieldComparatorDocIdSetIterator, LeafFieldComparatorEnum,
 };
@@ -54,14 +55,20 @@ impl<LR> LeafFieldComparator for MultiLeafFieldComparator<LR>
 where
     LR: LeafReader,
 {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
+    type FieldComparator = FieldComparatorEnum;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
         for comp in &mut self.comparators {
-            comp.set_bottom(slot)?;
+            comp.set_bottom(slot, comparator)?;
         }
         Ok(())
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
@@ -70,13 +77,15 @@ where
             "comparators list should not be empty"
         );
 
-        let mut cmp = self.reverse_mul[0] * self.comparators[0].compare_bottom(doc, scorer)?;
+        let mut cmp =
+            self.reverse_mul[0] * self.comparators[0].compare_bottom(doc, scorer, comparator)?;
         if cmp != 0 {
             return Ok(cmp);
         }
 
         for i in 1..self.comparators.len() {
-            cmp = self.reverse_mul[i] * self.comparators[i].compare_bottom(doc, scorer)?;
+            cmp = self.reverse_mul[i]
+                * self.comparators[i].compare_bottom(doc, scorer, comparator)?;
             if cmp != 0 {
                 return Ok(cmp);
             }
@@ -85,7 +94,12 @@ where
         Ok(0)
     }
 
-    fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
@@ -94,13 +108,14 @@ where
             "comparators list should not be empty"
         );
 
-        let mut cmp = self.reverse_mul[0] * self.comparators[0].compare_top(doc, scorer)?;
+        let mut cmp =
+            self.reverse_mul[0] * self.comparators[0].compare_top(doc, scorer, comparator)?;
         if cmp != 0 {
             return Ok(cmp);
         }
 
         for i in 1..self.comparators.len() {
-            cmp = self.reverse_mul[i] * self.comparators[i].compare_top(doc, scorer)?;
+            cmp = self.reverse_mul[i] * self.comparators[i].compare_top(doc, scorer, comparator)?;
             if cmp != 0 {
                 return Ok(cmp);
             }
@@ -109,33 +124,46 @@ where
         Ok(0)
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         for comp in &mut self.comparators {
-            comp.copy(slot, doc, scorer)?;
+            comp.copy(slot, doc, scorer, comparator)?;
         }
         Ok(())
     }
 
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         for comp in &mut self.comparators {
-            comp.set_scorer(scorer)?;
+            comp.set_scorer(scorer, comparator)?;
         }
         Ok(())
     }
 
     type DocIdSetIterator = LeafFieldComparatorDocIdSetIterator<LR>;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
-        self.comparators[0].competitive_iterator()
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
+        self.comparators[0].competitive_iterator(comparator)
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
-        self.comparators[0].set_hits_threshold_reached()
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        self.comparators[0].set_hits_threshold_reached(comparator)
     }
 }

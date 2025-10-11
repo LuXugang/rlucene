@@ -15,38 +15,61 @@
  * limitations under the License.
  */
 use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_field_comparator::DummyFieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyLeafFieldComparator;
 impl LeafFieldComparator for DummyLeafFieldComparator {
-    fn set_bottom(&mut self, _slot: usize) -> Result<()> {
+    type FieldComparator = DummyFieldComparator;
+
+    fn set_bottom(&mut self, _slot: usize, _comparator: &mut Self::FieldComparator) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_bottom<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        _doc: i32,
+        _scorer: &mut S,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compare_top<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        _doc: i32,
+        _scorer: &mut S,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn copy<S>(&mut self, _slot: usize, _doc: i32, _scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        _slot: usize,
+        _doc: i32,
+        _scorer: &mut S,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        _scorer: &mut S,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
@@ -55,11 +78,17 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
 
     type DocIdSetIterator = DummyDISI;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(
+        &mut self,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
+    fn set_hits_threshold_reached(
+        &mut self,
+        _comparator: &mut Self::FieldComparator,
+    ) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

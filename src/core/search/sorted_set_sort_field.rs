@@ -302,7 +302,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        mut self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
@@ -313,7 +313,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
             DocValues::get_sorted_set(context.reader(), &self.base.field)?,
             self.selector,
         )?);
-        TermOrdValLeafComparator::new(context, Some(doc_values), self.base)
+        TermOrdValLeafComparator::new(context, Some(doc_values), &self.base)
     }
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {

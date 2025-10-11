@@ -512,14 +512,12 @@ macro_rules! impl_sorted_numeric_comparator {
                 LR: LeafReader;
 
             fn get_leaf_comparator<LR>(
-                mut self,
+                &mut self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Self::LeafFieldComparator<LR>>
             where
                 LR: LeafReader,
             {
-                let numeric_comparator = std::mem::take(&mut self.base.base);
-
                 let selector_a =
                     NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
                         DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
@@ -534,13 +532,7 @@ macro_rules! impl_sorted_numeric_comparator {
                         self.type_,
                     )?);
 
-                $leaf::new(
-                    self.base,
-                    context,
-                    numeric_comparator,
-                    Some(selector_a),
-                    Some(selector_b),
-                )
+                $leaf::new(&mut self.base, context, Some(selector_a), Some(selector_b))
             }
 
             fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {

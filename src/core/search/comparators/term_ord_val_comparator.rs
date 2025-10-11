@@ -149,7 +149,7 @@ impl FieldComparator for TermOrdValComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        mut self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
@@ -199,7 +199,6 @@ where
     pub(crate) missing_ord: i32,
     competitive_iterator: Option<TermOrdValCompetitiveIterator<LR>>,
     dense: bool,
-    comparator: TermOrdValComparator,
 }
 impl<LR> TermOrdValLeafComparator<LR>
 where
@@ -208,7 +207,7 @@ where
     pub fn new(
         context: &LeafReaderContext<LR>,
         terms_index: Option<TermOrdValDocValues<LR>>,
-        comparator: TermOrdValComparator,
+        comparator: &TermOrdValComparator,
     ) -> Result<Self> {
         let mut terms_index = match terms_index {
             Some(v) => v,
@@ -242,26 +241,26 @@ where
             missing_ord,
             competitive_iterator: None,
             dense: false,
-            comparator,
         };
 
-        if leaf.comparator.bottom_slot != -1 {
-            leaf.set_bottom(leaf.comparator.bottom_slot as usize)?;
-        }
+        // TODO
+        // if comparator.bottom_slot != -1 {
+        //     leaf.set_bottom(comparator.bottom_slot as usize)?;
+        // }
 
-        let enable_skipping = if !leaf.comparator.can_skip_documents {
+        let enable_skipping = if !comparator.can_skip_documents {
             leaf.dense = false;
             false
         } else {
             let field_info = context
                 .reader()
                 .get_field_infos()?
-                .field_info_by_name(&leaf.comparator.field);
+                .field_info_by_name(&comparator.field);
             if field_info.is_none() {
                 if leaf.terms_index.get_value_count()? != 0 {
                     return Err(LuceneError::illegal_state(format!(
                         "Field [{}] cannot be found in field infos",
-                        leaf.comparator.field
+                        comparator.field
                     )));
                 }
                 leaf.dense = false;
@@ -271,7 +270,7 @@ where
                 leaf.dense = false;
                 false
             } else {
-                let terms = context.reader().terms(&leaf.comparator.field)?;
+                let terms = context.reader().terms(&comparator.field)?;
                 match terms {
                     None => {
                         leaf.dense = false;
@@ -281,9 +280,9 @@ where
                     },
                 }
 
-                if leaf.dense || leaf.comparator.top_value.is_some() {
+                if leaf.dense || comparator.top_value.is_some() {
                     true
-                } else if leaf.comparator.reverse == leaf.comparator.sort_missing_last {
+                } else if comparator.reverse == comparator.sort_missing_last {
                     // Missing values are always competitive, we can never skip
                     false
                 } else {
@@ -299,10 +298,10 @@ where
                 true => None,
                 false => Some(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
                     context,
-                    &leaf.comparator.field,
+                    &comparator.field,
                 )?)),
             };
-            let terms = context.reader().terms(&leaf.comparator.field)?;
+            let terms = context.reader().terms(&comparator.field)?;
             let terms_iter = match terms {
                 None => {
                     return Err(LuceneError::illegal_state("terms is None"));
@@ -318,13 +317,11 @@ where
             )?);
         }
 
-        leaf.update_competitive_iterator()?;
+        leaf.update_competitive_iterator(comparator)?;
 
         Ok(leaf)
     }
-    fn update_competitive_iterator(&mut self) -> Result<()> {
-        let comparator = &self.comparator;
-
+    fn update_competitive_iterator(&mut self, comparator: &TermOrdValComparator) -> Result<()> {
         if self.competitive_iterator.is_none()
             || !comparator.hits_threshold_reached
             || comparator.bottom_slot == -1
@@ -429,25 +426,26 @@ impl<LR> LeafFieldComparator for TermOrdValLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    fn set_bottom(&mut self, bottom: usize) -> Result<()> {
-        self.comparator.bottom_slot = bottom as i32;
-        self.comparator.bottom_value = Some(bottom);
+    type FieldComparator = TermOrdValComparator;
+    fn set_bottom(&mut self, bottom: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.bottom_slot = bottom as i32;
+        comparator.bottom_value = Some(bottom);
 
-        if self.comparator.current_reader_gen == self.comparator.reader_gen[bottom] {
-            self.bottom_ord = self.comparator.ords[bottom];
+        if comparator.current_reader_gen == comparator.reader_gen[bottom] {
+            self.bottom_ord = comparator.ords[bottom];
             self.bottom_same_reader = true;
         } else {
-            let has_value = self.comparator.values[bottom].is_some();
+            let has_value = comparator.values[bottom].is_some();
             match has_value {
                 false => {
                     // missingOrd is null for all segments
-                    debug_assert!(self.comparator.ords[bottom] == self.missing_ord);
+                    debug_assert!(comparator.ords[bottom] == self.missing_ord);
                     self.bottom_ord = self.missing_ord;
                     self.bottom_same_reader = true;
-                    self.comparator.reader_gen[bottom] = self.comparator.current_reader_gen;
+                    comparator.reader_gen[bottom] = comparator.current_reader_gen;
                 },
                 true => {
-                    let target = match self.comparator.values[bottom].as_ref() {
+                    let target = match comparator.values[bottom].as_ref() {
                         None => {
                             return Err(LuceneError::illegal_state(
                                 "bottomValue is None but ords[bottomSlot] is not missingOrd",
@@ -462,22 +460,27 @@ where
                     } else {
                         self.bottom_ord = ord;
                         self.bottom_same_reader = true;
-                        self.comparator.reader_gen[bottom] = self.comparator.current_reader_gen;
-                        self.comparator.ords[bottom] = self.bottom_ord;
+                        comparator.reader_gen[bottom] = comparator.current_reader_gen;
+                        comparator.ords[bottom] = self.bottom_ord;
                     }
                 },
             }
         }
 
-        self.update_competitive_iterator()?;
+        self.update_competitive_iterator(comparator)?;
         Ok(())
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
-        debug_assert!(self.comparator.bottom_slot != -1);
+        debug_assert!(comparator.bottom_slot != -1);
 
         let mut doc_ord = self.get_ord_for_doc(doc)?;
         if doc_ord == -1 {
@@ -496,7 +499,12 @@ where
         }
     }
 
-    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
@@ -518,28 +526,38 @@ where
         }
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
         let mut ord = self.get_ord_for_doc(doc)?;
         if ord == -1 {
             ord = self.missing_ord;
-            self.comparator.values[slot] = None;
+            comparator.values[slot] = None;
         } else {
             debug_assert!(ord >= 0);
 
             let v = self.terms_index.lookup_ord(ord)?.into_owned();
-            self.comparator.values[slot] = Some(v);
+            comparator.values[slot] = Some(v);
         }
 
-        self.comparator.ords[slot] = ord;
-        self.comparator.reader_gen[slot] = self.comparator.current_reader_gen;
+        comparator.ords[slot] = ord;
+        comparator.reader_gen[slot] = comparator.current_reader_gen;
 
         Ok(())
     }
 
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
@@ -548,13 +566,16 @@ where
 
     type DocIdSetIterator = TermOrdValCompetitiveIterator<LR>;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
         self.competitive_iterator.take()
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
-        self.comparator.hits_threshold_reached = true;
-        self.update_competitive_iterator()
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.hits_threshold_reached = true;
+        self.update_competitive_iterator(comparator)
     }
 }
 

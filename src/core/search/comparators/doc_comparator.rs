@@ -78,7 +78,7 @@ impl FieldComparator for DocComparator {
         LR: LeafReader;
 
     fn get_leaf_comparator<LR>(
-        self,
+        &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Self::LeafFieldComparator<LR>>
     where
@@ -99,11 +99,10 @@ pub struct DocLeafComparator {
     min_doc: i32,
     max_doc: i32,
     competitive_iterator: Option<DocComparatorCompetitiveIterator>,
-    comparator: DocComparator,
 }
 
 impl DocLeafComparator {
-    pub fn new<LR>(context: &LeafReaderContext<LR>, comparator: DocComparator) -> Result<Self>
+    pub fn new<LR>(context: &LeafReaderContext<LR>, comparator: &DocComparator) -> Result<Self>
     where
         LR: LeafReader,
     {
@@ -127,18 +126,17 @@ impl DocLeafComparator {
             min_doc,
             max_doc,
             competitive_iterator,
-            comparator,
         })
     }
-    fn update_iterator(&mut self) {
-        if !self.comparator.enable_skipping || !self.comparator.hits_threshold_reached {
+    fn update_iterator(&mut self, comparator: &mut DocComparator) {
+        if !comparator.enable_skipping || !comparator.hits_threshold_reached {
             return;
         }
 
-        if self.comparator.bottom_value_set {
+        if comparator.bottom_value_set {
             self.competitive_iterator =
                 Some(DocComparatorCompetitiveIterator::B(EmptyDISI::default()));
-        } else if self.comparator.top_value_set {
+        } else if comparator.top_value_set {
             // since we've collected top N matches, we can early terminate
             // Currently early termination on _doc is also implemented in TopFieldCollector, but this
             // will be removed
@@ -162,57 +160,81 @@ impl DocLeafComparator {
     }
 }
 impl LeafFieldComparator for DocLeafComparator {
-    fn set_bottom(&mut self, slot: usize) -> Result<()> {
-        self.comparator.bottom = self.comparator.doc_ids[slot];
-        self.comparator.bottom_value_set = true;
-        self.update_iterator();
+    type FieldComparator = DocComparator;
+    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.bottom = comparator.doc_ids[slot];
+        comparator.bottom_value_set = true;
+        self.update_iterator(comparator);
         Ok(())
     }
 
-    fn compare_bottom<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         // No overflow risk because docIDs are non-negative
-        Ok(self.comparator.bottom - (self.doc_base + doc))
+        Ok(comparator.bottom - (self.doc_base + doc))
     }
 
-    fn compare_top<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<i32>
+    fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<i32>
     where
         S: Scorable,
     {
         let doc_value = self.doc_base + doc;
-        Ok(self.comparator.top_value.cmp(&doc_value).to_int())
+        Ok(comparator.top_value.cmp(&doc_value).to_int())
     }
 
-    fn copy<S>(&mut self, slot: usize, doc: i32, _scorer: &mut S) -> Result<()>
+    fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        self.comparator.doc_ids[slot] = self.doc_base + doc;
+        comparator.doc_ids[slot] = self.doc_base + doc;
         Ok(())
     }
 
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
+    fn set_scorer<S>(
+        &mut self,
+        _scorer: &mut S,
+        comparator: &mut Self::FieldComparator,
+    ) -> Result<()>
     where
         S: Scorable,
     {
-        self.update_iterator();
+        self.update_iterator(comparator);
         Ok(())
     }
 
     type DocIdSetIterator = DocComparatorIterator;
 
-    fn competitive_iterator(&mut self) -> Option<Self::DocIdSetIterator> {
+    fn competitive_iterator(
+        &mut self,
+        comparator: &mut Self::FieldComparator,
+    ) -> Option<Self::DocIdSetIterator> {
         debug_assert!(self.competitive_iterator.is_some());
         Some(DocComparatorIterator::new(
             self.competitive_iterator.take().unwrap(),
         ))
     }
 
-    fn set_hits_threshold_reached(&mut self) -> Result<()> {
-        self.comparator.hits_threshold_reached = true;
-        self.update_iterator();
+    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
+        comparator.hits_threshold_reached = true;
+        self.update_iterator(comparator);
         Ok(())
     }
 }

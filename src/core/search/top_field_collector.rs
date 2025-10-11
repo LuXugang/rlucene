@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
@@ -195,8 +194,8 @@ impl Collector for TopFieldCollector {
 
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        context: &LeafReaderContext<LR>,
-        weight: Option<&mut W>,
+        _context: &LeafReaderContext<LR>,
+        _weight: Option<&mut W>,
     ) -> Result<Self::LeafCollector<'a>>
     where
         LR: LeafReader,
@@ -262,9 +261,9 @@ where
     LR: LeafReader,
 {
     pub fn new(
-        base: &'a mut TopFieldCollector,
-        sort: &Sort,
-        context: &LeafReaderContext<LR>,
+        _base: &'a mut TopFieldCollector,
+        _sort: &Sort,
+        _context: &LeafReaderContext<LR>,
     ) -> Result<Self> {
         // as all segments are sorted in the same way, enough to check only the 1st segment for
         // indexSort
@@ -307,7 +306,7 @@ where
         // })
         todo!()
     }
-    pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, doc: i32) -> Result<()> {
+    pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, _doc: i32) -> Result<()> {
         self.base.base.total_hits += 1;
         debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
         let hit_count_so_far = self.base.base.total_hits as i32;
@@ -323,7 +322,8 @@ where
             && self.base.base.total_hits_relation == Relation::EqualTo
             && hit_count_so_far > self.base.total_hits_threshold
         {
-            self.comparator.set_hits_threshold_reached()?;
+            let comparator = &mut self.base.base.pq.get_comparators_mut()[0];
+            self.comparator.set_hits_threshold_reached(comparator)?;
             self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
         }
 

@@ -123,7 +123,6 @@ where
     current_skip_interval: i32,
     // helps to be conservative about increasing the sampling interval
     try_update_fail_count: i32,
-    pub(crate) parent: NumericComparator<V>,
     skip_doc_values: Option<N>,
     convert: T,
 }
@@ -136,7 +135,7 @@ where
 {
     pub fn new(
         context: &LeafReaderContext<LR>,
-        parent: NumericComparator<V>,
+        parent: &mut NumericComparator<V>,
         doc_values: N,
         candidate: N,
         v_to_long: T,
@@ -203,26 +202,30 @@ where
             update_counter: 0,
             current_skip_interval: MIN_SKIP_INTERVAL,
             try_update_fail_count: 0,
-            parent,
             skip_doc_values: Some(candidate),
             convert: v_to_long,
         };
         if v.point_values.is_some() && v.leaf_top_set {
-            v.encode_top(top);
+            v.encode_top(top, parent);
         }
         Ok(v)
     }
-    fn update_competitive_iterator(&mut self, bottom: V, top: V) -> Result<()> {
+    fn update_competitive_iterator(
+        &mut self,
+        bottom: V,
+        top: V,
+        comparator: &mut NumericComparator<V>,
+    ) -> Result<()> {
         if !self.enable_skipping
-            || !self.parent.hits_threshold_reached
-            || (!self.leaf_top_set && !self.parent.queue_full)
+            || !comparator.hits_threshold_reached
+            || (!self.leaf_top_set && !comparator.queue_full)
         {
             return Ok(());
         }
         // if some documents have missing points, check that missing values prohibits optimization
         if let Some(ref pv) = self.point_values
             && pv.get_doc_count()? < self.max_doc
-            && self.is_missing_value_competitive(bottom, top)
+            && self.is_missing_value_competitive(bottom, top, comparator)
         {
             return Ok(()); // we can't filter out documents, as documents with missing values are competitive
         }
@@ -237,8 +240,8 @@ where
             return Ok(());
         }
 
-        if self.parent.queue_full {
-            self.encode_bottom(bottom);
+        if comparator.queue_full {
+            self.encode_bottom(bottom, comparator);
         }
 
         let result = DocIdSetBuilder::new(self.max_doc);
@@ -320,11 +323,11 @@ where
             }
         }
     }
-    fn encode_bottom(&mut self, bottom: V) {
-        if !self.parent.reverse {
+    fn encode_bottom(&mut self, bottom: V, comparator: &mut NumericComparator<V>) {
+        if !comparator.reverse {
             // ascending order
             self.max_value_as_long = self.convert.value_to_long(bottom);
-            if self.parent.pruning == Pruning::GreaterThanOrEqualTo
+            if comparator.pruning == Pruning::GreaterThanOrEqualTo
                 && self.max_value_as_long != i64::MIN
             {
                 self.max_value_as_long -= 1;
@@ -332,19 +335,19 @@ where
         } else {
             // descending order
             self.min_value_as_long = self.convert.value_to_long(bottom);
-            if self.parent.pruning == Pruning::GreaterThanOrEqualTo
+            if comparator.pruning == Pruning::GreaterThanOrEqualTo
                 && self.min_value_as_long != i64::MAX
             {
                 self.min_value_as_long += 1;
             }
         }
     }
-    fn encode_top(&mut self, top: V) {
-        if !self.parent.reverse {
+    fn encode_top(&mut self, top: V, comparator: &mut NumericComparator<V>) {
+        if !comparator.reverse {
             self.min_value_as_long = self.convert.value_to_long(top);
-            if self.parent.single_sort
-                && self.parent.pruning == Pruning::GreaterThanOrEqualTo
-                && self.parent.queue_full
+            if comparator.single_sort
+                && comparator.pruning == Pruning::GreaterThanOrEqualTo
+                && comparator.queue_full
                 && self.min_value_as_long != i64::MAX
             {
                 self.min_value_as_long += 1;
@@ -352,9 +355,9 @@ where
         } else {
             // descending order
             self.max_value_as_long = self.convert.value_to_long(top);
-            if self.parent.single_sort
-                && self.parent.pruning == Pruning::GreaterThanOrEqualTo
-                && self.parent.queue_full
+            if comparator.single_sort
+                && comparator.pruning == Pruning::GreaterThanOrEqualTo
+                && comparator.queue_full
                 && self.max_value_as_long != i64::MIN
             {
                 self.max_value_as_long -= 1;
@@ -362,25 +365,29 @@ where
         }
     }
     #[allow(clippy::collapsible_else_if)]
-    fn is_missing_value_competitive(&self, bottom: V, top: V) -> bool {
+    fn is_missing_value_competitive(
+        &self,
+        bottom: V,
+        top: V,
+        comparator: &mut NumericComparator<V>,
+    ) -> bool {
         // if queue is full, compare with bottom first,
         // if competitive, then check if we can compare with topValue
-        if self.parent.queue_full {
-            let result = self
-                .parent
+        if comparator.queue_full {
+            let result = comparator
                 .missing_value_as_long
                 .cmp(&self.convert.value_to_long(bottom))
                 .to_int();
             // in reverse (desc) sort missingValue is competitive when it's greater or equal to bottom,
             // in asc sort missingValue is competitive when it's smaller or equal to bottom
-            let competitive = if self.parent.reverse {
-                if self.parent.pruning == Pruning::GreaterThanOrEqualTo {
+            let competitive = if comparator.reverse {
+                if comparator.pruning == Pruning::GreaterThanOrEqualTo {
                     result > 0
                 } else {
                     result >= 0
                 }
             } else {
-                if self.parent.pruning == Pruning::GreaterThanOrEqualTo {
+                if comparator.pruning == Pruning::GreaterThanOrEqualTo {
                     result < 0
                 } else {
                     result <= 0
@@ -393,8 +400,7 @@ where
         }
 
         if self.leaf_top_set {
-            let result = self
-                .parent
+            let result = comparator
                 .missing_value_as_long
                 .cmp(&self.convert.value_to_long(top))
                 .to_int();
@@ -402,7 +408,7 @@ where
             // topValue,
             // in asc sort missingValue is competitive when it's greater or equal to topValue
 
-            return if self.parent.reverse {
+            return if comparator.reverse {
                 result <= 0
             } else {
                 result >= 0
@@ -412,9 +418,14 @@ where
         true
     }
 
-    pub(crate) fn set_bottom(&mut self, bottom: V, top: V) -> Result<()> {
-        self.parent.queue_full = true; // if we are setting bottom, it means that we have collected enough hits
-        self.update_competitive_iterator(bottom, top)?; // update an iterator if we set a new bottom
+    pub(crate) fn set_bottom(
+        &mut self,
+        bottom: V,
+        top: V,
+        comparator: &mut NumericComparator<V>,
+    ) -> Result<()> {
+        comparator.queue_full = true; // if we are setting bottom, it means that we have collected enough hits
+        self.update_competitive_iterator(bottom, top, comparator)?; // update an iterator if we set a new bottom
         Ok(())
     }
 
@@ -423,7 +434,13 @@ where
         Ok(())
     }
 
-    pub(crate) fn set_scorer<S>(&mut self, scorer: &mut S, bottom: V, top: V) -> Result<()>
+    pub(crate) fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        bottom: V,
+        top: V,
+        comparator: &mut NumericComparator<V>,
+    ) -> Result<()>
     where
         S: Scorable,
     {
@@ -437,7 +454,7 @@ where
                     _ => return Err(e),
                 },
             };
-            self.update_competitive_iterator(bottom, top)?;
+            self.update_competitive_iterator(bottom, top, comparator)?;
         }
         Ok(())
     }
@@ -454,9 +471,14 @@ where
         }
     }
 
-    pub(crate) fn set_hits_threshold_reached(&mut self, bottom: V, top: V) -> Result<()> {
-        self.parent.hits_threshold_reached = true;
-        self.update_competitive_iterator(bottom, top)
+    pub(crate) fn set_hits_threshold_reached(
+        &mut self,
+        bottom: V,
+        top: V,
+        comparator: &mut NumericComparator<V>,
+    ) -> Result<()> {
+        comparator.hits_threshold_reached = true;
+        self.update_competitive_iterator(bottom, top, comparator)
     }
 }
 pub struct CompetitiveIterator<D>
