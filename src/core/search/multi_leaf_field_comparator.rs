@@ -21,7 +21,7 @@ use crate::core::search::leaf_field_comparator::{
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-pub(crate) struct MultiLeafFieldComparator<LR>
+pub struct MultiLeafFieldComparator<LR>
 where
     LR: LeafReader,
 {

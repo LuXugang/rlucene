@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
@@ -23,7 +24,11 @@ use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
+use crate::core::search::leaf_field_comparator::{
+    Either2LeafFieldComparator, LeafFieldComparator, LeafFieldComparatorEnum,
+};
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
+use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
@@ -242,6 +247,89 @@ impl TopDocsCollector for TopFieldCollector {
     }
 }
 
+pub struct TopFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    base: &'a mut TopFieldCollector,
+    reverse_mul: i32,
+    collected_all_competitive_hits: bool,
+    comparator:
+        Either2LeafFieldComparator<LeafFieldComparatorEnum<LR>, MultiLeafFieldComparator<LR>>,
+}
+impl<'a, LR> TopFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    pub fn new(
+        base: &'a mut TopFieldCollector,
+        sort: &Sort,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self> {
+        // as all segments are sorted in the same way, enough to check only the 1st segment for
+        // indexSort
+        // if base.search_sort_part_of_index_sort.is_none() {
+        //     if let Some(index_sort) = context.reader().get_metadata()?.get_sort() {
+        //         let can_early_terminate = can_early_terminate(sort, Some(&index_sort))?;
+        //         base.search_sort_part_of_index_sort = Some(can_early_terminate);
+        //
+        //         if can_early_terminate {
+        //             let pq = &mut base.base.pq;
+        //             let first_comparator = &mut pq.get_comparators_mut()[0];
+        //             first_comparator.disable_skipping();
+        //         }
+        //     }
+        // }
+        //
+        // let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
+        // let reverse_muls = base.base.pq.take_reverse_mul();
+        //
+        // let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
+        //     (
+        //         reverse_muls[0],
+        //         Either2LeafFieldComparator::A(leaf_comparators.into_iter().next().unwrap()),
+        //     )
+        // } else {
+        //     (
+        //         1,
+        //         Either2LeafFieldComparator::B(MultiLeafFieldComparator::new(
+        //             leaf_comparators,
+        //             reverse_muls,
+        //         )?),
+        //     )
+        // };
+        //
+        // Ok(Self {
+        //     base,
+        //     reverse_mul,
+        //     collected_all_competitive_hits: false,
+        //     comparator,
+        // })
+        todo!()
+    }
+    pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, doc: i32) -> Result<()> {
+        self.base.base.total_hits += 1;
+        debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
+        let hit_count_so_far = self.base.base.total_hits as i32;
+
+        if let Some(acc) = &self.base.min_score_acc {
+            debug_assert!(acc.mod_interval <= i32::MAX as i64);
+            if (hit_count_so_far & acc.mod_interval as i32) == 0 {
+                self.base.update_global_min_competitive_score(scorer)?;
+            }
+        }
+
+        if !self.base.score_mode.is_exhaustive()
+            && self.base.base.total_hits_relation == Relation::EqualTo
+            && hit_count_so_far > self.base.total_hits_threshold
+        {
+            self.comparator.set_hits_threshold_reached()?;
+            self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+        }
+
+        Ok(())
+    }
+}
 fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
     Ok(can_early_terminate_on_doc_id(search_sort)?
         || can_early_terminate_on_prefix(search_sort, index_sort)?)
@@ -269,4 +357,11 @@ fn can_early_terminate_on_prefix(search_sort: &Sort, index_sort: Option<&Sort>) 
     } else {
         Ok(false)
     }
+}
+pub enum TopFieldLeafComparatorEnum<LR>
+where
+    LR: LeafReader,
+{
+    Multi(MultiLeafFieldComparator<LR>),
+    Single(LeafFieldComparatorEnum<LR>),
 }

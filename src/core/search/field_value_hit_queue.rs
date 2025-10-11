@@ -234,6 +234,12 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
             Either2Compare::B(multi_comp) => &multi_comp.comparators,
         }
     }
+    pub fn get_comparators_mut(&mut self) -> &mut [FieldComparatorEnum] {
+        match &mut self.compare {
+            Either2Compare::A(one_comp) => &mut one_comp.one_comparator,
+            Either2Compare::B(multi_comp) => &mut multi_comp.comparators,
+        }
+    }
     /// Given a queue [`Entry`], creates a corresponding [`FieldDoc`] that contains the values used to sort the
     /// given document. These values are not the raw values out of the index, but the internal
     /// representation of them. This is so the given search hit can be collated by a `MultiSearcher` with
