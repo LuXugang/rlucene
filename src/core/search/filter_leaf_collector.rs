@@ -22,13 +22,13 @@ use std::fmt::{Display, Formatter};
 /// `LeafCollector` delegator.
 pub struct FilterLeafCollector<L>
 where
-    L: LeafCollector + Display,
+    L: LeafCollector,
 {
     in_: L,
 }
 impl<L> FilterLeafCollector<L>
 where
-    L: LeafCollector + Display,
+    L: LeafCollector,
 {
     pub fn new(in_: L) -> Self {
         Self { in_ }
@@ -36,7 +36,7 @@ where
 }
 impl<L> LeafCollector for FilterLeafCollector<L>
 where
-    L: LeafCollector + Display,
+    L: LeafCollector,
 {
     fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
@@ -60,7 +60,7 @@ where
 }
 impl<L> Display for FilterLeafCollector<L>
 where
-    L: LeafCollector + Display,
+    L: LeafCollector,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ({})", std::any::type_name::<Self>(), self.in_)

@@ -19,8 +19,16 @@ use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
 
 pub struct DummyLeafCollector;
+
+impl Display for DummyLeafCollector {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
 impl LeafCollector for DummyLeafCollector {
     fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where

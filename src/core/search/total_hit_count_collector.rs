@@ -24,6 +24,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::{Display, Formatter};
 /// Just counts the total number of hits. This is the collector behind [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count).
 /// When the [`Weight`] implements [`Weight::count`], this collector will skip collecting segments.
 pub struct TotalHitCountCollector {
@@ -76,6 +77,12 @@ pub struct TotalHitCountLeafCollector<'a> {
 impl<'a> TotalHitCountLeafCollector<'a> {
     fn new(collector: &'a mut TotalHitCountCollector) -> Self {
         Self { collector }
+    }
+}
+
+impl Display for TotalHitCountLeafCollector<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

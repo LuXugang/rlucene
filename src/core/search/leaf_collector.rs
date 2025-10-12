@@ -18,8 +18,9 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
 
-pub trait LeafCollector {
+pub trait LeafCollector: Display {
     /// Called before successive calls to [`LeafCollector::collect`].
     ///
     /// Implementations that need the score of the current document (passed in

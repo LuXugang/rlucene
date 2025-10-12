@@ -41,6 +41,7 @@ use crate::core::search::total_hits::Relation;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
+use std::fmt::{Display, Formatter};
 
 pub struct TopFieldCollector {
     base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
@@ -437,6 +438,16 @@ where
         self.base.bottom_mut()
     }
 }
+
+impl<LR> Display for TopFieldLeafCollector<'_, LR>
+where
+    LR: LeafReader,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<LR>())
+    }
+}
+
 impl<'a, LR> LeafCollector for TopFieldLeafCollector<'a, LR>
 where
     LR: LeafReader,

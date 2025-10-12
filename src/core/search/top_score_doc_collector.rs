@@ -31,6 +31,7 @@ use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
+use std::fmt::{Display, Formatter};
 /// A [`Collector`] implementation that collects the top-scoring hits,
 /// returning them as a [`TopDocs`].
 ///
@@ -231,6 +232,13 @@ impl<'a> TopScoreDocLeafCollector<'a> {
         Ok(())
     }
 }
+
+impl Display for TopScoreDocLeafCollector<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
     fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
