@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::filter_leaf_collector::FilterLeafCollector;
+use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
 /// A [`Scorer`](crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
 ///
 /// Successive calls to `score()` will return the same result and will not invoke
@@ -70,5 +73,60 @@ where
 
     fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
         todo!()
+    }
+}
+struct ScoreCachingWrappingLeafCollector<LC>
+where
+    LC: LeafCollector,
+{
+    base: FilterLeafCollector<LC>,
+}
+impl<LC> ScoreCachingWrappingLeafCollector<LC>
+where
+    LC: LeafCollector,
+{
+    fn new(collector: LC) -> Self {
+        Self {
+            base: FilterLeafCollector::new(collector),
+        }
+    }
+}
+
+impl<LC> Display for ScoreCachingWrappingLeafCollector<LC>
+where
+    LC: LeafCollector,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.base.fmt(f)
+    }
+}
+
+impl<LC> LeafCollector for ScoreCachingWrappingLeafCollector<LC>
+where
+    LC: LeafCollector,
+{
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        self.base.set_scorer(scorer)
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        // TODO: IMPORTANT 这里不对
+        self.base.collect(doc, scorer)
+    }
+
+    type DocIdSetIterator = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIterator;
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        self.base.competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.base.finish()
     }
 }

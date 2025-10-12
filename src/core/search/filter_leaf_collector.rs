@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -52,7 +51,11 @@ where
         self.in_.collect(doc, scorer)
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIterator = L::DocIdSetIterator;
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        self.in_.competitive_iterator()
+    }
 
     fn finish(&mut self) -> Result<()> {
         self.in_.finish()
