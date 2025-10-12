@@ -75,7 +75,7 @@ where
         todo!()
     }
 }
-struct ScoreCachingWrappingLeafCollector<LC>
+pub struct ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
@@ -85,7 +85,7 @@ impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    fn new(collector: LC) -> Self {
+    pub(crate) fn new(collector: LC) -> Self {
         Self {
             base: FilterLeafCollector::new(collector),
         }

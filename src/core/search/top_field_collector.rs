@@ -20,18 +20,20 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
+use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
-use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::leaf_collector::{Either2LeafCollector, LeafCollector};
 use crate::core::search::leaf_field_comparator::{
     LeafFieldComparator, LeafFieldComparatorDocIdSetIterator, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::scorable::Scorable;
+use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -42,6 +44,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 pub struct TopFieldCollector {
     base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
@@ -217,7 +220,7 @@ impl Collector for TopFieldCollector {
         LR: LeafReader,
         W: Weight<LR>,
     {
-        todo!()
+        unreachable!("should call Simple/PagingFieldCollector instead")
     }
 
     fn score_mode(&self) -> ScoreMode {
@@ -512,6 +515,206 @@ fn can_early_terminate_on_prefix(search_sort: &Sort, index_sort: Option<&Sort>) 
         Ok(false)
     }
 }
+/// Implements a TopFieldCollector over one SortField criteria, with tracking document scores and maxScore
+pub struct SimpleFieldCollector {
+    base: TopFieldCollector,
+    sort: Rc<Sort>,
+}
+impl SimpleFieldCollector {
+    pub fn new(
+        sort: Rc<Sort>,
+        queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+        num_hits: i32,
+        total_hits_threshold: i32,
+        min_score_acc: Option<MaxScoreAccumulator>,
+    ) -> Result<Self> {
+        let base = TopFieldCollector::new(
+            queue,
+            num_hits,
+            total_hits_threshold,
+            sort.needs_scores(),
+            min_score_acc,
+        )?;
+        Ok(Self { base, sort })
+    }
+}
+
+impl Collector for SimpleFieldCollector {
+    type LeafCollector<'a, LR>
+        = Either2LeafCollector<
+        SimpleFieldLeafCollector<'a, LR>,
+        ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
+    >
+    where
+        Self: 'a,
+        LR: LeafReader;
+
+    fn get_leaf_collector<'a, W, LR>(
+        &'a mut self,
+        context: &LeafReaderContext<LR>,
+        _weight: Option<&mut W>,
+    ) -> Result<Self::LeafCollector<'a, LR>>
+    where
+        LR: LeafReader,
+        W: Weight<LR>,
+    {
+        self.base.min_competitive_score = 0.0;
+        self.base.doc_base = context.doc_base;
+        let needs_scores = self.base.needs_scores;
+        let collector = SimpleFieldLeafCollector::new(&mut self.base, &self.sort, context)?;
+        if needs_scores {
+            Ok(Either2LeafCollector::B(
+                ScoreCachingWrappingLeafCollector::new(collector),
+            ))
+        } else {
+            Ok(Either2LeafCollector::A(collector))
+        }
+    }
+
+    fn score_mode(&self) -> ScoreMode {
+        self.base.score_mode
+    }
+}
+
+impl TopDocsCollector for SimpleFieldCollector {
+    type Item = <TopFieldCollector as TopDocsCollector>::Item;
+    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+
+    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+        self.base.pq()
+    }
+
+    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+        self.base.pq_mut()
+    }
+
+    fn total_hits(&self) -> usize {
+        self.base.total_hits()
+    }
+
+    fn get_total_hits_relation(&self) -> Relation {
+        self.base.get_total_hits_relation()
+    }
+
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+        self.base.populate_results(results, how_many)
+    }
+
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.base.new_top_docs(results, start)
+    }
+
+    fn top_docs_size(&self) -> usize {
+        self.base.top_docs_size()
+    }
+
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs()
+    }
+
+    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs_with_start(start)
+    }
+
+    fn top_docs_with_start_limit(
+        &mut self,
+        start: i32,
+        how_many: i32,
+    ) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs_with_start_limit(start, how_many)
+    }
+}
+pub struct SimpleFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    base: TopFieldLeafCollector<'a, LR>,
+}
+impl<'a, LR> SimpleFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    pub fn new(
+        base: &'a mut TopFieldCollector,
+        sort: &Sort,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Self> {
+        let base = TopFieldLeafCollector::new(base, sort, context)?;
+        Ok(Self { base })
+    }
+}
+
+impl<LR> Display for SimpleFieldLeafCollector<'_, LR>
+where
+    LR: LeafReader,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
+    }
+}
+
+impl<'a, LR> LeafCollector for SimpleFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        self.base.set_scorer(scorer)
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        self.base.count_hit(scorer, doc)?;
+        if self.base.base.queue_full {
+            if self.base.threshold_check(doc, scorer)? {
+                return Ok(());
+            }
+            self.base.collect_competitive_hit(doc, scorer)?;
+        } else {
+            let hits_collected = self.base.base.total_hits();
+            debug_assert!(hits_collected <= i32::MAX as usize);
+            self.base
+                .collect_any_hit(doc, hits_collected as i32, scorer)?;
+        }
+        Ok(())
+    }
+
+    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    where
+        DS: DocIdStream,
+        S: Scorable,
+    {
+        self.base.collect_stream(stream, scorer)
+    }
+
+    type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        self.base.competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.base.finish()
+    }
+}
+
+pub struct PagingFieldCollector;
 
 pub enum TopFieldLeafComparatorEnum<LR>
 where
