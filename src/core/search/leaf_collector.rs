@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -106,3 +106,78 @@ pub trait LeafCollector: Display {
         Ok(())
     }
 }
+macro_rules! either_leaf_collector {
+    (
+        $vis:vis $name:ident
+        => { disi: $disi:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Display for $name<$( $T ),+>
+        where
+            $( $T: LeafCollector ),+
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $( Self::$Variant(inner) => Display::fmt(inner, f), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> LeafCollector for $name<$( $T ),+>
+        where
+            $( $T: LeafCollector ),+
+        {
+            type DocIdSetIterator = $disi::<$( <$T as LeafCollector>::DocIdSetIterator ),+>;
+
+            fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+            where
+                S: Scorable,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.set_scorer(scorer), )+
+                }
+            }
+
+            fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+            where
+                S: Scorable,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.collect(doc, scorer), )+
+                }
+            }
+
+            fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+            where
+                DS: DocIdStream,
+                S: Scorable,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.collect_stream(stream, scorer), )+
+                }
+            }
+
+            fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.competitive_iterator()
+                        .map(|opt| opt.map($disi::$Variant)), )+
+                }
+            }
+
+            fn finish(&mut self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.finish(), )+
+                }
+            }
+        }
+    };
+}
+either_leaf_collector!(
+    pub Either2LeafCollector
+    => { disi: Either2DocIdSetIterator }
+    { A: A, B: B }
+);
