@@ -14,3 +14,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::util::error::lucene_error::Result;
+/// A [`Scorer`](crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
+///
+/// Successive calls to `score()` will return the same result and will not invoke
+/// the wrapped scorer’s `score()` method, unless the current document has changed.
+///
+/// This struct is useful due to changes in the [`Collector`](crate::core::search::collector::Collector) interface, where the score
+/// is not computed for a document by default—only if the collector explicitly requests it.
+///
+/// Some collectors may need to use the score in multiple places, but they only have a
+/// [`Scorer`](crate::core::search::scorer::Scorer) reference and could otherwise end up computing the score of the same
+/// document more than once.
+pub struct ScoreCachingWrappingScorer<S>
+where
+    S: Scorable,
+{
+    score_is_cached: bool,
+    cur_score: f32,
+    in_: S,
+}
+/// Creates a new instance by wrapping the given scorer.
+impl<S> ScoreCachingWrappingScorer<S>
+where
+    S: Scorable,
+{
+    pub fn new(in_: S) -> Self {
+        Self {
+            score_is_cached: false,
+            cur_score: 0.0,
+            in_,
+        }
+    }
+}
+
+impl<S> Scorable for ScoreCachingWrappingScorer<S>
+where
+    S: Scorable,
+{
+    fn score(&mut self) -> Result<f32> {
+        if !self.score_is_cached {
+            self.cur_score = self.in_.score()?;
+            self.score_is_cached = true;
+        }
+        Ok(self.cur_score)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        self.in_.set_min_competitive_score(min_score)
+    }
+
+    type Scorable = DummyScorable;
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+        todo!()
+    }
+}
