@@ -456,3 +456,23 @@ where
         ))
     }
 }
+impl<S> TopDocsLike for TopDocs<S>
+where
+    S: ScoreDocLike,
+{
+    fn total_hits(&self) -> &TotalHits {
+        &self.total_hits
+    }
+
+    type ScoreDocLike = S;
+
+    fn score_docs(&self) -> &[Self::ScoreDocLike] {
+        &self.score_docs
+    }
+}
+
+pub trait TopDocsLike {
+    fn total_hits(&self) -> &TotalHits;
+    type ScoreDocLike: ScoreDocLike;
+    fn score_docs(&self) -> &[Self::ScoreDocLike];
+}

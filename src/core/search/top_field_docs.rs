@@ -16,7 +16,7 @@
  */
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::total_hits::TotalHits;
 
 /// Represents hits returned by IndexSearcher.search(Query, int, Sort).
@@ -39,5 +39,17 @@ impl TopFieldDocs {
     ) -> Self {
         let base = TopDocs::new(total_hits, score_docs);
         Self { base, fields }
+    }
+}
+
+impl TopDocsLike for TopFieldDocs {
+    fn total_hits(&self) -> &TotalHits {
+        &self.base.total_hits
+    }
+
+    type ScoreDocLike = FieldDoc;
+
+    fn score_docs(&self) -> &[Self::ScoreDocLike] {
+        &self.base.score_docs
     }
 }
