@@ -471,6 +471,7 @@ where
         Ok(self.comparator.competitive_iterator(comparators))
     }
 }
+
 fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
     Ok(can_early_terminate_on_doc_id(search_sort)?
         || can_early_terminate_on_prefix(search_sort, index_sort)?)
@@ -499,6 +500,7 @@ fn can_early_terminate_on_prefix(search_sort: &Sort, index_sort: Option<&Sort>) 
         Ok(false)
     }
 }
+
 pub enum TopFieldLeafComparatorEnum<LR>
 where
     LR: LeafReader,
