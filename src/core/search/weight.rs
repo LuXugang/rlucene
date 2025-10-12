@@ -420,7 +420,7 @@ where
     while doc < max {
         if has_competitive {
             let mut advance_to = None;
-            if let Some(iterator) = collector.competitive_iterator()? {
+            if let Some(mut iterator) = collector.competitive_iterator()? {
                 debug_assert!(iterator.doc_id() <= doc);
                 let candidate = if iterator.doc_id() < doc {
                     iterator.advance(doc)?

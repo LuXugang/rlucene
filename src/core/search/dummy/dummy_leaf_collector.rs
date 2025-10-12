@@ -46,7 +46,7 @@ impl LeafCollector for DummyLeafCollector {
 
     type DocIdSetIterator = DummyDocIdSetIterator;
 
-    fn competitive_iterator(&mut self) -> Result<Option<&mut Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -83,7 +83,7 @@ pub trait LeafCollector {
     /// comparators provide skipping functionality over non-competitive docs.
     ///
     /// The default is `None`, meaning no competitive iterator is provided.
-    fn competitive_iterator(&mut self) -> Result<Option<&mut Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(None)
     }
 

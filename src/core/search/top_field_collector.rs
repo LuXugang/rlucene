@@ -20,7 +20,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_value_hit_queue::{
@@ -458,17 +457,18 @@ where
         Ok(())
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
     where
         S: Scorable,
     {
-        todo!()
+        unreachable!("should not be called")
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIterator = TopFieldLeafComparatorEnumIter<LR>;
 
-    fn competitive_iterator(&mut self) -> Result<Option<&mut Self::DocIdSetIterator>> {
-        todo!()
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        let comparators = self.base.base.pq.get_comparators_mut();
+        Ok(self.comparator.competitive_iterator(comparators))
     }
 }
 fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {
@@ -584,12 +584,7 @@ where
     pub(crate) fn competitive_iterator(
         &mut self,
         comparators: &mut [FieldComparatorEnum],
-    ) -> Option<
-        Either2DocIdSetIterator<
-            LeafFieldComparatorDocIdSetIterator<LR>,
-            <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIterator,
-        >,
-    > {
+    ) -> Option<TopFieldLeafComparatorEnumIter<LR>> {
         match self {
             Self::Multi(inner) => inner
                 .competitive_iterator(comparators)
@@ -610,3 +605,7 @@ where
         }
     }
 }
+pub type TopFieldLeafComparatorEnumIter<LR> = Either2DocIdSetIterator<
+    LeafFieldComparatorDocIdSetIterator<LR>,
+    <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIterator,
+>;
