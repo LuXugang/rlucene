@@ -113,6 +113,7 @@ impl Collector for TopScoreDocCollector {
 impl TopDocsCollector for TopScoreDocCollector {
     type Item = ScoreDoc;
     type Cmp = HitQueueComparator;
+    type TopDocsLike = TopDocs<Self::Item>;
 
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
         &self.base.pq
@@ -130,7 +131,7 @@ impl TopDocsCollector for TopScoreDocCollector {
         self.base.total_hits_relation
     }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
     where
         Self: Sized,
     {

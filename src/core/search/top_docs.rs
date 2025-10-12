@@ -16,7 +16,7 @@
  */
 use crate::core::index::sort::Sort;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
-use crate::core::search::field_doc::FieldDoc;
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort_field::SortFiledBase;
@@ -51,7 +51,8 @@ where
 }
 pub mod top_docs_util {
     use crate::core::index::sort::Sort;
-    use crate::core::search::field_doc::FieldDoc;
+
+    use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::top_docs::{
         DefaultTieBreaker, MergeSortQueueCmp, ScoreMergeSortQueueCmp, TopDocs, merge_aux,
@@ -69,9 +70,9 @@ pub mod top_docs_util {
     ///
     /// lucene.experimental
     pub fn merge_top_field_docs<C>(
-        sort: Sort,
+        sort: &Sort,
         top_n: i32,
-        shard_hits: Vec<TopDocs<FieldDoc>>,
+        shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
     ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
     }
@@ -82,10 +83,10 @@ pub mod top_docs_util {
     /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
     /// belong to the same searcher).
     pub fn merge_top_field_docs_with_start(
-        sort: Sort,
+        sort: &Sort,
         start: i32,
         top_n: i32,
-        shard_hits: Vec<TopDocs<FieldDoc>>,
+        shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
     ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_comparator(
             sort,
@@ -97,21 +98,22 @@ pub mod top_docs_util {
     }
     /// Pass in a custom tie breaker for ordering results
     pub fn merge_top_field_docs_with_comparator<C>(
-        mut sort: Sort,
+        sort: &Sort,
         start: i32,
         size: i32,
-        shard_hits: Vec<TopDocs<FieldDoc>>,
+        shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
         tie_breaker: C,
     ) -> Result<TopFieldDocs>
     where
-        C: Comparator<FieldDoc>,
+        C: Comparator<TopFieldScoreDoc>,
     {
         let len = shard_hits.len();
         debug_assert!(len <= i32::MAX as usize);
-        let cmp = MergeSortQueueCmp::new(&sort, &shard_hits, tie_breaker)?;
+        let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
         let queue = PriorityQueue::new(len as i32, &cmp)?;
         let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
-        Ok(TopFieldDocs::new(total_hits, hits, sort.take_sort()))
+        // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+        Ok(TopFieldDocs::new(total_hits, hits, vec![]))
     }
     /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
     /// sorting by score. Each [`TopDocs`] instance must be sorted.
@@ -397,9 +399,9 @@ where
 
 pub(crate) struct MergeSortQueueCmp<'a, C>
 where
-    C: Comparator<FieldDoc>,
+    C: Comparator<TopFieldScoreDoc>,
 {
-    shard_hits: &'a Vec<TopDocs<FieldDoc>>,
+    shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
     comparators: Vec<FieldComparatorEnum>,
     reverse_mul: Vec<i32>,
     tie_breaker: C,
@@ -407,11 +409,11 @@ where
 
 impl<'a, C> MergeSortQueueCmp<'a, C>
 where
-    C: Comparator<FieldDoc>,
+    C: Comparator<TopFieldScoreDoc>,
 {
     pub fn new(
         sort: &Sort,
-        shard_hits: &'a Vec<TopDocs<FieldDoc>>,
+        shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
         tie_breaker: C,
     ) -> Result<Self> {
         let mut comparators = Vec::new();
@@ -432,7 +434,7 @@ where
 
 impl<C> Compare<ShardRef> for MergeSortQueueCmp<'_, C>
 where
-    C: Comparator<FieldDoc>,
+    C: Comparator<TopFieldScoreDoc>,
 {
     fn less_than(&self, first: &ShardRef, second: &ShardRef) -> Result<bool> {
         let first_fd =
@@ -442,7 +444,7 @@ where
 
         for (i, comp) in self.comparators.iter().enumerate() {
             let cmp = self.reverse_mul[i]
-                * comp.compare_values(first_fd.fields.get(i), second_fd.fields.get(i));
+                * comp.compare_values(first_fd.fields()?.get(i), second_fd.fields()?.get(i));
             if cmp != 0 {
                 return Ok(cmp < 0);
             }

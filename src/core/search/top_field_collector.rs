@@ -35,18 +35,23 @@ use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
-use crate::core::search::total_hits::Relation;
+use crate::core::search::top_field_docs::TopFieldDocs;
+use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-
+use std::vec;
+/// A [`Collector`] that sorts by [`SortField`] using [`FieldComparator`]s.
+///
+/// See the constructor of [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for instantiating a
+/// [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) with support for concurrency in [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher).
 pub struct TopFieldCollector {
     base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
     num_hits: i32,
@@ -232,6 +237,7 @@ impl Collector for TopFieldCollector {
 impl TopDocsCollector for TopFieldCollector {
     type Item = TopFieldScoreDoc;
     type Cmp = FieldValueHitQueueComparator;
+    type TopDocsLike = TopFieldDocs;
 
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
         &self.base.pq
@@ -258,11 +264,17 @@ impl TopDocsCollector for TopFieldCollector {
         Ok(())
     }
 
-    fn new_top_docs(&self, _results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
     where
         Self: Sized,
     {
-        todo!()
+        let result = results.unwrap_or_else(|| vec![ScoreDoc::default().into()]);
+        // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+        TopFieldDocs::new(
+            TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
+            result,
+            vec![],
+        )
     }
 }
 
@@ -580,6 +592,7 @@ impl Collector for SimpleFieldCollector {
 impl TopDocsCollector for SimpleFieldCollector {
     type Item = <TopFieldCollector as TopDocsCollector>::Item;
     type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
 
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
         self.base.pq()
@@ -601,7 +614,7 @@ impl TopDocsCollector for SimpleFieldCollector {
         self.base.populate_results(results, how_many)
     }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> TopDocs<Self::Item>
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
     where
         Self: Sized,
     {
@@ -612,25 +625,21 @@ impl TopDocsCollector for SimpleFieldCollector {
         self.base.top_docs_size()
     }
 
-    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
         self.base.top_docs()
     }
 
-    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
         self.base.top_docs_with_start(start)
     }
 
-    fn top_docs_with_start_limit(
-        &mut self,
-        start: i32,
-        how_many: i32,
-    ) -> Result<TopDocs<Self::Item>>
+    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
@@ -805,6 +814,7 @@ impl Collector for PagingFieldCollector {
 impl TopDocsCollector for PagingFieldCollector {
     type Item = <TopFieldCollector as TopDocsCollector>::Item;
     type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
 
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
         self.base.pq()
@@ -826,7 +836,7 @@ impl TopDocsCollector for PagingFieldCollector {
         self.base.populate_results(results, how_many)
     }
 
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> TopDocs<Self::Item>
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
     where
         Self: Sized,
     {
@@ -837,25 +847,21 @@ impl TopDocsCollector for PagingFieldCollector {
         self.base.top_docs_size()
     }
 
-    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
         self.base.top_docs()
     }
 
-    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
         self.base.top_docs_with_start(start)
     }
 
-    fn top_docs_with_start_limit(
-        &mut self,
-        start: i32,
-        how_many: i32,
-    ) -> Result<TopDocs<Self::Item>>
+    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {

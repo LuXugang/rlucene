@@ -17,7 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
-use crate::core::search::field_doc::FieldDoc;
+use crate::core::search::field_doc::{FieldDoc, FieldsValue};
 use crate::core::search::leaf_field_comparator::LeafFieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -258,9 +258,6 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     /// The newly created [`FieldDoc`].
     pub(crate) fn fill_fields(&self, entry: TopFieldScoreDoc) -> Result<TopFieldScoreDoc> {
         match entry {
-            TopFieldScoreDoc::FieldDoc(_) => Err(LuceneError::illegal_state(
-                "TopFieldScoreDoc's variant should be Entry here",
-            )),
             TopFieldScoreDoc::Entry(entry) => {
                 let comparators = self.get_comparators();
                 let n = comparators.len();
@@ -270,6 +267,9 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
                 }
                 Ok(FieldDoc::with_fields(entry.base.doc, entry.base.score, fields).into())
             },
+            _ => Err(LuceneError::illegal_state(
+                "TopFieldScoreDoc must be Entry variant in fill_fields",
+            )),
         }
     }
 }
@@ -277,27 +277,36 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
 #[derive(Clone)]
 pub enum TopFieldScoreDoc {
     Entry(Entry),
-    FieldDoc(FieldDoc),
+    Field(FieldDoc),
+    Score(ScoreDoc),
 }
 impl TopFieldScoreDoc {
+    pub fn fields(&self) -> Result<&[FieldsValue]> {
+        match self {
+            TopFieldScoreDoc::Field(fd) => Ok(fd.fields.as_slice()),
+            _ => Err(LuceneError::illegal_state("not a FieldDoc variant")),
+        }
+    }
     pub fn slot(&self) -> Result<i32> {
         match self {
             TopFieldScoreDoc::Entry(e) => Ok(e.slot),
-            TopFieldScoreDoc::FieldDoc(_) => {
-                Err(LuceneError::illegal_state("FieldDoc does not have slot"))
-            },
+            _ => Err(LuceneError::illegal_state(
+                "other variants do not have slot",
+            )),
         }
     }
     pub fn doc(&self) -> i32 {
         match self {
             TopFieldScoreDoc::Entry(e) => e.doc(),
-            TopFieldScoreDoc::FieldDoc(fd) => fd.doc(),
+            TopFieldScoreDoc::Field(fd) => fd.doc(),
+            TopFieldScoreDoc::Score(sd) => sd.doc(),
         }
     }
     pub fn base(&mut self) -> &mut ScoreDoc {
         match self {
             TopFieldScoreDoc::Entry(e) => &mut e.base,
-            TopFieldScoreDoc::FieldDoc(fd) => &mut fd.base,
+            TopFieldScoreDoc::Field(fd) => &mut fd.base,
+            TopFieldScoreDoc::Score(sd) => sd,
         }
     }
 }
@@ -306,7 +315,8 @@ impl Display for TopFieldScoreDoc {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             TopFieldScoreDoc::Entry(e) => write!(f, "Entry: {}", e),
-            TopFieldScoreDoc::FieldDoc(fd) => write!(f, "FieldDoc: {}", fd),
+            TopFieldScoreDoc::Field(fd) => write!(f, "FieldDoc: {}", fd),
+            TopFieldScoreDoc::Score(sd) => write!(f, "ScoreDoc: {}", sd),
         }
     }
 }
@@ -321,21 +331,24 @@ impl ScoreDocLike for TopFieldScoreDoc {
     fn doc(&self) -> i32 {
         match self {
             TopFieldScoreDoc::Entry(e) => e.doc(),
-            TopFieldScoreDoc::FieldDoc(fd) => fd.doc(),
+            TopFieldScoreDoc::Field(fd) => fd.doc(),
+            TopFieldScoreDoc::Score(sd) => sd.doc(),
         }
     }
 
     fn score(&self) -> f32 {
         match self {
             TopFieldScoreDoc::Entry(e) => e.score(),
-            TopFieldScoreDoc::FieldDoc(fd) => fd.score(),
+            TopFieldScoreDoc::Field(fd) => fd.score(),
+            TopFieldScoreDoc::Score(sd) => sd.score(),
         }
     }
 
     fn shard_index(&self) -> i32 {
         match self {
             TopFieldScoreDoc::Entry(e) => e.shard_index(),
-            TopFieldScoreDoc::FieldDoc(fd) => fd.shard_index(),
+            TopFieldScoreDoc::Field(fd) => fd.shard_index(),
+            TopFieldScoreDoc::Score(sd) => sd.shard_index(),
         }
     }
 }
@@ -347,6 +360,11 @@ impl From<Entry> for TopFieldScoreDoc {
 
 impl From<FieldDoc> for TopFieldScoreDoc {
     fn from(field_doc: FieldDoc) -> Self {
-        TopFieldScoreDoc::FieldDoc(field_doc)
+        TopFieldScoreDoc::Field(field_doc)
+    }
+}
+impl From<ScoreDoc> for TopFieldScoreDoc {
+    fn from(score_doc: ScoreDoc) -> Self {
+        TopFieldScoreDoc::Score(score_doc)
     }
 }

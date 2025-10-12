@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::field_doc::FieldDoc;
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::total_hits::TotalHits;
 
 /// Represents hits returned by IndexSearcher.search(Query, int, Sort).
 pub struct TopFieldDocs {
-    pub(crate) base: TopDocs<FieldDoc>,
+    pub(crate) base: TopDocs<TopFieldScoreDoc>,
     /// The fields which were used to sort results by.
     fields: Vec<SortFieldEnum>,
 }
@@ -34,7 +34,7 @@ impl TopFieldDocs {
     /// - `fields`: The sort criteria used to find the top hits.
     pub fn new(
         total_hits: TotalHits,
-        score_docs: Vec<FieldDoc>,
+        score_docs: Vec<TopFieldScoreDoc>,
         fields: Vec<SortFieldEnum>,
     ) -> Self {
         let base = TopDocs::new(total_hits, score_docs);
@@ -47,7 +47,7 @@ impl TopDocsLike for TopFieldDocs {
         &self.base.total_hits
     }
 
-    type ScoreDocLike = FieldDoc;
+    type ScoreDocLike = TopFieldScoreDoc;
 
     fn score_docs(&self) -> &[Self::ScoreDocLike] {
         &self.base.score_docs

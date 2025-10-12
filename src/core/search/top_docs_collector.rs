@@ -16,7 +16,7 @@
  */
 use crate::core::search::collector::Collector;
 use crate::core::search::score_doc::ScoreDocLike;
-use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -36,6 +36,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 pub trait TopDocsCollector: Collector {
     type Item: ScoreDocLike;
     type Cmp: Compare<Self::Item>;
+    type TopDocsLike: TopDocsLike;
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp>;
     fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp>;
     fn total_hits(&self) -> usize;
@@ -60,7 +61,14 @@ pub trait TopDocsCollector: Collector {
     ///
     /// # Notes
     /// This method is the Rust equivalent of Lucene's `TopDocsCollector.newTopDocs(ScoreDoc[] results, int start)`.
-    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> TopDocs<Self::Item>
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
+    where
+        Self: Sized;
+    fn default_new_top_docs(
+        &self,
+        results: Option<Vec<Self::Item>>,
+        _start: i32,
+    ) -> TopDocs<Self::Item>
     where
         Self: Sized,
     {
@@ -80,7 +88,7 @@ pub trait TopDocsCollector: Collector {
     }
 
     /// Returns the top docs that were collected by this collector.
-    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
@@ -98,7 +106,7 @@ pub trait TopDocsCollector: Collector {
     /// If you need to call it more than once, passing each time a different `start`,
     /// you should call [`TopDocsCollector::top_docs`] and work with the returned [`TopDocs`] object,
     /// which will contain all the results this search execution collected.
-    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
@@ -124,7 +132,7 @@ pub trait TopDocsCollector: Collector {
         &mut self,
         start: i32,
         mut how_many: i32,
-    ) -> Result<TopDocs<Self::Item>>
+    ) -> Result<Self::TopDocsLike>
     where
         Self: Sized,
     {
