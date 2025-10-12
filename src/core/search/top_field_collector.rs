@@ -23,6 +23,7 @@ use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
@@ -713,8 +714,251 @@ where
         self.base.finish()
     }
 }
+/// Implements a TopFieldCollector when after is Some.
+pub struct PagingFieldCollector {
+    base: TopFieldCollector,
+    sort: Rc<Sort>,
+    collected_hits: i32,
+    after: FieldDoc,
+}
 
-pub struct PagingFieldCollector;
+impl PagingFieldCollector {
+    pub fn new(
+        sort: Rc<Sort>,
+        queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+        mut after: FieldDoc,
+        num_hits: i32,
+        total_hits_threshold: i32,
+        min_score_acc: Option<MaxScoreAccumulator>,
+    ) -> Result<Self> {
+        let mut base = TopFieldCollector::new(
+            queue,
+            num_hits,
+            total_hits_threshold,
+            sort.needs_scores(),
+            min_score_acc,
+        )?;
+
+        // set top values for comparators
+        let comparators = base.base.pq.get_comparators_mut();
+        let fields = std::mem::take(&mut after.fields);
+
+        for (comp, top_value) in comparators.iter_mut().zip(fields.into_iter()) {
+            comp.set_top_value(top_value);
+        }
+
+        Ok(Self {
+            base,
+            sort,
+            collected_hits: 0,
+            after,
+        })
+    }
+}
+
+impl Collector for PagingFieldCollector {
+    type LeafCollector<'a, LR>
+        = Either2LeafCollector<
+        PagingFieldLeafCollector<'a, LR>,
+        ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
+    >
+    where
+        Self: 'a,
+        LR: LeafReader;
+
+    fn get_leaf_collector<'a, W, LR>(
+        &'a mut self,
+        context: &LeafReaderContext<LR>,
+        _weight: Option<&mut W>,
+    ) -> Result<Self::LeafCollector<'a, LR>>
+    where
+        LR: LeafReader,
+        W: Weight<LR>,
+    {
+        self.base.min_competitive_score = 0.0;
+        self.base.doc_base = context.doc_base;
+        let after_doc = self.after.base.doc - self.base.doc_base;
+
+        let needs_scores = self.base.needs_scores;
+        let collector = PagingFieldLeafCollector::new(
+            &mut self.base,
+            &self.sort,
+            context,
+            after_doc,
+            &mut self.collected_hits,
+        )?;
+
+        if needs_scores {
+            Ok(Either2LeafCollector::B(
+                ScoreCachingWrappingLeafCollector::new(collector),
+            ))
+        } else {
+            Ok(Either2LeafCollector::A(collector))
+        }
+    }
+
+    fn score_mode(&self) -> ScoreMode {
+        self.base.score_mode
+    }
+}
+
+impl TopDocsCollector for PagingFieldCollector {
+    type Item = <TopFieldCollector as TopDocsCollector>::Item;
+    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+
+    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+        self.base.pq()
+    }
+
+    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+        self.base.pq_mut()
+    }
+
+    fn total_hits(&self) -> usize {
+        self.base.total_hits()
+    }
+
+    fn get_total_hits_relation(&self) -> Relation {
+        self.base.get_total_hits_relation()
+    }
+
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+        self.base.populate_results(results, how_many)
+    }
+
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> TopDocs<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.base.new_top_docs(results, start)
+    }
+
+    fn top_docs_size(&self) -> usize {
+        self.base.top_docs_size()
+    }
+
+    fn top_docs(&mut self) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs()
+    }
+
+    fn top_docs_with_start(&mut self, start: i32) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs_with_start(start)
+    }
+
+    fn top_docs_with_start_limit(
+        &mut self,
+        start: i32,
+        how_many: i32,
+    ) -> Result<TopDocs<Self::Item>>
+    where
+        Self: Sized,
+    {
+        self.base.top_docs_with_start_limit(start, how_many)
+    }
+}
+
+/// Leaf collector for paging-based top field collection.
+pub struct PagingFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    base: TopFieldLeafCollector<'a, LR>,
+    after_doc: i32,
+    collected_hits: &'a mut i32,
+}
+
+impl<'a, LR> PagingFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    pub fn new(
+        base: &'a mut TopFieldCollector,
+        sort: &Sort,
+        context: &LeafReaderContext<LR>,
+        after_doc: i32,
+        collected_hits: &'a mut i32,
+    ) -> Result<Self> {
+        let base = TopFieldLeafCollector::new(base, sort, context)?;
+        Ok(Self {
+            base,
+            after_doc,
+            collected_hits,
+        })
+    }
+}
+
+impl<LR> Display for PagingFieldLeafCollector<'_, LR>
+where
+    LR: LeafReader,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", std::any::type_name::<LR>(), self.base)
+    }
+}
+
+impl<'a, LR> LeafCollector for PagingFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        self.base.set_scorer(scorer)
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        self.base.count_hit(scorer, doc)?;
+
+        if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
+            return Ok(());
+        }
+
+        let top_cmp = {
+            let comparators = self.base.base.base.pq.get_comparators_mut();
+            self.base.comparator.compare_top(doc, scorer, comparators)? * self.base.reverse_mul
+        };
+
+        if top_cmp > 0 || (top_cmp == 0 && doc <= self.after_doc) {
+            // already collected in previous page
+            if self.base.base.base.total_hits_relation == Relation::EqualTo {
+                // check if totalHitsThreshold is reached and we can update competitive score
+                // necessary to account for possible update to global min competitive score
+                self.base.base.update_min_competitive_score(scorer)?;
+            }
+            return Ok(());
+        }
+
+        if self.base.base.queue_full {
+            self.base.collect_competitive_hit(doc, scorer)?;
+        } else {
+            *self.collected_hits += 1;
+            self.base
+                .collect_any_hit(doc, *self.collected_hits, scorer)?;
+        }
+
+        Ok(())
+    }
+
+    type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        self.base.competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.base.finish()
+    }
+}
 
 pub enum TopFieldLeafComparatorEnum<LR>
 where
