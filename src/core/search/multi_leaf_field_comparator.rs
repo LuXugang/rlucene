@@ -34,7 +34,7 @@ impl<LR> MultiLeafFieldComparator<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(
+    pub(crate) fn new(
         comparators: Vec<LeafFieldComparatorEnum<LR>>,
         reverse_mul: Rc<Vec<i32>>,
     ) -> Result<Self> {
@@ -51,24 +51,29 @@ where
             reverse_mul,
         })
     }
-}
-impl<LR> LeafFieldComparator for MultiLeafFieldComparator<LR>
-where
-    LR: LeafReader,
-{
-    type FieldComparator = FieldComparatorEnum;
-    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-        for comp in &mut self.comparators {
-            comp.set_bottom(slot, comparator)?;
+    pub(crate) fn set_bottom(
+        &mut self,
+        slot: usize,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<()> {
+        debug_assert_eq!(
+            self.comparators.len(),
+            comparators.len(),
+            "comparators length mismatch"
+        );
+
+        for (comp, c) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+            comp.set_bottom(slot, c)?;
         }
+
         Ok(())
     }
 
-    fn compare_bottom<S>(
+    pub(crate) fn compare_bottom<S>(
         &mut self,
         doc: i32,
         scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
         S: Scorable,
@@ -77,16 +82,24 @@ where
             !self.comparators.is_empty(),
             "comparators list should not be empty"
         );
-
-        let mut cmp =
-            self.reverse_mul[0] * self.comparators[0].compare_bottom(doc, scorer, comparator)?;
+        debug_assert_eq!(
+            self.comparators.len(),
+            comparators.len(),
+            "comparators length mismatch"
+        );
+        let cmp = self.reverse_mul[0]
+            * self.comparators[0].compare_bottom(doc, scorer, &mut comparators[0])?;
         if cmp != 0 {
             return Ok(cmp);
         }
-
-        for i in 1..self.comparators.len() {
-            cmp = self.reverse_mul[i]
-                * self.comparators[i].compare_bottom(doc, scorer, comparator)?;
+        for ((reverse, comp_self), comp_arg) in self
+            .reverse_mul
+            .iter()
+            .zip(self.comparators.iter_mut())
+            .zip(comparators.iter_mut())
+            .skip(1)
+        {
+            let cmp = *reverse * comp_self.compare_bottom(doc, scorer, comp_arg)?;
             if cmp != 0 {
                 return Ok(cmp);
             }
@@ -95,11 +108,11 @@ where
         Ok(0)
     }
 
-    fn compare_top<S>(
+    pub(crate) fn compare_top<S>(
         &mut self,
         doc: i32,
         scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
         S: Scorable,
@@ -108,15 +121,26 @@ where
             !self.comparators.is_empty(),
             "comparators list should not be empty"
         );
+        debug_assert_eq!(
+            self.comparators.len(),
+            comparators.len(),
+            "comparators length mismatch"
+        );
 
-        let mut cmp =
-            self.reverse_mul[0] * self.comparators[0].compare_top(doc, scorer, comparator)?;
+        let mut cmp = self.reverse_mul[0]
+            * self.comparators[0].compare_top(doc, scorer, &mut comparators[0])?;
         if cmp != 0 {
             return Ok(cmp);
         }
 
-        for i in 1..self.comparators.len() {
-            cmp = self.reverse_mul[i] * self.comparators[i].compare_top(doc, scorer, comparator)?;
+        for ((reverse, comp_self), comp_arg) in self
+            .reverse_mul
+            .iter()
+            .zip(self.comparators.iter_mut())
+            .zip(comparators.iter_mut())
+            .skip(1)
+        {
+            cmp = *reverse * comp_self.compare_top(doc, scorer, comp_arg)?;
             if cmp != 0 {
                 return Ok(cmp);
             }
@@ -125,46 +149,63 @@ where
         Ok(0)
     }
 
-    fn copy<S>(
+    pub(crate) fn copy<S>(
         &mut self,
         slot: usize,
         doc: i32,
         scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
         S: Scorable,
     {
-        for comp in &mut self.comparators {
-            comp.copy(slot, doc, scorer, comparator)?;
+        debug_assert_eq!(
+            self.comparators.len(),
+            comparators.len(),
+            "comparators length mismatch"
+        );
+
+        for (comp_self, comp_arg) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+            comp_self.copy(slot, doc, scorer, comp_arg)?;
         }
+
         Ok(())
     }
 
-    fn set_scorer<S>(
+    pub(crate) fn set_scorer<S>(
         &mut self,
         scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
         S: Scorable,
     {
-        for comp in &mut self.comparators {
-            comp.set_scorer(scorer, comparator)?;
+        debug_assert_eq!(
+            self.comparators.len(),
+            comparators.len(),
+            "comparators length mismatch"
+        );
+
+        for (comp_self, comp_arg) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+            comp_self.set_scorer(scorer, comp_arg)?;
         }
+
         Ok(())
     }
 
-    type DocIdSetIterator = LeafFieldComparatorDocIdSetIterator<LR>;
-
-    fn competitive_iterator(
+    pub(crate) fn competitive_iterator(
         &mut self,
-        comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        self.comparators[0].competitive_iterator(comparator)
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Option<LeafFieldComparatorDocIdSetIterator<LR>> {
+        debug_assert!(!comparators.is_empty());
+        self.comparators[0].competitive_iterator(&mut comparators[0])
     }
 
-    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
-        self.comparators[0].set_hits_threshold_reached(comparator)
+    pub(crate) fn set_hits_threshold_reached(
+        &mut self,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<()> {
+        // this is needed for skipping functionality that is only relevant for the 1st comparator
+        self.comparators[0].set_hits_threshold_reached(&mut comparators[0])
     }
 }

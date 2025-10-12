@@ -24,9 +24,7 @@ use crate::core::search::comparators::numeric_comparator::NumericCompetitiveIter
 use crate::core::search::comparators::term_ord_val_comparator::{
     TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
 };
-use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, Either4DocIdSetIterator,
-};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::field_comparator::{
     FieldComparator, FieldComparatorEnum, RelevanceLeafComparator, TermValLeafComparator,
@@ -205,110 +203,6 @@ pub trait LeafFieldComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()> {
         Ok(())
-    }
-}
-pub enum Either2LeafFieldComparator<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> LeafFieldComparator for Either2LeafFieldComparator<A, B>
-where
-    A: LeafFieldComparator,
-    B: LeafFieldComparator<FieldComparator = A::FieldComparator>,
-{
-    type FieldComparator = A::FieldComparator;
-    fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
-        match self {
-            Self::A(inner) => inner.set_bottom(slot, comparator),
-            Self::B(inner) => inner.set_bottom(slot, comparator),
-        }
-    }
-
-    fn compare_bottom<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable,
-    {
-        match self {
-            Self::A(inner) => inner.compare_bottom(doc, scorer, comparator),
-            Self::B(inner) => inner.compare_bottom(doc, scorer, comparator),
-        }
-    }
-
-    fn compare_top<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<i32>
-    where
-        S: Scorable,
-    {
-        match self {
-            Self::A(inner) => inner.compare_top(doc, scorer, comparator),
-            Self::B(inner) => inner.compare_top(doc, scorer, comparator),
-        }
-    }
-
-    fn copy<S>(
-        &mut self,
-        slot: usize,
-        doc: i32,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable,
-    {
-        match self {
-            Self::A(inner) => inner.copy(slot, doc, scorer, comparator),
-            Self::B(inner) => inner.copy(slot, doc, scorer, comparator),
-        }
-    }
-
-    fn set_scorer<S>(
-        &mut self,
-        scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
-    ) -> Result<()>
-    where
-        S: Scorable,
-    {
-        match self {
-            Self::A(inner) => inner.set_scorer(scorer, comparator),
-            Self::B(inner) => inner.set_scorer(scorer, comparator),
-        }
-    }
-
-    type DocIdSetIterator = Either2DocIdSetIterator<
-        <A as LeafFieldComparator>::DocIdSetIterator,
-        <B as LeafFieldComparator>::DocIdSetIterator,
-    >;
-
-    fn competitive_iterator(
-        &mut self,
-        comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        match self {
-            Self::A(inner) => inner
-                .competitive_iterator(comparator)
-                .map(Either2DocIdSetIterator::A),
-            Self::B(inner) => inner
-                .competitive_iterator(comparator)
-                .map(Either2DocIdSetIterator::B),
-        }
-    }
-
-    fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
-        match self {
-            Self::A(inner) => inner.set_hits_threshold_reached(comparator),
-            Self::B(inner) => inner.set_hits_threshold_reached(comparator),
-        }
     }
 }
 

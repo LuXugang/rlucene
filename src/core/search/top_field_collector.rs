@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
 use crate::core::search::collector::Collector;
+use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
@@ -27,7 +28,7 @@ use crate::core::search::field_value_hit_queue::{
 };
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::leaf_field_comparator::{
-    Either2LeafFieldComparator, LeafFieldComparator, LeafFieldComparatorEnum,
+    LeafFieldComparator, LeafFieldComparatorDocIdSetIterator, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
@@ -267,8 +268,7 @@ where
     base: &'a mut TopFieldCollector,
     reverse_mul: i32,
     collected_all_competitive_hits: bool,
-    comparator:
-        Either2LeafFieldComparator<LeafFieldComparatorEnum<LR>, MultiLeafFieldComparator<LR>>,
+    comparator: TopFieldLeafComparatorEnum<LR>,
 }
 impl<'a, LR> TopFieldLeafCollector<'a, LR>
 where
@@ -300,12 +300,12 @@ where
         let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
             (
                 reverse_muls[0],
-                Either2LeafFieldComparator::A(leaf_comparators.into_iter().next().unwrap()),
+                TopFieldLeafComparatorEnum::Single(leaf_comparators.into_iter().next().unwrap()),
             )
         } else {
             (
                 1,
-                Either2LeafFieldComparator::B(MultiLeafFieldComparator::new(
+                TopFieldLeafComparatorEnum::Multi(MultiLeafFieldComparator::new(
                     leaf_comparators,
                     reverse_muls,
                 )?),
@@ -335,28 +335,22 @@ where
             && self.base.base.total_hits_relation == Relation::EqualTo
             && hit_count_so_far > self.base.total_hits_threshold
         {
-            let comparator = &mut self.base.base.pq.get_comparators_mut()[0];
-            self.comparator.set_hits_threshold_reached(comparator)?;
+            let comparators = self.base.base.pq.get_comparators_mut();
+            self.comparator.set_hits_threshold_reached(comparators)?;
             self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
         }
 
         Ok(())
     }
-    pub(crate) fn threshold_check<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
-    ) -> Result<bool>
+    pub(crate) fn threshold_check<S>(&mut self, doc: i32, scorer: &mut S) -> Result<bool>
     where
         S: Scorable,
     {
         let cmp_check = if self.collected_all_competitive_hits {
             true
         } else {
-            let cmp = self
-                .comparator
-                .compare_bottom(doc, scorer, field_comparator)?;
+            let comparators = self.base.base.pq.get_comparators_mut();
+            let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
             self.reverse_mul * cmp <= 0
         };
 
@@ -383,24 +377,25 @@ where
 
         Ok(false)
     }
-    pub(crate) fn collect_competitive_hit<S>(
-        &mut self,
-        doc: i32,
-        scorer: &mut S,
-        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
-    ) -> Result<()>
+    pub(crate) fn collect_competitive_hit<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
     where
         S: Scorable,
     {
         {
             let bottom = self.bottom()?;
-            self.comparator
-                .copy(bottom.slot()? as usize, doc, scorer, field_comparator)?;
+            self.comparator.copy(
+                bottom.slot()? as usize,
+                doc,
+                scorer,
+                self.base.base.pq.get_comparators_mut(),
+            )?;
         }
         self.base.update_bottom(doc)?;
         let bottom = self.bottom()?;
-        self.comparator
-            .set_bottom(bottom.slot()? as usize, field_comparator)?;
+        self.comparator.set_bottom(
+            bottom.slot()? as usize,
+            self.base.base.pq.get_comparators_mut(),
+        )?;
         self.base.update_min_competitive_score(scorer)?;
 
         Ok(())
@@ -410,7 +405,6 @@ where
         doc: i32,
         hits_collected: i32,
         scorer: &mut S,
-        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
     ) -> Result<()>
     where
         S: Scorable,
@@ -418,13 +412,19 @@ where
         // Startup transient: queue hasn't gathered numHits yet
         let slot = hits_collected - 1;
         // Copy hit into queue
-        self.comparator
-            .copy(slot as usize, doc, scorer, field_comparator)?;
+        self.comparator.copy(
+            slot as usize,
+            doc,
+            scorer,
+            self.base.base.pq.get_comparators_mut(),
+        )?;
         self.base.add(slot, doc)?;
         if self.base.queue_full {
             let bottom = self.bottom()?;
-            self.comparator
-                .set_bottom(bottom.slot()? as usize, field_comparator)?;
+            self.comparator.set_bottom(
+                bottom.slot()? as usize,
+                self.base.base.pq.get_comparators_mut(),
+            )?;
             self.base.update_min_competitive_score(scorer)?;
         }
         Ok(())
@@ -446,14 +446,14 @@ where
     where
         S: Scorable,
     {
-        // let comparator = self.base.base.pq.get_comparators_mut();
-        // self.comparator.set_scorer(scorer, comparator)?;
-        //
-        // if self.base.min_score_acc.is_none() {
-        //     self.base.update_min_competitive_score(scorer)?;
-        // } else {
-        //     self.base.update_global_min_competitive_score(scorer)?;
-        // }
+        let comparators = self.base.base.pq.get_comparators_mut();
+        self.comparator.set_scorer(scorer, comparators)?;
+
+        if self.base.min_score_acc.is_none() {
+            self.base.update_min_competitive_score(scorer)?;
+        } else {
+            self.base.update_global_min_competitive_score(scorer)?;
+        }
 
         Ok(())
     }
@@ -505,4 +505,108 @@ where
 {
     Multi(MultiLeafFieldComparator<LR>),
     Single(LeafFieldComparatorEnum<LR>),
+}
+impl<LR> TopFieldLeafComparatorEnum<LR>
+where
+    LR: LeafReader,
+{
+    pub(crate) fn set_bottom(
+        &mut self,
+        slot: usize,
+        comparator: &mut [FieldComparatorEnum],
+    ) -> Result<()> {
+        match self {
+            Self::Multi(inner) => inner.set_bottom(slot, comparator),
+            Self::Single(inner) => inner.set_bottom(slot, &mut comparator[0]),
+        }
+    }
+
+    pub(crate) fn compare_bottom<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<i32>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Multi(inner) => inner.compare_bottom(doc, scorer, comparators),
+            Self::Single(inner) => inner.compare_bottom(doc, scorer, &mut comparators[0]),
+        }
+    }
+
+    pub(crate) fn compare_top<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<i32>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Multi(inner) => inner.compare_top(doc, scorer, comparators),
+            Self::Single(inner) => inner.compare_top(doc, scorer, &mut comparators[0]),
+        }
+    }
+
+    pub(crate) fn copy<S>(
+        &mut self,
+        slot: usize,
+        doc: i32,
+        scorer: &mut S,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Multi(inner) => inner.copy(slot, doc, scorer, comparators),
+            Self::Single(inner) => inner.copy(slot, doc, scorer, &mut comparators[0]),
+        }
+    }
+
+    pub(crate) fn set_scorer<S>(
+        &mut self,
+        scorer: &mut S,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Multi(inner) => inner.set_scorer(scorer, comparators),
+            Self::Single(inner) => inner.set_scorer(scorer, &mut comparators[0]),
+        }
+    }
+
+    pub(crate) fn competitive_iterator(
+        &mut self,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Option<
+        Either2DocIdSetIterator<
+            LeafFieldComparatorDocIdSetIterator<LR>,
+            <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIterator,
+        >,
+    > {
+        match self {
+            Self::Multi(inner) => inner
+                .competitive_iterator(comparators)
+                .map(Either2DocIdSetIterator::A),
+            Self::Single(inner) => inner
+                .competitive_iterator(&mut comparators[0])
+                .map(Either2DocIdSetIterator::B),
+        }
+    }
+
+    pub(crate) fn set_hits_threshold_reached(
+        &mut self,
+        comparators: &mut [FieldComparatorEnum],
+    ) -> Result<()> {
+        match self {
+            Self::Multi(inner) => inner.set_hits_threshold_reached(comparators),
+            Self::Single(inner) => inner.set_hits_threshold_reached(&mut comparators[0]),
+        }
+    }
 }
