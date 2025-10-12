@@ -21,13 +21,14 @@ use crate::core::search::leaf_field_comparator::{
 };
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
 
 pub struct MultiLeafFieldComparator<LR>
 where
     LR: LeafReader,
 {
     comparators: Vec<LeafFieldComparatorEnum<LR>>,
-    reverse_mul: Vec<i32>,
+    reverse_mul: Rc<Vec<i32>>,
 }
 impl<LR> MultiLeafFieldComparator<LR>
 where
@@ -35,7 +36,7 @@ where
 {
     pub fn new(
         comparators: Vec<LeafFieldComparatorEnum<LR>>,
-        reverse_mul: Vec<i32>,
+        reverse_mul: Rc<Vec<i32>>,
     ) -> Result<Self> {
         if comparators.len() != reverse_mul.len() {
             return Err(LuceneError::illegal_argument(format!(

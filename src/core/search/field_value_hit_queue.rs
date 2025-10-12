@@ -27,6 +27,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, Either2Compare, PriorityQueue};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 /// A hit queue for sorting by hits by terms in more than one field
 pub struct FieldValueHitQueue;
@@ -56,6 +57,7 @@ impl FieldValueHitQueue {
             let comparator = field.get_comparator(size as usize, pruning)?;
             comparators.push(comparator);
         }
+        let reverse_mul = Rc::new(reverse_mul);
         let comparator = if num_comparators == 1 {
             Either2Compare::A(OneComparatorComparator::new(comparators, reverse_mul))
         } else {
@@ -121,10 +123,10 @@ impl fmt::Display for Entry {
 /// An implementation of FieldValueHitQueue which is optimized in case there is just one comparator.
 pub struct OneComparatorComparator {
     one_comparator: Vec<FieldComparatorEnum>,
-    one_reverse_mul: Vec<i32>,
+    one_reverse_mul: Rc<Vec<i32>>,
 }
 impl OneComparatorComparator {
-    pub fn new(one_comparator: Vec<FieldComparatorEnum>, one_reverse_mul: Vec<i32>) -> Self {
+    pub fn new(one_comparator: Vec<FieldComparatorEnum>, one_reverse_mul: Rc<Vec<i32>>) -> Self {
         debug_assert_eq!(one_comparator.len(), one_reverse_mul.len());
         debug_assert!(one_comparator.len() == 1);
         Self {
@@ -152,11 +154,11 @@ impl Compare<TopFieldScoreDoc> for OneComparatorComparator {
 /// An implementation of FieldValueHitQueue which is optimized in case there is more than one comparator.
 pub struct MultiComparatorsComparator {
     comparators: Vec<FieldComparatorEnum>,
-    reverse_mul: Vec<i32>,
+    reverse_mul: Rc<Vec<i32>>,
 }
 
 impl MultiComparatorsComparator {
-    pub fn new(comparators: Vec<FieldComparatorEnum>, reverse_mul: Vec<i32>) -> Self {
+    pub fn new(comparators: Vec<FieldComparatorEnum>, reverse_mul: Rc<Vec<i32>>) -> Self {
         debug_assert_eq!(
             comparators.len(),
             reverse_mul.len(),
@@ -224,10 +226,10 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
             Either2Compare::B(multi_comp) => multi_comp.reverse_mul.as_slice(),
         }
     }
-    pub fn take_reverse_mul(self) -> Vec<i32> {
-        match self.compare {
-            Either2Compare::A(one_comp) => one_comp.one_reverse_mul,
-            Either2Compare::B(multi_comp) => multi_comp.reverse_mul,
+    pub fn get_reverse_mul_shared(&self) -> Rc<Vec<i32>> {
+        match &self.compare {
+            Either2Compare::A(one_comp) => one_comp.one_reverse_mul.clone(),
+            Either2Compare::B(multi_comp) => multi_comp.reverse_mul.clone(),
         }
     }
     pub fn get_comparators(&self) -> &[FieldComparatorEnum] {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
@@ -261,50 +262,49 @@ where
     LR: LeafReader,
 {
     pub fn new(
-        _base: &'a mut TopFieldCollector,
-        _sort: &Sort,
-        _context: &LeafReaderContext<LR>,
+        base: &'a mut TopFieldCollector,
+        sort: &Sort,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Self> {
         // as all segments are sorted in the same way, enough to check only the 1st segment for
         // indexSort
-        // if base.search_sort_part_of_index_sort.is_none() {
-        //     if let Some(index_sort) = context.reader().get_metadata()?.get_sort() {
-        //         let can_early_terminate = can_early_terminate(sort, Some(&index_sort))?;
-        //         base.search_sort_part_of_index_sort = Some(can_early_terminate);
-        //
-        //         if can_early_terminate {
-        //             let pq = &mut base.base.pq;
-        //             let first_comparator = &mut pq.get_comparators_mut()[0];
-        //             first_comparator.disable_skipping();
-        //         }
-        //     }
-        // }
-        //
-        // let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
-        // let reverse_muls = base.base.pq.take_reverse_mul();
-        //
-        // let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
-        //     (
-        //         reverse_muls[0],
-        //         Either2LeafFieldComparator::A(leaf_comparators.into_iter().next().unwrap()),
-        //     )
-        // } else {
-        //     (
-        //         1,
-        //         Either2LeafFieldComparator::B(MultiLeafFieldComparator::new(
-        //             leaf_comparators,
-        //             reverse_muls,
-        //         )?),
-        //     )
-        // };
-        //
-        // Ok(Self {
-        //     base,
-        //     reverse_mul,
-        //     collected_all_competitive_hits: false,
-        //     comparator,
-        // })
-        todo!()
+        if base.search_sort_part_of_index_sort.is_none()
+            && let Some(index_sort) = context.reader().get_metadata()?.get_sort()
+        {
+            let can_early_terminate = can_early_terminate(sort, Some(index_sort))?;
+            base.search_sort_part_of_index_sort = Some(can_early_terminate);
+
+            if can_early_terminate {
+                let pq = &mut base.base.pq;
+                let first_comparator = &mut pq.get_comparators_mut()[0];
+                first_comparator.disable_skipping();
+            }
+        }
+
+        let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
+        let reverse_muls = base.base.pq.get_reverse_mul_shared();
+
+        let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
+            (
+                reverse_muls[0],
+                Either2LeafFieldComparator::A(leaf_comparators.into_iter().next().unwrap()),
+            )
+        } else {
+            (
+                1,
+                Either2LeafFieldComparator::B(MultiLeafFieldComparator::new(
+                    leaf_comparators,
+                    reverse_muls,
+                )?),
+            )
+        };
+
+        Ok(Self {
+            base,
+            reverse_mul,
+            collected_all_competitive_hits: false,
+            comparator,
+        })
     }
     pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, _doc: i32) -> Result<()> {
         self.base.base.total_hits += 1;

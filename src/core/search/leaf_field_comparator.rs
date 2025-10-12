@@ -217,7 +217,6 @@ where
     A: LeafFieldComparator,
     B: LeafFieldComparator<FieldComparator = A::FieldComparator>,
 {
-    // TODO: IMPORTANT: 这里不对
     type FieldComparator = A::FieldComparator;
     fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
         match self {
