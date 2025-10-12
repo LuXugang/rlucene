@@ -19,11 +19,13 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
 use crate::core::search::collector::Collector;
+use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
+use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::leaf_field_comparator::{
     Either2LeafFieldComparator, LeafFieldComparator, LeafFieldComparatorEnum,
 };
@@ -63,6 +65,7 @@ impl TopFieldCollector {
         min_score_acc: Option<MaxScoreAccumulator>,
     ) -> Result<Self> {
         let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
+        debug_assert!(total_hits_threshold >= 0);
 
         let num_comparators = pq.get_comparators().len() as i32;
 
@@ -141,9 +144,7 @@ impl TopFieldCollector {
             && self.queue_full
             && self.base.total_hits > self.total_hits_threshold as usize
         {
-            let bottom = self.base.pq.top().ok_or_else(|| {
-                LuceneError::illegal_state("bottom entry is missing in priority queue")
-            })?;
+            let bottom = self.bottom()?;
 
             let first_comparator = &self.base.pq.get_comparators()[0];
             let min_score = *first_comparator
@@ -177,13 +178,25 @@ impl TopFieldCollector {
     }
     pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
         let global_doc = doc + self.doc_base;
+        let bottom = self.bottom_mut()?;
+        bottom.base().doc = global_doc;
         let pq = self.pq_mut();
-        let bottom_entry = pq
-            .top_mut()
-            .expect("priority queue top element should exist");
-        bottom_entry.base().doc = global_doc;
         pq.update_top()?;
         Ok(())
+    }
+    #[inline]
+    fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+        self.base
+            .pq
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
+    }
+    #[inline]
+    fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
+        self.base
+            .pq
+            .top_mut()
+            .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
     }
 }
 
@@ -328,6 +341,134 @@ where
         }
 
         Ok(())
+    }
+    pub(crate) fn threshold_check<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
+    ) -> Result<bool>
+    where
+        S: Scorable,
+    {
+        let cmp_check = if self.collected_all_competitive_hits {
+            true
+        } else {
+            let cmp = self
+                .comparator
+                .compare_bottom(doc, scorer, field_comparator)?;
+            self.reverse_mul * cmp <= 0
+        };
+
+        if cmp_check {
+            // since docs are visited in doc Id order, if compare is 0, it means
+            // this document is larger than anything else in the queue, and
+            // therefore not competitive.
+            if self.base.search_sort_part_of_index_sort.unwrap_or(false) {
+                if self.base.base.total_hits > self.base.total_hits_threshold as usize {
+                    self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+                    return Err(LuceneError::collection_terminated(
+                        "collection terminated due to early termination threshold",
+                    ));
+                } else {
+                    self.collected_all_competitive_hits = true;
+                }
+            } else if self.base.base.total_hits_relation == Relation::EqualTo {
+                // we can start setting the min competitive score if the
+                // threshold is reached for the first time here.
+                self.base.update_min_competitive_score(scorer)?;
+            }
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+    pub(crate) fn collect_competitive_hit<S>(
+        &mut self,
+        doc: i32,
+        scorer: &mut S,
+        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        {
+            let bottom = self.bottom()?;
+            self.comparator
+                .copy(bottom.slot()? as usize, doc, scorer, field_comparator)?;
+        }
+        self.base.update_bottom(doc)?;
+        let bottom = self.bottom()?;
+        self.comparator
+            .set_bottom(bottom.slot()? as usize, field_comparator)?;
+        self.base.update_min_competitive_score(scorer)?;
+
+        Ok(())
+    }
+    pub(crate) fn collect_any_hit<S>(
+        &mut self,
+        doc: i32,
+        hits_collected: i32,
+        scorer: &mut S,
+        field_comparator: &mut <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::FieldComparator,
+    ) -> Result<()>
+    where
+        S: Scorable,
+    {
+        // Startup transient: queue hasn't gathered numHits yet
+        let slot = hits_collected - 1;
+        // Copy hit into queue
+        self.comparator
+            .copy(slot as usize, doc, scorer, field_comparator)?;
+        self.base.add(slot, doc)?;
+        if self.base.queue_full {
+            let bottom = self.bottom()?;
+            self.comparator
+                .set_bottom(bottom.slot()? as usize, field_comparator)?;
+            self.base.update_min_competitive_score(scorer)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+        self.base.bottom()
+    }
+    #[inline]
+    fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
+        self.base.bottom_mut()
+    }
+}
+impl<'a, LR> LeafCollector for TopFieldLeafCollector<'a, LR>
+where
+    LR: LeafReader,
+{
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        // let comparator = self.base.base.pq.get_comparators_mut();
+        // self.comparator.set_scorer(scorer, comparator)?;
+        //
+        // if self.base.min_score_acc.is_none() {
+        //     self.base.update_min_competitive_score(scorer)?;
+        // } else {
+        //     self.base.update_global_min_competitive_score(scorer)?;
+        // }
+
+        Ok(())
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        todo!()
+    }
+
+    type DocIdSetIterator = DummyDocIdSetIterator;
+
+    fn competitive_iterator(&mut self) -> Result<Option<&mut Self::DocIdSetIterator>> {
+        todo!()
     }
 }
 fn can_early_terminate(search_sort: &Sort, index_sort: Option<&Sort>) -> Result<bool> {

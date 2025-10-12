@@ -59,7 +59,7 @@ impl Collector for TotalHitCountCollector {
         };
         if leaf_count != -1 {
             self.total_hit += leaf_count;
-            return Err(LuceneError::collection_terminated_error(""));
+            return Err(LuceneError::collection_terminated(""));
         }
         Ok(TotalHitCountLeafCollector::new(self))
     }

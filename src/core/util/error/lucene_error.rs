@@ -288,8 +288,8 @@ impl LuceneError {
         UncheckedIOError
     );
     error_ctor!(
-        collection_terminated_error,
-        collection_terminated_error_with_source,
+        collection_terminated,
+        collection_terminated_with_source,
         CollectionTerminated,
         CollectionTerminatedError
     );
