@@ -202,16 +202,17 @@ impl TopFieldCollector {
 }
 
 impl Collector for TopFieldCollector {
-    type LeafCollector<'a>
+    type LeafCollector<'a, LR>
         = DummyLeafCollector
     where
-        Self: 'a;
+        Self: 'a,
+        LR: LeafReader;
 
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
-        _context: &LeafReaderContext<LR>,
-        _weight: Option<&mut W>,
-    ) -> Result<Self::LeafCollector<'a>>
+        context: &LeafReaderContext<LR>,
+        weight: Option<&mut W>,
+    ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
         W: Weight<LR>,

@@ -68,16 +68,17 @@ impl TopScoreDocCollector {
 }
 
 impl Collector for TopScoreDocCollector {
-    type LeafCollector<'a>
+    type LeafCollector<'a, LR>
         = TopScoreDocLeafCollector<'a>
     where
-        Self: 'a;
+        Self: 'a,
+        LR: LeafReader;
 
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         context: &LeafReaderContext<LR>,
         _weight: Option<&mut W>,
-    ) -> Result<Self::LeafCollector<'a>>
+    ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
         W: Weight<LR>,

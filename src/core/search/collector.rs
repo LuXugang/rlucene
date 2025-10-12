@@ -42,9 +42,10 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait Collector {
-    type LeafCollector<'a>: LeafCollector
+    type LeafCollector<'a, LR>: LeafCollector
     where
-        Self: 'a;
+        Self: 'a,
+        LR: LeafReader;
     /// Create a new [`LeafCollector`] to collect the given context.
     ///
     /// Set the [`Weight`] that will be used to produce scorers that will feed [`LeafCollector`]s.
@@ -55,7 +56,7 @@ pub trait Collector {
         &'a mut self,
         context: &LeafReaderContext<LR>,
         weight: Option<&mut W>,
-    ) -> Result<Self::LeafCollector<'a>>
+    ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
         W: Weight<LR>;
