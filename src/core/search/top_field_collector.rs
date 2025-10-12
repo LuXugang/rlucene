@@ -554,10 +554,7 @@ impl SimpleFieldCollector {
 
 impl Collector for SimpleFieldCollector {
     type LeafCollector<'a, LR>
-        = Either2LeafCollector<
-        SimpleFieldLeafCollector<'a, LR>,
-        ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
-    >
+        = SimpleLeafCollector<'a, LR>
     where
         Self: 'a,
         LR: LeafReader;
@@ -576,11 +573,11 @@ impl Collector for SimpleFieldCollector {
         let needs_scores = self.base.needs_scores;
         let collector = SimpleFieldLeafCollector::new(&mut self.base, &self.sort, context)?;
         if needs_scores {
-            Ok(Either2LeafCollector::B(
+            Ok(SimpleLeafCollector::B(
                 ScoreCachingWrappingLeafCollector::new(collector),
             ))
         } else {
-            Ok(Either2LeafCollector::A(collector))
+            Ok(SimpleLeafCollector::A(collector))
         }
     }
 
@@ -767,10 +764,7 @@ impl PagingFieldCollector {
 
 impl Collector for PagingFieldCollector {
     type LeafCollector<'a, LR>
-        = Either2LeafCollector<
-        PagingFieldLeafCollector<'a, LR>,
-        ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
-    >
+        = PagingLeafCollector<'a, LR>
     where
         Self: 'a,
         LR: LeafReader;
@@ -798,11 +792,11 @@ impl Collector for PagingFieldCollector {
         )?;
 
         if needs_scores {
-            Ok(Either2LeafCollector::B(
+            Ok(PagingLeafCollector::B(
                 ScoreCachingWrappingLeafCollector::new(collector),
             ))
         } else {
-            Ok(Either2LeafCollector::A(collector))
+            Ok(PagingLeafCollector::A(collector))
         }
     }
 
@@ -963,6 +957,222 @@ where
 
     fn finish(&mut self) -> Result<()> {
         self.base.finish()
+    }
+}
+
+type SimpleLeafCollector<'a, LR> = Either2LeafCollector<
+    SimpleFieldLeafCollector<'a, LR>,
+    ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
+>;
+
+type PagingLeafCollector<'a, LR> = Either2LeafCollector<
+    PagingFieldLeafCollector<'a, LR>,
+    ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
+>;
+
+pub enum TopFieldCollectorEnum {
+    Simple(SimpleFieldCollector),
+    Paging(PagingFieldCollector),
+}
+
+pub enum FieldLeafCollectorEnum<'a, LR>
+where
+    LR: LeafReader,
+{
+    Simple(SimpleLeafCollector<'a, LR>),
+    Paging(PagingLeafCollector<'a, LR>),
+}
+
+impl<'a, LR> Display for FieldLeafCollectorEnum<'a, LR>
+where
+    LR: LeafReader,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Simple(inner) => Display::fmt(inner, f),
+            Self::Paging(inner) => Display::fmt(inner, f),
+        }
+    }
+}
+
+impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
+where
+    LR: LeafReader,
+{
+    type DocIdSetIterator = Either2DocIdSetIterator<
+        <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
+        <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
+    >;
+
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Simple(inner) => inner.set_scorer(scorer),
+            Self::Paging(inner) => inner.set_scorer(scorer),
+        }
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        match self {
+            Self::Simple(inner) => inner.collect(doc, scorer),
+            Self::Paging(inner) => inner.collect(doc, scorer),
+        }
+    }
+
+    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    where
+        DS: DocIdStream,
+        S: Scorable,
+    {
+        match self {
+            Self::Simple(inner) => inner.collect_stream(stream, scorer),
+            Self::Paging(inner) => inner.collect_stream(stream, scorer),
+        }
+    }
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+        match self {
+            Self::Simple(inner) => inner
+                .competitive_iterator()
+                .map(|opt| opt.map(Either2DocIdSetIterator::A)),
+            Self::Paging(inner) => inner
+                .competitive_iterator()
+                .map(|opt| opt.map(Either2DocIdSetIterator::B)),
+        }
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        match self {
+            Self::Simple(inner) => inner.finish(),
+            Self::Paging(inner) => inner.finish(),
+        }
+    }
+}
+
+impl Collector for TopFieldCollectorEnum {
+    type LeafCollector<'a, LR>
+        = FieldLeafCollectorEnum<'a, LR>
+    where
+        Self: 'a,
+        LR: LeafReader;
+
+    fn get_leaf_collector<'a, W, LR>(
+        &'a mut self,
+        context: &LeafReaderContext<LR>,
+        weight: Option<&mut W>,
+    ) -> Result<Self::LeafCollector<'a, LR>>
+    where
+        LR: LeafReader,
+        W: Weight<LR>,
+    {
+        match self {
+            Self::Simple(inner) => inner
+                .get_leaf_collector(context, weight)
+                .map(FieldLeafCollectorEnum::Simple),
+            Self::Paging(inner) => inner
+                .get_leaf_collector(context, weight)
+                .map(FieldLeafCollectorEnum::Paging),
+        }
+    }
+
+    fn score_mode(&self) -> ScoreMode {
+        match self {
+            Self::Simple(inner) => inner.score_mode(),
+            Self::Paging(inner) => inner.score_mode(),
+        }
+    }
+}
+
+impl TopDocsCollector for TopFieldCollectorEnum {
+    type Item = <TopFieldCollector as TopDocsCollector>::Item;
+    type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
+    type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
+
+    fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+        match self {
+            Self::Simple(inner) => inner.pq(),
+            Self::Paging(inner) => inner.pq(),
+        }
+    }
+
+    fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+        match self {
+            Self::Simple(inner) => inner.pq_mut(),
+            Self::Paging(inner) => inner.pq_mut(),
+        }
+    }
+
+    fn total_hits(&self) -> usize {
+        match self {
+            Self::Simple(inner) => inner.total_hits(),
+            Self::Paging(inner) => inner.total_hits(),
+        }
+    }
+
+    fn get_total_hits_relation(&self) -> Relation {
+        match self {
+            Self::Simple(inner) => inner.get_total_hits_relation(),
+            Self::Paging(inner) => inner.get_total_hits_relation(),
+        }
+    }
+
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+        match self {
+            Self::Simple(inner) => inner.populate_results(results, how_many),
+            Self::Paging(inner) => inner.populate_results(results, how_many),
+        }
+    }
+
+    fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+    where
+        Self: Sized,
+    {
+        match self {
+            Self::Simple(inner) => inner.new_top_docs(results, start),
+            Self::Paging(inner) => inner.new_top_docs(results, start),
+        }
+    }
+
+    fn top_docs_size(&self) -> usize {
+        match self {
+            Self::Simple(inner) => inner.top_docs_size(),
+            Self::Paging(inner) => inner.top_docs_size(),
+        }
+    }
+
+    fn top_docs(&mut self) -> Result<Self::TopDocsLike>
+    where
+        Self: Sized,
+    {
+        match self {
+            Self::Simple(inner) => inner.top_docs(),
+            Self::Paging(inner) => inner.top_docs(),
+        }
+    }
+
+    fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
+    where
+        Self: Sized,
+    {
+        match self {
+            Self::Simple(inner) => inner.top_docs_with_start(start),
+            Self::Paging(inner) => inner.top_docs_with_start(start),
+        }
+    }
+
+    fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
+    where
+        Self: Sized,
+    {
+        match self {
+            Self::Simple(inner) => inner.top_docs_with_start_limit(start, how_many),
+            Self::Paging(inner) => inner.top_docs_with_start_limit(start, how_many),
+        }
     }
 }
 
