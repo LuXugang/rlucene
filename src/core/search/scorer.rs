@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
-use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::scorable::{ChildScorable, Either2Scorable, Scorable};
 use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
 use crate::core::util::error::lucene_error::Result;
 
@@ -89,186 +89,126 @@ pub trait Scorer: Scorable {
     fn get_max_score(&mut self, up_to: i32) -> Result<f32>;
 }
 
-fn map_child_scorables<From, To, F>(
-    children: Vec<ChildScorable<From>>,
-    mapper: F,
-) -> Vec<ChildScorable<To>>
-where
-    From: Scorable,
-    To: Scorable,
-    F: Fn(From) -> To,
-{
-    children
-        .into_iter()
-        .map(
-            |ChildScorable {
-                 child,
-                 relationship,
-             }| { ChildScorable::new(mapper(child), relationship) },
-        )
-        .collect()
+macro_rules! either_scorer {
+    (
+        $vis:vis $name:ident {
+            iter = $iter_ty:ident,
+            two_phase = $two_phase_ty:ident,
+            scorable = $scorable_ty:ident;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Scorable for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            #[inline]
+            fn score(&mut self) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.score(), )+ }
+            }
+
+            #[inline]
+            fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.smoothing_score(doc_id), )+ }
+            }
+
+            #[inline]
+            fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
+            }
+
+            type Scorable = $scorable_ty<$( < $T as Scorable >::Scorable ),+>;
+
+            #[inline]
+            fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let children = inner.get_children()?;
+                            let mapped = children
+                                .into_iter()
+                                .map(|child| ChildScorable {
+                                    child: Self::Scorable::$Variant(child.child),
+                                    relationship: child.relationship,
+                                })
+                                .collect();
+                            Ok(mapped)
+                        }
+                    ),+
+                }
+            }
+
+            #[inline]
+            fn cost(&mut self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+        }
+
+        impl<$( $T ),+> Scorer for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            type DocIdSetIterator =
+                $iter_ty<$( < $T as Scorer >::DocIdSetIterator ),+>;
+
+            type DocIdSetIteratorRef<'a> =
+                $iter_ty<$( < $T as Scorer >::DocIdSetIteratorRef<'a> ),+>
+            where
+                Self: 'a;
+
+            type TwoPhaseIter =
+                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIter ),+>;
+            type TwoPhaseIterRef<'a> =
+                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterRef<'a> ),+>
+            where
+                Self: 'a;
+
+            #[inline]
+            fn doc_id(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.doc_id(), )+ }
+            }
+
+            #[inline]
+            fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+                match self {
+                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator()), )+
+                }
+            }
+
+            #[inline]
+            fn freq(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.freq(), )+ }
+            }
+
+            #[inline]
+            fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+                match self {
+                    $( Self::$Variant(inner) =>
+                        inner.two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
+                }
+            }
+
+            #[inline]
+            fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.advance_shallow(target), )+ }
+            }
+
+            #[inline]
+            fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.get_max_score(up_to), )+ }
+            }
+        }
+    };
 }
-
-pub enum Either2ScorerChild<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> Scorable for Either2ScorerChild<A, B>
-where
-    A: Scorable,
-    B: Scorable,
-{
-    fn score(&mut self) -> Result<f32> {
-        match self {
-            Self::A(inner) => inner.score(),
-            Self::B(inner) => inner.score(),
-        }
+either_scorer!(
+    pub Either2Scorer {
+        iter = Either2DocIdSetIterator,
+        two_phase = Either2TwoPhaseIterator,
+        scorable = Either2Scorable;
+        A: A, B: B,
     }
-
-    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
-        match self {
-            Self::A(inner) => inner.smoothing_score(doc_id),
-            Self::B(inner) => inner.smoothing_score(doc_id),
-        }
-    }
-
-    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-        match self {
-            Self::A(inner) => inner.set_min_competitive_score(min_score),
-            Self::B(inner) => inner.set_min_competitive_score(min_score),
-        }
-    }
-
-    type Scorable = Either2ScorerChild<A::Scorable, B::Scorable>;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
-        match self {
-            Self::A(inner) => inner
-                .get_children()
-                .map(|children| map_child_scorables(children, Either2ScorerChild::A)),
-            Self::B(inner) => inner
-                .get_children()
-                .map(|children| map_child_scorables(children, Either2ScorerChild::B)),
-        }
-    }
-
-    fn cost(&mut self) -> Result<i64> {
-        match self {
-            Self::A(inner) => inner.cost(),
-            Self::B(inner) => inner.cost(),
-        }
-    }
-}
-
-pub enum Either2Scorer<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> Scorable for Either2Scorer<A, B>
-where
-    A: Scorer,
-    B: Scorer,
-{
-    fn score(&mut self) -> Result<f32> {
-        match self {
-            Self::A(inner) => inner.score(),
-            Self::B(inner) => inner.score(),
-        }
-    }
-
-    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
-        match self {
-            Self::A(inner) => inner.smoothing_score(doc_id),
-            Self::B(inner) => inner.smoothing_score(doc_id),
-        }
-    }
-
-    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-        match self {
-            Self::A(inner) => inner.set_min_competitive_score(min_score),
-            Self::B(inner) => inner.set_min_competitive_score(min_score),
-        }
-    }
-
-    type Scorable = Either2ScorerChild<A::Scorable, B::Scorable>;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
-        match self {
-            Self::A(inner) => inner
-                .get_children()
-                .map(|children| map_child_scorables(children, Either2ScorerChild::A)),
-            Self::B(inner) => inner
-                .get_children()
-                .map(|children| map_child_scorables(children, Either2ScorerChild::B)),
-        }
-    }
-
-    fn cost(&mut self) -> Result<i64> {
-        match self {
-            Self::A(inner) => inner.cost(),
-            Self::B(inner) => inner.cost(),
-        }
-    }
-}
-
-impl<A, B> Scorer for Either2Scorer<A, B>
-where
-    A: Scorer,
-    B: Scorer,
-{
-    type DocIdSetIterator = Either2DocIdSetIterator<A::DocIdSetIterator, B::DocIdSetIterator>;
-    type DocIdSetIteratorRef<'a>
-        = Either2DocIdSetIterator<A::DocIdSetIteratorRef<'a>, B::DocIdSetIteratorRef<'a>>
-    where
-        Self: 'a;
-
-    type TwoPhaseIter = Either2TwoPhaseIterator<A::TwoPhaseIter, B::TwoPhaseIter>;
-    type TwoPhaseIterRef<'a>
-        = Either2TwoPhaseIterator<A::TwoPhaseIterRef<'a>, B::TwoPhaseIterRef<'a>>
-    where
-        Self: 'a;
-
-    fn doc_id(&mut self) -> Result<i32> {
-        match self {
-            Self::A(inner) => inner.doc_id(),
-            Self::B(inner) => inner.doc_id(),
-        }
-    }
-
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
-        match self {
-            Self::A(inner) => Either2DocIdSetIterator::A(inner.iterator()),
-            Self::B(inner) => Either2DocIdSetIterator::B(inner.iterator()),
-        }
-    }
-
-    fn freq(&mut self) -> Result<i32> {
-        match self {
-            Self::A(inner) => inner.freq(),
-            Self::B(inner) => inner.freq(),
-        }
-    }
-
-    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
-        match self {
-            Self::A(inner) => inner.two_phase_iterator().map(Either2TwoPhaseIterator::A),
-            Self::B(inner) => inner.two_phase_iterator().map(Either2TwoPhaseIterator::B),
-        }
-    }
-
-    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        match self {
-            Self::A(inner) => inner.advance_shallow(target),
-            Self::B(inner) => inner.advance_shallow(target),
-        }
-    }
-
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        match self {
-            Self::A(inner) => inner.get_max_score(up_to),
-            Self::B(inner) => inner.get_max_score(up_to),
-        }
-    }
-}
+);

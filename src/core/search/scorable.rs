@@ -93,3 +93,58 @@ where
         }
     }
 }
+macro_rules! either_scorable {
+    (
+        $vis:vis $name:ident {
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Scorable for $name<$( $T ),+>
+        where
+            $( $T: Scorable ),+
+        {
+            fn score(&mut self) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.score(), )+ }
+            }
+
+            fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+                match self { $( Self::$Variant(inner) => inner.smoothing_score(doc_id), )+ }
+            }
+
+            fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
+            }
+
+            type Scorable = $name<$( <$T as Scorable>::Scorable ),+>;
+
+            fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let children = inner.get_children()?;
+                            let mapped = children
+                                .into_iter()
+                                .map(|child| ChildScorable {
+                                    child: Self::Scorable::$Variant(child.child),
+                                    relationship: child.relationship,
+                                })
+                                .collect();
+                            Ok(mapped)
+                        }
+                    ),+
+                }
+            }
+
+            fn cost(&mut self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+        }
+    };
+}
+either_scorable!(
+    pub Either2Scorable { A: A, B: B }
+);
