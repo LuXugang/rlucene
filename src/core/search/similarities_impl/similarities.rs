@@ -200,6 +200,69 @@ pub trait SimScorer {
         Explanation::match_(value, description, vec![freq])
     }
 }
+macro_rules! either_similarity {
+    (
+        $vis:vis $name:ident
+        => { scorer: $scorer_enum:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Display for $name<$( $T ),+>
+        where
+            $( $T: Similarity ),+
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $( Self::$Variant(inner) => Display::fmt(inner, f), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> Similarity for $name<$( $T ),+>
+        where
+            $( $T: Similarity ),+
+        {
+            fn get_discount_overlaps(&self) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_discount_overlaps(), )+
+                }
+            }
+
+            fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.compute_norm(state), )+
+                }
+            }
+
+            type SimScorer = $scorer_enum<$( <$T as Similarity>::SimScorer ),+>;
+
+            fn scorer(
+                &self,
+                boost: f32,
+                collection_stats: &CollectionStatistics,
+                term_stats: &[TermStatistics],
+            ) -> Self::SimScorer {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let scorer = inner.scorer(boost, collection_stats, term_stats);
+                            $scorer_enum::$Variant(scorer)
+                        }
+                    ),+
+                }
+            }
+        }
+    };
+}
+either_similarity!(
+    pub Either2Similarity
+    => { scorer: Either2SimScorer }
+    { A: A, B: B}
+);
+
 macro_rules! either_sim_scorer {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
