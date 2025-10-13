@@ -186,7 +186,7 @@ where
         let similarity = searcher.get_similarity();
 
         let (collection_stats, term_stats) = if score_mode.needs_scores() {
-            let collection_stats = searcher.collection_statistics(query.term.field());
+            let collection_stats = searcher.collection_statistics(query.term.field())?;
             let term_stats = if term_states.doc_freq()? > 0 {
                 Some(searcher.term_statistics(
                     query.term.clone(),
@@ -199,8 +199,13 @@ where
             (collection_stats, term_stats)
         } else {
             // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
-            let collection_stats =
-                CollectionStatistics::new(query.term.field().to_string(), 1, 1, 1, 1)?;
+            let collection_stats = Some(CollectionStatistics::new(
+                query.term.field().to_string(),
+                1,
+                1,
+                1,
+                1,
+            )?);
             let term_stats = Some(TermStatistics::new(query.term.clone(), 1, 1)?);
             (collection_stats, term_stats)
         };
@@ -209,10 +214,11 @@ where
         // allocations in case default BM25Scorer is used.
         // See: https://github.com/apache/lucene/issues/12297
         let sim_scorer = if let Some(term_stats) = term_stats {
+            debug_assert!(collection_stats.is_some());
             if score_mode.needs_scores() {
                 Some(TermQuerySimScorer::A(similarity.scorer(
                     boost,
-                    &collection_stats,
+                    collection_stats.as_ref().unwrap(),
                     &[term_stats],
                 )))
             } else {
