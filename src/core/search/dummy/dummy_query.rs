@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -37,9 +38,9 @@ impl Query for DummyQuery {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC>(
+    fn create_weight<S, IRC, QT>(
         self,
-        _search: &IndexSearcher<IRC, S>,
+        _search: &IndexSearcher<IRC, S, QT>,
         _score_mod: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -47,6 +48,7 @@ impl Query for DummyQuery {
     where
         IRC: IndexReaderContext,
         S: Similarity,
+        QT: QueryTimeout,
         Self: Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -54,13 +56,14 @@ impl Query for DummyQuery {
 
     type RewriteQuery = DummyQuery;
 
-    fn rewrite<IRC, S>(
+    fn rewrite<IRC, S, QT>(
         &self,
-        _searcher: &IndexSearcher<IRC, S>,
+        _searcher: &IndexSearcher<IRC, S, QT>,
     ) -> crate::core::util::error::lucene_error::Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
+        QT: QueryTimeout,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

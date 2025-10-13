@@ -23,6 +23,7 @@ use crate::core::index::leaf_reader::{
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
@@ -51,6 +52,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
 pub struct TermQuery {
     term: Arc<Term>,
@@ -121,9 +123,9 @@ impl Query for TermQuery {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC>(
+    fn create_weight<S, IRC, QT>(
         self,
-        search: &IndexSearcher<IRC, S>,
+        search: &IndexSearcher<IRC, S, QT>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -131,6 +133,7 @@ impl Query for TermQuery {
     where
         IRC: IndexReaderContext,
         S: Similarity,
+        QT: QueryTimeout,
         Self: Sized,
     {
         let context = search.get_top_reader_context();
@@ -173,8 +176,8 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    pub fn new<I>(
-        searcher: &IndexSearcher<I, S>,
+    pub fn new<I, QT>(
+        searcher: &IndexSearcher<I, S, QT>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
@@ -182,6 +185,7 @@ where
     ) -> Result<Self>
     where
         I: IndexReaderContext,
+        QT: QueryTimeout,
     {
         let similarity = searcher.get_similarity();
 

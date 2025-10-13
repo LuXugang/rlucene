@@ -23,6 +23,7 @@ use crate::core::index::index_sorter::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::Either2NumericDocValues;
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::index::sorted_doc_values::Either2SortedDocValues;
 use crate::core::search::comparators::doc_comparator::DocComparator;
@@ -1089,10 +1090,14 @@ pub trait SortFiledBase: Display {
     ///
     /// * `Some(SortField)` – if a rewritten sort field was created.
     /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
-    fn rewrite<IRC, S>(&self, _reader: &IndexSearcher<IRC, S>) -> Result<Option<SortFieldEnum>>
+    fn rewrite<IRC, S, QT>(
+        &self,
+        _reader: &IndexSearcher<IRC, S, QT>,
+    ) -> Result<Option<SortFieldEnum>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
+        QT: QueryTimeout,
     {
         Ok(None)
     }

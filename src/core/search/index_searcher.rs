@@ -18,6 +18,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -36,21 +37,24 @@ pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
 const MAX_SEGMENTS_PER_SLICE: usize = 5;
-pub struct IndexSearcher<IRC, S>
+pub struct IndexSearcher<IRC, S, QT>
 where
     IRC: IndexReaderContext,
     S: Similarity,
+    QT: QueryTimeout,
 {
     reader_context: IRC,
     leaf_slices: Option<Vec<LeafSlice>>,
     similarity: Rc<S>,
     leaf_slices_init_lock: Mutex<()>,
+    query_timeout: Option<QT>,
 }
 
-impl<IRC, S> IndexSearcher<IRC, S>
+impl<IRC, S, QT> IndexSearcher<IRC, S, QT>
 where
     IRC: IndexReaderContext,
     S: Similarity,
+    QT: QueryTimeout,
 {
     pub fn stored_fields(&self) {}
 

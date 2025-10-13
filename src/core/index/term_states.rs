@@ -19,6 +19,7 @@ use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{Either2TermState, TermState};
 use crate::core::index::terms::Terms;
@@ -319,14 +320,15 @@ where
 
 pub type TermStateTerm<T> =
     Either2TermState<LRTermState<T>, Either2TermState<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC, S>(
-    index_searcher: &IndexSearcher<IRC, S>,
+pub fn build<IRC, S, QT>(
+    index_searcher: &IndexSearcher<IRC, S, QT>,
     term: Arc<Term>,
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
     S: Similarity,
+    QT: QueryTimeout,
 {
     let context = index_searcher.get_top_reader_context();
     let mut per_reader_term_state = TermStates::new(
