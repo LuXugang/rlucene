@@ -22,17 +22,17 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
+    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
 };
 use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer::Either2Scorer;
+use crate::core::search::scorer_supplier::{Either3ScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::accountable::Accountable;
@@ -116,7 +116,7 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = DummyScorerSupplier;
+    type ScorerSupplier = CachingWrapperWeightSupplier<W, LR>;
 
     fn scorer_supplier(
         &mut self,
@@ -125,70 +125,64 @@ where
         todo!()
     }
 }
-// pub(crate) struct ScorerSupplierImpl1<S> {
-//     cost: i64,
-//     skip_cache_factor: f32,
-//     supplier: S,
-//     max_doc: i32,
-// }
-// impl<S> ScorerSupplierImpl1<S>
-// where
-//     S: ScorerSupplier,
-// {
-//     pub(crate) fn new(
-//         cost: i64,
-//         skip_cache_factor: f32,
-//         supplier: S,
-//         max_doc: i32,
-//     ) -> Result<Self>
-//     where
-//         S: ScorerSupplier,
-//     {
-//         Ok(Self {
-//             cost,
-//             skip_cache_factor,
-//             supplier,
-//             max_doc,
-//         })
-//     }
-// }
-// pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
-// impl<S> ScorerSupplier for ScorerSupplierImpl1<S>
-// where
-//     S: ScorerSupplier,
-// {
-//     type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
-//     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
-//
-//     fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
-//         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
-//             return match self.supplier.get(lead_cost)? {
-//                 Some(scorer) => Ok(Some(Either2Scorer::A(scorer))),
-//                 None => Ok(None),
-//             }
-//         };
-//         let cached = cache_impl(&mut self.supplier.bulk_scorer()?, self.max_doc)?;
-//         // TODO: 这里没有处理缓存
-//         let disi = match cached.iterator()? {
-//             Some(disi) => DISI::B(disi),
-//             None => DISI::A(EmptyDISI::default()),
-//         };
-//         Ok(Some(Either2Scorer::B(ConstantScoreScorer::with_disi(
-//             0.0,
-//             ScoreMode::CompleteNoScores,
-//             disi,
-//         ))))
-//     }
-//
-//     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-//         todo!()
-//     }
-//
-//
-//     fn cost(&mut self) -> Result<i64> {
-//         Ok(self.cost)
-//     }
-// }
+pub(crate) struct ScorerSupplierImpl1<S> {
+    cost: i64,
+    skip_cache_factor: f32,
+    supplier: S,
+    max_doc: i32,
+}
+impl<S> ScorerSupplierImpl1<S>
+where
+    S: ScorerSupplier,
+{
+    pub(crate) fn new(cost: i64, skip_cache_factor: f32, supplier: S, max_doc: i32) -> Result<Self>
+    where
+        S: ScorerSupplier,
+    {
+        Ok(Self {
+            cost,
+            skip_cache_factor,
+            supplier,
+            max_doc,
+        })
+    }
+}
+pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
+impl<S> ScorerSupplier for ScorerSupplierImpl1<S>
+where
+    S: ScorerSupplier,
+{
+    type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
+    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+
+    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+        if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
+            return match self.supplier.get(lead_cost)? {
+                Some(scorer) => Ok(Some(Either2Scorer::A(scorer))),
+                None => Ok(None),
+            };
+        };
+        let cached = cache_impl(&mut self.supplier.bulk_scorer()?, self.max_doc)?;
+        // TODO: 这里没有处理缓存
+        let disi = match cached.iterator()? {
+            Some(disi) => DISI::B(disi),
+            None => DISI::A(EmptyDISI::default()),
+        };
+        Ok(Some(Either2Scorer::B(ConstantScoreScorer::with_disi(
+            0.0,
+            ScoreMode::CompleteNoScores,
+            disi,
+        ))))
+    }
+
+    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+        todo!()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        Ok(self.cost)
+    }
+}
 
 pub(crate) struct ScorerSupplierImpl2 {
     disi: CacheAndCountDISI,
@@ -220,6 +214,11 @@ impl ScorerSupplier for ScorerSupplierImpl2 {
         Ok(self.cost)
     }
 }
+pub type CachingWrapperWeightSupplier<W, LR> = Either3ScorerSupplier<
+    <W as Weight<LR>>::ScorerSupplier,
+    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier>,
+    ScorerSupplierImpl2,
+>;
 /// Cache of doc ids with a count.
 pub(crate) struct CacheAndCount<D>
 where
