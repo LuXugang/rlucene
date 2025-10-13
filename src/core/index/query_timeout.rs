@@ -24,5 +24,5 @@ pub trait QueryTimeout {
     ///
     /// # Returns
     /// `true` if the query should stop, `false` otherwise.
-    fn should_exit(&self) -> bool;
+    fn should_exit(&mut self) -> bool;
 }

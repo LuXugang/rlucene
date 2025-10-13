@@ -503,7 +503,7 @@ where
         &mut self,
         doc: i32,
         _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        _comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
         S: Scorable,
@@ -556,7 +556,7 @@ where
     fn set_scorer<S>(
         &mut self,
         _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
         S: Scorable,

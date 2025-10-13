@@ -308,7 +308,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
     fn set_scorer<S>(
         &mut self,
         _scorer: &mut S,
-        comparator: &mut Self::FieldComparator,
+        _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
         S: Scorable,

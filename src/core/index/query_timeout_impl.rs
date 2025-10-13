@@ -72,7 +72,7 @@ impl std::fmt::Display for QueryTimeoutImpl {
 impl QueryTimeout for QueryTimeoutImpl {
     /// Return `true` if [`reset`](Self::reset) has not been called and
     /// the elapsed time has exceeded the time allowed.
-    fn should_exit(&self) -> bool {
+    fn should_exit(&mut self) -> bool {
         if let Some(timeout_at) = self.timeout_at {
             Instant::now() > timeout_at
         } else {
