@@ -20,10 +20,19 @@ use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::total_hits::TotalHits;
 
 /// Represents hits returned by IndexSearcher.search(Query, int, Sort).
+#[derive(Default)]
 pub struct TopFieldDocs {
     pub(crate) base: TopDocs<TopFieldScoreDoc>,
     /// The fields which were used to sort results by.
-    fields: Vec<SortFieldEnum>,
+    pub(crate) fields: Vec<SortFieldEnum>,
+}
+impl Default for TopDocs<TopFieldScoreDoc> {
+    fn default() -> Self {
+        Self {
+            total_hits: TotalHits::default(),
+            score_docs: Vec::new(),
+        }
+    }
 }
 impl TopFieldDocs {
     /// Creates one of these objects.

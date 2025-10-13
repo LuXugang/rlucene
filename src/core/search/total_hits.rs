@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+
 /// Description of the total number of hits of a query. The total hit count
 /// can't generally be computed accurately without visiting all matches, which
 /// is costly for queries that match lots of documents. Given that it is often
@@ -35,7 +36,14 @@ pub struct TotalHits {
     pub value: usize,
     pub relation: Relation,
 }
-
+impl Default for TotalHits {
+    fn default() -> Self {
+        Self {
+            value: 0,
+            relation: Relation::EqualTo,
+        }
+    }
+}
 impl TotalHits {
     pub fn new(value: usize, relation: Relation) -> Self {
         Self { value, relation }
