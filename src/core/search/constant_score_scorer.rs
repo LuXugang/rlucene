@@ -191,11 +191,21 @@ where
 {
     type DocIdSetIterator = TPI::DocIdSetIterator;
 
-    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator {
+    type DocIdSetIteratorRef<'a>
+        = TPI::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+
+    type DocIdSetIteratorMut<'a>
+        = TPI::DocIdSetIteratorMut<'a>
+    where
+        Self: 'a;
+
+    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         self.two_phase_iterator.approximation_mut()
     }
 
-    fn approximation(&self) -> &Self::DocIdSetIterator {
+    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
         self.two_phase_iterator.approximation()
     }
 
@@ -215,6 +225,7 @@ where
         self.two_phase_iterator.match_cost()
     }
 }
+
 // used for Constructor from DISI
 pub type ConstantDISI<DISI> =
     Either2DocIdSetIterator<DocIdSetIteratorWrapper<EitherEmpty<DISI>>, DISI>;

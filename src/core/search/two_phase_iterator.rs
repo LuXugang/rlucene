@@ -14,19 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
 use crate::core::util::error::lucene_error::Result;
 
 pub trait TwoPhaseIterator {
     type DocIdSetIterator: DocIdSetIterator;
+    type DocIdSetIteratorRef<'a>: DocIdSetIterator
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>: DocIdSetIterator
+    where
+        Self: 'a;
 
     /// Return the approximation [`DocIdSetIterator`].
     ///
     /// The returned iterator must advance synchronously with this
     /// `TwoPhaseIterator`.
-    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator;
-    fn approximation(&self) -> &Self::DocIdSetIterator;
+    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
+    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_>;
     fn take_approximation(&mut self) -> Self::DocIdSetIterator;
 
     /// Set the approximation to an empty iterator
@@ -56,26 +62,42 @@ where
 {
     type DocIdSetIterator = T::DocIdSetIterator;
 
-    fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator {
+    type DocIdSetIteratorRef<'a>
+        = T::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+
+    type DocIdSetIteratorMut<'a>
+        = T::DocIdSetIteratorMut<'a>
+    where
+        Self: 'a;
+
+    #[inline]
+    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         (**self).approximation_mut()
     }
 
-    fn approximation(&self) -> &Self::DocIdSetIterator {
+    #[inline]
+    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
         (**self).approximation()
     }
 
+    #[inline]
     fn take_approximation(&mut self) -> Self::DocIdSetIterator {
         (**self).take_approximation()
     }
 
+    #[inline]
     fn set_empty(&mut self) {
         (**self).set_empty()
     }
 
+    #[inline]
     fn matches(&mut self) -> Result<bool> {
         (**self).matches()
     }
 
+    #[inline]
     fn match_cost(&self) -> f32 {
         (**self).match_cost()
     }
@@ -148,68 +170,76 @@ where
     tp.two_phase_iterator
 }
 
-macro_rules! either_two_phase_iterator_homo {
-    ($vis:vis $name:ident { $HeadVar:ident : $HeadT:ident $(, $Var:ident : $T:ident )+ $(,)? }) => {
-        $vis enum $name<$HeadT, $( $T ),+> {
-            $HeadVar($HeadT),
-            $( $Var($T), )+
+macro_rules! either_two_phase_iterator_gat {
+    (
+        $vis:vis $name:ident
+        => { disi: $disi:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
         }
 
-        impl<$HeadT, $( $T ),+> TwoPhaseIterator for $name<$HeadT, $( $T ),+>
+        impl<$( $T ),+> TwoPhaseIterator for $name<$( $T ),+>
         where
-            $HeadT: TwoPhaseIterator,
-            $( $T: TwoPhaseIterator<DocIdSetIterator = <$HeadT as TwoPhaseIterator>::DocIdSetIterator> ),+
+            $( $T: TwoPhaseIterator ),+
         {
-            type DocIdSetIterator = <$HeadT as TwoPhaseIterator>::DocIdSetIterator;
+            type DocIdSetIterator = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIterator ),+>;
+
+            type DocIdSetIteratorRef<'a> = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIteratorRef<'a> ),+>
+            where
+                Self: 'a;
+
+            type DocIdSetIteratorMut<'a> = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIteratorMut<'a> ),+>
+            where
+                Self: 'a;
 
             #[inline]
-            fn approximation_mut(&mut self) -> &mut Self::DocIdSetIterator {
+            fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
                 match self {
-                    Self::$HeadVar(inner) => inner.approximation_mut(),
-                    $( Self::$Var(inner) => inner.approximation_mut(), )+
+                    $( Self::$Variant(inner) => $disi::$Variant(inner.approximation_mut()), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> &Self::DocIdSetIterator {
+            fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
                 match self {
-                    Self::$HeadVar(inner) => inner.approximation(),
-                    $( Self::$Var(inner) => inner.approximation(), )+
+                    $( Self::$Variant(inner) => $disi::$Variant(inner.approximation()), )+
                 }
             }
 
             #[inline]
             fn take_approximation(&mut self) -> Self::DocIdSetIterator {
                 match self {
-                    Self::$HeadVar(inner) => inner.take_approximation(),
-                    $( Self::$Var(inner) => inner.take_approximation(), )+
+                    $( Self::$Variant(inner) => $disi::$Variant(inner.take_approximation()), )+
                 }
             }
 
             #[inline]
             fn set_empty(&mut self) {
                 match self {
-                    Self::$HeadVar(inner) => inner.set_empty(),
-                    $( Self::$Var(inner) => inner.set_empty(), )+
+                    $( Self::$Variant(inner) => inner.set_empty(), )+
                 }
             }
 
             #[inline]
             fn matches(&mut self) -> Result<bool> {
                 match self {
-                    Self::$HeadVar(inner) => inner.matches(),
-                    $( Self::$Var(inner) => inner.matches(), )+
+                    $( Self::$Variant(inner) => inner.matches(), )+
                 }
             }
 
             #[inline]
             fn match_cost(&self) -> f32 {
                 match self {
-                    Self::$HeadVar(inner) => inner.match_cost(),
-                    $( Self::$Var(inner) => inner.match_cost(), )+
+                    $( Self::$Variant(inner) => inner.match_cost(), )+
                 }
             }
         }
     };
 }
-either_two_phase_iterator_homo!(pub Either2TwoPhaseIterator { A: A, B: B });
+either_two_phase_iterator_gat!(
+    pub Either2TwoPhaseIterator
+    => { disi: Either2DocIdSetIterator }
+    { A: TPI1, B: TPI2 }
+);

@@ -334,7 +334,7 @@ where
             let (doc, matches) = {
                 let mut two_phase = scorer.two_phase_iterator().unwrap();
                 let doc = {
-                    let iter = two_phase.approximation_mut();
+                    let mut iter = two_phase.approximation_mut();
                     iter.next_doc()?
                 };
                 if doc == NO_MORE_DOCS {
