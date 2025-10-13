@@ -16,6 +16,7 @@
  */
 #![allow(deprecated)]
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
     DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
     NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
@@ -34,7 +35,9 @@ use crate::core::search::field_comparator::{
     FieldComparator, FieldComparatorEnum, RelevanceComparator, TermValComparator,
 };
 use crate::core::search::field_comparator_source::FieldComparatorSourceEnum;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::pruning::Pruning;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_sort_field::NumericProvider;
 use crate::core::store::{DataInput, DataOutput};
@@ -1073,6 +1076,27 @@ impl IndexSorter for IndexSorterEnumSorter {
 pub trait SortFiledBase: Display {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
+    /// Rewrites this [`SortField`], returning a new [`SortField`] if a change is made.
+    ///
+    /// Subclasses should override this to define their rewriting behavior when this
+    /// [`SortField`] is of type [`SortFieldType::Rewritable`].
+    ///
+    /// # Arguments
+    ///
+    /// * `searcher` – The [`IndexSearcher`] used during rewriting.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(SortField)` – if a rewritten sort field was created.
+    /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
+    fn rewrite<IRC, S>(&self, _reader: &IndexSearcher<IRC, S>) -> Result<Option<SortFieldEnum>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+    {
+        Ok(None)
+    }
+
     /// Whether the relevance score is needed to sort documents.
     fn needs_scores(&self) -> bool;
     type IndexSort: IndexSorter;
