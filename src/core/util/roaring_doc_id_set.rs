@@ -64,7 +64,7 @@ impl RoaringDocIdSet {
         }
     }
 
-    fn cardinality(&self) -> i32 {
+    pub(crate) fn cardinality(&self) -> i32 {
         self.cardinality
     }
 }

@@ -40,6 +40,7 @@ pub mod index_searcher;
 pub mod knn_collector;
 pub mod leaf_collector;
 pub mod leaf_field_comparator;
+mod lru_query_cache;
 pub mod match_all_docs_query;
 pub mod match_no_docs_query;
 pub mod matches;
