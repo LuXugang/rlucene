@@ -102,3 +102,4 @@ message_error!(UncheckedIOError);
 message_error!(CollectionTerminatedError);
 message_error!(TooManyClausesError);
 message_error!(TooManyNestedClausesError);
+message_error!(TimeExceededError);
