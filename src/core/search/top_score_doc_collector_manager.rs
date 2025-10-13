@@ -127,10 +127,10 @@ impl TopScoreDocCollectorManager {
     }
 }
 impl CollectorManager for TopScoreDocCollectorManager {
-    type Collector = TopScoreDocCollector;
-    type Output = TopDocs<ScoreDoc>;
+    type C = TopScoreDocCollector;
+    type T = TopDocs<ScoreDoc>;
 
-    fn new_collector(&self) -> Result<Self::Collector> {
+    fn new_collector(&self) -> Result<Self::C> {
         TopScoreDocCollector::new(
             self.num_hits,
             self.after.clone(),
@@ -139,11 +139,9 @@ impl CollectorManager for TopScoreDocCollectorManager {
         )
     }
 
-    fn reduce<I>(&self, collectors: I) -> Result<Self::Output>
-    where
-        I: IntoIterator<Item = Self::Collector>,
-    {
-        let mut top_docs = Vec::new();
+    fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+        let len = collectors.len();
+        let mut top_docs = Vec::with_capacity(len);
 
         for mut collector in collectors {
             top_docs.push(collector.top_docs()?);

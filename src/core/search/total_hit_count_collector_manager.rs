@@ -53,10 +53,10 @@ impl TotalHitCountCollectorManager {
     }
 }
 impl CollectorManager for TotalHitCountCollectorManager {
-    type Collector = TotalHitCountCollector;
-    type Output = i32;
+    type C = TotalHitCountCollector;
+    type T = i32;
 
-    fn new_collector(&self) -> crate::core::util::error::lucene_error::Result<Self::Collector> {
+    fn new_collector(&self) -> crate::core::util::error::lucene_error::Result<Self::C> {
         if self.has_segment_partitions {
             todo!()
             // TODO
@@ -64,13 +64,10 @@ impl CollectorManager for TotalHitCountCollectorManager {
         Ok(TotalHitCountCollector::new())
     }
 
-    fn reduce<I>(
+    fn reduce(
         &self,
-        collectors: I,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Output>
-    where
-        I: IntoIterator<Item = Self::Collector>,
-    {
+        collectors: Vec<Self::C>,
+    ) -> crate::core::util::error::lucene_error::Result<Self::T> {
         // Make the same collector manager instance reusable across multiple searches.
         // It isn't a strict requirement but is generally supported as collector managers normally
         // don't hold state, as opposed to collectors.

@@ -143,10 +143,10 @@ impl TopFieldCollectorManager {
     }
 }
 impl CollectorManager for TopFieldCollectorManager {
-    type Collector = TopFieldCollectorEnum;
-    type Output = TopFieldDocs;
+    type C = TopFieldCollectorEnum;
+    type T = TopFieldDocs;
 
-    fn new_collector(&self) -> Result<Self::Collector> {
+    fn new_collector(&self) -> Result<Self::C> {
         let mut queue = create(self.sort.get_sort(), self.num_hits)?;
 
         let collector = if self.after.is_none() {
@@ -200,11 +200,9 @@ impl CollectorManager for TopFieldCollectorManager {
         Ok(collector)
     }
 
-    fn reduce<I>(&self, collectors: I) -> Result<Self::Output>
-    where
-        I: IntoIterator<Item = Self::Collector>,
-    {
-        let mut top_docs_list = Vec::new();
+    fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+        let len = collectors.len();
+        let mut top_docs_list = Vec::with_capacity(len);
         for mut collector in collectors {
             let mut v = collector.top_docs()?;
             // Here we discard TopFieldDocs#fields because it is not used in the original Java Lucene implementation
