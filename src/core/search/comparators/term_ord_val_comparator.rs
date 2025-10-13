@@ -568,7 +568,7 @@ where
 
     fn competitive_iterator(
         &mut self,
-        comparator: &mut Self::FieldComparator,
+        _comparator: &mut Self::FieldComparator,
     ) -> Option<Self::DocIdSetIterator> {
         self.competitive_iterator.take()
     }

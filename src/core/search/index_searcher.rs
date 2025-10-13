@@ -123,7 +123,6 @@ where
         let mut sum_total_term_freq: i64 = 0;
         let mut sum_doc_freq: i64 = 0;
 
-        let v = self.reader_context.reader();
         for leaf in self.reader_context.leaves()? {
             let reader = leaf.reader();
             let terms = terms_util::get_terms(reader, field)?;

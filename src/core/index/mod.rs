@@ -108,7 +108,7 @@ pub mod point_values;
 pub(crate) mod point_values_writer;
 pub mod postings_enum;
 pub mod prefix_coded_terms;
-mod query_timeout;
+pub mod query_timeout;
 mod query_timeout_impl;
 pub(crate) mod reader_pool;
 mod readers_and_updates;
