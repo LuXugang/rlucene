@@ -102,4 +102,5 @@ macro_rules! either_bulk_scorer {
         }
     };
 }
-either_bulk_scorer!(pub Either2BulkScorer { A: MatchAllDocsScorer, B: OtherScorer });
+either_bulk_scorer!(pub Either2BulkScorer { A: A1, B: B1});
+either_bulk_scorer!(pub Either3BulkScorer { A: A1, B: B1, C: C1});

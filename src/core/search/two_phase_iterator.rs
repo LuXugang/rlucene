@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{
+    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator,
+};
 use crate::core::util::error::lucene_error::Result;
 
 pub trait TwoPhaseIterator {
@@ -241,5 +243,10 @@ macro_rules! either_two_phase_iterator_gat {
 either_two_phase_iterator_gat!(
     pub Either2TwoPhaseIterator
     => { disi: Either2DocIdSetIterator }
-    { A: TPI1, B: TPI2 }
+    { A: A, B: B}
+);
+either_two_phase_iterator_gat!(
+    pub Either3TwoPhaseIterator
+    => { disi: Either3DocIdSetIterator }
+    { A: A, B: B, C: C}
 );

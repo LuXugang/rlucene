@@ -148,3 +148,6 @@ macro_rules! either_scorable {
 either_scorable!(
     pub Either2Scorable { A: A, B: B }
 );
+either_scorable!(
+    pub Either3Scorable { A: A, B: B , C: C }
+);

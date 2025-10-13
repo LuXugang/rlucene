@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::bulk_scorer::BulkScorer;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either3BulkScorer};
+use crate::core::search::scorer::{Either2Scorer, Either3Scorer, Scorer};
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
@@ -71,3 +71,79 @@ pub trait ScorerSupplier {
         Ok(())
     }
 }
+macro_rules! either_scorer_supplier {
+    (
+        $vis:vis $name:ident {
+            scorer = $scorer_ty:ident,
+            bulk   = $bulk_ty:ident;
+            $( $Variant:ident : $T:ident ),+ $(,)?
+        }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> ScorerSupplier for $name<$( $T ),+>
+        where
+            $( $T: ScorerSupplier ),+
+        {
+            type Scorer     = $scorer_ty<$( < $T as ScorerSupplier >::Scorer ),+>;
+            type BulkScorer = $bulk_ty  <$( < $T as ScorerSupplier >::BulkScorer ),+>;
+
+            #[inline]
+            fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.get(lead_cost)?;
+                            Ok(opt.map($scorer_ty::$Variant))
+                        }
+                    ),+
+                }
+            }
+
+            #[inline]
+            fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let bs = inner.bulk_scorer()?;
+                            Ok($bulk_ty::$Variant(bs))
+                        }
+                    ),+
+                }
+            }
+
+            #[inline]
+            fn cost(&mut self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+
+            #[inline]
+            fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.set_top_level_scoring_clause(), )+
+                }
+            }
+        }
+    };
+}
+either_scorer_supplier!(
+    pub Either2ScorerSupplier {
+        scorer = Either2Scorer,
+        bulk   = Either2BulkScorer;
+        A: A,
+        B: B,
+    }
+);
+either_scorer_supplier!(
+    pub Either3ScorerSupplier {
+        scorer = Either3Scorer,
+        bulk   = Either3BulkScorer;
+        A: A,
+        B: B,
+        C: C,
+    }
+);
