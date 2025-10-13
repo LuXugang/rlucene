@@ -30,8 +30,8 @@ use crate::core::util::error::{
     IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
     LockHeldByOtherError, MaxBytesLengthExceededError, MergeAbortedError, MergeError,
     NeedImplementedError, NoSuchElementError, NotFoundError, NotImplementedError,
-    NumberFormatError, NumberOverflow, TooComplexToDeterminizeError, UncheckedIOError,
-    UnreachableError, UnsupportedOperationError,
+    NumberFormatError, NumberOverflow, TooComplexToDeterminizeError, TooManyClausesError,
+    UncheckedIOError, UnreachableError, UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -110,6 +110,8 @@ pub enum LuceneError {
     UncheckedIO(#[from] UncheckedIOError),
     #[error("{0}")]
     CollectionTerminated(#[from] CollectionTerminatedError),
+    #[error("{0}")]
+    TooManyClauses(#[from] TooManyClausesError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $fn_name_with_source:ident, $variant:ident, $error_type:ident) => {
@@ -292,6 +294,12 @@ impl LuceneError {
         collection_terminated_with_source,
         CollectionTerminated,
         CollectionTerminatedError
+    );
+    error_ctor!(
+        too_many_clauses,
+        too_many_clauses_with_source,
+        TooManyClauses,
+        TooManyClausesError
     );
 }
 

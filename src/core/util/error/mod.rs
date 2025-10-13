@@ -100,3 +100,4 @@ message_error!(TooComplexToDeterminizeError);
 message_error!(NoSuchElementError);
 message_error!(UncheckedIOError);
 message_error!(CollectionTerminatedError);
+message_error!(TooManyClausesError);
