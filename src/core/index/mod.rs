@@ -108,6 +108,7 @@ pub mod point_values;
 pub(crate) mod point_values_writer;
 pub mod postings_enum;
 pub mod prefix_coded_terms;
+mod query_timeout;
 pub(crate) mod reader_pool;
 mod readers_and_updates;
 pub mod segment_commit_info;
