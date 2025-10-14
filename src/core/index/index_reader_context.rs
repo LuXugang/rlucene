@@ -64,7 +64,7 @@ where
     /// The ord for this reader in the parent, `0` if parent is `None`.
     pub ord_in_parent: i32,
     // An object that uniquely identifies this context without referencing segments.
-    /// In Rust we model it as an `AArc<()>` so that pointer equality can be used for identity.
+    /// In Rust we model it as an `Arc<()>` so that pointer equality can be used for identity.
     pub identity: Arc<()>,
 }
 

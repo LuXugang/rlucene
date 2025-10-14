@@ -201,7 +201,7 @@ impl SegmentCoreReadersCacheHelperImpl {
     }
 }
 impl CacheHelper for SegmentCoreReadersCacheHelperImpl {
-    fn get_cache_key(&self) -> CacheKey {
+    fn get_key(&self) -> CacheKey {
         self.cache_key.clone()
     }
 }

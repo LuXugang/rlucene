@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
 
 pub struct ReaderUtil;
-impl ReaderUtil {
-}
+impl ReaderUtil {}

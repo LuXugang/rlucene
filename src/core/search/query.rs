@@ -32,6 +32,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn as_string(&self, field: &str) -> String;
@@ -228,5 +229,27 @@ impl From<MatchNoDocsQuery> for QueryEnum {
 impl From<DummyQuery> for QueryEnum {
     fn from(value: DummyQuery) -> Self {
         QueryEnum::Dummy(value)
+    }
+}
+#[derive(Clone, Debug)]
+pub struct IdentityQuery {
+    pub(crate) query: Arc<QueryEnum>,
+}
+impl IdentityQuery {
+    pub fn new(query: Arc<QueryEnum>) -> Self {
+        Self { query }
+    }
+}
+
+impl PartialEq for IdentityQuery {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.query, &other.query)
+    }
+}
+impl Eq for IdentityQuery {}
+
+impl Hash for IdentityQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.query).hash(state);
     }
 }

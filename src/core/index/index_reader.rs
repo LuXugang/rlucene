@@ -17,6 +17,7 @@
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 pub trait IndexReader: Display {
@@ -81,7 +82,7 @@ pub trait IndexReader: Display {
     fn sum_total_term_freq(&self, field: &str) -> Result<i64>;
 }
 pub trait CacheHelper {
-    fn get_cache_key(&self) -> CacheKey;
+    fn get_key(&self) -> CacheKey;
 }
 #[derive(Clone)]
 pub struct CacheKey {
@@ -98,6 +99,18 @@ impl CacheKey {
         Self {
             identity: Arc::new(()),
         }
+    }
+}
+impl PartialEq for CacheKey {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.identity, &other.identity)
+    }
+}
+impl Eq for CacheKey {}
+
+impl Hash for CacheKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.identity) as usize).hash(state);
     }
 }
 
