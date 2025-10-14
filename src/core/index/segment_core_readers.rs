@@ -35,6 +35,7 @@ use crate::core::store::directory::{Directory, Either2Directory};
 use crate::core::store::{Either2IndexInput, IOContext, IndexInput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
+use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -59,6 +60,7 @@ where
     /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
     /// in the case of DV updates, SR may hold a newer version.
     pub(crate) core_field_infos: Arc<FieldInfos>,
+    pub(crate) cache_helper: SegmentCoreReadersCacheHelperImpl,
 }
 
 impl<D> SegmentCoreReaders<D>
@@ -140,6 +142,7 @@ where
                 cfs_reader,
                 segment,
                 core_field_infos,
+                cache_helper: SegmentCoreReadersCacheHelperImpl::new(),
             })
         })()
     }
@@ -175,5 +178,30 @@ where
     pub(crate) fn dec_ref(&self) -> Result<()> {
         self.r#ref.load(Ordering::Acquire);
         todo!()
+    }
+    pub(crate) fn get_cache_helper(&self) -> &SegmentCoreReadersCacheHelperImpl {
+        &self.cache_helper
+    }
+}
+#[derive(Clone)]
+pub struct SegmentCoreReadersCacheHelperImpl {
+    cache_key: CacheKey,
+}
+impl Default for SegmentCoreReadersCacheHelperImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SegmentCoreReadersCacheHelperImpl {
+    pub fn new() -> Self {
+        Self {
+            cache_key: CacheKey::new(),
+        }
+    }
+}
+impl CacheHelper for SegmentCoreReadersCacheHelperImpl {
+    fn get_cache_key(&self) -> CacheKey {
+        self.cache_key.clone()
     }
 }

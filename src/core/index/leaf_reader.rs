@@ -18,7 +18,7 @@ use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
@@ -34,6 +34,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 pub trait LeafReader: IndexReader {
+    type CacheHelper: CacheHelper;
+    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper>;
+
     fn doc_freq(&self, term: &Term) -> Result<i32>
     where
         Self: Sized,

@@ -33,7 +33,9 @@ use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
-use crate::core::index::segment_core_readers::{CfsOrBaseInput, SegmentCoreReaders};
+use crate::core::index::segment_core_readers::{
+    CfsOrBaseInput, SegmentCoreReaders, SegmentCoreReadersCacheHelperImpl,
+};
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::core::index::term::Term;
@@ -361,6 +363,12 @@ impl<D> LeafReader for SegmentReader<D>
 where
     D: Directory,
 {
+    type CacheHelper = SegmentCoreReadersCacheHelperImpl;
+
+    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+        Ok(self.core.get_cache_helper())
+    }
+
     type Terms = <<Self as CodecReader>::FieldsProducer as Fields>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {

@@ -2011,6 +2011,12 @@ impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
 where
     D: Directory,
 {
+    type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
+
+    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+        self.base.get_core_cache_helper()
+    }
+
     type Terms = <DocValuesLeafReader as LeafReader>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
@@ -2266,6 +2272,11 @@ impl<SFB> LeafReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
     SFB: SortFiledBase,
 {
+    type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
+
+    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+        self.base.get_core_cache_helper()
+    }
     type Terms = <DocValuesLeafReader as LeafReader>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {

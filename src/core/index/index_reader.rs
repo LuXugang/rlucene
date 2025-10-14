@@ -17,6 +17,8 @@
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+
 pub trait IndexReader: Display {
     fn max_doc(&self) -> Result<i32>;
 
@@ -77,6 +79,26 @@ pub trait IndexReader: Display {
     ///
     /// See [`Terms::get_sum_total_term_freq`](crate::core::index::terms::Terms::get_sum_total_term_freq).
     fn sum_total_term_freq(&self, field: &str) -> Result<i64>;
+}
+pub trait CacheHelper {
+    fn get_cache_key(&self) -> CacheKey;
+}
+#[derive(Clone)]
+pub struct CacheKey {
+    identity: Arc<()>,
+}
+impl Default for CacheKey {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CacheKey {
+    pub fn new() -> Self {
+        Self {
+            identity: Arc::new(()),
+        }
+    }
 }
 
 pub enum IndexReaderEnum {}
