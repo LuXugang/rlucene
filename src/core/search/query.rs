@@ -20,6 +20,8 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -76,6 +78,9 @@ pub trait Query: Eq + Hash + Display + Debug {
 
 pub enum QueryEnum {
     Term(TermQuery),
+    MatchAll(MatchAllDocsQuery),
+    MatchNoDoc(MatchNoDocsQuery),
+    Dummy(DummyQuery),
 }
 
 impl Eq for QueryEnum {}
@@ -84,6 +89,10 @@ impl PartialEq for QueryEnum {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (QueryEnum::Term(t1), QueryEnum::Term(t2)) => t1 == t2,
+            (QueryEnum::MatchAll(m1), QueryEnum::MatchAll(m2)) => m1 == m2,
+            (QueryEnum::MatchNoDoc(m1), QueryEnum::MatchNoDoc(m2)) => m1 == m2,
+            (QueryEnum::Dummy(d1), QueryEnum::Dummy(d2)) => d1 == d2,
+            _ => false,
         }
     }
 }
@@ -93,6 +102,15 @@ impl Hash for QueryEnum {
         match self {
             QueryEnum::Term(t) => {
                 t.hash(_state);
+            },
+            QueryEnum::MatchAll(m) => {
+                m.hash(_state);
+            },
+            QueryEnum::MatchNoDoc(m) => {
+                m.hash(_state);
+            },
+            QueryEnum::Dummy(d) => {
+                d.hash(_state);
             },
         }
     }
@@ -104,15 +122,33 @@ impl Display for QueryEnum {
             QueryEnum::Term(t) => {
                 write!(f, "{}", t)
             },
+            QueryEnum::MatchAll(m) => {
+                write!(f, "{}", m)
+            },
+            QueryEnum::MatchNoDoc(m) => {
+                write!(f, "{}", m)
+            },
+            QueryEnum::Dummy(d) => {
+                write!(f, "{}", d)
+            },
         }
     }
 }
 
 impl Debug for QueryEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             QueryEnum::Term(t) => {
-                write!(_f, "QueryEnum::Term({:?})", t)
+                write!(f, "QueryEnum::Term({:?})", t)
+            },
+            QueryEnum::MatchAll(m) => {
+                write!(f, "QueryEnum::MatchAll({:?})", m)
+            },
+            QueryEnum::MatchNoDoc(m) => {
+                write!(f, "QueryEnum::MatchNoDoc({:?})", m)
+            },
+            QueryEnum::Dummy(d) => {
+                write!(f, "QueryEnum::Dummy({:?})", d)
             },
         }
     }
@@ -122,6 +158,9 @@ impl Query for QueryEnum {
     fn as_string(&self, field: &str) -> String {
         match self {
             QueryEnum::Term(t) => t.as_string(field),
+            QueryEnum::MatchAll(m) => m.as_string(field),
+            QueryEnum::MatchNoDoc(m) => m.as_string(field),
+            QueryEnum::Dummy(d) => d.as_string(field),
         }
     }
 
@@ -174,5 +213,20 @@ impl Query for QueryEnum {
 impl From<TermQuery> for QueryEnum {
     fn from(value: TermQuery) -> Self {
         QueryEnum::Term(value)
+    }
+}
+impl From<MatchAllDocsQuery> for QueryEnum {
+    fn from(value: MatchAllDocsQuery) -> Self {
+        QueryEnum::MatchAll(value)
+    }
+}
+impl From<MatchNoDocsQuery> for QueryEnum {
+    fn from(value: MatchNoDocsQuery) -> Self {
+        QueryEnum::MatchNoDoc(value)
+    }
+}
+impl From<DummyQuery> for QueryEnum {
+    fn from(value: DummyQuery) -> Self {
+        QueryEnum::Dummy(value)
     }
 }
