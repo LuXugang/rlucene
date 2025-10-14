@@ -35,7 +35,7 @@ use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -171,7 +171,7 @@ where
     sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
     term_states: TermStates<IRCTermState<IRC>>,
     score_mode: ScoreMode,
-    parent_query: TermQuery,
+    parent_query: QueryEnum,
 }
 impl<S, IRC> TermWeight<S, IRC>
 where
@@ -240,7 +240,7 @@ where
             sim_scorer,
             term_states,
             score_mode,
-            parent_query: query,
+            parent_query: query.into(),
         })
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
@@ -259,10 +259,13 @@ where
             Some(s) => self.term_states.resolve(s)?,
             None => None,
         };
+        let QueryEnum::Term(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
 
         if state.is_none() {
             debug_assert!(
-                !self.term_not_in_reader(context.reader(), self.parent_query.term.as_ref())?,
+                !self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
                 "no termstate found but term exists in reader"
             );
             return Ok(None);
@@ -271,13 +274,13 @@ where
         let state = state.unwrap();
         let mut terms_enum = context
             .reader()
-            .terms(self.parent_query.term.field())?
+            .terms(parent_query.term.field())?
             .as_ref()
             .unwrap()
             .iterator()?;
         match state.as_ref() {
             EitherEmptyTermState::A(s) => {
-                terms_enum.seek_exact_with_state(self.parent_query.term.bytes(), s)?;
+                terms_enum.seek_exact_with_state(parent_query.term.bytes(), s)?;
                 Ok(Some(terms_enum))
             },
             EitherEmptyTermState::B(_) => Err(LuceneError::illegal_argument(
@@ -330,9 +333,11 @@ where
                 let freq = scorer.freq()?;
 
                 let mut norm: i64 = 1;
-                if let Some(mut norms) = context
-                    .reader()
-                    .get_norm_values(&self.parent_query.term.field)?
+                let QueryEnum::Term(parent_query) = &self.parent_query else {
+                    unreachable!("should never happen");
+                };
+                if let Some(mut norms) =
+                    context.reader().get_norm_values(&parent_query.term.field)?
                     && norms.advance_exact(doc)?
                 {
                     norm = norms.long_value()?;
@@ -372,7 +377,10 @@ where
     type Query = TermQuery;
 
     fn get_query(&self) -> &Self::Query {
-        &self.parent_query
+        let QueryEnum::Term(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
+        parent_query
     }
 
     type ScorerSupplier = TermScorerSupplier<IRC, S>;
@@ -386,9 +394,12 @@ where
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
         let state_supplier = self.term_states.get(context)?;
+        let QueryEnum::Term(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
         let term_enum = context
             .reader()
-            .terms(self.parent_query.term.field())?
+            .terms(parent_query.term.field())?
             .as_mut()
             .unwrap()
             .iterator()?;
@@ -399,13 +410,11 @@ where
                 false,
                 std::mem::take(&mut self.term_states),
                 v,
-                self.parent_query.term.clone(),
+                parent_query.term.clone(),
                 self.sim_scorer.take().unwrap(),
                 self.score_mode,
                 if self.score_mode.needs_scores() {
-                    context
-                        .reader()
-                        .get_norm_values(&self.parent_query.term.field)?
+                    context.reader().get_norm_values(&parent_query.term.field)?
                 } else {
                     None
                 },

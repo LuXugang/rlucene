@@ -26,7 +26,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -80,14 +80,14 @@ impl Display for MatchAllDocsQuery {
 
 pub struct MatchAllWeight {
     base: ConstantScoreWeight,
-    parent_query: MatchAllDocsQuery,
+    parent_query: QueryEnum,
     score_mode: ScoreMode,
 }
 impl MatchAllWeight {
     pub fn new(score: f32, query: MatchAllDocsQuery, score_mode: ScoreMode) -> Self {
         Self {
             base: ConstantScoreWeight::new(score),
-            parent_query: query,
+            parent_query: query.into(),
             score_mode,
         }
     }
@@ -125,7 +125,10 @@ where
     type Query = MatchAllDocsQuery;
 
     fn get_query(&self) -> &Self::Query {
-        &self.parent_query
+        let QueryEnum::MatchAll(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
+        parent_query
     }
 
     type ScorerSupplier = MatchAllDocsScorerSupplier;

@@ -20,7 +20,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -81,13 +81,13 @@ impl Display for MatchNoDocsQuery {
 }
 
 pub struct MatchNoDocsWeight {
-    parent_query: MatchNoDocsQuery,
+    parent_query: QueryEnum,
 }
 
 impl MatchNoDocsWeight {
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
-            parent_query: query,
+            parent_query: query.into(),
         }
     }
 }
@@ -116,16 +116,19 @@ where
     }
 
     fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
-        Ok(Explanation::no_match(
-            self.parent_query.reason.clone(),
-            vec![],
-        ))
+        let QueryEnum::MatchNoDoc(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
+        Ok(Explanation::no_match(parent_query.reason.clone(), vec![]))
     }
 
     type Query = MatchNoDocsQuery;
 
     fn get_query(&self) -> &Self::Query {
-        &self.parent_query
+        let QueryEnum::MatchNoDoc(parent_query) = &self.parent_query else {
+            unreachable!("should never happen");
+        };
+        parent_query
     }
 
     type ScorerSupplier = DummyScorerSupplier;
