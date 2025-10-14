@@ -41,31 +41,37 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ByteBlockPoolLock, CounterEnumLock, ToInt};
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Implements limited (iterators only, no stats) [`Fields`](Fields) interface over the in-RAM buffered
 /// fields/terms/postings, to flush postings through the PostingsFormat.
 pub(crate) struct FreqProxFields {
-    fields: BTreeMap<String, Rc<FreqProxTermsWriterPerField>>,
+    fields: HashMap<String, Rc<FreqProxTermsWriterPerField>>,
+    keys: Vec<String>,
 }
 impl FreqProxFields {
     pub fn new(field_list: Vec<Rc<FreqProxTermsWriterPerField>>) -> Self {
         // NOTE: fields are already sorted by field name
-        let mut fields = BTreeMap::new();
+        let len = field_list.len();
+        let mut fields = HashMap::with_capacity(len);
+        let mut keys = Vec::with_capacity(len);
         for field in field_list {
             let field_name = field.base.get_field_name().to_string();
+            keys.push(field_name.clone());
             fields.insert(field_name, field);
         }
-        Self { fields }
+        Self { fields, keys }
     }
 }
 impl Fields for FreqProxFields {
-    type FieldIter<'a> =
-        std::collections::btree_map::Keys<'a, String, Rc<FreqProxTermsWriterPerField>>;
+    type FieldIter<'a>
+        = std::slice::Iter<'a, String>
+    where
+        Self: 'a;
 
     fn iterator(&self) -> Self::FieldIter<'_> {
-        self.fields.keys()
+        self.keys.iter()
     }
 
     type Terms = FreqProxTerms;
@@ -87,6 +93,7 @@ impl Clone for FreqProxFields {
     fn clone(&self) -> Self {
         Self {
             fields: self.fields.clone(),
+            keys: self.keys.clone(),
         }
     }
 }
