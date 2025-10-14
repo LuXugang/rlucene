@@ -76,7 +76,7 @@ pub(crate) struct PerFieldMeta {
 
 impl Eq for PerFieldMeta {}
 
-impl PartialEq<Self> for PerFieldMeta {
+impl PartialEq for PerFieldMeta {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == Ordering::Equal
     }

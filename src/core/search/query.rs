@@ -80,18 +80,10 @@ pub enum QueryEnum {
 
 impl Eq for QueryEnum {}
 
-impl PartialEq<QueryEnum> for TermQuery {
-    fn eq(&self, other: &QueryEnum) -> bool {
-        match other {
-            QueryEnum::Term(t) => self == t,
-        }
-    }
-}
-
-impl PartialEq<Self> for QueryEnum {
+impl PartialEq for QueryEnum {
     fn eq(&self, other: &Self) -> bool {
-        match self {
-            QueryEnum::Term(t) => t == other,
+        match (self, other) {
+            (QueryEnum::Term(t1), QueryEnum::Term(t2)) => t1 == t2,
         }
     }
 }

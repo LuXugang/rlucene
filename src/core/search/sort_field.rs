@@ -887,7 +887,7 @@ impl MissingValueEnum {
         }
     }
 }
-impl PartialEq<Self> for MissingValueEnum {
+impl PartialEq for MissingValueEnum {
     fn eq(&self, other: &Self) -> bool {
         match self {
             MissingValueEnum::StringFirst => {

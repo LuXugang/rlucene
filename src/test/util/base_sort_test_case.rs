@@ -191,7 +191,7 @@ impl Comparator<Entry> for Entry {
     }
 }
 
-impl PartialEq<Self> for Entry {
+impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value && self.ord == other.ord
     }

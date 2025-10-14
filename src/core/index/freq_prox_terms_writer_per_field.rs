@@ -508,7 +508,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
 impl Eq for FreqProxTermsWriterPerField {}
 
-impl PartialEq<Self> for FreqProxTermsWriterPerField {
+impl PartialEq for FreqProxTermsWriterPerField {
     fn eq(&self, _other: &Self) -> bool {
         self.cmp(_other) == Ordering::Equal
     }

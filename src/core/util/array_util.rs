@@ -770,7 +770,7 @@ mod tests {
 
     impl Eq for Item {}
 
-    impl PartialEq<Self> for Item {
+    impl PartialEq for Item {
         fn eq(&self, _other: &Self) -> bool {
             todo!()
         }

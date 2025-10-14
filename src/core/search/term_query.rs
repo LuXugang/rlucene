@@ -81,7 +81,7 @@ impl TermQuery {
     }
 }
 
-impl PartialEq<Self> for TermQuery {
+impl PartialEq for TermQuery {
     fn eq(&self, other: &Self) -> bool {
         self.term == other.term
     }
