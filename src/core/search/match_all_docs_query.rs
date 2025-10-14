@@ -38,6 +38,8 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
+use std::sync::Arc;
+
 /// A query that matches all documents.
 #[derive(Hash, PartialEq, Eq, Debug)]
 pub struct MatchAllDocsQuery;
@@ -80,14 +82,14 @@ impl Display for MatchAllDocsQuery {
 
 pub struct MatchAllWeight {
     base: ConstantScoreWeight,
-    parent_query: QueryEnum,
+    parent_query: Arc<QueryEnum>,
     score_mode: ScoreMode,
 }
 impl MatchAllWeight {
     pub fn new(score: f32, query: MatchAllDocsQuery, score_mode: ScoreMode) -> Self {
         Self {
             base: ConstantScoreWeight::new(score),
-            parent_query: query.into(),
+            parent_query: Arc::new(query.into()),
             score_mode,
         }
     }
@@ -125,10 +127,14 @@ where
     type Query = MatchAllDocsQuery;
 
     fn get_query(&self) -> &Self::Query {
-        let QueryEnum::MatchAll(parent_query) = &self.parent_query else {
+        let QueryEnum::MatchAll(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
         parent_query
+    }
+
+    fn get_query_enum(&self) -> Arc<QueryEnum> {
+        self.parent_query.clone()
     }
 
     type ScorerSupplier = MatchAllDocsScorerSupplier;

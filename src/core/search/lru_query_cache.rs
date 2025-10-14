@@ -28,6 +28,7 @@ use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::query::QueryEnum;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -45,6 +46,7 @@ use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
 use crate::core::util::roaring_doc_id_set::builder::Builder;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 pub struct LRUQueryCache;
@@ -114,6 +116,10 @@ where
 
     fn get_query(&self) -> &Self::Query {
         self.in_.get_query()
+    }
+
+    fn get_query_enum(&self) -> Arc<QueryEnum> {
+        self.in_.get_query_enum()
     }
 
     type ScorerSupplier = CachingWrapperWeightSupplier<W, LR>;

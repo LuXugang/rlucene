@@ -51,7 +51,6 @@ use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
@@ -167,11 +166,11 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    similarity: Rc<S>,
+    similarity: Arc<S>,
     sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
     term_states: TermStates<IRCTermState<IRC>>,
     score_mode: ScoreMode,
-    parent_query: QueryEnum,
+    parent_query: Arc<QueryEnum>,
 }
 impl<S, IRC> TermWeight<S, IRC>
 where
@@ -240,7 +239,7 @@ where
             sim_scorer,
             term_states,
             score_mode,
-            parent_query: query.into(),
+            parent_query: Arc::new(query.into()),
         })
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
@@ -259,7 +258,7 @@ where
             Some(s) => self.term_states.resolve(s)?,
             None => None,
         };
-        let QueryEnum::Term(parent_query) = &self.parent_query else {
+        let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
 
@@ -333,7 +332,7 @@ where
                 let freq = scorer.freq()?;
 
                 let mut norm: i64 = 1;
-                let QueryEnum::Term(parent_query) = &self.parent_query else {
+                let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
                     unreachable!("should never happen");
                 };
                 if let Some(mut norms) =
@@ -377,10 +376,14 @@ where
     type Query = TermQuery;
 
     fn get_query(&self) -> &Self::Query {
-        let QueryEnum::Term(parent_query) = &self.parent_query else {
+        let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
         parent_query
+    }
+
+    fn get_query_enum(&self) -> Arc<QueryEnum> {
+        self.parent_query.clone()
     }
 
     type ScorerSupplier = TermScorerSupplier<IRC, S>;
@@ -394,7 +397,7 @@ where
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
         let state_supplier = self.term_states.get(context)?;
-        let QueryEnum::Term(parent_query) = &self.parent_query else {
+        let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
         let term_enum = context

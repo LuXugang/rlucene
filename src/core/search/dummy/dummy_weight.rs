@@ -21,10 +21,12 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::query::QueryEnum;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 pub struct DummyWeight;
 
@@ -66,6 +68,10 @@ where
     type Query = DummyQuery;
 
     fn get_query(&self) -> &Self::Query {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_query_enum(&self) -> Arc<QueryEnum> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

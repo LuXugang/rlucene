@@ -27,6 +27,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// A query that matches no documents.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -81,13 +82,13 @@ impl Display for MatchNoDocsQuery {
 }
 
 pub struct MatchNoDocsWeight {
-    parent_query: QueryEnum,
+    parent_query: Arc<QueryEnum>,
 }
 
 impl MatchNoDocsWeight {
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
-            parent_query: query.into(),
+            parent_query: Arc::new(query.into()),
         }
     }
 }
@@ -116,7 +117,7 @@ where
     }
 
     fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
-        let QueryEnum::MatchNoDoc(parent_query) = &self.parent_query else {
+        let QueryEnum::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
         Ok(Explanation::no_match(parent_query.reason.clone(), vec![]))
@@ -125,10 +126,14 @@ where
     type Query = MatchNoDocsQuery;
 
     fn get_query(&self) -> &Self::Query {
-        let QueryEnum::MatchNoDoc(parent_query) = &self.parent_query else {
+        let QueryEnum::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
         parent_query
+    }
+
+    fn get_query_enum(&self) -> Arc<QueryEnum> {
+        self.parent_query.clone()
     }
 
     type ScorerSupplier = DummyScorerSupplier;

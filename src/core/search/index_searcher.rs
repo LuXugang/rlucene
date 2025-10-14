@@ -29,7 +29,6 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -47,7 +46,7 @@ where
 {
     reader_context: IRC,
     leaf_slices: Option<Vec<LeafSlice>>,
-    similarity: Rc<S>,
+    similarity: Arc<S>,
     leaf_slices_init_lock: Mutex<()>,
     query_timeout: Option<QT>,
     query_caching_policy: QCP,
@@ -94,7 +93,7 @@ where
     pub fn get_top_reader_context(&self) -> &IRC {
         &self.reader_context
     }
-    pub fn get_similarity(&self) -> Rc<S> {
+    pub fn get_similarity(&self) -> Arc<S> {
         self.similarity.clone()
     }
     /// Returns [`TermStatistics`] for a term.

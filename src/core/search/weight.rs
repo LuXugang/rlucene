@@ -23,13 +23,14 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 /// Expert: Calculate query weights and build query scorers.
 ///
 /// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`],
@@ -109,6 +110,8 @@ where
     type Query: Query;
     /// The query that this weight concerns.
     fn get_query(&self) -> &Self::Query;
+
+    fn get_query_enum(&self) -> Arc<QueryEnum>;
 
     /// Optional method that delegates to [`Weight::scorer_supplier`].
     ///
