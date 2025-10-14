@@ -16,7 +16,7 @@
  */
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -1347,7 +1347,7 @@ const HASHMAP_CUTOVER: usize = 30;
 pub(crate) struct PointTransitionSet {
     pub(crate) count: usize,
     pub(crate) points: Vec<PointTransitions>,
-    map: BTreeMap<i32, usize>,
+    map: HashMap<i32, usize>,
     use_hash: bool,
 }
 
@@ -1356,7 +1356,7 @@ impl PointTransitionSet {
         PointTransitionSet {
             count: 0,
             points: Vec::with_capacity(5),
-            map: BTreeMap::new(),
+            map: HashMap::new(),
             use_hash: false,
         }
     }
