@@ -224,7 +224,7 @@ impl Collector for TopFieldCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LeafReader = LR>,
     {
         unreachable!("should call Simple/PagingFieldCollector instead")
     }
@@ -566,7 +566,7 @@ impl Collector for SimpleFieldCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LeafReader = LR>,
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
@@ -776,7 +776,7 @@ impl Collector for PagingFieldCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LeafReader = LR>,
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
@@ -1068,7 +1068,7 @@ impl Collector for TopFieldCollectorEnum {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LeafReader = LR>,
     {
         match self {
             Self::Simple(inner) => inner

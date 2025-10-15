@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::weight::Weight;
 use std::sync::Arc;
 
 ///
 pub trait QueryCache {
-    type Weight<W, QCP, LR>: Weight<LR>
+    type Weight<W, QCP>: Weight
     where
-        W: Weight<LR>,
-        LR: LeafReader,
+        W: Weight,
         QCP: QueryCachingPolicy;
 
     type SelfRef: Clone + Send + Sync;
@@ -33,14 +31,13 @@ pub trait QueryCache {
     /// **Note:** The returned weight will only be equivalent if scores are not needed.
     ///
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache<W, LR, QCP>(
+    fn do_cache<W, QCP>(
         &self,
         query_cache: Option<Self::SelfRef>,
         weight: W,
         policy: Arc<QCP>,
-    ) -> Self::Weight<W, QCP, LR>
+    ) -> Self::Weight<W, QCP>
     where
-        W: Weight<LR>,
-        LR: LeafReader,
+        W: Weight,
         QCP: QueryCachingPolicy;
 }

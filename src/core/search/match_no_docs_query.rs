@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
@@ -27,7 +27,14 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::sync::Arc;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::QueryCache;
+use crate::core::search::score_mode::ScoreMode;
 
 /// A query that matches no documents.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -61,10 +68,23 @@ impl Query for MatchNoDocsQuery {
     }
 
     type Weight<S, IRC>
-        = MatchNoDocsWeight
+        = MatchNoDocsWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(self, _search: &IndexSearcher<IRC, S, QT, QCP, QC>, _score_mod: &ScoreMode, _boost: f32, _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>) -> Result<Self::Weight<S, IRC>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized
+    {
+        Ok(MatchNoDocsWeight::new(self))
+    }
+
     type RewriteQuery = MatchNoDocsQuery;
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -81,28 +101,38 @@ impl Display for MatchNoDocsQuery {
     }
 }
 
-pub struct MatchNoDocsWeight {
+pub struct MatchNoDocsWeight<LR>
+where
+    LR: LeafReader,
+{
     parent_query: Arc<QueryEnum>,
+    _leaf_reader: PhantomData<LR>,
 }
 
-impl MatchNoDocsWeight {
+impl<LR> MatchNoDocsWeight<LR>
+where
+    LR: LeafReader,
+{
     pub fn new(query: MatchNoDocsQuery) -> Self {
         Self {
             parent_query: Arc::new(query.into()),
+            _leaf_reader: PhantomData,
         }
     }
 }
 
-impl<LR> SegmentCacheable<LR> for MatchNoDocsWeight
+impl<LR> SegmentCacheable for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
+    type LeafReader = LR;
+
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         true
     }
 }
 
-impl<LR> Weight<LR> for MatchNoDocsWeight
+impl<LR> Weight for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
 {
@@ -110,13 +140,17 @@ where
 
     fn matches(
         &mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<Self::LeafReader>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         Ok(None)
     }
 
-    fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+    fn explain(
+        &mut self,
+        _context: &LeafReaderContext<Self::LeafReader>,
+        _doc: i32,
+    ) -> Result<Explanation> {
         let QueryEnum::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
@@ -140,17 +174,20 @@ where
 
     fn scorer_supplier(
         &mut self,
-        _context: &LeafReaderContext<LR>,
+        _context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(None)
     }
 
-    fn count(&mut self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         Ok(0)
     }
 }
 
-impl std::fmt::Debug for MatchNoDocsWeight {
+impl<LR> std::fmt::Debug for MatchNoDocsWeight<LR>
+where
+    LR: LeafReader,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({})", self.parent_query)
     }

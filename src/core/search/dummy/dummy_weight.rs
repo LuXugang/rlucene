@@ -26,20 +26,48 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct DummyWeight;
-
-impl<LR> SegmentCacheable<LR> for DummyWeight
+pub struct DummyWeight<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
+    _leaf_reader: PhantomData<LR>,
+}
+
+impl<LR> Default for DummyWeight<LR>
+where
+    LR: LeafReader,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<LR> DummyWeight<LR>
+where
+    LR: LeafReader,
+{
+    pub fn new() -> Self {
+        Self {
+            _leaf_reader: PhantomData,
+        }
+    }
+}
+
+impl<LR> SegmentCacheable for DummyWeight<LR>
+where
+    LR: LeafReader,
+{
+    type LeafReader = LR;
+
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR> Weight<LR> for DummyWeight
+impl<LR> Weight for DummyWeight<LR>
 where
     LR: LeafReader,
 {

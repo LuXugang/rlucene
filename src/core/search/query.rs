@@ -37,7 +37,7 @@ use std::sync::Arc;
 
 pub trait Query: Eq + Hash + Display + Debug {
     fn as_string(&self, field: &str) -> String;
-    type Weight<S, IRC>: Weight<IRC::LeafReader>
+    type Weight<S, IRC>: Weight<LeafReader = IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext;
@@ -169,7 +169,7 @@ impl Query for QueryEnum {
     }
 
     type Weight<S, IRC>
-        = DummyWeight
+        = DummyWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext;

@@ -81,7 +81,7 @@ impl Collector for TopScoreDocCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LeafReader = LR>,
     {
         let doc_base = context.doc_base;
         let after_score: f32;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
@@ -38,7 +38,13 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::Arc;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::QueryCache;
 
 /// A query that matches all documents.
 #[derive(Hash, PartialEq, Eq, Debug)]
@@ -61,10 +67,23 @@ impl Query for MatchAllDocsQuery {
     }
 
     type Weight<S, IRC>
-        = MatchAllWeight
+        = MatchAllWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(self, _search: &IndexSearcher<IRC, S, QT, QCP, QC>, score_mod: &ScoreMode, boost: f32, _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>) -> Result<Self::Weight<S, IRC>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized
+    {
+        Ok(MatchAllWeight::new(boost,self, *score_mod))
+    }
+
     type RewriteQuery = MatchAllDocsQuery;
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -80,31 +99,41 @@ impl Display for MatchAllDocsQuery {
     }
 }
 
-pub struct MatchAllWeight {
+pub struct MatchAllWeight<LR>
+where
+    LR: LeafReader,
+{
     base: ConstantScoreWeight,
     parent_query: Arc<QueryEnum>,
     score_mode: ScoreMode,
+    _leaf_reader: PhantomData<LR>,
 }
-impl MatchAllWeight {
+impl<LR> MatchAllWeight<LR>
+where
+    LR: LeafReader,
+{
     pub fn new(score: f32, query: MatchAllDocsQuery, score_mode: ScoreMode) -> Self {
         Self {
             base: ConstantScoreWeight::new(score),
             parent_query: Arc::new(query.into()),
             score_mode,
+            _leaf_reader: PhantomData,
         }
     }
 }
 
-impl<LR> SegmentCacheable<LR> for MatchAllWeight
+impl<LR> SegmentCacheable for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
+    type LeafReader = LR;
+
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         true
     }
 }
 
-impl<LR> Weight<LR> for MatchAllWeight
+impl<LR> Weight for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
@@ -112,13 +141,17 @@ where
 
     fn matches(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<Self::LeafReader>,
         doc: i32,
     ) -> Result<Option<Self::Matches>> {
         self.default_matches(context, doc)
     }
 
-    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(
+        &mut self,
+        context: &LeafReaderContext<Self::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
             .explain(scorer, doc, self.parent_query.to_string())
@@ -141,7 +174,7 @@ where
 
     fn scorer_supplier(
         &mut self,
-        context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<Self::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(Some(MatchAllDocsScorerSupplier::new(
             self.score_mode,
@@ -150,11 +183,14 @@ where
         )))
     }
 
-    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         context.reader().num_docs()
     }
 }
-impl std::fmt::Debug for MatchAllWeight {
+impl<LR> std::fmt::Debug for MatchAllWeight<LR>
+where
+    LR: LeafReader,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "weight({})", MatchAllDocsQuery)
     }

@@ -35,7 +35,7 @@ impl Query for DummyQuery {
     }
 
     type Weight<S, IRC>
-        = DummyWeight
+        = DummyWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext;

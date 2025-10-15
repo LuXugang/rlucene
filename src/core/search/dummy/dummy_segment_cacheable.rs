@@ -17,14 +17,42 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use std::marker::PhantomData;
 
-pub struct DummySegmentCacheable;
-
-impl<LR> SegmentCacheable<LR> for DummySegmentCacheable
+pub struct DummySegmentCacheable<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
+    _leaf_reader: PhantomData<LR>,
+}
+
+impl<LR> Default for DummySegmentCacheable<LR>
+where
+    LR: LeafReader,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<LR> DummySegmentCacheable<LR>
+where
+    LR: LeafReader,
+{
+    pub fn new() -> Self {
+        Self {
+            _leaf_reader: PhantomData,
+        }
+    }
+}
+
+impl<LR> SegmentCacheable for DummySegmentCacheable<LR>
+where
+    LR: LeafReader,
+{
+    type LeafReader = LR;
+
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
