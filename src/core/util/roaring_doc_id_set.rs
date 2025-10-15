@@ -25,6 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
 // Number of documents in a block
 const BLOCK_SIZE: i32 = 1 << 16;
@@ -44,7 +45,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct RoaringDocIdSet {
-    doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>,
+    doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
     cardinality: i32,
 
     ram_bytes_used: i64,
@@ -52,9 +53,9 @@ pub struct RoaringDocIdSet {
 impl RoaringDocIdSet {
     fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: i32) -> Self {
         // todo
-        let doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>> = doc_id_sets
+        let doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>> = doc_id_sets
             .into_iter()
-            .map(|opt| opt.map(Rc::new))
+            .map(|opt| opt.map(Arc::new))
             .collect();
         let ram_bytes_used = 0;
         RoaringDocIdSet {
@@ -345,11 +346,11 @@ pub struct Iterator {
     doc: i32,
     set_length: usize,
     sub: Option<DocIdSetIteratorEnum>,
-    doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>,
+    doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
     cardinality: i64,
 }
 impl Iterator {
-    fn new(doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>, cardinality: i64) -> Self {
+    fn new(doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>, cardinality: i64) -> Self {
         let set_length = doc_id_sets.len();
         Iterator {
             block: -1,
