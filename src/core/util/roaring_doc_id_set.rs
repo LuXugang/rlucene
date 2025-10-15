@@ -24,7 +24,6 @@ use crate::core::util::bits::MatchNoBits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
-use std::rc::Rc;
 use std::sync::Arc;
 
 // Number of documents in a block
@@ -81,7 +80,7 @@ impl DocIdSet for RoaringDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }
@@ -252,12 +251,12 @@ pub mod builder {
 const SHORT_ARRAY_DOC_ID_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 pub struct ShortArrayDocIdSet {
-    doc_ids: Rc<Vec<i16>>,
+    doc_ids: Arc<Vec<i16>>,
 }
 impl ShortArrayDocIdSet {
     fn new(doc_ids: Vec<i16>) -> ShortArrayDocIdSet {
         ShortArrayDocIdSet {
-            doc_ids: Rc::new(doc_ids),
+            doc_ids: Arc::new(doc_ids),
         }
     }
 }
@@ -277,7 +276,7 @@ impl DocIdSet for ShortArrayDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }
@@ -285,10 +284,10 @@ impl DocIdSet for ShortArrayDocIdSet {
 pub struct ShortArrayDISI {
     i: i32,
     doc: i32,
-    doc_ids: Rc<Vec<i16>>,
+    doc_ids: Arc<Vec<i16>>,
 }
 impl ShortArrayDISI {
-    fn new(doc_ids: Rc<Vec<i16>>) -> Self {
+    fn new(doc_ids: Arc<Vec<i16>>) -> Self {
         ShortArrayDISI {
             i: -1,
             doc: -1,
@@ -453,14 +452,14 @@ impl DocIdSet for DocIdSetEnum {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }
 
 enum DocIdSetIteratorEnum {
     Sparse(ShortArrayDISI),
-    Medium(BitSetIterator<FixedBitSet, Rc<FixedBitSet>>),
+    Medium(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
     Dense(NotDocDocIdSetIterator<ShortArrayDISI>),
     Empty(EmptyDISI),
 }

@@ -19,8 +19,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
-
+use std::sync::Arc;
 //TODO
 
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -30,7 +29,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct BitDocIdSet<T: BitSet> {
-    set: Rc<T>,
+    set: Arc<T>,
     pub(crate) cost: i64,
 }
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
@@ -42,10 +41,15 @@ impl<T: BitSet> BitDocIdSet<T> {
                 "cost must be >= 0, got {cost}"
             )));
         }
-        Ok(BitDocIdSet {
-            set: Rc::new(set.unwrap()),
-            cost,
-        })
+        match set {
+            None => Err(LuceneError::illegal_argument(
+                "set must not be None".to_string(),
+            )),
+            _ => Ok(BitDocIdSet {
+                set: Arc::new(set.unwrap()),
+                cost,
+            }),
+        }
     }
     /// Same as [`BitDocIdSet`] but uses the set's
     /// [`BitSet::approximate_cardinality`] as a cost.
@@ -68,7 +72,7 @@ impl<T> DocIdSet for BitDocIdSet<T>
 where
     T: BitSet + Clone,
 {
-    type DocIdSetIterator = BitSetIterator<T, Rc<T>>;
+    type DocIdSetIterator = BitSetIterator<T, Arc<T>>;
 
     fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(Some(BitSetIterator::new(self.set.clone(), self.cost)?))
@@ -76,7 +80,7 @@ where
 
     type BitType = T;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         Some(self.set.clone())
     }
 }

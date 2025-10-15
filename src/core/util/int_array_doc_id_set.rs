@@ -21,7 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::MatchNoBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
-
+use std::sync::Arc;
 // TODO
 
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -79,7 +79,7 @@ impl DocIdSet for IntArrayDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }
