@@ -76,3 +76,71 @@ pub trait MatchesIterator {
     /// Should only be called after [`MatchesIterator::next`] has returned `true`.
     fn get_query(&self) -> Arc<QueryEnum>;
 }
+macro_rules! either_matches_iterator {
+    (
+        $vis:vis $name:ident
+        => { sub: $sub_mi:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> MatchesIterator for $name<$( $T ),+>
+        where
+            $( $T: MatchesIterator ),+
+        {
+            #[inline]
+            fn next(&mut self) -> Result<bool> {
+                match self { $( Self::$Variant(inner) => inner.next(), )+ }
+            }
+
+            #[inline]
+            fn start_position(&self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.start_position(), )+ }
+            }
+
+            #[inline]
+            fn end_position(&self) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.end_position(), )+ }
+            }
+
+            #[inline]
+            fn start_offset(&self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.start_offset(), )+ }
+            }
+
+            #[inline]
+            fn end_offset(&self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.end_offset(), )+ }
+            }
+
+            type MatchesIterRef<'a> =
+                $sub_mi<$( <$T as MatchesIterator>::MatchesIterRef<'a> ),+>
+            where
+                Self: 'a;
+
+            #[inline]
+            fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.get_sub_matches()?;
+                            Ok(opt.map($sub_mi::$Variant))
+                        }
+                    ),+
+                }
+            }
+
+            #[inline]
+            fn get_query(&self) -> Arc<QueryEnum> {
+                match self { $( Self::$Variant(inner) => inner.get_query(), )+ }
+            }
+        }
+    };
+}
+either_matches_iterator!(
+    pub Either2MatchesIterator
+    => { sub: Either2MatchesIterator }
+    { A: A, B: B }
+);
