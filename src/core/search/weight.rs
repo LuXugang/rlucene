@@ -111,23 +111,23 @@ pub trait Weight: SegmentCacheable {
 
     /// Optional method that delegates to [`Weight::scorer_supplier`].
     ///
-    /// Returns a [`Scorer`](crate::core::search::scorer::Scorer) which can iterate in order over all matching documents
+    /// Returns a [`Scorer`] which can iterate in order over all matching documents
     /// and assign them a score. A scorer for the same [`LeafReaderContext`] instance
     /// may be requested multiple times as part of a single search call.
     ///
     /// # Notes
     ///
     /// - May return `None` if no documents will be scored by this query.
-    /// - The returned [`Scorer`](crate::core::search::scorer::Scorer) does **not** have [`LeafReader::get_live_docs`](crate::core::index::leaf_reader::LeafReader::get_live_docs)
+    /// - The returned [`Scorer`] does **not** have [`LeafReader::get_live_docs`](crate::core::index::leaf_reader::LeafReader::get_live_docs)
     ///   applied; callers must check live docs on top.
     ///
     /// # Parameters
     ///
-    /// - `context`: the [`LeafReaderContext`] for which to return the [`Scorer`](crate::core::search::scorer::Scorer).
+    /// - `context`: the [`LeafReaderContext`] for which to return the [`Scorer`].
     ///
     /// # Returns
     ///
-    /// An optional [`Scorer`](crate::core::search::scorer::Scorer) which scores documents in/out-of-order.
+    /// An optional [`Scorer`] which scores documents in/out-of-order.
     ///
     /// # Errors
     ///
