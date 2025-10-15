@@ -78,6 +78,8 @@ pub mod term_statistics;
 mod time_limiting_bulk_scorer;
 pub mod top_docs;
 pub mod top_docs_collector;
+
+pub use query_cache::QueryCache;
 pub mod top_field_collector;
 mod top_field_collector_manager;
 mod top_field_docs;

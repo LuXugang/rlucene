@@ -21,6 +21,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
+use crate::core::search::QueryCache;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -37,27 +38,30 @@ pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
 const MAX_SEGMENTS_PER_SLICE: usize = 5;
-pub struct IndexSearcher<IRC, S, QT, QCP>
+pub struct IndexSearcher<IRC, S, QT, QCP, QC>
 where
     IRC: IndexReaderContext,
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
+    QC: QueryCache,
 {
     reader_context: IRC,
     leaf_slices: Option<Vec<LeafSlice>>,
     similarity: Arc<S>,
     leaf_slices_init_lock: Mutex<()>,
     query_timeout: Option<QT>,
-    query_caching_policy: QCP,
+    query_caching_policy: Arc<QCP>,
+    query_cache: Arc<QC>,
 }
 
-impl<IRC, S, QT, QCP> IndexSearcher<IRC, S, QT, QCP>
+impl<IRC, S, QT, QCP, QC> IndexSearcher<IRC, S, QT, QCP, QC>
 where
     IRC: IndexReaderContext,
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
+    QC: QueryCache,
 {
     pub fn stored_fields(&self) {}
 

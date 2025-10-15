@@ -17,6 +17,7 @@
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
+use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -40,9 +41,9 @@ pub trait Query: Eq + Hash + Display + Debug {
     where
         S: Similarity,
         IRC: IndexReaderContext;
-    fn create_weight<S, IRC, QT, QCP>(
+    fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP>,
+        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
         _score_mod: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -52,6 +53,7 @@ pub trait Query: Eq + Hash + Display + Debug {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
         Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
@@ -60,15 +62,16 @@ pub trait Query: Eq + Hash + Display + Debug {
         )))
     }
     type RewriteQuery: Query;
-    fn rewrite<IRC, S, QT, QCP>(
+    fn rewrite<IRC, S, QT, QCP, QC>(
         &self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP>,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
     ) -> Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
     {
         Ok(None)
     }
@@ -171,9 +174,9 @@ impl Query for QueryEnum {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC, QT, QCP>(
+    fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP>,
+        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
         _score_mod: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -183,6 +186,7 @@ impl Query for QueryEnum {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
         Self: Sized,
     {
         todo!()
@@ -190,15 +194,16 @@ impl Query for QueryEnum {
 
     type RewriteQuery = DummyQuery;
 
-    fn rewrite<IRC, S, QT, QCP>(
+    fn rewrite<IRC, S, QT, QCP, QC>(
         &self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP>,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
     ) -> Result<Option<Self::RewriteQuery>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
     {
         todo!()
     }

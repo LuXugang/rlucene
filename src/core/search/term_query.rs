@@ -28,6 +28,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::QueryCache;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
@@ -123,9 +124,9 @@ impl Query for TermQuery {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC, QT, QCP>(
+    fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        search: &IndexSearcher<IRC, S, QT, QCP>,
+        search: &IndexSearcher<IRC, S, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -135,6 +136,7 @@ impl Query for TermQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
         Self: Sized,
     {
         let context = search.get_top_reader_context();
@@ -177,8 +179,8 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    pub fn new<I, QT, QCP>(
-        searcher: &IndexSearcher<I, S, QT, QCP>,
+    pub fn new<I, QT, QCP, QC>(
+        searcher: &IndexSearcher<I, S, QT, QCP, QC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
@@ -188,6 +190,7 @@ where
         I: IndexReaderContext,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
+        QC: QueryCache,
     {
         let similarity = searcher.get_similarity();
 
