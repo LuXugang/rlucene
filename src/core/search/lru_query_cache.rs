@@ -42,7 +42,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::dummy::dummy_bits::DummyBits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
 use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
@@ -54,11 +54,45 @@ use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-
+/// A [`QueryCache`] that evicts queries using an LRU (least-recently-used) eviction policy
+/// in order to remain under a given maximum size and number of bytes used.
+///
+///
+/// This structure is thread-safe.
+///
+/// Note that query eviction runs in linear time with the total number of segments that have
+/// cache entries, so this cache works best with [`QueryCachingPolicy`] implementations that
+/// only cache on "large" segments. It is advised to not share this cache across too many indices.
+///
+///
+/// A default query cache and policy instance is used in `IndexSearcher`.
+/// If you want to replace those defaults it is typically done like this:
+///
+/// This cache exposes some global statistics:
+/// - [`get_hit_count()`](LRUQueryCache::get_hit_count): hit count
+/// - [`get_miss_count()`](LRUQueryCache::get_miss_count): miss count
+/// - [`get_cache_size()`](LRUQueryCache::get_cache_size): number of cache entries
+/// - [`get_cache_count()`](LRUQueryCache::get_cache_count): total number of `DocIdSet`s that have ever been cached
+/// - [`get_eviction_count()`](LRUQueryCache::get_eviction_count): number of evicted entries
+///
+///
+/// In case you would like to have more fine-grained statistics, such as per-index or
+/// per-query-class statistics, it is possible to override various callbacks:
+/// [`on_hit`](LRUQueryCache::on_hit), [`on_miss`](LRUQueryCache::on_miss), [`on_query_cache`](LRUQueryCache::on_query_cache), [`on_query_eviction`](LRUQueryCache::on_query_eviction),
+/// [`on_docidset_cache`](LRUQueryCache::on_doc_id_set_cache), [`on_docidset_eviction`](LRUQueryCache::on_doc_id_set_eviction) and [`on_clear`](LRUQueryCache::on_clear).
+///
+/// It is better to not perform heavy computations in these methods since they are called
+/// synchronously and under a lock.
+///
+///
+/// # See also
+/// [`QueryCachingPolicy`]
+///
+/// # Experimental
+/// This API is marked as experimental, following the original Lucene design.
 pub struct LRUQueryCache {
     max_size: i32,
     max_ram_bytes_used: i64,
-    rwlock: RwLock<()>,
     skip_cache_factor: f32,
     hit_count: AtomicU64,
     miss_count: AtomicU64,
@@ -75,13 +109,68 @@ pub struct Inner {
 }
 
 impl LRUQueryCache {
+    pub fn new(max_size: i32, max_ram_bytes_used: i64) -> Result<Self> {
+        Self::with_skip_cache_factor(max_size, max_ram_bytes_used, 10f32)
+    }
+    /// Expert: Create a new instance that will cache at most `max_size` queries with at most
+    /// `max_ram_bytes_used` bytes of memory, only on leaves that satisfy `leaves_to_cache`.
+    ///
+    ///
+    /// Also, clauses whose cost is `skip_cache_factor` times more than the cost of the
+    /// top-level query will not be cached in order to not slow down queries too much.
+    pub fn with_skip_cache_factor(
+        max_size: i32,
+        max_ram_bytes_used: i64,
+        skip_cache_factor: f32,
+    ) -> Result<Self> {
+        if !(skip_cache_factor >= 1.0) {
+            return Err(LuceneError::illegal_argument(format!(
+                "skipCacheFactor must be no less than 1, get {}",
+                skip_cache_factor
+            )));
+        }
+
+        Ok(Self {
+            max_size,
+            max_ram_bytes_used,
+            skip_cache_factor,
+            hit_count: AtomicU64::new(0),
+            miss_count: AtomicU64::new(0),
+            ram_bytes_used: AtomicI64::new(0),
+            cache_count: AtomicI64::new(0),
+            cache_size: AtomicI64::new(0),
+            inner: RwLock::new(Inner {
+                unique_queries: Mutex::new(LinkedHashMap::with_capacity(16)),
+                cache: HashMap::new(),
+            }),
+        })
+    }
+    /// Expert: callback when there is a cache hit on a given query.
+    /// Implementing this method is typically useful in order to compute
+    /// more fine-grained statistics about the query cache.
+    ///
+    /// See also [`on_miss`](Self::on_miss).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_hit(&self, _reader_core_key: &CacheKey, _query: &QueryEnum) {
         self.hit_count.fetch_add(1, Ordering::Relaxed);
     }
+    /// Expert: callback when there is a cache miss on a given query.
+    ///
+    /// See also [`on_hit`](Self::on_hit).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_miss(&self, _reader_core_key: &CacheKey, _query: &QueryEnum) {
         self.miss_count
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
+    /// Expert: callback when a query is added to this cache.
+    /// Implementing this method is typically useful in order to compute
+    /// more fine-grained statistics about the query cache.
+    ///
+    /// See also [`on_query_eviction`](Self::on_query_eviction).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_query_cache(
         &self,
         _query: &QueryEnum,
@@ -91,6 +180,11 @@ impl LRUQueryCache {
         self.ram_bytes_used
             .fetch_add(ram_bytes_used, Ordering::Relaxed);
     }
+    /// Expert: callback when a query is evicted from this cache.
+    ///
+    /// See also [`on_query_cache`](Self::on_query_cache).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_query_eviction(
         &self,
         _query: &QueryEnum,
@@ -100,6 +194,13 @@ impl LRUQueryCache {
         self.ram_bytes_used
             .fetch_sub(ram_bytes_used, Ordering::Relaxed);
     }
+    /// Expert: callback when a [`DocIdSet`] is added to this cache.
+    /// Implementing this method is typically useful in order to compute
+    /// more fine-grained statistics about the query cache.
+    ///
+    /// See also [`on_doc_id_set_eviction`](Self::on_doc_id_set_eviction).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_doc_id_set_cache(&self, _reader_core_key: &CacheKey, ram_bytes_used: i64) {
         self.cache_size.fetch_add(1, Ordering::Relaxed);
         self.cache_count.fetch_add(1, Ordering::Relaxed);
@@ -107,6 +208,11 @@ impl LRUQueryCache {
             .fetch_add(ram_bytes_used, Ordering::Relaxed);
     }
 
+    /// Expert: callback when one or more [`DocIdSet`]s are removed from this cache.
+    ///
+    /// See also [`on_docidset_cache`](Self::on_docidset_cache).
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_doc_id_set_eviction(
         &self,
         _reader_core_key: &CacheKey,
@@ -117,11 +223,14 @@ impl LRUQueryCache {
             .fetch_sub(sum_ram_bytes_used, Ordering::Relaxed);
         self.cache_size.fetch_sub(num_entries, Ordering::Relaxed);
     }
-
+    /// Expert: callback when the cache is completely cleared.
+    ///
+    /// Experimental: this API follows the original Lucene experimental status.
     pub(crate) fn on_clear(&self, _guard: &RwLockWriteGuard<Inner>) {
         self.ram_bytes_used.store(0, Ordering::Relaxed);
         self.cache_size.store(0, Ordering::Relaxed);
     }
+    /// Whether evictions are required.
     pub(crate) fn requires_eviction(&self, guard: &RwLockWriteGuard<Inner>) -> bool {
         let size = guard.unique_queries.lock().len();
         if size == 0 {
@@ -297,7 +406,7 @@ impl LRUQueryCache {
             leaf_cache.remove(&singleton, self);
         }
     }
-
+    /// Clear the content of this cache.
     pub(crate) fn clear(&self) {
         let mut inner = self.inner.write();
         inner.cache.clear();
@@ -308,27 +417,50 @@ impl LRUQueryCache {
         // TODO: memory calculation not implemented
         0
     }
-
+    /// Return the total number of times that a [`Query`](crate::core::search::query::Query) has been looked up in this [`QueryCache`](crate::core::search::query_cache::QueryCache).
+    /// Note that this number is incremented once per segment, so running a cached query only once
+    /// will increment this counter by the number of segments that are wrapped by the searcher.
+    /// By definition, [`get_total_count()`](Self::get_total_count) is the sum of [`get_hit_count()`](Self::get_hit_count) and [`get_miss_count()`](Self::get_miss_count).
+    ///
+    /// See also [`get_hit_count()`](Self::get_hit_count) and [`get_miss_count()`](Self::get_miss_count).
     pub fn get_total_count(&self) -> u64 {
         self.get_hit_count() + self.get_miss_count()
     }
-
+    /// Over the [`get_total_count()`](Self::get_total_count) total number of times that a query has been looked up,
+    /// return how many times a cached [`DocIdSet`] has been found and returned.
+    ///
+    /// See also [`get_total_count()`](Self::get_total_count) and [`get_miss_count()`](Self::get_miss_count).
     pub fn get_hit_count(&self) -> u64 {
         self.hit_count.load(Ordering::Relaxed)
     }
-
+    /// Over the [`get_total_count()`](Self::get_total_count) total number of times that a query has been looked up,
+    /// return how many times this query was not contained in the cache.
+    ///
+    /// See also [`get_total_count()`](Self::get_total_count) and [`get_hit_count()`](Self::get_hit_count).
     pub fn get_miss_count(&self) -> u64 {
         self.miss_count.load(Ordering::Relaxed)
     }
-
+    /// Return the total number of [`DocIdSet`]s which are currently stored in the cache.
+    ///
+    /// See also [`get_cache_count()`](Self::get_cache_count) and [`get_eviction_count()`](Self::get_eviction_count).
     pub fn get_cache_size(&self) -> i64 {
         self.cache_size.load(Ordering::Relaxed)
     }
-
+    /// Return the total number of cache entries that have been generated and put in the cache.
+    /// It is highly desirable to have a [`get_hit_count()`](Self::get_hit_count) that is much higher
+    /// than the [`get_cache_count()`](Self::get_cache_count), as the opposite would indicate that
+    /// the query cache makes efforts in order to cache queries but then they do not get reused.
+    ///
+    /// See also [`get_cache_size()`](Self::get_cache_size) and [`get_eviction_count()`](Self::get_eviction_count).
     pub fn get_cache_count(&self) -> i64 {
         self.cache_count.load(Ordering::Relaxed)
     }
-
+    /// Return the number of cache entries that have been removed from the cache either in order to
+    /// stay under the maximum configured size or RAM usage, or because a segment has been closed.
+    /// High numbers of evictions might mean that queries are not reused or that the
+    /// [`QueryCachingPolicy`] caches too aggressively on NRT segments which get merged early.
+    ///
+    /// See also [`get_cache_count()`](Self::get_cache_count) and [`get_cache_size()`](Self::get_cache_size).
     pub fn get_eviction_count(&self) -> i64 {
         self.get_cache_count() - self.get_cache_size()
     }
@@ -492,6 +624,8 @@ where
     base: ConstantScoreWeight,
     policy: Arc<QCP>,
     used: AtomicBool,
+    lru_cache: Arc<LRUQueryCache>,
+    leaves_to_cache: MinSegmentSizePredicate<LR>,
     _marker: std::marker::PhantomData<LR>,
 }
 impl<W, QCP, LR> CachingWrapperWeight<W, QCP, LR>
@@ -500,14 +634,35 @@ where
     QCP: QueryCachingPolicy,
     LR: LeafReader,
 {
-    pub fn new(in_: W, policy: Arc<QCP>) -> Self {
+    pub fn new(
+        in_: W,
+        policy: Arc<QCP>,
+        lru_cache: Arc<LRUQueryCache>,
+        leaves_to_cache: MinSegmentSizePredicate<LR>,
+    ) -> Self {
         Self {
             in_,
             base: ConstantScoreWeight::new(1.0),
             policy,
             used: AtomicBool::new(false),
+            lru_cache,
+            leaves_to_cache,
             _marker: std::marker::PhantomData,
         }
+    }
+    fn should_cache(&self, _context: &LeafReaderContext<LR>) -> Result<bool> {
+        todo!()
+    }
+    pub(crate) fn cache_entry_has_reasonable_worst_case_size(&self, max_doc: i32) -> bool {
+        // The worst-case (dense) is a bit set which needs one bit per document
+        let worst_case_ram_usage = (max_doc as i64) / 8;
+        let total_ram_available = self.lru_cache.max_ram_bytes_used;
+        // Imagine the worst-case that a cache entry is large than the size of
+        // the cache: not only will this entry be trashed immediately but it
+        // will also evict all current entries from the cache. For this reason
+        // we only cache on an IndexReader if we have available room for
+        // 5 different filters on this reader to avoid excessive trashing
+        worst_case_ram_usage * 5 < total_ram_available
     }
 }
 
@@ -559,20 +714,159 @@ where
         &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        todo!()
+        if self
+            .used
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            self.policy.on_use(self.get_query_enum().as_ref());
+        }
+
+        if !self.in_.is_cacheable(context) {
+            return Ok(self
+                .in_
+                .scorer_supplier(context)?
+                .map(CachingWrapperWeightSupplier::<W, LR>::A));
+        }
+
+        if !self.should_cache(context)? {
+            return Ok(self
+                .in_
+                .scorer_supplier(context)?
+                .map(CachingWrapperWeightSupplier::<W, LR>::A));
+        }
+        let reader = context.reader();
+        let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
+            return Ok(self
+                .in_
+                .scorer_supplier(context)?
+                .map(CachingWrapperWeightSupplier::<W, LR>::A));
+        };
+        let cached = {
+            let Some(inner_read) = self.lru_cache.inner.try_read() else {
+                return Ok(self
+                    .in_
+                    .scorer_supplier(context)?
+                    .map(CachingWrapperWeightSupplier::<W, LR>::A));
+            };
+            self.lru_cache
+                .get(self.get_query_enum().as_ref(), cache_helper, &inner_read)
+        };
+        match cached {
+            None => {
+                let query = self.get_query_enum();
+                if self.policy.should_cache(query.as_ref())? {
+                    let Some(mut supplier) = self.in_.scorer_supplier(context)? else {
+                        self.lru_cache.put_if_absent(
+                            query,
+                            CacheAndCountEnum::Empty(CacheAndCount::empty()),
+                            cache_helper,
+                        );
+                        return Ok(None);
+                    };
+                    let cost = supplier.cost()?;
+                    let max_doc = reader.max_doc()?;
+                    debug_assert!(reader.get_core_cache_helper()?.is_some());
+                    let ss = ScorerSupplierImpl1::new(
+                        cost,
+                        self.lru_cache.skip_cache_factor,
+                        supplier,
+                        max_doc,
+                        self.lru_cache.clone(),
+                        query,
+                        reader.get_core_cache_helper()?.unwrap(),
+                    )?;
+                    return Ok(Some(CachingWrapperWeightSupplier::<W, LR>::B(ss)));
+                }
+                Ok(self
+                    .in_
+                    .scorer_supplier(context)?
+                    .map(CachingWrapperWeightSupplier::<W, LR>::A))
+            },
+            Some(cached) => {
+                if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
+                    return Ok(None);
+                }
+                let Some(disi) = cached.iterator()? else {
+                    return Ok(None);
+                };
+                Ok(Some(Either3ScorerSupplier::C(ScorerSupplierImpl2::new(
+                    disi,
+                )?)))
+            },
+        }
+    }
+
+    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+        let reader = context.reader();
+
+        if reader.has_deletions()? {
+            return self.in_.count(context);
+        }
+
+        if self
+            .used
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            self.policy.on_use(self.get_query_enum().as_ref());
+        }
+
+        if !self.in_.is_cacheable(context) {
+            return self.in_.count(context);
+        }
+
+        if !self.should_cache(context)? {
+            return self.in_.count(context);
+        }
+
+        let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
+            return self.in_.count(context);
+        };
+
+        let Some(inner_read) = self.lru_cache.inner.try_read() else {
+            return self.in_.count(context);
+        };
+
+        let query = self.get_query_enum();
+        let cached = self
+            .lru_cache
+            .get(query.as_ref(), cache_helper, &inner_read);
+
+        if let Some(cached) = cached {
+            return Ok(cached.count());
+        }
+
+        self.in_.count(context)
     }
 }
-pub(crate) struct ScorerSupplierImpl1<S> {
+pub(crate) struct ScorerSupplierImpl1<S, C>
+where
+    S: ScorerSupplier,
+    C: CacheHelper,
+{
     cost: i64,
     skip_cache_factor: f32,
     supplier: S,
     max_doc: i32,
+    lru_query_cache: Arc<LRUQueryCache>,
+    query: Arc<QueryEnum>,
+    cache_helper: C,
 }
-impl<S> ScorerSupplierImpl1<S>
+impl<S, C> ScorerSupplierImpl1<S, C>
 where
     S: ScorerSupplier,
+    C: CacheHelper,
 {
-    pub(crate) fn new(cost: i64, skip_cache_factor: f32, supplier: S, max_doc: i32) -> Result<Self>
+    pub(crate) fn new(
+        cost: i64,
+        skip_cache_factor: f32,
+        supplier: S,
+        max_doc: i32,
+        lru_query_cache: Arc<LRUQueryCache>,
+        query: Arc<QueryEnum>,
+        cache_helper: C,
+    ) -> Result<Self>
     where
         S: ScorerSupplier,
     {
@@ -581,13 +875,17 @@ where
             skip_cache_factor,
             supplier,
             max_doc,
+            lru_query_cache,
+            query,
+            cache_helper,
         })
     }
 }
 pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
-impl<S> ScorerSupplier for ScorerSupplierImpl1<S>
+impl<S, C> ScorerSupplier for ScorerSupplierImpl1<S, C>
 where
     S: ScorerSupplier,
+    C: CacheHelper,
 {
     type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
@@ -600,8 +898,10 @@ where
             };
         };
         let cached = cache_impl(&mut self.supplier.bulk_scorer()?, self.max_doc)?;
-        // TODO: 这里没有处理缓存
-        let disi = match cached.iterator()? {
+        let disi = cached.iterator()?;
+        self.lru_query_cache
+            .put_if_absent(self.query.clone(), cached, &self.cache_helper);
+        let disi = match disi {
             Some(disi) => DISI::B(disi),
             None => DISI::A(EmptyDISI::default()),
         };
@@ -613,7 +913,7 @@ where
     }
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        todo!()
+        self.default_bulk_scorer()
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -653,7 +953,7 @@ impl ScorerSupplier for ScorerSupplierImpl2 {
 }
 pub type CachingWrapperWeightSupplier<W, LR> = Either3ScorerSupplier<
     <W as Weight<LR>>::ScorerSupplier,
-    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier>,
+    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier, <LR as LeafReader>::CacheHelper>,
     ScorerSupplierImpl2,
 >;
 /// Cache of doc ids with a count.
@@ -829,7 +1129,8 @@ impl Default for CacheAndCountDISI {
         Either3DocIdSetIterator::A(EmptyDISI::default())
     }
 }
-
+/// Default cache implementation: uses [`RoaringDocIdSet`] for sets that have a density < 1%,
+/// and a [`BitDocIdSet`] over a [`FixedBitSet`] otherwise.
 fn cache_impl<BS>(scorer: &mut BS, max_doc: i32) -> Result<CacheAndCountEnum>
 where
     BS: BulkScorer,

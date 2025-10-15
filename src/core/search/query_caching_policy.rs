@@ -28,7 +28,7 @@ pub trait QueryCachingPolicy {
     /// Callback that is called every time that a cached filter is used.
     /// This is typically useful if the policy wants to track usage statistics
     /// in order to make decisions.
-    fn on_use<Q>(&self, query: Q)
+    fn on_use<Q>(&self, query: &Q)
     where
         Q: Query;
 
