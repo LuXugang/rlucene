@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::Matches;
+use crate::core::search::matches::{Either2Matches, Matches};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::QueryEnum;
-use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer::{Either2Scorer, Scorer};
+use crate::core::search::scorer_supplier::{Either2ScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
+
 /// Expert: Calculate query weights and build query scorers.
 ///
 /// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`],
@@ -223,6 +224,9 @@ pub trait Weight: SegmentCacheable {
     }
     fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
         Ok(-1)
+    }
+    fn is_weight_cacheable(&self) -> bool {
+        true
     }
 }
 
@@ -459,3 +463,175 @@ where
 
     Ok(doc)
 }
+
+macro_rules! define_either_weight {
+    (
+        $name:ident,
+        matches = $either_matches:ident,
+        scorer = $either_scorer:ident,
+        supplier = $either_supplier:ident,
+        bulk = $either_bulk:ident,
+        A = $A:ident, $( $T:ident ),+ $(,)?
+    ) => {
+        pub enum $name<$A, $( $T ),+>
+        where
+            $A: Weight,
+            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
+        {
+            $A($A),
+            $( $T($T) ),+
+        }
+
+        impl<$A, $( $T ),+> SegmentCacheable for $name<$A, $( $T ),+>
+        where
+            $A: Weight,
+            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
+        {
+            type LeafReader = <$A as SegmentCacheable>::LeafReader;
+
+            fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+                match self {
+                    Self::$A(inner) => inner.is_cacheable(ctx),
+                    $( Self::$T(inner) => inner.is_cacheable(ctx), )+
+                }
+            }
+        }
+
+        impl<$A, $( $T ),+> Weight for $name<$A, $( $T ),+>
+        where
+            $A: Weight,
+            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
+        {
+            type Matches = $either_matches<
+                <$A as Weight>::Matches,
+                $( <$T as Weight>::Matches ),+
+            >;
+
+            type ScorerSupplier = $either_supplier<
+                <$A as Weight>::ScorerSupplier,
+                $( <$T as Weight>::ScorerSupplier ),+
+            >;
+
+            fn matches(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+                doc: i32,
+            ) -> Result<Option<Self::Matches>> {
+                match self {
+                    Self::$A(inner) => {
+                        let opt = inner.matches(context, doc)?;
+                        Ok(opt.map($either_matches::$A))
+                    },
+                    $( Self::$T(inner) => {
+                        let opt = inner.matches(context, doc)?;
+                        Ok(opt.map($either_matches::$T))
+                    }, )+
+                }
+            }
+
+            fn default_matches(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+                doc: i32,
+            ) -> Result<Option<MatchWithNoTerms>> {
+                match self {
+                    Self::$A(inner) => inner.default_matches(context, doc),
+                    $( Self::$T(inner) => inner.default_matches(context, doc), )+
+                }
+            }
+
+            fn explain(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+                doc: i32,
+            ) -> Result<Explanation> {
+                match self {
+                    Self::$A(inner) => inner.explain(context, doc),
+                    $( Self::$T(inner) => inner.explain(context, doc), )+
+                }
+            }
+
+            fn get_query(&self) -> Arc<QueryEnum> {
+                match self {
+                    Self::$A(inner) => inner.get_query(),
+                    $( Self::$T(inner) => inner.get_query(), )+
+                }
+            }
+
+            fn scorer(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+                match self {
+                    Self::$A(inner) => {
+                        let opt = inner.scorer(context)?;
+                        Ok(opt.map($either_scorer::$A))
+                    },
+                    $( Self::$T(inner) => {
+                        let opt = inner.scorer(context)?;
+                        Ok(opt.map($either_scorer::$T))
+                    }, )+
+                }
+            }
+
+            fn scorer_supplier(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+            ) -> Result<Option<Self::ScorerSupplier>> {
+                match self {
+                    Self::$A(inner) => {
+                        let opt = inner.scorer_supplier(context)?;
+                        Ok(opt.map($either_supplier::$A))
+                    },
+                    $( Self::$T(inner) => {
+                        let opt = inner.scorer_supplier(context)?;
+                        Ok(opt.map($either_supplier::$T))
+                    }, )+
+                }
+            }
+
+            fn bulk_scorer(
+                &mut self,
+                context: &LeafReaderContext<Self::LeafReader>,
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+                match self {
+                    Self::$A(inner) => {
+                        let opt = inner.bulk_scorer(context)?;
+                        Ok(opt.map($either_bulk::$A))
+                    },
+                    $( Self::$T(inner) => {
+                        let opt = inner.bulk_scorer(context)?;
+                        Ok(opt.map($either_bulk::$T))
+                    }, )+
+                }
+            }
+
+            fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+                match self {
+                    Self::$A(inner) => inner.count(context),
+                    $( Self::$T(inner) => inner.count(context), )+
+                }
+            }
+
+            fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+                Ok(-1)
+            }
+            fn is_weight_cacheable(&self) -> bool {
+                match self {
+                    Self::$A(inner) => inner.is_weight_cacheable(),
+                    $( Self::$T(inner) => inner.is_weight_cacheable(), )+
+                }
+            }
+        }
+    };
+}
+
+define_either_weight!(
+    Either2Weight,
+    matches = Either2Matches,
+    scorer = Either2Scorer,
+    supplier = Either2ScorerSupplier,
+    bulk = Either2BulkScorer,
+    A = A,
+    B,
+);
