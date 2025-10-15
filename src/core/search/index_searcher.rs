@@ -34,7 +34,7 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
-use crate::core::search::weight::Weight;
+use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -113,6 +113,7 @@ where
     pub fn get_similarity(&self) -> Arc<S> {
         self.similarity.clone()
     }
+
     pub(crate) fn search_partitions<W, LC, C>(
         &mut self,
         partitions: &[LeafReaderContextPartition],
@@ -197,26 +198,25 @@ where
         leaf_collector.finish()?;
         Ok(())
     }
-    pub(crate) fn create_weight<Q, W>(
+    pub(crate) fn create_weight<Q>(
         &self,
         query: Q,
         score_mode: ScoreMode,
         boost: f32,
-    ) -> Result<W>
+    ) -> Result<WeightEnum<Q, S, IRC, QCP, QC>>
     where
         Q: Query,
-        W: Weight<IRC::LeafReader>,
     {
-        // let weight = query.create_weight(self, &score_mode, boost, None)?;
-        // let weight = if !score_mode.needs_scores() {
-        //     Either2Weight::A(self.query_cache.do_cache(
-        //         weight,
-        //         self.query_caching_policy.clone(),
-        //     ))
-        // }else {
-        //    Either2Weight::B(weight)
-        // };
-        todo!()
+        let weight = query.create_weight(self, &score_mode, boost, None)?;
+        let v = if !score_mode.needs_scores() {
+            Either2Weight::A(
+                self.query_cache
+                    .do_cache(weight, self.query_caching_policy.clone()),
+            )
+        } else {
+            Either2Weight::B(weight)
+        };
+        Ok(v)
     }
     /// Returns [`TermStatistics`] for a term.
     ///
@@ -275,6 +275,15 @@ where
         Ok(Some(stats))
     }
 }
+pub type WeightEnum<Q, S, IRC, QCP, QC> = Either2Weight<
+    <QC as QueryCache>::Weight<
+        <Q as Query>::Weight<S, IRC>,
+        QCP,
+        <IRC as IndexReaderContext>::LeafReader,
+    >,
+    <Q as Query>::Weight<S, IRC>,
+>;
+
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
