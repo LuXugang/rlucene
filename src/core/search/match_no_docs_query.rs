@@ -127,18 +127,16 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for MatchNoDocsWeight<LR>
+impl<LR> SegmentCacheable<LR> for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
-
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
         true
     }
 }
 
-impl<LR> Weight for MatchNoDocsWeight<LR>
+impl<LR> Weight<LR> for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
 {
@@ -146,17 +144,13 @@ where
 
     fn matches(
         &mut self,
-        _context: &LeafReaderContext<Self::LeafReader>,
+        _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         Ok(None)
     }
 
-    fn explain(
-        &mut self,
-        _context: &LeafReaderContext<Self::LeafReader>,
-        _doc: i32,
-    ) -> Result<Explanation> {
+    fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
         let QueryEnum::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
@@ -171,12 +165,12 @@ where
 
     fn scorer_supplier(
         &mut self,
-        _context: &LeafReaderContext<Self::LeafReader>,
+        _context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(None)
     }
 
-    fn count(&mut self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         Ok(0)
     }
 }

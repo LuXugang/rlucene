@@ -32,7 +32,7 @@ where
     QT: QueryTimeout,
 {
     in_: BS,
-    query_timeout: &'a mut QT,
+    query_timeout: &'a QT,
 }
 impl<'a, BS, QT> TimeLimitingBulkScorer<'a, BS, QT>
 where
@@ -46,7 +46,7 @@ where
     /// * `bulk_scorer` — the wrapped [`BulkScorer`]
     /// * `query_timeout` — max time allowed for collecting hits after which
     ///   [`TimeExceededError`](crate::core::util::error::TimeExceededError) is returned
-    pub fn new(in_: BS, query_timeout: &'a mut QT) -> Self {
+    pub fn new(in_: BS, query_timeout: &'a QT) -> Self {
         Self { in_, query_timeout }
     }
 }

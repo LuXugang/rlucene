@@ -128,18 +128,16 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for MatchAllWeight<LR>
+impl<LR> SegmentCacheable<LR> for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
-
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
         true
     }
 }
 
-impl<LR> Weight for MatchAllWeight<LR>
+impl<LR> Weight<LR> for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
@@ -147,17 +145,13 @@ where
 
     fn matches(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
         doc: i32,
     ) -> Result<Option<Self::Matches>> {
         self.default_matches(context, doc)
     }
 
-    fn explain(
-        &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
-        doc: i32,
-    ) -> Result<Explanation> {
+    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
             .explain(scorer, doc, self.parent_query.to_string())
@@ -171,7 +165,7 @@ where
 
     fn scorer_supplier(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(Some(MatchAllDocsScorerSupplier::new(
             self.score_mode,
@@ -180,7 +174,7 @@ where
         )))
     }
 
-    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
         context.reader().num_docs()
     }
 }

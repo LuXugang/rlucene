@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
+use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -53,6 +53,7 @@ use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 
@@ -567,7 +568,7 @@ where
         uq.keys().cloned().collect()
     }
 }
-impl<P> Accountable for LRUQueryCache<P>
+impl<P> Accountable for Arc<LRUQueryCache<P>>
 where
     P: Predicate,
 {
@@ -575,29 +576,25 @@ where
         todo!()
     }
 }
-impl<P> QueryCache for LRUQueryCache<P>
+impl<P> QueryCache for Arc<LRUQueryCache<P>>
 where
     P: Predicate + Send + Sync,
 {
-    type Weight<W, QCP>
-        = CachingWrapperWeight<W, QCP, P>
+    type Weight<W, QCP, LR>
+        = CachingWrapperWeight<W, QCP, P, LR>
     where
-        W: Weight,
-        QCP: QueryCachingPolicy;
-    type SelfRef = Arc<LRUQueryCache<P>>;
-
-    fn do_cache<W, QCP>(
-        &self,
-        query_cache: Option<Self::SelfRef>,
-        weight: W,
-        policy: Arc<QCP>,
-    ) -> Self::Weight<W, QCP>
-    where
-        W: Weight,
+        W: Weight<LR>,
         QCP: QueryCachingPolicy,
+        LR: LeafReader;
+
+    fn do_cache<W, QCP, LR>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP, LR>
+    where
+        W: Weight<LR>,
+        QCP: QueryCachingPolicy,
+        LR: LeafReader,
     {
-        debug_assert!(query_cache.is_some());
-        CachingWrapperWeight::new(weight, policy, query_cache.unwrap())
+        // TODO: IMPORTANT 这里没有处理weight是CachingWrapperWeight的情况
+        CachingWrapperWeight::new(weight, policy, self.clone())
     }
 }
 
@@ -674,23 +671,26 @@ impl Accountable for LeafCache {
         todo!()
     }
 }
-pub struct CachingWrapperWeight<W, QCP, P>
+pub struct CachingWrapperWeight<W, QCP, P, LR>
 where
-    W: Weight,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
     P: Predicate,
+    LR: LeafReader,
 {
     in_: W,
     base: ConstantScoreWeight,
     policy: Arc<QCP>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
+    _marker: PhantomData<LR>,
 }
-impl<W, QCP, P> CachingWrapperWeight<W, QCP, P>
+impl<W, QCP, P, LR> CachingWrapperWeight<W, QCP, P, LR>
 where
-    W: Weight,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
     P: Predicate,
+    LR: LeafReader,
 {
     pub(crate) fn new(in_: W, policy: Arc<QCP>, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
         Self {
@@ -699,12 +699,10 @@ where
             policy,
             used: AtomicBool::new(false),
             lru_cache,
+            _marker: PhantomData,
         }
     }
-    fn should_cache<LR>(&self, _context: &LeafReaderContext<LR>) -> Result<bool>
-    where
-        LR: LeafReader,
-    {
+    fn should_cache(&self, _context: &LeafReaderContext<LR>) -> Result<bool> {
         todo!()
     }
     pub(crate) fn cache_entry_has_reasonable_worst_case_size(&self, max_doc: i32) -> bool {
@@ -720,40 +718,36 @@ where
     }
 }
 
-impl<W, QCP, P> SegmentCacheable for CachingWrapperWeight<W, QCP, P>
+impl<W, QCP, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
     QCP: QueryCachingPolicy,
-    W: Weight,
+    W: Weight<LR>,
     P: Predicate,
+    LR: LeafReader,
 {
-    type LeafReader = W::LeafReader;
-
-    fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<W, QCP, P> Weight for CachingWrapperWeight<W, QCP, P>
+impl<W, QCP, P, LR> Weight<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
-    W: Weight,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
     P: Predicate,
+    LR: LeafReader,
 {
-    type Matches = W::Matches;
+    type Matches = <W as Weight<LR>>::Matches;
 
     fn matches(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
         doc: i32,
     ) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
     }
 
-    fn explain(
-        &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
-        doc: i32,
-    ) -> Result<Explanation> {
+    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base.explain(scorer, doc, self.get_query().to_string())
     }
@@ -761,11 +755,11 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = CachingWrapperWeightSupplier<W, P>;
+    type ScorerSupplier = CachingWrapperWeightSupplier<W, P, LR>;
 
     fn scorer_supplier(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if self
             .used
@@ -779,28 +773,28 @@ where
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         }
 
         if !self.should_cache(context)? {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         }
         let reader = context.reader();
         let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         };
         let cached = {
             let Some(inner_read) = self.lru_cache.inner.try_read() else {
                 return Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<W, P>::A));
+                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
             };
             self.lru_cache
                 .get(self.get_query().as_ref(), cache_helper, &inner_read)
@@ -829,12 +823,12 @@ where
                         query,
                         reader.get_core_cache_helper()?.unwrap(),
                     )?;
-                    return Ok(Some(CachingWrapperWeightSupplier::<W, P>::B(ss)));
+                    return Ok(Some(CachingWrapperWeightSupplier::<W, P, LR>::B(ss)));
                 }
                 Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<W, P>::A))
+                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A))
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -850,7 +844,7 @@ where
         }
     }
 
-    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
         let reader = context.reader();
 
         if reader.has_deletions()? {
@@ -1007,13 +1001,9 @@ impl ScorerSupplier for ScorerSupplierImpl2 {
         Ok(self.cost)
     }
 }
-pub type CachingWrapperWeightSupplier<W, P> = Either3ScorerSupplier<
-    <W as Weight>::ScorerSupplier,
-    ScorerSupplierImpl1<
-        <W as Weight>::ScorerSupplier,
-        <<W as SegmentCacheable>::LeafReader as LeafReader>::CacheHelper,
-        P,
-    >,
+pub type CachingWrapperWeightSupplier<W, P, LR> = Either3ScorerSupplier<
+    <W as Weight<LR>>::ScorerSupplier,
+    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier, <LR as LeafReader>::CacheHelper, P>,
     ScorerSupplierImpl2,
 >;
 /// Cache of doc ids with a count.

@@ -22,11 +22,19 @@ use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::QueryCache;
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collection_statistics::CollectionStatistics;
+use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
+use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -53,6 +61,11 @@ where
     query_timeout: Option<QT>,
     query_caching_policy: Arc<QCP>,
     query_cache: Arc<QC>,
+    // partialResult may be set on one of the threads of the executor. It may be correct to not make
+    // this variable volatile since joining these threads should ensure a happens-before relationship
+    // that guarantees that writes become visible on the main thread, but making the variable volatile
+    // shouldn't hurt either.
+    partial_result: bool,
 }
 
 impl<IRC, S, QT, QCP, QC> IndexSearcher<IRC, S, QT, QCP, QC>
@@ -99,6 +112,111 @@ where
     }
     pub fn get_similarity(&self) -> Arc<S> {
         self.similarity.clone()
+    }
+    pub(crate) fn search_partitions<W, LC, C>(
+        &mut self,
+        partitions: &[LeafReaderContextPartition],
+        weight: &mut W,
+        collector: &mut C,
+    ) -> Result<()>
+    where
+        W: Weight<IRC::LeafReader>,
+        LC: LeafCollector,
+        C: Collector,
+    {
+        // we pass `Weight` to `Collector` via parameter in Rust Lucene
+        // collector.set_weight(weight)?;
+
+        for partition in partitions {
+            self.search_leaf::<W, LC, C>(
+                partition.ctx,
+                partition.min_doc_id,
+                partition.max_doc_id,
+                weight,
+                collector,
+            )?;
+        }
+
+        Ok(())
+    }
+    pub(crate) fn search_leaf<W, LC, C>(
+        &mut self,
+        ctx_ord: usize,
+        min_doc_id: i32,
+        max_doc_id: i32,
+        weight: &mut W,
+        collector: &mut C,
+    ) -> Result<()>
+    where
+        W: Weight<IRC::LeafReader>,
+        LC: LeafCollector,
+        C: Collector,
+    {
+        let ctx = &self.reader_context.leaves()?[ctx_ord];
+        let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {
+            Ok(leaf_collector) => leaf_collector,
+            Err(LuceneError::CollectionTerminated(_)) => {
+                // there is no doc of interest in this reader context
+                // continue with the following leaf
+                return Ok(());
+            },
+            Err(e) => return Err(e),
+        };
+
+        if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx)? {
+            scorer_supplier.set_top_level_scoring_clause()?;
+            let mut scorer = scorer_supplier.bulk_scorer()?;
+            let bits = ctx.reader().get_live_docs()?;
+            let result: Result<()> = (|| {
+                let _ = match self.query_timeout {
+                    None => {
+                        scorer.score(&mut leaf_collector, bits.as_ref(), min_doc_id, max_doc_id)?
+                    },
+                    Some(ref qt) => {
+                        let mut scorer = TimeLimitingBulkScorer::new(scorer, qt);
+                        scorer.score(&mut leaf_collector, bits.as_ref(), min_doc_id, max_doc_id)?
+                    },
+                };
+                Ok(())
+            })();
+
+            match result {
+                Ok(_) => {},
+                Err(LuceneError::CollectionTerminated(_)) => {
+                    // collection was terminated prematurely
+                    // continue with the following leaf
+                },
+                Err(LuceneError::TimeExceeded(_)) => {
+                    self.partial_result = true;
+                },
+                Err(e) => return Err(e),
+            }
+        }
+        // Note: this is called if collection ran successfully, including the above special cases of
+        // CollectionTerminatedException and TimeExceededException, but no other exception.
+        leaf_collector.finish()?;
+        Ok(())
+    }
+    pub(crate) fn create_weight<Q, W>(
+        &self,
+        query: Q,
+        score_mode: ScoreMode,
+        boost: f32,
+    ) -> Result<W>
+    where
+        Q: Query,
+        W: Weight<IRC::LeafReader>,
+    {
+        // let weight = query.create_weight(self, &score_mode, boost, None)?;
+        // let weight = if !score_mode.needs_scores() {
+        //     Either2Weight::A(self.query_cache.do_cache(
+        //         weight,
+        //         self.query_caching_policy.clone(),
+        //     ))
+        // }else {
+        //    Either2Weight::B(weight)
+        // };
+        todo!()
     }
     /// Returns [`TermStatistics`] for a term.
     ///

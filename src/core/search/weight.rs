@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -49,7 +50,10 @@ use std::sync::Arc;
 /// 1. A `Weight` is constructed by a top-level query, given an [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher)
 ///    (see [`Query::create_weight`]).
 /// 2. A [`Scorer`] is constructed by [`Weight::scorer`].
-pub trait Weight: SegmentCacheable {
+pub trait Weight<LR>: SegmentCacheable<LR>
+where
+    LR: LeafReader,
+{
     type Matches: Matches;
     /// Returns [`Matches`] for a specific document, or `None` if the document
     /// does not match the parent query.
@@ -63,12 +67,12 @@ pub trait Weight: SegmentCacheable {
     /// - `doc`: the document's id relative to the given context's reader
     fn matches(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
         doc: i32,
     ) -> Result<Option<Self::Matches>>;
     fn default_matches(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         let scorer_supplier = self.scorer_supplier(context)?;
@@ -102,11 +106,7 @@ pub trait Weight: SegmentCacheable {
     /// # Parameters
     /// - `context`: the reader's context to create the [`Explanation`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn explain(
-        &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
-        doc: i32,
-    ) -> Result<Explanation>;
+    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>;
 
     fn get_query(&self) -> Arc<QueryEnum>;
 
@@ -135,7 +135,7 @@ pub trait Weight: SegmentCacheable {
     /// Returns an error if a low-level I/O error occurs.
     fn scorer(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
@@ -173,7 +173,7 @@ pub trait Weight: SegmentCacheable {
     /// - [`DefaultScorerSupplier`]
     fn scorer_supplier(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>>;
     /// Helper method that delegates to [`Weight::scorer_supplier`].
     ///
@@ -181,7 +181,7 @@ pub trait Weight: SegmentCacheable {
     /// multiple times as part of a single search call.
     fn bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<Self::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
@@ -219,10 +219,10 @@ pub trait Weight: SegmentCacheable {
     /// # Errors
     ///
     /// Returns an error if a low-level I/O error occurs.
-    fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
         self.default_count(context)
     }
-    fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+    fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         Ok(-1)
     }
     fn is_weight_cacheable(&self) -> bool {
@@ -473,23 +473,18 @@ macro_rules! define_either_weight {
         bulk = $either_bulk:ident,
         A = $A:ident, $( $T:ident ),+ $(,)?
     ) => {
-        pub enum $name<$A, $( $T ),+>
-        where
-            $A: Weight,
-            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
-        {
+        pub enum $name<$A, $( $T ),+> {
             $A($A),
             $( $T($T) ),+
         }
 
-        impl<$A, $( $T ),+> SegmentCacheable for $name<$A, $( $T ),+>
+        impl<LR, $A, $( $T ),+> SegmentCacheable<LR> for $name<$A, $( $T ),+>
         where
-            $A: Weight,
-            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
+            LR: LeafReader,
+            $A: Weight<LR>,
+            $( $T: Weight<LR> ),+
         {
-            type LeafReader = <$A as SegmentCacheable>::LeafReader;
-
-            fn is_cacheable(&self, ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+            fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
                 match self {
                     Self::$A(inner) => inner.is_cacheable(ctx),
                     $( Self::$T(inner) => inner.is_cacheable(ctx), )+
@@ -497,24 +492,25 @@ macro_rules! define_either_weight {
             }
         }
 
-        impl<$A, $( $T ),+> Weight for $name<$A, $( $T ),+>
+        impl<LR, $A, $( $T ),+> Weight<LR> for $name<$A, $( $T ),+>
         where
-            $A: Weight,
-            $( $T: Weight<LeafReader = <$A as SegmentCacheable>::LeafReader> ),+
+            LR: LeafReader,
+            $A: Weight<LR>,
+            $( $T: Weight<LR> ),+
         {
             type Matches = $either_matches<
-                <$A as Weight>::Matches,
-                $( <$T as Weight>::Matches ),+
+                <$A as Weight<LR>>::Matches,
+                $( <$T as Weight<LR>>::Matches ),+
             >;
 
             type ScorerSupplier = $either_supplier<
-                <$A as Weight>::ScorerSupplier,
-                $( <$T as Weight>::ScorerSupplier ),+
+                <$A as Weight<LR>>::ScorerSupplier,
+                $( <$T as Weight<LR>>::ScorerSupplier ),+
             >;
 
             fn matches(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Option<Self::Matches>> {
                 match self {
@@ -531,7 +527,7 @@ macro_rules! define_either_weight {
 
             fn default_matches(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Option<MatchWithNoTerms>> {
                 match self {
@@ -542,7 +538,7 @@ macro_rules! define_either_weight {
 
             fn explain(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Explanation> {
                 match self {
@@ -560,7 +556,7 @@ macro_rules! define_either_weight {
 
             fn scorer(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
                 match self {
                     Self::$A(inner) => {
@@ -576,7 +572,7 @@ macro_rules! define_either_weight {
 
             fn scorer_supplier(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
             ) -> Result<Option<Self::ScorerSupplier>> {
                 match self {
                     Self::$A(inner) => {
@@ -592,7 +588,7 @@ macro_rules! define_either_weight {
 
             fn bulk_scorer(
                 &mut self,
-                context: &LeafReaderContext<Self::LeafReader>,
+                context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
                 match self {
                     Self::$A(inner) => {
@@ -606,14 +602,14 @@ macro_rules! define_either_weight {
                 }
             }
 
-            fn count(&mut self, context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+            fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
                 match self {
                     Self::$A(inner) => inner.count(context),
                     $( Self::$T(inner) => inner.count(context), )+
                 }
             }
 
-            fn default_count(&self, _context: &LeafReaderContext<Self::LeafReader>) -> Result<i32> {
+            fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
                 Ok(-1)
             }
             fn is_weight_cacheable(&self) -> bool {

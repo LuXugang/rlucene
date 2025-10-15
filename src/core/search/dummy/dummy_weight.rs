@@ -55,18 +55,16 @@ where
     }
 }
 
-impl<LR> SegmentCacheable for DummyWeight<LR>
+impl<LR> SegmentCacheable<LR> for DummyWeight<LR>
 where
     LR: LeafReader,
 {
-    type LeafReader = LR;
-
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<Self::LeafReader>) -> bool {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR> Weight for DummyWeight<LR>
+impl<LR> Weight<LR> for DummyWeight<LR>
 where
     LR: LeafReader,
 {
