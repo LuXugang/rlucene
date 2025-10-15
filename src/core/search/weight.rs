@@ -22,7 +22,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query::QueryEnum;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -107,11 +107,7 @@ pub trait Weight: SegmentCacheable {
         doc: i32,
     ) -> Result<Explanation>;
 
-    type Query: Query;
-    /// The query that this weight concerns.
-    fn get_query(&self) -> &Self::Query;
-
-    fn get_query_enum(&self) -> Arc<QueryEnum>;
+    fn get_query(&self) -> Arc<QueryEnum>;
 
     /// Optional method that delegates to [`Weight::scorer_supplier`].
     ///

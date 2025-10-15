@@ -163,16 +163,7 @@ where
             .explain(scorer, doc, self.parent_query.to_string())
     }
 
-    type Query = MatchAllDocsQuery;
-
-    fn get_query(&self) -> &Self::Query {
-        let QueryEnum::MatchAll(parent_query) = self.parent_query.as_ref() else {
-            unreachable!("should never happen");
-        };
-        parent_query
-    }
-
-    fn get_query_enum(&self) -> Arc<QueryEnum> {
+    fn get_query(&self) -> Arc<QueryEnum> {
         self.parent_query.clone()
     }
 

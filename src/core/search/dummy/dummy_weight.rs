@@ -17,7 +17,6 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::matches_utils::MatchWithNoTerms;
@@ -93,13 +92,7 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Query = DummyQuery;
-
-    fn get_query(&self) -> &Self::Query {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn get_query_enum(&self) -> Arc<QueryEnum> {
+    fn get_query(&self) -> Arc<QueryEnum> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

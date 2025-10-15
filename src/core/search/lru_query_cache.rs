@@ -757,15 +757,8 @@ where
         let scorer = self.scorer(context)?;
         self.base.explain(scorer, doc, self.get_query().to_string())
     }
-
-    type Query = W::Query;
-
-    fn get_query(&self) -> &Self::Query {
+    fn get_query(&self) -> Arc<QueryEnum> {
         self.in_.get_query()
-    }
-
-    fn get_query_enum(&self) -> Arc<QueryEnum> {
-        self.in_.get_query_enum()
     }
 
     type ScorerSupplier = CachingWrapperWeightSupplier<W, P>;
@@ -779,7 +772,7 @@ where
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
         {
-            self.policy.on_use(self.get_query_enum().as_ref());
+            self.policy.on_use(self.get_query().as_ref());
         }
 
         if !self.in_.is_cacheable(context) {
@@ -810,11 +803,11 @@ where
                     .map(CachingWrapperWeightSupplier::<W, P>::A));
             };
             self.lru_cache
-                .get(self.get_query_enum().as_ref(), cache_helper, &inner_read)
+                .get(self.get_query().as_ref(), cache_helper, &inner_read)
         };
         match cached {
             None => {
-                let query = self.get_query_enum();
+                let query = self.get_query();
                 if self.policy.should_cache(query.as_ref())? {
                     let Some(mut supplier) = self.in_.scorer_supplier(context)? else {
                         self.lru_cache.put_if_absent(
@@ -869,7 +862,7 @@ where
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
         {
-            self.policy.on_use(self.get_query_enum().as_ref());
+            self.policy.on_use(self.get_query().as_ref());
         }
 
         if !self.in_.is_cacheable(context) {
@@ -888,7 +881,7 @@ where
             return self.in_.count(context);
         };
 
-        let query = self.get_query_enum();
+        let query = self.get_query();
         let cached = self
             .lru_cache
             .get(query.as_ref(), cache_helper, &inner_read);
