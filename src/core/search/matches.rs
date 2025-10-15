@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::matches_iterator::MatchesIterator;
+use crate::core::search::matches_iterator::{Either2MatchesIterator, MatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 
 /// Reports the positions and optionally offsets of all matching terms
@@ -38,7 +38,60 @@ pub trait Matches {
 
     fn field(&self) -> &[String];
 }
-pub enum Either2Matches<A, B> {
-    A(A),
-    B(B),
+macro_rules! either_matches {
+    (
+        $vis:vis $name:ident
+        => { mi: $mi:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Matches for $name<$( $T ),+>
+        where
+            $( $T: Matches ),+
+        {
+            type MatchesIterator = $mi<$( < $T as Matches >::MatchesIterator ),+>;
+
+            fn get_matches(
+                &self,
+                field: &str,
+            ) -> Result<Option<Self::MatchesIterator>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.get_matches(field)?;
+                            Ok(opt.map($mi::$Variant))
+                        }
+                    ),+
+                }
+            }
+
+            type Matches = $name<$( < $T as Matches >::Matches ),+>;
+
+            fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => inner
+                            .get_sub_matches()
+                            .into_iter()
+                            .map(Self::Matches::$Variant)
+                            .collect(),
+                    )+
+                }
+            }
+
+            fn field(&self) -> &[String] {
+                match self {
+                    $( Self::$Variant(inner) => inner.field(), )+
+                }
+            }
+        }
+    };
 }
+either_matches!(
+    pub Either2Matches
+    => { mi: Either2MatchesIterator }
+    { A: A, B: B }
+);
