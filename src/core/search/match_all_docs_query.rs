@@ -17,6 +17,9 @@
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -24,9 +27,11 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -40,11 +45,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::core::index::query_timeout::QueryTimeout;
-use crate::core::index::term_states::TermStates;
-use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
-use crate::core::search::QueryCache;
 
 /// A query that matches all documents.
 #[derive(Hash, PartialEq, Eq, Debug)]
@@ -72,16 +72,22 @@ impl Query for MatchAllDocsQuery {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(self, _search: &IndexSearcher<IRC, S, QT, QCP, QC>, score_mod: &ScoreMode, boost: f32, _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>) -> Result<Self::Weight<S, IRC>>
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mod: &ScoreMode,
+        boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
-        Self: Sized
+        Self: Sized,
     {
-        Ok(MatchAllWeight::new(boost,self, *score_mod))
+        Ok(MatchAllWeight::new(boost, self, *score_mod))
     }
 
     type RewriteQuery = MatchAllDocsQuery;

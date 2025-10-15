@@ -17,11 +17,17 @@
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
@@ -29,12 +35,6 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::core::index::query_timeout::QueryTimeout;
-use crate::core::index::term_states::TermStates;
-use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
-use crate::core::search::QueryCache;
-use crate::core::search::score_mode::ScoreMode;
 
 /// A query that matches no documents.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -73,14 +73,20 @@ impl Query for MatchNoDocsQuery {
         S: Similarity,
         IRC: IndexReaderContext;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(self, _search: &IndexSearcher<IRC, S, QT, QCP, QC>, _score_mod: &ScoreMode, _boost: f32, _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>) -> Result<Self::Weight<S, IRC>>
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _score_mod: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
-        Self: Sized
+        Self: Sized,
     {
         Ok(MatchNoDocsWeight::new(self))
     }
