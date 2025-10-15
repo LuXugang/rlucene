@@ -52,6 +52,7 @@ pub mod multi_leaf_field_comparator;
 pub mod positive_scores_only_collector;
 pub mod pruning;
 pub mod query;
+mod query_cache;
 pub mod query_caching_policy;
 pub mod query_visitor;
 pub mod scorable;
