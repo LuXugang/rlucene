@@ -20,15 +20,6 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyMatches;
 
-impl IntoIterator for DummyMatches {
-    type Item = String;
-    type IntoIter = std::iter::Empty<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-}
-
 impl Matches for DummyMatches {
     type MatchesIterator = DummyMatchesIterator;
 
@@ -39,6 +30,10 @@ impl Matches for DummyMatches {
     type Matches = DummyMatches;
 
     fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn field(&self) -> &[String] {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

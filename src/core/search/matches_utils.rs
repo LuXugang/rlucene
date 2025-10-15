@@ -26,15 +26,6 @@ pub struct MatchesUtils;
 
 pub static MATCH_WITH_NO_TERMS: Lazy<MatchWithNoTerms> = Lazy::new(|| MatchWithNoTerms);
 pub struct MatchWithNoTerms;
-impl IntoIterator for MatchWithNoTerms {
-    type Item = String;
-    type IntoIter = std::iter::Empty<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::empty()
-    }
-}
-
 impl Matches for MatchWithNoTerms {
     type MatchesIterator = DummyMatchesIterator;
 
@@ -46,6 +37,10 @@ impl Matches for MatchWithNoTerms {
 
     fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
         Vec::new()
+    }
+
+    fn field(&self) -> &[String] {
+        &[]
     }
 }
 
@@ -61,18 +56,6 @@ where
 {
     pub fn new(sub: Vec<M>) -> Self {
         CombinedMatch { sub }
-    }
-}
-
-impl<M> IntoIterator for CombinedMatch<M>
-where
-    M: Matches,
-{
-    type Item = String;
-    type IntoIter = std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        todo!()
     }
 }
 
@@ -93,12 +76,15 @@ where
         if sub_iterators.is_empty() {
             Ok(None)
         } else {
-            todo!()
-            // Ok(Some(DisjunctionMatchesIterator::from_sub_iterators(sub_iterators)))
+            Ok(Some(DisjunctionMatchesIterator::new(sub_iterators)?))
         }
     }
 
     fn get_sub_matches(&mut self) -> Vec<Self::Matches> {
         std::mem::take(&mut self.sub)
+    }
+
+    fn field(&self) -> &[String] {
+        todo!()
     }
 }
