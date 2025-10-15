@@ -661,7 +661,7 @@ impl LeafCache {
     where
         P: Predicate,
     {
-        if let Some(removed) = self.cache.remove(query) {
+        if let Some(_removed) = self.cache.remove(query) {
             self.on_doc_id_set_eviction(
                 // TODO: memory calculation not implemented
                 0, parent,

@@ -383,7 +383,7 @@ where
         let second_scorer_doc_score = second_scorer_doc.score();
         if first_scorer_doc_score < second_scorer_doc_score {
             Ok(false)
-        } else if first_scorer_doc_score < second_scorer_doc_score {
+        } else if first_scorer_doc_score > second_scorer_doc_score {
             Ok(true)
         } else {
             Ok(tie_break_less_than(
