@@ -2013,7 +2013,11 @@ where
 {
     type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
 
-    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+        self.base.get_core_cache_helper_ref()
+    }
+
+    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
         self.base.get_core_cache_helper()
     }
 
@@ -2274,7 +2278,10 @@ where
 {
     type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
 
-    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+        self.base.get_core_cache_helper_ref()
+    }
+    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
         self.base.get_core_cache_helper()
     }
     type Terms = <DocValuesLeafReader as LeafReader>::Terms;

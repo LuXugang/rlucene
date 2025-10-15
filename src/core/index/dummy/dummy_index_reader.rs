@@ -97,7 +97,11 @@ impl IndexReader for DummyIndexReader {
 impl LeafReader for DummyIndexReader {
     type CacheHelper = DummyCacheHelper;
 
-    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper> {
+    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

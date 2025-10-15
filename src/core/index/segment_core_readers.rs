@@ -179,8 +179,11 @@ where
         self.r#ref.load(Ordering::Acquire);
         todo!()
     }
-    pub(crate) fn get_cache_helper(&self) -> &SegmentCoreReadersCacheHelperImpl {
+    pub(crate) fn get_cache_helper_ref(&self) -> &SegmentCoreReadersCacheHelperImpl {
         &self.cache_helper
+    }
+    pub(crate) fn get_cache_helper(&self) -> SegmentCoreReadersCacheHelperImpl {
+        self.cache_helper.clone()
     }
 }
 #[derive(Clone)]

@@ -35,7 +35,8 @@ use std::sync::Arc;
 
 pub trait LeafReader: IndexReader {
     type CacheHelper: CacheHelper;
-    fn get_core_cache_helper(&self) -> Result<&Self::CacheHelper>;
+    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>>;
+    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>>;
 
     fn doc_freq(&self, term: &Term) -> Result<i32>
     where
