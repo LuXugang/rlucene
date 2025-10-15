@@ -16,7 +16,7 @@
  */
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::matches_iterator::MatchesIterator;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -116,18 +116,19 @@ where
             .end_offset()
     }
 
-    type MatchesIterator = M::MatchesIterator;
+    type MatchesIterRef<'a>
+        = M::MatchesIterRef<'a>
+    where
+        Self: 'a;
 
-    fn get_sub_matches(&mut self) -> Result<Option<&Self::MatchesIterator>> {
+    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
         self.queue
             .top_mut()
             .expect("priority queue top element should exist")
             .get_sub_matches()
     }
 
-    type Query = M::Query;
-
-    fn get_query(&self) -> &Self::Query {
+    fn get_query(&self) -> Arc<QueryEnum> {
         self.queue
             .top()
             .expect("priority queue top element should exist")

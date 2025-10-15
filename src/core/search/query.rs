@@ -258,3 +258,61 @@ impl Hash for IdentityQuery {
         Arc::as_ptr(&self.query).hash(state);
     }
 }
+impl<Q> Query for Arc<Q>
+where
+    Q: Query + ?Sized,
+{
+    fn as_string(&self, field: &str) -> String {
+        (**self).as_string(field)
+    }
+
+    type Weight<S, IRC>
+        = Q::Weight<S, IRC>
+    where
+        S: Similarity,
+        IRC: IndexReaderContext;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        Err(LuceneError::unsupported_operation(format!(
+            "Arc<Query> cannot be used to create_weight directly: {}",
+            std::any::type_name::<Q>()
+        )))
+    }
+
+    type RewriteQuery = Q::RewriteQuery;
+
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        &self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Option<Self::RewriteQuery>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+    {
+        (**self).rewrite(searcher)
+    }
+
+    fn visit<QV>(&self, visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        (**self).visit(visitor)
+    }
+}

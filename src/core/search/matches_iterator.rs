@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::Query;
+use crate::core::search::query::QueryEnum;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 /// An iterator over match positions (and optionally offsets) for a single document and field.
 ///
 /// To iterate over the matches, call [`MatchesIterator::next`] until it returns `false`,
@@ -56,21 +57,22 @@ pub trait MatchesIterator {
     /// Should only be called after [`MatchesIterator::next`] has returned `true`.
     fn end_offset(&self) -> Result<i32>;
 
-    type MatchesIterator: MatchesIterator;
+    type MatchesIterRef<'a>: MatchesIterator
+    where
+        Self: 'a;
     /// Returns a [`MatchesIterator`] that iterates over the positions and offsets
     /// of individual terms within the current match.
     ///
     /// Returns `None` if there are no submatches (i.e. the current iterator is at the leaf level).
     ///
     /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn get_sub_matches(&mut self) -> Result<Option<&Self::MatchesIterator>>;
+    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>>;
 
-    type Query: Query;
     /// Returns the [`Query`] causing the current match.
     ///
     /// If this [`MatchesIterator`] has been returned from a [`MatchesIterator::get_sub_matches`] call,
     /// then returns a `TermQuery` equivalent to the current match.
     ///
     /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-    fn get_query(&self) -> &Self::Query;
+    fn get_query(&self) -> Arc<QueryEnum>;
 }

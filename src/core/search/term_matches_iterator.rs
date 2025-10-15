@@ -17,27 +17,25 @@
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator;
 use crate::core::search::matches_iterator::MatchesIterator;
-use crate::core::search::query::Query;
+use crate::core::search::query::QueryEnum;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A [`MatchesIterator`] over a single term's postings list
-pub(crate) struct TermMatchesIterator<Q, PE>
+pub(crate) struct TermMatchesIterator<PE>
 where
     PE: PostingsEnum,
-    Q: Query,
 {
     upto: i32,
     pos: i32,
     pe: PE,
-    query: Arc<Q>,
+    query: Arc<QueryEnum>,
 }
-impl<Q, PE> TermMatchesIterator<Q, PE>
+impl<PE> TermMatchesIterator<PE>
 where
     PE: PostingsEnum,
-    Q: Query,
 {
-    pub fn new(mut pe: PE, query: Arc<Q>) -> Result<Self> {
+    pub fn new(mut pe: PE, query: Arc<QueryEnum>) -> Result<Self> {
         Ok(TermMatchesIterator {
             upto: pe.freq()?,
             pos: 0,
@@ -46,10 +44,9 @@ where
         })
     }
 }
-impl<Q, PE> MatchesIterator for TermMatchesIterator<Q, PE>
+impl<PE> MatchesIterator for TermMatchesIterator<PE>
 where
     PE: PostingsEnum,
-    Q: Query,
 {
     fn next(&mut self) -> Result<bool> {
         let prev = self.upto;
@@ -78,15 +75,16 @@ where
         self.pe.end_offset()
     }
 
-    type MatchesIterator = DummyMatchesIterator;
+    type MatchesIterRef<'a>
+        = DummyMatchesIterator
+    where
+        Self: 'a;
 
-    fn get_sub_matches(&mut self) -> Result<Option<&Self::MatchesIterator>> {
+    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
         Ok(None)
     }
 
-    type Query = Q;
-
-    fn get_query(&self) -> &Self::Query {
-        &self.query
+    fn get_query(&self) -> Arc<QueryEnum> {
+        self.query.clone()
     }
 }

@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::matches_iterator::MatchesIterator;
+use crate::core::search::query::QueryEnum;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 pub struct DummyMatchesIterator;
 impl MatchesIterator for DummyMatchesIterator {
@@ -40,17 +41,16 @@ impl MatchesIterator for DummyMatchesIterator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type MatchesIterator = DummyMatchesIterator;
+    type MatchesIterRef<'a>
+        = DummyMatchesIterator
+    where
+        Self: 'a;
 
-    fn get_sub_matches(
-        &mut self,
-    ) -> crate::core::util::error::lucene_error::Result<Option<&Self::MatchesIterator>> {
+    fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Query = DummyQuery;
-
-    fn get_query(&self) -> &Self::Query {
+    fn get_query(&self) -> Arc<QueryEnum> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
