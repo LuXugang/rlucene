@@ -80,6 +80,7 @@ pub mod top_docs;
 pub mod top_docs_collector;
 
 pub use query_cache::QueryCache;
+mod dummy_query_caching_policy;
 pub mod top_field_collector;
 mod top_field_collector_manager;
 mod top_field_docs;
