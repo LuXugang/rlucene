@@ -16,27 +16,37 @@
  */
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
+use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
+use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
 use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_leaf_collector::{FilterLeafCollectorRef, FilterSource};
 use crate::core::search::filter_scorable::FilterScorable;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{IndexSearcher, WeightEnum};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -110,10 +120,10 @@ impl QueryBase for ConstantScoreQuery {
         };
 
         let inner_weight = searcher.create_weight(self, inner_score_mode, 1.0)?;
-        // if score_mode.needs_scores() {
-        //     Ok(ConstantScoreWeight::new(boost, inner_weight))
+        // let weight = if score_mode.needs_scores() {
+        //     Either2Weight::A(ConstantScoreWeight::new(boost, inner_weight))
         // } else {
-        //     Ok(inner_weight)
+        //     Either2Weight::B(inner_weight)
         // }
         todo!()
     }
@@ -128,11 +138,161 @@ impl QueryBase for ConstantScoreQuery {
     }
 }
 
-pub struct ConstantScoreQueryWeight {
+pub struct ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
     base: ConstantScoreWeight,
     parent_query: Arc<Query>,
+    inner_weight: Arc<WeightEnum<ConstantScoreQuery, S, IRC, QCP, QC>>,
+    score_mode: ScoreMode,
+}
+impl<S, IRC, QCP, QC> ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
+    pub fn new(
+        boost: f32,
+        query: ConstantScoreQuery,
+        inner_weight: WeightEnum<ConstantScoreQuery, S, IRC, QCP, QC>,
+        score_mode: ScoreMode,
+    ) -> Self {
+        Self {
+            base: ConstantScoreWeight::new(boost),
+            parent_query: Arc::new(query.into()),
+            inner_weight: Arc::new(inner_weight),
+            score_mode,
+        }
+    }
+}
+impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader>
+    for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> bool {
+        self.inner_weight.is_cacheable(ctx)
+    }
 }
 
+impl<S, IRC, QCP, QC> Weight<IRC::LeafReader> for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
+    type Matches =
+        <WeightEnum<ConstantScoreQuery, S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
+
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        self.inner_weight.matches(context, doc)
+    }
+
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
+        let scorer = self.scorer(context)?;
+        self.base
+            .explain(scorer, doc, self.parent_query.as_string(""))
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        Arc::clone(&self.parent_query)
+    }
+
+    type ScorerSupplier = DummyScorerSupplier;
+
+    fn scorer_supplier(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        match self.inner_weight.scorer_supplier(context)? {
+            Some(s) => {
+                todo!()
+            },
+            None => todo!(),
+        }
+    }
+
+    fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+        self.inner_weight.count(context)
+    }
+}
+pub struct ScorerSupplierImpl<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
+    inner_weight: Arc<WeightEnum<ConstantScoreQuery, S, IRC, QCP, QC>>,
+    score_mode: ScoreMode,
+    inner_scorer_supplier: <WeightEnum<ConstantScoreQuery, S, IRC, QCP, QC> as Weight<
+        IRC::LeafReader,
+    >>::ScorerSupplier,
+    score: f32,
+}
+impl<S, IRC, QCP, QC> ScorerSupplier<IRC::LeafReader> for ScorerSupplierImpl<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache,
+{
+    type Scorer = DummyScorer;
+    type BulkScorer = DummyBulkScorer;
+
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::Scorer>> {
+        let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
+        match inner_scorer {
+            Some(mut inner_scorer) => match inner_scorer.take_two_phase_iterator() {
+                Some(tpi) => {
+                    let v: ConstantScoreScorer<DummyDocIdSetIterator, _> =
+                        ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
+                    todo!()
+                },
+                None => {
+                    let disi = inner_scorer.iterator();
+                    let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
+                    todo!()
+                },
+            },
+            None => return Err(LuceneError::illegal_state("should not be None")),
+        }
+        todo!()
+    }
+
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::BulkScorer>> {
+        todo!()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        todo!()
+    }
+}
 pub struct ConstantBulkScorer<BS, W, LR>
 where
     BS: BulkScorer,
@@ -140,7 +300,7 @@ where
     LR: LeafReader,
 {
     bulk_scorer: BS,
-    weight: W,
+    weight: Arc<W>,
     the_score: f32,
     _marker: PhantomData<LR>,
 }
@@ -150,7 +310,7 @@ where
     W: Weight<LR>,
     LR: LeafReader,
 {
-    pub fn new(bulk_scorer: BS, weight: W, the_score: f32) -> Self {
+    pub fn new(bulk_scorer: BS, weight: Arc<W>, the_score: f32) -> Self {
         Self {
             bulk_scorer,
             weight,
@@ -158,7 +318,7 @@ where
             _marker: PhantomData,
         }
     }
-    fn wrap_collector<LC>(collector: &mut LC, the_score: f32) -> FilterLeafCollectorImpl<LC>
+    fn wrap_collector<LC>(collector: &mut LC, the_score: f32) -> FilterLeafCollectorImpl<'_, LC>
     where
         LC: LeafCollector,
     {

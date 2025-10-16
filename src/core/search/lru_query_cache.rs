@@ -950,7 +950,11 @@ where
                 None => Ok(None),
             };
         };
-        let cached = cache_impl(&mut self.supplier.bulk_scorer(context)?, self.max_doc)?;
+        let mut bulk_scorer = match self.supplier.bulk_scorer(context)? {
+            Some(bulk_scorer) => bulk_scorer,
+            None => return Err(LuceneError::illegal_state("BulkScorer should not be None")),
+        };
+        let cached = cache_impl(&mut bulk_scorer, self.max_doc)?;
         let disi = cached.iterator()?;
         self.lru_query_cache
             .put_if_absent(self.query.clone(), cached, &self.cache_helper);
@@ -965,8 +969,8 @@ where
         ))))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        Ok(Some(self.default_bulk_scorer(context)?))
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -1003,8 +1007,8 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        Ok(Some(self.default_bulk_scorer(context)?))
     }
 
     fn cost(&mut self) -> Result<i64> {

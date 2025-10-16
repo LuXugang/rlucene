@@ -19,6 +19,7 @@ use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boost_query::BoostQuery;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -89,6 +90,7 @@ pub enum Query {
     MatchNoDoc(MatchNoDocsQuery),
     Dummy(DummyQuery),
     Boost(BoostQuery),
+    ConstantScore(ConstantScoreQuery),
 }
 impl Default for Query {
     fn default() -> Self {
@@ -106,6 +108,7 @@ impl PartialEq for Query {
             (Query::MatchNoDoc(m1), Query::MatchNoDoc(m2)) => m1 == m2,
             (Query::Dummy(d1), Query::Dummy(d2)) => d1 == d2,
             (Query::Boost(b1), Query::Boost(b2)) => b1 == b2,
+            (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
             _ => false,
         }
     }
@@ -129,6 +132,9 @@ impl Hash for Query {
             Query::Boost(b) => {
                 b.hash(state);
             },
+            Query::ConstantScore(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -150,6 +156,9 @@ impl Debug for Query {
             Query::Boost(b) => {
                 write!(f, "Query::Boost({:?})", b)
             },
+            Query::ConstantScore(c) => {
+                write!(f, "Query::ConstantScore({:?})", c)
+            },
         }
     }
 }
@@ -162,6 +171,7 @@ impl QueryBase for Query {
             Query::MatchNoDoc(m) => m.as_string(field),
             Query::Dummy(d) => d.as_string(field),
             Query::Boost(b) => b.as_string(field),
+            Query::ConstantScore(c) => c.as_string(field),
         }
     }
 
@@ -238,6 +248,11 @@ impl From<DummyQuery> for Query {
 impl From<BoostQuery> for Query {
     fn from(value: BoostQuery) -> Self {
         Query::Boost(value)
+    }
+}
+impl From<ConstantScoreQuery> for Query {
+    fn from(value: ConstantScoreQuery) -> Self {
+        Query::ConstantScore(value)
     }
 }
 #[derive(Clone, Debug)]

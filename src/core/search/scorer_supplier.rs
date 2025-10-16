@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either3BulkScorer};
 use crate::core::search::scorer::{Either2Scorer, Either3Scorer, Scorer};
 use crate::core::search::weight::DefaultBulkScorer;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A supplier of [`Scorer`].
 ///
 /// This allows to get an estimate of the cost before building the [`Scorer`].
@@ -52,18 +52,16 @@ where
     /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
     /// which iterates matches from the scorer. Some queries can have more efficient
     /// approaches for matching all hits.
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer>;
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>>;
     fn default_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
         match self.get(i64::MAX, context)? {
-            None => Err(
-                crate::core::util::error::lucene_error::LuceneError::illegal_state(
-                    "ScorerSupplier returned None Scorer",
-                ),
-            ),
             Some(scorer) => Ok(DefaultBulkScorer::new(scorer)),
+            None => Err(LuceneError::illegal_state(
+                "ScorerSupplier::get returned None",
+            )),
         }
     }
 
@@ -124,12 +122,12 @@ macro_rules! either_scorer_supplier {
             fn bulk_scorer(
                 &mut self,
                 context: &LeafReaderContext<LR>,
-            ) -> Result<Self::BulkScorer> {
+            ) -> Result<Option<Self::BulkScorer>> {
                 match self {
                     $(
                         Self::$Variant(inner) => {
                             let bs = inner.bulk_scorer(context)?;
-                            Ok($bulk_ty::$Variant(bs))
+                            Ok(bs.map($bulk_ty::$Variant))
                         }
                     ),+
                 }

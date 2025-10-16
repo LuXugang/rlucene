@@ -323,7 +323,10 @@ where
 
         if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx)? {
             scorer_supplier.set_top_level_scoring_clause()?;
-            let mut scorer = scorer_supplier.bulk_scorer(ctx)?;
+            let mut scorer = match scorer_supplier.bulk_scorer(ctx)? {
+                Some(scorer) => scorer,
+                None => return Err(LuceneError::illegal_state("BulkScorer is None")),
+            };
             let bits = ctx.reader().get_live_docs()?;
             let result: Result<()> = (|| {
                 let _ = match self.query_timeout {

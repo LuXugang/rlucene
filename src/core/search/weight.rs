@@ -185,7 +185,7 @@ where
         };
 
         scorer_supplier.set_top_level_scoring_clause()?;
-        Ok(Some(scorer_supplier.bulk_scorer(context)?))
+        scorer_supplier.bulk_scorer(context)
     }
 
     /// Counts the number of live documents that match this weight's parent query
@@ -315,8 +315,8 @@ where
         Ok(self.scorer.take())
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        Ok(Some(self.default_bulk_scorer(context)?))
     }
 
     fn cost(&mut self) -> Result<i64> {

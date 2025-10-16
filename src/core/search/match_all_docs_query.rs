@@ -214,18 +214,17 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
         if !self.score_mode.is_exhaustive() {
-            Ok(MatchAllBulkScorerEnum::B(
-                <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)?,
-            ))
+            let opt = self.default_bulk_scorer(context)?;
+            Ok(Some(MatchAllBulkScorerEnum::B(opt)))
         } else {
             let score = self.weight.score();
-            Ok(MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
+            Ok(Some(MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
                 self.score_mode,
                 self.max_doc,
                 score,
-            )))
+            ))))
         }
     }
 

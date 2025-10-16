@@ -560,8 +560,8 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<IRC::LeafReader>,
-    ) -> Result<Self::BulkScorer> {
-        self.default_bulk_scorer(context)
+    ) -> Result<Option<Self::BulkScorer>> {
+        Ok(Some(self.default_bulk_scorer(context)?))
     }
 
     fn cost(&mut self) -> Result<i64> {

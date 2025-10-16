@@ -38,7 +38,10 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn bulk_scorer(&mut self, _context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(
+        &mut self,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
