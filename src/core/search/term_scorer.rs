@@ -30,6 +30,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 
 /// Expert: A Scorer for documents matching a Term.
 pub struct TermScorer<PE, SS, N, IE>
@@ -92,7 +93,7 @@ where
     IE: ImpactsEnum,
 {
     /// Construct a [`TermScorer`] that will iterate all documents.
-    pub fn with_postings(postings_enum: PE, scorer: SS, norms: Option<N>) -> Self {
+    pub fn with_postings(postings_enum: PE, scorer: Arc<SS>, norms: Option<N>) -> Self {
         let impacts_enum = SlowImpactsEnum::new(postings_enum);
 
         let max_score_cache = MaxScoreCache::new(Some(Either2ImpactsEnum::B(impacts_enum)), scorer);
@@ -106,7 +107,7 @@ where
     /// Construct a [`TermScorer`] that will use impacts to skip blocks of non-competitive documents.
     pub fn new(
         impacts_enum: IE,
-        scorer: SS,
+        scorer: Arc<SS>,
         norms: Option<N>,
         top_level_scoring_clause: bool,
     ) -> Self {

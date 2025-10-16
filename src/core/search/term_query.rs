@@ -50,6 +50,7 @@ use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -169,8 +170,8 @@ where
     IRC: IndexReaderContext,
 {
     similarity: Arc<S>,
-    sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
-    term_states: TermStates<IRCTermState<IRC>>,
+    sim_scorer: Option<Arc<TermQuerySimScorer<S::SimScorer>>>,
+    term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
     score_mode: ScoreMode,
     parent_query: Arc<QueryEnum>,
 }
@@ -225,13 +226,13 @@ where
         let sim_scorer = if let Some(term_stats) = term_stats {
             debug_assert!(collection_stats.is_some());
             if score_mode.needs_scores() {
-                Some(TermQuerySimScorer::A(similarity.scorer(
+                Some(Arc::new(TermQuerySimScorer::A(similarity.scorer(
                     boost,
                     collection_stats.as_ref().unwrap(),
                     &[term_stats],
-                )))
+                ))))
             } else {
-                Some(TermQuerySimScorer::B(SimScorerImpl))
+                Some(Arc::new(TermQuerySimScorer::B(SimScorerImpl)))
             }
         } else {
             None
@@ -240,7 +241,7 @@ where
         Ok(Self {
             similarity,
             sim_scorer,
-            term_states,
+            term_states: Arc::new(Mutex::new(term_states)),
             score_mode,
             parent_query: Arc::new(query.into()),
         })
@@ -255,10 +256,11 @@ where
         //     term_states.was_built_for(&context.get_top_level_context()),
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
-        let supplier = self.term_states.get(context)?;
+        let mut term_states = self.term_states.lock();
+        let supplier = term_states.get(context)?;
 
         let state = match supplier {
-            Some(s) => self.term_states.resolve(s)?,
+            Some(s) => term_states.resolve(s)?,
             None => None,
         };
         let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
@@ -390,7 +392,7 @@ where
         // debug_assert!(self.term_states.is_some() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
         //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
         // );
-        let state_supplier = self.term_states.get(context)?;
+        let state_supplier = self.term_states.lock().get(context)?;
         let QueryEnum::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
@@ -405,16 +407,11 @@ where
             None => Ok(None),
             Some(v) => Ok(Some(TermScorerSupplier::new(
                 false,
-                std::mem::take(&mut self.term_states),
+                self.term_states.clone(),
                 v,
                 parent_query.term.clone(),
-                self.sim_scorer.take().unwrap(),
+                self.sim_scorer.as_ref().unwrap().clone(),
                 self.score_mode,
-                if self.score_mode.needs_scores() {
-                    context.reader().get_norm_values(&parent_query.term.field)?
-                } else {
-                    None
-                },
                 term_enum,
             ))),
         }
@@ -439,15 +436,13 @@ where
     S: Similarity,
 {
     top_level_scoring_clause: bool,
-    term_states: TermStates<IRCTermState<IRC>>,
+    term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
     // wrap with Option to easily take it when needed
     prepare_state: Option<PrepareState<IRC::LeafReader>>,
     term: Arc<Term>,
-    // wrap with Option to easily take it when needed
-    sim_scorer: Option<TermQuerySimScorer<S::SimScorer>>,
+    sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
     score_mode: ScoreMode,
     terms_enum: LRTermsEnum<IRC::LeafReader>,
-    norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
     init_terms_enum: bool,
 }
 impl<IRC, S> TermScorerSupplier<IRC, S>
@@ -458,24 +453,21 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         top_level_scoring_clause: bool,
-        term_states: TermStates<IRCTermState<IRC>>,
+        term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
         prepare_state: PrepareState<IRC::LeafReader>,
         term: Arc<Term>,
-        sim_scorer: TermQuerySimScorer<S::SimScorer>,
+        sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
         score_mode: ScoreMode,
-        norm: Option<LRNormNumericDocValues<IRC::LeafReader>>,
         terms_enum: LRTermsEnum<IRC::LeafReader>,
     ) -> Self {
-        debug_assert_eq!(score_mode.needs_scores(), norm.is_some());
         Self {
             top_level_scoring_clause,
             term_states,
             prepare_state: Some(prepare_state),
             term,
-            sim_scorer: Some(sim_scorer),
+            sim_scorer,
             score_mode,
             terms_enum,
-            norm,
             init_terms_enum: false,
         }
     }
@@ -485,6 +477,7 @@ where
             self.init_terms_enum = true;
             let state_opt = self
                 .term_states
+                .lock()
                 .resolve(self.prepare_state.take().unwrap())?;
             match state_opt {
                 None => return Ok(None),
@@ -515,12 +508,12 @@ where
     fn get(
         &mut self,
         _lead_cost: i64,
-        _context: &LeafReaderContext<IRC::LeafReader>,
+        context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::Scorer>> {
         match self.get_terms_enum()? {
             Some(_) => {
                 let norms = if self.score_mode.needs_scores() {
-                    self.norm.take()
+                    context.reader().get_norm_values(&self.term.field)?
                 } else {
                     None
                 };
@@ -533,7 +526,7 @@ where
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::new(
                         self.terms_enum.impacts(FREQS as i32)?,
-                        self.sim_scorer.take().unwrap(),
+                        self.sim_scorer.clone(),
                         norms,
                         self.top_level_scoring_clause,
                     ))))
@@ -551,7 +544,7 @@ where
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::with_postings(
                         self.terms_enum.postings_with_flags(None, flags as i32)?,
-                        self.sim_scorer.take().unwrap(),
+                        self.sim_scorer.clone(),
                         norms,
                     ))))
                 }
