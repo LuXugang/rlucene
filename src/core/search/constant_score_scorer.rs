@@ -177,6 +177,32 @@ where
         }
     }
 
+    fn two_phase_iterator_take(&mut self) -> Option<Self::TwoPhaseIter> {
+        if matches!(self.disi, ConstantDISI_::A(_)) {
+            return None;
+        }
+
+        #[cfg(test)]
+        {
+            if self.disi_taken {
+                debug_assert!(false, "should only be called once");
+            }
+            self.disi_taken = true;
+        }
+
+        let disi = std::mem::replace(
+            &mut self.disi,
+            ConstantDISI_::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
+                EitherEmpty::B(EmptyDISI::new()),
+            ))),
+        );
+
+        match disi {
+            ConstantDISI_::A(_) => None,
+            ConstantDISI_::B(wrapper) => Some(wrapper.two_phase_iterator),
+        }
+    }
+
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         Ok(self.score)
     }

@@ -78,6 +78,13 @@ pub trait Scorer: Scorable {
         None
     }
 
+    /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
+    ///
+    /// By default, this returns `None`.
+    fn two_phase_iterator_take(&mut self) -> Option<Self::TwoPhaseIter> {
+        None
+    }
+
     /// Advance to the block of documents that contains `target` in order to get
     /// scoring information about this block.
     ///
@@ -205,6 +212,14 @@ macro_rules! either_scorer {
                 match self {
                     $( Self::$Variant(inner) =>
                         inner.two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
+                }
+            }
+
+            #[inline]
+            fn two_phase_iterator_take(&mut self) -> Option<Self::TwoPhaseIter> {
+                match self {
+                    $( Self::$Variant(inner) =>
+                        inner.two_phase_iterator_take().map(|it| $two_phase_ty::$Variant(it)), )+
                 }
             }
 
