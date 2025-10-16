@@ -150,7 +150,7 @@ where
         EitherEmpty::A(&mut self.disi)
     }
 
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
         #[cfg(test)]
         {
             if self.disi_taken {
@@ -177,7 +177,7 @@ where
         }
     }
 
-    fn two_phase_iterator_take(&mut self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
         if matches!(self.disi, ConstantDISI_::A(_)) {
             return None;
         }

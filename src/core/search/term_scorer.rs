@@ -263,7 +263,7 @@ where
         }
     }
 
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
         if let Some(_) = self.impacts_disi {
             debug_assert!(self.max_score_cache.is_none());
             TermScorerDisi::C(self.impacts_disi.take().unwrap())
@@ -276,7 +276,7 @@ where
             let impacts_source = max_score_cache
                 .impacts_source
                 .take()
-                .expect("iterator_take called multiple times");
+                .expect("take_iterator called multiple times");
             match impacts_source {
                 Either2ImpactsEnum::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
                 Either2ImpactsEnum::B(slow_impacts) => {

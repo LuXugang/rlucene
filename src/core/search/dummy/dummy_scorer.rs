@@ -67,7 +67,7 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -79,7 +79,7 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn two_phase_iterator_take(&mut self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
