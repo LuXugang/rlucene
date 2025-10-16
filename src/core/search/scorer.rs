@@ -55,7 +55,12 @@ pub trait Scorer: Scorable {
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_>;
-    // fn iterator_take(&mut self) -> Self::DocIdSetIterator;
+
+    /// Return a [`DocIdSetIterator`] over matching documents, transferring ownership.
+    ///
+    /// Unlike [`iterator`](Self::iterator), this method takes ownership of the
+    /// underlying iterator rather than returning a view.
+    fn iterator_take(&mut self) -> Self::DocIdSetIterator;
 
     /// Returns term frequency in the current document.
     fn freq(&mut self) -> Result<i32>;
@@ -180,6 +185,13 @@ macro_rules! either_scorer {
             fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
                 match self {
                     $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator()), )+
+                }
+            }
+
+            #[inline]
+            fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+                match self {
+                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator_take()), )+
                 }
             }
 

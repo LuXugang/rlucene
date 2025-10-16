@@ -35,6 +35,8 @@ where
     score: f32,
     score_mode: ScoreMode,
     disi: ConstantDISI_<DISI, TPI>,
+    #[allow(dead_code)]
+    disi_taken: bool,
 }
 impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
@@ -58,6 +60,7 @@ where
             score,
             score_mode,
             disi: Either2DocIdSetIterator::A(approximation),
+            disi_taken: false,
         }
     }
 }
@@ -84,6 +87,7 @@ where
             disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                 two_phase_iterator,
             )),
+            disi_taken: false,
         }
     }
 }
@@ -146,14 +150,21 @@ where
         EitherEmpty::A(&mut self.disi)
     }
 
-    // fn iterator_take(&mut self) -> Self::DocIdSetIterator {
-    //     std::mem::replace(
-    //         &mut self.disi,
-    //         Either2DocIdSetIterator::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
-    //             EitherEmpty::B(EmptyDISI::new()),
-    //         ))),
-    //     )
-    // }
+    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+        #[cfg(test)]
+        {
+            if self.disi_taken {
+                debug_assert!(false, "should only be called once");
+            }
+            self.disi_taken = true;
+        }
+        std::mem::replace(
+            &mut self.disi,
+            ConstantDISI_::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
+                EitherEmpty::B(EmptyDISI::new()),
+            ))),
+        )
+    }
 
     fn freq(&mut self) -> Result<i32> {
         Ok(1)

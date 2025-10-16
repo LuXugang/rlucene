@@ -263,32 +263,29 @@ where
         }
     }
 
-    // fn iterator_take(&mut self) -> Self::DocIdSetIterator {
-    //     if self.impacts_disi.is_some() {
-    //         debug_assert!(self.max_score_cache.is_none());
-    //         TermScorerDisi::C(std::mem::take(&mut self.impacts_disi).unwrap())
-    //     } else {
-    //         debug_assert!(self.impacts_disi.is_none());
-    //         debug_assert!(
-    //             self.max_score_cache
-    //                 .as_ref()
-    //                 .unwrap()
-    //                 .impacts_source
-    //                 .is_some()
-    //         );
-    //         match self
-    //             .max_score_cache
-    //             .as_mut()
-    //             .unwrap()
-    //             .impacts_source
-    //             .take()
-    //             .unwrap()
-    //         {
-    //             Either2ImpactsEnum::A(t) => TermScorerDisi::A(t),
-    //             Either2ImpactsEnum::B(mut s) => TermScorerDisi::B(std::mem::take(&mut s.delegate)),
-    //         }
-    //     }
-    // }
+    fn iterator_take(&mut self) -> Self::DocIdSetIterator {
+        if let Some(_) = self.impacts_disi {
+            debug_assert!(self.max_score_cache.is_none());
+            TermScorerDisi::C(self.impacts_disi.take().unwrap())
+        } else {
+            debug_assert!(self.impacts_disi.is_none());
+            let max_score_cache = self
+                .max_score_cache
+                .as_mut()
+                .expect("when impacts_disi is None, max_score_cache must be Some");
+            let impacts_source = max_score_cache
+                .impacts_source
+                .take()
+                .expect("iterator_take called multiple times");
+            match impacts_source {
+                Either2ImpactsEnum::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
+                Either2ImpactsEnum::B(slow_impacts) => {
+                    let SlowImpactsEnum { delegate } = slow_impacts;
+                    TermScorerDisi::B(delegate)
+                },
+            }
+        }
+    }
 
     fn freq(&mut self) -> Result<i32> {
         TermScorer::freq(self)
