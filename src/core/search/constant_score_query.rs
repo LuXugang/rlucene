@@ -14,25 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
-use crate::core::search::filter_leaf_collector::FilterLeafCollector;
+use crate::core::search::filter_leaf_collector::{FilterLeafCollectorRef, FilterSource};
 use crate::core::search::filter_scorable::FilterScorable;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{Query, QueryEnum};
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use crate::core::util::bits::Bits;
+use std::sync::Arc;
 
 pub struct ConstantScoreQuery {
     query: Box<QueryEnum>,
@@ -73,10 +81,41 @@ impl Query for ConstantScoreQuery {
     }
 
     type Weight<S, IRC>
+        = DummyWeight<IRC::LeafReader>
     where
         S: Similarity,
+        IRC: IndexReaderContext;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC>>
+    where
         IRC: IndexReaderContext,
-    = DummyWeight<IRC::LeafReader>;
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        let inner_score_mode = if score_mode.is_exhaustive() {
+            ScoreMode::CompleteNoScores
+        } else {
+            ScoreMode::TopDocs
+        };
+
+        let inner_weight = searcher.create_weight(self, inner_score_mode, 1.0)?;
+        // if score_mode.needs_scores() {
+        //     Ok(ConstantScoreWeight::new(boost, inner_weight))
+        // } else {
+        //     Ok(inner_weight)
+        // }
+        todo!()
+    }
+
     type RewriteQuery = DummyQuery;
 
     fn visit<QV>(&self, visitor: &QV)
@@ -85,6 +124,11 @@ impl Query for ConstantScoreQuery {
     {
         todo!()
     }
+}
+
+pub struct ConstantScoreQueryWeight {
+    base: ConstantScoreWeight,
+    parent_query: Arc<QueryEnum>,
 }
 
 pub struct ConstantBulkScorer<BS, W, LR>
@@ -112,7 +156,7 @@ where
             _marker: PhantomData,
         }
     }
-    fn wrap_collector<'a, LC>(collector: &'a mut LC, the_score: f32) -> FilterLeafCollectorImpl<LC>
+    fn wrap_collector<LC>(collector: &mut LC, the_score: f32) -> FilterLeafCollectorImpl<LC>
     where
         LC: LeafCollector,
     {
@@ -125,12 +169,23 @@ where
     W: Weight<LR>,
     LR: LeafReader,
 {
-    fn score<LC, B>(&mut self, collector: &mut LC, accept_docs: Option<&B>, min: i32, max: i32) -> Result<i32>
+    fn score<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        min: i32,
+        max: i32,
+    ) -> Result<i32>
     where
         LC: LeafCollector,
-        B: Bits
+        B: Bits,
     {
-        self.bulk_scorer.score(&mut Self::wrap_collector(collector, self.the_score), accept_docs, min, max)
+        self.bulk_scorer.score(
+            &mut Self::wrap_collector(collector, self.the_score),
+            accept_docs,
+            min,
+            max,
+        )
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -142,7 +197,7 @@ pub struct FilterLeafCollectorImpl<'a, LC>
 where
     LC: LeafCollector,
 {
-    base: FilterLeafCollector<'a, LC>,
+    base: FilterLeafCollectorRef<'a, LC>,
     the_score: f32,
 }
 
@@ -150,9 +205,9 @@ impl<'a, LC> FilterLeafCollectorImpl<'a, LC>
 where
     LC: LeafCollector,
 {
-    pub fn new(in_: &'a mut LC, the_score:f32) -> Self {
+    pub fn new(in_: &'a mut LC, the_score: f32) -> Self {
         Self {
-            base: FilterLeafCollector::new(in_),
+            base: in_.into(),
             the_score,
         }
     }
@@ -176,7 +231,7 @@ where
         S: Scorable,
     {
         let mut v = FilterScorableImpl::new(self.the_score, scorer);
-        self.base.in_.set_scorer(&mut v)
+        self.base.inner.as_mut().set_scorer(&mut v)
     }
 
     fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
@@ -194,7 +249,7 @@ where
         self.base.collect_stream(stream, scorer)
     }
 
-    type DocIdSetIterator = <FilterLeafCollector<'a, LC> as LeafCollector>::DocIdSetIterator;
+    type DocIdSetIterator = <FilterLeafCollectorRef<'a, LC> as LeafCollector>::DocIdSetIterator;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
         self.base.competitive_iterator()

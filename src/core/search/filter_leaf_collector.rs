@@ -14,63 +14,134 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 
 /// `LeafCollector` delegator.
-pub struct FilterLeafCollector<'a, L>
-where
-    L: LeafCollector,
-{
-    pub(crate) in_: &'a mut L,
+pub trait FilterSource<'a, L: LeafCollector> {
+    fn as_mut(&mut self) -> &mut L;
 }
 
-impl<'a, L> FilterLeafCollector<'a, L>
-where
-    L: LeafCollector,
-{
-    pub fn new(in_: &'a mut L) -> Self {
-        Self { in_ }
+pub struct OwnedSource<L>(pub L);
+impl<'a, L: LeafCollector> FilterSource<'a, L> for OwnedSource<L> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut L {
+        &mut self.0
     }
 }
 
-impl<'a, L> LeafCollector for FilterLeafCollector<'a, L>
+impl<L: LeafCollector> From<L> for OwnedSource<L> {
+    #[inline]
+    fn from(inner: L) -> Self {
+        OwnedSource(inner)
+    }
+}
+
+pub struct BorrowedSource<'a, L>(pub &'a mut L);
+impl<'a, L: LeafCollector> FilterSource<'a, L> for BorrowedSource<'a, L> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut L {
+        self.0
+    }
+}
+
+pub struct FilterLeafCollector<'a, L, S>
+where
+    L: LeafCollector,
+    S: FilterSource<'a, L>,
+{
+    pub(crate) inner: S,
+    _phantom: PhantomData<&'a ()>,
+    _phantom1: PhantomData<L>,
+}
+
+impl<'a, L, S> FilterLeafCollector<'a, L, S>
+where
+    L: LeafCollector,
+    S: FilterSource<'a, L>,
+{
+    #[inline]
+    pub fn new(inner: S) -> Self {
+        Self {
+            inner,
+            _phantom: PhantomData,
+            _phantom1: PhantomData,
+        }
+    }
+
+    #[inline]
+    fn inner_mut(&mut self) -> &mut L {
+        self.inner.as_mut()
+    }
+}
+
+pub type FilterLeafCollectorOwned<L> = FilterLeafCollector<'static, L, OwnedSource<L>>;
+pub type FilterLeafCollectorRef<'a, L> = FilterLeafCollector<'a, L, BorrowedSource<'a, L>>;
+
+impl<L> From<L> for FilterLeafCollectorOwned<L>
 where
     L: LeafCollector,
 {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    #[inline]
+    fn from(inner: L) -> Self {
+        FilterLeafCollector::new(OwnedSource::from(inner))
+    }
+}
+
+impl<'a, L> From<&'a mut L> for FilterLeafCollectorRef<'a, L>
+where
+    L: LeafCollector,
+{
+    #[inline]
+    fn from(inner: &'a mut L) -> Self {
+        FilterLeafCollector::new(BorrowedSource(inner))
+    }
+}
+
+impl<'a, L, S> LeafCollector for FilterLeafCollector<'a, L, S>
+where
+    L: LeafCollector,
+    S: FilterSource<'a, L>,
+{
+    fn set_scorer<T>(&mut self, scorer: &mut T) -> Result<()>
     where
-        S: Scorable,
+        T: Scorable,
     {
-        self.in_.set_scorer(scorer)
+        self.inner_mut().set_scorer(scorer)
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    fn collect<T>(&mut self, doc: i32, scorer: &mut T) -> Result<()>
     where
-        S: Scorable,
+        T: Scorable,
     {
-        self.in_.collect(doc, scorer)
+        self.inner_mut().collect(doc, scorer)
     }
 
     type DocIdSetIterator = L::DocIdSetIterator;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
-        self.in_.competitive_iterator()
+        self.inner_mut().competitive_iterator()
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.in_.finish()
+        self.inner_mut().finish()
     }
 }
 
-impl<'a, L> Display for FilterLeafCollector<'a, L>
+impl<'a, L, S> Display for FilterLeafCollector<'a, L, S>
 where
     L: LeafCollector + Display,
+    S: FilterSource<'a, L>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", std::any::type_name::<Self>(), self.in_)
+        write!(
+            f,
+            "{}<{}>",
+            std::any::type_name::<Self>(),
+            std::any::type_name::<L>()
+        )
     }
 }

@@ -104,8 +104,12 @@ impl Query for BoostQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        self.query
-            .create_weight(search, score_mod, self.boost * boost, per_reader_term_state)
+        self.query.create_weight(
+            searcher,
+            score_mode,
+            self.boost * boost,
+            per_reader_term_state,
+        )
     }
 
     type RewriteQuery = DummyQuery;

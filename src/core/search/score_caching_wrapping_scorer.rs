@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
-use crate::core::search::filter_leaf_collector::FilterLeafCollector;
+use crate::core::search::filter_leaf_collector::FilterLeafCollectorOwned;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::Result;
@@ -79,7 +79,7 @@ pub struct ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    base: FilterLeafCollector<LC>,
+    base: FilterLeafCollectorOwned<LC>,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
@@ -87,7 +87,7 @@ where
 {
     pub(crate) fn new(collector: LC) -> Self {
         Self {
-            base: FilterLeafCollector::new(collector),
+            base: collector.into(),
         }
     }
 }
@@ -120,7 +120,7 @@ where
         self.base.collect(doc, scorer)
     }
 
-    type DocIdSetIterator = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIterator;
+    type DocIdSetIterator = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIterator;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
         self.base.competitive_iterator()

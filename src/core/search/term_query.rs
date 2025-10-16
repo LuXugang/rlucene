@@ -140,12 +140,12 @@ impl Query for TermQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        let context = search.get_top_reader_context();
+        let context = searcher.get_top_reader_context();
         let term_state = match per_reader_term_state {
             Some(states) if states.was_built_for(context) => states,
-            _ => build(search, self.term.clone(), score_mode.needs_scores())?,
+            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
-        TermWeight::new(search, *score_mode, boost, term_state, self)
+        TermWeight::new(searcher, *score_mode, boost, term_state, self)
     }
 
     type RewriteQuery = TermQuery;

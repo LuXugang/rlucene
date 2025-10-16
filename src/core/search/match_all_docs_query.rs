@@ -87,7 +87,7 @@ impl Query for MatchAllDocsQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        Ok(MatchAllWeight::new(boost, self, *score_mod))
+        Ok(MatchAllWeight::new(boost, self, *score_mode))
     }
 
     type RewriteQuery = MatchAllDocsQuery;
