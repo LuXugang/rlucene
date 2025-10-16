@@ -31,11 +31,11 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub trait Query: Eq + Hash + Display + Debug {
+pub trait Query: Eq + Hash + Debug {
     fn as_string(&self, field: &str) -> String;
     type Weight<S, IRC>: Weight<IRC::LeafReader>
     where
@@ -119,26 +119,6 @@ impl Hash for QueryEnum {
         }
     }
 }
-
-impl Display for QueryEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            QueryEnum::Term(t) => {
-                write!(f, "{}", t)
-            },
-            QueryEnum::MatchAll(m) => {
-                write!(f, "{}", m)
-            },
-            QueryEnum::MatchNoDoc(m) => {
-                write!(f, "{}", m)
-            },
-            QueryEnum::Dummy(d) => {
-                write!(f, "{}", d)
-            },
-        }
-    }
-}
-
 impl Debug for QueryEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -25,7 +25,6 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
@@ -78,11 +77,6 @@ impl Query for DummyQuery {
     where
         QV: QueryVisitor,
     {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-}
-impl Display for DummyQuery {
-    fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

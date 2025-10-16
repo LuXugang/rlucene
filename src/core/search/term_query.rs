@@ -51,7 +51,7 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -157,13 +157,6 @@ impl Query for TermQuery {
         todo!()
     }
 }
-// Prints a user-readable version of this query.
-impl Display for TermQuery {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
-    }
-}
-
 pub struct TermWeight<S, IRC>
 where
     S: Similarity,
@@ -362,7 +355,7 @@ where
                 return Ok(Explanation::match_(
                     score_explanation.value,
                     format!(
-                        "weight({} in {}) [{}], result of:",
+                        "weight({:?} in {}) [{}], result of:",
                         self.get_query(),
                         doc,
                         self.similarity,

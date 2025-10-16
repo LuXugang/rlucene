@@ -32,7 +32,6 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -98,12 +97,6 @@ impl Query for MatchNoDocsQuery {
         QV: QueryVisitor,
     {
         todo!()
-    }
-}
-
-impl Display for MatchNoDocsQuery {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
     }
 }
 
@@ -180,6 +173,6 @@ where
     LR: LeafReader,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "weight({})", self.parent_query)
+        write!(f, "weight({:?})", self.parent_query)
     }
 }

@@ -41,7 +41,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -99,11 +99,6 @@ impl Query for MatchAllDocsQuery {
         todo!()
     }
 }
-impl Display for MatchAllDocsQuery {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string(""))
-    }
-}
 
 pub struct MatchAllWeight<LR>
 where
@@ -150,7 +145,7 @@ where
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
-            .explain(scorer, doc, self.parent_query.to_string())
+            .explain(scorer, doc, self.parent_query.as_string(""))
     }
 
     fn get_query(&self) -> Arc<QueryEnum> {
@@ -179,7 +174,7 @@ where
     LR: LeafReader,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "weight({})", MatchAllDocsQuery)
+        write!(f, "weight({:?})", MatchAllDocsQuery)
     }
 }
 

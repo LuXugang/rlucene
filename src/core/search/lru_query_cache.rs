@@ -30,7 +30,7 @@ use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{IdentityQuery, QueryEnum};
+use crate::core::search::query::{IdentityQuery, Query, QueryEnum};
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorable::Scorable;
@@ -745,7 +745,8 @@ where
 
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
-        self.base.explain(scorer, doc, self.get_query().to_string())
+        self.base
+            .explain(scorer, doc, self.get_query().as_string(""))
     }
     fn get_query(&self) -> Arc<QueryEnum> {
         self.in_.get_query()

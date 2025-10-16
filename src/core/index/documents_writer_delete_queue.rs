@@ -25,7 +25,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::term::Term;
-use crate::core::search::query::QueryEnum;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
@@ -666,7 +666,7 @@ impl NodeBase for QueryNode {
 }
 impl Display for QueryNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "del={}", self.item)
+        write!(f, "del={}", self.item.as_string(""))
     }
 }
 // query node array
