@@ -19,6 +19,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::sort::Sort;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::QueryCache;
@@ -27,22 +28,30 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryEnum};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
+use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
+use crate::core::search::top_field_docs::TopFieldDocs;
+use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
+const TOTAL_HITS_THRESHOLD: i32 = 1000;
 /// Thresholds for index slice allocation logic.
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
@@ -118,16 +127,116 @@ where
         }
         Ok(())
     }
+
+    pub fn search_after_score(
+        &mut self,
+        after: Option<ScoreDoc>,
+        query: QueryEnum,
+        num_hits: i32,
+    ) -> Result<TopDocs<ScoreDoc>> {
+        let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
+
+        if let Some(ref a) = after
+            && a.doc >= limit
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
+                a.doc, limit
+            )));
+        }
+
+        let capped_num_hits = std::cmp::min(num_hits, limit);
+        let manager =
+            TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
+
+        self.search_with_collector_manager(query, &manager)
+    }
+    pub fn search(&mut self, query: QueryEnum, n: i32) -> Result<TopDocs<ScoreDoc>> {
+        self.search_after_score(None, query, n)
+    }
     pub fn get_top_reader_context(&self) -> &IRC {
         &self.reader_context
     }
     pub fn get_similarity(&self) -> Arc<S> {
         self.similarity.clone()
     }
-
-    fn search<W, CM>(
+    pub fn search_after_field_with_score(
         &mut self,
-        weight: W,
+        after: Option<FieldDoc>,
+        query: QueryEnum,
+        num_hits: i32,
+        sort: Sort,
+        do_doc_scores: bool,
+    ) -> Result<TopFieldDocs> {
+        self.do_search_after_field(after, query, num_hits, sort, do_doc_scores)
+    }
+    pub fn search_after_field(
+        &mut self,
+        after: Option<FieldDoc>,
+        query: QueryEnum,
+        num_hits: i32,
+        sort: Sort,
+    ) -> Result<TopFieldDocs> {
+        self.do_search_after_field(after, query, num_hits, sort, false)
+    }
+
+    fn do_search_after_field(
+        &mut self,
+        after: Option<FieldDoc>,
+        query: QueryEnum,
+        num_hits: i32,
+        sort: Sort,
+        do_doc_scores: bool,
+    ) -> Result<TopFieldDocs> {
+        let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
+
+        if let Some(ref a) = after
+            && a.base.doc >= limit
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
+                a.base.doc, limit
+            )));
+        }
+
+        let capped_num_hits = std::cmp::min(num_hits, limit);
+        // TODO: IMPORTANT
+        // let rewritten_sort = sort.rewrite(self)?;
+        let sort = Rc::new(sort);
+        let manager = TopFieldCollectorManager::new_with_after(
+            sort,
+            capped_num_hits,
+            after,
+            TOTAL_HITS_THRESHOLD,
+        )?;
+
+        let top_field_docs = self.search_with_collector_manager(query, &manager)?;
+
+        if do_doc_scores {
+            // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;
+        }
+
+        Ok(top_field_docs)
+    }
+
+    pub fn search_with_collector_manager<CM>(
+        &mut self,
+        mut query: QueryEnum,
+        collector_manager: &CM,
+    ) -> Result<CM::T>
+    where
+        CM: CollectorManager,
+    {
+        let first_collector = collector_manager.new_collector()?;
+        let needs_scores = first_collector.score_mode().needs_scores();
+        query = Self::rewrite_if_needed_scores(query, needs_scores)?;
+        let score_mode = first_collector.score_mode();
+        let weight = Arc::new(self.create_weight(query, score_mode, 1.0)?);
+        self.search_with_first_collector(weight, collector_manager, first_collector)
+    }
+    fn search_with_first_collector<W, CM>(
+        &mut self,
+        weight: Arc<W>,
         collector_manager: &CM,
         first_collector: CM::C,
     ) -> Result<CM::T>
@@ -138,7 +247,7 @@ where
         let leaf_slices = self.get_slices()?;
         if leaf_slices.is_empty() {
             debug_assert!(self.reader_context.leaves()?.is_empty());
-            return collector_manager.reduce(vec![first_collector]);
+            collector_manager.reduce(vec![first_collector])
         } else {
             let mut collectors = Vec::with_capacity(leaf_slices.len());
             let score_mode = first_collector.score_mode();
@@ -153,20 +262,21 @@ where
                 collectors.push(Some(collector));
             }
             let mut list_tasks = Vec::with_capacity(leaf_slices.len());
+            // TODO: IMPORTANT： 这里需要使用多线程,但是设计较大改动 暂时不懂
             for i in 0..leaf_slices.len() {
                 let leaves = leaf_slices[i].partitions.as_slice();
                 let mut collector = collectors[i].take().unwrap();
-                self.search_partitions(leaves, &weight, &mut collector)?;
+                self.search_partitions(leaves, weight.clone(), &mut collector)?;
                 list_tasks.push(collector)
             }
+            collector_manager.reduce(list_tasks)
         }
-        todo!()
     }
 
     pub(crate) fn search_partitions<W, C>(
         &self,
         partitions: &[LeafReaderContextPartition],
-        weight: &W,
+        weight: Arc<W>,
         collector: &mut C,
     ) -> Result<()>
     where
@@ -181,7 +291,7 @@ where
                 partition.ctx,
                 partition.min_doc_id,
                 partition.max_doc_id,
-                weight,
+                weight.as_ref(),
                 collector,
             )?;
         }
@@ -244,6 +354,13 @@ where
         // CollectionTerminatedException and TimeExceededException, but no other exception.
         leaf_collector.finish()?;
         Ok(())
+    }
+    pub(crate) fn rewrite_if_needed_scores(
+        original: QueryEnum,
+        _needs_scores: bool,
+    ) -> Result<QueryEnum> {
+        // TODO
+        Ok(original)
     }
     pub(crate) fn create_weight<Q>(
         &self,
