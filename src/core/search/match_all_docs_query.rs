@@ -208,7 +208,11 @@ where
     type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
     type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
 
-    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
         let score = self.weight.score();
         Ok(Some(ConstantScoreScorer::with_disi(
             score,
@@ -217,10 +221,10 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
         if !self.score_mode.is_exhaustive() {
             Ok(MatchAllBulkScorerEnum::B(
-                <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)?,
+                <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)?,
             ))
         } else {
             let score = self.weight.score();

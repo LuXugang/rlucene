@@ -81,7 +81,7 @@ where
             Some(s) => s,
         };
 
-        let mut scorer = scorer_supplier.get(1)?;
+        let mut scorer = scorer_supplier.get(1, context)?;
         match scorer {
             None => {
                 return Err(LuceneError::illegal_state(
@@ -141,7 +141,7 @@ where
             None => return Ok(None),
             Some(s) => s,
         };
-        scorer_supplier.get(i64::MAX)
+        scorer_supplier.get(i64::MAX, context)
     }
 
     type ScorerSupplier: ScorerSupplier<LR>;
@@ -189,7 +189,7 @@ where
         };
 
         scorer_supplier.set_top_level_scoring_clause()?;
-        Ok(Some(scorer_supplier.bulk_scorer()?))
+        Ok(Some(scorer_supplier.bulk_scorer(context)?))
     }
 
     /// Counts the number of live documents that match this weight's parent query
@@ -311,12 +311,16 @@ where
     type Scorer = S;
     type BulkScorer = DefaultBulkScorer<S>;
 
-    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
         Ok(self.scorer.take())
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
     }
 
     fn cost(&mut self) -> Result<i64> {

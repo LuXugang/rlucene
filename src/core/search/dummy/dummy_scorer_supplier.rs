@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -29,11 +30,15 @@ where
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 
-    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+    fn bulk_scorer(&mut self, _context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -942,14 +942,18 @@ where
     type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
-            return match self.supplier.get(lead_cost)? {
+            return match self.supplier.get(lead_cost, context)? {
                 Some(scorer) => Ok(Some(Either2Scorer::A(scorer))),
                 None => Ok(None),
             };
         };
-        let cached = cache_impl(&mut self.supplier.bulk_scorer()?, self.max_doc)?;
+        let cached = cache_impl(&mut self.supplier.bulk_scorer(context)?, self.max_doc)?;
         let disi = cached.iterator()?;
         self.lru_query_cache
             .put_if_absent(self.query.clone(), cached, &self.cache_helper);
@@ -964,8 +968,8 @@ where
         ))))
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -990,7 +994,11 @@ where
     type Scorer = ConstantScoreScorer<CacheAndCountDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
         Ok(Some(ConstantScoreScorer::with_disi(
             0.0,
             ScoreMode::CompleteNoScores,
@@ -998,8 +1006,8 @@ where
         )))
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer> {
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self, context)
     }
 
     fn cost(&mut self) -> Result<i64> {

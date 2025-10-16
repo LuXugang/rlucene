@@ -512,7 +512,11 @@ where
     type Scorer = TermScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(&mut self, _lead_cost: i64) -> Result<Option<Self::Scorer>> {
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::Scorer>> {
         match self.get_terms_enum()? {
             Some(_) => {
                 let norms = if self.score_mode.needs_scores() {
@@ -565,8 +569,11 @@ where
         }
     }
 
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        self.default_bulk_scorer()
+    fn bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Self::BulkScorer> {
+        self.default_bulk_scorer(context)
     }
 
     fn cost(&mut self) -> Result<i64> {

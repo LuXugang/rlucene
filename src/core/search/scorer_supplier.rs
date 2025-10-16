@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either3BulkScorer};
 use crate::core::search::scorer::{Either2Scorer, Either3Scorer, Scorer};
 use crate::core::search::weight::DefaultBulkScorer;
@@ -39,16 +40,24 @@ where
     ///   [`DocIdSetIterator::next_doc`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::next_doc), [`DocIdSetIterator::advance`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::advance), and
     ///   [`TwoPhaseIterator::matches`](crate::core::search::two_phase_iterator::TwoPhaseIterator::matches) will be called.
     ///   If in doubt, pass `i64::MAX`, which will produce a [`Scorer`] that has good iteration capabilities.
-    fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>>;
+    /// - `context`: The [`LeafReaderContext`] that this scorer supplier was created for.
+    fn get(
+        &mut self,
+        lead_cost: i64,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
     ///
     /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
     /// which iterates matches from the scorer. Some queries can have more efficient
     /// approaches for matching all hits.
-    fn bulk_scorer(&mut self) -> Result<Self::BulkScorer>;
-    fn default_bulk_scorer(&mut self) -> Result<DefaultBulkScorer<Self::Scorer>> {
-        match self.get(i64::MAX)? {
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Self::BulkScorer>;
+    fn default_bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<DefaultBulkScorer<Self::Scorer>> {
+        match self.get(i64::MAX, context)? {
             None => Err(
                 crate::core::util::error::lucene_error::LuceneError::illegal_state(
                     "ScorerSupplier returned None Scorer",
@@ -96,11 +105,15 @@ macro_rules! either_scorer_supplier {
             type BulkScorer = $bulk_ty  <$( < $T as ScorerSupplier<LR> >::BulkScorer ),+>;
 
             #[inline]
-            fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {
+            fn get(
+                &mut self,
+                lead_cost: i64,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<Option<Self::Scorer>> {
                 match self {
                     $(
                         Self::$Variant(inner) => {
-                            let opt = inner.get(lead_cost)?;
+                            let opt = inner.get(lead_cost, context)?;
                             Ok(opt.map($scorer_ty::$Variant))
                         }
                     ),+
@@ -108,11 +121,14 @@ macro_rules! either_scorer_supplier {
             }
 
             #[inline]
-            fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
+            fn bulk_scorer(
+                &mut self,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<Self::BulkScorer> {
                 match self {
                     $(
                         Self::$Variant(inner) => {
-                            let bs = inner.bulk_scorer()?;
+                            let bs = inner.bulk_scorer(context)?;
                             Ok($bulk_ty::$Variant(bs))
                         }
                     ),+
