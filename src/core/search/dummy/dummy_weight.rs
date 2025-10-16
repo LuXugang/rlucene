@@ -97,7 +97,7 @@ where
     fn scorer(
         &mut self,
         _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -113,7 +113,7 @@ where
     fn bulk_scorer(
         &mut self,
         _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

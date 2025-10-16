@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either3BulkScorer};
 use crate::core::search::scorer::{Either2Scorer, Either3Scorer, Scorer};
 use crate::core::search::weight::DefaultBulkScorer;
@@ -21,7 +22,10 @@ use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
 ///
 /// This allows to get an estimate of the cost before building the [`Scorer`].
-pub trait ScorerSupplier {
+pub trait ScorerSupplier<LR>
+where
+    LR: LeafReader,
+{
     type Scorer: Scorer;
     type BulkScorer: BulkScorer;
 
@@ -83,12 +87,13 @@ macro_rules! either_scorer_supplier {
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> ScorerSupplier for $name<$( $T ),+>
+        impl<LR, $( $T ),+> ScorerSupplier<LR> for $name<$( $T ),+>
         where
-            $( $T: ScorerSupplier ),+
+            LR: LeafReader,
+            $( $T: ScorerSupplier<LR> ),+
         {
-            type Scorer     = $scorer_ty<$( < $T as ScorerSupplier >::Scorer ),+>;
-            type BulkScorer = $bulk_ty  <$( < $T as ScorerSupplier >::BulkScorer ),+>;
+            type Scorer     = $scorer_ty<$( < $T as ScorerSupplier<LR> >::Scorer ),+>;
+            type BulkScorer = $bulk_ty  <$( < $T as ScorerSupplier<LR> >::BulkScorer ),+>;
 
             #[inline]
             fn get(&mut self, lead_cost: i64) -> Result<Option<Self::Scorer>> {

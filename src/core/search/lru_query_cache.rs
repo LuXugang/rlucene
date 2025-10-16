@@ -887,9 +887,10 @@ where
         self.in_.count(context)
     }
 }
-pub struct ScorerSupplierImpl1<S, C, P>
+pub struct ScorerSupplierImpl1<S, C, P, LR>
 where
-    S: ScorerSupplier,
+    LR: LeafReader,
+    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate,
 {
@@ -900,10 +901,12 @@ where
     lru_query_cache: Arc<LRUQueryCache<P>>,
     query: Arc<QueryEnum>,
     cache_helper: C,
+    _marker: PhantomData<LR>,
 }
-impl<S, C, P> ScorerSupplierImpl1<S, C, P>
+impl<S, C, P, LR> ScorerSupplierImpl1<S, C, P, LR>
 where
-    S: ScorerSupplier,
+    LR: LeafReader,
+    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate,
 {
@@ -915,10 +918,7 @@ where
         lru_query_cache: Arc<LRUQueryCache<P>>,
         query: Arc<QueryEnum>,
         cache_helper: C,
-    ) -> Result<Self>
-    where
-        S: ScorerSupplier,
-    {
+    ) -> Result<Self> {
         Ok(Self {
             cost,
             skip_cache_factor,
@@ -927,13 +927,15 @@ where
             lru_query_cache,
             query,
             cache_helper,
+            _marker: PhantomData,
         })
     }
 }
 pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
-impl<S, C, P> ScorerSupplier for ScorerSupplierImpl1<S, C, P>
+impl<S, C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<S, C, P, LR>
 where
-    S: ScorerSupplier,
+    LR: LeafReader,
+    S: ScorerSupplier<LR>,
     C: CacheHelper,
     P: Predicate,
 {
@@ -963,7 +965,7 @@ where
     }
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        self.default_bulk_scorer()
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -981,7 +983,10 @@ impl ScorerSupplierImpl2 {
         Ok(Self { disi, cost })
     }
 }
-impl ScorerSupplier for ScorerSupplierImpl2 {
+impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl2
+where
+    LR: LeafReader,
+{
     type Scorer = ConstantScoreScorer<CacheAndCountDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
@@ -994,7 +999,7 @@ impl ScorerSupplier for ScorerSupplierImpl2 {
     }
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        self.default_bulk_scorer()
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -1003,7 +1008,7 @@ impl ScorerSupplier for ScorerSupplierImpl2 {
 }
 pub type CachingWrapperWeightSupplier<W, P, LR> = Either3ScorerSupplier<
     <W as Weight<LR>>::ScorerSupplier,
-    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier, <LR as LeafReader>::CacheHelper, P>,
+    ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier, <LR as LeafReader>::CacheHelper, P, LR>,
     ScorerSupplierImpl2,
 >;
 /// Cache of doc ids with a count.

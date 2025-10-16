@@ -136,7 +136,7 @@ where
     fn scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
             Some(s) => s,
@@ -144,7 +144,7 @@ where
         scorer_supplier.get(i64::MAX)
     }
 
-    type ScorerSupplier: ScorerSupplier;
+    type ScorerSupplier: ScorerSupplier<LR>;
     /// Get a [`ScorerSupplier`], which allows knowing the cost of the [`Scorer`]
     /// before building it.
     ///
@@ -182,7 +182,7 @@ where
     fn bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
             None => return Ok(None),
             Some(s) => s,
@@ -303,8 +303,9 @@ where
         }
     }
 }
-impl<S> ScorerSupplier for DefaultScorerSupplier<S>
+impl<S, LR> ScorerSupplier<LR> for DefaultScorerSupplier<S>
 where
+    LR: LeafReader,
     S: Scorer,
 {
     type Scorer = S;
@@ -315,7 +316,7 @@ where
     }
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
-        self.default_bulk_scorer()
+        <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)
     }
 
     fn cost(&mut self) -> Result<i64> {
@@ -557,7 +558,7 @@ macro_rules! define_either_weight {
             fn scorer(
                 &mut self,
                 context: &LeafReaderContext<LR>,
-            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::Scorer>> {
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
                 match self {
                     Self::$A(inner) => {
                         let opt = inner.scorer(context)?;
@@ -589,7 +590,7 @@ macro_rules! define_either_weight {
             fn bulk_scorer(
                 &mut self,
                 context: &LeafReaderContext<LR>,
-            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier>::BulkScorer>> {
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
                 match self {
                     Self::$A(inner) => {
                         let opt = inner.bulk_scorer(context)?;

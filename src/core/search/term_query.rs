@@ -504,7 +504,7 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC, S> ScorerSupplier for TermScorerSupplier<IRC, S>
+impl<IRC, S> ScorerSupplier<IRC::LeafReader> for TermScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,
     S: Similarity,

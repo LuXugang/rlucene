@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -21,7 +22,10 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyScorerSupplier;
 
-impl ScorerSupplier for DummyScorerSupplier {
+impl<LR> ScorerSupplier<LR> for DummyScorerSupplier
+where
+    LR: LeafReader,
+{
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 

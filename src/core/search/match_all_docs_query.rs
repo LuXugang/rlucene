@@ -201,7 +201,10 @@ impl MatchAllDocsScorerSupplier {
         }
     }
 }
-impl ScorerSupplier for MatchAllDocsScorerSupplier {
+impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
+where
+    LR: LeafReader,
+{
     type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
     type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
 
@@ -216,7 +219,9 @@ impl ScorerSupplier for MatchAllDocsScorerSupplier {
 
     fn bulk_scorer(&mut self) -> Result<Self::BulkScorer> {
         if !self.score_mode.is_exhaustive() {
-            Ok(MatchAllBulkScorerEnum::B(self.default_bulk_scorer()?))
+            Ok(MatchAllBulkScorerEnum::B(
+                <Self as ScorerSupplier<LR>>::default_bulk_scorer(self)?,
+            ))
         } else {
             let score = self.weight.score();
             Ok(MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
