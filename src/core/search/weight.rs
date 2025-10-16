@@ -65,13 +65,9 @@ where
     /// # Parameters
     /// - `context`: the reader's context to create the [`Matches`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn matches(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-        doc: i32,
-    ) -> Result<Option<Self::Matches>>;
+    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>>;
     fn default_matches(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
@@ -106,7 +102,7 @@ where
     /// # Parameters
     /// - `context`: the reader's context to create the [`Explanation`] for
     /// - `doc`: the document's id relative to the given context's reader
-    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>;
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation>;
 
     fn get_query(&self) -> Arc<QueryEnum>;
 
@@ -134,7 +130,7 @@ where
     ///
     /// Returns an error if a low-level I/O error occurs.
     fn scorer(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
@@ -172,7 +168,7 @@ where
     /// - [`Scorer`]
     /// - [`DefaultScorerSupplier`]
     fn scorer_supplier(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>>;
     /// Helper method that delegates to [`Weight::scorer_supplier`].
@@ -180,7 +176,7 @@ where
     /// A bulk scorer for the same [`LeafReaderContext`] instance may be requested
     /// multiple times as part of a single search call.
     fn bulk_scorer(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
         let mut scorer_supplier = match self.scorer_supplier(context)? {
@@ -219,7 +215,7 @@ where
     /// # Errors
     ///
     /// Returns an error if a low-level I/O error occurs.
-    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         self.default_count(context)
     }
     fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
@@ -514,7 +510,7 @@ macro_rules! define_either_weight {
             >;
 
             fn matches(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Option<Self::Matches>> {
@@ -531,7 +527,7 @@ macro_rules! define_either_weight {
             }
 
             fn default_matches(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Option<MatchWithNoTerms>> {
@@ -542,7 +538,7 @@ macro_rules! define_either_weight {
             }
 
             fn explain(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
                 doc: i32,
             ) -> Result<Explanation> {
@@ -560,7 +556,7 @@ macro_rules! define_either_weight {
             }
 
             fn scorer(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
                 match self {
@@ -576,7 +572,7 @@ macro_rules! define_either_weight {
             }
 
             fn scorer_supplier(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<Self::ScorerSupplier>> {
                 match self {
@@ -592,7 +588,7 @@ macro_rules! define_either_weight {
             }
 
             fn bulk_scorer(
-                &mut self,
+                &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
                 match self {
@@ -607,7 +603,7 @@ macro_rules! define_either_weight {
                 }
             }
 
-            fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+            fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
                 match self {
                     Self::$A(inner) => inner.count(context),
                     $( Self::$T(inner) => inner.count(context), )+

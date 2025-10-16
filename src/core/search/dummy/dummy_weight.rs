@@ -71,7 +71,7 @@ where
     type Matches = DummyMatches;
 
     fn matches(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
@@ -79,14 +79,14 @@ where
     }
 
     fn default_matches(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+    fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -95,7 +95,7 @@ where
     }
 
     fn scorer(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -104,20 +104,20 @@ where
     type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn bulk_scorer(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn count(&mut self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

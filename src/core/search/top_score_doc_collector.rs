@@ -77,7 +77,7 @@ impl Collector for TopScoreDocCollector {
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         context: &LeafReaderContext<LR>,
-        _weight: Option<&mut W>,
+        _weight: Option<&W>,
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,

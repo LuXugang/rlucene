@@ -143,15 +143,11 @@ where
 {
     type Matches = MatchWithNoTerms;
 
-    fn matches(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-        doc: i32,
-    ) -> Result<Option<Self::Matches>> {
+    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
         self.default_matches(context, doc)
     }
 
-    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
             .explain(scorer, doc, self.parent_query.to_string())
@@ -164,17 +160,17 @@ where
     type ScorerSupplier = MatchAllDocsScorerSupplier;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(Some(MatchAllDocsScorerSupplier::new(
             self.score_mode,
-            std::mem::take(&mut self.base),
+            self.base.clone(),
             context.reader().max_doc()?,
         )))
     }
 
-    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         context.reader().num_docs()
     }
 }

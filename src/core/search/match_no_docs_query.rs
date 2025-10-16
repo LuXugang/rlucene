@@ -143,14 +143,14 @@ where
     type Matches = MatchWithNoTerms;
 
     fn matches(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
         Ok(None)
     }
 
-    fn explain(&mut self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+    fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
         let QueryEnum::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
@@ -164,13 +164,13 @@ where
     type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         Ok(None)
     }
 
-    fn count(&mut self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
         Ok(0)
     }
 }

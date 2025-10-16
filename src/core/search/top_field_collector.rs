@@ -220,7 +220,7 @@ impl Collector for TopFieldCollector {
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         _context: &LeafReaderContext<LR>,
-        _weight: Option<&mut W>,
+        _weight: Option<&W>,
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
@@ -562,7 +562,7 @@ impl Collector for SimpleFieldCollector {
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         context: &LeafReaderContext<LR>,
-        _weight: Option<&mut W>,
+        _weight: Option<&W>,
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
@@ -772,7 +772,7 @@ impl Collector for PagingFieldCollector {
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         context: &LeafReaderContext<LR>,
-        _weight: Option<&mut W>,
+        _weight: Option<&W>,
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
@@ -1064,7 +1064,7 @@ impl Collector for TopFieldCollectorEnum {
     fn get_leaf_collector<'a, W, LR>(
         &'a mut self,
         context: &LeafReaderContext<LR>,
-        weight: Option<&mut W>,
+        weight: Option<&W>,
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,

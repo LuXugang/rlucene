@@ -739,15 +739,11 @@ where
 {
     type Matches = <W as Weight<LR>>::Matches;
 
-    fn matches(
-        &mut self,
-        context: &LeafReaderContext<LR>,
-        doc: i32,
-    ) -> Result<Option<Self::Matches>> {
+    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
     }
 
-    fn explain(&mut self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base.explain(scorer, doc, self.get_query().to_string())
     }
@@ -758,7 +754,7 @@ where
     type ScorerSupplier = CachingWrapperWeightSupplier<W, P, LR>;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if self
@@ -844,7 +840,7 @@ where
         }
     }
 
-    fn count(&mut self, context: &LeafReaderContext<LR>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         let reader = context.reader();
 
         if reader.has_deletions()? {

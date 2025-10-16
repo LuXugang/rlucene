@@ -248,7 +248,7 @@ where
     }
     /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
     fn get_terms_enum(
-        &mut self,
+        &self,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<LRTermsEnum<IRC::LeafReader>>> {
         // TODO:
@@ -318,7 +318,7 @@ where
     type Matches = DummyMatches;
 
     fn matches(
-        &mut self,
+        &self,
         _context: &LeafReaderContext<IRC::LeafReader>,
         _doc: i32,
     ) -> Result<Option<Self::Matches>> {
@@ -326,7 +326,7 @@ where
     }
 
     fn explain(
-        &mut self,
+        &self,
         context: &LeafReaderContext<IRC::LeafReader>,
         doc: i32,
     ) -> Result<Explanation> {
@@ -385,7 +385,7 @@ where
     type ScorerSupplier = TermScorerSupplier<IRC, S>;
 
     fn scorer_supplier(
-        &mut self,
+        &self,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         // TODO
@@ -417,7 +417,7 @@ where
         }
     }
 
-    fn count(&mut self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
         if !context.reader().has_deletions()? {
             if let Some(mut terms_enum) = self.get_terms_enum(context)? {
                 terms_enum.doc_freq()

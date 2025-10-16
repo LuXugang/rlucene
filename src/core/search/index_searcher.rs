@@ -127,7 +127,7 @@ where
 
     fn search<W, CM>(
         &mut self,
-        mut weight: W,
+        weight: W,
         collector_manager: &CM,
         first_collector: CM::C,
     ) -> Result<CM::T>
@@ -156,7 +156,7 @@ where
             for i in 0..leaf_slices.len() {
                 let leaves = leaf_slices[i].partitions.as_slice();
                 let mut collector = collectors[i].take().unwrap();
-                self.search_partitions(leaves, &mut weight, &mut collector)?;
+                self.search_partitions(leaves, &weight, &mut collector)?;
                 list_tasks.push(collector)
             }
         }
@@ -166,7 +166,7 @@ where
     pub(crate) fn search_partitions<W, C>(
         &self,
         partitions: &[LeafReaderContextPartition],
-        weight: &mut W,
+        weight: &W,
         collector: &mut C,
     ) -> Result<()>
     where
@@ -193,7 +193,7 @@ where
         ctx_ord: usize,
         min_doc_id: i32,
         max_doc_id: i32,
-        weight: &mut W,
+        weight: &W,
         collector: &mut C,
     ) -> Result<()>
     where

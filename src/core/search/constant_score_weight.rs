@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A Weight that has a constant score equal to the boost of the wrapped query.
 /// This is typically useful when building queries which do not produce
 /// meaningful scores and are mostly useful for filtering.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ConstantScoreWeight {
     score: f32,
 }
