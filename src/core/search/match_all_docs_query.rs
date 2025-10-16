@@ -74,8 +74,8 @@ impl Query for MatchAllDocsQuery {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        score_mod: &ScoreMode,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC>>

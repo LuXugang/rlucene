@@ -127,7 +127,7 @@ impl Query for TermQuery {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        search: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,

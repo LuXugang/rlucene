@@ -81,6 +81,7 @@ pub mod top_docs_collector;
 
 pub use query_cache::QueryCache;
 pub mod boost_query;
+mod constant_score_query;
 mod dummy_query_caching_policy;
 pub mod filter_scorable;
 pub mod top_field_collector;

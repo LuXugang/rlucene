@@ -14,26 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+
 /// `LeafCollector` delegator.
-pub struct FilterLeafCollector<L>
+pub struct FilterLeafCollector<'a, L>
 where
     L: LeafCollector,
 {
-    in_: L,
+    pub(crate) in_: &'a mut L,
 }
-impl<L> FilterLeafCollector<L>
+
+impl<'a, L> FilterLeafCollector<'a, L>
 where
     L: LeafCollector,
 {
-    pub fn new(in_: L) -> Self {
+    pub fn new(in_: &'a mut L) -> Self {
         Self { in_ }
     }
 }
-impl<L> LeafCollector for FilterLeafCollector<L>
+
+impl<'a, L> LeafCollector for FilterLeafCollector<'a, L>
 where
     L: LeafCollector,
 {
@@ -61,9 +65,10 @@ where
         self.in_.finish()
     }
 }
-impl<L> Display for FilterLeafCollector<L>
+
+impl<'a, L> Display for FilterLeafCollector<'a, L>
 where
-    L: LeafCollector,
+    L: LeafCollector + Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ({})", std::any::type_name::<Self>(), self.in_)

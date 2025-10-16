@@ -44,8 +44,8 @@ pub trait Query: Eq + Hash + Debug {
         IRC: IndexReaderContext;
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mod: &ScoreMode,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC>>
@@ -171,8 +171,8 @@ impl Query for QueryEnum {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mod: &ScoreMode,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC>>
@@ -274,7 +274,7 @@ where
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _search: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,

@@ -91,8 +91,8 @@ impl Query for BoostQuery {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        search: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        score_mod: &ScoreMode,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC>>

@@ -22,21 +22,21 @@ use crate::core::util::error::lucene_error::Result;
 /// The default implementation simply passes all calls to its delegate,
 /// except for [`set_min_competitive_score`](Scorable::set_min_competitive_score),
 /// which defaults to a no-op.
-pub struct FilterScorable<S>
+pub struct FilterScorable<'a, S>
 where
     S: Scorable,
 {
-    in_: S,
+    in_: &'a mut S,
 }
-impl<S> FilterScorable<S>
+impl<'a, S> FilterScorable<'a, S>
 where
     S: Scorable,
 {
-    pub fn new(in_: S) -> Self {
+    pub fn new(in_: &'a mut S) -> Self {
         Self { in_ }
     }
 }
-impl<S> Scorable for FilterScorable<S>
+impl<S> Scorable for FilterScorable<'_, S>
 where
     S: Scorable,
 {
