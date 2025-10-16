@@ -29,7 +29,7 @@ pub struct TotalHitCountCollectorManager {
 }
 impl TotalHitCountCollectorManager {
     /// Creates a new total hit count collector manager, providing the array of leaf slices that search
-    /// targets, which can be retrieved via [`IndexSearcher::get_slices`](crate::core::search::index_searcher::IndexSearcher::get_slices) for the searcher.
+    /// targets, which can be retrieved via [`IndexSearcher::get_slices`](crate::core::search::index_searcher::IndexSearcher::get_slices_ref) for the searcher.
     ///
     /// # Parameters
     /// - `leaf_slices`: the slices that the searcher targets.

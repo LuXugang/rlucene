@@ -25,6 +25,7 @@ use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::collector::Collector;
+use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::Query;
@@ -39,7 +40,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
 /// Thresholds for index slice allocation logic.
@@ -55,7 +56,7 @@ where
     QC: QueryCache,
 {
     reader_context: IRC,
-    leaf_slices: Option<Vec<LeafSlice>>,
+    leaf_slices: Option<Arc<Vec<LeafSlice>>>,
     similarity: Arc<S>,
     leaf_slices_init_lock: Mutex<()>,
     query_timeout: Option<QT>,
@@ -65,7 +66,7 @@ where
     // this variable volatile since joining these threads should ensure a happens-before relationship
     // that guarantees that writes become visible on the main thread, but making the variable volatile
     // shouldn't hurt either.
-    partial_result: bool,
+    partial_result: AtomicBool,
 }
 
 impl<IRC, S, QT, QCP, QC> IndexSearcher<IRC, S, QT, QCP, QC>
@@ -79,12 +80,22 @@ where
     pub fn stored_fields(&self) {}
 
     /// Returns the leaf slices used for concurrent searching. Override [`slices()`](Self::slices) to customize how slices are created.
-    pub fn get_slices(&mut self) -> Result<&[LeafSlice]> {
+    pub fn get_slices_ref(&mut self) -> Result<&[LeafSlice]> {
+        self.ensure_slices()?;
+        Ok(self.leaf_slices.as_ref().unwrap().as_slice())
+    }
+
+    pub fn get_slices(&mut self) -> Result<Arc<Vec<LeafSlice>>> {
+        self.ensure_slices()?;
+        Ok(self.leaf_slices.as_ref().unwrap().clone())
+    }
+    fn ensure_slices(&mut self) -> Result<()> {
         if self.leaf_slices.is_none() {
             self.compute_and_cache_slices()?;
         }
-        Ok(self.leaf_slices.as_ref().unwrap().as_slice())
+        Ok(())
     }
+
     fn compute_and_cache_slices(&mut self) -> Result<()> {
         let _guard = self.leaf_slices_init_lock.lock();
         if self.leaf_slices.is_none() {
@@ -103,7 +114,7 @@ where
                 enforce_distinct_leaves(leaf_slice)?;
             }
 
-            self.leaf_slices = Some(res);
+            self.leaf_slices = Some(Arc::new(res));
         }
         Ok(())
     }
@@ -114,22 +125,59 @@ where
         self.similarity.clone()
     }
 
-    pub(crate) fn search_partitions<W, LC, C>(
+    fn search<W, CM>(
         &mut self,
+        mut weight: W,
+        collector_manager: &CM,
+        first_collector: CM::C,
+    ) -> Result<CM::T>
+    where
+        W: Weight<IRC::LeafReader>,
+        CM: CollectorManager,
+    {
+        let leaf_slices = self.get_slices()?;
+        if leaf_slices.is_empty() {
+            debug_assert!(self.reader_context.leaves()?.is_empty());
+            return collector_manager.reduce(vec![first_collector]);
+        } else {
+            let mut collectors = Vec::with_capacity(leaf_slices.len());
+            let score_mode = first_collector.score_mode();
+            collectors.push(Some(first_collector));
+            for _ in 1..leaf_slices.len() {
+                let collector = collector_manager.new_collector()?;
+                if score_mode != collector.score_mode() {
+                    return Err(LuceneError::illegal_state(
+                        "CollectorManager does not always produce collectors with the same score mode",
+                    ));
+                }
+                collectors.push(Some(collector));
+            }
+            let mut list_tasks = Vec::with_capacity(leaf_slices.len());
+            for i in 0..leaf_slices.len() {
+                let leaves = leaf_slices[i].partitions.as_slice();
+                let mut collector = collectors[i].take().unwrap();
+                self.search_partitions(leaves, &mut weight, &mut collector)?;
+                list_tasks.push(collector)
+            }
+        }
+        todo!()
+    }
+
+    pub(crate) fn search_partitions<W, C>(
+        &self,
         partitions: &[LeafReaderContextPartition],
         weight: &mut W,
         collector: &mut C,
     ) -> Result<()>
     where
         W: Weight<IRC::LeafReader>,
-        LC: LeafCollector,
         C: Collector,
     {
         // we pass `Weight` to `Collector` via parameter in Rust Lucene
         // collector.set_weight(weight)?;
 
         for partition in partitions {
-            self.search_leaf::<W, LC, C>(
+            self.search_leaf(
                 partition.ctx,
                 partition.min_doc_id,
                 partition.max_doc_id,
@@ -140,8 +188,8 @@ where
 
         Ok(())
     }
-    pub(crate) fn search_leaf<W, LC, C>(
-        &mut self,
+    pub(crate) fn search_leaf<W, C>(
+        &self,
         ctx_ord: usize,
         min_doc_id: i32,
         max_doc_id: i32,
@@ -150,7 +198,6 @@ where
     ) -> Result<()>
     where
         W: Weight<IRC::LeafReader>,
-        LC: LeafCollector,
         C: Collector,
     {
         let ctx = &self.reader_context.leaves()?[ctx_ord];
@@ -188,7 +235,7 @@ where
                     // continue with the following leaf
                 },
                 Err(LuceneError::TimeExceeded(_)) => {
-                    self.partial_result = true;
+                    self.partial_result.store(true, Ordering::Relaxed);
                 },
                 Err(e) => return Err(e),
             }
