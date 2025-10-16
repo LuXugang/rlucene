@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
+use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -85,6 +86,12 @@ pub enum QueryEnum {
     MatchAll(MatchAllDocsQuery),
     MatchNoDoc(MatchNoDocsQuery),
     Dummy(DummyQuery),
+    Boost(BoostQuery),
+}
+impl Default for QueryEnum {
+    fn default() -> Self {
+        QueryEnum::Dummy(DummyQuery::default())
+    }
 }
 
 impl Eq for QueryEnum {}
@@ -96,25 +103,29 @@ impl PartialEq for QueryEnum {
             (QueryEnum::MatchAll(m1), QueryEnum::MatchAll(m2)) => m1 == m2,
             (QueryEnum::MatchNoDoc(m1), QueryEnum::MatchNoDoc(m2)) => m1 == m2,
             (QueryEnum::Dummy(d1), QueryEnum::Dummy(d2)) => d1 == d2,
+            (QueryEnum::Boost(b1), QueryEnum::Boost(b2)) => b1 == b2,
             _ => false,
         }
     }
 }
 
 impl Hash for QueryEnum {
-    fn hash<H: Hasher>(&self, _state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             QueryEnum::Term(t) => {
-                t.hash(_state);
+                t.hash(state);
             },
             QueryEnum::MatchAll(m) => {
-                m.hash(_state);
+                m.hash(state);
             },
             QueryEnum::MatchNoDoc(m) => {
-                m.hash(_state);
+                m.hash(state);
             },
             QueryEnum::Dummy(d) => {
-                d.hash(_state);
+                d.hash(state);
+            },
+            QueryEnum::Boost(b) => {
+                b.hash(state);
             },
         }
     }
@@ -134,6 +145,9 @@ impl Debug for QueryEnum {
             QueryEnum::Dummy(d) => {
                 write!(f, "QueryEnum::Dummy({:?})", d)
             },
+            QueryEnum::Boost(b) => {
+                write!(f, "QueryEnum::Boost({:?})", b)
+            },
         }
     }
 }
@@ -145,6 +159,7 @@ impl Query for QueryEnum {
             QueryEnum::MatchAll(m) => m.as_string(field),
             QueryEnum::MatchNoDoc(m) => m.as_string(field),
             QueryEnum::Dummy(d) => d.as_string(field),
+            QueryEnum::Boost(b) => b.as_string(field),
         }
     }
 
@@ -214,6 +229,11 @@ impl From<MatchNoDocsQuery> for QueryEnum {
 impl From<DummyQuery> for QueryEnum {
     fn from(value: DummyQuery) -> Self {
         QueryEnum::Dummy(value)
+    }
+}
+impl From<BoostQuery> for QueryEnum {
+    fn from(value: BoostQuery) -> Self {
+        QueryEnum::Boost(value)
     }
 }
 #[derive(Clone, Debug)]

@@ -26,7 +26,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Default)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {
     fn as_string(&self, _field: &str) -> String {
