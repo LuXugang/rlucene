@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::points_reader::PointsReaderEnum;
+use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::points_writer::PointsWriterEnum;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -29,7 +29,7 @@ pub trait PointsFormat {
     fn fields_reader<D>(
         &self,
         state: &SegmentReadState<D>,
-    ) -> Result<PointsReaderEnum<D::IndexInput>>
+    ) -> Result<PointsReaderType<D::IndexInput>>
     where
         D: Directory;
 }

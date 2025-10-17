@@ -21,7 +21,7 @@ use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducerEnum;
 use crate::core::codecs::points_format::PointsFormat;
-use crate::core::codecs::points_reader::PointsReaderEnum;
+use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
@@ -55,7 +55,7 @@ where
     pub(crate) norms_producer: Option<NormsProducerEnum<CfsOrBaseInput<D>>>,
     pub(crate) fields_reader_orig: StoredFieldsReaderEnum<CfsOrBaseInput<D>>,
     pub(crate) term_vectors_reader_orig: Option<TermVectorsReaderType<CfsOrBaseInput<D>>>,
-    pub(crate) points_reader: Option<PointsReaderEnum<CfsOrBaseInput<D>>>,
+    pub(crate) points_reader: Option<PointsReaderType<CfsOrBaseInput<D>>>,
     pub(crate) cfs_reader: Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
     pub(crate) segment: String,
     /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.

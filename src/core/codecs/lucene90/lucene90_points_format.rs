@@ -17,7 +17,7 @@
 use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::core::codecs::lucene90_points_writer::Lucene90PointWriter;
 use crate::core::codecs::points_format::PointsFormat;
-use crate::core::codecs::points_reader::PointsReaderEnum;
+use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::points_writer::PointsWriterEnum;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -69,10 +69,10 @@ impl PointsFormat for Lucene90PointsFormat {
     fn fields_reader<D>(
         &self,
         state: &SegmentReadState<D>,
-    ) -> Result<PointsReaderEnum<D::IndexInput>>
+    ) -> Result<PointsReaderType<D::IndexInput>>
     where
         D: Directory,
     {
-        Ok(PointsReaderEnum::Lucene90(Lucene90PointsReader::new(state)))
+        Ok(Lucene90PointsReader::new(state))
     }
 }
