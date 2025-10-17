@@ -34,6 +34,7 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::fmt::Display;
@@ -101,7 +102,7 @@ pub struct LiveIndexWriterConfigBase {
     pub ram_buffer_size_mb: f64,
     pub max_buffered_docs: i32,
     pub index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
-    pub index_commit: Option<DummyIndexCommit>,
+    pub index_commit: Option<DummyIndexCommit<DummyDirectory>>,
     pub use_compound_file: bool,
     pub open_mode: OpenMode,
     pub similarity: Arc<DummySimilarity>,

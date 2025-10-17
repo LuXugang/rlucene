@@ -25,6 +25,7 @@ use crate::core::index::live_index_writer_config::{
 };
 use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::info_stream::InfoStreamMT;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -145,7 +146,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
         &self.base.open_mode
     }
 
-    type IndexCommit = DummyIndexCommit;
+    type IndexCommit = DummyIndexCommit<DummyDirectory>;
 
     fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
         self.base.index_commit.take()

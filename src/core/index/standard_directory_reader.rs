@@ -14,24 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
+use crate::core::index::base_composite_reader::{
+    BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_index_reader::DummyIndexReader;
-use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
-use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::term::Term;
+use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::Comparator;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -45,6 +48,7 @@ where
     directory_reader_base: DirectoryReaderBase<D>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
+    segment_infos: Option<SegmentInfos<D>>,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
@@ -55,9 +59,10 @@ where
     pub(crate) fn new(
         directory: Arc<D>,
         readers: Vec<LR>,
+        segment_infos: SegmentInfos<D>,
+        leaf_sorter: Option<Arc<C>>,
         apply_all_deletes: bool,
         write_all_deletes: bool,
-        leaf_sorter: Option<Arc<C>>,
     ) -> Result<Self> {
         let base_composite_reader_base = BaseCompositeReaderBase::new(readers, leaf_sorter)?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
@@ -66,7 +71,39 @@ where
             directory_reader_base,
             apply_all_deletes,
             write_all_deletes,
+            segment_infos: Some(segment_infos),
         })
+    }
+    pub(crate) fn open<IC>(
+        directory: Arc<D>,
+        commit: Option<&IC>,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<SegmentReader<D>>,
+        IC: IndexCommit<Directory = D>,
+    {
+        Self::open_with_version(directory, *MIN_SUPPORTED_MAJOR, commit, leaf_sorter)
+    }
+    /// called from DirectoryReader.open(...) methods
+    pub(crate) fn open_with_version<IC>(
+        directory: Arc<D>,
+        min_supported_major_version: i32,
+        commit: Option<&IC>,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<SegmentReader<D>>,
+        IC: IndexCommit<Directory = D>,
+    {
+        let finder =
+            FindSegmentsFileImpl1::new(min_supported_major_version, directory.clone(), leaf_sorter);
+        match commit {
+            Some(c) => finder.run_with_commit(c),
+            None => finder.run(),
+        }
     }
 }
 
@@ -104,24 +141,24 @@ where
     D: Directory,
     LR: LeafReader,
 {
-    type TermVectors = DummyTermVectors;
+    type TermVectors = BCRTermVectorsImpl<LR>;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
-        todo!()
+        self.base_composite_reader_base.term_vector(self)
     }
 
     fn max_doc(&self) -> Result<i32> {
-        todo!()
+        Ok(self.base_composite_reader_base.max_doc())
     }
 
     fn num_docs(&self) -> Result<i32> {
-        todo!()
+        self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields = DummyStoredFields;
+    type StoredFields = BCRStoredFieldsImpl<LR>;
 
     fn stored_fields(&self) -> Result<Self::StoredFields> {
-        todo!()
+        self.base_composite_reader_base.stored_fields(self)
     }
 
     fn do_close(&mut self) -> Result<()> {
@@ -129,23 +166,25 @@ where
     }
 
     fn doc_freq(&self, term: &Term) -> Result<i32> {
-        todo!()
+        self.base_composite_reader_base.doc_freq(term, self)
     }
 
     fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        todo!()
+        self.base_composite_reader_base.total_term_freq(term, self)
     }
 
     fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        todo!()
+        self.base_composite_reader_base
+            .get_sum_doc_freq(field, self)
     }
 
     fn get_doc_count(&self, field: &str) -> Result<i32> {
-        todo!()
+        self.base_composite_reader_base.get_doc_count(field, self)
     }
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        todo!()
+        self.base_composite_reader_base
+            .get_sum_total_term_freq(field, self)
     }
 }
 
@@ -166,15 +205,15 @@ where
     C: Comparator<LR>,
     D: Directory,
 {
-    type DirectoryReader = DummyDirectoryReader;
+    type DirectoryReader = DummyDirectoryReader<D>;
 
-    fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
-        todo!()
+    fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
+        self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(None)
     }
 
     fn do_open_if_changed_with_commit<IC>(
-        &self,
-        commit: IC,
+        &mut self,
+        commit: Option<&IC>,
     ) -> Result<Option<Self::DirectoryReader>>
     where
         IC: IndexCommit,
@@ -198,11 +237,12 @@ where
         todo!()
     }
 
-    fn is_current(&self) -> bool {
+    fn is_current(&self) -> Result<bool> {
+        self.ensure_open()?;
         todo!()
     }
 
-    type IndexCommit = DummyIndexCommit;
+    type IndexCommit = DummyIndexCommit<D>;
 
     fn get_index_commit(&self) -> Result<Self::IndexCommit> {
         todo!()
@@ -212,5 +252,118 @@ where
 
     fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
         &self.directory_reader_base
+    }
+}
+pub struct FindSegmentsFileImpl1<D, LR, C>
+where
+    D: Directory,
+    LR: LeafReader,
+    C: Comparator<LR>,
+{
+    min_supported_major_version: i32,
+    directory: Arc<D>,
+    leaf_sorter: Option<Arc<C>>,
+    _marker: std::marker::PhantomData<LR>,
+}
+impl<D, LR, C> FindSegmentsFileImpl1<D, LR, C>
+where
+    D: Directory,
+    LR: LeafReader,
+    C: Comparator<LR>,
+{
+    pub fn new(
+        min_supported_major_version: i32,
+        directory: Arc<D>,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Self {
+        FindSegmentsFileImpl1 {
+            min_supported_major_version,
+            directory,
+            leaf_sorter,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, SegmentReader<D>, C>
+where
+    D: Directory,
+    C: Comparator<SegmentReader<D>>,
+{
+    type V = StandardDirectoryReader<SegmentReader<D>, C, D>;
+    type D = D;
+
+    fn get_directory_point(&self) -> Arc<Self::D> {
+        self.directory.clone()
+    }
+
+    fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
+        if self.min_supported_major_version > LATEST.major || self.min_supported_major_version < 0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "minSupportedMajorVersion must be positive and <= {} but was: {}",
+                LATEST.major, self.min_supported_major_version
+            )));
+        }
+
+        let sis = SegmentInfos::read_commit_with_file_min_version(
+            self.directory.clone(),
+            segment_file_name,
+            self.min_supported_major_version,
+        )?;
+
+        let mut readers = Vec::with_capacity(sis.size());
+
+        // ensure cleanup on failure
+        for i in (0..sis.size()).rev() {
+            debug_assert!(sis.info_idx(i).is_some());
+            let reader = SegmentReader::new(
+                sis.info_idx(i).as_ref().unwrap(),
+                sis.get_index_created_version_major(),
+                &IOContext::default_io_context()?,
+            )?;
+            readers.push(reader);
+        }
+        // This may throw CorruptIndexException if there are too many docs, so
+        // it must be inside try clause so we close readers in that case:
+        let reader = StandardDirectoryReader::new(
+            self.directory.clone(),
+            readers,
+            sis,
+            self.leaf_sorter.clone(),
+            false,
+            false,
+        )?;
+
+        Ok(reader)
+    }
+}
+
+pub struct FindSegmentsFileImpl2<D>
+where
+    D: Directory,
+{
+    directory: Arc<D>,
+}
+impl<D> FindSegmentsFileImpl2<D>
+where
+    D: Directory,
+{
+    pub fn new(directory: Arc<D>) -> Self {
+        FindSegmentsFileImpl2 { directory }
+    }
+}
+impl<D> FindSegmentsFile for FindSegmentsFileImpl2<D>
+where
+    D: Directory,
+{
+    type V = ();
+    type D = D;
+
+    fn get_directory_point(&self) -> Arc<Self::D> {
+        self.directory.clone()
+    }
+
+    fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
+        let infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
+        todo!()
     }
 }

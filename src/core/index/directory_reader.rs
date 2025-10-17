@@ -55,7 +55,7 @@ pub trait DirectoryReader: BaseCompositeReader {
     /// # Errors
     ///
     /// Returns an error if a low-level I/O failure occurs.
-    fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>>;
+    fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>>;
     /// If this reader does not support reopen, return `None` so that client code behaves correctly.
     /// This should be consistent with [`is_current`](Self::is_current),
     /// which should always return `true` if reopen is not supported.
@@ -69,8 +69,8 @@ pub trait DirectoryReader: BaseCompositeReader {
     ///
     /// Returns an error if a low-level I/O failure occurs.
     fn do_open_if_changed_with_commit<IC>(
-        &self,
-        commit: IC,
+        &mut self,
+        commit: Option<&IC>,
     ) -> Result<Option<Self::DirectoryReader>>
     where
         IC: IndexCommit;
@@ -116,7 +116,7 @@ pub trait DirectoryReader: BaseCompositeReader {
     /// # Errors
     ///
     /// Returns an error if there is a low-level I/O error.
-    fn is_current(&self) -> bool;
+    fn is_current(&self) -> Result<bool>;
     type IndexCommit: IndexCommit;
     /// Expert: return the IndexCommit that this reader has opened.
     fn get_index_commit(&self) -> Result<Self::IndexCommit>;
@@ -127,8 +127,119 @@ pub trait DirectoryReader: BaseCompositeReader {
 
 pub mod directory_reader_util {
     use crate::core::index::IndexFileNames;
+    use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
+    use crate::core::index::index_commit::IndexCommit;
+
+    use crate::core::index::segment_reader::SegmentReader;
+    use crate::core::index::standard_directory_reader::StandardDirectoryReader;
     use crate::core::store::directory::Directory;
+    use crate::core::util::Comparator;
+    use crate::core::util::dummy::dummy_comparator::DummyComparator;
     use crate::core::util::error::lucene_error::Result;
+    use std::sync::Arc;
+    /// Returns an [`IndexReader`] reading the index in the given [`Directory`].
+    ///
+    /// # Parameters
+    ///
+    /// * `directory` – the index directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is a low-level I/O error.
+    pub fn open<D>(
+        directory: Arc<D>,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, DummyComparator<SegmentReader<D>>, D>>
+    where
+        D: Directory,
+    {
+        StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, None)
+    }
+
+    /// Returns an [`IndexReader`] for the index in the given [`Directory`].
+    ///
+    /// # Parameters
+    ///
+    /// * `directory` – the index directory.
+    /// * `leaf_sorter` – a comparator for sorting leaf readers.
+    ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+    ///   criteria (e.g., for time-based indices this is usually a descending sort on timestamp).
+    ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+    ///   Providing `leaf_sorter` allows speeding up this particular type of sort queries by early
+    ///   termination while iterating through segments and their documents.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is a low-level I/O error.
+    pub fn open_with_sorter<D, C>(
+        directory: Arc<D>,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<SegmentReader<D>>,
+    {
+        StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
+    }
+
+    /// Expert: returns an [`IndexReader`] reading the index on the given [`IndexCommit`].
+    ///
+    /// This method allows opening indices that were created with a Lucene version older than N-1,
+    /// provided that all codecs for this index are available in the classpath and the segment file
+    /// format used was created with Lucene 7 or newer.
+    /// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
+    /// indices created with versions older than N-1. All backwards compatibility aside from the file
+    /// format is optional and applied on a best-effort basis.
+    ///
+    /// # Parameters
+    ///
+    /// * `commit` – the commit point to open
+    /// * `min_supported_major_version` – the minimum supported major index version
+    /// * `leaf_sorter` – a comparator for sorting leaf readers.
+    ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+    ///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
+    ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+    ///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
+    ///   while iterating through segments and their documents.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is a low-level I/O error.
+    pub fn open_with_commit_version_sorter<D, C, IC>(
+        commit: &IC,
+        min_supported_major_version: i32,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<SegmentReader<D>>,
+        IC: IndexCommit<Directory = D>,
+    {
+        StandardDirectoryReader::open_with_version(
+            commit.get_directory(),
+            min_supported_major_version,
+            Some(commit),
+            leaf_sorter,
+        )
+    }
+    /// Expert: returns an [`IndexReader`] reading the index in the given [`IndexCommit`].
+    ///
+    /// # Parameters
+    ///
+    /// * `commit` – the commit point to open.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is a low-level I/O error.
+    pub fn open_with_commit<D, C, IC>(
+        commit: &IC,
+    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<SegmentReader<D>>,
+        IC: IndexCommit<Directory = D>,
+    {
+        StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
+    }
 
     pub fn index_exists(directory: &impl Directory) -> Result<bool> {
         // LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will

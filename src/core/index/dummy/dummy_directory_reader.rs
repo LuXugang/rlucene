@@ -26,14 +26,23 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
+use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-pub struct DummyDirectoryReader;
+pub struct DummyDirectoryReader<D>
+where
+    D: Directory,
+{
+    _marker: std::marker::PhantomData<D>,
+}
 
-impl BaseCompositeReader for DummyDirectoryReader {
+impl<D> BaseCompositeReader for DummyDirectoryReader<D>
+where
+    D: Directory,
+{
     type Comparator = DummyComparator<Self::IndexReader>;
 
     fn base_composite_reader_base(
@@ -43,7 +52,10 @@ impl BaseCompositeReader for DummyDirectoryReader {
     }
 }
 
-impl CompositeReader for DummyDirectoryReader {
+impl<D> CompositeReader for DummyDirectoryReader<D>
+where
+    D: Directory,
+{
     type IndexReader = DummyIndexReader;
 
     fn get_sequential_sub_readers(&self) -> &[Self::IndexReader] {
@@ -51,7 +63,10 @@ impl CompositeReader for DummyDirectoryReader {
     }
 }
 
-impl IndexReader for DummyDirectoryReader {
+impl<D> IndexReader for DummyDirectoryReader<D>
+where
+    D: Directory,
+{
     type TermVectors = DummyTermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -97,22 +112,28 @@ impl IndexReader for DummyDirectoryReader {
     }
 }
 
-impl Display for DummyDirectoryReader {
+impl<D> Display for DummyDirectoryReader<D>
+where
+    D: Directory,
+{
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl DirectoryReader for DummyDirectoryReader {
-    type DirectoryReader = DummyDirectoryReader;
+impl<D> DirectoryReader for DummyDirectoryReader<D>
+where
+    D: Directory,
+{
+    type DirectoryReader = DummyDirectoryReader<D>;
 
-    fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn do_open_if_changed_with_commit<IC>(
-        &self,
-        _commit: IC,
+        &mut self,
+        _commit: Option<&IC>,
     ) -> Result<Option<Self::DirectoryReader>>
     where
         IC: IndexCommit,
@@ -136,11 +157,11 @@ impl DirectoryReader for DummyDirectoryReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn is_current(&self) -> bool {
+    fn is_current(&self) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type IndexCommit = DummyIndexCommit;
+    type IndexCommit = DummyIndexCommit<D>;
 
     fn get_index_commit(&self) -> Result<Self::IndexCommit> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

@@ -1149,10 +1149,7 @@ pub trait FindSegmentsFile {
     type D: Directory;
     fn get_directory_point(&self) -> Arc<Self::D>;
     /// Run doBody on the provided commit.
-    fn run_with_commit<IC>(
-        &self,
-        commit: &impl IndexCommit<Directory = Self::D>,
-    ) -> Result<Self::V> {
+    fn run_with_commit(&self, commit: &impl IndexCommit<Directory = Self::D>) -> Result<Self::V> {
         if !Arc::ptr_eq(&self.get_directory_point(), &commit.get_directory()) {
             return Err(LuceneError::illegal_state(
                 "The specified commit does not match the specified Directory",

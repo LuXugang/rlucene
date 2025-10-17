@@ -110,7 +110,7 @@ pub trait LeafReader: IndexReader {
     ///
     /// See [`TermsEnum::postings`].
     fn postings_with_flag(
-        &mut self,
+        &self,
         term: &Term,
         flags: i32,
     ) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
@@ -134,7 +134,7 @@ pub trait LeafReader: IndexReader {
     /// **NOTE:** The returned [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum) may contain deleted docs.
     ///
     /// See [`Self::postings_with_flag`].
-    fn postings(&mut self, term: &Term) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
+    fn postings(&self, term: &Term) -> Result<Option<LeafPostingsEnum<Self::Terms>>>
     where
         Self: Sized,
     {

@@ -17,42 +17,63 @@
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::directory::Directory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct DummyIndexCommit;
+pub struct DummyIndexCommit<D>
+where
+    D: Directory,
+{
+    _marker: PhantomData<D>,
+}
 
-impl PartialEq for DummyIndexCommit {
+impl<D> PartialEq for DummyIndexCommit<D>
+where
+    D: Directory,
+{
     fn eq(&self, _other: &Self) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl Eq for DummyIndexCommit {}
+impl<D> Eq for DummyIndexCommit<D> where D: Directory {}
 
-impl PartialOrd for DummyIndexCommit {
+impl<D> PartialOrd for DummyIndexCommit<D>
+where
+    D: Directory,
+{
     fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl Ord for DummyIndexCommit {
+impl<D> Ord for DummyIndexCommit<D>
+where
+    D: Directory,
+{
     fn cmp(&self, _other: &Self) -> Ordering {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl Display for DummyIndexCommit {
+impl<D> Display for DummyIndexCommit<D>
+where
+    D: Directory,
+{
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl IndexCommit for DummyIndexCommit {
+impl<D> IndexCommit for DummyIndexCommit<D>
+where
+    D: Directory,
+{
     fn get_segments_file_name(&self) -> &str {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -61,7 +82,7 @@ impl IndexCommit for DummyIndexCommit {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Directory = DummyDirectory;
+    type Directory = D;
 
     fn get_directory(&self) -> Arc<Self::Directory> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

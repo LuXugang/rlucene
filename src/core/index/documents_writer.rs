@@ -275,7 +275,7 @@ where
         let inner = self.inner.lock();
         inner.delete_queue.get_max_completed_seq_no()
     }
-    fn any_changes(&self, inner: Option<&Inner>) -> bool {
+    pub(crate) fn any_changes(&self, inner: Option<&Inner>) -> bool {
         // changes are either in a DWPT or in the deleteQueue.
         // yet if we currently flush deletes and / or dwpt there
         // could be a window where all changes are in the ticket queue

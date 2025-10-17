@@ -1840,6 +1840,29 @@ where
             self.info_stream.message("TP", message);
         }
     }
+    pub(crate) fn nrt_is_current(&self, infos: &SegmentInfos<D>) -> Result<bool> {
+        let inner = self.inner.lock();
+        self.do_ensure_open(true)?;
+
+        let is_current = infos.get_version() == inner.segment_infos.get_version()
+            && !self.doc_writer.any_changes(None)
+            && !self.buffered_updates_stream.any()
+            && !self.reader_pool.any_doc_values_changes();
+
+        if self.info_stream.enabled("IW") && !is_current {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "nrtIsCurrent: infoVersion matches: {}; DW changes: {}; BD changes: {}",
+                    infos.get_version() == inner.segment_infos.get_version(),
+                    self.doc_writer.any_changes(None),
+                    self.buffered_updates_stream.any(),
+                ),
+            );
+        }
+
+        Ok(is_current)
+    }
 
     fn delete_new_files<'a, I>(&self, files: I) -> Result<()>
     where
