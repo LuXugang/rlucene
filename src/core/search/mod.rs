@@ -80,6 +80,7 @@ pub mod top_docs;
 pub mod top_docs_collector;
 
 pub use query_cache::QueryCache;
+pub mod boolean_clause;
 pub mod boost_query;
 mod constant_score_query;
 mod dummy_query_caching_policy;
