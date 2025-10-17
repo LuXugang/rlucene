@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::fields_producer::FieldsProducerEnum;
+use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducerEnum;
@@ -51,7 +51,7 @@ where
     D: Directory,
 {
     pub(crate) r#ref: AtomicI32,
-    pub(crate) fields: Option<FieldsProducerEnum<CfsOrBaseInput<D>>>,
+    pub(crate) fields: Option<FieldsProducerType<CfsOrBaseInput<D>>>,
     pub(crate) norms_producer: Option<NormsProducerEnum<CfsOrBaseInput<D>>>,
     pub(crate) fields_reader_orig: StoredFieldsReaderEnum<CfsOrBaseInput<D>>,
     pub(crate) term_vectors_reader_orig: Option<TermVectorsReaderType<CfsOrBaseInput<D>>>,

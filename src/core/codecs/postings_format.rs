@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum;
-use crate::core::codecs::fields_producer::FieldsProducerEnum;
+use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -41,5 +41,5 @@ pub trait PostingsFormat {
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsProducerEnum<D1::IndexInput>>;
+    ) -> Result<FieldsProducerType<D1::IndexInput>>;
 }

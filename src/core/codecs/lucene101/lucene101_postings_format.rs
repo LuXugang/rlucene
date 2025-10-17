@@ -22,7 +22,7 @@ use crate::core::codecs::block_tree::lucene90_block_tree_terms_writer::{
     DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
 };
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum;
-use crate::core::codecs::fields_producer::FieldsProducerEnum;
+use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
@@ -333,13 +333,13 @@ impl PostingsFormat for Lucene101PostingsFormat {
     {
         let posting_writer =
             PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
-        let ret = FieldsConsumerEnum::Lucene90(Lucene90BlockTreeTermsWriter::new(
+        let ret = Lucene90BlockTreeTermsWriter::new(
             state,
             posting_writer,
             self.min_term_block_size,
             self.max_term_block_size,
             segment_info,
-        )?);
+        )?;
         Ok(ret)
     }
 
@@ -347,13 +347,9 @@ impl PostingsFormat for Lucene101PostingsFormat {
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsProducerEnum<D1::IndexInput>> {
+    ) -> Result<FieldsProducerType<D1::IndexInput>> {
         let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
-        let ret = FieldsProducerEnum::Lucene90(Lucene90BlockTreeTermsReader::new(
-            postings_reader,
-            state,
-            segment_info,
-        )?);
+        let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
         Ok(ret)
     }
 }

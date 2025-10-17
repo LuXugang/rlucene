@@ -19,7 +19,6 @@ use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101Postings
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::push_postings_writer_base::PushPostingsWriterBase;
 use crate::core::index::fields::Fields;
-use crate::core::store::IndexOutput;
 use crate::core::util::error::lucene_error::Result;
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
 /// implementations of this actually do "something" with the postings (write it into the index in a
@@ -43,30 +42,5 @@ pub trait FieldsConsumer {
         N: NormsProducer;
     fn close(&mut self) -> Result<()>;
 }
-
-pub enum FieldsConsumerEnum<O>
-where
-    O: IndexOutput,
-{
-    Lucene90(Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>),
-}
-impl<O> FieldsConsumer for FieldsConsumerEnum<O>
-where
-    O: IndexOutput,
-{
-    fn write<F, N>(&mut self, fields: &mut F, norms: &Option<N>) -> Result<()>
-    where
-        F: Fields,
-        N: NormsProducer,
-    {
-        match self {
-            FieldsConsumerEnum::Lucene90(writer) => writer.write(fields, norms),
-        }
-    }
-
-    fn close(&mut self) -> Result<()> {
-        match self {
-            FieldsConsumerEnum::Lucene90(writer) => writer.close(),
-        }
-    }
-}
+pub type FieldsConsumerEnum<O> =
+    Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;

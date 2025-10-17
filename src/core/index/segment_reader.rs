@@ -17,7 +17,7 @@
 use crate::core::codecs::compound_directory::CompoundDirectoryBase;
 use crate::core::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::fields_producer::FieldsProducerEnum;
+use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
@@ -489,7 +489,7 @@ where
     type TermVectorsReader = TermVectorsReaderType<CfsOrBaseInput<D>>;
     type NormsProducer = NormsProducerEnum<CfsOrBaseInput<D>>;
     type DocValuesProducer = DocValuesProducers<D>;
-    type FieldsProducer = FieldsProducerEnum<CfsOrBaseInput<D>>;
+    type FieldsProducer = FieldsProducerType<CfsOrBaseInput<D>>;
     type PointsReader = PointsReaderType<CfsOrBaseInput<D>>;
 
     fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
