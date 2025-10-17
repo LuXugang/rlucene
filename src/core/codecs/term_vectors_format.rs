@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum;
+
+use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -32,7 +33,7 @@ pub trait TermVectorsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
+    ) -> Result<TermVectorsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;

@@ -14,11 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::{
-    Lucene90CompressingTermVectorsReader, TVFields,
-};
+use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::Lucene90CompressingTermVectorsReader;
 use crate::core::index::term_vectors::TermVectors;
-use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
 pub trait TermVectorsReader: TermVectors + Clone {
@@ -38,56 +35,4 @@ pub trait TermVectorsReader: TermVectors + Clone {
         Ok(None)
     }
 }
-
-pub enum TermVectorsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    Lucene90(Lucene90CompressingTermVectorsReader<I>),
-}
-
-impl<I> TermVectors for TermVectorsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    type Fields = TVFields;
-
-    fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
-        match self {
-            TermVectorsReaderEnum::Lucene90(reader) => reader.get(doc),
-        }
-    }
-}
-
-impl<I> Clone for TermVectorsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        match self {
-            TermVectorsReaderEnum::Lucene90(reader) => {
-                TermVectorsReaderEnum::Lucene90(reader.clone())
-            },
-        }
-    }
-}
-
-impl<I> TermVectorsReader for TermVectorsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            TermVectorsReaderEnum::Lucene90(reader) => reader.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
-        match self {
-            TermVectorsReaderEnum::Lucene90(reader) => {
-                let merge_instance = reader.get_merge_instance()?;
-                Ok(merge_instance.map(TermVectorsReaderEnum::Lucene90))
-            },
-        }
-    }
-}
+pub type TermVectorsReaderType<I> = Lucene90CompressingTermVectorsReader<I>;

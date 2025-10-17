@@ -18,7 +18,8 @@ use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum;
+
+use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -101,22 +102,20 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
+    ) -> Result<TermVectorsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,
     {
-        Ok(TermVectorsReaderEnum::Lucene90(
-            Lucene90CompressingTermVectorsReader::new(
-                directory,
-                segment_info,
-                &self.segment_suffix,
-                field_infos,
-                context,
-                &self.format_name,
-                self.compression_mode.clone(),
-            )?,
-        ))
+        Lucene90CompressingTermVectorsReader::new(
+            directory,
+            segment_info,
+            &self.segment_suffix,
+            field_infos,
+            context,
+            &self.format_name,
+            self.compression_mode.clone(),
+        )
     }
 
     fn vectors_writer<D1, D2>(

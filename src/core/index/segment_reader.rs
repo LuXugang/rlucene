@@ -23,7 +23,8 @@ use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum};
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum;
+
+use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
@@ -485,7 +486,7 @@ where
     D: Directory,
 {
     type StoredFieldsReader = StoredFieldsReaderEnum<CfsOrBaseInput<D>>;
-    type TermVectorsReader = TermVectorsReaderEnum<CfsOrBaseInput<D>>;
+    type TermVectorsReader = TermVectorsReaderType<CfsOrBaseInput<D>>;
     type NormsProducer = NormsProducerEnum<CfsOrBaseInput<D>>;
     type DocValuesProducer = DocValuesProducers<D>;
     type FieldsProducer = FieldsProducerEnum<CfsOrBaseInput<D>>;
