@@ -20,7 +20,7 @@ use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
-use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerType};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderType};
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 
@@ -487,7 +487,7 @@ where
 {
     type StoredFieldsReader = StoredFieldsReaderEnum<CfsOrBaseInput<D>>;
     type TermVectorsReader = TermVectorsReaderType<CfsOrBaseInput<D>>;
-    type NormsProducer = NormsProducerEnum<CfsOrBaseInput<D>>;
+    type NormsProducer = NormsProducerType<CfsOrBaseInput<D>>;
     type DocValuesProducer = DocValuesProducers<D>;
     type FieldsProducer = FieldsProducerType<CfsOrBaseInput<D>>;
     type PointsReader = PointsReaderType<CfsOrBaseInput<D>>;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::norms_consumer::NormsConsumerEnum;
-use crate::core::codecs::norms_producer::NormsProducerEnum;
+use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -54,7 +54,7 @@ pub trait NormsFormat {
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<NormsProducerEnum<D1::IndexInput>>
+    ) -> Result<NormsProducerType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;

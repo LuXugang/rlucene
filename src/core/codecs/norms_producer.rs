@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::core::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::store::IndexInput;
-use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
@@ -54,57 +51,4 @@ pub trait NormsProducer: Clone {
         Ok(None)
     }
 }
-
-pub enum NormsProducerEnum<I>
-where
-    I: IndexInput,
-{
-    Lucene90(Lucene90NormsProducer<I>),
-}
-
-impl<I> Clone for NormsProducerEnum<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
-impl<I> NormsProducer for NormsProducerEnum<I>
-where
-    I: IndexInput,
-{
-    type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
-
-    fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
-        match self {
-            NormsProducerEnum::Lucene90(producer) => producer.get_norms(field),
-        }
-    }
-
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            NormsProducerEnum::Lucene90(producer) => producer.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        match self {
-            NormsProducerEnum::Lucene90(producer) => {
-                if let Some(merge_instance) = producer.get_merge_instance()? {
-                    Ok(Some(NormsProducerEnum::Lucene90(merge_instance)))
-                } else {
-                    Ok(None)
-                }
-            },
-        }
-    }
-}
+pub type NormsProducerType<I> = Lucene90NormsProducer<I>;

@@ -19,7 +19,7 @@ use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::norms_format::NormsFormat;
-use crate::core::codecs::norms_producer::NormsProducerEnum;
+use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::postings_format::PostingsFormat;
@@ -52,7 +52,7 @@ where
 {
     pub(crate) r#ref: AtomicI32,
     pub(crate) fields: Option<FieldsProducerType<CfsOrBaseInput<D>>>,
-    pub(crate) norms_producer: Option<NormsProducerEnum<CfsOrBaseInput<D>>>,
+    pub(crate) norms_producer: Option<NormsProducerType<CfsOrBaseInput<D>>>,
     pub(crate) fields_reader_orig: StoredFieldsReaderEnum<CfsOrBaseInput<D>>,
     pub(crate) term_vectors_reader_orig: Option<TermVectorsReaderType<CfsOrBaseInput<D>>>,
     pub(crate) points_reader: Option<PointsReaderType<CfsOrBaseInput<D>>>,
