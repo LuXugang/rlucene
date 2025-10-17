@@ -14,30 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::IndexReader;
 
-pub struct ReaderUtil;
-impl ReaderUtil {
-    pub fn sub_index(n: i32, doc_starts: &[i32]) -> usize {
-        debug_assert!(doc_starts.len() <= i32::MAX as usize);
-        let size = doc_starts.len();
-        let mut lo: i32 = 0;
-        let mut hi: i32 = (size as i32) - 1;
-
-        while hi >= lo {
-            let mid = (lo + hi) >> 1;
-            let mid_value = doc_starts[mid as usize];
-            if n < mid_value {
-                hi = mid - 1;
-            } else if n > mid_value {
-                lo = mid + 1;
-            } else {
-                let mut mid = mid;
-                while (mid + 1) < size as i32 && doc_starts[(mid + 1) as usize] == mid_value {
-                    mid += 1;
-                }
-                return mid as usize;
-            }
-        }
-        hi.max(0) as usize
+pub trait CompositeReader: IndexReader {
+    type IndexReader: IndexReader;
+    fn get_sequential_sub_readers(&self) -> &[Self::IndexReader];
+    fn to_string(&self) -> String {
+        todo!()
     }
 }

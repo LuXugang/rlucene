@@ -76,15 +76,15 @@ impl IndexReader for DummyLeafReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn sum_doc_freq(&self, _field: &str) -> Result<i64> {
+    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn doc_count(&self, _field: &str) -> Result<i32> {
+    fn get_doc_count(&self, _field: &str) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

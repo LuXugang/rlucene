@@ -77,15 +77,15 @@ impl IndexReader for DocValuesLeafReader {
         LeafReader::total_term_freq(self, term)
     }
 
-    fn sum_doc_freq(&self, field: &str) -> Result<i64> {
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_doc_freq(self, field)
     }
 
-    fn doc_count(&self, field: &str) -> Result<i32> {
+    fn get_doc_count(&self, field: &str) -> Result<i32> {
         LeafReader::doc_count(self, field)
     }
 
-    fn sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_total_term_freq(self, field)
     }
 }

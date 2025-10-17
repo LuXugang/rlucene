@@ -74,20 +74,20 @@ pub trait IndexReader: Display {
     /// deleted documents into account.
     ///
     /// See [`Terms::get_sum_doc_freq`](crate::core::index::terms::Terms::get_sum_doc_freq).
-    fn sum_doc_freq(&self, field: &str) -> Result<i64>;
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64>;
     /// Returns the number of documents that have at least one term for this field.
     /// Note that, just like other term measures, this measure does not take
     /// deleted documents into account.
     ///
     /// See [`Terms::get_doc_count`](crate::core::index::terms::Terms::get_doc_count).
-    fn doc_count(&self, field: &str) -> Result<i32>;
+    fn get_doc_count(&self, field: &str) -> Result<i32>;
 
     /// Returns the sum of [`TermsEnum::total_term_freq`] for all terms in this field.
     /// Note that, just like other term measures, this measure does not take
     /// deleted documents into account.
     ///
     /// See [`Terms::get_sum_total_term_freq`](crate::core::index::terms::Terms::get_sum_total_term_freq).
-    fn sum_total_term_freq(&self, field: &str) -> Result<i64>;
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>;
 }
 pub trait CacheHelper {
     fn get_key(&self) -> CacheKey;
