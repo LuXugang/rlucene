@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort::Sort;
 use crate::core::index::term::Term;
+use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -231,7 +232,7 @@ where
         let needs_scores = first_collector.score_mode().needs_scores();
         query = Self::rewrite_if_needed_scores(query, needs_scores)?;
         let score_mode = first_collector.score_mode();
-        let weight = Arc::new(self.create_weight(query, score_mode, 1.0)?);
+        let weight = Arc::new(self.create_weight(query, score_mode, 1.0, None)?);
         self.search_with_first_collector(weight, collector_manager, first_collector)
     }
     fn search_with_first_collector<W, CM>(
@@ -367,11 +368,12 @@ where
         query: Q,
         score_mode: ScoreMode,
         boost: f32,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<WeightEnum<Q, S, IRC, QCP, QC>>
     where
         Q: QueryBase,
     {
-        let weight = query.create_weight(self, &score_mode, boost, None)?;
+        let weight = query.create_weight(self, &score_mode, boost, per_reader_term_state)?;
         let v = if !score_mode.needs_scores() {
             Either2Weight::A(
                 self.query_cache
