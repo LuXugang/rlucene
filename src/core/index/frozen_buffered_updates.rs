@@ -311,8 +311,10 @@ impl FrozenBufferedUpdates {
             let mut iterator = value.iterator()?;
             let inner = seg_state.rld.inner.lock();
             let reader = inner.reader.as_ref().unwrap();
-            let mut term_docs_iterator =
-                TermDocsIterator::new(TermsProviderImpl2::new(reader), iterator.is_sorted_terms());
+            let mut term_docs_iterator = TermDocsIterator::new(
+                TermsProviderImpl2::new(reader.as_ref()),
+                iterator.is_sorted_terms(),
+            );
             let mut dv_updates = None;
 
             while let Some(buffered_update) = iterator.next_value()? {
@@ -472,7 +474,7 @@ impl FrozenBufferedUpdates {
             let mut iter = self.delete_terms.iterator();
             let inner = seg_state.rld.inner.lock();
             let mut term_docs_iter = TermDocsIterator::new(
-                TermsProviderImpl2::new(inner.reader.as_ref().unwrap()),
+                TermsProviderImpl2::new(inner.reader.as_ref().unwrap().as_ref()),
                 true,
             );
             let field = std::mem::take(&mut iter.field);

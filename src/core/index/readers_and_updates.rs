@@ -88,7 +88,7 @@ where
     D: Directory,
 {
     // Set once (None, and then maybe set, and never set again):
-    pub(crate) reader: Option<SegmentReader<D>>,
+    pub(crate) reader: Option<Arc<SegmentReader<D>>>,
     // How many further deletions we've done against
     // liveDocs vs when we loaded it or last wrote it:
     pending_deletes: PendingDeletesEnum,
@@ -145,7 +145,7 @@ where
         {
             let mut inner = v.inner.lock();
             inner.pending_deletes.on_new_reader(&reader, info)?;
-            inner.reader = Some(reader);
+            inner.reader = Some(Arc::new(reader));
         }
         Ok(v)
     }
@@ -233,7 +233,7 @@ where
         if inner.reader.is_none() {
             let reader = SegmentReader::new(info, self.index_created_version_major, context)?;
             inner.pending_deletes.on_new_reader(&reader, info)?;
-            inner.reader = Some(reader);
+            inner.reader = Some(Arc::new(reader));
         }
         // Ref for caller
         inner.reader.as_ref().unwrap().inc_ref()?;
@@ -269,7 +269,7 @@ where
         &self,
         context: &IOContext,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<Option<SegmentReader<D>>> {
+    ) -> Result<Option<Arc<SegmentReader<D>>>> {
         let mut inner = self.inner.lock();
         if inner.reader.is_none() {
             self.get_reader(context, info, Some(&mut inner))?;
@@ -288,15 +288,14 @@ where
                 inner.pending_deletes.num_docs(info)?,
                 true,
             )?;
-            return Ok(Some(sr));
+            return Ok(Some(Arc::new(sr)));
         }
         {
             // liveDocs == null and reader != null. That can only be if there are no deletes
             let r = inner.reader.as_ref().unwrap();
             debug_assert!(r.get_live_docs()?.is_none());
             r.inc_ref()?;
-            // Self.inner.reader;
-            Ok(None)
+            Ok(inner.reader.clone())
         }
     }
 
@@ -457,7 +456,7 @@ where
                     let v = DocValuesProducerBinary::new(
                         update_supplier,
                         field,
-                        inner.reader.as_mut().unwrap(),
+                        inner.reader.as_ref().unwrap(),
                         field_info.clone(),
                     );
                     fields_consumer.add_binary_field(&field_info, &v)?
@@ -564,7 +563,7 @@ where
                     &IOContext::read_once_io_context()?,
                 )?;
                 inner.pending_deletes.on_new_reader(&reader, info)?;
-                inner.reader = Option::from(reader);
+                inner.reader = Option::from(Arc::new(reader));
             }
 
             // clone FieldInfos so that we can update their dvGen separately from
@@ -699,16 +698,17 @@ where
     pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
         &self,
         inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
-        mut reader: &'a Option<SegmentReader<D>>,
+        reader: Option<&'a SegmentReader<D>>,
         info: &SegmentCommitInfo<D>,
     ) -> Result<SegmentReader<D>> {
-        if reader.is_none() {
-            reader = &inner.reader;
-        }
+        let reader = match reader {
+            Some(r) => r,
+            None => inner.reader.as_ref().unwrap().as_ref(),
+        };
 
         let new_reader = SegmentReader::new_from_reader(
             info,
-            reader.as_ref().unwrap(),
+            reader,
             inner.pending_deletes.get_live_docs(),
             inner.pending_deletes.get_hard_live_docs(),
             inner.pending_deletes.num_docs(info)?,
@@ -717,7 +717,7 @@ where
 
         let res: Result<()> = (|| {
             inner.pending_deletes.on_new_reader(&new_reader, info)?;
-            reader.as_ref().unwrap().dec_ref()?;
+            reader.dec_ref()?;
             Ok(())
         })();
 
@@ -733,7 +733,9 @@ where
         inner: &mut Inner<D>,
         info: &SegmentCommitInfo<D>,
     ) -> Result<()> {
-        inner.reader = Some(self.create_new_reader_with_latest_live_docs(inner, &None, info)?);
+        inner.reader = Some(Arc::new(
+            self.create_new_reader_with_latest_live_docs(inner, None, info)?,
+        ));
         Ok(())
     }
     pub(crate) fn set_is_merging(&self) {
@@ -1055,7 +1057,7 @@ where
 {
     update_supplier: FunctionImpl,
     field: &'a str,
-    reader: &'a mut SegmentReader<D>,
+    reader: &'a SegmentReader<D>,
     field_info: Arc<FieldInfo>,
 }
 impl<'a, D> DocValuesProducerBinary<'a, D>
@@ -1065,7 +1067,7 @@ where
     pub fn new(
         update_supplier: FunctionImpl,
         field: &'a str,
-        reader: &'a mut SegmentReader<D>,
+        reader: &'a SegmentReader<D>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
@@ -1124,7 +1126,7 @@ where
 {
     update_supplier: FunctionImpl,
     field: &'a str,
-    reader: &'a mut SegmentReader<D>,
+    reader: &'a SegmentReader<D>,
     field_info: Arc<FieldInfo>,
 }
 
@@ -1135,7 +1137,7 @@ where
     pub fn new(
         update_supplier: FunctionImpl,
         field: &'a str,
-        reader: &'a mut SegmentReader<D>,
+        reader: &'a SegmentReader<D>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
