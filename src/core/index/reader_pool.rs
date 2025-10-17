@@ -16,6 +16,7 @@
  */
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::index_writer::LongSupplierImpl;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -26,6 +27,7 @@ use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
+use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::long_supplier::LongSupplier;
@@ -78,17 +80,20 @@ impl<D> ReaderPool<D>
 where
     D: Directory,
 {
-    pub(crate) fn new<S>(
+    pub(crate) fn new<S, LR, C, D1>(
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         original_directory: Arc<D>,
         info_stream: InfoStreamMT,
         soft_deletes_field: Option<S>,
         completed_del_gen_supplier: LongSupplierImpl,
-        _reader: Option<StandardDirectoryReader>,
+        _reader: Option<StandardDirectoryReader<LR, C, D1>>,
         index_created_version_major: i32,
     ) -> Self
     where
         S: Into<String>,
+        LR: LeafReader,
+        C: Comparator<LR>,
+        D1: Directory,
     {
         Self {
             directory,

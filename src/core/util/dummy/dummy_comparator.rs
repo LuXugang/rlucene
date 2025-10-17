@@ -14,8 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_attribute_source;
-pub mod dummy_bits;
-pub mod dummy_comparator;
-pub mod dummy_counter;
-pub mod dummy_read;
+use crate::core::util::Comparator;
+
+pub struct DummyComparator<T> {
+    _marker: std::marker::PhantomData<T>,
+}
+impl<T> Comparator<T> for DummyComparator<T> {
+    const TYPE: &'static str = "DummyComparator";
+
+    fn compare(&self, _a: &T, _b: &T) -> crate::core::util::error::lucene_error::Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn compare_unchecked(&self, _a: &T, _b: &T) -> i32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}

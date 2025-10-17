@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
@@ -647,6 +648,9 @@ where
     fn user_data(&self) -> &HashMap<String, String> {
         &self.user_data
     }
+
+    type LeafReader = DummyLeafReader;
+    type Comparator = DummyComparator<Self::LeafReader>;
 }
 
 pub(crate) struct MessengerImpl {
@@ -675,6 +679,7 @@ impl Messenger for MessengerImpl {
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::segment_infos::generation_from_segments_file_name;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 
 /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
 /// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or

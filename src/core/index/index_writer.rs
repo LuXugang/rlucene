@@ -172,8 +172,12 @@ where
             let is_reader_some = reader.is_some();
             let did_message_state = false;
             let rollback_segments = Vec::new();
+            let (reader, has_commit) = match commit {
+                Some(c) => (c.get_reader(), true),
+                None => (None, false),
+            };
             if create {
-                if commit.is_some() {
+                if has_commit {
                     // We cannot both open from a commit point and create:
                     return match conf.get_open_mode() {
                         OpenMode::Create => Err(LuceneError::illegal_argument(
@@ -246,7 +250,7 @@ where
                 info_stream.clone(),
                 conf.get_soft_deletes_field(),
                 LongSupplierImpl::new(buffered_updates_stream.clone()),
-                None,
+                reader,
                 conf.get_index_created_version_major(),
             );
 

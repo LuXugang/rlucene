@@ -85,13 +85,12 @@ pub trait DirectoryReader: BaseCompositeReader {
     /// # Errors
     ///
     /// Returns an error if a low-level I/O failure occurs.
-    fn do_open_if_changed_with_index_writer<D, L, B>(
+    fn do_open_if_changed_with_index_writer<L, B>(
         &self,
-        writer: IndexWriter<D, L, B>,
+        writer: IndexWriter<Self::Directory, L, B>,
         apply_deletes: bool,
     ) -> Result<Self::DirectoryReader>
     where
-        D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase;
     /// Version number when this `IndexReader` was opened.
@@ -123,7 +122,7 @@ pub trait DirectoryReader: BaseCompositeReader {
     fn get_index_commit(&self) -> Result<Self::IndexCommit>;
     type Directory: Directory;
     /// The index directory
-    fn directory(&self) -> Arc<Self::Directory>;
+    fn directory(&self) -> &DirectoryReaderBase<Self::Directory>;
 }
 
 pub mod directory_reader_util {
@@ -154,5 +153,16 @@ pub mod directory_reader_util {
             }
         }
         Ok(false)
+    }
+}
+pub struct DirectoryReaderBase<D> {
+    pub directory: Arc<D>,
+}
+impl<D> DirectoryReaderBase<D>
+where
+    D: Directory,
+{
+    pub fn new(directory: Arc<D>) -> Self {
+        Self { directory }
     }
 }

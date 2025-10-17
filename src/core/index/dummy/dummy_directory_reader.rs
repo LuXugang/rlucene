@@ -17,7 +17,6 @@
 use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
-use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_index_reader::DummyIndexReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
@@ -25,192 +24,131 @@ use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
-use crate::core::store::directory::Directory;
-use crate::core::util::Comparator;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
-pub struct StandardDirectoryReader<LR, C, D>
-where
-    LR: LeafReader,
-    C: Comparator<LR>,
-    D: Directory,
-{
-    base_composite_reader_base: BaseCompositeReaderBase<LR, C>,
-    directory_reader_base: DirectoryReaderBase<D>,
-    apply_all_deletes: bool,
-    write_all_deletes: bool,
-}
-impl<LR, C, D> StandardDirectoryReader<LR, C, D>
-where
-    LR: LeafReader,
-    C: Comparator<LR>,
-    D: Directory,
-{
-    pub(crate) fn new(
-        directory: Arc<D>,
-        readers: Vec<LR>,
-        apply_all_deletes: bool,
-        write_all_deletes: bool,
-        leaf_sorter: Option<Arc<C>>,
-    ) -> Result<Self> {
-        let base_composite_reader_base = BaseCompositeReaderBase::new(readers, leaf_sorter)?;
-        let directory_reader_base = DirectoryReaderBase::new(directory);
-        Ok(StandardDirectoryReader {
-            base_composite_reader_base,
-            directory_reader_base,
-            apply_all_deletes,
-            write_all_deletes,
-        })
-    }
-}
+pub struct DummyDirectoryReader;
 
-impl<LR, C, D> BaseCompositeReader for StandardDirectoryReader<LR, C, D>
-where
-    C: Comparator<LR>,
-    D: Directory,
-    LR: LeafReader,
-{
+impl BaseCompositeReader for DummyDirectoryReader {
     type Comparator = DummyComparator<Self::IndexReader>;
 
     fn base_composite_reader_base(
         &self,
     ) -> &BaseCompositeReaderBase<Self::IndexReader, Self::Comparator> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR, C, D> CompositeReader for StandardDirectoryReader<LR, C, D>
-where
-    C: Comparator<LR>,
-    D: Directory,
-    LR: LeafReader,
-{
+impl CompositeReader for DummyDirectoryReader {
     type IndexReader = DummyIndexReader;
 
     fn get_sequential_sub_readers(&self) -> &[Self::IndexReader] {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR, C, D> IndexReader for StandardDirectoryReader<LR, C, D>
-where
-    C: Comparator<LR>,
-    D: Directory,
-    LR: LeafReader,
-{
+impl IndexReader for DummyDirectoryReader {
     type TermVectors = DummyTermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn max_doc(&self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn num_docs(&self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type StoredFields = DummyStoredFields;
 
     fn stored_fields(&self) -> Result<Self::StoredFields> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn do_close(&mut self) -> Result<()> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
-        todo!()
+    fn doc_freq(&self, _term: &Term) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        todo!()
+    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        todo!()
+    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_doc_count(&self, field: &str) -> Result<i32> {
-        todo!()
+    fn get_doc_count(&self, _field: &str) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        todo!()
-    }
-}
-
-impl<LR, C, D> Display for StandardDirectoryReader<LR, C, D>
-where
-    C: Comparator<LR>,
-    D: Directory,
-    LR: LeafReader,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<LR, C, D> DirectoryReader for StandardDirectoryReader<LR, C, D>
-where
-    LR: LeafReader,
-    C: Comparator<LR>,
-    D: Directory,
-{
+impl Display for DummyDirectoryReader {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl DirectoryReader for DummyDirectoryReader {
     type DirectoryReader = DummyDirectoryReader;
 
     fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn do_open_if_changed_with_commit<IC>(
         &self,
-        commit: IC,
+        _commit: IC,
     ) -> Result<Option<Self::DirectoryReader>>
     where
         IC: IndexCommit,
     {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn do_open_if_changed_with_index_writer<L, B>(
         &self,
-        writer: IndexWriter<Self::Directory, L, B>,
-        apply_deletes: bool,
+        _writer: IndexWriter<Self::Directory, L, B>,
+        _apply_deletes: bool,
     ) -> Result<Self::DirectoryReader>
     where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_version(&self) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn is_current(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IndexCommit = DummyIndexCommit;
 
     fn get_index_commit(&self) -> Result<Self::IndexCommit> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Directory = D;
+    type Directory = DummyDirectory;
 
     fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
-        &self.directory_reader_base
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

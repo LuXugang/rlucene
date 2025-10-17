@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -85,7 +87,13 @@ impl IndexCommit for DummyIndexCommit {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_reader(&self) -> Option<StandardDirectoryReader> {
+    type LeafReader = DummyLeafReader;
+    type Comparator = DummyComparator<Self::LeafReader>;
+
+    fn get_reader(
+        &self,
+    ) -> Option<StandardDirectoryReader<Self::LeafReader, Self::Comparator, Self::Directory>>
+where {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

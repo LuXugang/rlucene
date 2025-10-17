@@ -16,10 +16,11 @@
  */
 pub mod doc_comparator;
 pub mod dummy_cache_helper;
+pub mod dummy_directory_reader;
 pub(crate) mod dummy_doc_map;
 pub mod dummy_doc_map_sorter;
 pub mod dummy_fields;
-mod dummy_flush_policy;
+pub mod dummy_flush_policy;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
 pub mod dummy_index_commit;
