@@ -22,6 +22,8 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
+use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
+use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
@@ -43,11 +45,23 @@ impl Display for DocValuesLeafReader {
 }
 
 impl IndexReader for DocValuesLeafReader {
+    type TermVectors = DummyTermVectors;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
     fn max_doc(&self) -> Result<i32> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     fn num_docs(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type StoredFields = DummyStoredFields;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         Err(LuceneError::unsupported_operation(""))
     }
 

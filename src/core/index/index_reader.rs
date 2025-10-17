@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 pub trait IndexReader: Display {
+    type TermVectors: TermVectors;
+    fn term_vectors(&self) -> Result<Self::TermVectors>;
+
     fn max_doc(&self) -> Result<i32>;
 
     fn num_docs(&self) -> Result<i32>;
@@ -41,6 +46,9 @@ pub trait IndexReader: Display {
         // TODO
         Ok(())
     }
+
+    type StoredFields: StoredFields;
+    fn stored_fields(&self) -> Result<Self::StoredFields>;
 
     fn has_deletions(&self) -> Result<bool> {
         Ok(self.num_deleted_docs()? > 0)
@@ -111,67 +119,5 @@ impl Eq for CacheKey {}
 impl Hash for CacheKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (Arc::as_ptr(&self.identity) as usize).hash(state);
-    }
-}
-
-pub enum IndexReaderEnum {}
-
-impl Display for IndexReaderEnum {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl IndexReader for IndexReaderEnum {
-    fn max_doc(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn num_docs(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn num_deleted_docs(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn inc_ref(&self) -> Result<()> {
-        todo!()
-    }
-
-    fn dec_ref(&self) -> Result<()> {
-        todo!()
-    }
-
-    fn ensure_open(&self) -> Result<()> {
-        todo!()
-    }
-
-    fn has_deletions(&self) -> Result<bool> {
-        todo!()
-    }
-
-    fn do_close(&mut self) -> Result<()> {
-        todo!()
-    }
-
-    fn doc_freq(&self, _term: &Term) -> Result<i32> {
-        todo!()
-    }
-
-    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-        todo!()
-    }
-
-    fn sum_doc_freq(&self, _field: &str) -> Result<i64> {
-        todo!()
-    }
-
-    fn doc_count(&self, _field: &str) -> Result<i32> {
-        todo!()
-    }
-
-    fn sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-        todo!()
     }
 }

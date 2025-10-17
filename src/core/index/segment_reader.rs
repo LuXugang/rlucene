@@ -25,7 +25,7 @@ use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum};
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum;
 use crate::core::codecs::{Codec, get_default_code};
-use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -316,12 +316,24 @@ impl<D> IndexReader for SegmentReader<D>
 where
     D: Directory,
 {
+    type TermVectors = TermVectorsType<<Self as CodecReader>::TermVectorsReader>;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
+        CodecReader::term_vectors(self)
+    }
+
     fn max_doc(&self) -> Result<i32> {
         todo!()
     }
 
     fn num_docs(&self) -> Result<i32> {
         Ok(self.num_docs)
+    }
+
+    type StoredFields = StoredFieldsType<<Self as CodecReader>::StoredFieldsReader>;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
+        CodecReader::stored_fields(self)
     }
 
     fn do_close(&mut self) -> Result<()> {

@@ -22,6 +22,8 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
+use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
+use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
@@ -42,6 +44,12 @@ impl Display for DummyIndexReader {
 }
 
 impl IndexReader for DummyIndexReader {
+    type TermVectors = DummyTermVectors;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn max_doc(&self) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -63,6 +71,12 @@ impl IndexReader for DummyIndexReader {
     }
 
     fn ensure_open(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type StoredFields = DummyStoredFields;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

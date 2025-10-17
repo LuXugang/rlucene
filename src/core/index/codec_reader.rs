@@ -62,7 +62,7 @@ pub trait CodecReader: LeafReader {
     /// Expert: retrieve underlying PointsReader
     fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>>;
 
-    fn stored_fields(&self) -> Result<StoredFieldsImpl<Self::StoredFieldsReader>> {
+    fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
         let reader = self.get_fields_reader()?;
         debug_assert!(matches!(reader, Cow::Owned(_)));
         Ok(StoredFieldsImpl {
@@ -71,10 +71,7 @@ pub trait CodecReader: LeafReader {
         })
     }
 
-    fn term_vectors(
-        &self,
-        _field: &str,
-    ) -> Result<Either2TermVectors<EmptyTermVectors, Self::TermVectorsReader>> {
+    fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
         let reader = self.get_term_vectors_reader()?;
         match reader {
             Some(r) => {
@@ -293,6 +290,8 @@ pub trait CodecReader: LeafReader {
         Ok(())
     }
 }
+pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
+pub type TermVectorsType<TVR> = Either2TermVectors<EmptyTermVectors, TVR>;
 
 pub struct StoredFieldsImpl<SF>
 where
