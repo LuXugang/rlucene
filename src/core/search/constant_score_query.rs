@@ -141,7 +141,7 @@ impl QueryBase for ConstantScoreQuery {
         todo!()
     }
 
-    fn visit<QV>(&self, visitor: &QV)
+    fn visit<QV>(&self, _visitor: &QV)
     where
         QV: QueryVisitor,
     {

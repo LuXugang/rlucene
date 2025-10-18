@@ -20,6 +20,7 @@ use crate::core::index::buffered_updates_stream::{
 use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -2498,6 +2499,242 @@ where
         }
         Ok(())
     }
+    pub(crate) fn get_reader(
+        &self,
+        apply_all_deletes: bool,
+        write_all_deletes: bool,
+    ) -> Result<()> {
+        self.do_ensure_open(true)?;
+
+        if write_all_deletes && !apply_all_deletes {
+            return Err(LuceneError::illegal_argument(
+                "applyAllDeletes must be true when writeAllDeletes=true",
+            ));
+        }
+
+        let t_start = std::time::Instant::now();
+
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message("IW", "flush at getReader");
+        }
+
+        // Do this up front before flushing so that the readers
+        // obtained during this flush are pooled, the first time
+        // this method is called:
+        self.reader_pool.enable_reader_pooling();
+
+        if let Some(ref s) = self.sub {
+            s.do_before_flush()?;
+        }
+
+        let mut any_changes: bool = false;
+        let max_full_flush_merge_wait_millis = self.config.get_max_full_flush_merge_wait_millis();
+
+        /*
+         * for releasing a NRT reader we must ensure that
+         * DW doesn't add any segments or deletes until we are
+         * done with creating the NRT DirectoryReader.
+         * We release the two stage full flush after we are done opening the
+         * directory reader!
+         */
+        // let mut on_get_reader_merges = None;
+        let stop_collecting_merged_readers = std::sync::atomic::AtomicBool::new(false);
+        // let mut merged_readers =
+        //     std::collections::HashMap::new();
+        let mut opened_read_only_clones = std::collections::HashMap::new();
+
+        let reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
+        let opening_segment_infos: Option<SegmentInfos<D>> = None;
+        let result1: Result<()> = (|| {
+            /*
+            This is the essential part of the getReader method. We need to take care of the following things:
+             - flush all currently in-memory DWPTs to disk
+             - apply all deletes & updates to new and to the existing DWPTs
+             - prevent flushes and applying deletes of concurrently indexing DWPTs to be applied
+             - open a SDR on the updated SIS
+
+            In order to prevent concurrent flushes we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
+            (this enforces a happens before relationship between this and the subsequent full flush) and informs the
+            FlushControl (#markForFullFlush()) that it should prevent any new DWPTs from flushing until we are done
+            (DocumentsWriter#finishFullFlush(boolean)). All this is guarded by the fullFlushLock to prevent multiple
+            full flushes from happening concurrently. Once the DocWriter has initiated a full flush we can sequentially flush
+            and apply deletes & updates to the written segments without worrying about concurrently indexing DWPTs. The important
+            aspect is that it all happens between DocumentsWriter#flushAllThread() and DocumentsWriter#finishFullFlush(boolean)
+            since once the flush is marked as done deletes start to be applied to the segments on disk without guarantees that
+            the corresponding added documents (in the update case) are flushed and visible when opening a SDR.
+            */
+
+            let mut success = false;
+            {
+                let full_flush_lock = self.full_flush_lock.lock();
+                let result2: Result<()> = (|| {
+                    any_changes = self.doc_writer.flush_all_threads(self)? < 0;
+                    if !any_changes {
+                        self.flush_count.fetch_add(1, Ordering::AcqRel);
+                    }
+                    self.publish_flushed_segments(true)?;
+                    self.process_events(false)?;
+                    if apply_all_deletes {
+                        self.apply_all_deletes_and_updates()?;
+                    }
+                    {
+                        let mut inner = self.inner.lock();
+                        // NOTE: we cannot carry doc values updates in memory yet, so we always must write them
+                        // through to disk and re-open each
+                        // SegmentReader:
+
+                        // TODO: we could instead just clone SIS and pull/incref readers in sync'd block, and
+                        // then do this w/o IW's lock?
+                        // Must do this sync'd on IW to prevent a merge from completing at the last second and
+                        // failing to write its DV updates:
+                        self.write_reader_pool(write_all_deletes, &mut inner)?;
+                        // Prevent segmentInfos from changing while opening the
+                        // reader; in theory we could instead do similar retry logic,
+                        // just like we do when loading segments_N
+
+                        if max_full_flush_merge_wait_millis > 0 {
+                            // TODO IMPORTANT 段的合并未完成
+                        }
+                        if self.info_stream.enabled("IW") {
+                            // self.info_stream.message("IW", format!("return reader version={} reader={}", ));
+                        }
+                    }
+                    success = true;
+                    Ok(())
+                })();
+                match result2 {
+                    Ok(_) => {},
+                    Err(e) => {
+                        self.doc_writer.finish_full_flush(success)?;
+                        if success {
+                            self.process_events(false)?;
+                            if let Some(ref s) = self.sub {
+                                s.do_after_flush()?
+                            }
+                        } else if self.info_stream.enabled("IW") {
+                            self.info_stream
+                                .message("IW", "hit exception during NRT reader");
+                        }
+                        return Err(e);
+                    },
+                }
+            }
+            // TODO: 这里要判断onGetReaderMerges是否为空 不过段的合并还未实现
+            Ok(())
+        })();
+        // TODO: 返回之前需要关闭一些 但是rust Lucene不需要？
+        match result1 {
+            Ok(_) => {
+                todo!()
+            },
+            Err(e) => self.tragic_event(&e, "get_reader"),
+        }
+        todo!()
+    }
+}
+pub(crate) struct IOConsumerImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    deleter: &'a mut IndexFileDeleter<D>,
+    merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+    reader_factory: &'a mut IOFunctionImpl<'a, D, L, B>,
+    stop_collecting_merged_readers: &'a AtomicBool,
+}
+impl<'a, D, L, B> IOConsumerImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    pub(crate) fn new(
+        deleter: &'a mut IndexFileDeleter<D>,
+        merge_readers: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+        reader_factory: &'a mut IOFunctionImpl<'a, D, L, B>,
+        stop_collecting_merged_readers: &'a AtomicBool,
+    ) -> Self {
+        Self {
+            deleter,
+            merge_readers,
+            reader_factory,
+            stop_collecting_merged_readers,
+        }
+    }
+}
+impl<'a, D, L, B> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    fn accept_ref(&mut self, sci: &SegmentCommitInfo<D>) -> Result<()> {
+        debug_assert!(
+            !self.stop_collecting_merged_readers.load(Ordering::Acquire),
+            "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
+        );
+        let apply = self.reader_factory.apply(sci)?;
+        self.merge_readers.insert(sci.info.name.clone(), apply);
+        // we need to incRef the files of the opened SR otherwise it's possible that
+        // another merge
+        // removes the segment before we pass it on to the SDR
+        self.deleter.inc_ref_files(sci.files()?);
+        Ok(())
+    }
+}
+
+pub(crate) struct IOFunctionImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    writer: &'a IndexWriter<D, L, B>,
+    opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+}
+impl<'a, D, L, B> IOFunctionImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    pub(crate) fn new(
+        writer: &'a IndexWriter<D, L, B>,
+        opened_read_only_clones: &'a mut HashMap<String, Arc<SegmentReader<D>>>,
+    ) -> Self {
+        Self {
+            writer,
+            opened_read_only_clones,
+        }
+    }
+}
+impl<'a, D, L, B> IOFunction<SegmentCommitInfo<D>> for IOFunctionImpl<'a, D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    type R = Arc<SegmentReader<D>>;
+
+    fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Self::R> {
+        let rld = self.writer.get_pooled_instance(sci, true, None)?;
+        match rld {
+            Some(r) => match r.get_read_only_clone(&IOContext::default_io_context()?, sci)? {
+                Some(segment_reader) => {
+                    self.opened_read_only_clones
+                        .insert(sci.info.name.clone(), segment_reader.clone());
+                    Ok(segment_reader)
+                },
+                None => Err(LuceneError::illegal_state(
+                    "should always be able to get read only clone",
+                )),
+            },
+            None => Err(LuceneError::illegal_state(
+                "should always be able to get pooled instance",
+            )),
+        }
+    }
 }
 impl<D, L, B> Display for IndexWriter<D, L, B>
 where
@@ -2653,11 +2890,11 @@ use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, OpenMode};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sort::Sort;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::term::Term;
@@ -2670,6 +2907,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::constants::Constants;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
+use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{BYTE_BLOCK_SIZE, LATEST};
 use crossbeam::queue::SegQueue;

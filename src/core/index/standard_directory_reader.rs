@@ -194,7 +194,7 @@ where
     D: Directory,
     LR: LeafReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -213,7 +213,7 @@ where
 
     fn do_open_if_changed_with_commit<IC>(
         &mut self,
-        commit: Option<&IC>,
+        _commit: Option<&IC>,
     ) -> Result<Option<Self::DirectoryReader>>
     where
         IC: IndexCommit,
@@ -223,8 +223,8 @@ where
 
     fn do_open_if_changed_with_index_writer<L, B>(
         &self,
-        writer: IndexWriter<Self::Directory, L, B>,
-        apply_deletes: bool,
+        _writer: IndexWriter<Self::Directory, L, B>,
+        _apply_deletes: bool,
     ) -> Result<Self::DirectoryReader>
     where
         L: LiveIndexWriterConfig,
@@ -363,7 +363,7 @@ where
     }
 
     fn do_body(&self, segment_file_name: &str) -> Result<Self::V> {
-        let infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
+        let _infos = SegmentInfos::read_commit(self.directory.clone(), segment_file_name)?;
         todo!()
     }
 }
