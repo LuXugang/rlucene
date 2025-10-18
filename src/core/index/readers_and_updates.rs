@@ -140,7 +140,7 @@ where
         info: &SegmentCommitInfo<D>,
         pending_deletes: PendingDeletesEnum,
     ) -> Result<Self> {
-        debug_assert!(info.info.get_id_str() == reader.info_id);
+        debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
         let v = Self::new(index_created_version_major, pending_deletes);
         {
             let mut inner = v.inner.lock();
@@ -239,8 +239,8 @@ where
         inner.reader.as_ref().unwrap().inc_ref()?;
         Ok(())
     }
-    pub fn release(&self) -> Result<()> {
-        // TODO
+    pub fn release(&self, sr: &SegmentReader<D>) -> Result<()> {
+        debug_assert!(self.info_id == sr.get_original_segment_info_id());
         self.inner.lock().reader.as_ref().unwrap().dec_ref()?;
         Ok(())
     }
@@ -778,6 +778,9 @@ where
         _merge_policy: &impl MergePolicy,
     ) -> Result<bool> {
         todo!()
+    }
+    pub(crate) fn get_info_id(&self) -> &str {
+        &self.info_id
     }
 }
 impl<D> Display for ReadersAndUpdates<D>

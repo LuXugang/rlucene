@@ -55,7 +55,8 @@ pub struct SegmentReader<D>
 where
     D: Directory,
 {
-    pub(crate) info_id: String,
+    pub(crate) si: SegmentCommitInfo<D>,
+    pub(crate) original_si_id: String,
     meta_data: LeafMetaData,
     live_docs: Option<DocBits>,
     hard_live_docs: Option<DocBits>,
@@ -80,6 +81,7 @@ where
         created_version_major: i32,
         context: &IOContext,
     ) -> Result<Self> {
+        let si = si.clone();
         let meta_data = LeafMetaData::new(
             created_version_major,
             Some(si.info.get_min_version().unwrap().clone()),
@@ -88,12 +90,13 @@ where
         )?;
 
         let is_nrt = false;
-        let dir = si.info.dir.as_ref();
-        let core = Arc::new(SegmentCoreReaders::new(dir, si, context)?);
+        let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
         let seg_doc_values = Arc::new(SegmentDocValues::new());
         let num_docs = si.info.max_doc()? - si.get_del_count();
+        let info_id = si.info.get_id_str().clone();
         let mut segment_reader = Self {
-            info_id: si.info.get_id_str().clone(),
+            si,
+            original_si_id: info_id,
             meta_data,
             is_nrt,
             core,
@@ -105,10 +108,11 @@ where
             doc_values_producer: None,
         };
         let result = (|| {
+            let si = &segment_reader.si;
             let (hard_live_docs, live_docs) = if si.has_deletions() {
                 // NOTE: the bitvector is stored using the regular directory, not cfs
                 let ld = Arc::new(get_default_code().live_docs_format().read_live_docs(
-                    dir,
+                    si.info.dir.as_ref(),
                     si,
                     &IOContext::read_once_io_context()?,
                 )?);
@@ -155,6 +159,7 @@ where
         num_docs: i32,
         is_nrt: bool,
     ) -> Result<Self> {
+        let si = si.clone();
         let max_doc = si.info.max_doc()?;
         if num_docs > max_doc {
             return Err(LuceneError::illegal_argument(format!(
@@ -177,8 +182,10 @@ where
         let seg_doc_values = sr.seg_doc_values.clone();
         core.inc_ref()?;
         debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
+        let info_id = si.info.get_id_str().clone();
         let mut segment_reader = Self {
-            info_id: si.info.get_id_str().clone(),
+            si,
+            original_si_id: info_id,
             meta_data,
             is_nrt,
             core: core.clone(),
@@ -190,6 +197,7 @@ where
             doc_values_producer: None,
         };
         let result = (|| {
+            let si = &segment_reader.si;
             let field_infos = Self::init_field_infos(si, core.core_field_infos.clone())?;
             let doc_values_producer =
                 Self::init_doc_values_producer(si, field_infos.clone(), &seg_doc_values, &core)?;
@@ -297,6 +305,21 @@ where
 
         Ok(Arc::new(infos))
     }
+    /// Return the name of the segment this reader is reading.
+    pub fn get_segment_name(&self) -> &str {
+        &self.si.info.name
+    }
+    /// Return the SegmentInfoPerCommit of the segment this reader is reading.
+    pub fn get_segment_info(&self) -> &SegmentCommitInfo<D> {
+        &self.si
+    }
+    /// Returns the directory this index resides in.
+    pub fn directory(&self) -> &D {
+        self.si.info.dir.as_ref()
+    }
+    pub fn get_original_segment_info_id(&self) -> &str {
+        &self.original_si_id
+    }
 }
 pub type DocValuesProducers<D> = Either2DocValuesProducer<
     SegmentDocValuesProducer<D>,
@@ -308,8 +331,10 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // TODO
-        write!(f, "SegmentReader({})", self.info_id)
+        let v = self.si.info.max_doc().expect("max_doc should be set")
+            - self.num_docs
+            - self.si.get_del_count();
+        write!(f, "{}", self.si.to_string_with_pending_del_count(v))
     }
 }
 
@@ -324,7 +349,7 @@ where
     }
 
     fn max_doc(&self) -> Result<i32> {
-        todo!()
+        self.si.info.max_doc()
     }
 
     fn num_docs(&self) -> Result<i32> {

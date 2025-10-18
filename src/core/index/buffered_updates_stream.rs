@@ -21,7 +21,7 @@ use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::Mutex;
 use std::collections::HashSet;
@@ -282,7 +282,16 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        self.rld.release()?;
+        let rld_inner = self.rld.inner.lock();
+        let reader = match rld_inner.reader {
+            Some(ref reader) => reader,
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "read in ReadersAndUpdates should not None",
+                ));
+            },
+        };
+        self.rld.release(reader.as_ref())?;
         writer.release(self.rld.as_ref(), inner)?;
         Ok(())
     }

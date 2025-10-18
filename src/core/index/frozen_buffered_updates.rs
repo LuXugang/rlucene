@@ -214,9 +214,10 @@ impl FrozenBufferedUpdates {
                 1,
                 "private packet must target exactly one segment"
             );
-            let seg0_id = &seg_states[0].rld.info_id;
+            let lock = seg_states[0].rld.inner.lock();
+            let seg0_id = lock.reader.as_ref().unwrap().get_original_segment_info_id();
             debug_assert!(
-                private_segment.as_str() == seg0_id.as_str(),
+                *private_segment.as_str() == *seg0_id,
                 "privateSegment={} vs seg0={}",
                 private_segment,
                 seg0_id
