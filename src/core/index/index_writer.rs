@@ -1068,7 +1068,6 @@ where
                     // no partial changes (eg a delete w/o
                     // corresponding add from an updateDocument) can
                     // sneak into the commit point:
-                    // TODO: IMPORTANT 这里的clone实现没有写对
                     to_commit = Some(inner.segment_infos.try_clone()?);
                     self.pending_commit_change_count
                         .store(inner.change_count, Ordering::Release);
