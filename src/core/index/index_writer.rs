@@ -2559,7 +2559,7 @@ where
         &self,
         apply_all_deletes: bool,
         write_all_deletes: bool,
-    ) -> Result<()> {
+    ) -> Result<StandardDirectoryReaderType<D>> {
         self.do_ensure_open(true)?;
 
         if write_all_deletes && !apply_all_deletes {
@@ -2599,9 +2599,9 @@ where
         //     std::collections::HashMap::new();
         let mut opened_read_only_clones = std::collections::HashMap::new();
 
-        let reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
+        let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
         let opening_segment_infos: Option<SegmentInfos<D>> = None;
-        let result1: Result<()> = (|| {
+        let result1 = (|| {
             /*
             This is the essential part of the getReader method. We need to take care of the following things:
              - flush all currently in-memory DWPTs to disk
@@ -2623,7 +2623,7 @@ where
             let mut success = false;
             {
                 let _full_flush_lock = self.full_flush_lock.lock();
-                let result2: Result<()> = (|| {
+                let result2 = (|| {
                     any_changes = self.doc_writer.flush_all_threads(self)? < 0;
                     if !any_changes {
                         self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -2633,7 +2633,7 @@ where
                     if apply_all_deletes {
                         self.apply_all_deletes_and_updates()?;
                     }
-                    {
+                    let r = {
                         let mut inner = self.inner.lock();
                         // NOTE: we cannot carry doc values updates in memory yet, so we always must write them
                         // through to disk and re-open each
@@ -2647,6 +2647,14 @@ where
                         // Prevent segmentInfos from changing while opening the
                         // reader; in theory we could instead do similar retry logic,
                         // just like we do when loading segments_N
+                        let r = open_with_reader_function(
+                            self,
+                            &mut reader_factory,
+                            None,
+                            &mut inner,
+                            apply_all_deletes,
+                            write_all_deletes,
+                        )?;
 
                         if max_full_flush_merge_wait_millis > 0 {
                             // TODO IMPORTANT 段的合并未完成
@@ -2654,9 +2662,10 @@ where
                         if self.info_stream.enabled("IW") {
                             // self.info_stream.message("IW", format!("return reader version={} reader={}", ));
                         }
-                    }
+                        r
+                    };
                     success = true;
-                    Ok(())
+                    Ok(r)
                 })();
                 match result2 {
                     Ok(_) => {},
@@ -2674,7 +2683,7 @@ where
                         return Err(e);
                     },
                 }
-            }
+            };
             // TODO: 这里要判断onGetReaderMerges是否为空 不过段的合并还未实现
             Ok(())
         })();
@@ -2952,6 +2961,9 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sort::Sort;
 use crate::core::index::sorter::DocMapImpl;
+use crate::core::index::standard_directory_reader::{
+    StandardDirectoryReaderType, open_with_reader_function,
+};
 use crate::core::index::term::Term;
 use crate::core::search::query::Query;
 use crate::core::store::IOContext;

@@ -109,6 +109,8 @@ where
         }
     }
 }
+pub type StandardDirectoryReaderType<D> =
+    StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>;
 pub(crate) fn open_with_reader_function<D, L, B, IO>(
     writer: &IndexWriter<D, L, B>,
     reader_function: &mut IO,
@@ -116,7 +118,7 @@ pub(crate) fn open_with_reader_function<D, L, B, IO>(
     inner: &mut Inner<D>, // hold IndexWriter lock
     apply_all_deletes: bool,
     write_all_deletes: bool,
-) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>>
+) -> Result<StandardDirectoryReaderType<D>>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
