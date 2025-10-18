@@ -24,9 +24,10 @@ use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_index_reader::DummyIndexReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::term::Term;
@@ -34,6 +35,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_function::IOFunction;
 use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -48,6 +50,7 @@ where
     directory_reader_base: DirectoryReaderBase<D>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
+    // if Some, this reader owns the SegmentInfos, else from IndexWriter
     segment_infos: Option<SegmentInfos<D>>,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
@@ -104,6 +107,95 @@ where
             Some(c) => finder.run_with_commit(c),
             None => finder.run(),
         }
+    }
+}
+pub(crate) fn open_with_reader_function<D, L, B, IO>(
+    writer: &IndexWriter<D, L, B>,
+    reader_function: &mut IO,
+    infos: Option<&SegmentInfos<D>>,
+    inner: &mut Inner<D>, // hold IndexWriter lock
+    apply_all_deletes: bool,
+    write_all_deletes: bool,
+) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+    IO: IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>>,
+{
+    let (segment_infos, dir, readers) = {
+        let infos = match infos {
+            Some(infos) => infos,
+            None => &inner.segment_infos,
+        };
+        // IndexWriter synchronizes externally before calling
+        // us, which ensures infos will not change; so there's
+        // no need to process segments in reverse order
+        let num_segments = infos.size();
+        let mut readers = Vec::with_capacity(num_segments);
+        let dir = writer.get_directory();
+        let result = (|| {
+            let mut segment_infos = infos.try_clone()?;
+            let mut infos_upto = 0;
+            for i in 0..num_segments {
+                // NOTE: important that we use infos not
+                // segmentInfos here, so that we are passing the
+                // actual instance of SegmentInfoPerCommit in
+                // IndexWriter's segmentInfos:
+                let info = match infos.info_idx(i) {
+                    Some(info) => info,
+                    None => {
+                        return Err(LuceneError::illegal_argument(
+                            "SegmentInfoPerCommit at index {} is None".to_string(),
+                        ));
+                    },
+                };
+                debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
+                let reader = reader_function.apply(info)?;
+                // TODO: IMPROTANT 这里合并规则没有判断
+                if reader.num_docs()? > 0 {
+                    // Steal the ref
+                    readers.push(reader);
+                    infos_upto += 1;
+                } else {
+                    reader.dec_ref()?;
+                    segment_infos.remove_at(infos_upto);
+                }
+            }
+            Ok(segment_infos)
+        })();
+        match result {
+            Ok(segment_infos) => (segment_infos, dir, readers),
+            Err(e) => {
+                for r in readers {
+                    let _ = r.dec_ref();
+                }
+                return Err(e);
+            },
+        }
+    };
+    // Clone pointer should be cheap
+    let readers_backup = readers.clone();
+    let result: Result<_> = (|| {
+        writer.inc_ref_deleter(&segment_infos, Some(inner))?;
+        StandardDirectoryReader::new(
+            dir,
+            readers,
+            segment_infos,
+            // TODO IMPORTANT 这里不对 要从LiveIndexWriterConfig中获取
+            None::<Arc<DummyComparator<Arc<SegmentReader<D>>>>>,
+            apply_all_deletes,
+            write_all_deletes,
+        )
+    })();
+    match result {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            for r in readers_backup {
+                let _ = r.dec_ref();
+            }
+            Err(e)
+        },
     }
 }
 

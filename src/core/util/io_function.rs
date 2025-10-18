@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-pub trait IOFunction<T> {
-    type R;
-    fn apply(&mut self, input: &T) -> Result<Self::R>;
+pub trait IOFunction<T, R> {
+    fn apply(&mut self, input: &T) -> Result<R>;
 }

@@ -86,7 +86,7 @@ pub struct Inner<D>
 where
     D: Directory,
 {
-    segment_infos: SegmentInfos<D>,
+    pub(crate) segment_infos: SegmentInfos<D>,
     deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fallback to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
@@ -433,6 +433,9 @@ where
 
         Ok(map)
     }
+    pub fn get_config(&self) -> &L {
+        self.config.as_ref()
+    }
     fn message_state(&mut self) -> Result<()> {
         if self.info_stream.enabled("IW") && !self.did_message_state {
             self.did_message_state = true;
@@ -510,6 +513,9 @@ where
                 return false;
             }
         }
+    }
+    pub fn get_directory(&self) -> Arc<D> {
+        self.directory_orig.clone()
     }
     /// Adds a document to this index.
     ///
@@ -1930,6 +1936,57 @@ where
         self.doc_writer.purge_flush_tickets(forced, self, c)?;
         Ok(())
     }
+
+    /// Record that the files referenced by this SegmentInfos are still in use.
+    pub fn inc_ref_deleter(
+        &self,
+        segment_infos: &SegmentInfos<D>,
+        inner: Option<&mut Inner<D>>,
+    ) -> Result<()> {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        self.do_ensure_open(true)?;
+        inner.deleter.inc_ref_from_segment(segment_infos, false)?;
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "incRefDeleter for NRT reader version={} segments={}",
+                    segment_infos.get_version(),
+                    self.seg_string_from_infos(segment_infos.segments.values())?
+                ),
+            );
+        }
+        Ok(())
+    }
+    /// Record that the files referenced by this [`SegmentInfos`] are no longer in use.
+    /// Only call this if you are sure you previously called [`Self::inc_ref_deleter`].
+    pub fn dec_ref_deleter(
+        &self,
+        segment_infos: &SegmentInfos<D>,
+        inner: Option<&mut Inner<D>>,
+    ) -> Result<()> {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        self.do_ensure_open(true)?;
+        inner.deleter.dec_ref_from_segment(segment_infos)?;
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "decRefDeleter for NRT reader version={} segments={}",
+                    segment_infos.get_version(),
+                    self.seg_string_from_infos(segment_infos.segments.values())?
+                ),
+            );
+        }
+        Ok(())
+    }
+
     /// Processes all events and might trigger a merge if the given `seq_no` is negative.
     ///
     /// # Arguments
@@ -2565,7 +2622,7 @@ where
 
             let mut success = false;
             {
-                let full_flush_lock = self.full_flush_lock.lock();
+                let _full_flush_lock = self.full_flush_lock.lock();
                 let result2: Result<()> = (|| {
                     any_changes = self.doc_writer.flush_all_threads(self)? < 0;
                     if !any_changes {
@@ -2708,15 +2765,14 @@ where
         }
     }
 }
-impl<'a, D, L, B> IOFunction<SegmentCommitInfo<D>> for IOFunctionImpl<'a, D, L, B>
+impl<'a, D, L, B> IOFunction<SegmentCommitInfo<D>, Arc<SegmentReader<D>>>
+    for IOFunctionImpl<'a, D, L, B>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
-    type R = Arc<SegmentReader<D>>;
-
-    fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Self::R> {
+    fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<Arc<SegmentReader<D>>> {
         let rld = self.writer.get_pooled_instance(sci, true, None)?;
         match rld {
             Some(r) => match r.get_read_only_clone(&IOContext::default_io_context()?, sci)? {
