@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::core::codecs::LATEST_CODEC;
@@ -30,7 +31,7 @@ where
     D: Directory,
 {
     /// The SegmentInfo that we wrap.
-    pub info: SegmentInfo<D>,
+    pub info: Arc<SegmentInfo<D>>,
     /// Id that uniquely identifies this segment commit.
     id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// How many deleted docs in the segment.
@@ -91,7 +92,7 @@ where
         id: Option<[u8; StringHelper::ID_LENGTH]>,
     ) -> Result<Self> {
         Ok(Self {
-            info,
+            info: Arc::new(info),
             del_count,
             soft_del_count,
             del_gen,

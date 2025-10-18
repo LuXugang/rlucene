@@ -804,105 +804,119 @@ where
             "segment info should be always set, wrap with Option for easier move"
         );
         let new_segment = flushed_segment.segment_info.as_mut().unwrap();
+        let dir = new_segment.info.dir.clone();
+        // take the SegmentInfo out so we can modify it, and we will give it back
+        let segment_info_share =
+            std::mem::replace(&mut new_segment.info, Arc::new(SegmentInfo::dummy(dir)));
+        let mut segment_info = match Arc::try_unwrap(segment_info_share) {
+            Ok(si) => si,
+            Err(si_arc) => {
+                return Err(LuceneError::illegal_state(
+                    "segment info's Arc count is greater than 1",
+                ));
+            },
+        };
+        let res: Result<()> = (|| {
+            set_diagnostics(&mut segment_info, SOURCE_FLUSH);
+            let context = IOContext::with_flush(FlushInfo::new(
+                new_segment.info.max_doc()?,
+                new_segment.size_in_bytes()?,
+            ))?;
 
-        set_diagnostics(&mut new_segment.info, SOURCE_FLUSH);
+            let result: Result<()> = (|| {
+                if index_writer_config.get_use_compound_file() {
+                    let original_files = new_segment.info.files()?.clone();
+                    let dir = TrackingDirectoryWrapper::new(self.directory.clone());
+                    create_compound_file(
+                        &self.info_stream,
+                        &dir,
+                        &mut segment_info,
+                        &context,
+                        IOConsumerImpl::new(flush_notifications),
+                    )?;
+                    self.files_to_delete.extend(original_files);
+                    segment_info.set_use_compound_file(true);
+                }
 
-        let context = IOContext::with_flush(FlushInfo::new(
-            new_segment.info.max_doc()?,
-            new_segment.size_in_bytes()?,
-        ))?;
-
-        let result: Result<()> = (|| {
-            if index_writer_config.get_use_compound_file() {
-                let original_files = new_segment.info.files()?.clone();
-                let dir = TrackingDirectoryWrapper::new(self.directory.clone());
-                create_compound_file(
-                    &self.info_stream,
-                    &dir,
-                    &mut new_segment.info,
+                // Have codec write SegmentInfo.  Must do this after
+                // creating CFS so that 1) .si isn't slurped into CFS,
+                // and 2) .si reflects useCompoundFile=true change
+                // above:
+                LATEST_CODEC.segment_info_format().write(
+                    self.directory.as_ref(),
+                    &mut segment_info,
                     &context,
-                    IOConsumerImpl::new(flush_notifications),
                 )?;
-                self.files_to_delete.extend(original_files);
-                new_segment.info.set_use_compound_file(true);
-            }
 
-            // Have codec write SegmentInfo.  Must do this after
-            // creating CFS so that 1) .si isn't slurped into CFS,
-            // and 2) .si reflects useCompoundFile=true change
-            // above:
-            LATEST_CODEC.segment_info_format().write(
-                self.directory.as_ref(),
-                &mut new_segment.info,
-                &context,
-            )?;
+                // TODO: ideally we would freeze newSegment here!!
+                // because any changes after writing the .si will be
+                // lost...
 
-            // TODO: ideally we would freeze newSegment here!!
-            // because any changes after writing the .si will be
-            // lost...
+                // Must write deleted docs after the CFS so we don't
+                // slurp the del file into CFS:
+                if let Some(live_docs) = &flushed_segment.live_docs {
+                    let del_count = flushed_segment.del_count;
+                    debug_assert!(del_count > 0);
 
-            // Must write deleted docs after the CFS so we don't
-            // slurp the del file into CFS:
-            if let Some(live_docs) = &flushed_segment.live_docs {
-                let del_count = flushed_segment.del_count;
-                debug_assert!(del_count > 0);
+                    if self.info_stream.enabled("DWPT") {
+                        self.info_stream.message(
+                            "DWPT",
+                            &format!(
+                                "flush: write {} deletes gen={}",
+                                del_count,
+                                new_segment.get_del_gen()
+                            ),
+                        );
+                    }
+                    // TODO: we should prune the segment if it's 100%
+                    // deleted... but merge will also catch it.
 
-                if self.info_stream.enabled("DWPT") {
-                    self.info_stream.message(
-                        "DWPT",
-                        &format!(
-                            "flush: write {} deletes gen={}",
-                            del_count,
-                            new_segment.get_del_gen()
-                        ),
-                    );
-                }
-                // TODO: we should prune the segment if it's 100%
-                // deleted... but merge will also catch it.
+                    // TODO: in the NRT case it'd be better to hand
+                    // this del vector over to the
+                    // shortly-to-be-opened SegmentReader and let it
+                    // carry the changes; there's no reason to use
+                    // filesystem as intermediary here.
+                    match sort_map {
+                        Some(map) => {
+                            LATEST_CODEC.live_docs_format().write_live_docs(
+                                &Self::sort_live_docs(live_docs, map.as_ref()),
+                                self.directory.as_ref(),
+                                new_segment,
+                                del_count,
+                                &context,
+                            )?;
+                        },
+                        None => {
+                            LATEST_CODEC.live_docs_format().write_live_docs(
+                                live_docs,
+                                self.directory.as_ref(),
+                                new_segment,
+                                del_count,
+                                &context,
+                            )?;
+                        },
+                    }
 
-                // TODO: in the NRT case it'd be better to hand
-                // this del vector over to the
-                // shortly-to-be-opened SegmentReader and let it
-                // carry the changes; there's no reason to use
-                // filesystem as intermediary here.
-                match sort_map {
-                    Some(map) => {
-                        LATEST_CODEC.live_docs_format().write_live_docs(
-                            &Self::sort_live_docs(live_docs, map.as_ref()),
-                            self.directory.as_ref(),
-                            new_segment,
-                            del_count,
-                            &context,
-                        )?;
-                    },
-                    None => {
-                        LATEST_CODEC.live_docs_format().write_live_docs(
-                            live_docs,
-                            self.directory.as_ref(),
-                            new_segment,
-                            del_count,
-                            &context,
-                        )?;
-                    },
+                    new_segment.set_del_count(del_count)?;
+                    new_segment.advance_del_gen();
                 }
 
-                new_segment.set_del_count(del_count)?;
-                new_segment.advance_del_gen();
+                Ok(())
+            })();
+            if result.is_err() && self.info_stream.enabled("DWPT") {
+                self.info_stream.message(
+                    "DWPT",
+                    &format!(
+                        "hit exception creating compound file for newly flushed segment {}",
+                        new_segment.info.name
+                    ),
+                );
             }
-
-            Ok(())
+            result
         })();
-
-        if result.is_err() && self.info_stream.enabled("DWPT") {
-            self.info_stream.message(
-                "DWPT",
-                &format!(
-                    "hit exception creating compound file for newly flushed segment {}",
-                    new_segment.info.name
-                ),
-            );
-        }
-        result
+        // return back the segment info, even error happens
+        new_segment.info = Arc::new(segment_info);
+        res
     }
 
     pub(crate) fn get_segment_info(&self) -> &SegmentInfo<D> {
