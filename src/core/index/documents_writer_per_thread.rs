@@ -1054,7 +1054,7 @@ impl<FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {
-    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
+    fn accept_owner(&mut self, input: HashSet<String>) -> Result<()> {
         self.flush_notifications.delete_unused_files(input)
     }
 }

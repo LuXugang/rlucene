@@ -2777,7 +2777,7 @@ where
     })();
     let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);
     if write_result.is_err() {
-        delete_files.accept(filename)?;
+        delete_files.accept_owner(filename)?;
         return write_result;
     }
     // Replace all previous files with the CFS/CFE files:
