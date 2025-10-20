@@ -53,6 +53,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::function::Function;
 use crate::core::util::info_stream::InfoStream;
@@ -178,8 +179,8 @@ where
     ) -> bool {
         let dup = field_updates
             .iter()
-            .any(|old_update| old_update.del_gen() == update.del_gen());
-        debug_assert!(!dup, "duplicate delGen={}", update.del_gen());
+            .any(|old_update| old_update.del_gen == update.del_gen);
+        debug_assert!(!dup, "duplicate delGen={}", update.del_gen);
         true
     }
     /// Adds a new resolved (meaning it maps docIDs to new values) doc values packet.
@@ -190,7 +191,7 @@ where
             return Err(LuceneError::illegal_argument("call finish first"));
         }
 
-        let field = update.field().to_string();
+        let field = update.field.to_string();
         let update_bytes = update.ram_bytes_used()?;
 
         let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
@@ -384,7 +385,7 @@ where
         F: DocValuesFormat,
     {
         for (field, updates) in inner.pending_dv_updates.iter() {
-            let ty = updates[0].tp();
+            let ty = updates[0].type_;
             debug_assert!(
                 matches!(ty, DocValuesType::Numeric | DocValuesType::Binary),
                 "unsupported type: {:?}",
@@ -395,7 +396,7 @@ where
             let mut bytes: i64 = 0;
 
             for update in updates {
-                if update.del_gen() <= max_del_gen {
+                if update.del_gen <= max_del_gen {
                     // safe to apply this one
                     bytes += update.ram_bytes_used()?;
                     updates_to_apply.push(update.clone());
@@ -452,7 +453,7 @@ where
                 inner
                     .pending_deletes
                     .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
-                if *ty == DocValuesType::Binary {
+                if ty == DocValuesType::Binary {
                     let v = DocValuesProducerBinary::new(
                         update_supplier,
                         field,
@@ -537,7 +538,7 @@ where
         let mut any = false;
         'outer: for updates in inner.pending_dv_updates.values() {
             for update in updates {
-                if update.del_gen() <= max_del_gen && update.any() {
+                if update.del_gen <= max_del_gen && update.any() {
                     any = true;
                     break 'outer;
                 }
@@ -583,17 +584,17 @@ where
             // create new fields with the right DV type for updates whose field doesn't yet exist
             for updates in inner.pending_dv_updates.values() {
                 if let Some(update) = updates.first() {
-                    let field = update.field();
+                    let field = &update.field;
                     if by_name.contains_key(field) {
                         // the field already exists in this segment
                         let fi = by_name.get(field).expect("should not fail");
-                        debug_assert_eq!(*fi.get_doc_values_type(), *update.get_type());
+                        debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
                     } else {
                         // the field is not present in this segment so we clone the global field
                         // (which is guaranteed to exist) and remaps its field number locally.
                         if let Some(fi) = field_numbers.construct_field_info(
                             field,
-                            *update.get_type(),
+                            update.type_,
                             max_field_number + 1,
                         )? {
                             max_field_number += 1;
@@ -649,7 +650,7 @@ where
         inner.pending_dv_updates.retain(|_, updates| {
             let mut keep = Vec::with_capacity(updates.len());
             for u in updates.drain(..) {
-                if u.del_gen() > max_del_gen {
+                if u.del_gen > max_del_gen {
                     keep.push(u);
                 } else {
                     bytes_freed += u.ram_bytes_used().expect("should not fail");

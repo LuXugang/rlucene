@@ -56,7 +56,7 @@ where
     D: DocValuesFieldUpdatesBase,
 {
     pub(crate) field: String,
-    pub(crate) doc_values_type: DocValuesType,
+    pub(crate) type_: DocValuesType,
     pub(crate) del_gen: i64,
     max_doc: i32,
     inner: Mutex<DocValuesFieldInner>,
@@ -107,12 +107,27 @@ impl DocValuesFieldInner {
         Ok(())
     }
 }
+impl DocValuesFieldUpdates<DocValuesFieldUpdatesBaseEnum> {
+    pub(crate) fn new<T, V>(
+        max_doc: i32,
+        del_gen: i64,
+        field: T,
+        doc_values_type: DocValuesType,
+        sub_update: V,
+    ) -> Result<Self>
+    where
+        T: Into<String>,
+        V: Into<DocValuesFieldUpdatesBaseEnum>,
+    {
+        Self::with_sub(max_doc, del_gen, field, doc_values_type, sub_update.into())
+    }
+}
 
 impl<D> DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
 {
-    pub(crate) fn new<T>(
+    pub(crate) fn with_sub<T>(
         max_doc: i32,
         del_gen: i64,
         field: T,
@@ -126,7 +141,7 @@ where
         let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
             field: field.into(),
-            doc_values_type,
+            type_: doc_values_type,
             del_gen,
             max_doc,
             inner: Mutex::new(inner),
@@ -134,7 +149,7 @@ where
         })
     }
 
-    fn get_finished(&self) -> Result<bool> {
+    pub(crate) fn get_finished(&self) -> Result<bool> {
         let inner = self.inner.lock();
         Ok(inner.finished)
     }
@@ -152,7 +167,7 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical
     /// section.However, from a logical perspective, this is not necessary.
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub(crate) fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
     }
@@ -340,6 +355,169 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn sub_type(&self) -> DocValuesType;
     fn need_add_doc(&self) -> bool {
         true
+    }
+}
+pub type DocValuesFieldUpdatesEnum = DocValuesFieldUpdates<DocValuesFieldUpdatesBaseEnum>;
+pub(crate) enum DocValuesFieldUpdatesBaseEnum {
+    Numeric(NumericDocValuesFieldUpdates),
+    Binary(BinaryDocValuesFieldUpdates),
+    SingleValue(SingleValueDocValuesFieldUpdates),
+}
+#[cfg(test)]
+impl DocValuesFieldUpdatesBaseEnum {
+    pub fn long_value(&self) -> Result<i64> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::SingleValue(n) => n.long_value(),
+            _ => Err(LuceneError::illegal_state("not support long_value")),
+        }
+    }
+}
+impl From<NumericDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
+    fn from(v: NumericDocValuesFieldUpdates) -> Self {
+        DocValuesFieldUpdatesBaseEnum::Numeric(v)
+    }
+}
+
+impl From<BinaryDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
+    fn from(v: BinaryDocValuesFieldUpdates) -> Self {
+        DocValuesFieldUpdatesBaseEnum::Binary(v)
+    }
+}
+
+impl From<SingleValueDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
+    fn from(v: SingleValueDocValuesFieldUpdates) -> Self {
+        DocValuesFieldUpdatesBaseEnum::SingleValue(v)
+    }
+}
+impl Accountable for DocValuesFieldUpdatesBaseEnum {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.ram_bytes_used(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.ram_bytes_used(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.ram_bytes_used(),
+        }
+    }
+}
+
+impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
+    fn finish(&mut self) {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.finish(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.finish(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.finish(),
+        }
+    }
+
+    fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_value(doc, value, index),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_value(doc, value, index),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_value(doc, value, index),
+        }
+    }
+
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_byte_ref(doc, value, index),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_byte_ref(doc, value, index),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_byte_ref(doc, value, index),
+        }
+    }
+
+    fn add_iterator<T: DocValuesFieldIterator>(
+        &mut self,
+        doc_id: i32,
+        iterator: &mut T,
+    ) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_iterator(doc_id, iterator),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_iterator(doc_id, iterator),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_iterator(doc_id, iterator),
+        }
+    }
+
+    fn iterator(
+        &self,
+        inner: DocValuesFieldInnerIter,
+        del_gen: i64,
+    ) -> Result<DocValuesFieldIteratorEnum> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.iterator(inner, del_gen),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.iterator(inner, del_gen),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.iterator(inner, del_gen),
+        }
+    }
+
+    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.swap(_i, _j),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.swap(_i, _j),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.swap(_i, _j),
+        }
+    }
+
+    fn grow(&mut self, _size: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.grow(_size),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.grow(_size),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.grow(_size),
+        }
+    }
+
+    fn resize(&mut self, _size: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.resize(_size),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.resize(_size),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.resize(_size),
+        }
+    }
+
+    fn reset(&mut self, _doc: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.reset(_doc),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.reset(_doc),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.reset(_doc),
+        }
+    }
+
+    fn need_reset(&self) -> bool {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_reset(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_reset(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_reset(),
+        }
+    }
+
+    fn any(&self, _super_any: bool) -> bool {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.any(_super_any),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.any(_super_any),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.any(_super_any),
+        }
+    }
+
+    fn need_any(&self) -> bool {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_any(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_any(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_any(),
+        }
+    }
+
+    fn sub_type(&self) -> DocValuesType {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.sub_type(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.sub_type(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.sub_type(),
+        }
+    }
+
+    fn need_add_doc(&self) -> bool {
+        match self {
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_add_doc(),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_add_doc(),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_add_doc(),
+        }
     }
 }
 
@@ -1050,100 +1228,6 @@ impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
     }
 }
 
-pub enum DocValuesFieldUpdatesEnum {
-    Numeric(DocValuesFieldUpdates<NumericDocValuesFieldUpdates>),
-    Binary(DocValuesFieldUpdates<BinaryDocValuesFieldUpdates>),
-    SingleValue(DocValuesFieldUpdates<SingleValueDocValuesFieldUpdates>),
-}
-impl DocValuesFieldUpdatesEnum {
-    pub(crate) fn tp(&self) -> &DocValuesType {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => &u.doc_values_type,
-            DocValuesFieldUpdatesEnum::Binary(u) => &u.doc_values_type,
-            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.doc_values_type,
-        }
-    }
-    pub(crate) fn field(&self) -> &str {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => &u.field,
-            DocValuesFieldUpdatesEnum::Binary(u) => &u.field,
-            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.field,
-        }
-    }
-
-    pub(crate) fn get_finished(&self) -> Result<bool> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.get_finished(),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.get_finished(),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.get_finished(),
-        }
-    }
-
-    pub(crate) fn ram_bytes_used(&self) -> Result<i64> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.ram_bytes_used(),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.ram_bytes_used(),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.ram_bytes_used(),
-        }
-    }
-
-    pub(crate) fn del_gen(&self) -> i64 {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.del_gen,
-            DocValuesFieldUpdatesEnum::Binary(u) => u.del_gen,
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.del_gen,
-        }
-    }
-    pub(crate) fn iterator(&self) -> Result<DocValuesFieldIteratorEnum> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.iterator(),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.iterator(),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.iterator(),
-        }
-    }
-    pub(crate) fn any(&self) -> bool {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.any(),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.any(),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.any(),
-        }
-    }
-    pub(crate) fn get_type(&self) -> &DocValuesType {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => &u.doc_values_type,
-            DocValuesFieldUpdatesEnum::Binary(u) => &u.doc_values_type,
-            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.doc_values_type,
-        }
-    }
-    pub(crate) fn reset(&mut self, doc: i32) -> Result<()> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.reset(doc),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.reset(doc),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.reset(doc),
-        }
-    }
-    pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<()> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.add_value(doc, value),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.add_value(doc, value),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.add_value(doc, value),
-        }
-    }
-    pub(crate) fn add_binary_value(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.add_byte_ref(doc, value),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.add_byte_ref(doc, value),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.add_byte_ref(doc, value),
-        }
-    }
-    pub(crate) fn finish(&mut self) -> Result<()> {
-        match self {
-            DocValuesFieldUpdatesEnum::Numeric(u) => u.finish(),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.finish(),
-            DocValuesFieldUpdatesEnum::SingleValue(u) => u.finish(),
-        }
-    }
-}
 pub(crate) const PAGE_SIZE: i32 = 1024;
 const HAS_VALUE_MASK: i64 = 1;
 const HAS_NO_VALUE_MASK: i64 = 0;
@@ -1383,7 +1467,6 @@ mod tests {
             SingleValueDocValuesFieldUpdates::new(sub_update1, max_doc, del_gen, sub_type)?;
         let mut update =
             DocValuesFieldUpdates::new(max_doc, del_gen, "foo", sub_type, sub_update2)?;
-
         assert_eq!(value, update.sub_update.long_value()?);
 
         let mut values: Vec<Option<bool>> = vec![None; max_doc as usize];

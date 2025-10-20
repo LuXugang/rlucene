@@ -362,25 +362,19 @@ impl FrozenBufferedUpdates {
                                     sub, max_doc, del_gen, sub_type,
                                 )?;
                                 let sub_type = sub.sub_type();
-                                DocValuesFieldUpdatesEnum::SingleValue(DocValuesFieldUpdates::new(
-                                    max_doc, del_gen, field, sub_type, sub,
-                                )?)
+                                DocValuesFieldUpdates::new(max_doc, del_gen, field, sub_type, sub)?
                             } else {
                                 let sub = NumericDocValuesFieldUpdates::with_range(
                                     value.get_min_numeric(),
                                     value.get_max_numeric(),
                                 )?;
                                 let sub_type = sub.sub_type();
-                                DocValuesFieldUpdatesEnum::Numeric(DocValuesFieldUpdates::new(
-                                    max_doc, del_gen, field, sub_type, sub,
-                                )?)
+                                DocValuesFieldUpdates::new(max_doc, del_gen, field, sub_type, sub)?
                             }
                         } else {
                             let sub = BinaryDocValuesFieldUpdates::new()?;
                             let sub_type = sub.sub_type();
-                            DocValuesFieldUpdatesEnum::Binary(DocValuesFieldUpdates::new(
-                                max_doc, del_gen, field, sub_type, sub,
-                            )?)
+                            DocValuesFieldUpdates::new(max_doc, del_gen, field, sub_type, sub)?
                         };
                         resolved_updates.push(v);
                         dv_updates = Some(resolved_updates.len() - 1);
@@ -783,7 +777,7 @@ impl<'a> IntConsumer for IntConsumerImpl<'a> {
             self.update.add_value(doc, self.long_value)?;
         } else {
             self.update
-                .add_binary_value(doc, self.binary_value.as_ref().unwrap())?;
+                .add_byte_ref(doc, self.binary_value.as_ref().unwrap())?;
         }
         Ok(())
     }
