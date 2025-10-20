@@ -96,3 +96,58 @@ pub trait StoredFields {
         Ok(visitor.get_document_owner())
     }
 }
+macro_rules! either_stored_fields {
+    (
+        $vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> StoredFields for $name<$( $T ),+>
+        where
+            $( $T: StoredFields ),+
+        {
+            fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
+                }
+            }
+
+            fn document(
+                &mut self,
+                doc_id: i32,
+                writer: &mut impl StoredFieldsWriter
+            ) -> Result<Document> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document(doc_id, writer), )+
+                }
+            }
+
+            fn document_with_visitor(
+                &mut self,
+                doc_id: i32,
+                visitor: &mut impl StoredFieldVisitor,
+                writer: &mut impl StoredFieldsWriter,
+            ) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
+                }
+            }
+
+            fn document_with_fields(
+                &mut self,
+                doc_id: i32,
+                fields_to_load: &HashSet<String>,
+                writer: &mut impl StoredFieldsWriter,
+            ) -> Result<Document> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load, writer), )+
+                }
+            }
+        }
+    };
+}
+either_stored_fields!(
+    pub Either2StoredFields { A: A, B: B}
+);
