@@ -139,6 +139,19 @@ where
     Composite(CR),
 }
 
+impl<LR, CR> Clone for IndexReaderEnum<LR, CR>
+where
+    LR: LeafReader + Clone,
+    CR: CompositeReader + Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            IndexReaderEnum::Leaf(leaf) => IndexReaderEnum::Leaf(leaf.clone()),
+            IndexReaderEnum::Composite(comp) => IndexReaderEnum::Composite(comp.clone()),
+        }
+    }
+}
+
 impl<LR, CR> Display for IndexReaderEnum<LR, CR>
 where
     CR: CompositeReader,

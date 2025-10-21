@@ -50,7 +50,7 @@ where
     C: Comparator<LR>,
     D: Directory,
 {
-    base_composite_reader_base: BaseCompositeReaderBase<LR>,
+    base_composite_reader_base: BaseCompositeReaderBase<LR, DummyCompositeReader>,
     directory_reader_base: DirectoryReaderBase<D>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
@@ -72,7 +72,7 @@ where
         apply_all_deletes: bool,
         write_all_deletes: bool,
     ) -> Result<Self> {
-        let base_composite_reader_base = BaseCompositeReaderBase::new(readers, &leaf_sorter)?;
+        let base_composite_reader_base = BaseCompositeReaderBase::new::<C>(readers, &leaf_sorter)?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
         Ok(StandardDirectoryReader {
             base_composite_reader_base,
@@ -241,7 +241,7 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    type TermVectors = BCRTermVectorsImpl<LR>;
+    type TermVectors = BCRTermVectorsImpl<LR, DummyCompositeReader>;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
         self.base_composite_reader_base.term_vector(self)
@@ -255,7 +255,7 @@ where
         self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields = BCRStoredFieldsImpl<LR>;
+    type StoredFields = BCRStoredFieldsImpl<LR, DummyCompositeReader>;
 
     fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base_composite_reader_base.stored_fields(self)
