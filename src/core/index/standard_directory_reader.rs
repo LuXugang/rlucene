@@ -61,7 +61,7 @@ where
 {
     pub(crate) fn new(
         directory: Arc<D>,
-        readers: Vec<LR>,
+        readers: Vec<Arc<LR>>,
         segment_infos: SegmentInfos<D>,
         leaf_sorter: Option<Arc<C>>,
         apply_all_deletes: bool,
@@ -110,7 +110,7 @@ where
     }
 }
 pub type StandardDirectoryReaderType<D> =
-    StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>;
+    StandardDirectoryReader<SegmentReader<D>, DummyComparator<SegmentReader<D>>, D>;
 pub(crate) fn open_with_reader_function<D, L, B, IO>(
     writer: &IndexWriter<D, L, B>,
     reader_function: &mut IO,
@@ -185,7 +185,7 @@ where
             readers,
             segment_infos,
             // TODO IMPORTANT 这里不对 要从LiveIndexWriterConfig中获取
-            None::<Arc<DummyComparator<Arc<SegmentReader<D>>>>>,
+            None::<Arc<DummyComparator<SegmentReader<D>>>>,
             apply_all_deletes,
             write_all_deletes,
         )
@@ -414,7 +414,7 @@ where
                 sis.get_index_created_version_major(),
                 &IOContext::default_io_context()?,
             )?;
-            readers.push(reader);
+            readers.push(Arc::new(reader));
         }
         // This may throw CorruptIndexException if there are too many docs, so
         // it must be inside try clause so we close readers in that case:

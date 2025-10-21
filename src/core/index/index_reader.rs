@@ -17,7 +17,7 @@
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -90,76 +90,6 @@ pub trait IndexReader: Display {
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>;
 }
 
-impl<IR> IndexReader for Arc<IR>
-where
-    IR: IndexReader + ?Sized,
-{
-    type TermVectors = IR::TermVectors;
-
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        (**self).term_vectors()
-    }
-
-    fn max_doc(&self) -> Result<i32> {
-        (**self).max_doc()
-    }
-
-    fn num_docs(&self) -> Result<i32> {
-        (**self).num_docs()
-    }
-
-    fn num_deleted_docs(&self) -> Result<i32> {
-        (**self).num_deleted_docs()
-    }
-
-    fn inc_ref(&self) -> Result<()> {
-        (**self).inc_ref()
-    }
-
-    fn dec_ref(&self) -> Result<()> {
-        (**self).dec_ref()
-    }
-
-    fn ensure_open(&self) -> Result<()> {
-        (**self).ensure_open()
-    }
-
-    type StoredFields = IR::StoredFields;
-
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        (**self).stored_fields()
-    }
-
-    fn has_deletions(&self) -> Result<bool> {
-        (**self).has_deletions()
-    }
-
-    fn do_close(&mut self) -> Result<()> {
-        Arc::get_mut(self)
-            .ok_or_else(|| LuceneError::unsupported_operation("Cannot mutably close shared Arc"))?
-            .do_close()
-    }
-
-    fn doc_freq(&self, term: &Term) -> Result<i32> {
-        (**self).doc_freq(term)
-    }
-
-    fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        (**self).total_term_freq(term)
-    }
-
-    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        (**self).get_sum_doc_freq(field)
-    }
-
-    fn get_doc_count(&self, field: &str) -> Result<i32> {
-        (**self).get_doc_count(field)
-    }
-
-    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        (**self).get_sum_total_term_freq(field)
-    }
-}
 pub trait CacheHelper {
     fn get_key(&self) -> CacheKey;
 }
