@@ -18,6 +18,7 @@ use crate::core::index::composite_reader_context::{CompositeReaderContext, creat
 use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 pub trait CompositeReader: IndexReader {
     type LeafReader: LeafReader + Clone;
@@ -35,4 +36,21 @@ where
     CR: CompositeReader + Clone,
 {
     create(composite_reader)
+}
+impl<CR> CompositeReader for Arc<CR>
+where
+    CR: CompositeReader,
+{
+    type LeafReader = CR::LeafReader;
+    type CompositeReader = CR::CompositeReader;
+
+    fn get_sequential_sub_readers(
+        &self,
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
+        (**self).get_sequential_sub_readers()
+    }
+
+    fn to_string(&self) -> String {
+        (**self).to_string()
+    }
 }

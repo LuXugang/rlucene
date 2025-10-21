@@ -31,7 +31,7 @@ mod buffered_updates_stream;
 mod byte_slice_pool;
 mod byte_slice_reader;
 pub mod codec_reader;
-mod composite_reader;
+pub mod composite_reader;
 pub mod composite_reader_context;
 pub(crate) mod concurrent_approximate_priority_queue;
 pub mod directory_reader;
