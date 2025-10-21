@@ -35,6 +35,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct DummyLeafReader;
 
 impl Display for DummyLeafReader {

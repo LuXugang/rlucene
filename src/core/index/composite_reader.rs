@@ -17,7 +17,7 @@
 use crate::core::index::index_reader::IndexReader;
 
 pub trait CompositeReader: IndexReader {
-    type IndexReader: IndexReader;
+    type IndexReader: IndexReader + Clone;
     fn get_sequential_sub_readers(&self) -> &[Self::IndexReader];
     fn to_string(&self) -> String {
         todo!()

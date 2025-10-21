@@ -148,7 +148,9 @@ pub mod directory_reader_util {
     /// Returns an error if there is a low-level I/O error.
     pub fn open<D>(
         directory: Arc<D>,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, DummyComparator<SegmentReader<D>>, D>>
+    ) -> Result<
+        StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>,
+    >
     where
         D: Directory,
     {
@@ -173,10 +175,10 @@ pub mod directory_reader_util {
     pub fn open_with_sorter<D, C>(
         directory: Arc<D>,
         leaf_sorter: Option<Arc<C>>,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
-        C: Comparator<SegmentReader<D>>,
+        C: Comparator<Arc<SegmentReader<D>>>,
     {
         StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
     }
@@ -208,10 +210,10 @@ pub mod directory_reader_util {
         commit: &IC,
         min_supported_major_version: i32,
         leaf_sorter: Option<Arc<C>>,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
-        C: Comparator<SegmentReader<D>>,
+        C: Comparator<Arc<SegmentReader<D>>>,
         IC: IndexCommit<Directory = D>,
     {
         StandardDirectoryReader::open_with_version(
@@ -232,10 +234,10 @@ pub mod directory_reader_util {
     /// Returns an error if there is a low-level I/O error.
     pub fn open_with_commit<D, C, IC>(
         commit: &IC,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
-        C: Comparator<SegmentReader<D>>,
+        C: Comparator<Arc<SegmentReader<D>>>,
         IC: IndexCommit<Directory = D>,
     {
         StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)

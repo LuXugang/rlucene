@@ -57,16 +57,16 @@ pub trait BaseCompositeReader: CompositeReader {
 
 pub struct BaseCompositeReaderBase<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
-    sub_reader: Vec<Arc<IR>>,
+    sub_reader: Vec<IR>,
     starts: Arc<Vec<i32>>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
 impl<IR> BaseCompositeReaderBase<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
     /// Constructs a [`BaseCompositeReader`] on the given sub-readers.
     ///
@@ -80,7 +80,7 @@ where
     ///
     /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
     ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-    pub fn new<C>(mut sub_readers: Vec<Arc<IR>>, sub_reader_sorter: &Option<Arc<C>>) -> Result<Self>
+    pub fn new<C>(mut sub_readers: Vec<IR>, sub_reader_sorter: &Option<Arc<C>>) -> Result<Self>
     where
         C: Comparator<IR>,
     {
@@ -243,18 +243,18 @@ pub type BCRStoredFieldsImpl<IR> = StoredFieldsImpl<IR>;
 
 pub struct TermVectorsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
-    sub_reader: Vec<Arc<IR>>,
+    sub_reader: Vec<IR>,
     starts: Arc<Vec<i32>>,
     sub_term_vectors: Vec<Option<IR::TermVectors>>,
     max_doc: i32,
 }
 impl<IR> TermVectorsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
-    pub fn new(sub_reader: Vec<Arc<IR>>, starts: Arc<Vec<i32>>, max_doc: i32) -> Self {
+    pub fn new(sub_reader: Vec<IR>, starts: Arc<Vec<i32>>, max_doc: i32) -> Self {
         let mut sub_term_vectors = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_term_vectors.push(None);
@@ -275,7 +275,7 @@ where
 }
 impl<IR> TermVectors for TermVectorsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, self.starts.as_slice());
@@ -305,9 +305,9 @@ where
 }
 pub struct StoredFieldsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
-    sub_reader: Vec<Arc<IR>>,
+    sub_reader: Vec<IR>,
     starts: Arc<Vec<i32>>,
     sub_stored_fields: Vec<Option<IR::StoredFields>>,
     max_doc: i32,
@@ -315,9 +315,9 @@ where
 
 impl<IR> StoredFieldsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
-    pub fn new(sub_reader: Vec<Arc<IR>>, starts: Arc<Vec<i32>>, max_doc: i32) -> Self {
+    pub fn new(sub_reader: Vec<IR>, starts: Arc<Vec<i32>>, max_doc: i32) -> Self {
         let mut sub_stored_fields = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_stored_fields.push(None);
@@ -333,7 +333,7 @@ where
 
 impl<IR> StoredFields for StoredFieldsImpl<IR>
 where
-    IR: IndexReader,
+    IR: IndexReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, &self.starts);

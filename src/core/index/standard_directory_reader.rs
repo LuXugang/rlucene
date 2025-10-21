@@ -21,7 +21,6 @@ use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-use crate::core::index::dummy::dummy_index_reader::DummyIndexReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
@@ -42,7 +41,7 @@ use std::sync::Arc;
 
 pub struct StandardDirectoryReader<LR, C, D>
 where
-    LR: LeafReader,
+    LR: LeafReader + Clone,
     C: Comparator<LR>,
     D: Directory,
 {
@@ -56,13 +55,13 @@ where
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
-    LR: LeafReader,
+    LR: LeafReader + Clone,
     C: Comparator<LR>,
     D: Directory,
 {
     pub(crate) fn new(
         directory: Arc<D>,
-        readers: Vec<Arc<LR>>,
+        readers: Vec<LR>,
         segment_infos: SegmentInfos<D>,
         leaf_sorter: Option<Arc<C>>,
         apply_all_deletes: bool,
@@ -83,10 +82,10 @@ where
         directory: Arc<D>,
         commit: Option<&IC>,
         leaf_sorter: Option<Arc<C>>,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
-        C: Comparator<SegmentReader<D>>,
+        C: Comparator<Arc<SegmentReader<D>>>,
         IC: IndexCommit<Directory = D>,
     {
         Self::open_with_version(directory, *MIN_SUPPORTED_MAJOR, commit, leaf_sorter)
@@ -97,10 +96,10 @@ where
         min_supported_major_version: i32,
         commit: Option<&IC>,
         leaf_sorter: Option<Arc<C>>,
-    ) -> Result<StandardDirectoryReader<SegmentReader<D>, C, D>>
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
     where
         D: Directory,
-        C: Comparator<SegmentReader<D>>,
+        C: Comparator<Arc<SegmentReader<D>>>,
         IC: IndexCommit<Directory = D>,
     {
         let finder =
@@ -112,7 +111,7 @@ where
     }
 }
 pub type StandardDirectoryReaderType<D> =
-    StandardDirectoryReader<SegmentReader<D>, DummyComparator<SegmentReader<D>>, D>;
+    StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>;
 pub(crate) fn open_with_reader_function<D, L, B, IO>(
     writer: &IndexWriter<D, L, B>,
     reader_function: &mut IO,
@@ -187,7 +186,7 @@ where
             readers,
             segment_infos,
             // TODO IMPORTANT 这里不对 要从LiveIndexWriterConfig中获取
-            None::<Arc<DummyComparator<SegmentReader<D>>>>,
+            None::<Arc<DummyComparator<Arc<SegmentReader<D>>>>>,
             apply_all_deletes,
             write_all_deletes,
         )
@@ -207,7 +206,7 @@ impl<LR, C, D> BaseCompositeReader for StandardDirectoryReader<LR, C, D>
 where
     C: Comparator<LR>,
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
 {
     fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader> {
         todo!()
@@ -218,9 +217,9 @@ impl<LR, C, D> CompositeReader for StandardDirectoryReader<LR, C, D>
 where
     C: Comparator<LR>,
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
 {
-    type IndexReader = DummyIndexReader;
+    type IndexReader = LR;
 
     fn get_sequential_sub_readers(&self) -> &[Self::IndexReader] {
         todo!()
@@ -231,7 +230,7 @@ impl<LR, C, D> IndexReader for StandardDirectoryReader<LR, C, D>
 where
     C: Comparator<LR>,
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
 {
     type TermVectors = BCRTermVectorsImpl<LR>;
 
@@ -284,7 +283,7 @@ impl<LR, C, D> Display for StandardDirectoryReader<LR, C, D>
 where
     C: Comparator<LR>,
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
 {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
@@ -293,7 +292,7 @@ where
 
 impl<LR, C, D> DirectoryReader for StandardDirectoryReader<LR, C, D>
 where
-    LR: LeafReader,
+    LR: LeafReader + Clone,
     C: Comparator<LR>,
     D: Directory,
 {
@@ -349,7 +348,7 @@ where
 pub struct FindSegmentsFileImpl1<D, LR, C>
 where
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
     C: Comparator<LR>,
 {
     min_supported_major_version: i32,
@@ -360,7 +359,7 @@ where
 impl<D, LR, C> FindSegmentsFileImpl1<D, LR, C>
 where
     D: Directory,
-    LR: LeafReader,
+    LR: LeafReader + Clone,
     C: Comparator<LR>,
 {
     pub fn new(
@@ -376,12 +375,12 @@ where
         }
     }
 }
-impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, SegmentReader<D>, C>
+impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, Arc<SegmentReader<D>>, C>
 where
     D: Directory,
-    C: Comparator<SegmentReader<D>>,
+    C: Comparator<Arc<SegmentReader<D>>>,
 {
-    type V = StandardDirectoryReader<SegmentReader<D>, C, D>;
+    type V = StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>;
     type D = D;
 
     fn get_directory_point(&self) -> Arc<Self::D> {

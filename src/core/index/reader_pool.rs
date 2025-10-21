@@ -91,7 +91,7 @@ where
     ) -> Self
     where
         S: Into<String>,
-        LR: LeafReader,
+        LR: LeafReader + Clone,
         C: Comparator<LR>,
         D1: Directory,
     {
