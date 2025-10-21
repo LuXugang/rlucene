@@ -16,7 +16,9 @@
  */
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::index_reader::IndexReaderEnum;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{
+    IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
+};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
@@ -26,8 +28,9 @@ pub struct CompositeReaderContext<CR>
 where
     CR: CompositeReader,
 {
-    leaves: Option<Vec<LeafReaderContext<CR::LeafReader>>>,
+    leaves: Vec<LeafReaderContext<CR::LeafReader>>,
     reader: CR,
+    base: IndexReaderContextBase,
 }
 pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
@@ -38,36 +41,40 @@ where
     let mut builder = Builder::new();
     builder.build(v, 0, 0)?;
     let leaves = builder.leaves.take().unwrap();
+    let base = IndexReaderContextBase::new(true, 0, 0);
     Ok(CompositeReaderContext {
-        leaves: Some(leaves),
+        leaves,
         reader,
+        base,
     })
 }
-// impl<LR> IndexReaderContext for CompositeReaderContext<LR> where LR: LeafReader {
-//     type IndexReader = ();
-//
-//     fn reader(&self) -> &Self::IndexReader {
-//         todo!()
-//     }
-//
-//     type LeafReader = ();
-//
-//     fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
-//         todo!()
-//     }
-//
-//     fn children(&self) -> Option<&[IndexReaderContextEnum<Self::LeafReader>]> {
-//         todo!()
-//     }
-//
-//     fn base(&self) -> &IndexReaderContextBase<Self::LeafReader> {
-//         todo!()
-//     }
-//
-//     fn base_mut(&mut self) -> &mut IndexReaderContextBase<Self::LeafReader> {
-//         todo!()
-//     }
-// }
+
+impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
+
+impl<CR> IndexReaderContext for CompositeReaderContext<CR>
+where
+    CR: CompositeReader,
+{
+    type IndexReader = CR;
+
+    fn reader(&self) -> &Self::IndexReader {
+        &self.reader
+    }
+
+    type LeafReader = CR::LeafReader;
+
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
+        Ok(self.leaves.as_slice())
+    }
+
+    fn base(&self) -> &IndexReaderContextBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
+        &mut self.base
+    }
+}
 
 struct Builder<LR>
 where
