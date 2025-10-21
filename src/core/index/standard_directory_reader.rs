@@ -19,10 +19,11 @@ use crate::core::index::base_composite_reader::{
 };
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -220,10 +221,17 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    type IndexReader = LR;
+    type LeafReader = LR;
+    type CompositeReader = DummyCompositeReader;
 
-    fn get_sequential_sub_readers(&self) -> Vec<Self::IndexReader> {
-        self.base_composite_reader_base.get_sequential_sub_readers()
+    fn get_sequential_sub_readers(
+        &self,
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
+        todo!()
+    }
+
+    fn to_string(&self) -> String {
+        todo!()
     }
 }
 

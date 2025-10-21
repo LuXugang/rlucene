@@ -14,55 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::base_composite_reader::BaseCompositeReader;
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
-use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
-use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-pub struct DummyDirectoryReader<D>
-where
-    D: Directory,
-{
-    _marker: std::marker::PhantomData<D>,
-}
+#[derive(Clone)]
+pub struct DummyCompositeReader;
 
-impl<D> BaseCompositeReader for DummyDirectoryReader<D> where D: Directory {}
-
-impl<D> CompositeReader for DummyDirectoryReader<D>
-where
-    D: Directory,
-{
-    type LeafReader = DummyLeafReader;
-    type CompositeReader = DummyCompositeReader;
-
-    fn get_sequential_sub_readers(
-        &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn to_string(&self) -> String {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-}
-
-impl<D> IndexReader for DummyDirectoryReader<D>
-where
-    D: Directory,
-{
+impl IndexReader for DummyCompositeReader {
     type TermVectors = DummyTermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -108,64 +72,23 @@ where
     }
 }
 
-impl<D> Display for DummyDirectoryReader<D>
-where
-    D: Directory,
-{
+impl Display for DummyCompositeReader {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl<D> DirectoryReader for DummyDirectoryReader<D>
-where
-    D: Directory,
-{
-    type DirectoryReader = DummyDirectoryReader<D>;
+impl CompositeReader for DummyCompositeReader {
+    type LeafReader = DummyLeafReader;
+    type CompositeReader = DummyCompositeReader;
 
-    fn do_open_if_changed(&mut self) -> Result<Option<Self::DirectoryReader>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn do_open_if_changed_with_commit<IC>(
-        &mut self,
-        _commit: Option<&IC>,
-    ) -> Result<Option<Self::DirectoryReader>>
-    where
-        IC: IndexCommit,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn do_open_if_changed_with_index_writer<L, B>(
+    fn get_sequential_sub_readers(
         &self,
-        _writer: IndexWriter<Self::Directory, L, B>,
-        _apply_deletes: bool,
-    ) -> Result<Self::DirectoryReader>
-    where
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
-    {
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_version(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn is_current(&self) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    type IndexCommit = DummyIndexCommit<D>;
-
-    fn get_index_commit(&self) -> Result<Self::IndexCommit> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    type Directory = DummyDirectory;
-
-    fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    fn to_string(&self) -> String {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
