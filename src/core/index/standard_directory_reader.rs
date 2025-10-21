@@ -212,9 +212,6 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader> {
-        todo!()
-    }
 }
 
 impl<LR, C, D> CompositeReader for StandardDirectoryReader<LR, C, D>

@@ -51,9 +51,7 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// See also: `MultiReader`
 ///
 /// *Lucene internal API*
-pub trait BaseCompositeReader: CompositeReader {
-    fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader>;
-}
+pub trait BaseCompositeReader: CompositeReader {}
 
 pub struct BaseCompositeReaderBase<IR>
 where
