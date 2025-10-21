@@ -82,7 +82,7 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -57,7 +57,7 @@ pub trait IndexReader: Display {
         Ok(self.num_deleted_docs()? > 0)
     }
 
-    fn do_close(&mut self) -> Result<()>;
+    fn do_close(&self) -> Result<()>;
 
     /// Returns the number of documents containing the `term`.
     /// This method returns `0` if the term or field does not exist.
@@ -224,7 +224,7 @@ where
         }
     }
 
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         match self {
             IndexReaderEnum::Leaf(leaf) => leaf.do_close(),
             IndexReaderEnum::Composite(comp) => comp.do_close(),
@@ -264,5 +264,73 @@ where
             IndexReaderEnum::Leaf(leaf) => leaf.get_sum_total_term_freq(field),
             IndexReaderEnum::Composite(comp) => comp.get_sum_total_term_freq(field),
         }
+    }
+}
+impl<IR> IndexReader for Arc<IR>
+where
+    IR: IndexReader + ?Sized,
+{
+    type TermVectors = IR::TermVectors;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
+        (**self).term_vectors()
+    }
+
+    fn max_doc(&self) -> Result<i32> {
+        (**self).max_doc()
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        (**self).num_docs()
+    }
+
+    fn num_deleted_docs(&self) -> Result<i32> {
+        (**self).num_deleted_docs()
+    }
+
+    fn inc_ref(&self) -> Result<()> {
+        (**self).inc_ref()
+    }
+
+    fn dec_ref(&self) -> Result<()> {
+        (**self).dec_ref()
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        (**self).ensure_open()
+    }
+
+    type StoredFields = IR::StoredFields;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
+        (**self).stored_fields()
+    }
+
+    fn has_deletions(&self) -> Result<bool> {
+        (**self).has_deletions()
+    }
+
+    fn do_close(&self) -> Result<()> {
+        (**self).do_close()
+    }
+
+    fn doc_freq(&self, term: &Term) -> Result<i32> {
+        (**self).doc_freq(term)
+    }
+
+    fn total_term_freq(&self, term: &Term) -> Result<i64> {
+        (**self).total_term_freq(term)
+    }
+
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+        (**self).get_sum_doc_freq(field)
+    }
+
+    fn get_doc_count(&self, field: &str) -> Result<i32> {
+        (**self).get_doc_count(field)
+    }
+
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+        (**self).get_sum_total_term_freq(field)
     }
 }

@@ -65,7 +65,7 @@ impl IndexReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 

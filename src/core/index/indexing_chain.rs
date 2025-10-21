@@ -1994,7 +1994,7 @@ where
         self.base.stored_fields()
     }
 
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         self.base.do_close()
     }
 
@@ -2269,7 +2269,7 @@ where
     fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base.stored_fields()
     }
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         self.base.do_close()
     }
 

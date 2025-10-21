@@ -362,7 +362,7 @@ where
         CodecReader::stored_fields(self)
     }
 
-    fn do_close(&mut self) -> Result<()> {
+    fn do_close(&self) -> Result<()> {
         if self.core.dec_ref().is_err()
             && let Some(dv) = &self.doc_values_producer
         {
