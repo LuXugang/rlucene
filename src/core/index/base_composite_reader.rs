@@ -71,6 +71,25 @@ where
     IR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
+    pub fn new_with_leaf_readers<C>(
+        sub_readers: Vec<IR>,
+        sub_reader_sorter: &Option<Arc<C>>,
+    ) -> Result<Self>
+    where
+        C: Comparator<IR>,
+    {
+        Self::build_from_sub_readers(sub_readers, sub_reader_sorter, IndexReaderEnum::Leaf)
+    }
+
+    pub fn new_with_composite_readers<C>(
+        sub_readers: Vec<CR>,
+        sub_reader_sorter: &Option<Arc<C>>,
+    ) -> Result<Self>
+    where
+        C: Comparator<CR>,
+    {
+        Self::build_from_sub_readers(sub_readers, sub_reader_sorter, IndexReaderEnum::Composite)
+    }
     /// Constructs a [`BaseCompositeReader`] on the given sub-readers.
     ///
     /// # Parameters
@@ -83,9 +102,15 @@ where
     ///
     /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
     ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-    pub fn new<C>(mut sub_readers: Vec<IR>, sub_reader_sorter: &Option<Arc<C>>) -> Result<Self>
+    fn build_from_sub_readers<R, C, F>(
+        mut sub_readers: Vec<R>,
+        sub_reader_sorter: &Option<Arc<C>>,
+        to_index_reader_enum: F,
+    ) -> Result<Self>
     where
-        C: Comparator<IR>,
+        R: IndexReader,
+        C: Comparator<R>,
+        F: FnMut(R) -> IndexReaderEnum<IR, CR>,
     {
         if let Some(sorter) = &sub_reader_sorter {
             sub_readers.sort_by(|a, b| sorter.compare_unchecked(a, b).cmp(&0));
@@ -97,7 +122,6 @@ where
         for (i, reader) in sub_readers.iter().enumerate() {
             starts[i] = max_doc as i32;
             max_doc += reader.max_doc()? as i64;
-            // reader.register_parent_reader()?;
         }
 
         let max_allowed = get_actual_max_docs();
@@ -110,7 +134,7 @@ where
         let max_doc_i32 = max_doc.try_into()?;
         starts[sub_readers.len()] = max_doc_i32;
 
-        let sub_reader = sub_readers.into_iter().map(IndexReaderEnum::Leaf).collect();
+        let sub_reader = sub_readers.into_iter().map(to_index_reader_enum).collect();
 
         Ok(Self {
             sub_reader,

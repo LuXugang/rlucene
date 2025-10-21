@@ -72,7 +72,8 @@ where
         apply_all_deletes: bool,
         write_all_deletes: bool,
     ) -> Result<Self> {
-        let base_composite_reader_base = BaseCompositeReaderBase::new::<C>(readers, &leaf_sorter)?;
+        let base_composite_reader_base =
+            BaseCompositeReaderBase::new_with_leaf_readers::<C>(readers, &leaf_sorter)?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
         Ok(StandardDirectoryReader {
             base_composite_reader_base,
