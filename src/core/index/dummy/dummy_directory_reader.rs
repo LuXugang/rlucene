@@ -46,7 +46,7 @@ where
     D: Directory,
 {
     type LeafReader = DummyLeafReader;
-    type CompositeReader = DummyCompositeReader;
+    type CompositeReader = DummyCompositeReader<DummyLeafReader>;
 
     fn get_sequential_sub_readers(
         &self,

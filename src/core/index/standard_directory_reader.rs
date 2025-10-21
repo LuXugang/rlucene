@@ -50,7 +50,7 @@ where
     C: Comparator<LR>,
     D: Directory,
 {
-    base_composite_reader_base: BaseCompositeReaderBase<LR, DummyCompositeReader>,
+    base_composite_reader_base: BaseCompositeReaderBase<LR, DummyCompositeReader<LR>>,
     directory_reader_base: DirectoryReaderBase<D>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
@@ -223,12 +223,12 @@ where
     LR: LeafReader + Clone,
 {
     type LeafReader = LR;
-    type CompositeReader = DummyCompositeReader;
+    type CompositeReader = DummyCompositeReader<LR>;
 
     fn get_sequential_sub_readers(
         &self,
     ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
-        todo!()
+        self.base_composite_reader_base.get_sequential_sub_readers()
     }
 
     fn to_string(&self) -> String {
@@ -242,7 +242,7 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    type TermVectors = BCRTermVectorsImpl<LR, DummyCompositeReader>;
+    type TermVectors = BCRTermVectorsImpl<LR, DummyCompositeReader<LR>>;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
         self.base_composite_reader_base.term_vector(self)
@@ -256,7 +256,7 @@ where
         self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields = BCRStoredFieldsImpl<LR, DummyCompositeReader>;
+    type StoredFields = BCRStoredFieldsImpl<LR, DummyCompositeReader<LR>>;
 
     fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base_composite_reader_base.stored_fields(self)

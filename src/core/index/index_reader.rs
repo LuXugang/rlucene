@@ -138,6 +138,14 @@ where
     Leaf(LR),
     Composite(CR),
 }
+impl<CR> IndexReaderEnum<CR::LeafReader, CR>
+where
+    CR: CompositeReader + Clone,
+{
+    pub(crate) fn new(reader: CR) -> Self {
+        IndexReaderEnum::Composite(reader)
+    }
+}
 
 impl<LR, CR> Clone for IndexReaderEnum<LR, CR>
 where

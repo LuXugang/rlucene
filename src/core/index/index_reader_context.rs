@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -41,20 +40,11 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     /// [`IndexReaderContext::children`]
     fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]>;
 
-    /// Returns the context's children iff this context is a composite context otherwise None.
-    fn children(&self) -> Option<&[IndexReaderContextEnum<Self::LeafReader>]>;
-
-    fn base(&self) -> &IndexReaderContextBase<Self::LeafReader>;
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase<Self::LeafReader>;
+    fn base(&self) -> &IndexReaderContextBase;
+    fn base_mut(&mut self) -> &mut IndexReaderContextBase;
 }
 
-pub struct IndexReaderContextBase<LR>
-where
-    LR: LeafReader,
-{
-    /// The reader context for this reader's immediate parent, or `None` if none.
-    pub parent: Option<CompositeReaderContext<LR>>,
-
+pub struct IndexReaderContextBase {
     /// `true` if this context struct represents the top-level reader within the hierarchical context.
     pub is_top_level: bool,
 
@@ -68,21 +58,9 @@ where
     pub identity: Arc<()>,
 }
 
-impl<LR> IndexReaderContextBase<LR>
-where
-    LR: LeafReader,
-{
-    pub fn new(
-        parent: Option<CompositeReaderContext<LR>>,
-        ord_in_parent: i32,
-        doc_base_in_parent: i32,
-    ) -> Self
-    where
-        LR: IndexReader,
-    {
-        let is_top_level = parent.is_none();
+impl IndexReaderContextBase {
+    pub fn new(is_top_level: bool, ord_in_parent: i32, doc_base_in_parent: i32) -> Self {
         Self {
-            parent,
             is_top_level,
             doc_base_in_parent,
             ord_in_parent,
@@ -94,45 +72,6 @@ where
         &self.identity
     }
 }
+pub type IRCTermState<IRC> = <<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
 // Similar to Java's sealed trait pattern
 pub(crate) trait IndexReaderContextSealed {}
-
-pub enum IndexReaderContextEnum<LR>
-where
-    LR: LeafReader,
-{
-    Composite(CompositeReaderContext<LR>),
-    Leaf(LeafReaderContext<LR>),
-}
-
-impl<LR> IndexReaderContextSealed for IndexReaderContextEnum<LR> where LR: LeafReader {}
-
-impl<LR> IndexReaderContext for IndexReaderContextEnum<LR>
-where
-    LR: LeafReader,
-{
-    type IndexReader = LR;
-
-    fn reader(&self) -> &Self::IndexReader {
-        todo!()
-    }
-
-    type LeafReader = LR;
-
-    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
-        todo!()
-    }
-
-    fn children(&self) -> Option<&[IndexReaderContextEnum<Self::LeafReader>]> {
-        todo!()
-    }
-
-    fn base(&self) -> &IndexReaderContextBase<Self::LeafReader> {
-        todo!()
-    }
-
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase<Self::LeafReader> {
-        todo!()
-    }
-}
-pub type IRCTermState<IRC> = <<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;

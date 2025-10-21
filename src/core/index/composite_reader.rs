@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 
 pub trait CompositeReader: IndexReader {
     type LeafReader: LeafReader + Clone;
-    type CompositeReader: CompositeReader;
+    type CompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
     fn get_sequential_sub_readers(
         &self,
     ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>>;

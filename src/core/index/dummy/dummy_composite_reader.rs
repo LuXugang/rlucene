@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 
-#[derive(Clone)]
-pub struct DummyCompositeReader;
+#[derive(Clone, Default)]
+pub struct DummyCompositeReader<LR> {
+    _marker: PhantomData<LR>,
+}
 
-impl IndexReader for DummyCompositeReader {
+impl<LR> DummyCompositeReader<LR> {
+    pub fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<LR> IndexReader for DummyCompositeReader<LR> {
     type TermVectors = DummyTermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -72,15 +83,18 @@ impl IndexReader for DummyCompositeReader {
     }
 }
 
-impl Display for DummyCompositeReader {
+impl<LR> Display for DummyCompositeReader<LR> {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl CompositeReader for DummyCompositeReader {
-    type LeafReader = DummyLeafReader;
-    type CompositeReader = DummyCompositeReader;
+impl<LR> CompositeReader for DummyCompositeReader<LR>
+where
+    LR: LeafReader + Clone,
+{
+    type LeafReader = LR;
+    type CompositeReader = DummyCompositeReader<LR>;
 
     fn get_sequential_sub_readers(
         &self,
