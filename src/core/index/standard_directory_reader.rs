@@ -41,6 +41,10 @@ use std::sync::Arc;
 
 pub struct StandardDirectoryReader<LR, C, D>
 where
+    // LR should implement Clone to support reuse sub_reader_sorter,
+    // after StandardDirectoryReader convert to CompositeReaderContext,
+    // we still need to access sub readers.
+    // we Implement `LeafReader` for Arc<LR> already
     LR: LeafReader + Clone,
     C: Comparator<LR>,
     D: Directory,
@@ -221,8 +225,8 @@ where
 {
     type IndexReader = LR;
 
-    fn get_sequential_sub_readers(&self) -> &[Self::IndexReader] {
-        todo!()
+    fn get_sequential_sub_readers(&self) -> Vec<Self::IndexReader> {
+        self.base_composite_reader_base.get_sequential_sub_readers()
     }
 }
 

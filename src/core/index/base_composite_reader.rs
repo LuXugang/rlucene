@@ -234,8 +234,8 @@ where
         }
         self.starts[reader_index]
     }
-    pub fn get_sequential_sub_readers(&self) -> &[IR] {
-        todo!()
+    pub fn get_sequential_sub_readers(&self) -> Vec<IR> {
+        self.sub_reader.clone()
     }
 }
 pub type BCRTermVectorsImpl<IR> = TermVectorsImpl<IR>;

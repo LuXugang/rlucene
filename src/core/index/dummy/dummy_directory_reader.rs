@@ -53,7 +53,7 @@ where
 {
     type IndexReader = DummyIndexReader;
 
-    fn get_sequential_sub_readers(&self) -> &[Self::IndexReader] {
+    fn get_sequential_sub_readers(&self) -> Vec<Self::IndexReader> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
