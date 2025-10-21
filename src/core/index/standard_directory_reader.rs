@@ -46,12 +46,13 @@ where
     C: Comparator<LR>,
     D: Directory,
 {
-    base_composite_reader_base: BaseCompositeReaderBase<LR, C>,
+    base_composite_reader_base: BaseCompositeReaderBase<LR>,
     directory_reader_base: DirectoryReaderBase<D>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
     // if Some, this reader owns the SegmentInfos, else from IndexWriter
     segment_infos: Option<SegmentInfos<D>>,
+    sub_reader_sorter: Option<Arc<C>>,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
@@ -67,7 +68,7 @@ where
         apply_all_deletes: bool,
         write_all_deletes: bool,
     ) -> Result<Self> {
-        let base_composite_reader_base = BaseCompositeReaderBase::new(readers, leaf_sorter)?;
+        let base_composite_reader_base = BaseCompositeReaderBase::new(readers, &leaf_sorter)?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
         Ok(StandardDirectoryReader {
             base_composite_reader_base,
@@ -75,6 +76,7 @@ where
             apply_all_deletes,
             write_all_deletes,
             segment_infos: Some(segment_infos),
+            sub_reader_sorter: leaf_sorter,
         })
     }
     pub(crate) fn open<IC>(
@@ -207,11 +209,7 @@ where
     D: Directory,
     LR: LeafReader,
 {
-    type Comparator = DummyComparator<Self::IndexReader>;
-
-    fn base_composite_reader_base(
-        &self,
-    ) -> &BaseCompositeReaderBase<Self::IndexReader, Self::Comparator> {
+    fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader> {
         todo!()
     }
 }

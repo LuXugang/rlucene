@@ -28,7 +28,6 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
-use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
@@ -43,11 +42,7 @@ impl<D> BaseCompositeReader for DummyDirectoryReader<D>
 where
     D: Directory,
 {
-    type Comparator = DummyComparator<Self::IndexReader>;
-
-    fn base_composite_reader_base(
-        &self,
-    ) -> &BaseCompositeReaderBase<Self::IndexReader, Self::Comparator> {
+    fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

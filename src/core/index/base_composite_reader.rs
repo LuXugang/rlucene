@@ -52,28 +52,21 @@ use std::sync::atomic::{AtomicI32, Ordering};
 ///
 /// *Lucene internal API*
 pub trait BaseCompositeReader: CompositeReader {
-    type Comparator: Comparator<Self::IndexReader>;
-    fn base_composite_reader_base(
-        &self,
-    ) -> &BaseCompositeReaderBase<Self::IndexReader, Self::Comparator>;
+    fn base_composite_reader_base(&self) -> &BaseCompositeReaderBase<Self::IndexReader>;
 }
 
-pub struct BaseCompositeReaderBase<IR, C>
+pub struct BaseCompositeReaderBase<IR>
 where
     IR: IndexReader,
-    C: Comparator<IR>,
 {
     sub_reader: Vec<Arc<IR>>,
-    /// A comparator for sorting sub-readers
-    sub_reader_sorter: Option<Arc<C>>,
     starts: Arc<Vec<i32>>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
-impl<IR, C> BaseCompositeReaderBase<IR, C>
+impl<IR> BaseCompositeReaderBase<IR>
 where
     IR: IndexReader,
-    C: Comparator<IR>,
 {
     /// Constructs a [`BaseCompositeReader`] on the given sub-readers.
     ///
@@ -87,7 +80,10 @@ where
     ///
     /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
     ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-    pub fn new(mut sub_readers: Vec<Arc<IR>>, sub_reader_sorter: Option<Arc<C>>) -> Result<Self> {
+    pub fn new<C>(mut sub_readers: Vec<Arc<IR>>, sub_reader_sorter: &Option<Arc<C>>) -> Result<Self>
+    where
+        C: Comparator<IR>,
+    {
         if let Some(sorter) = &sub_reader_sorter {
             sub_readers.sort_by(|a, b| sorter.compare_unchecked(a, b).cmp(&0));
         }
@@ -113,7 +109,6 @@ where
 
         Ok(Self {
             sub_reader: sub_readers,
-            sub_reader_sorter,
             starts: Arc::new(starts),
             max_doc: max_doc_i32,
             num_docs: AtomicI32::new(-1),
