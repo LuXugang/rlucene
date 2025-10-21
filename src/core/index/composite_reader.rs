@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader_context::{CompositeReaderContext, create};
 use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::util::error::lucene_error::Result;
 
 pub trait CompositeReader: IndexReader {
     type LeafReader: LeafReader + Clone;
@@ -26,4 +28,11 @@ pub trait CompositeReader: IndexReader {
     fn to_string(&self) -> String {
         todo!()
     }
+}
+
+pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR>>
+where
+    CR: CompositeReader + Clone,
+{
+    create(composite_reader)
 }
