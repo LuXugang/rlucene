@@ -134,6 +134,7 @@ where
         after: Option<ScoreDoc>,
         query: Query,
         num_hits: i32,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopDocs<ScoreDoc>> {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
 
@@ -150,10 +151,15 @@ where
         let manager =
             TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
 
-        self.search_with_collector_manager(query, &manager)
+        self.search_with_collector_manager(query, &manager, term_state)
     }
-    pub fn search(&mut self, query: Query, n: i32) -> Result<TopDocs<ScoreDoc>> {
-        self.search_after_score(None, query, n)
+    pub fn search(
+        &mut self,
+        query: Query,
+        n: i32,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<TopDocs<ScoreDoc>> {
+        self.search_after_score(None, query, n, term_state)
     }
     pub fn get_top_reader_context(&self) -> &IRC {
         &self.reader_context
@@ -168,8 +174,9 @@ where
         num_hits: i32,
         sort: Sort,
         do_doc_scores: bool,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopFieldDocs> {
-        self.do_search_after_field(after, query, num_hits, sort, do_doc_scores)
+        self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
     }
     pub fn search_after_field(
         &mut self,
@@ -177,8 +184,9 @@ where
         query: Query,
         num_hits: i32,
         sort: Sort,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopFieldDocs> {
-        self.do_search_after_field(after, query, num_hits, sort, false)
+        self.do_search_after_field(after, query, num_hits, sort, false, term_state)
     }
 
     fn do_search_after_field(
@@ -188,6 +196,7 @@ where
         num_hits: i32,
         sort: Sort,
         do_doc_scores: bool,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopFieldDocs> {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
 
@@ -211,7 +220,7 @@ where
             TOTAL_HITS_THRESHOLD,
         )?;
 
-        let top_field_docs = self.search_with_collector_manager(query, &manager)?;
+        let top_field_docs = self.search_with_collector_manager(query, &manager, term_state)?;
 
         if do_doc_scores {
             // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;
@@ -224,6 +233,7 @@ where
         &mut self,
         mut query: Query,
         collector_manager: &CM,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
@@ -232,7 +242,7 @@ where
         let needs_scores = first_collector.score_mode().needs_scores();
         query = Self::rewrite_if_needed_scores(query, needs_scores)?;
         let score_mode = first_collector.score_mode();
-        let weight = Arc::new(self.create_weight(query, score_mode, 1.0, None)?);
+        let weight = Arc::new(self.create_weight(query, score_mode, 1.0, term_state)?);
         self.search_with_first_collector(weight, collector_manager, first_collector)
     }
     fn search_with_first_collector<W, CM>(
@@ -368,12 +378,12 @@ where
         query: Q,
         score_mode: ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<WeightEnum<Q, S, IRC, QCP, QC>>
     where
         Q: QueryBase,
     {
-        let weight = query.create_weight(self, &score_mode, boost, per_reader_term_state)?;
+        let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         let v = if !score_mode.needs_scores() {
             Either2Weight::A(
                 self.query_cache
