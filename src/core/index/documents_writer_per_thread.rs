@@ -804,20 +804,12 @@ where
             "segment info should be always set, wrap with Option for easier move"
         );
         let new_segment = flushed_segment.segment_info.as_mut().unwrap();
-        let dir = new_segment.info.dir.clone();
-        // take the SegmentInfo out so we can modify it, and we will give it back
-        let segment_info_share =
-            std::mem::replace(&mut new_segment.info, Arc::new(SegmentInfo::dummy(dir)));
-        let mut segment_info = match Arc::try_unwrap(segment_info_share) {
-            Ok(si) => si,
-            Err(si_arc) => {
-                return Err(LuceneError::illegal_state(
-                    "segment info's Arc count is greater than 1",
-                ));
-            },
-        };
         let res: Result<()> = (|| {
-            set_diagnostics(&mut segment_info, SOURCE_FLUSH);
+            if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
+                set_diagnostics(segment_info, SOURCE_FLUSH);
+            } else {
+                debug_assert!(Arc::strong_count(&new_segment.info) == 1);
+            }
             let context = IOContext::with_flush(FlushInfo::new(
                 new_segment.info.max_doc()?,
                 new_segment.size_in_bytes()?,
@@ -826,27 +818,35 @@ where
             let result: Result<()> = (|| {
                 if index_writer_config.get_use_compound_file() {
                     let original_files = new_segment.info.files()?.clone();
-                    let dir = TrackingDirectoryWrapper::new(self.directory.clone());
-                    create_compound_file(
-                        &self.info_stream,
-                        &dir,
-                        &mut segment_info,
-                        &context,
-                        IOConsumerImpl::new(flush_notifications),
-                    )?;
-                    self.files_to_delete.extend(original_files);
-                    segment_info.set_use_compound_file(true);
+                    if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
+                        let dir = TrackingDirectoryWrapper::new(self.directory.clone());
+                        create_compound_file(
+                            &self.info_stream,
+                            &dir,
+                            segment_info,
+                            &context,
+                            IOConsumerImpl::new(flush_notifications),
+                        )?;
+                        self.files_to_delete.extend(original_files);
+                        segment_info.set_use_compound_file(true);
+                    } else {
+                        debug_assert!(Arc::strong_count(&new_segment.info) == 1);
+                    }
                 }
 
                 // Have codec write SegmentInfo.  Must do this after
                 // creating CFS so that 1) .si isn't slurped into CFS,
                 // and 2) .si reflects useCompoundFile=true change
                 // above:
-                LATEST_CODEC.segment_info_format().write(
-                    self.directory.as_ref(),
-                    &mut segment_info,
-                    &context,
-                )?;
+                if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
+                    LATEST_CODEC.segment_info_format().write(
+                        self.directory.as_ref(),
+                        segment_info,
+                        &context,
+                    )?;
+                } else {
+                    debug_assert!(Arc::strong_count(&new_segment.info) == 1);
+                }
 
                 // TODO: ideally we would freeze newSegment here!!
                 // because any changes after writing the .si will be
@@ -914,8 +914,6 @@ where
             }
             result
         })();
-        // return back the segment info, even error happens
-        new_segment.info = Arc::new(segment_info);
         res
     }
 
