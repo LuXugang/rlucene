@@ -375,10 +375,13 @@ where
         &self,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        // TODO
-        // debug_assert!(self.term_states.is_some() || self.term_states.as_ref().unwrap().was_built_for(&_context.get_top_level_context()),);
-        //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
-        // );
+        debug_assert!(
+            {
+                let v = ReaderUtil::get_top_level_context(context);
+                self.term_states.lock().was_built_for::<IRC>(v)
+            },
+            "The top-reader used to create Weight is not the same as the current reader's top-reader"
+        );
         let state_supplier = self.term_states.lock().get(context)?;
         let Query::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
