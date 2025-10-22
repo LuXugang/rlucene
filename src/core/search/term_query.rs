@@ -66,17 +66,6 @@ impl TermQuery {
     {
         Self { term: term.into() }
     }
-    /// Expert: constructs a [`TermQuery`] and returns it along with the provided [`TermStates`].
-    pub fn new_with_states<T, IRC>(
-        term: T,
-        states: TermStates<IRCTermState<IRC>>,
-    ) -> (Self, TermStates<IRCTermState<IRC>>)
-    where
-        IRC: IndexReaderContext,
-        T: Into<Arc<Term>>,
-    {
-        (Self { term: term.into() }, states)
-    }
     pub fn get_term(&self) -> Arc<Term> {
         self.term.clone()
     }
