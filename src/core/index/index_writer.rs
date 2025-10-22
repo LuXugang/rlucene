@@ -2668,7 +2668,7 @@ where
                     Ok(r)
                 })();
                 match result2 {
-                    Ok(_) => {},
+                    Ok(v) => Ok(v),
                     Err(e) => {
                         self.doc_writer.finish_full_flush(success)?;
                         if success {
@@ -2680,21 +2680,19 @@ where
                             self.info_stream
                                 .message("IW", "hit exception during NRT reader");
                         }
-                        return Err(e);
+                        Err(e)
                     },
                 }
-            };
-            // TODO: 这里要判断onGetReaderMerges是否为空 不过段的合并还未实现
-            Ok(())
+            }
         })();
         // TODO: 返回之前需要关闭一些 但是rust Lucene不需要？
         match result1 {
-            Ok(_) => {
-                todo!()
+            Ok(v) => Ok(v),
+            Err(e) => {
+                self.tragic_event(&e, "get_reader");
+                Err(e)
             },
-            Err(e) => self.tragic_event(&e, "get_reader"),
         }
-        todo!()
     }
 }
 pub(crate) struct IOConsumerImpl<'a, D, L, B>

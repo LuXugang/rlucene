@@ -42,7 +42,7 @@ fn test_doc_count() -> Result<()> {
         add_doc_with_index(&writer, i)?;
     }
     writer.commit()?;
-
+    let reader = writer.get_reader(false, false)?;
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(n, doc_stats.max_doc);
     assert_eq!(n, doc_stats.num_docs);

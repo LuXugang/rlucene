@@ -332,14 +332,17 @@ where
         s
     }
     /// Returns the version of the code which wrote the segment.
-    pub fn get_version(&self) -> Option<&Version> {
+    pub fn get_version_ref(&self) -> Option<&Version> {
         self.version.as_ref()
     }
 
     /// Returns the minimum Lucene version that contributed documents to this
     /// segment, or `None` if it is unknown.
-    pub fn get_min_version(&self) -> Option<&Version> {
+    pub fn get_min_version_ref(&self) -> Option<&Version> {
         self.min_version.as_ref()
+    }
+    pub fn get_min_version(&self) -> Option<Version> {
+        self.min_version.as_ref().cloned()
     }
 
     /// Returns the id that uniquely identifies this segment.
@@ -426,8 +429,8 @@ where
 
     /// Returns the sort order of this segment, or None if the index has no
     /// sort.
-    pub fn get_index_sort(&self) -> Option<&Arc<Sort>> {
-        self.index_sort.as_ref()
+    pub fn get_index_sort(&self) -> Option<Arc<Sort>> {
+        self.index_sort.as_ref().cloned()
     }
 
     pub(crate) fn dummy(dir: Arc<D>) -> Self {

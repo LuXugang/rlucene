@@ -292,16 +292,16 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     &id,
                     &io_context,
                 )?;
-                assert!(info2.get_version().is_some());
-                assert_eq!(*info2.get_version().unwrap(), version.clone());
+                assert!(info2.get_version_ref().is_some());
+                assert_eq!(*info2.get_version_ref().unwrap(), version.clone());
                 if self.supports_min_version() {
                     if min_version.is_none() {
-                        assert_eq!(info2.get_min_version(), None);
+                        assert_eq!(info2.get_min_version_ref(), None);
                     } else {
-                        assert_eq!(*info2.get_min_version().unwrap(), min_version.unwrap());
+                        assert_eq!(*info2.get_min_version_ref().unwrap(), min_version.unwrap());
                     }
                 } else {
-                    assert_eq!(info2.get_min_version(), None);
+                    assert_eq!(info2.get_min_version_ref(), None);
                 }
             }
         }
@@ -473,7 +473,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     .read(dir.clone(), "_123", &id, &io_context)?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
-                assert!(*sort_clone.as_ref().unwrap() == *info2.get_index_sort().unwrap());
+                assert!(*sort_clone.as_ref().unwrap() == info2.get_index_sort().unwrap());
             } else {
                 assert!(sort_clone.is_none())
             }
@@ -596,8 +596,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             "UseCompoundFile values do not match"
         );
         assert_eq!(
-            expected.get_version().unwrap(),
-            actual.get_version().unwrap(),
+            expected.get_version_ref().unwrap(),
+            actual.get_version_ref().unwrap(),
             "Versions do not match"
         );
         assert_eq!(

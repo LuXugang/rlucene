@@ -173,7 +173,7 @@ impl Lucene99SegmentInfoFormat {
     where
         D: Directory,
     {
-        let version_wrap = si.get_version();
+        let version_wrap = si.get_version_ref();
         debug_assert!(version_wrap.is_some());
         let version = version_wrap.unwrap();
         if version.major < 7 {
@@ -188,7 +188,7 @@ impl Lucene99SegmentInfoFormat {
 
         // Write the min Lucene version that contributed docs to the segment,
         // since 7.0
-        if let Some(min_version) = si.get_min_version() {
+        if let Some(min_version) = si.get_min_version_ref() {
             output.write_byte(1)?;
             output.write_int(min_version.major)?;
             output.write_int(min_version.minor)?;

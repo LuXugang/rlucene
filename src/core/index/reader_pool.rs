@@ -470,8 +470,8 @@ where
         if create {
             rld.inc_ref();
         }
-
-        debug_assert!(self.no_dups());
+        #[cfg(test)]
+        debug_assert!(self.no_dups(&inner));
 
         Ok(Some(rld))
     }
@@ -497,8 +497,7 @@ where
         }
     }
     /// Make sure that every segment appears only once in the pool.
-    fn no_dups(&self) -> bool {
-        let inner = self.inner.lock();
+    fn no_dups(&self, inner: &Inner<D>) -> bool {
         let mut seen = std::collections::HashSet::new();
 
         for rld in inner.reader_map.keys() {

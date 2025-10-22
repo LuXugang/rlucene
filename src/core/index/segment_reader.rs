@@ -85,8 +85,8 @@ where
         let si = si.clone();
         let meta_data = LeafMetaData::new(
             created_version_major,
-            Some(si.info.get_min_version().unwrap().clone()),
-            Some(si.info.get_index_sort().unwrap().clone()),
+            si.info.get_min_version(),
+            si.info.get_index_sort().clone(),
             si.info.get_has_blocks(),
         )?;
 

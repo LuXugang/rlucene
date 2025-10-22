@@ -461,9 +461,9 @@ where
             };
 
             if let Some(min_version) = &infos.min_segment_lucene_version {
-                debug_assert!(info.get_version().is_some());
+                debug_assert!(info.get_version_ref().is_some());
                 if !info
-                    .get_version()
+                    .get_version_ref()
                     .as_ref()
                     .unwrap()
                     .on_or_after(min_version)
@@ -472,23 +472,25 @@ where
                         "segments file recorded minSegmentLuceneVersion={} but segment={} has older version={} (resource={})",
                         min_version,
                         seg_name,
-                        info.get_version().as_ref().unwrap(),
+                        info.get_version_ref().as_ref().unwrap(),
                         input
                     )));
                 }
             }
             if infos.index_created_version_major >= 7 {
-                if info.get_version().as_ref().unwrap().major < infos.index_created_version_major {
+                if info.get_version_ref().as_ref().unwrap().major
+                    < infos.index_created_version_major
+                {
                     return Err(LuceneError::corrupt_index(format!(
                         "segments file recorded indexCreatedVersionMajor={} but segment={} has older version={} (resource={})",
                         infos.index_created_version_major,
                         seg_name,
-                        info.get_version().as_ref().unwrap(),
+                        info.get_version_ref().as_ref().unwrap(),
                         input
                     )));
                 }
 
-                if info.get_min_version().is_none() {
+                if info.get_min_version_ref().is_none() {
                     return Err(LuceneError::corrupt_index(format!(
                         "segments infos must record minVersion with indexCreatedVersionMajor={} (resource={})",
                         infos.index_created_version_major, input
