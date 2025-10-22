@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_query_timeout::DummyQueryTimeout;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
@@ -31,11 +32,13 @@ use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
@@ -43,13 +46,15 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::{Arc, LazyLock};
+use sysinfo::System;
 
 pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
 const TOTAL_HITS_THRESHOLD: i32 = 1000;
@@ -57,6 +62,16 @@ const TOTAL_HITS_THRESHOLD: i32 = 1000;
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
 const MAX_SEGMENTS_PER_SLICE: usize = 5;
+
+pub static MAX_CACHED_QUERIES: i32 = 1000;
+pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    let total_mem_bytes = sys.total_memory() * 1024;
+    let five_percent = total_mem_bytes / 20;
+    debug_assert!(five_percent <= i64::MAX as u64);
+    std::cmp::min(32 * (1 << 20), five_percent as i64)
+});
 pub struct IndexSearcher<IRC, S, QT, QCP, QC>
 where
     IRC: IndexReaderContext,
@@ -71,12 +86,67 @@ where
     leaf_slices_init_lock: Mutex<()>,
     query_timeout: Option<QT>,
     query_caching_policy: Arc<QCP>,
-    query_cache: Arc<QC>,
+    query_cache: QC,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
     // this variable volatile since joining these threads should ensure a happens-before relationship
     // that guarantees that writes become visible on the main thread, but making the variable volatile
     // shouldn't hurt either.
     partial_result: AtomicBool,
+}
+impl<IRC>
+    IndexSearcher<
+        IRC,
+        BM25Similarity,
+        DummyQueryTimeout,
+        UsageTrackingQueryCachingPolicy,
+        Arc<LRUQueryCache<MinSegmentSizePredicate<IRC::LeafReader>>>,
+    >
+where
+    IRC: IndexReaderContext,
+    <IRC as IndexReaderContext>::LeafReader: Send + Sync,
+{
+    pub fn new(context: IRC) -> Result<Self> {
+        debug_assert!(
+            context.base().is_top_level,
+            "IndexSearcher's ReaderContext must be topLevel for reader {}",
+            context.reader()
+        );
+
+        let reader = context.reader();
+        let leaf_contexts = context.leaves()?;
+
+        let leaf_slices = if leaf_contexts.is_empty() {
+            Some(Arc::new(Vec::new()))
+        } else {
+            let partitions = leaf_contexts
+                .iter()
+                .map(|ctx| LeafReaderContextPartition::create_for_entire_segment(ctx))
+                .collect::<Result<Vec<_>>>()?;
+
+            let slice = LeafSlice {
+                partitions,
+                max_docs: reader.max_doc()?,
+            };
+            Some(Arc::new(vec![slice]))
+        };
+        let leaves_to_cache = MinSegmentSizePredicate::new(10000);
+        let lru_query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
+            MAX_CACHED_QUERIES,
+            *MAX_RAM_BYTES_USED,
+            10f32,
+            leaves_to_cache,
+        )?);
+        Ok(Self {
+            reader_context: context,
+            leaf_slices,
+            similarity: Arc::new(BM25Similarity::new()?),
+            leaf_slices_init_lock: Mutex::new(()),
+            query_timeout: None,
+            query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
+            query_cache: lru_query_cache,
+            partial_result: AtomicBool::new(false),
+        })
+    }
 }
 
 impl<IRC, S, QT, QCP, QC> IndexSearcher<IRC, S, QT, QCP, QC>
@@ -87,7 +157,11 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    pub fn stored_fields(&self) {}
+    // TODO: IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
+
+    pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
+        self.reader_context.reader().stored_fields()
+    }
 
     /// Returns the leaf slices used for concurrent searching. Override [`slices()`](Self::slices) to customize how slices are created.
     pub fn get_slices_ref(&mut self) -> Result<&[LeafSlice]> {
