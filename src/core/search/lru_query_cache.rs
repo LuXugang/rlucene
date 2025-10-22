@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::reader_util::ReaderUtil;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -1236,6 +1237,20 @@ where
         if max_doc < self.min_size {
             return Ok(false);
         }
-        todo!()
+        let top_level_context = ReaderUtil::get_top_level_context(context);
+        let average_total_docs = match top_level_context {
+            Some(tlc) => {
+                let doc = tlc.reader().max_doc()?;
+                debug_assert!(tlc.leaves()?.len() <= i32::MAX as usize);
+                let size = tlc.leaves()?.len() as i32;
+                doc / size
+            },
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "context should have top level context",
+                ));
+            },
+        };
+        Ok((max_doc * 2) > average_total_docs)
     }
 }
