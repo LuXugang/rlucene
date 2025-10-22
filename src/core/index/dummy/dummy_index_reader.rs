@@ -21,6 +21,7 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -111,6 +112,7 @@ impl IndexReader for DummyIndexReader {
 }
 impl LeafReader for DummyIndexReader {
     type CacheHelper = DummyCacheHelper;
+    type ParentReader = DummyCompositeReader<DummyIndexReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

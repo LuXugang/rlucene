@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
+use std::sync::{Arc, Weak};
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
 pub struct LeafReaderContext<LR>
@@ -32,22 +34,31 @@ where
     pub(crate) doc_base: i32,
     reader: LR,
     base: IndexReaderContextBase,
+    pub(crate) top_parent: Option<Weak<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>,
 }
 impl<LR> LeafReaderContext<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(reader: LR, ord: i32, doc_base: i32, leaf_ord: usize, leaf_doc_base: i32) -> Self {
+    pub fn new(
+        reader: LR,
+        ord: i32,
+        doc_base: i32,
+        leaf_ord: usize,
+        leaf_doc_base: i32,
+        parent: Option<Weak<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>,
+    ) -> Self {
         Self {
             ord: leaf_ord,
             doc_base: leaf_doc_base,
             reader,
             base: IndexReaderContextBase::new(false, ord, doc_base),
+            top_parent: parent,
         }
     }
 
     pub fn new_single(reader: LR) -> Self {
-        Self::new(reader, 0, 0, 0, 0)
+        Self::new(reader, 0, 0, 0, 0, None)
     }
 }
 impl<LR> IndexReaderContextSealed for LeafReaderContext<LR> where LR: LeafReader {}
@@ -64,13 +75,13 @@ where
 
     type LeafReader = LR;
 
-    fn leaves(&self) -> Result<&[LeafReaderContext<Self::IndexReader>]> {
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::IndexReader>>]> {
         if !self.base.is_top_level {
             return Err(LuceneError::unsupported_operation(
                 "This is not a top-level context".to_string(),
             ));
         }
-        Ok(std::slice::from_ref(self))
+        Ok(&[])
     }
 
     fn base(&self) -> &IndexReaderContextBase {
@@ -79,6 +90,15 @@ where
 
     fn base_mut(&mut self) -> &mut IndexReaderContextBase {
         &mut self.base
+    }
+}
+
+impl<LR> LeafReaderContext<LR>
+where
+    LR: LeafReader,
+{
+    pub fn parent(&self) -> Option<Arc<CompositeReaderContext<LR::ParentReader>>> {
+        self.top_parent.as_ref().unwrap().upgrade()
     }
 }
 impl<LR> fmt::Display for LeafReaderContext<LR>

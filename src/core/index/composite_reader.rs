@@ -31,9 +31,10 @@ pub trait CompositeReader: IndexReader {
     }
 }
 
-pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR>>
+pub fn get_context<CR>(composite_reader: CR) -> Result<Arc<CompositeReaderContext<CR>>>
 where
     CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
 {
     create(composite_reader)
 }

@@ -21,6 +21,7 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -35,7 +36,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct DocValuesLeafReader;
 
 impl Display for DocValuesLeafReader {
@@ -92,6 +93,7 @@ impl IndexReader for DocValuesLeafReader {
 
 impl LeafReader for DocValuesLeafReader {
     type CacheHelper = DummyCacheHelper;
+    type ParentReader = DummyCompositeReader<DocValuesLeafReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         Err(LuceneError::unsupported_operation(""))

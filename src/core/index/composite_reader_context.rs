@@ -22,31 +22,44 @@ use crate::core::index::index_reader_context::{
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
+use std::sync::{Arc, Weak};
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
 pub struct CompositeReaderContext<CR>
 where
     CR: CompositeReader,
 {
-    leaves: Vec<LeafReaderContext<CR::LeafReader>>,
+    leaves: Vec<Arc<LeafReaderContext<CR::LeafReader>>>,
     reader: CR,
     base: IndexReaderContextBase,
 }
-pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
+pub(crate) fn create<CR>(reader: CR) -> Result<Arc<CompositeReaderContext<CR>>>
 where
     CR: CompositeReader,
     CR: Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
 {
     let v = IndexReaderEnum::new(reader.clone());
-    let mut builder = Builder::new();
-    builder.build(v, 0, 0)?;
-    let leaves = builder.leaves.take().unwrap();
     let base = IndexReaderContextBase::new(true, 0, 0);
-    Ok(CompositeReaderContext {
+    let mut builder = Builder::<CR::LeafReader, CR>::new();
+    builder.build::<CR>(v, 0, 0)?;
+    let leaves = builder.leaves.take().unwrap();
+    let mut ctx_arc = Arc::new(CompositeReaderContext {
         leaves,
         reader,
         base,
-    })
+    });
+    let weak_ctx = Arc::downgrade(&ctx_arc);
+    {
+        let ctx_mut = Arc::get_mut(&mut ctx_arc).expect("composite context should be unique here");
+        for leaf in &mut ctx_mut.leaves {
+            if let Some(leaf_mut) = Arc::get_mut(leaf) {
+                leaf_mut.top_parent = Some(Weak::clone(&weak_ctx));
+            }
+        }
+    }
+    Ok(ctx_arc)
 }
 
 impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
@@ -63,7 +76,7 @@ where
 
     type LeafReader = CR::LeafReader;
 
-    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
         Ok(self.leaves.as_slice())
     }
 
@@ -76,28 +89,53 @@ where
     }
 }
 
-struct Builder<LR>
+impl<CR> CompositeReaderContext<CR>
 where
-    LR: LeafReader,
+    CR: CompositeReader,
+{
+    pub fn identity(&self) -> &Arc<()> {
+        self.base.id()
+    }
+
+    pub fn contains_leaf(this: &Arc<Self>, leaf: &Arc<LeafReaderContext<CR::LeafReader>>) -> bool
+    where
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        leaf.top_parent
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .is_some_and(|parent| Arc::ptr_eq(&parent, this))
+    }
+}
+
+struct Builder<LR, PR>
+where
+    LR: LeafReader<ParentReader = PR>,
+    PR: CompositeReader,
 {
     // for easy taken
-    pub(crate) leaves: Option<Vec<LeafReaderContext<LR>>>,
+    pub(crate) leaves: Option<Vec<Arc<LeafReaderContext<LR>>>>,
     pub(crate) leaf_doc_base: i32,
+    _marker: PhantomData<PR>,
 }
-impl<LR> Builder<LR>
+impl<LR, PR> Builder<LR, PR>
 where
-    LR: LeafReader,
+    LR: LeafReader<ParentReader = PR>,
+    PR: CompositeReader,
 {
     fn new() -> Self {
         Self {
             leaves: Some(Vec::new()),
             leaf_doc_base: 0,
+            _marker: PhantomData,
         }
     }
 }
-impl<LR> Builder<LR>
+impl<LR, PR> Builder<LR, PR>
 where
-    LR: LeafReader + Clone,
+    LR: LeafReader<ParentReader = PR> + Clone,
+    PR: CompositeReader,
 {
     fn build<CR>(&mut self, reader: IndexReaderEnum<LR, CR>, ord: i32, doc_base: i32) -> Result<()>
     where
@@ -106,7 +144,14 @@ where
         match &reader {
             IndexReaderEnum::Leaf(ar) => {
                 self.leaf_doc_base += ar.max_doc()?;
-                let atomic = LeafReaderContext::new(ar.clone(), ord, doc_base, 0, 0);
+                let atomic = Arc::new(LeafReaderContext::new(
+                    ar.clone(),
+                    ord,
+                    doc_base,
+                    0,
+                    0,
+                    None,
+                ));
                 self.leaves.as_mut().unwrap().push(atomic);
             },
             IndexReaderEnum::Composite(composite_reader) => {

@@ -321,7 +321,8 @@ where
         W: Weight<IRC::LeafReader>,
         C: Collector,
     {
-        let ctx = &self.reader_context.leaves()?[ctx_ord];
+        let ctx_arc = Arc::clone(&self.reader_context.leaves()?[ctx_ord]);
+        let ctx = ctx_arc.as_ref();
         let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {
             Ok(leaf_collector) => leaf_collector,
             Err(LuceneError::CollectionTerminated(_)) => {
@@ -473,7 +474,7 @@ pub fn set_max_clause_count(value: i32) {
     MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
 }
 pub fn do_slices<LR>(
-    leaves: &[LeafReaderContext<LR>],
+    leaves: &[Arc<LeafReaderContext<LR>>],
     max_docs_per_slice: i32,
     max_segments_per_slice: usize,
     allow_segment_partitions: bool,
@@ -481,13 +482,14 @@ pub fn do_slices<LR>(
 where
     LR: LeafReader,
 {
-    let mut ctx_map: HashMap<usize, &LeafReaderContext<LR>> = HashMap::with_capacity(leaves.len());
+    let mut ctx_map: HashMap<usize, Arc<LeafReaderContext<LR>>> =
+        HashMap::with_capacity(leaves.len());
     let mut sorted_leaves: Vec<(usize, i32)> = Vec::with_capacity(leaves.len());
 
-    for ctx in leaves {
-        let ord = ctx.ord;
-        let max_doc = ctx.reader().max_doc()?;
-        ctx_map.insert(ord, ctx);
+    for ctx_arc in leaves {
+        let ord = ctx_arc.ord;
+        let max_doc = ctx_arc.reader().max_doc()?;
+        ctx_map.insert(ord, Arc::clone(ctx_arc));
         sorted_leaves.push((ord, max_doc));
     }
     sorted_leaves.sort_by(|a, b| b.1.cmp(&a.1));
@@ -498,7 +500,7 @@ where
         let mut group: Option<Vec<LeafReaderContextPartition>> = None;
 
         for (ord, _) in sorted_leaves {
-            let ctx = ctx_map[&ord];
+            let ctx = ctx_map[&ord].as_ref();
             let ctx_max_doc = ctx.reader().max_doc()?;
             if ctx_max_doc > max_docs_per_slice {
                 assert!(group.is_none());
@@ -562,7 +564,7 @@ where
     let mut group: Option<Vec<usize>> = None;
 
     for (ord, _) in sorted_leaves {
-        let ctx = ctx_map[&ord];
+        let ctx = ctx_map[&ord].as_ref();
         let ctx_max_doc = ctx.reader().max_doc()?;
 
         if ctx_max_doc > max_docs_per_slice {
@@ -592,7 +594,7 @@ where
     for ords in grouped_leaves {
         let mut partitions = Vec::new();
         for ord in ords {
-            let ctx = ctx_map[&ord];
+            let ctx = ctx_map[&ord].as_ref();
             let partition = LeafReaderContextPartition::create_for_entire_segment(ctx)?;
             partitions.push(partition);
         }
@@ -612,7 +614,7 @@ where
 ///
 /// This is an implementation limitation that we expect to improve in future releases,
 /// see [the corresponding GitHub issue](https://github.com/apache/lucene/issues/13745).
-pub fn slices<LR>(leaves: &[LeafReaderContext<LR>]) -> Result<Vec<LeafSlice>>
+pub fn slices<LR>(leaves: &[Arc<LeafReaderContext<LR>>]) -> Result<Vec<LeafSlice>>
 where
     LR: LeafReader,
 {

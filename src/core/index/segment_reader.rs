@@ -39,6 +39,7 @@ use crate::core::index::segment_core_readers::{
 };
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::index::segment_doc_values_producer::SegmentDocValuesProducer;
+use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -402,6 +403,7 @@ where
     D: Directory,
 {
     type CacheHelper = SegmentCoreReadersCacheHelperImpl;
+    type ParentReader = StandardDirectoryReaderType<D>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         Ok(Option::from(self.core.get_cache_helper_ref()))
