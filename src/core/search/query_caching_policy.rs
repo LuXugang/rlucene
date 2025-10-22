@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::QueryBase;
+use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
 
 /// A policy defining which filters should be cached.
@@ -28,9 +28,7 @@ pub trait QueryCachingPolicy {
     /// Callback that is called every time that a cached filter is used.
     /// This is typically useful if the policy wants to track usage statistics
     /// in order to make decisions.
-    fn on_use<Q>(&self, query: &Q)
-    where
-        Q: QueryBase;
+    fn on_use(&self, query: &Query);
 
     /// Whether the given [`Query`] is worth caching.
     ///
@@ -38,7 +36,5 @@ pub trait QueryCachingPolicy {
     /// It will first attempt to load a [`DocIdSet`](crate::core::search::doc_id_set::DocIdSet) from the cache. If it is not cached yet
     /// and this method returns `true` then a cache entry will be generated.
     /// Otherwise an uncached scorer will be returned.
-    fn should_cache<Q>(&self, query: &Q) -> Result<bool>
-    where
-        Q: QueryBase;
+    fn should_cache(&self, query: &Query) -> Result<bool>;
 }

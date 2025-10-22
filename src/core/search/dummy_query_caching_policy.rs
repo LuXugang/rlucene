@@ -14,22 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::QueryBase;
+use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 
 pub struct DummyQueryCachingPolicy;
 impl QueryCachingPolicy for DummyQueryCachingPolicy {
-    fn on_use<Q>(&self, _query: &Q)
-    where
-        Q: QueryBase,
-    {
+    fn on_use(&self, _query: &Query) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn should_cache<Q>(&self, _query: &Q) -> crate::core::util::error::lucene_error::Result<bool>
-    where
-        Q: QueryBase,
-    {
+    fn should_cache(&self, _query: &Query) -> crate::core::util::error::lucene_error::Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
