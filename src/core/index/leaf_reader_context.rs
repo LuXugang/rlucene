@@ -97,7 +97,7 @@ impl<LR> LeafReaderContext<LR>
 where
     LR: LeafReader,
 {
-    pub fn parent(&self) -> Option<Arc<CompositeReaderContext<LR::ParentReader>>> {
+    pub fn top_parent(&self) -> Option<Arc<CompositeReaderContext<LR::ParentReader>>> {
         self.top_parent.as_ref().unwrap().upgrade()
     }
 }

@@ -14,9 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use std::sync::Arc;
 
 pub struct ReaderUtil;
 impl ReaderUtil {
+    pub fn get_top_level_context<LR>(
+        leaf_reader: &LeafReaderContext<LR>,
+    ) -> Option<Arc<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>
+    where
+        LR: LeafReader,
+    {
+        leaf_reader.top_parent()
+    }
     pub fn sub_index(n: i32, doc_starts: &[i32]) -> usize {
         debug_assert!(doc_starts.len() <= i32::MAX as usize);
         let size = doc_starts.len();
