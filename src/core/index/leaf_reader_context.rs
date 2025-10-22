@@ -87,10 +87,6 @@ where
     fn base(&self) -> &IndexReaderContextBase {
         &self.base
     }
-
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
-        &mut self.base
-    }
 }
 
 impl<LR> LeafReaderContext<LR>

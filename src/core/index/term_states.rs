@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::base_terms_enum::TermStateImpl1;
+use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
@@ -90,11 +91,29 @@ where
     {
         Self::new(None, context)
     }
-    pub fn was_built_for<IRC>(&self, context: &IRC) -> bool
+    pub fn was_built_for<IRC>(
+        &self,
+        context: Option<
+            Arc<
+                CompositeReaderContext<
+                    <<IRC as IndexReaderContext>::LeafReader as LeafReader>::ParentReader,
+                >,
+            >,
+        >,
+    ) -> bool
     where
         IRC: IndexReaderContext,
     {
-        Arc::ptr_eq(&self.top_reader_context_identity, &context.base().identity)
+        match context {
+            None => false,
+            Some(c) => self.was_built_for_some(c.as_ref()),
+        }
+    }
+    pub fn was_built_for_some<IRC>(&self, irc: &IRC) -> bool
+    where
+        IRC: IndexReaderContext,
+    {
+        Arc::ptr_eq(&self.top_reader_context_identity, &irc.base().identity)
     }
     pub fn with_state_and_stats<IRC>(
         context: &IRC,

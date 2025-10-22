@@ -41,7 +41,6 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]>;
 
     fn base(&self) -> &IndexReaderContextBase;
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase;
 }
 
 pub struct IndexReaderContextBase {

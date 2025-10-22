@@ -45,8 +45,4 @@ impl IndexReaderContext for DummyIndexReaderContext {
     fn base(&self) -> &IndexReaderContextBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-
-    fn base_mut(&mut self) -> &mut IndexReaderContextBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
 }

@@ -24,6 +24,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
@@ -133,7 +134,7 @@ impl QueryBase for TermQuery {
     {
         let context = searcher.get_top_reader_context();
         let term_state = match per_reader_term_state {
-            Some(states) if states.was_built_for(context) => states,
+            Some(states) if states.was_built_for_some(context) => states,
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
@@ -235,11 +236,13 @@ where
         &self,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<LRTermsEnum<IRC::LeafReader>>> {
-        // TODO:
-        // debug_assert!(
-        //     term_states.was_built_for(&context.get_top_level_context()),
-        //     "The top-reader used to create Weight is not the same as the current reader's top-reader"
-        // );
+        debug_assert!(
+            {
+                let v = ReaderUtil::get_top_level_context(context);
+                self.term_states.lock().was_built_for::<IRC>(v)
+            },
+            "The top-reader used to create Weight is not the same as the current reader's top-reader"
+        );
         let mut term_states = self.term_states.lock();
         let supplier = term_states.get(context)?;
 
