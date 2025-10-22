@@ -95,6 +95,7 @@ mod total_hit_count_collector;
 mod total_hit_count_collector_manager;
 mod total_hits;
 pub mod two_phase_iterator;
+mod usage_tracking_query_caching_policy;
 mod vector_scorer;
 mod vector_similarity_collector;
 pub mod weight;

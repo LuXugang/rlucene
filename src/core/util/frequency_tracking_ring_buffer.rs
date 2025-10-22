@@ -109,6 +109,7 @@ impl IntBag {
         let mut slot = (key as usize) & self.mask;
         loop {
             if self.keys[slot] == key {
+                debug_assert!(self.freqs[slot] >= 0);
                 return self.freqs[slot];
             } else if self.freqs[slot] == 0 {
                 return 0;
