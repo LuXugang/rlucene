@@ -386,15 +386,16 @@ where
         let Query::Term(parent_query) = self.parent_query.as_ref() else {
             unreachable!("should never happen");
         };
-        let term_enum = context
-            .reader()
-            .terms(parent_query.term.field())?
-            .as_mut()
-            .unwrap()
-            .iterator()?;
+
         match state_supplier {
             None => Ok(None),
             Some(v) => {
+                let term_enum = context
+                    .reader()
+                    .terms(parent_query.term.field())?
+                    .as_mut()
+                    .unwrap()
+                    .iterator()?;
                 debug_assert!(self.sim_scorer.is_some());
                 Ok(Some(TermScorerSupplier::new(
                     false,

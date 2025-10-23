@@ -44,12 +44,9 @@ pub struct SegmentTermsEnumFrame {
     pub(crate) fp_orig: i64,
     pub(crate) fp_end: i64,
     pub(crate) total_suffix_bytes: i64, // for stats
-    pub(crate) suffix_bytes: Vec<u8>,
     pub(crate) suffixes_reader: ByteArrayDataInput<Vec<u8>>,
 
-    pub(crate) suffix_length_bytes: Vec<u8>,
     pub(crate) suffix_lengths_reader: ByteArrayDataInput<Vec<u8>>,
-    pub(crate) stat_bytes: Vec<u8>,
     pub(crate) stats_singleton_run_length: i32,
     pub(crate) stats_reader: ByteArrayDataInput<Vec<u8>>,
 
@@ -89,7 +86,6 @@ pub struct SegmentTermsEnumFrame {
     pub(crate) state: BlockTermStateEnum,
 
     // metadata buffer
-    pub(crate) bytes: Vec<u8>,
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
     start_byte_pos: i32,
@@ -105,6 +101,14 @@ impl SegmentTermsEnumFrame {
     {
         let mut state = fr.parent.postings_reader.new_term_state()?;
         state.get_block_term_state().total_term_freq = -1;
+        let suffix_bytes = vec![0u8; 32];
+        let suffixes_reader = ByteArrayDataInput::with_bytes(suffix_bytes);
+        let suffix_length_bytes = vec![0u8; 32];
+        let suffix_lengths_reader = ByteArrayDataInput::with_bytes(suffix_length_bytes);
+        let stat_bytes = vec![0u8; 64];
+        let stats_reader = ByteArrayDataInput::with_bytes(stat_bytes);
+        let bytes = vec![0u8; 32];
+        let bytes_reader = ByteArrayDataInput::with_bytes(bytes);
         Ok(Self {
             ord,
             state,
@@ -119,15 +123,12 @@ impl SegmentTermsEnumFrame {
             fp_end: 0,
             total_suffix_bytes: 0,
 
-            suffix_bytes: vec![0u8; 128],
-            suffixes_reader: ByteArrayDataInput::new(),
+            suffixes_reader,
 
-            suffix_length_bytes: vec![0u8; 32],
-            suffix_lengths_reader: ByteArrayDataInput::new(),
+            suffix_lengths_reader,
 
-            stat_bytes: vec![0u8; 64],
             stats_singleton_run_length: 0,
-            stats_reader: ByteArrayDataInput::new(),
+            stats_reader,
 
             rewind_pos: 0,
             floor_data_reader: ByteArrayDataInput::new(),
@@ -146,8 +147,7 @@ impl SegmentTermsEnumFrame {
 
             meta_data_upto: 0,
 
-            bytes: vec![0u8; 32],
-            bytes_reader: ByteArrayDataInput::new(),
+            bytes_reader,
             start_byte_pos: 0,
             suffix_length: 0,
             sub_code: 0,
@@ -281,9 +281,10 @@ impl SegmentTermsEnumFrame {
         frame.is_leaf_block = (code_l & 0x04) != 0;
         let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
 
-        if frame.suffix_bytes.len() < num_suffix_bytes as usize {
+        let mut suffix_bytes = std::mem::take(&mut frame.suffixes_reader.bytes);
+        if suffix_bytes.len() < num_suffix_bytes as usize {
             let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1);
-            frame.suffix_bytes = vec![0u8; new_len];
+            suffix_bytes = vec![0u8; new_len];
         }
 
         let alg_code = (code_l & 0x03) as u8;
@@ -291,39 +292,34 @@ impl SegmentTermsEnumFrame {
 
         frame
             .compression_alg
-            .read(input, &mut frame.suffix_bytes, num_suffix_bytes)?;
-        frame.suffixes_reader.reset_with_range(
-            std::mem::take(&mut frame.suffix_bytes),
-            0,
-            num_suffix_bytes as usize,
-        );
+            .read(input, &mut suffix_bytes, num_suffix_bytes)?;
+        frame
+            .suffixes_reader
+            .reset_with_range(suffix_bytes, 0, num_suffix_bytes as usize);
 
         let num_suffix_length_bytes = input.read_vint()?;
         debug_assert!(num_suffix_length_bytes >= 0);
         let mut num_suffix_length_bytes = num_suffix_length_bytes as usize;
         frame.all_equal = (num_suffix_length_bytes & 0x01) != 0;
         num_suffix_length_bytes >>= 1;
-
-        if frame.suffix_length_bytes.len() < num_suffix_length_bytes {
+        // TODO:IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
+        let mut suffix_length_bytes = std::mem::take(&mut frame.suffix_lengths_reader.bytes);
+        if suffix_length_bytes.len() < num_suffix_length_bytes {
             let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1);
-            frame.suffix_length_bytes = vec![0u8; new_len];
+            suffix_length_bytes = vec![0u8; new_len];
         }
 
         if frame.all_equal {
             let fill_byte = input.read_byte()?;
             for i in 0..num_suffix_length_bytes {
-                frame.suffix_length_bytes[i] = fill_byte;
+                suffix_length_bytes[i] = fill_byte;
             }
         } else {
-            input.read_bytes(
-                &mut frame.suffix_length_bytes,
-                0,
-                num_suffix_length_bytes as i32,
-            )?;
+            input.read_bytes(&mut suffix_length_bytes, 0, num_suffix_length_bytes as i32)?;
         }
 
         frame.suffix_lengths_reader.reset_with_range(
-            std::mem::take(&mut frame.suffix_length_bytes),
+            suffix_length_bytes,
             0,
             num_suffix_length_bytes,
         );
@@ -332,16 +328,16 @@ impl SegmentTermsEnumFrame {
         // stats
         let mut num_bytes = input.read_vint()?;
         debug_assert!(num_bytes >= 0);
-        if frame.stat_bytes.len() < num_bytes as usize {
+        // TODO:IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
+        let mut stat_bytes = std::mem::take(&mut frame.stats_reader.bytes);
+        if stat_bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            frame.stat_bytes = vec![0u8; new_len];
+            stat_bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.stat_bytes, 0, num_bytes)?;
-        frame.stats_reader.reset_with_range(
-            std::mem::take(&mut frame.stat_bytes),
-            0,
-            num_bytes as usize,
-        );
+        input.read_bytes(&mut stat_bytes, 0, num_bytes)?;
+        frame
+            .stats_reader
+            .reset_with_range(stat_bytes, 0, num_bytes as usize);
         frame.stats_singleton_run_length = 0;
         frame.meta_data_upto = 0;
 
@@ -352,16 +348,16 @@ impl SegmentTermsEnumFrame {
         // that's rare so won't help much
         // metadata
         num_bytes = input.read_vint()?;
-        if frame.bytes.len() < num_bytes as usize {
+        // TODO:IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
+        let mut bytes = std::mem::take(&mut frame.bytes_reader.bytes);
+        if bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            frame.bytes = vec![0u8; new_len];
+            bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.bytes, 0, num_bytes)?;
-        frame.bytes_reader.reset_with_range(
-            std::mem::take(&mut frame.bytes),
-            0,
-            num_bytes as usize,
-        );
+        input.read_bytes(&mut bytes, 0, num_bytes)?;
+        frame
+            .bytes_reader
+            .reset_with_range(bytes, 0, num_bytes as usize);
 
         frame.fp_end = input.get_file_pointer();
 
@@ -788,7 +784,7 @@ impl SegmentTermsEnumFrame {
             let suffix_start = frame.start_byte_pos as usize;
             let suffix_end = suffix_start + frame.suffix_length as usize;
 
-            let cmp = frame.suffix_bytes[suffix_start..suffix_end]
+            let cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
                 .cmp(
                     &target.bytes[target.offset + frame.prefix_length as usize
                         ..target.offset + target.length],
@@ -886,7 +882,7 @@ impl SegmentTermsEnumFrame {
             let suffix_start = frame.start_byte_pos as usize;
             let suffix_end = suffix_start + frame.suffix_length as usize;
 
-            cmp = frame.suffix_bytes[suffix_start..suffix_end]
+            cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
                 .cmp(
                     &target.bytes[target.offset + frame.prefix_length as usize
                         ..target.offset + target.length],
@@ -1019,7 +1015,7 @@ impl SegmentTermsEnumFrame {
                 let suffix_start = frame.start_byte_pos as usize;
                 let suffix_end = suffix_start + frame.suffix_length as usize;
 
-                frame.suffix_bytes[suffix_start..suffix_end]
+                frame.suffixes_reader.bytes[suffix_start..suffix_end]
                     .cmp(
                         &target.bytes[target.offset + frame.prefix_length as usize
                             ..target.offset + target.length],
@@ -1110,7 +1106,7 @@ impl SegmentTermsEnumFrame {
         ste.term.grow(term_length as usize);
 
         let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
-        let src = &frame.suffix_bytes;
+        let src = &frame.suffixes_reader.bytes;
         let start = frame.start_byte_pos as usize;
         let len = start + frame.suffix_length as usize;
         dest.copy_from(&src[start..start + len], frame.prefix_length as usize);

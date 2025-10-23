@@ -609,7 +609,7 @@ where
                 let result = SegmentTermsEnumFrame::scan_to_term(
                     self.current_frame_idx,
                     target,
-                    false,
+                    true,
                     self,
                 )?;
                 Ok(result == SeekStatus::Found)
