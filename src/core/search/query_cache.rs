@@ -19,7 +19,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::weight::Weight;
 use std::sync::Arc;
 
-///
+/// A cache for queries.
 pub trait QueryCache {
     type Weight<W, QCP, LR>: Weight<LR>
     where

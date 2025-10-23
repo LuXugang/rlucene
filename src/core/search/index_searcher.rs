@@ -105,6 +105,7 @@ where
     IRC: IndexReaderContext,
     <IRC as IndexReaderContext>::LeafReader: Send + Sync,
 {
+    // TODO: IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
     pub fn new(context: IRC) -> Result<Self> {
         debug_assert!(
             context.base().is_top_level,
@@ -157,8 +158,6 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    // TODO: IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
-
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()
     }
