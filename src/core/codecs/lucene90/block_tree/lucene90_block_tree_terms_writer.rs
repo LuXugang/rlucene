@@ -944,14 +944,14 @@ where
                 }
 
                 self.postings_writer.encode_term(
-                    self.terms_out,
+                    &mut self.meta_writer,
                     &self.field_info,
                     Cow::Borrowed(state),
                     absolute,
                 )?;
                 absolute = false;
             }
-            stats_writer.finish(self.terms_out)?;
+            stats_writer.finish(&mut self.stats_writer)?;
         } else {
             let mut stats_writer =
                 StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::Docs);

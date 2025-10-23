@@ -46,7 +46,6 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
-use std::default::Default;
 use std::sync::Arc;
 
 /// Writer for
@@ -221,7 +220,7 @@ where
             doc_out,
             pos_out,
             pay_out,
-            last_state: IntBlockTermState::default(),
+            last_state: IntBlockTermState::new(),
             doc_start_fp: 0,
             pos_start_fp: 0,
             pay_start_fp: 0,
@@ -502,7 +501,7 @@ where
     }
 
     fn set_field(&mut self, field_info: Arc<FieldInfo>) {
-        self.last_state = IntBlockTermState::default();
+        self.last_state = IntBlockTermState::new();
         self.field_has_norms = field_info.has_norms();
     }
 }
@@ -511,7 +510,7 @@ where
     O: IndexOutput,
 {
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
-        Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
+        Ok(BlockTermStateEnum::Int(IntBlockTermState::new()))
     }
 
     fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
@@ -803,7 +802,7 @@ where
             },
         };
         if absolute {
-            self.last_state = IntBlockTermState::default();
+            self.last_state = IntBlockTermState::new();
             debug_assert_eq!(self.last_state.doc_start_fp, 0);
         }
 

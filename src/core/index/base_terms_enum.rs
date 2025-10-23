@@ -106,7 +106,7 @@ where
     }
 
     fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.seek_exact(target)
+        self.sub.get_prepare_seek_exact_status(target)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {

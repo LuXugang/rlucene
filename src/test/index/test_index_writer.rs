@@ -17,11 +17,13 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text;
+use crate::core::document::text_field::{TextField, text};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -41,13 +43,16 @@ fn test_doc_count() -> Result<()> {
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
     // add 100 documents
     let n = 1;
-    for i in 0..n {
-        add_doc_with_index(&writer, i)?;
-    }
+    let mut doc = Document::new();
+    let field = TextField::with_string("content", "aaa", Store::Yes)?;
+    doc.add(field);
+    writer.add_document(doc)?;
     writer.commit()?;
     let reader = Arc::new(writer.get_reader(false, false)?);
     let irc = get_context(reader)?;
-    let index_searcher = IndexSearcher::new(irc)?;
+    let mut index_searcher = IndexSearcher::new(irc)?;
+    let term_query = TermQuery::new(Term::from_text("content", "aaa"));
+    let v = index_searcher.search(term_query.into(), 10, None)?;
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(n, doc_stats.max_doc);
     assert_eq!(n, doc_stats.num_docs);

@@ -392,18 +392,20 @@ where
             .as_mut()
             .unwrap()
             .iterator()?;
-        debug_assert!(self.sim_scorer.is_some());
         match state_supplier {
             None => Ok(None),
-            Some(v) => Ok(Some(TermScorerSupplier::new(
-                false,
-                self.term_states.clone(),
-                v,
-                parent_query.term.clone(),
-                self.sim_scorer.as_ref().unwrap().clone(),
-                self.score_mode,
-                term_enum,
-            ))),
+            Some(v) => {
+                debug_assert!(self.sim_scorer.is_some());
+                Ok(Some(TermScorerSupplier::new(
+                    false,
+                    self.term_states.clone(),
+                    v,
+                    parent_query.term.clone(),
+                    self.sim_scorer.as_ref().unwrap().clone(),
+                    self.score_mode,
+                    term_enum,
+                )))
+            },
         }
     }
 

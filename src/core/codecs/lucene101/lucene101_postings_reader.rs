@@ -264,7 +264,7 @@ where
     type TermState = BlockTermStateEnum;
 
     fn new_term_state(&self) -> Result<Self::TermState> {
-        Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
+        Ok(BlockTermStateEnum::Int(IntBlockTermState::new()))
     }
 
     fn decode_term(

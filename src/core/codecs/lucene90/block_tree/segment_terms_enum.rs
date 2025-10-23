@@ -224,13 +224,15 @@ where
         }
         if self.fr.size()? > 0 {
             let mut iter = self.fr.iterator()?;
-            let left = target
+            if target
                 .cmp(self.fr.get_min(&mut iter)?.as_ref().unwrap())
-                .to_int();
-            let right = target
-                .cmp(self.fr.get_max(&mut iter)?.as_ref().unwrap())
-                .to_int();
-            if left < 0 || right > 0 {
+                .to_int()
+                < 0
+                || target
+                    .cmp(self.fr.get_max(&mut iter)?.as_ref().unwrap())
+                    .to_int()
+                    > 0
+            {
                 self.prepare_seek_status = PrepareSeekStatus::NotFound;
                 return Ok(None);
             }

@@ -397,7 +397,14 @@ pub struct IntBlockTermState {
     /// Base block term state
     pub base: BlockTermState,
 }
-
+impl IntBlockTermState {
+    pub fn new() -> Self {
+        let mut state = IntBlockTermState::default();
+        state.last_pos_block_offset = -1;
+        state.singleton_doc_id = -1;
+        state
+    }
+}
 impl Display for IntBlockTermState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(

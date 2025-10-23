@@ -21,7 +21,6 @@ use crate::core::search::QueryCache;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -29,7 +28,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::term_query::TermQuery;
+use crate::core::search::term_query::{TermQuery, TermWeight};
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
@@ -176,7 +175,7 @@ impl QueryBase for Query {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = TermWeight<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -185,10 +184,10 @@ impl QueryBase for Query {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
@@ -198,7 +197,10 @@ impl QueryBase for Query {
         QC: QueryCache,
         Self: Sized,
     {
-        todo!()
+        match self {
+            Query::Term(t) => t.create_weight(searcher, score_mode, boost, per_reader_term_state),
+            _ => Err(LuceneError::illegal_argument("")),
+        }
     }
 
     type RewriteQuery = DummyQuery;

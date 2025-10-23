@@ -27,13 +27,13 @@ use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_query::DummyQuery;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::term_query::TermWeight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 
@@ -84,7 +84,7 @@ impl QueryBase for BoostQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = TermWeight<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
