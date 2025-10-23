@@ -164,3 +164,26 @@ where
         Ok(())
     }
 }
+
+impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where CR: CompositeReader {}
+
+impl<CR> IndexReaderContext for Arc<CompositeReaderContext<CR>>
+where
+    CR: CompositeReader,
+{
+    type IndexReader = CR;
+
+    fn reader(&self) -> &Self::IndexReader {
+        &self.reader
+    }
+
+    type LeafReader = CR::LeafReader;
+
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+        Ok(self.leaves.as_slice())
+    }
+
+    fn base(&self) -> &IndexReaderContextBase {
+        &self.base
+    }
+}

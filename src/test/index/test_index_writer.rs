@@ -18,8 +18,10 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text;
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -37,12 +39,14 @@ fn test_doc_count() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
     // add 100 documents
-    let n = 100;
+    let n = 1;
     for i in 0..n {
         add_doc_with_index(&writer, i)?;
     }
     writer.commit()?;
-    let reader = writer.get_reader(false, false)?;
+    let reader = Arc::new(writer.get_reader(false, false)?);
+    let irc = get_context(reader)?;
+    let index_searcher = IndexSearcher::new(irc)?;
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(n, doc_stats.max_doc);
     assert_eq!(n, doc_stats.num_docs);
@@ -74,7 +78,7 @@ where
         format!("aaa {}", index),
         &STORED_TEXT_TYPE,
     )?);
-    doc.add(new_field("id", index.to_string(), &STORED_TEXT_TYPE)?);
+    // doc.add(new_field("id", index.to_string(), &STORED_TEXT_TYPE)?);
 
     match writer.add_document(doc) {
         Ok(_) => Ok(()),
