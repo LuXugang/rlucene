@@ -46,7 +46,7 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::index_sorter::Either2DocComparator;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use std::borrow::Cow;
@@ -2018,6 +2018,10 @@ where
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_total_term_freq(self, field)
     }
+
+    fn base(&self) -> &IndexReaderBase {
+        self.base.base()
+    }
 }
 
 impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
@@ -2293,6 +2297,10 @@ where
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_total_term_freq(self, field)
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        self.base.base()
     }
 }
 

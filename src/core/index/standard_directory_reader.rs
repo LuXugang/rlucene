@@ -23,7 +23,7 @@ use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -57,6 +57,7 @@ where
     // if Some, this reader owns the SegmentInfos, else from IndexWriter
     segment_infos: Option<SegmentInfos<D>>,
     sub_reader_sorter: Option<Arc<C>>,
+    base: IndexReaderBase,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
@@ -82,6 +83,7 @@ where
             write_all_deletes,
             segment_infos: Some(segment_infos),
             sub_reader_sorter: leaf_sorter,
+            base: IndexReaderBase::new(),
         })
     }
     pub(crate) fn open<IC>(
@@ -286,6 +288,10 @@ where
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         self.base_composite_reader_base
             .get_sum_total_term_freq(field, self)
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        &self.base
     }
 }
 

@@ -34,6 +34,7 @@ use std::sync::Arc;
 static STORED_TEXT_TYPE: Lazy<FieldType> =
     Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
 pub(crate) struct TestIndexWriter;
+#[test]
 fn test_doc_count() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);

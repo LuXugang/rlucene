@@ -27,7 +27,7 @@ use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
@@ -88,6 +88,9 @@ impl IndexReader for DocValuesLeafReader {
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_total_term_freq(self, field)
+    }
+    fn base(&self) -> &IndexReaderBase {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 

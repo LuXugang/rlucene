@@ -29,7 +29,7 @@ use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
@@ -72,6 +72,7 @@ where
     is_nrt: bool,
     doc_values_producer: Option<DocValuesProducers<D>>,
     field_infos: Arc<FieldInfos>,
+    base: IndexReaderBase,
 }
 impl<D> SegmentReader<D>
 where
@@ -107,6 +108,7 @@ where
             num_docs,
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
+            base: IndexReaderBase::new(),
         };
         let result = (|| {
             let si = &segment_reader.si;
@@ -196,6 +198,7 @@ where
             num_docs,
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
+            base: IndexReaderBase::new(),
         };
         let result = (|| {
             let si = &segment_reader.si;
@@ -396,6 +399,10 @@ where
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::sum_total_term_freq(self, field)
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        &self.base
     }
 }
 impl<D> LeafReader for SegmentReader<D>

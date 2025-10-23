@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI32};
 
 pub trait IndexReader: Display {
     type TermVectors: TermVectors;
@@ -91,6 +92,23 @@ pub trait IndexReader: Display {
     ///
     /// See [`Terms::get_sum_total_term_freq`](crate::core::index::terms::Terms::get_sum_total_term_freq).
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>;
+
+    fn base(&self) -> &IndexReaderBase;
+}
+
+pub(crate) struct IndexReaderBase {
+    closed: AtomicBool,
+    closed_by_child: AtomicBool,
+    ref_count: AtomicI32,
+}
+impl IndexReaderBase {
+    pub(crate) fn new() -> Self {
+        Self {
+            closed: AtomicBool::new(false),
+            closed_by_child: AtomicBool::new(false),
+            ref_count: AtomicI32::new(1),
+        }
+    }
 }
 
 pub trait CacheHelper {
@@ -286,6 +304,13 @@ where
             IndexReaderEnum::Composite(comp) => comp.get_sum_total_term_freq(field),
         }
     }
+
+    fn base(&self) -> &IndexReaderBase {
+        match self {
+            IndexReaderEnum::Leaf(leaf) => leaf.base(),
+            IndexReaderEnum::Composite(comp) => comp.base(),
+        }
+    }
 }
 impl<IR> IndexReader for Arc<IR>
 where
@@ -353,5 +378,9 @@ where
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         (**self).get_sum_total_term_freq(field)
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        (**self).base()
     }
 }

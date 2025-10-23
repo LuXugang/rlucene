@@ -23,7 +23,7 @@ use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -104,6 +104,10 @@ where
     }
 
     fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn base(&self) -> &IndexReaderBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
