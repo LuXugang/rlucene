@@ -69,8 +69,10 @@ where
         let num_chunks = meta_in.read_int()?;
         let docs_start_pointer = meta_in.read_long()?;
         let docs_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
-        let docs_end_pointer = meta_in.read_long()?;
-        let start_pointers_start_pointer = meta_in.read_long()?;
+        let (docs_end_pointer, start_pointers_start_pointer) = {
+            let v = meta_in.read_long()?;
+            (v, v)
+        };
         let start_pointers_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
         let start_pointers_end_pointer = meta_in.read_long()?;
         let max_pointer = meta_in.read_long()?;

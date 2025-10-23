@@ -111,7 +111,7 @@ where
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
         if self.input.is_none() {
-            self.input = Some(self.fr.parent.terms_in.try_clone()?);
+            self.input = Some(self.fr.parent.terms_in.lock().try_clone()?);
         }
         Ok(())
     }
