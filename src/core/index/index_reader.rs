@@ -20,11 +20,11 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_fields::{Either2StoredFields, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{Either2TermVectors, TermVectors};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 pub trait IndexReader: Display {
     type TermVectors: TermVectors;
@@ -39,15 +39,55 @@ pub trait IndexReader: Display {
     }
 
     fn inc_ref(&self) -> Result<()> {
-        todo!()
+        if !self.try_inc_ref() {
+            self.ensure_open()?;
+        }
+        Ok(())
     }
 
     fn dec_ref(&self) -> Result<()> {
-        todo!()
+        // only check ref_count here (don't call ensure_open()),
+        // so we can still close the reader if it was made invalid by a child.
+        let base = self.base();
+        let count = base.ref_count.load(Ordering::Acquire);
+        if count <= 0 {
+            return Err(LuceneError::already_closed(
+                "this IndexReader is closed".to_string(),
+            ));
+        }
+
+        let rc = base.ref_count.fetch_sub(1, Ordering::AcqRel) - 1;
+        if rc == 0 {
+            base.closed.store(true, Ordering::Release);
+            // TODO: 这里要通知parent Rust Lucene 需要吗
+            self.do_close()?;
+        } else if rc < 0 {
+            return Err(LuceneError::illegal_state(format!(
+                "too many decRef calls: refCount is {} after decrement",
+                rc
+            )));
+        }
+
+        Ok(())
     }
 
     fn ensure_open(&self) -> Result<()> {
-        // TODO
+        let base = self.base();
+        if base.ref_count.load(Ordering::Acquire) <= 0 {
+            return Err(LuceneError::already_closed(
+                "this IndexReader is closed".to_string(),
+            ));
+        }
+
+        // The "happens-before" rule on reading ref_count after a fake write
+        // ensures visibility of closed_by_child state.
+        if base.closed_by_child.load(Ordering::Acquire) {
+            return Err(LuceneError::already_closed(
+                "this IndexReader cannot be used anymore as one of its child readers was closed"
+                    .to_string(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -94,9 +134,34 @@ pub trait IndexReader: Display {
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>;
 
     fn base(&self) -> &IndexReaderBase;
+
+    fn try_inc_ref(&self) -> bool {
+        let base = self.base();
+        loop {
+            let count = base.ref_count.load(Ordering::Acquire);
+            if count <= 0 {
+                return false;
+            }
+
+            match base.ref_count.compare_exchange(
+                count,
+                count + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return true,
+                Err(_) => continue,
+            }
+        }
+    }
+
+    fn get_ref_count(&self) -> i32 {
+        let base = self.base();
+        base.ref_count.load(Ordering::Acquire)
+    }
 }
 
-pub(crate) struct IndexReaderBase {
+pub struct IndexReaderBase {
     closed: AtomicBool,
     closed_by_child: AtomicBool,
     ref_count: AtomicI32,

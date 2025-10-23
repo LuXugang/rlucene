@@ -23,7 +23,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
 pub struct CompositeReaderContext<CR>
@@ -44,21 +44,22 @@ where
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader, CR>::new();
     builder.build::<CR>(v, 0, 0)?;
-    let leaves = builder.leaves.take().unwrap();
-    let mut ctx_arc = Arc::new(CompositeReaderContext {
-        leaves,
-        reader,
-        base,
-    });
-    let weak_ctx = Arc::downgrade(&ctx_arc);
-    {
-        let ctx_mut = Arc::get_mut(&mut ctx_arc).expect("composite context should be unique here");
-        for leaf in &mut ctx_mut.leaves {
+    let mut leaves = builder.leaves.take().unwrap();
+    let ctx_arc = Arc::new_cyclic(|weak_ctx| {
+        for leaf in &mut leaves {
             if let Some(leaf_mut) = Arc::get_mut(leaf) {
-                leaf_mut.top_parent = Some(Weak::clone(&weak_ctx));
+                leaf_mut.top_parent = Some(weak_ctx.clone());
+            } else {
+                debug_assert!(false, "LeafReaderContext Arc is not unique");
             }
         }
-    }
+
+        CompositeReaderContext {
+            leaves,
+            reader,
+            base,
+        }
+    });
     Ok(ctx_arc)
 }
 
