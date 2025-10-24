@@ -59,7 +59,7 @@ fn test_doc_count() -> Result<()> {
     let irc = get_context(reader)?;
     let mut index_searcher = IndexSearcher::new(irc)?;
     let term_query = TermQuery::new(Term::from_text("content", "aaa"));
-    let v = index_searcher.search(term_query.into(), 10)?;
+    let v = index_searcher.search(term_query, 10)?;
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(n, doc_stats.max_doc);
     assert_eq!(n, doc_stats.num_docs);

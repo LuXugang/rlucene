@@ -205,7 +205,7 @@ where
     pub fn search_after_score(
         &mut self,
         after: Option<ScoreDoc>,
-        query: Query,
+        query: impl Into<Query>,
         num_hits: i32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopDocs<ScoreDoc>> {
@@ -226,12 +226,12 @@ where
 
         self.search_with_collector_manager(query, &manager, term_state)
     }
-    pub fn search(&mut self, query: Query, n: i32) -> Result<TopDocs<ScoreDoc>> {
+    pub fn search(&mut self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
         self.search_with_term_state(query, n, None)
     }
     pub fn search_with_term_state(
         &mut self,
-        query: Query,
+        query: impl Into<Query>,
         n: i32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopDocs<ScoreDoc>> {
@@ -307,13 +307,14 @@ where
 
     pub fn search_with_collector_manager<CM>(
         &mut self,
-        mut query: Query,
+        query: impl Into<Query>,
         collector_manager: &CM,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
     {
+        let mut query = query.into();
         let first_collector = collector_manager.new_collector()?;
         let needs_scores = first_collector.score_mode().needs_scores();
         query = Self::rewrite_if_needed_scores(query, needs_scores)?;
