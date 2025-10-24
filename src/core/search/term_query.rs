@@ -390,12 +390,6 @@ where
         match state_supplier {
             None => Ok(None),
             Some(v) => {
-                let term_enum = context
-                    .reader()
-                    .terms(parent_query.term.field())?
-                    .as_mut()
-                    .unwrap()
-                    .iterator()?;
                 debug_assert!(self.sim_scorer.is_some());
                 Ok(Some(TermScorerSupplier::new(
                     false,
@@ -404,7 +398,6 @@ where
                     parent_query.term.clone(),
                     self.sim_scorer.as_ref().unwrap().clone(),
                     self.score_mode,
-                    term_enum,
                 )))
             },
         }
@@ -435,8 +428,7 @@ where
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
     score_mode: ScoreMode,
-    terms_enum: LRTermsEnum<IRC::LeafReader>,
-    init_terms_enum: bool,
+    terms_enum: Option<LRTermsEnum<IRC::LeafReader>>,
 }
 impl<IRC, S> TermScorerSupplier<IRC, S>
 where
@@ -451,7 +443,6 @@ where
         term: Arc<Term>,
         sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
         score_mode: ScoreMode,
-        terms_enum: LRTermsEnum<IRC::LeafReader>,
     ) -> Self {
         Self {
             top_level_scoring_clause,
@@ -460,14 +451,15 @@ where
             term,
             sim_scorer,
             score_mode,
-            terms_enum,
-            init_terms_enum: false,
+            terms_enum: None,
         }
     }
 
-    pub(crate) fn get_terms_enum(&mut self) -> Result<Option<()>> {
-        if !self.init_terms_enum {
-            self.init_terms_enum = true;
+    pub(crate) fn get_terms_enum(
+        &mut self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<()>> {
+        if self.terms_enum.is_none() {
             let state_opt = self
                 .term_states
                 .lock()
@@ -476,8 +468,17 @@ where
                 None => return Ok(None),
                 Some(s) => match s.as_ref() {
                     EitherEmptyTermState::A(s) => {
-                        self.terms_enum
-                            .seek_exact_with_state(self.term.bytes(), s)?;
+                        let mut terms_enum = match context.reader().terms(self.term.field())? {
+                            Some(term) => term.iterator()?,
+                            None => {
+                                return Err(LuceneError::illegal_argument(format!(
+                                    "term should exist here {}",
+                                    self.term
+                                )));
+                            },
+                        };
+                        terms_enum.seek_exact_with_state(self.term.bytes(), s)?;
+                        self.terms_enum = Some(terms_enum);
                     },
                     EitherEmptyTermState::B(_) => {
                         return Err(LuceneError::illegal_argument(
@@ -503,8 +504,9 @@ where
         _lead_cost: i64,
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::Scorer>> {
-        match self.get_terms_enum()? {
+        match self.get_terms_enum(context)? {
             Some(_) => {
+                debug_assert!(self.terms_enum.is_some());
                 let norms = if self.score_mode.needs_scores() {
                     context.reader().get_norm_values(&self.term.field)?
                 } else {
@@ -518,7 +520,7 @@ where
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::new(
-                        self.terms_enum.impacts(FREQS as i32)?,
+                        self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
                         self.sim_scorer.clone(),
                         norms,
                         self.top_level_scoring_clause,
@@ -536,7 +538,10 @@ where
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::with_postings(
-                        self.terms_enum.postings_with_flags(None, flags as i32)?,
+                        self.terms_enum
+                            .as_mut()
+                            .unwrap()
+                            .postings_with_flags(None, flags as i32)?,
                         self.sim_scorer.clone(),
                         norms,
                     ))))
@@ -562,10 +567,10 @@ where
         Ok(Some(self.default_bulk_scorer(context)?))
     }
 
-    fn cost(&mut self, _context: &LeafReaderContext<IRC::LeafReader>) -> Result<i64> {
-        let result: Result<i32> = (|| match self.get_terms_enum()? {
+    fn cost(&mut self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i64> {
+        let result: Result<i32> = (|| match self.get_terms_enum(context)? {
             None => Ok(0),
-            Some(_) => Ok(self.terms_enum.doc_freq()?),
+            Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),
         })();
         match result {
             Ok(v) => Ok(v as i64),
