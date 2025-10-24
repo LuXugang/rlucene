@@ -824,9 +824,7 @@ where
         other_state: &Self::TermState,
     ) -> Result<()> {
         debug_assert!(self.clear_eof());
-        if (target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists)
-            && matches!(other_state, BlockTermStateEnum::Block(_))
-        {
+        if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
             self.static_frame.state = other_state.clone();
             self.current_frame_idx = self.static_frame_idx;
             self.term.copy_bytes_with_ref(target);

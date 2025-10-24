@@ -226,7 +226,10 @@ where
 
         self.search_with_collector_manager(query, &manager, term_state)
     }
-    pub fn search(
+    pub fn search(&mut self, query: Query, n: i32) -> Result<TopDocs<ScoreDoc>> {
+        self.search_with_term_state(query, n, None)
+    }
+    pub fn search_with_term_state(
         &mut self,
         query: Query,
         n: i32,

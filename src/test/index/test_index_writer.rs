@@ -36,22 +36,30 @@ use std::sync::Arc;
 static STORED_TEXT_TYPE: Lazy<FieldType> =
     Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
 pub(crate) struct TestIndexWriter;
+#[test]
 fn test_doc_count() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
     // add 100 documents
     let n = 1;
+
     let mut doc = Document::new();
-    let field = TextField::with_string("content", "aaa", Store::Yes)?;
-    doc.add(field);
+    let field1 = TextField::with_string("content", "aaa", Store::Yes)?;
+    doc.add(field1);
     writer.add_document(doc)?;
+
+    // let mut doc1 = Document::new();
+    // let field2 = TextField::with_string("content", "aaa", Store::Yes)?;
+    // doc1.add(field2);
+    // writer.add_document(doc1)?;
+
     writer.commit()?;
     let reader = Arc::new(writer.get_reader(false, false)?);
     let irc = get_context(reader)?;
     let mut index_searcher = IndexSearcher::new(irc)?;
     let term_query = TermQuery::new(Term::from_text("content", "aaa"));
-    let v = index_searcher.search(term_query.into(), 10, None)?;
+    let v = index_searcher.search(term_query.into(), 10)?;
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(n, doc_stats.max_doc);
     assert_eq!(n, doc_stats.num_docs);
