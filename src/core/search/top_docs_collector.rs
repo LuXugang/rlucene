@@ -34,7 +34,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 /// - The associated [`TopDocs`] represents the search results (hits + metadata).
 /// - The `total_hits` counter and the `PriorityQueue` are the common state shared by all implementations.
 pub trait TopDocsCollector: Collector {
-    type Item: ScoreDocLike;
+    type Item: ScoreDocLike + Default;
     type Cmp: Compare<Self::Item>;
     type TopDocsLike: TopDocsLike;
     fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp>;
@@ -45,11 +45,11 @@ pub trait TopDocsCollector: Collector {
 
     /// Populates the results array with the ScoreDoc instances.
     /// This can be overridden in case a different ScoreDoc type should be returned.
-    fn populate_results(&mut self, results: &mut Vec<Self::Item>, how_many: usize) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         let pq = self.pq_mut();
         debug_assert!(how_many <= pq.size());
         for i in (0..how_many).rev() {
-            results.push(pq.pop_unchecked()?)
+            results[i] = pq.pop_unchecked()?
         }
         Ok(())
     }
@@ -158,7 +158,7 @@ pub trait TopDocsCollector: Collector {
 
         how_many = std::cmp::min(size - start, how_many);
 
-        let mut results = Vec::with_capacity(how_many as usize);
+        let mut results = vec![Default::default(); how_many as usize];
 
         let discard_count = self.pq().size() as i32 - start - how_many;
         let pq = self.pq_mut();

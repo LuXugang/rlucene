@@ -684,6 +684,7 @@ where
             if self.doc_in.is_none() {
                 let doc_in = Rc::new(RefCell::new(reader.doc_in.try_clone()?));
                 self.doc_in_util = Some(new_posting_decoding_util(doc_in.clone()));
+                self.doc_in = Some(doc_in);
             }
             prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
         }

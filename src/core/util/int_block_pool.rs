@@ -136,8 +136,11 @@ where
             )),
         }
     }
-    pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<i32> {
+    pub fn get_buffer_mut(&mut self, buffer_index: i32) -> &mut Vec<i32> {
         &mut self.buffers[buffer_index as usize]
+    }
+    pub fn get_buffer(&mut self, buffer_index: i32) -> &[i32] {
+        &self.buffers[buffer_index as usize]
     }
 }
 // for single thread
@@ -247,7 +250,7 @@ mod tests {
             }
             let buffer_index = pool.buffer_upto;
             let int_upto = pool.int_upto as usize;
-            pool.get_buffer(buffer_index)[int_upto] = i;
+            pool.get_buffer_mut(buffer_index)[int_upto] = i;
             pool.int_upto += 1;
         }
 

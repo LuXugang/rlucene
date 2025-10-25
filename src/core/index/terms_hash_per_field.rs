@@ -176,7 +176,8 @@ impl TermsHashPerField {
     pub(crate) fn write_byte(&self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let mut int_pool = self.int_pool.lock();
-        let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
+        let term_stream_address_buffer =
+            int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         let mut byte_pool = self.byte_pool.lock();
         let block_index = upto >> BYTE_BLOCK_SHIFT;
@@ -214,7 +215,8 @@ impl TermsHashPerField {
         let stream_address = (self.stream_address_offset + stream) as usize;
 
         let mut int_pool = self.int_pool.lock();
-        let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
+        let term_stream_address_buffer =
+            int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         {
             let mut byte_pool = self.byte_pool.lock();
@@ -316,7 +318,7 @@ impl TermsHashPerField {
                 );
 
             let term_stream_address_buffer =
-                int_pool.get_buffer(self.term_stream_address_buffer_index);
+                int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
             for i in 0..self.stream_count as usize {
                 let upto = self
                     .slice_pool

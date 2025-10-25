@@ -626,34 +626,42 @@ impl PendingBlock {
     }
 }
 
-struct StatsWriter {
+struct StatsWriter<'a, DO>
+where
+    DO: DataOutput,
+{
     has_freqs: bool,
     singleton_count: i32,
+    out: &'a mut DO,
 }
 
-impl StatsWriter {
-    fn new(has_freqs: bool) -> Self {
+impl<'a, DO> StatsWriter<'a, DO>
+where
+    DO: DataOutput,
+{
+    fn new(out: &'a mut DO, has_freqs: bool) -> Self {
         Self {
             has_freqs,
             singleton_count: 0,
+            out,
         }
     }
-    fn add(&mut self, out: &mut impl DataOutput, df: i32, ttf: i64) -> Result<()> {
+    fn add(&mut self, df: i32, ttf: i64) -> Result<()> {
         if df == 1 && (!self.has_freqs || ttf == 1) {
             self.singleton_count += 1;
         } else {
-            self.finish(out)?;
-            out.write_vint(df << 1)?;
+            self.finish()?;
+            self.out.write_vint(df << 1)?;
             if self.has_freqs {
-                out.write_vlong(ttf - df as i64)?;
+                self.out.write_vlong(ttf - df as i64)?;
             }
         }
         Ok(())
     }
 
-    fn finish(&mut self, out: &mut impl DataOutput) -> Result<()> {
+    fn finish(&mut self) -> Result<()> {
         if self.singleton_count > 0 {
-            out.write_vint(((self.singleton_count - 1) << 1) | 1)?;
+            self.out.write_vint(((self.singleton_count - 1) << 1) | 1)?;
             self.singleton_count = 0;
         }
         Ok(())
@@ -908,8 +916,10 @@ where
         let mut absolute = true;
 
         if is_leaf_block {
-            let mut stats_writer =
-                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::Docs);
+            let mut stats_writer = StatsWriter::new(
+                &mut self.stats_writer,
+                *self.field_info.get_index_options() != IndexOptions::Docs,
+            );
             for i in start..end {
                 let term = match &self.pending[i] {
                     PendingEntryEnum::Term(term) => term,
@@ -932,14 +942,10 @@ where
 
                 match state {
                     BlockTermStateEnum::Block(block) => {
-                        stats_writer.add(self.terms_out, block.doc_freq, block.total_term_freq)?;
+                        stats_writer.add(block.doc_freq, block.total_term_freq)?;
                     },
                     BlockTermStateEnum::Int(int) => {
-                        stats_writer.add(
-                            self.terms_out,
-                            int.base.doc_freq,
-                            int.base.total_term_freq,
-                        )?;
+                        stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
                     },
                 }
 
@@ -951,10 +957,12 @@ where
                 )?;
                 absolute = false;
             }
-            stats_writer.finish(&mut self.stats_writer)?;
+            stats_writer.finish()?;
         } else {
-            let mut stats_writer =
-                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::Docs);
+            let mut stats_writer = StatsWriter::new(
+                &mut self.stats_writer,
+                *self.field_info.get_index_options() != IndexOptions::Docs,
+            );
             for i in start..end {
                 match &mut self.pending[i] {
                     PendingEntryEnum::Term(term) => {
@@ -974,23 +982,15 @@ where
                         );
                         match state {
                             BlockTermStateEnum::Block(block) => {
-                                stats_writer.add(
-                                    self.terms_out,
-                                    block.doc_freq,
-                                    block.total_term_freq,
-                                )?;
+                                stats_writer.add(block.doc_freq, block.total_term_freq)?;
                             },
                             BlockTermStateEnum::Int(int) => {
-                                stats_writer.add(
-                                    self.terms_out,
-                                    int.base.doc_freq,
-                                    int.base.total_term_freq,
-                                )?;
+                                stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
                             },
                         }
                         // meta
                         self.postings_writer.encode_term(
-                            self.terms_out,
+                            &mut self.meta_writer,
                             &self.field_info,
                             Cow::Borrowed(state),
                             absolute,
@@ -1021,7 +1021,7 @@ where
                     },
                 }
             }
-            stats_writer.finish(self.terms_out)?;
+            stats_writer.finish()?;
             debug_assert!(!sub_indices.is_empty());
         }
         // Write suffixes byte[] blob to terms dict output, either uncompressed,

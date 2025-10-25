@@ -255,7 +255,7 @@ impl TopDocsCollector for TopFieldCollector {
         self.base.total_hits_relation
     }
 
-    fn populate_results(&mut self, results: &mut Vec<Self::Item>, how_many: usize) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         let pq = &mut self.base.pq;
         for i in (0..how_many).rev() {
             let entry = pq.pop_unchecked()?;
@@ -607,7 +607,7 @@ impl TopDocsCollector for SimpleFieldCollector {
         self.base.get_total_hits_relation()
     }
 
-    fn populate_results(&mut self, results: &mut Vec<Self::Item>, how_many: usize) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         self.base.populate_results(results, how_many)
     }
 
@@ -826,7 +826,7 @@ impl TopDocsCollector for PagingFieldCollector {
         self.base.get_total_hits_relation()
     }
 
-    fn populate_results(&mut self, results: &mut Vec<Self::Item>, how_many: usize) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         self.base.populate_results(results, how_many)
     }
 
@@ -1121,7 +1121,7 @@ impl TopDocsCollector for TopFieldCollectorEnum {
         }
     }
 
-    fn populate_results(&mut self, results: &mut Vec<Self::Item>, how_many: usize) -> Result<()> {
+    fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
         match self {
             Self::Simple(inner) => inner.populate_results(results, how_many),
             Self::Paging(inner) => inner.populate_results(results, how_many),

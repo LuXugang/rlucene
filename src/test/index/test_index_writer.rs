@@ -47,17 +47,22 @@ fn test_doc_count() -> Result<()> {
     doc.add(field1);
     writer.add_document(doc)?;
 
+    let mut doc = Document::new();
+    let field1 = TextField::with_string("content", "aaa", Store::Yes)?;
+    doc.add(field1);
+    writer.add_document(doc)?;
+
     writer.commit()?;
     let reader = Arc::new(writer.get_reader(false, false)?);
     let irc = get_context(reader)?;
     let mut index_searcher = IndexSearcher::new(irc)?;
     let term_query = TermQuery::new(Term::from_text("content", "aaa"));
     let v = index_searcher.search(term_query, 10)?;
-    assert_eq!(v.score_docs.len(), 1);
+    assert_eq!(v.score_docs.len(), 2);
     assert_eq!(v.score_docs[0].doc, 0);
     let doc_stats = writer.get_doc_stats()?;
-    assert_eq!(1, doc_stats.max_doc);
-    assert_eq!(1, doc_stats.num_docs);
+    assert_eq!(2, doc_stats.max_doc);
+    assert_eq!(2, doc_stats.num_docs);
     writer.close()?;
     Ok(())
 }
