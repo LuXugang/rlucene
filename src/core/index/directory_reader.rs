@@ -130,13 +130,18 @@ pub mod directory_reader_util {
     use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
     use crate::core::index::index_commit::IndexCommit;
 
+    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::segment_reader::SegmentReader;
-    use crate::core::index::standard_directory_reader::StandardDirectoryReader;
+    use crate::core::index::standard_directory_reader::{
+        StandardDirectoryReader, StandardDirectoryReaderType,
+    };
     use crate::core::store::directory::Directory;
     use crate::core::util::Comparator;
     use crate::core::util::dummy::dummy_comparator::DummyComparator;
     use crate::core::util::error::lucene_error::Result;
     use std::sync::Arc;
+
     /// Returns an [`IndexReader`] reading the index in the given [`Directory`].
     ///
     /// # Parameters
@@ -182,47 +187,64 @@ pub mod directory_reader_util {
     {
         StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
     }
-
-    /// Expert: returns an [`IndexReader`] reading the index on the given [`IndexCommit`].
+    /// Opens a near real-time `IndexReader` from the given [`IndexWriter`].
     ///
-    /// This method allows opening indices that were created with a Lucene version older than N-1,
-    /// provided that all codecs for this index are available in the classpath and the segment file
-    /// format used was created with Lucene 7 or newer.
-    /// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
-    /// indices created with versions older than N-1. All backwards compatibility aside from the file
-    /// format is optional and applied on a best-effort basis.
+    /// # Arguments
     ///
-    /// # Parameters
+    /// * `writer` - The [`IndexWriter`] to open from.
     ///
-    /// * `commit` – the commit point to open
-    /// * `min_supported_major_version` – the minimum supported major index version
-    /// * `leaf_sorter` – a comparator for sorting leaf readers.
-    ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
-    ///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
-    ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
-    ///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
-    ///   while iterating through segments and their documents.
+    /// # Returns
+    ///
+    /// The newly created `IndexReader`.
     ///
     /// # Errors
     ///
-    /// Returns an error if there is a low-level I/O error.
-    pub fn open_with_commit_version_sorter<D, C, IC>(
-        commit: &IC,
-        min_supported_major_version: i32,
-        leaf_sorter: Option<Arc<C>>,
-    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+    /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
+    /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
+    pub fn open_with_writer<D, L, B>(
+        writer: IndexWriter<D, L, B>,
+    ) -> Result<StandardDirectoryReaderType<D>>
     where
         D: Directory,
-        C: Comparator<Arc<SegmentReader<D>>>,
-        IC: IndexCommit<Directory = D>,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
-        StandardDirectoryReader::open_with_version(
-            commit.get_directory(),
-            min_supported_major_version,
-            Some(commit),
-            leaf_sorter,
-        )
+        open_with_writer_deletes(writer, true, true)
     }
+    /// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
+    /// controlling whether past deletions should be applied.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - The [`IndexWriter`] to open from.
+    /// * `apply_all_deletes` - If `true`, all buffered deletes will be applied (made visible)
+    ///   in the returned reader.
+    ///   If `false`, the deletes remain buffered in the `IndexWriter` and will be applied later.
+    ///   Applying deletes can be costly, so if your application can tolerate deleted documents
+    ///   being returned, you may gain some performance by passing `false`.
+    /// * `write_all_deletes` - If `true`, new deletes will be written down to index files instead of
+    ///   being carried over directly in heap from writer to reader.
+    ///
+    /// # See also
+    ///
+    /// [`open`](open_with_writer)
+    ///
+    /// # Lucene
+    ///
+    /// This API is marked as **experimental** in Lucene.
+    pub fn open_with_writer_deletes<D, L, B>(
+        writer: IndexWriter<D, L, B>,
+        apply_all_deletes: bool,
+        write_all_deletes: bool,
+    ) -> Result<StandardDirectoryReaderType<D>>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.get_reader(apply_all_deletes, write_all_deletes)
+    }
+
     /// Expert: returns an [`IndexReader`] reading the index in the given [`IndexCommit`].
     ///
     /// # Parameters
@@ -266,6 +288,46 @@ pub mod directory_reader_util {
             }
         }
         Ok(false)
+    }
+    /// Expert: returns an [`IndexReader`] reading the index on the given [`IndexCommit`].
+    ///
+    /// This method allows opening indices that were created with a Lucene version older than N-1,
+    /// provided that all codecs for this index are available in the classpath and the segment file
+    /// format used was created with Lucene 7 or newer.
+    /// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
+    /// indices created with versions older than N-1. All backwards compatibility aside from the file
+    /// format is optional and applied on a best-effort basis.
+    ///
+    /// # Parameters
+    ///
+    /// * `commit` – the commit point to open
+    /// * `min_supported_major_version` – the minimum supported major index version
+    /// * `leaf_sorter` – a comparator for sorting leaf readers.
+    ///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+    ///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
+    ///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+    ///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
+    ///   while iterating through segments and their documents.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is a low-level I/O error.
+    pub fn open_with_commit_version_sorter<D, C, IC>(
+        commit: &IC,
+        min_supported_major_version: i32,
+        leaf_sorter: Option<Arc<C>>,
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, C, D>>
+    where
+        D: Directory,
+        C: Comparator<Arc<SegmentReader<D>>>,
+        IC: IndexCommit<Directory = D>,
+    {
+        StandardDirectoryReader::open_with_version(
+            commit.get_directory(),
+            min_supported_major_version,
+            Some(commit),
+            leaf_sorter,
+        )
     }
 }
 pub struct DirectoryReaderBase<D> {
