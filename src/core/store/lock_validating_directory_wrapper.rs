@@ -19,6 +19,7 @@ use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInpu
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::lock::Lock;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 /// This class makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
@@ -48,6 +49,16 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", std::any::type_name::<Self>(), self.base)
+    }
+}
+
+impl<D> Closeable for LockValidatingDirectoryWrapper<D>
+where
+    D: Directory,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

@@ -32,6 +32,7 @@ use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
 use crate::core::util::IOUtils;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Base trait for `Directory` implementations that store index files in the
@@ -451,6 +452,17 @@ where
     #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         true
+    }
+}
+
+impl<D, T> Closeable for FSDirectory<D, T>
+where
+    D: LockFactory,
+    T: FSDirectoryBase,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

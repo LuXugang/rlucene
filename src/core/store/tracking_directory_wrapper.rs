@@ -18,6 +18,7 @@ use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::collections::HashSet;
@@ -68,6 +69,16 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "TrackingDirectoryWrapper({})", self.base)
+    }
+}
+
+impl<D> Closeable for TrackingDirectoryWrapper<D>
+where
+    D: Directory,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

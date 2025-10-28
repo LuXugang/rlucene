@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A read-only [`Directory`] that provides a view over a compound file.
 ///
@@ -49,6 +50,16 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.sub_compound_dir.fmt(f)
+    }
+}
+
+impl<D> Closeable for CompoundDirectory<D>
+where
+    D: Directory,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

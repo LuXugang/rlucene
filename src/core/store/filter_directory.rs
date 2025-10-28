@@ -17,6 +17,7 @@
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::access::SharedReadOnly;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -69,6 +70,17 @@ where
             "FilterDirectory({})",
             self.delegate.access(|dir| dir.to_string())
         )
+    }
+}
+
+impl<D, A> Closeable for FilterDirectory<D, A>
+where
+    D: Directory,
+    A: SharedReadOnly<D>,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

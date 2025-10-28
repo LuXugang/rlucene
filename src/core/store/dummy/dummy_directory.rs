@@ -22,12 +22,20 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl Closeable for DummyDirectory {
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

@@ -18,6 +18,7 @@ use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInpu
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::{IOContext, IndexOutput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -58,6 +59,16 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}({})", std::any::type_name::<Self>(), self.base)
+    }
+}
+
+impl<D> Closeable for TrackingTmpOutputDirectoryWrapper<D>
+where
+    D: Directory,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
 

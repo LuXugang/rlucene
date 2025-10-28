@@ -20,6 +20,7 @@ use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::lock::{Either2Lock, Lock};
 use crate::core::store::{Either2IndexInput, Either2IndexOutput, IOContext, IndexOutput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
 use std::collections::HashSet;
@@ -47,7 +48,7 @@ use std::fmt::{Display, Formatter};
 /// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Sized {
+pub trait Directory: Display + Closeable + Sized {
     /// Returns the names of all files stored in this directory. The output must
     /// be sorted in UTF-8 order (using `str::cmp` for comparison).
     ///
@@ -402,6 +403,17 @@ where
         }
     }
 }
+
+impl<A, B> Closeable for Either2Directory<A, B>
+where
+    A: Directory,
+    B: Directory,
+{
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
+    }
+}
 impl<D: Directory> Directory for &D {
     fn list_all(&self) -> Result<Vec<String>> {
         (**self).list_all()
@@ -460,5 +472,12 @@ impl<D: Directory> Directory for &D {
     #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         (**self).is_fs_directory()
+    }
+}
+
+impl<D: Directory> Closeable for &D {
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
     }
 }
