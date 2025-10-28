@@ -679,6 +679,8 @@ where
         self.start_stored_fields(doc_id, info, index_writer_config)?;
 
         let mut fields: Vec<Fields> = document.into_iter().collect();
+        // The set of indexes of pending fields in doc_fields.
+        let mut pending_idx = Vec::new();
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
         let result = (|| {
@@ -686,6 +688,7 @@ where
                 let field_type = field.field_type();
                 let is_reserved = field.is_reserved();
                 let pf_idx = self.get_or_add_per_field(field.name(), false);
+                pending_idx.push(pf_idx);
                 {
                     let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
 
@@ -730,13 +733,12 @@ where
 
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
-            doc_field_idx = 0;
-            for field in &mut fields {
-                if self.process_field(doc_id, field, doc_field_idx, index_writer_config)? {
-                    self.fields[indexed_field_count] = doc_field_idx;
+            debug_assert!(pending_idx.len() == fields.len());
+            for ((field, pending), i) in fields.iter_mut().zip(pending_idx.iter_mut()).zip(0..) {
+                if self.process_field(doc_id, field, *pending, index_writer_config)? {
+                    self.fields[indexed_field_count] = *pending;
                     indexed_field_count += 1;
                 }
-                doc_field_idx += 1;
             }
             Ok(())
         })();

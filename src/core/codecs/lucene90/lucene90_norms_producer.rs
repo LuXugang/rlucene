@@ -56,7 +56,7 @@ where
     merging: bool,
 
     disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::Slice>>>>,
-    disi_jump_tables: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
+    disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,
     data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
 }
 
@@ -256,29 +256,30 @@ where
         &self,
         field: &Arc<FieldInfo>,
         entry: &NormsEntry,
-    ) -> Result<Arc<Mutex<I::RandomAccessSlice>>> {
-        if self.merging
+    ) -> Result<Option<Arc<Mutex<I::RandomAccessSlice>>>> {
+        let jump_table = if self.merging
             && let Some(jump_table) = self.disi_jump_tables.lock().get(&field.number)
         {
-            return Ok(Arc::clone(jump_table));
+            jump_table.clone()
+        } else {
+            None
+        };
+        match jump_table {
+            Some(jump_table) => Ok(Some(jump_table)),
+            None => {
+                let jump_table = create_jump_table(
+                    &self.data,
+                    entry.docs_with_field_offset,
+                    entry.docs_with_field_length,
+                    entry.jump_table_entry_count as i32,
+                )?;
+                let v = jump_table.map(|v| Arc::new(Mutex::new(v)));
+                if self.merging {
+                    self.disi_jump_tables.lock().insert(field.number, v.clone());
+                }
+                Ok(v)
+            },
         }
-
-        let jump_table = create_jump_table(
-            &self.data,
-            entry.docs_with_field_offset,
-            entry.docs_with_field_length,
-            entry.jump_table_entry_count as i32,
-        )?;
-        debug_assert!(entry.jump_table_entry_count > 0);
-        debug_assert!(jump_table.is_some());
-        let jump_table_rc = Arc::new(Mutex::new(jump_table.unwrap()));
-        if self.merging {
-            self.disi_jump_tables
-                .lock()
-                .insert(field.number, Arc::clone(&jump_table_rc));
-        }
-
-        Ok(jump_table_rc)
     }
 }
 impl<I> Lucene90NormsProducer<I>
@@ -526,7 +527,7 @@ where
         let disi_jump_table = self.get_disi_jump_table(field, &entry)?;
         let disi = IndexedDISI::from_components(
             disi_input,
-            Some(disi_jump_table),
+            disi_jump_table,
             entry.jump_table_entry_count as i32,
             entry.dense_rank_power,
             entry.num_docs_with_field as i64,
