@@ -242,6 +242,82 @@ fn test_do_before_after_flush() -> Result<()> {
 
     Ok(())
 }
+#[test]
+fn test_negative_positions() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_position_increment_gap_empty_field() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_dead_lock() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+#[test]
+fn test_thread_interrupt_dead_lock() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_index_store_combos() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_no_docs_index() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现 MockAnalyzer
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    writer.add_document(Document::new())?;
+    writer.close()?;
+
+    Ok(())
+}
+#[test]
+fn test_delete_unused_files() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_delete_unused_files2() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_empty_fsdir_with_no_lock() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_delete_same_term_across_fields() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    // TODO: 未实现 MockAnalyzer
+    let iwc = new_index_writer_config(&mut random);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut doc = Document::new();
+    doc.add(TextField::with_string("a", "foo", Store::No)?);
+    writer.add_document(doc)?;
+
+    writer.delete_documents_with_terms(vec![
+        Term::from_text("a", "xxx"),
+        Term::from_text("b", "foo"),
+    ])?;
+
+    let reader = directory_reader_util::open_with_writer(&writer)?;
+    writer.close()?;
+    assert_eq!(1, reader.num_docs()?);
+
+    Ok(())
+}
 
 pub(crate) fn add_doc<D, L, B>(writer: &IndexWriter<D, L, B>) -> Result<()>
 where

@@ -900,15 +900,21 @@ where
         *change_count += 1;
         segment_infos.changed()
     }
-    fn publish_frozen_updates(&self, packet: FrozenBufferedUpdates) -> Result<i64> {
-        let _guard = self.inner.lock();
+    fn publish_frozen_updates(
+        &self,
+        packet: FrozenBufferedUpdates,
+        inner: Option<&Inner<D>>,
+    ) -> Result<i64> {
+        let _guard = match inner {
+            Some(i) => i,
+            None => &self.inner.lock(),
+        };
         debug_assert!(packet.any());
         let (next_gen, packet) = self.buffered_updates_stream.push(packet);
         // Do this as an event so it applies higher in the stack when we are not holding
         // DocumentsWriterFlushQueue.purgeLock:
         let event: EventEnum = EventEnum::E(EventImpl5::new(packet));
         self.event_queue.add(event)?;
-        drop(_guard);
         Ok(next_gen)
     }
     /// Atomically adds the segment private delete packet and publishes the flushed segments SegmentInfo to the index writer.
@@ -935,7 +941,7 @@ where
             if let Some(gp) = global_packet
                 && gp.any()
             {
-                let _ = self.publish_frozen_updates(gp)?;
+                let _ = self.publish_frozen_updates(gp, Some(&inner))?;
             }
             // Publishing the segment must be sync'd on IW -> BDS to make the sure
             // that no merge prunes away the seg. private delete packet
@@ -944,7 +950,7 @@ where
                 None => false,
             };
             let next_gen = if packet_any {
-                self.publish_frozen_updates(packet.unwrap())?
+                self.publish_frozen_updates(packet.unwrap(), Some(&inner))?
             } else {
                 // Since we don't have a delete packet to apply we can get a new
                 // generation right away
@@ -2068,7 +2074,7 @@ where
                                 &format!("flush: push buffered updates: {buffered_updates:?}"),
                             );
                         }
-                        writer.publish_frozen_updates(buffered_updates)?;
+                        writer.publish_frozen_updates(buffered_updates, None)?;
                     }
                 },
                 Some(seg) => {
