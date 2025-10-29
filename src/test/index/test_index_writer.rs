@@ -101,6 +101,48 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
 
     Ok(())
 }
+#[test]
+fn test_bad_segment() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    let mut doc = Document::new();
+    let mut custom_type = FieldType::from_ref(&*text::TYPE_NOT_STORED)?;
+    custom_type.set_store_term_vectors(true)?;
+    doc.add(new_field("tvtest", "", &custom_type)?);
+
+    writer.add_document(doc)?;
+    writer.close()?;
+    Ok(())
+}
+#[test]
+fn test_max_thread_priority() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_variable_schema() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_unlimited_max_field_length() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    let mut doc = Document::new();
+    let text = " a".repeat(10_000) + " x";
+    doc.add(new_text_field("field", &text, Store::No)?);
+    writer.add_document(doc)?;
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    let t = Term::from_text("field", "x");
+    assert_eq!(1, reader.doc_freq(&t)?);
+    Ok(())
+}
 
 pub(crate) fn add_doc<D, L, B>(writer: &IndexWriter<D, L, B>) -> Result<()>
 where

@@ -206,7 +206,7 @@ impl TermVectorsConsumerPerField {
             self.base.init_stream_slices(term_id, doc_id)?;
             self.new_term(term_id, doc_id, state, attribute_source)?;
         } else {
-            self.base.position_stream_slice(term_id, doc_id)?;
+            let term_id = self.base.position_stream_slice(term_id, doc_id)?;
             self.add_term(term_id, doc_id, state, attribute_source)?;
         }
         Ok(())
