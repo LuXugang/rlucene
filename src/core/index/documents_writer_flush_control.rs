@@ -756,7 +756,10 @@ where
             inner.flush_queue.push_back(dwpt);
         }
     }
-    pub(crate) fn finish_full_flush(&self, delete_queue: &Arc<DocumentsWriterDeleteQueue>) {
+    pub(crate) fn finish_full_flush(
+        &self,
+        delete_queue: &Arc<DocumentsWriterDeleteQueue>,
+    ) -> Result<()> {
         let mut inner = self.inner.lock();
         debug_assert!(inner.full_flush);
         debug_assert!(inner.flush_queue.is_empty());
@@ -765,18 +768,22 @@ where
             "flushing_writers must be empty"
         );
 
-        if !inner.blocked_flushes.is_empty() {
-            debug_assert!(self.assert_blocked_flushes(delete_queue, &inner));
-            self.prune_blocked_queue(delete_queue, &mut inner);
-            debug_assert!(
-                inner.blocked_flushes.is_empty(),
-                "blocked_flushes must be empty after pruning"
-            );
-        }
+        let result: Result<_> = {
+            if !inner.blocked_flushes.is_empty() {
+                debug_assert!(self.assert_blocked_flushes(delete_queue, &inner));
+                self.prune_blocked_queue(delete_queue, &mut inner);
+                debug_assert!(
+                    inner.blocked_flushes.is_empty(),
+                    "blocked_flushes must be empty after pruning"
+                );
+            }
+            Ok(())
+        };
 
         inner.full_flush_mark_done = false;
         inner.full_flush = false;
         let _ = self.update_stall_state(&mut inner);
+        result
     }
     pub(crate) fn assert_blocked_flushes(
         &self,

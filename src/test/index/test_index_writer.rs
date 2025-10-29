@@ -18,10 +18,14 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::{TextField, text};
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::term::Term;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -56,13 +60,13 @@ fn test_doc_count() -> Result<()> {
     writer.add_document(doc)?;
 
     writer.commit()?;
-    // let reader = Arc::new(writer.get_reader(false, false)?);
-    // let irc = get_context(reader)?;
-    // let mut index_searcher = IndexSearcher::new(irc)?;
-    // let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
-    // let v = index_searcher.search(term_query, 10)?;
-    // assert_eq!(v.score_docs.len(), 1);
-    // assert_eq!(v.score_docs[0].doc, 1);
+    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    let irc = get_context(reader)?;
+    let mut index_searcher = IndexSearcher::new(irc)?;
+    let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
+    let v = index_searcher.search(term_query, 10)?;
+    assert_eq!(v.score_docs.len(), 1);
+    assert_eq!(v.score_docs[0].doc, 1);
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(2, doc_stats.max_doc);
     assert_eq!(2, doc_stats.num_docs);

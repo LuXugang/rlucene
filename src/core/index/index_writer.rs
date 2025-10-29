@@ -2785,22 +2785,17 @@ where
                     success = true;
                     Ok(r)
                 })();
-                match result2 {
-                    Ok(v) => Ok(v),
-                    Err(e) => {
-                        self.doc_writer.finish_full_flush(success)?;
-                        if success {
-                            self.process_events(false)?;
-                            if let Some(ref s) = self.sub {
-                                s.do_after_flush()?
-                            }
-                        } else if self.info_stream.enabled("IW") {
-                            self.info_stream
-                                .message("IW", "hit exception during NRT reader");
-                        }
-                        Err(e)
-                    },
+                self.doc_writer.finish_full_flush(success)?;
+                if success {
+                    self.process_events(false)?;
+                    if let Some(ref s) = self.sub {
+                        s.do_after_flush()?
+                    }
+                } else if self.info_stream.enabled("IW") {
+                    self.info_stream
+                        .message("IW", "hit exception during NRT reader");
                 }
+                result2
             }
         })();
         // TODO: 返回之前需要关闭一些 但是rust Lucene不需要？

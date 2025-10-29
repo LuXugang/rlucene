@@ -202,7 +202,7 @@ pub mod directory_reader_util {
     /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
     /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
     pub fn open_with_writer<D, L, B>(
-        writer: IndexWriter<D, L, B>,
+        writer: &IndexWriter<D, L, B>,
     ) -> Result<StandardDirectoryReaderType<D>>
     where
         D: Directory,
@@ -233,7 +233,7 @@ pub mod directory_reader_util {
     ///
     /// This API is marked as **experimental** in Lucene.
     pub fn open_with_writer_deletes<D, L, B>(
-        writer: IndexWriter<D, L, B>,
+        writer: &IndexWriter<D, L, B>,
         apply_all_deletes: bool,
         write_all_deletes: bool,
     ) -> Result<StandardDirectoryReaderType<D>>

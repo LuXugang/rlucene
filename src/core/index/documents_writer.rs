@@ -720,7 +720,7 @@ where
         {
             let delete_queue = &self.inner.lock().delete_queue;
             if success {
-                self.flush_control.finish_full_flush(delete_queue);
+                self.flush_control.finish_full_flush(delete_queue)?;
             } else {
                 // TODO
                 // self.flush_control.abort_full_flushes(delete_queue)?;
