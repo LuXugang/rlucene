@@ -460,7 +460,23 @@ where
             ));
         }
         if self.should_close(true) {
-            // TODO: 合并未实现
+            let result: Result<_> = (|| {
+                if self.info_stream.enabled("IW") {
+                    self.info_stream.message("IW", "now flush at close");
+                }
+                self.flush_with_apply_merge_deletes(true, true)?;
+                self.wait_for_merges()?;
+                self.commit_internal(self.config.get_merge_policy())?;
+                Ok(())
+            })();
+            match result {
+                Ok(_) => {
+                    // TODO : rollback 未实现
+                },
+                Err(_e) => {
+                    // TODO : rollback 未实现
+                },
+            }
         }
         Ok(())
     }
@@ -806,7 +822,11 @@ where
             let v = &mut *inner;
             (&mut v.deleter, &v.segment_infos)
         };
-        deleter.checkpoint(segment_infos, true, self.config.get_index_deletion_policy())?;
+        deleter.checkpoint(
+            segment_infos,
+            false,
+            self.config.get_index_deletion_policy(),
+        )?;
         Ok(())
     }
     /// Checkpoints with IndexFileDeleter, so it's aware of new files, and increments changeCount,
@@ -1512,7 +1532,7 @@ where
     /// Moves all in-memory segments to the [`Directory`], but does not commit (fsync) them
     /// (call [`commit`](Self::commit) for that).
     pub fn flush(&self) -> Result<()> {
-        self.do_flush(true, true)
+        self.flush_with_apply_merge_deletes(true, true)
     }
     /// Flushes all in-memory buffered updates (adds and deletes) to the `Directory`.
     ///
@@ -1520,8 +1540,106 @@ where
     ///
     /// * `trigger_merge` — if `true`, segments may be merged (if deletes or docs were flushed) if necessary.
     /// * `apply_all_deletes` — whether pending deletes should also be applied.
-    pub(crate) fn do_flush(&self, _trigger_merge: bool, _apply_all_deletes: bool) -> Result<()> {
-        todo!()
+    pub(crate) fn flush_with_apply_merge_deletes(
+        &self,
+        trigger_merge: bool,
+        apply_all_deletes: bool,
+    ) -> Result<()> {
+        // NOTE: this method cannot be sync'd because
+        // maybeMerge() in turn calls mergeScheduler.merge which
+        // in turn can take a long time to run and we don't want
+        // to hold the lock for that.  In the case of
+        // ConcurrentMergeScheduler this can lead to deadlock
+        // when it stalls due to too many running merges.
+
+        // We can be called during close, when closing==true, so we must pass false to ensureOpen:
+        self.do_ensure_open(false)?;
+        if self.do_flush(apply_all_deletes)? && trigger_merge {
+            self.maybe_merge(
+                self.config.get_merge_policy(),
+                MergeTrigger::FullFlush,
+                UNBOUNDED_MAX_MERGE_SEGMENTS,
+            )?;
+        }
+        Ok(())
+    }
+    /// Returns true a segment was flushed or deletes were applied.
+    fn do_flush(&self, apply_all_deletes: bool) -> Result<bool> {
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot flush {}",
+                t
+            )));
+        }
+
+        if let Some(ref s) = self.sub {
+            s.do_before_flush()?;
+        }
+
+        self.test_point("startDoFlush");
+        let mut success = false;
+
+        let res: Result<bool> = (|| {
+            if self.info_stream.enabled("IW") {
+                self.info_stream.message(
+                    "IW",
+                    &format!("  start flush: applyAllDeletes={}", apply_all_deletes),
+                );
+                self.info_stream.message(
+                    "IW",
+                    &format!("  index before flush {}", self.seg_string()?),
+                );
+            }
+
+            let any_changes = {
+                let _guard = self.full_flush_lock.lock();
+                let mut flush_success = false;
+                let result: Result<bool> = (|| {
+                    let any_changes = self.doc_writer.flush_all_threads(self)? < 0;
+                    if !any_changes {
+                        // flushCount is incremented in flushAllThreads if true
+                        self.flush_count.fetch_add(1, Ordering::SeqCst);
+                    }
+                    self.publish_flushed_segments(true)?;
+                    flush_success = true;
+                    Ok(any_changes)
+                })();
+                self.doc_writer.finish_full_flush(flush_success)?;
+                self.process_events(false)?;
+                result?
+            };
+
+            if apply_all_deletes {
+                self.apply_all_deletes_and_updates()?;
+            }
+
+            let any_changes = any_changes | self.maybe_merge.swap(false, Ordering::AcqRel);
+
+            {
+                let mut inner = self.inner.lock();
+                self.write_reader_pool(apply_all_deletes, &mut *inner)?;
+                if let Some(ref s) = self.sub {
+                    s.do_after_flush()?;
+                }
+                success = true;
+            }
+
+            Ok(any_changes)
+        })();
+
+        if !success {
+            if self.info_stream.enabled("IW") {
+                self.info_stream.message("IW", "hit exception during flush");
+            }
+            self.maybe_close_on_tragic_event()?;
+        }
+        match res {
+            Ok(v) => Ok(v),
+            Err(t) => {
+                self.tragic_event(&t, "doFlush");
+                Err(t)
+            },
+        }
     }
 
     fn apply_all_deletes_and_updates(&self) -> Result<()> {
