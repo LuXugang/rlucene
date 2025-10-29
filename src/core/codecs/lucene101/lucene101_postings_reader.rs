@@ -329,10 +329,12 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>> {
-        let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
-        if reuse_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
-            return Ok(Some(reuse_enum));
+        if let Some(e) = reuse
+            && e.can_reuse(&self.doc_in, field_info, flags, false, self)
+        {
+            return Ok(Some(e));
         }
+
         let mut block = BlockPostingsEnum::new(field_info, flags, false, self)?;
         block.reset(term_state, flags, self)?;
         Ok(Some(block))

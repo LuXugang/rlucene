@@ -178,7 +178,8 @@ where
     }
     pub(crate) fn dec_ref(&self) -> Result<()> {
         self.r#ref.load(Ordering::Acquire);
-        todo!()
+        // TODO
+        Ok(())
     }
     pub(crate) fn get_cache_helper_ref(&self) -> &SegmentCoreReadersCacheHelperImpl {
         &self.cache_helper

@@ -557,23 +557,23 @@ where
         }
 
         loop {
-            let last_sub_fp = {
+            let has_next = SegmentTermsEnumFrame::next(self.current_frame_idx, self)?;
+            if has_next {
                 let current_frame = if self.current_frame_idx == self.static_frame_idx {
                     &mut self.static_frame
                 } else {
                     &mut self.stack[self.current_frame_idx]
                 };
-                current_frame.last_sub_fp
-            };
-            let has_next = SegmentTermsEnumFrame::next(self.current_frame_idx, self)?;
-            if has_next {
+                let last_sub_fp = current_frame.last_sub_fp;
                 let length = { self.term.length() };
                 self.current_frame_idx = self.push_frame(None, last_sub_fp, length as i32)?;
+                // This is a "next" frame -- even if it's
+                // floor'd we must pretend it isn't so we don't
+                // try to scan to the right floor frame:
                 SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
                 continue;
             } else {
-                let term = self.term.get_bytes_ref();
-                Some(term)
+                return Ok(Some(Cow::Borrowed(self.term.get_bytes_ref())));
             };
         }
     }

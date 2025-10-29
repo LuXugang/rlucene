@@ -1081,12 +1081,12 @@ where
     }
 
     /// Removes the provided `SegmentCommitInfo`.
-    pub fn remove(&mut self, si_id: &str) -> bool {
+    pub fn remove(&mut self, si_id: &str) -> Option<SegmentCommitInfo<D>> {
         if let Some(pos) = self.segments_idx.iter().position(|x| x == si_id) {
             self.segments_idx.remove(pos);
         }
 
-        self.segments.remove(si_id).is_some()
+        self.segments.remove(si_id)
     }
 
     /// Removes the `SegmentCommitInfo` at the provided index.

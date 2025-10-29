@@ -19,6 +19,7 @@ use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -78,7 +79,7 @@ impl BufferedUpdatesStream {
         packet.set_del_gen(inner.next_gen);
         inner.next_gen += 1;
         debug_assert!(packet.any());
-        debug_assert!(self.check_delete_stats());
+        debug_assert!(self.check_delete_stats(&inner));
 
         let bytes_used = packet.bytes_used;
         let del_gen = packet.del_gen();
@@ -99,7 +100,7 @@ impl BufferedUpdatesStream {
                 );
             }
         }
-        debug_assert!(self.check_delete_stats());
+        debug_assert!(self.check_delete_stats(&inner));
         (del_gen, v)
     }
     pub(crate) fn get_pending_updates_count(&self) -> usize {
@@ -234,8 +235,7 @@ impl BufferedUpdatesStream {
         r#gen
     }
     // only for assert
-    fn check_delete_stats(&self) -> bool {
-        let inner = self.inner.lock();
+    fn check_delete_stats(&self, inner: &BufferedUpdatesStreamInner) -> bool {
         let mut bytes_used2 = 0i64;
         for packet in &inner.updates {
             bytes_used2 += packet.bytes_used as i64;
@@ -266,12 +266,13 @@ impl<D> SegmentState<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
-        SegmentState {
+    pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Result<Self> {
+        rld.get_reader(&IOContext::default_io_context()?, info, None)?;
+        Ok(SegmentState {
             del_gen: info.get_buffered_deletes_gen(),
             rld,
             start_del_count: info.get_del_count(),
-        }
+        })
     }
     pub(crate) fn close<L, B>(
         &self,
@@ -282,16 +283,18 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        let rld_inner = self.rld.inner.lock();
-        let reader = match rld_inner.reader {
-            Some(ref reader) => reader,
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "read in ReadersAndUpdates should not None",
-                ));
-            },
-        };
-        self.rld.release(reader.as_ref())?;
+        {
+            let rld_inner = self.rld.inner.lock();
+            let reader = match rld_inner.reader {
+                Some(ref reader) => reader,
+                None => {
+                    return Err(LuceneError::illegal_state(
+                        "read in ReadersAndUpdates should not None",
+                    ));
+                },
+            };
+            self.rld.release(reader.as_ref(), &rld_inner)?;
+        }
         writer.release(self.rld.as_ref(), inner)?;
         Ok(())
     }

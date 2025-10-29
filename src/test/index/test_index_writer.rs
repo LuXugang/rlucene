@@ -34,6 +34,9 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use once_cell::sync::Lazy;
 use std::clone::Clone;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
+use std::vec;
 
 static STORED_TEXT_TYPE: Lazy<FieldType> =
     Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
@@ -78,6 +81,7 @@ fn test_doc_count() -> Result<()> {
 fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
@@ -105,6 +109,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
 fn test_bad_segment() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
@@ -130,6 +135,7 @@ fn test_variable_schema() -> Result<()> {
 fn test_unlimited_max_field_length() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
@@ -141,6 +147,99 @@ fn test_unlimited_max_field_length() -> Result<()> {
     let reader = directory_reader_util::open(dir.clone())?;
     let t = Term::from_text("field", "x");
     assert_eq!(1, reader.doc_freq(&t)?);
+    Ok(())
+}
+#[test]
+fn test_empty_field_name() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现MockAnalyzer
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    let mut doc = Document::new();
+    doc.add(new_text_field("", "a b c", Store::No)?);
+    writer.add_document(doc)?;
+    writer.close()?;
+
+    Ok(())
+}
+#[test]
+fn test_empty_field_name_terms() -> Result<()> {
+    // TODO
+    Ok(())
+}
+#[test]
+fn test_empty_field_name_with_empty_term() -> Result<()> {
+    // TODO
+    Ok(())
+}
+struct MockIndexWriter {
+    after_was_called: AtomicBool,
+    before_was_called: AtomicBool,
+}
+impl MockIndexWriter {
+    fn new() -> Self {
+        MockIndexWriter {
+            after_was_called: AtomicBool::new(false),
+            before_was_called: AtomicBool::new(false),
+        }
+    }
+}
+impl IndexWriterBase for MockIndexWriter {
+    fn do_after_flush(&self) -> Result<()> {
+        self.after_was_called.store(true, SeqCst);
+        Ok(())
+    }
+
+    fn do_before_flush(&self) -> Result<()> {
+        self.before_was_called.store(true, SeqCst);
+        Ok(())
+    }
+}
+
+#[test]
+fn test_do_before_after_flush() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let mock_index_writer = MockIndexWriter::new();
+    let writer = IndexWriter::with_sub(
+        dir.clone(),
+        new_index_writer_config(&mut random),
+        Some(mock_index_writer),
+    )?;
+
+    let mut doc = Document::new();
+    let custom_type = FieldType::from_ref(&*text::TYPE_STORED)?;
+    doc.add(new_field("field", "a field", &custom_type)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    assert!(writer.sub.as_ref().unwrap().before_was_called.load(SeqCst));
+    assert!(writer.sub.as_ref().unwrap().after_was_called.load(SeqCst));
+    writer
+        .sub
+        .as_ref()
+        .unwrap()
+        .before_was_called
+        .store(false, SeqCst);
+    writer
+        .sub
+        .as_ref()
+        .unwrap()
+        .after_was_called
+        .store(false, SeqCst);
+
+    writer.delete_documents_with_terms(vec![Term::from_text("field", "field"); 1])?;
+    writer.commit()?;
+
+    assert!(writer.sub.as_ref().unwrap().before_was_called.load(SeqCst));
+    assert!(writer.sub.as_ref().unwrap().after_was_called.load(SeqCst));
+
+    writer.close()?;
+
+    let reader = directory_reader_util::open(dir.clone())?;
+    assert_eq!(0, reader.num_docs()?);
+
     Ok(())
 }
 

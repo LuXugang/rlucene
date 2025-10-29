@@ -317,6 +317,7 @@ where
     spare: BytesRefBuilder<Vec<u8>>,
     size: i32,
     bytes_ref_array: &'a BytesRefArray<A>,
+    result: BytesRef<Vec<u8>>,
 }
 impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
 where
@@ -334,6 +335,7 @@ where
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
             bytes_ref_array,
+            result: BytesRef::new(),
         }
     }
     pub fn ord(&self) -> i32 {
@@ -345,7 +347,6 @@ where
     A: SharedAccess<CounterEnum>,
 {
     fn next(&'_ mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
             self.ord = if self.sort_state.indices.is_none() {
@@ -354,8 +355,8 @@ where
                 self.sort_state.indices.as_ref().unwrap()[self.pos as usize]
             };
             self.bytes_ref_array
-                .set_bytes_ref(&mut self.spare, &mut result, self.ord)?;
-            Ok(Some(Cow::Owned(result)))
+                .set_bytes_ref(&mut self.spare, &mut self.result, self.ord)?;
+            Ok(Some(Cow::Borrowed(&self.result)))
         } else {
             Ok(None)
         }

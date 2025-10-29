@@ -22,6 +22,7 @@ use crate::core::index::doc_values_field_updates::{
     DocValuesFieldUpdates, DocValuesFieldUpdatesBase, DocValuesFieldUpdatesEnum,
     SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
 };
+use crate::core::index::field_term_iterator::FieldTermIterator;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -165,7 +166,7 @@ impl FrozenBufferedUpdates {
             total_del_count: AtomicI64::new(0),
             bytes_used,
             field_updates_count,
-            del_gen: 0,
+            del_gen: -1,
             private_segment,
             id,
         })
@@ -313,7 +314,7 @@ impl FrozenBufferedUpdates {
             let inner = seg_state.rld.inner.lock();
             let reader = inner.reader.as_ref().unwrap();
             let mut term_docs_iterator = TermDocsIterator::new(
-                TermsProviderImpl2::new(reader.as_ref()),
+                TermsProviderImpl2::new(reader.clone()),
                 iterator.is_sorted_terms(),
             );
             let mut dv_updates = None;
@@ -467,23 +468,26 @@ impl FrozenBufferedUpdates {
             }
 
             let mut iter = self.delete_terms.iterator();
-            let inner = seg_state.rld.inner.lock();
-            let mut term_docs_iter = TermDocsIterator::new(
-                TermsProviderImpl2::new(inner.reader.as_ref().unwrap().as_ref()),
-                true,
-            );
-            let field = std::mem::take(&mut iter.field);
-            while let Some(del_term) = iter.next()? {
-                if let Some(it) = term_docs_iter.next_term(&field, &del_term)? {
-                    loop {
-                        let doc_id = it.next_doc()?;
-                        if doc_id == NO_MORE_DOCS {
-                            break;
-                        }
-                        let info = infos.get(&seg_state.rld.info_id);
-                        debug_assert!(info.is_some());
-                        if seg_state.rld.delete(doc_id, info.unwrap())? {
-                            del_count += 1;
+            {
+                let mut inner = seg_state.rld.inner.lock();
+                let mut term_docs_iter = TermDocsIterator::new(
+                    TermsProviderImpl2::new(inner.reader.as_ref().unwrap().clone()),
+                    true,
+                );
+                while iter.set_next()? {
+                    if let Some(it) =
+                        term_docs_iter.next_term(iter.field(), &iter.builder.bytes_ref)?
+                    {
+                        loop {
+                            let doc_id = it.next_doc()?;
+                            if doc_id == NO_MORE_DOCS {
+                                break;
+                            }
+                            let info = infos.get(&seg_state.rld.info_id);
+                            debug_assert!(info.is_some());
+                            if seg_state.rld.delete(doc_id, info.unwrap(), &mut inner)? {
+                                del_count += 1;
+                            }
                         }
                     }
                 }
@@ -598,11 +602,11 @@ where
             last_term: None,
         }
     }
-    fn set_field(&mut self, mut field: Option<String>) -> Result<()> {
-        if field.is_some() && self.field.as_ref() != field.as_ref() {
-            self.field = field.take();
+    fn set_field(&mut self, field: &str) -> Result<()> {
+        if self.field.is_none() || self.field.as_ref().unwrap() != field {
+            self.field = Some(field.to_string());
 
-            match self.provider.terms(field.as_ref().unwrap())? {
+            match self.provider.terms(field)? {
                 Some(terms) => {
                     let mut terms_enum = terms.iterator()?;
                     if self.sorted_terms {
@@ -624,7 +628,7 @@ where
         field: &str,
         term: &BytesRef<Vec<u8>>,
     ) -> Result<Option<&mut Disi<P>>> {
-        self.set_field(Some(field.to_string()))?;
+        self.set_field(field)?;
 
         if let Some(terms_enum) = self.terms_enum.as_mut() {
             if self.sorted_terms {
@@ -720,21 +724,21 @@ where
     }
 }
 
-struct TermsProviderImpl2<'a, L>
+struct TermsProviderImpl2<L>
 where
     L: LeafReader,
 {
-    reader: &'a L,
+    reader: L,
 }
-impl<'a, L> TermsProviderImpl2<'a, L>
+impl<L> TermsProviderImpl2<L>
 where
     L: LeafReader,
 {
-    pub(crate) fn new(reader: &'a L) -> Self {
+    pub(crate) fn new(reader: L) -> Self {
         Self { reader }
     }
 }
-impl<'a, L> TermsProvider for TermsProviderImpl2<'a, L>
+impl<L> TermsProvider for TermsProviderImpl2<L>
 where
     L: LeafReader,
 {

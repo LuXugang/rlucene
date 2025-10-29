@@ -240,17 +240,20 @@ where
         inner.reader.as_ref().unwrap().inc_ref()?;
         Ok(())
     }
-    pub fn release(&self, sr: &SegmentReader<D>) -> Result<()> {
+    pub fn release(&self, sr: &SegmentReader<D>, inner: &Inner<D>) -> Result<()> {
         debug_assert!(self.info_id == sr.get_original_segment_info_id());
-        self.inner.lock().reader.as_ref().unwrap().dec_ref()?;
+        inner.reader.as_ref().unwrap().dec_ref()?;
         Ok(())
     }
 
-    pub fn delete(&self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
-        let mut inner = self.inner.lock();
-
+    pub fn delete(
+        &self,
+        doc_id: i32,
+        info: &SegmentCommitInfo<D>,
+        inner: &mut Inner<D>,
+    ) -> Result<bool> {
         if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
-            self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?; // pass a reader to initialize the pending deletes
+            self.get_reader(&IOContext::default_io_context()?, info, Some(inner))?; // pass a reader to initialize the pending deletes
         }
 
         inner.pending_deletes.delete(doc_id, info)

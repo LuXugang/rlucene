@@ -50,6 +50,9 @@ pub trait BytesRefIterator {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
+    fn set_next(&mut self) -> Result<bool> {
+        Err(LuceneError::need_implemented("this method need implement"))
+    }
 }
 
 pub struct EmptyBytesRefIterator;

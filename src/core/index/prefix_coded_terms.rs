@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
@@ -189,7 +188,7 @@ impl PrefixCodedTermsBuilder {
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
 pub struct TermIterator<'a> {
     input: ByteBuffersDataInputRef<'a>,
-    builder: BytesRefBuilder<Vec<u8>>,
+    pub(crate) builder: BytesRefBuilder<Vec<u8>>,
     end: i64,
     del_gen: i64,
     pub(crate) field: String,
@@ -223,7 +222,7 @@ impl<'a> TermIterator<'a> {
 }
 
 impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    fn set_next(&mut self) -> Result<bool> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;
@@ -233,11 +232,11 @@ impl BytesRefIterator for TermIterator<'_> {
             let prefix = code >> 1;
             let suffix = self.input.read_vint()?;
             self.read_term_bytes(prefix, suffix)?;
-            return Ok(Some(Cow::Borrowed(&self.builder.bytes_ref)));
+            return Ok(true);
         } else {
             self.field.clear();
         }
-        Ok(None)
+        Ok(false)
     }
 }
 

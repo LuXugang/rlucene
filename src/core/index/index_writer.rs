@@ -78,7 +78,7 @@ where
     info_stream: InfoStreamMT,
     inner: Mutex<Inner<D>>,
     pausing: Condvar,
-    sub: Option<B>,
+    pub(crate) sub: Option<B>,
     commit_lock: Mutex<CommitInner<D>>,
     full_flush_lock: Mutex<()>,
 }
@@ -533,6 +533,61 @@ where
     pub fn get_directory(&self) -> Arc<D> {
         self.directory_orig.clone()
     }
+    /// Deletes the document(s) containing any of the given terms.
+    /// All provided deletes are applied and flushed atomically at the same time.
+    ///
+    /// # Returns
+    /// The sequence number for this operation.
+    ///
+    /// # Errors
+    /// - `CorruptIndex` if the index is corrupt.
+    /// - `Io` if a low-level IO error occurs.
+    pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
+        self.do_ensure_open(true)?;
+        let res = (|| {
+            let seq = self.maybe_process_events(self.doc_writer.delete_terms(terms)?)?;
+            Ok(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "deleteDocuments(Term..)");
+        }
+
+        res
+    }
+    /// Deletes the document(s) matching any of the provided queries.
+    /// All given deletes are applied and flushed atomically at the same time.
+    ///
+    /// # Returns
+    /// The sequence number for this operation.
+    ///
+    /// # Errors
+    /// - `CorruptIndex` if the index is corrupt.
+    /// - `Io` if a low-level IO error occurs.
+    pub fn delete_documents_with_queries(&self, queries: Vec<Query>) -> Result<i64> {
+        self.do_ensure_open(true)?;
+
+        // LUCENE-6379: Specialize MatchAllDocsQuery
+        for query in &queries {
+            if matches!(query, Query::MatchAll(_)) {
+                // TODO
+                // return self.delete_all();
+            }
+        }
+
+        let res = (|| {
+            let seq0 = self.doc_writer.delete_queries(queries)?;
+            let seq = self.maybe_process_events(seq0)?;
+            Ok(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "deleteDocuments(Query..)");
+        }
+
+        res
+    }
+
     /// Adds a document to this index.
     ///
     /// Note that if an exception is hit (for example, disk full) then the index will remain consistent,
@@ -688,7 +743,8 @@ where
 
         // it's possible that we invoke this method more than once for the same SCI
         // we must only remove the docs once!
-        let mut drop_pending_docs = inner.segment_infos.remove(seg_id);
+        let drop_segment_commit_info = inner.segment_infos.remove(seg_id);
+        let mut drop_pending_docs = drop_segment_commit_info.is_some();
         let res: Result<()> = (|| {
             // this is sneaky - we might hit an exception while dropping a reader but then we have
             // already
@@ -699,13 +755,7 @@ where
         })();
 
         if drop_pending_docs {
-            let info = match inner.segment_infos.info(seg_id) {
-                None => Err(LuceneError::illegal_state(
-                    "could not find segment info from IndexWriter#segment_infos",
-                ))?,
-                Some(info) => info,
-            };
-            let dec = -(info.info.max_doc()? as i64);
+            let dec = -(drop_segment_commit_info.as_ref().unwrap().info.max_doc()? as i64);
             self.adjust_pending_num_docs(dec);
         }
         res
@@ -2636,7 +2686,7 @@ where
                     let rld = self
                         .get_pooled_instance(info, true, None)?
                         .expect("should always be Some");
-                    let seg_state = SegmentState::new(rld, info);
+                    let seg_state = SegmentState::new(rld, info)?;
                     seg_states.push(seg_state);
                     already_seen.insert(info_id.clone());
                 }

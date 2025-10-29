@@ -810,6 +810,10 @@ impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl
 where
     D: Directory,
 {
+    fn get_mut(&mut self) -> Result<Option<FlushTicket<D>>> {
+        self.get()
+    }
+
     fn get(&self) -> Result<Option<FlushTicket<D>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
         match self.delete_queue.maybe_freeze_global_buffer()? {
@@ -890,6 +894,10 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
 {
+    fn get_mut(&mut self) -> Result<DocumentsWriterPerThread<D>> {
+        self.get()
+    }
+
     fn get(&self) -> Result<DocumentsWriterPerThread<D>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
