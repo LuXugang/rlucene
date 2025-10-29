@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
@@ -222,6 +223,15 @@ impl<'a> TermIterator<'a> {
 }
 
 impl BytesRefIterator for TermIterator<'_> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        let v = self.set_next()?;
+        if v {
+            Ok(Some(Cow::Borrowed(self.builder.bytes_ref())))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn set_next(&mut self) -> Result<bool> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
