@@ -516,15 +516,15 @@ where
     fn flush_positions(&mut self) -> Result<()> {
         self.writer.reset();
 
-        for doc in &self.pending_docs {
-            for field in &doc.fields {
-                if field.has_positions {
+        for dd in &self.pending_docs {
+            for fd in &dd.fields {
+                if fd.has_positions {
                     let mut pos = 0;
-                    for i in 0..field.num_terms {
-                        let freq = field.freqs[i];
+                    for i in 0..fd.num_terms {
+                        let freq = fd.freqs[i];
                         let mut previous_position = 0;
                         for _ in 0..freq {
-                            let index = field.pos_start + pos;
+                            let index = fd.pos_start + pos;
                             let position = self.positions_buf[index];
                             self.writer.add(
                                 (position - previous_position) as i64,
@@ -534,7 +534,7 @@ where
                             pos += 1;
                         }
                     }
-                    debug_assert_eq!(pos, field.total_positions);
+                    debug_assert_eq!(pos, fd.total_positions);
                 }
             }
         }
@@ -880,7 +880,7 @@ where
 
         debug_assert_eq!(cur_field.has_positions, positions.is_some());
         debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
-        if cur_field.has_payloads {
+        if cur_field.has_positions {
             if let Some(positions) = positions {
                 let pos_start = cur_field.pos_start + cur_field.total_positions;
                 let len = pos_start + num_prox;
