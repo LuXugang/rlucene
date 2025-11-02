@@ -37,6 +37,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use once_cell::sync::Lazy;
 use rand::Rng;
 use std::clone::Clone;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
@@ -450,6 +451,58 @@ fn test_pending_num_docs() -> Result<()> {
     }
     Ok(())
 }
+#[test]
+fn test_get_field_names() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    {
+        let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        assert_eq!(HashSet::<String>::new(), writer.get_field_names());
+
+        add_doc_with_field(&mut writer, "f1")?;
+        assert_eq!(HashSet::from(["f1".to_string()]), writer.get_field_names());
+
+        let field_set = writer.get_field_names();
+
+        add_doc_with_field(&mut writer, "f2")?;
+        assert_eq!(
+            HashSet::from(["f1".to_string(), "f2".to_string()]),
+            writer.get_field_names()
+        );
+        assert_eq!(HashSet::from(["f1".to_string()]), field_set);
+
+        // flush should not change field names
+        writer.flush()?;
+        assert_eq!(
+            HashSet::from(["f1".to_string(), "f2".to_string()]),
+            writer.get_field_names()
+        );
+
+        // commit should not change field names
+        writer.commit()?;
+        assert_eq!(
+            HashSet::from(["f1".to_string(), "f2".to_string()]),
+            writer.get_field_names()
+        );
+
+        writer.close()?;
+    }
+
+    // reopen writer — should detect committed fields
+    // TODO: 未实现MockAnalyzer
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    assert_eq!(
+        HashSet::from(["f1".to_string(), "f2".to_string()]),
+        writer.get_field_names()
+    );
+
+    writer.delete_all()?;
+    assert_eq!(HashSet::<String>::new(), writer.get_field_names());
+
+    writer.close()?;
+    Ok(())
+}
 
 pub(crate) fn add_doc<D, L, B>(writer: &IndexWriter<D, L, B>) -> Result<()>
 where
@@ -480,4 +533,16 @@ where
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }
+}
+fn add_doc_with_field<D, L, B>(writer: &mut IndexWriter<D, L, B>, field: &str) -> Result<()>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    let mut doc = Document::new();
+    let stored_text_type = FieldType::from_ref(&*text::TYPE_STORED)?;
+    doc.add(new_field(field, "value", &stored_text_type)?);
+    let _ = writer.add_document(doc)?;
+    Ok(())
 }

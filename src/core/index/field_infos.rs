@@ -752,11 +752,10 @@ impl FieldNumbers {
         self.field_properties.keys().cloned().collect()
     }
 
-    pub fn clear(&mut self) -> Result<()> {
+    pub fn clear(&mut self) {
         self.number_to_name.clear();
         self.field_properties.clear();
         self.lowest_unassigned_field_number = -1;
-        Ok(())
     }
 }
 pub mod build {
@@ -954,7 +953,7 @@ mod tests {
         ))?;
         assert_eq!(10, idx, "Field numbers 0 through 9 were allocated");
 
-        field_numbers.clear()?;
+        field_numbers.clear();
         let idx = field_numbers.add_or_get(&FieldInfo::new(
             "PostClearField".to_string(),
             -1,

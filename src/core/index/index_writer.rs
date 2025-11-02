@@ -906,6 +906,10 @@ where
         // TODO
         Ok(())
     }
+    pub fn delete_all(&self) -> Result<i64> {
+        self.global_field_number_map.lock().clear();
+        Ok(0)
+    }
     /// Waits for any currently outstanding merges to finish.
     ///
     /// It is guaranteed that any merges started prior to calling this method
