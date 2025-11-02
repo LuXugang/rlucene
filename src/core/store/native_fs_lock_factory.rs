@@ -114,9 +114,8 @@ impl FSLockFactory for NativeFSLockFactory {
         // will fail below.
         let file = OpenOptions::new()
             .write(true)
-            .create_new(true)
-            .open(&lock_file)
-            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+            .create(true)
+            .open(&lock_file)?;
         let real_path = lock_file
             .canonicalize()
             .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
@@ -128,7 +127,6 @@ impl FSLockFactory for NativeFSLockFactory {
                 "Lock held by another program: {real_path_str}"
             )));
         }
-
         match file.try_lock_exclusive() {
             Ok(_) => {
                 let metadata = file.metadata()?;

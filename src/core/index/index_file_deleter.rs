@@ -157,7 +157,7 @@ where
                         let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?;
                         let commit_point = CommitPoint::new(directory_orig.clone(), &sis)?;
                         index_file_deleter.commits.push(commit_point);
-                        let index = index_file_deleter.commits.len();
+                        let index = index_file_deleter.commits.len() - 1;
                         if sis.get_generation() == current_gen {
                             current_commit_point = Some(index);
                         }

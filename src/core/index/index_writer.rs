@@ -23,7 +23,7 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -175,11 +175,17 @@ where
             // TODO: IMPORTANT 这里的SegmentInfos 这里不需要初始哈
             let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
             let is_reader_some = reader.is_some();
+            let is_commit_some = commit.is_some();
             let did_message_state = false;
             let rollback_segments = Vec::new();
-            let (reader, has_commit) = match commit {
-                Some(c) => (c.get_reader(), true),
-                None => (None, false),
+            let (reader, has_commit, _commit_dir, commit_files) = match commit {
+                Some(c) => (
+                    c.get_reader(),
+                    true,
+                    Some(c.get_directory().clone()),
+                    Some(c.get_segments_file_name().to_string()),
+                ),
+                None => (None, false, None, None),
             };
             if create {
                 if has_commit {
@@ -211,6 +217,54 @@ where
 
                 // Record that we have a change (zero out all segments) pending:
                 Self::changed(&mut change_count, &mut segment_infos);
+            } else if reader.is_some() {
+                todo!()
+            } else {
+                // Init from either the latest commit point, or an explicit prior commit point:
+
+                let last_segments_file = match get_last_commit_segments_file_name(&files)? {
+                    Some(f) => f,
+                    None => {
+                        return Err(LuceneError::index_not_found(format!(
+                            "no segments* file found in {}: files: {:?}",
+                            directory, files
+                        )));
+                    },
+                };
+                // Do not use SegmentInfos.read(Directory) since the spooky
+                // retrying it does is not necessary here (we hold the write lock):
+                segment_infos = if is_commit_some {
+                    // Swap out all segments, but, keep metadata in
+                    // SegmentInfos, like version & generation, to
+                    // preserve write-once.  This is important if
+                    // readers are open against the future commit
+                    // points.
+                    // TODO
+                    // if !Arc::ptr_eq(&commit.get_directory(), directory_orig.as_ref()) {
+                    //     return Err(LuceneError::illegal_argument(format!(
+                    //         "IndexCommit's directory doesn't match my directory, expected={:?}, got={:?}",
+                    //         directory_orig,
+                    //         commit.get_directory()
+                    //     )));
+                    // }
+                    let old_infos = SegmentInfos::read_commit(
+                        directory_orig.clone(),
+                        commit_files.as_ref().unwrap(),
+                    )?;
+                    Self::changed(&mut change_count, &mut segment_infos);
+
+                    if info_stream.enabled("IW") {
+                        info_stream.message(
+                            "IW",
+                            &format!("init: loaded commit \"{}\"", commit_files.as_ref().unwrap()),
+                        );
+                    }
+                    old_infos
+                } else {
+                    SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?
+                };
+                // TODO: rollback_segments 未实现
+                let _rollback_segments = segment_infos.create_backup_segment_infos();
             }
 
             let commit_user_data = segment_infos.get_user_data().clone();
@@ -346,6 +400,7 @@ where
             Ok(iw)
         })();
         if result.is_err() && info_stream.enabled("IW") {
+            // TODO
             let msg = "init: hit exception on init; releasing write lock";
 
             info_stream.message("IW", msg);

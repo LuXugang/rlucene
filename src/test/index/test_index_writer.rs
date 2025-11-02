@@ -35,6 +35,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_field, new_index_writer_config, new_text_field, random,
 };
 use once_cell::sync::Lazy;
+use rand::Rng;
 use std::clone::Clone;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -418,6 +419,35 @@ fn test_segment_info_is_snapshot() -> Result<()> {
     assert!(Arc::ptr_eq(&original_info.info, &segment_info.info));
 
     writer.close()?;
+    Ok(())
+}
+
+#[test]
+fn test_pending_num_docs() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    let num_docs = random.random_range(0..100);
+
+    {
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        for i in 0..num_docs {
+            let mut d = Document::new();
+            d.add(StringField::with_string("id", i.to_string(), Store::Yes)?);
+            writer.add_document(d)?;
+            assert_eq!(i as i64 + 1, writer.get_pending_num_docs());
+        }
+        assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+        writer.flush()?;
+        assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+        writer.close()?;
+    }
+
+    {
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+        writer.close()?;
+    }
     Ok(())
 }
 

@@ -1009,11 +1009,6 @@ where
     pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in self.segments.values() {
-            // debug_assert!(
-            //     segment_commit_info.info.codec.is_some(),
-            //     "Codec is None for segment {}",
-            //     segment_commit_info.info.name
-            // );
             backup_list.push(segment_commit_info.clone());
         }
         Ok(backup_list)

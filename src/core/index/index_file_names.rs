@@ -50,15 +50,15 @@ impl IndexFileNames {
     /// * `base` - Main part of the file name.
     /// * `ext` - Extension of the filename.
     /// * `gen` - Generation.
-    pub fn file_name_from_generation(base: &str, ext: &str, r#gen: i64) -> Option<String> {
-        if r#gen == -1 {
+    pub fn file_name_from_generation(base: &str, ext: &str, gen_: i64) -> Option<String> {
+        if gen_ == -1 {
             return None;
         }
-        if r#gen == 0 {
+        if gen_ == 0 {
             Option::from(IndexFileNames::segment_file_name(base, "", ext))
         } else {
             // base-36
-            let gen_str = BigInt::from(r#gen).to_str_radix(36);
+            let gen_str = BigInt::from(gen_).to_str_radix(36);
             let mut res = String::with_capacity(base.len() + 6 + ext.len());
             res.push_str(base);
             res.push('_');
