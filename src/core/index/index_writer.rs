@@ -89,6 +89,7 @@ where
     pub(crate) segment_infos: SegmentInfos<D>,
     // After SegmentCommitInfo removed from `segment_infos`,
     // It's ownership move to `dropped_segment_commit_infos` for some uses,
+    // TODO: IMPORTANT 这个字段什么时候释放比较合适呢？
     dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
     deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fallback to if the commit fails

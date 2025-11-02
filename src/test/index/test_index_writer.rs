@@ -22,6 +22,7 @@ use crate::core::document::text_field::{TextField, text};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -376,6 +377,46 @@ fn test_fully_deleted_segments_release_files() -> Result<()> {
 
     assert_files(&writer)?;
     assert_eq!(1, writer.clone_segment_infos()?.size());
+    writer.close()?;
+    Ok(())
+}
+#[test]
+fn test_segment_info_is_snapshot() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    // TODO: 没有定义flush条件
+    let config = new_index_writer_config(&mut random);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let mut d = Document::new();
+    d.add(StringField::with_string("id", "doc-0", Store::Yes)?);
+    writer.add_document(d)?;
+
+    let mut d = Document::new();
+    d.add(StringField::with_string("id", "doc-1", Store::Yes)?);
+    writer.add_document(d)?;
+
+    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    let context = get_context(reader)?;
+    let segment_reader = context.leaves()?.get(0).unwrap().reader();
+    let segment_info = segment_reader.get_segment_info();
+    let original_info_id = segment_reader.get_original_segment_info_id();
+    let clone_segment_infos = writer.clone_segment_infos()?;
+    let original_info = clone_segment_infos.info(original_info_id).unwrap();
+
+    assert_eq!(0, original_info.get_del_count());
+    assert_eq!(0, segment_info.get_del_count());
+
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "doc-0")])?;
+    writer.commit()?;
+    let clone_segment_infos = writer.clone_segment_infos()?;
+    let original_info = clone_segment_infos.info(original_info_id).unwrap();
+    assert_eq!(0, segment_info.get_del_count());
+    assert_eq!(1, original_info.get_del_count());
+
+    assert!(Arc::ptr_eq(&original_info.info, &segment_info.info));
+
     writer.close()?;
     Ok(())
 }

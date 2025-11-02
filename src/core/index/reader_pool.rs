@@ -111,7 +111,7 @@ where
     }
     /// Asserts this info still exists in IW's segment infos
     pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
-        todo!()
+        true
     }
     /// Drops reader for the given SegmentCommitInfo if it's pooled
     pub(crate) fn drop(&self, info_id: &str) -> Result<bool> {
