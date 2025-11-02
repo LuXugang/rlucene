@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TextField, text};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
@@ -28,6 +29,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_field, new_index_writer_config, new_text_field, random,
 };
@@ -316,6 +318,65 @@ fn test_delete_same_term_across_fields() -> Result<()> {
     writer.close()?;
     assert_eq!(1, reader.num_docs()?);
 
+    Ok(())
+}
+fn assert_files<D, L, B>(writer: &IndexWriter<D, L, B>) -> Result<()>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    use std::collections::HashSet;
+
+    let filter = |file: &str| !file.starts_with("segments") && file != "write.lock";
+    // remove segment files we don't know if we have committed and what is kept around
+    let seg_files: HashSet<String> = writer
+        .clone_segment_infos()?
+        .files(true)?
+        .into_iter()
+        .filter(|f| filter(f))
+        .collect();
+
+    let dir_files: HashSet<String> = writer
+        .get_directory()
+        .list_all()?
+        .into_iter()
+        .filter(|f| !(f == EXTRA_FILE_NAME))
+        .filter(|f| filter(f))
+        .collect();
+
+    assert_eq!(seg_files.len(), dir_files.len(),);
+
+    Ok(())
+}
+
+#[test]
+fn test_fully_deleted_segments_release_files() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    let config = new_index_writer_config(&mut random);
+    // TODO: 没有定义flush条件
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let mut d = Document::new();
+    d.add(StringField::with_string("id", "doc-0", Store::Yes)?);
+    writer.add_document(d)?;
+    writer.flush()?;
+
+    let mut d = Document::new();
+    d.add(StringField::with_string("id", "doc-1", Store::Yes)?);
+    writer.add_document(d)?;
+    writer.delete_documents_with_terms(vec![Term::from_text("id", "doc-1")])?;
+
+    assert_eq!(1, writer.clone_segment_infos()?.size());
+    writer.flush()?;
+    assert_eq!(1, writer.clone_segment_infos()?.size());
+    writer.commit()?;
+
+    assert_files(&writer)?;
+    assert_eq!(1, writer.clone_segment_infos()?.size());
+    writer.close()?;
     Ok(())
 }
 

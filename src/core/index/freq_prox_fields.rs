@@ -373,7 +373,7 @@ impl TermsEnum for FreqProxTermsEnum {
             }
 
             let mut pos_enum = match reuse {
-                Some(Either2PostingsEnum::A(p)) => p,
+                Some(Either2PostingsEnum::A(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
                 _ => FreqProxPostingsEnum::new(self.terms.clone()),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
@@ -386,9 +386,8 @@ impl TermsEnum for FreqProxTermsEnum {
             return Err(LuceneError::illegal_state("did not index freq"));
         };
         let mut docs_enum = match reuse {
-            Some(Either2PostingsEnum::B(p)) => p,
-            Some(Either2PostingsEnum::A(_)) => FreqProxDocsEnum::new(self.terms.clone()),
-            None => return Err(LuceneError::illegal_state("reuse is none")),
+            Some(Either2PostingsEnum::B(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
+            _ => FreqProxDocsEnum::new(self.terms.clone()),
         };
         docs_enum.reset(sorted_term_ids[self.ord as usize]);
         Ok(Either2PostingsEnum::B(docs_enum))

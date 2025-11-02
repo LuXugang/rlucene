@@ -87,6 +87,9 @@ where
     D: Directory,
 {
     pub(crate) segment_infos: SegmentInfos<D>,
+    // After SegmentCommitInfo removed from `segment_infos`,
+    // It's ownership move to `dropped_segment_commit_infos` for some uses,
+    dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
     deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fallback to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
@@ -324,6 +327,7 @@ where
                 info_stream: info_stream.clone(),
                 inner: Mutex::new(Inner {
                     segment_infos,
+                    dropped_segment_commit_infos: HashMap::new(),
                     deleter,
                     rollback_segments,
                     change_count,
@@ -743,8 +747,15 @@ where
 
         // it's possible that we invoke this method more than once for the same SCI
         // we must only remove the docs once!
-        let drop_segment_commit_info = inner.segment_infos.remove(seg_id);
-        let mut drop_pending_docs = drop_segment_commit_info.is_some();
+        let (mut drop_pending_docs, max_doc) = match inner.segment_infos.remove(seg_id) {
+            Some(sci) => {
+                let id = sci.info.get_id_str().to_string();
+                let max_doc = sci.info.max_doc()?;
+                inner.dropped_segment_commit_infos.insert(id, sci);
+                (true, max_doc)
+            },
+            None => (false, -1),
+        };
         let res: Result<()> = (|| {
             // this is sneaky - we might hit an exception while dropping a reader but then we have
             // already
@@ -755,7 +766,7 @@ where
         })();
 
         if drop_pending_docs {
-            let dec = -(drop_segment_commit_info.as_ref().unwrap().info.max_doc()? as i64);
+            let dec = -(max_doc as i64);
             self.adjust_pending_num_docs(dec);
         }
         res
@@ -2267,10 +2278,10 @@ where
         readers_and_updates: &ReadersAndUpdates<D>,
         inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
-        self.do_release(readers_and_updates, true, inner)
+        self.release_with_assert(readers_and_updates, true, inner)
     }
 
-    fn do_release(
+    fn release_with_assert(
         &self,
         readers_and_updates: &ReadersAndUpdates<D>,
         assert_live_info: bool,
@@ -2279,9 +2290,17 @@ where
         let info_id = &readers_and_updates.info_id;
         let info = match inner.segment_infos.info_mut(info_id) {
             Some(info) => info,
-            None => Err(LuceneError::illegal_state(
-                "could not find segment info from IndexWriter#segment_infos",
-            ))?,
+            None => {
+                // SegmentCommitInfo maybe remove , it's ownership moved to `dropped_segment_commit_infos`
+                match inner.dropped_segment_commit_infos.get_mut(info_id) {
+                    Some(info) => info,
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "could not find segment info from IndexWriter's segment_infos or dropped_segment_commit_infos",
+                        ));
+                    },
+                }
+            },
         };
         if self.reader_pool.release(
             readers_and_updates,
@@ -2644,6 +2663,11 @@ where
             },
         };
         Ok(result)
+    }
+    /// Tests should use this method to snapshot the current segmentInfos to have a consistent view
+    pub(crate) fn clone_segment_infos(&self) -> Result<SegmentInfos<D>> {
+        let inner = self.inner.lock();
+        inner.segment_infos.try_clone()
     }
     /// Returns accurate [`DocStats`] for this writer.
     /// The `num_docs` for instance can change after `max_doc` is fetched

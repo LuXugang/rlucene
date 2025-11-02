@@ -348,7 +348,6 @@ where
             );
         }
 
-        // collect fieldsToFlush
         let mut fields_to_flush = HashMap::new();
         for &idx in &self.field_hash {
             let mut fp_idx = idx;

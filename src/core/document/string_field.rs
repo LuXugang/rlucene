@@ -23,7 +23,6 @@ use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams}
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::document::text_field::text::{TYPE_NOT_STORED, TYPE_STORED};
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
@@ -86,9 +85,9 @@ impl StringField {
     {
         let store = store.into();
         let field_type = if store {
-            TYPE_STORED.clone()
+            string::TYPE_STORED.clone()
         } else {
-            TYPE_NOT_STORED.clone()
+            string::TYPE_NOT_STORED.clone()
         };
         let value_str: String = value.into();
         let binary_value = Some(BytesRef::from_string(&value_str));
@@ -114,9 +113,9 @@ impl StringField {
     {
         let store = store.into();
         let field_type = if store {
-            TYPE_STORED.clone()
+            string::TYPE_STORED.clone()
         } else {
-            TYPE_NOT_STORED.clone()
+            string::TYPE_NOT_STORED.clone()
         };
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(Self {
