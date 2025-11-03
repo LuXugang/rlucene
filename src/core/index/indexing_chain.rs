@@ -317,7 +317,7 @@ where
 
         // write points
         let t0 = Instant::now();
-        self.write_points(state, sort_map.clone(), index_writer_config)?;
+        self.write_points(state, sort_map.clone(), index_writer_config, segment_info)?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
                 "IW",
@@ -430,14 +430,16 @@ where
         Ok(sort_map)
     }
     ///  Writes all buffered points.
-    pub fn write_points<DM>(
+    pub fn write_points<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Arc<DM>>,
         index_writer_config: &impl LiveIndexWriterConfig,
+        info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         let mut points_writer = None;
         debug_assert!(self.field_hash.len() <= i32::MAX as usize);
@@ -453,7 +455,7 @@ where
                         if points_writer.is_none() {
                             // lazy init
                             let fmt = index_writer_config.get_codec().points_format();
-                            points_writer = Some(fmt.fields_writer(state)?);
+                            points_writer = Some(fmt.fields_writer(state, info)?);
                         }
                         per_field.point_values_writer.as_mut().unwrap().flush(
                             state,

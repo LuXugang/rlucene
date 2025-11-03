@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::points_writer::PointsWriterType;
+use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
@@ -23,19 +24,26 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes indexed points.
 pub trait PointsFormat {
-    fn fields_writer<D>(&self, state: &SegmentWriteState<D>) -> Result<PointsWriterType>
+    fn fields_writer<D1, D2>(
+        &self,
+        state: &SegmentWriteState<D1>,
+        info: &SegmentInfo<D2>,
+    ) -> Result<PointsWriterType<D1::IndexOutput>>
     where
-        D: Directory;
+        D1: Directory,
+        D2: Directory;
 
     /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
     ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
     ///  the execution of this call before there is a chance to open them. Under these circumstances an
     ///  IOException should be thrown by the implementation. IOExceptions are expected and will
     ///  automatically cause a retry of the segment opening logic with the newly revised segments.
-    fn fields_reader<D>(
+    fn fields_reader<D1, D2>(
         &self,
-        state: &SegmentReadState<D>,
-    ) -> Result<PointsReaderType<D::IndexInput>>
+        state: &SegmentReadState<D1>,
+        info: &SegmentInfo<D2>,
+    ) -> Result<PointsReaderType<D1::IndexInput>>
     where
-        D: Directory;
+        D1: Directory,
+        D2: Directory;
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod bkd_config;
+pub mod bkd_config;
 mod bkd_radix_selector;
 pub mod bkd_reader;
 pub mod bkd_util;

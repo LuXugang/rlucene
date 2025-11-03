@@ -29,4 +29,4 @@ pub trait PointsWriter {
     /// Called once at the end before close
     fn finish(&mut self) -> Result<()>;
 }
-pub type PointsWriterType = Lucene90PointWriter;
+pub type PointsWriterType<O> = Lucene90PointWriter<O>;

@@ -19,9 +19,12 @@ use crate::core::codecs::lucene90_points_writer::Lucene90PointWriter;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::points_writer::PointsWriterType;
+use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::util::bkd::bkd_config::BKDConfig;
+use crate::core::util::bkd::bkd_writer::DEFAULT_MAX_MB_SORT_IN_HEAP;
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 9.0 point format, which encodes dimensional values in a block KD-tree structure for fast
 /// 1D range and N-dimensional shape intersection filtering. See the [BKD paper] for details.
@@ -59,19 +62,31 @@ impl Lucene90PointsFormat {
 }
 
 impl PointsFormat for Lucene90PointsFormat {
-    fn fields_writer<D>(&self, state: &SegmentWriteState<D>) -> Result<PointsWriterType>
+    fn fields_writer<D1, D2>(
+        &self,
+        state: &SegmentWriteState<D1>,
+        info: &SegmentInfo<D2>,
+    ) -> Result<PointsWriterType<D1::IndexOutput>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
-        Ok(Lucene90PointWriter::new(state))
+        Lucene90PointWriter::new(
+            state,
+            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+            DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+            info,
+        )
     }
 
-    fn fields_reader<D>(
+    fn fields_reader<D1, D2>(
         &self,
-        state: &SegmentReadState<D>,
-    ) -> Result<PointsReaderType<D::IndexInput>>
+        state: &SegmentReadState<D1>,
+        info: &SegmentInfo<D2>,
+    ) -> Result<PointsReaderType<D1::IndexInput>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         Ok(Lucene90PointsReader::new(state))
     }

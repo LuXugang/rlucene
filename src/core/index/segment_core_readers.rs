@@ -128,7 +128,7 @@ where
                 None
             };
             let points_reader = if core_field_infos.has_point_values() {
-                Some(codec.points_format().fields_reader(&read_state)?)
+                Some(codec.points_format().fields_reader(&read_state, &si.info)?)
             } else {
                 None
             };
