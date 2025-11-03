@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-pub trait Predicate {
-    type T;
-    fn test(&self, t: &Self::T) -> Result<bool>;
+pub trait Predicate<T> {
+    fn test(&self, t: &T) -> Result<bool>;
 }

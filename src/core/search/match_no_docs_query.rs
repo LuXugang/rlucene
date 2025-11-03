@@ -72,7 +72,7 @@ impl QueryBase for MatchNoDocsQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -86,7 +86,7 @@ impl QueryBase for MatchNoDocsQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         Ok(MatchNoDocsWeight::new(self))

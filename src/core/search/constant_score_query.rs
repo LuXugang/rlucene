@@ -91,7 +91,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -105,7 +105,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         let inner_score_mode = if score_mode.is_exhaustive() {
@@ -136,7 +136,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         todo!()
     }
@@ -154,7 +154,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     base: ConstantScoreWeight,
     inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
@@ -165,7 +165,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     pub fn new(
         boost: f32,
@@ -185,7 +185,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> bool {
         self.inner_weight.is_cacheable(ctx)
@@ -197,7 +197,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     type Matches = <WeightEnum<Query, S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
 
@@ -273,7 +273,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
     score_mode: ScoreMode,
@@ -285,7 +285,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     fn new(
         inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
@@ -306,7 +306,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     type Scorer = ConstantScoreScorerEnum<S, IRC, QCP, QC>;
     type BulkScorer = BulkScorerEnum<S, IRC, QCP, QC>;

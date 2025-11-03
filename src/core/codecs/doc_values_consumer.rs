@@ -397,7 +397,7 @@ where
         match self.current {
             Some(ref current) => {
                 let mut current = current.borrow_mut();
-                // TODO:IMPORTANT Since we need to return a reference, but cannot return a
+                // TODO IMPORTANT Since we need to return a reference, but cannot return a
                 // temporary value created by borrowing,
                 // we are forced to make a copy.Is there any way to avoid the
                 // copy?

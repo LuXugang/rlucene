@@ -72,7 +72,7 @@ impl QueryBase for MatchAllDocsQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -86,7 +86,7 @@ impl QueryBase for MatchAllDocsQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         Ok(MatchAllWeight::new(boost, self, *score_mode))

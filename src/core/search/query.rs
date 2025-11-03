@@ -22,14 +22,14 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllWeight};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::Weight;
+use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -43,7 +43,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
@@ -56,7 +56,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
@@ -74,7 +74,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         Ok(None)
     }
@@ -175,12 +175,12 @@ impl QueryBase for Query {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = TermWeight<S, IRC>
+        = QueryWeight<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -194,11 +194,22 @@ impl QueryBase for Query {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         match self {
-            Query::Term(t) => t.create_weight(searcher, score_mode, boost, per_reader_term_state),
+            Query::Term(t) => Ok(Either2Weight::A(t.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::MatchAll(m) => Ok(Either2Weight::B(m.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -214,7 +225,7 @@ impl QueryBase for Query {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         todo!()
     }
@@ -226,6 +237,8 @@ impl QueryBase for Query {
         todo!()
     }
 }
+pub type QueryWeight<S, IRC> =
+    Either2Weight<TermWeight<S, IRC>, MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>>;
 
 impl From<TermQuery> for Query {
     fn from(value: TermQuery) -> Self {
@@ -293,7 +306,7 @@ where
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -307,7 +320,7 @@ where
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
@@ -327,7 +340,7 @@ where
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         (**self).rewrite(searcher)
     }

@@ -1101,7 +1101,7 @@ pub trait SortFiledBase: Display {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         Ok(None)
     }

@@ -94,9 +94,10 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 ///
 /// # Experimental
 /// This API is marked as experimental, following the original Lucene design.
-pub struct LRUQueryCache<P>
+pub struct LRUQueryCache<P, LR>
 where
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
+    LR: LeafReader,
 {
     max_size: i32,
     max_ram_bytes_used: i64,
@@ -110,12 +111,14 @@ where
     cache_size: AtomicI64,
     inner: RwLock<Inner>,
     leaves_to_cache: P,
+    phantom_data: PhantomData<LR>,
 }
 pub struct Inner {
     unique_queries: Mutex<LinkedHashMap<Arc<Query>, IdentityQuery>>,
     cache: HashMap<CacheKey, LeafCache>,
 }
-impl<LR> LRUQueryCache<MinSegmentSizePredicate<LR>>
+
+impl<LR> LRUQueryCache<MinSegmentSizePredicate, LR>
 where
     LR: LeafReader,
 {
@@ -129,9 +132,10 @@ where
     }
 }
 
-impl<P> LRUQueryCache<P>
+impl<P, LR> LRUQueryCache<P, LR>
 where
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
+    LR: LeafReader,
 {
     /// Expert: Create a new instance that will cache at most `max_size` queries with at most
     /// `max_ram_bytes_used` bytes of memory, only on leaves that satisfy `leaves_to_cache`.
@@ -166,6 +170,7 @@ where
                 cache: HashMap::new(),
             }),
             leaves_to_cache,
+            phantom_data: PhantomData,
         })
     }
     /// Expert: callback when there is a cache hit on a given query.
@@ -569,26 +574,28 @@ where
         uq.keys().cloned().collect()
     }
 }
-impl<P> Accountable for Arc<LRUQueryCache<P>>
+impl<P, LR> Accountable for Arc<LRUQueryCache<P, LR>>
 where
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
+    LR: LeafReader,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
-impl<P> QueryCache for Arc<LRUQueryCache<P>>
+impl<P, LR> QueryCache<LR> for Arc<LRUQueryCache<P, LR>>
 where
-    P: Predicate + Send + Sync,
+    P: Predicate<LeafReaderContext<LR>>,
+    LR: LeafReader,
 {
-    type Weight<W, QCP, LR>
+    type Weight<W, QCP>
         = CachingWrapperWeight<W, QCP, P, LR>
     where
         W: Weight<LR>,
         QCP: QueryCachingPolicy,
         LR: LeafReader;
 
-    fn do_cache<W, QCP, LR>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP, LR>
+    fn do_cache<W, QCP>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP>
     where
         W: Weight<LR>,
         QCP: QueryCachingPolicy,
@@ -612,17 +619,25 @@ impl LeafCache {
             ram_bytes_used: AtomicI64::new(0),
         }
     }
-    pub(crate) fn on_doc_id_set_cache<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
-    where
-        P: Predicate,
+    pub(crate) fn on_doc_id_set_cache<P, LR>(
+        &self,
+        ram_bytes_used: i64,
+        parent: &LRUQueryCache<P, LR>,
+    ) where
+        P: Predicate<LeafReaderContext<LR>>,
+        LR: LeafReader,
     {
         self.ram_bytes_used
             .fetch_add(ram_bytes_used, std::sync::atomic::Ordering::Relaxed);
         parent.on_doc_id_set_cache(&self.key, ram_bytes_used);
     }
-    pub(crate) fn on_doc_id_set_eviction<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
-    where
-        P: Predicate,
+    pub(crate) fn on_doc_id_set_eviction<P, LR>(
+        &self,
+        ram_bytes_used: i64,
+        parent: &LRUQueryCache<P, LR>,
+    ) where
+        P: Predicate<LeafReaderContext<LR>>,
+        LR: LeafReader,
     {
         self.ram_bytes_used
             .fetch_sub(ram_bytes_used, std::sync::atomic::Ordering::Relaxed);
@@ -634,13 +649,14 @@ impl LeafCache {
         self.cache.get(query).cloned()
     }
 
-    pub(crate) fn put_if_absent<P>(
+    pub(crate) fn put_if_absent<P, LR>(
         &mut self,
         query: IdentityQuery,
         cached: CacheAndCountEnum,
-        parent: &LRUQueryCache<P>,
+        parent: &LRUQueryCache<P, LR>,
     ) where
-        P: Predicate,
+        P: Predicate<LeafReaderContext<LR>>,
+        LR: LeafReader,
     {
         // TODO: 没有assert
         match self.cache.entry(query) {
@@ -655,9 +671,10 @@ impl LeafCache {
         }
     }
 
-    pub(crate) fn remove<P>(&mut self, query: &IdentityQuery, parent: &LRUQueryCache<P>)
+    pub(crate) fn remove<P, LR>(&mut self, query: &IdentityQuery, parent: &LRUQueryCache<P, LR>)
     where
-        P: Predicate,
+        P: Predicate<LeafReaderContext<LR>>,
+        LR: LeafReader,
     {
         if let Some(_removed) = self.cache.remove(query) {
             self.on_doc_id_set_eviction(
@@ -676,24 +693,24 @@ pub struct CachingWrapperWeight<W, QCP, P, LR>
 where
     W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
     LR: LeafReader,
 {
     in_: W,
     base: ConstantScoreWeight,
     policy: Arc<QCP>,
     used: AtomicBool,
-    lru_cache: Arc<LRUQueryCache<P>>,
+    lru_cache: Arc<LRUQueryCache<P, LR>>,
     _marker: PhantomData<LR>,
 }
 impl<W, QCP, P, LR> CachingWrapperWeight<W, QCP, P, LR>
 where
     W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
     LR: LeafReader,
 {
-    pub(crate) fn new(in_: W, policy: Arc<QCP>, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
+    pub(crate) fn new(in_: W, policy: Arc<QCP>, lru_cache: Arc<LRUQueryCache<P, LR>>) -> Self {
         Self {
             in_,
             base: ConstantScoreWeight::new(1.0),
@@ -703,8 +720,13 @@ where
             _marker: PhantomData,
         }
     }
-    fn should_cache(&self, _context: &LeafReaderContext<LR>) -> Result<bool> {
-        todo!()
+    fn should_cache(&self, context: &LeafReaderContext<LR>) -> Result<bool> {
+        let top_context = ReaderUtil::get_top_level_context(context);
+        debug_assert!(top_context.is_some());
+        let max_doc = top_context.as_ref().unwrap().reader().max_doc()?;
+        let v = self.cache_entry_has_reasonable_worst_case_size(max_doc)
+            && self.lru_cache.leaves_to_cache.test(context)?;
+        Ok(v)
     }
     pub(crate) fn cache_entry_has_reasonable_worst_case_size(&self, max_doc: i32) -> bool {
         // The worst-case (dense) is a bit set which needs one bit per document
@@ -723,7 +745,7 @@ impl<W, QCP, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
     QCP: QueryCachingPolicy,
     W: Weight<LR>,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
     LR: LeafReader,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
@@ -735,7 +757,7 @@ impl<W, QCP, P, LR> Weight<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
     W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
     LR: LeafReader,
 {
     type Matches = <W as Weight<LR>>::Matches;
@@ -890,13 +912,13 @@ where
     LR: LeafReader,
     S: ScorerSupplier<LR>,
     C: CacheHelper,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
 {
     cost: i64,
     skip_cache_factor: f32,
     supplier: S,
     max_doc: i32,
-    lru_query_cache: Arc<LRUQueryCache<P>>,
+    lru_query_cache: Arc<LRUQueryCache<P, LR>>,
     query: Arc<Query>,
     cache_helper: C,
     _marker: PhantomData<LR>,
@@ -906,14 +928,14 @@ where
     LR: LeafReader,
     S: ScorerSupplier<LR>,
     C: CacheHelper,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
 {
     pub(crate) fn new(
         cost: i64,
         skip_cache_factor: f32,
         supplier: S,
         max_doc: i32,
-        lru_query_cache: Arc<LRUQueryCache<P>>,
+        lru_query_cache: Arc<LRUQueryCache<P, LR>>,
         query: Arc<Query>,
         cache_helper: C,
     ) -> Result<Self> {
@@ -935,7 +957,7 @@ where
     LR: LeafReader,
     S: ScorerSupplier<LR>,
     C: CacheHelper,
-    P: Predicate,
+    P: Predicate<LeafReaderContext<LR>>,
 {
     type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
@@ -1211,27 +1233,18 @@ where
         Ok(CacheAndCountEnum::Roaring(v))
     }
 }
-pub struct MinSegmentSizePredicate<LR> {
+pub struct MinSegmentSizePredicate {
     min_size: i32,
-    _marker: std::marker::PhantomData<LR>,
 }
-impl<LR> MinSegmentSizePredicate<LR>
-where
-    LR: LeafReader,
-{
+impl MinSegmentSizePredicate {
     pub(crate) fn new(min_size: i32) -> Self {
-        Self {
-            min_size,
-            _marker: std::marker::PhantomData,
-        }
+        Self { min_size }
     }
 }
-impl<LR> Predicate for MinSegmentSizePredicate<LR>
+impl<LR> Predicate<LeafReaderContext<LR>> for MinSegmentSizePredicate
 where
     LR: LeafReader,
 {
-    type T = LeafReaderContext<LR>;
-
     fn test(&self, context: &LeafReaderContext<LR>) -> Result<bool> {
         let max_doc = context.reader().max_doc()?;
         if max_doc < self.min_size {

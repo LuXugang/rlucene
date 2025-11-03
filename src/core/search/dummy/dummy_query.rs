@@ -39,7 +39,7 @@ impl QueryBase for DummyQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -53,7 +53,7 @@ impl QueryBase for DummyQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -70,7 +70,7 @@ impl QueryBase for DummyQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

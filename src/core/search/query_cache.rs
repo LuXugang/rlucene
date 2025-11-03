@@ -20,8 +20,8 @@ use crate::core::search::weight::Weight;
 use std::sync::Arc;
 
 /// A cache for queries.
-pub trait QueryCache {
-    type Weight<W, QCP, LR>: Weight<LR>
+pub trait QueryCache<LR> {
+    type Weight<W, QCP>: Weight<LR>
     where
         W: Weight<LR>,
         QCP: QueryCachingPolicy,
@@ -32,7 +32,7 @@ pub trait QueryCache {
     /// **Note:** The returned weight will only be equivalent if scores are not needed.
     ///
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache<W, QCP, LR>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP, LR>
+    fn do_cache<W, QCP>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP>
     where
         W: Weight<LR>,
         QCP: QueryCachingPolicy,

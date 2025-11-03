@@ -207,3 +207,236 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::core::document::document::Document;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
+    use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+    use crate::core::search::collector::Collector;
+    use crate::core::search::collector_manager::CollectorManager;
+    use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+    use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
+    use crate::core::search::leaf_collector::LeafCollector;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::scorable::Scorable;
+    use crate::core::search::score_doc::ScoreDoc;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
+    use crate::core::search::top_docs::TopDocs;
+    use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
+    use crate::core::search::total_hits::{Relation, TotalHits};
+    use crate::core::search::weight::Weight;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::core::util::priority_queue::PriorityQueue;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, new_searcher, random,
+    };
+    use rand::Rng;
+    use std::fmt::{Display, Formatter};
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTopDocsCollector;
+
+    struct MyTopDocsCollectorMananger {
+        num_hits: i32,
+    }
+    impl MyTopDocsCollectorMananger {
+        fn new(num_hits: i32) -> Self {
+            Self { num_hits }
+        }
+    }
+    impl CollectorManager for MyTopDocsCollectorMananger {
+        type C = MyTopDocsCollector;
+        type T = MyTopDocsCollector;
+
+        fn new_collector(&self) -> Result<Self::C> {
+            MyTopDocsCollector::new(self.num_hits)
+        }
+
+        fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+            let mut total_hits = 0;
+            let mut my_top_docs_collector = MyTopDocsCollector::new(self.num_hits)?;
+            for collector in collectors {
+                total_hits += collector.base.total_hits;
+                for score_doc in collector.base.pq.iter() {
+                    my_top_docs_collector
+                        .pq_mut()
+                        .insert_with_overflow(score_doc)?;
+                }
+            }
+            my_top_docs_collector.base.total_hits = total_hits;
+            Ok(my_top_docs_collector)
+        }
+    }
+
+    pub const SCORES: [f32; 30] = [
+        0.7767749, 1.7839992, 8.9925785, 7.9608946, 0.07948637, 2.6356435, 7.4950366, 7.1490803,
+        8.108544, 4.961808, 2.2423935, 7.285586, 4.6699767, 2.9655676, 6.953706, 5.383931,
+        6.9916306, 8.365894, 7.888485, 8.723962, 3.1796896, 0.39971232, 1.3077754, 6.8489285,
+        9.17561, 5.060466, 7.9793315, 8.601509, 4.1858315, 0.28146625,
+    ];
+
+    struct LeafCollectorImpl<'a> {
+        base: &'a mut MyTopDocsCollector,
+        doc_base: i32,
+        scores: [f32; 30],
+    }
+    impl<'a> LeafCollectorImpl<'a> {
+        fn new(base: &'a mut MyTopDocsCollector, doc_base: i32, scores: [f32; 30]) -> Self {
+            Self {
+                base,
+                doc_base,
+                scores,
+            }
+        }
+    }
+
+    impl<'a> Display for LeafCollectorImpl<'a> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "LeafCollectorImpl")
+        }
+    }
+
+    impl<'a> LeafCollector for LeafCollectorImpl<'a> {
+        fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+        where
+            S: Scorable,
+        {
+            self.base.base.total_hits += 1;
+            let sd = ScoreDoc::new(
+                doc + self.doc_base,
+                self.scores[(self.doc_base + doc) as usize],
+            );
+            self.base.pq_mut().insert_with_overflow(sd)?;
+            Ok(())
+        }
+
+        type DocIdSetIterator = DummyDocIdSetIterator;
+    }
+    struct MyTopDocsCollector {
+        base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
+    }
+    impl MyTopDocsCollector {
+        fn new(size: i32) -> Result<Self> {
+            let pq = HitQueue::new(size, true)?;
+            let base = TopDocsCollectorBase::new(pq);
+            Ok(Self { base })
+        }
+    }
+
+    impl Collector for MyTopDocsCollector {
+        type LeafCollector<'a, LR>
+            = LeafCollectorImpl<'a>
+        where
+            Self: 'a,
+            LR: LeafReader;
+
+        fn get_leaf_collector<'a, W, LR>(
+            &'a mut self,
+            context: &LeafReaderContext<LR>,
+            weight: Option<&W>,
+        ) -> Result<Self::LeafCollector<'a, LR>>
+        where
+            LR: LeafReader,
+            W: Weight<LR>,
+        {
+            let base = context.doc_base;
+            Ok(LeafCollectorImpl::new(self, base, SCORES))
+        }
+
+        fn score_mode(&self) -> ScoreMode {
+            CompleteNoScores
+        }
+    }
+
+    impl TopDocsCollector for MyTopDocsCollector {
+        type Item = ScoreDoc;
+        type Cmp = HitQueueComparator;
+        type TopDocsLike = TopDocs<Self::Item>;
+
+        fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
+            &self.base.pq
+        }
+
+        fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
+            &mut self.base.pq
+        }
+
+        fn total_hits(&self) -> usize {
+            self.base.total_hits
+        }
+
+        fn get_total_hits_relation(&self) -> Relation {
+            self.base.total_hits_relation
+        }
+
+        fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
+        where
+            Self: Sized,
+        {
+            match results {
+                None => Self::empty_top_docs(),
+                Some(res) => TopDocs::new(
+                    TotalHits::new(self.base.total_hits, self.base.total_hits_relation),
+                    res,
+                ),
+            }
+        }
+    }
+    fn get_reader<D>(dir: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
+    where
+        D: Directory,
+    {
+        let mut random = random();
+        // TODO IMPORTANT：RandomIndexWriter
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        for _ in 0..30 {
+            let _ = writer.add_document(Document::new())?;
+        }
+        let reader = writer.get_reader(true, false)?;
+        writer.close()?;
+        Ok(reader)
+    }
+    fn do_search<R: Rng + ?Sized>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector> {
+        let query = MatchAllDocsQuery::new();
+        let dir = Arc::new(new_directory(random)?);
+        let reader = Arc::new(get_reader(dir)?);
+        let mut searcher = new_searcher(reader)?;
+        let cm = MyTopDocsCollectorMananger::new(num_results);
+        searcher.search_with_collector_manager(query, &cm, None)
+    }
+    #[test]
+    fn test_invalid_arguments() -> Result<()> {
+        let mut random = random();
+        let num_results = 5;
+        let mut tdc = do_search(&mut random, num_results)?;
+
+        // start < 0
+        let result = tdc.top_docs_with_start(-1);
+        assert!(
+            matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+                    "Expected value of starting position is between 0 and 5, got -1",
+            ))
+        );
+
+        // start == pq.size()
+        let td = tdc.top_docs_with_start(num_results)?;
+        assert_eq!(td.score_docs.len(), 0);
+
+        // howMany < 0
+        let result = tdc.top_docs_with_start_limit(0, -1);
+        assert!(
+            matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+                    "Number of hits requested must be greater than 0 but value was -1",
+            ))
+        );
+
+        Ok(())
+    }
+}

@@ -115,7 +115,7 @@ impl QueryBase for TermQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        QC: QueryCache<IRC::LeafReader>;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -129,7 +129,7 @@ impl QueryBase for TermQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
         let context = searcher.get_top_reader_context();
@@ -165,18 +165,17 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    pub fn new<I, QT, QCP, QC>(
-        searcher: &IndexSearcher<I, S, QT, QCP, QC>,
+    pub fn new<QT, QCP, QC>(
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
         query: TermQuery,
     ) -> Result<Self>
     where
-        I: IndexReaderContext,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        QC: QueryCache<IRC::LeafReader>,
     {
         let similarity = searcher.get_similarity();
 

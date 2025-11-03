@@ -52,8 +52,12 @@ pub mod lucene_test_case_util {
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
 
+    use crate::core::index::composite_reader::{CompositeReader, get_context};
+    use crate::core::index::composite_reader_context::CompositeReaderContext;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field_type::IndexableFieldType;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
     use crate::core::store::directory::Directory;
     use crate::core::store::flush_info::FlushInfo;
     use crate::core::store::merge_info::MergeInfo;
@@ -73,6 +77,7 @@ pub mod lucene_test_case_util {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     static FIELD_TO_TYPE: Lazy<Mutex<HashMap<String, FieldType>>> =
@@ -370,6 +375,18 @@ pub mod lucene_test_case_util {
             }
         }
     }
+
+    pub fn new_searcher<CR>(
+        composite_reader: CR,
+    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    where
+        CR: CompositeReader + Clone,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        let irc = get_context(composite_reader)?;
+        IndexSearcher::new(irc)
+    }
+
     pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
         let result = dir.open_input(name, &IOContext::default_io_context()?);
         match result {

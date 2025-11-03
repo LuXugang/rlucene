@@ -351,7 +351,7 @@ where
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     let context = index_searcher.get_top_reader_context();
     let mut per_reader_term_state = TermStates::new(

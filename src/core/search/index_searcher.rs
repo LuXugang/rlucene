@@ -78,7 +78,7 @@ where
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     reader_context: IRC,
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
@@ -93,17 +93,23 @@ where
     // shouldn't hurt either.
     partial_result: AtomicBool,
 }
+pub type DefaultIndexSearcher<IRC> = IndexSearcher<
+    IRC,
+    BM25Similarity,
+    DummyQueryTimeout,
+    UsageTrackingQueryCachingPolicy,
+    Arc<LRUQueryCache<MinSegmentSizePredicate, <IRC as IndexReaderContext>::LeafReader>>,
+>;
 impl<IRC>
     IndexSearcher<
         IRC,
         BM25Similarity,
         DummyQueryTimeout,
         UsageTrackingQueryCachingPolicy,
-        Arc<LRUQueryCache<MinSegmentSizePredicate<IRC::LeafReader>>>,
+        Arc<LRUQueryCache<MinSegmentSizePredicate, <IRC as IndexReaderContext>::LeafReader>>,
     >
 where
     IRC: IndexReaderContext,
-    <IRC as IndexReaderContext>::LeafReader: Send + Sync,
 {
     // TODO: IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
     pub fn new(context: IRC) -> Result<Self> {
@@ -156,7 +162,7 @@ where
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
+    QC: QueryCache<IRC::LeafReader>,
 {
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()
@@ -530,10 +536,9 @@ where
     }
 }
 pub type WeightEnum<Q, S, IRC, QCP, QC> = Either2Weight<
-    <QC as QueryCache>::Weight<
+    <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<
         <Q as QueryBase>::Weight<S, IRC, QCP, QC>,
         QCP,
-        <IRC as IndexReaderContext>::LeafReader,
     >,
     <Q as QueryBase>::Weight<S, IRC, QCP, QC>,
 >;
