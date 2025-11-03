@@ -465,49 +465,42 @@ where
     Ok(doc)
 }
 
-macro_rules! define_either_weight {
+macro_rules! either_weight {
     (
-        $name:ident,
-        matches = $either_matches:ident,
-        scorer = $either_scorer:ident,
-        supplier = $either_supplier:ident,
-        bulk = $either_bulk:ident,
-        A = $A:ident, $( $T:ident ),+ $(,)?
+        $vis:vis $name:ident
+        => {
+            matches: $matches:ident,
+            supplier: $supplier:ident,
+            scorer: $scorer:ident,
+            bulk: $bulk:ident
+        }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
-        pub enum $name<$A, $( $T ),+> {
-            $A($A),
-            $( $T($T) ),+
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
         }
 
-        impl<LR, $A, $( $T ),+> SegmentCacheable<LR> for $name<$A, $( $T ),+>
+        impl<LR, $( $T ),+> SegmentCacheable<LR> for $name<$( $T ),+>
         where
             LR: LeafReader,
-            $A: Weight<LR>,
-            $( $T: Weight<LR> ),+
+            $( $T: SegmentCacheable<LR> ),+
         {
+
             fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
                 match self {
-                    Self::$A(inner) => inner.is_cacheable(ctx),
-                    $( Self::$T(inner) => inner.is_cacheable(ctx), )+
+                    $( Self::$Variant(inner) => inner.is_cacheable(ctx), )+
                 }
             }
         }
 
-        impl<LR, $A, $( $T ),+> Weight<LR> for $name<$A, $( $T ),+>
+        impl<LR, $( $T ),+> Weight<LR> for $name<$( $T ),+>
         where
             LR: LeafReader,
-            $A: Weight<LR>,
             $( $T: Weight<LR> ),+
         {
-            type Matches = $either_matches<
-                <$A as Weight<LR>>::Matches,
-                $( <$T as Weight<LR>>::Matches ),+
-            >;
+            type Matches = $matches<$( <$T as Weight<LR>>::Matches ),+>;
+            type ScorerSupplier = $supplier<$( <$T as Weight<LR>>::ScorerSupplier ),+>;
 
-            type ScorerSupplier = $either_supplier<
-                <$A as Weight<LR>>::ScorerSupplier,
-                $( <$T as Weight<LR>>::ScorerSupplier ),+
-            >;
 
             fn matches(
                 &self,
@@ -515,27 +508,15 @@ macro_rules! define_either_weight {
                 doc: i32,
             ) -> Result<Option<Self::Matches>> {
                 match self {
-                    Self::$A(inner) => {
-                        let opt = inner.matches(context, doc)?;
-                        Ok(opt.map($either_matches::$A))
-                    },
-                    $( Self::$T(inner) => {
-                        let opt = inner.matches(context, doc)?;
-                        Ok(opt.map($either_matches::$T))
-                    }, )+
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.matches(context, doc)?;
+                            Ok(opt.map($matches::$Variant))
+                        }
+                    ),+
                 }
             }
 
-            fn default_matches(
-                &self,
-                context: &LeafReaderContext<LR>,
-                doc: i32,
-            ) -> Result<Option<MatchWithNoTerms>> {
-                match self {
-                    Self::$A(inner) => inner.default_matches(context, doc),
-                    $( Self::$T(inner) => inner.default_matches(context, doc), )+
-                }
-            }
 
             fn explain(
                 &self,
@@ -543,92 +524,93 @@ macro_rules! define_either_weight {
                 doc: i32,
             ) -> Result<Explanation> {
                 match self {
-                    Self::$A(inner) => inner.explain(context, doc),
-                    $( Self::$T(inner) => inner.explain(context, doc), )+
+                    $( Self::$Variant(inner) => inner.explain(context, doc), )+
                 }
             }
 
+
             fn get_query(&self) -> Arc<Query> {
                 match self {
-                    Self::$A(inner) => inner.get_query(),
-                    $( Self::$T(inner) => inner.get_query(), )+
+                    $( Self::$Variant(inner) => inner.get_query(), )+
                 }
             }
+
 
             fn scorer(
                 &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
                 match self {
-                    Self::$A(inner) => {
-                        let opt = inner.scorer(context)?;
-                        Ok(opt.map($either_scorer::$A))
-                    },
-                    $( Self::$T(inner) => {
-                        let opt = inner.scorer(context)?;
-                        Ok(opt.map($either_scorer::$T))
-                    }, )+
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.scorer(context)?;
+                            Ok(opt.map($scorer::$Variant))
+                        }
+                    ),+
                 }
             }
+
 
             fn scorer_supplier(
                 &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<Self::ScorerSupplier>> {
                 match self {
-                    Self::$A(inner) => {
-                        let opt = inner.scorer_supplier(context)?;
-                        Ok(opt.map($either_supplier::$A))
-                    },
-                    $( Self::$T(inner) => {
-                        let opt = inner.scorer_supplier(context)?;
-                        Ok(opt.map($either_supplier::$T))
-                    }, )+
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.scorer_supplier(context)?;
+                            Ok(opt.map($supplier::$Variant))
+                        }
+                    ),+
                 }
             }
+
 
             fn bulk_scorer(
                 &self,
                 context: &LeafReaderContext<LR>,
             ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
                 match self {
-                    Self::$A(inner) => {
-                        let opt = inner.bulk_scorer(context)?;
-                        Ok(opt.map($either_bulk::$A))
-                    },
-                    $( Self::$T(inner) => {
-                        let opt = inner.bulk_scorer(context)?;
-                        Ok(opt.map($either_bulk::$T))
-                    }, )+
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.bulk_scorer(context)?;
+                            Ok(opt.map($bulk::$Variant))
+                        }
+                    ),+
                 }
             }
+
 
             fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
                 match self {
-                    Self::$A(inner) => inner.count(context),
-                    $( Self::$T(inner) => inner.count(context), )+
+                    $( Self::$Variant(inner) => inner.count(context), )+
                 }
             }
 
-            fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
-                Ok(-1)
+
+            fn default_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.default_count(context), )+
+                }
             }
+
+
             fn is_weight_cacheable(&self) -> bool {
                 match self {
-                    Self::$A(inner) => inner.is_weight_cacheable(),
-                    $( Self::$T(inner) => inner.is_weight_cacheable(), )+
+                    $( Self::$Variant(inner) => inner.is_weight_cacheable(), )+
                 }
             }
         }
     };
 }
 
-define_either_weight!(
-    Either2Weight,
-    matches = Either2Matches,
-    scorer = Either2Scorer,
-    supplier = Either2ScorerSupplier,
-    bulk = Either2BulkScorer,
-    A = A,
-    B,
+either_weight!(
+    pub Either2Weight
+    => {
+        matches: Either2Matches,
+        supplier: Either2ScorerSupplier,
+        scorer: Either2Scorer,
+        bulk: Either2BulkScorer
+    }
+    { A: A, B: B }
 );
