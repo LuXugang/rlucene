@@ -394,6 +394,43 @@ where
     pub fn iter_ref(&'_ self) -> PriorityQueueIterator<'_, T, C> {
         PriorityQueueIterator::new(self)
     }
+    pub fn iter(self) -> PriorityQueueIntoIterator<T, C> {
+        PriorityQueueIntoIterator::new(self)
+    }
+}
+pub struct PriorityQueueIntoIterator<T, C>
+where
+    C: Compare<T>,
+{
+    pq: PriorityQueue<T, C>,
+    index: usize,
+}
+
+impl<T, C> PriorityQueueIntoIterator<T, C>
+where
+    C: Compare<T>,
+{
+    fn new(pq: PriorityQueue<T, C>) -> Self {
+        Self { pq, index: 0 }
+    }
+}
+
+impl<T, C> Iterator for PriorityQueueIntoIterator<T, C>
+where
+    C: Compare<T>,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.pq.size {
+            self.index += 1;
+            let result = self.pq.heap[self.index]
+                .take()
+                .expect("priority queue element should exist");
+            return Some(result);
+        }
+        None
+    }
 }
 
 /// Each call can start iterating over the elements in the priority queue from
@@ -548,12 +585,25 @@ mod tests {
         for i in 0..100 {
             pq.insert_with_overflow(ObjectCompare::new(i, 0))?;
         }
-        let mut indexes: Vec<i32> = Vec::new();
-        let iter = pq.iter_ref();
-        for e in iter {
-            indexes.push(e.index)
+        // Ref
+        {
+            let mut indexes: Vec<i32> = Vec::new();
+            let iter = pq.iter_ref();
+            for e in iter {
+                indexes.push(e.index)
+            }
+            assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
         }
-        assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+        // ownership
+        {
+            let mut indexes: Vec<i32> = Vec::new();
+            let into_iter = pq.iter();
+            for e in into_iter {
+                indexes.push(e.index)
+            }
+            assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+        }
+
         Ok(())
     }
 
@@ -779,8 +829,16 @@ mod tests {
     #[test]
     fn test_iterator_empty() -> Result<()> {
         let pq = PriorityQueue::new(3, I32Compare)?;
-        let mut it = pq.iter_ref();
-        assert_eq!(it.next(), None);
+        // ref
+        {
+            let mut it = pq.iter_ref();
+            assert_eq!(it.next(), None);
+        }
+        // ownership
+        {
+            let mut it = pq.iter();
+            assert_eq!(it.next(), None);
+        }
         Ok(())
     }
 
@@ -788,8 +846,16 @@ mod tests {
     fn test_iterator_one() -> Result<()> {
         let mut pq = PriorityQueue::new(3, I32Compare)?;
         pq.add(1)?;
-        let mut it = pq.iter_ref();
-        assert_eq!(it.next(), Some(&1));
+        // ref
+        {
+            let mut it = pq.iter_ref();
+            assert_eq!(it.next(), Some(&1));
+        }
+        // ownership
+        {
+            let mut it = pq.iter();
+            assert_eq!(it.next(), Some(1));
+        }
         Ok(())
     }
 
@@ -798,9 +864,18 @@ mod tests {
         let mut pq = PriorityQueue::new(3, I32Compare)?;
         pq.add(1)?;
         pq.add(2)?;
-        let mut it = pq.iter_ref();
-        assert_eq!(it.next(), Some(&1));
-        assert_eq!(it.next(), Some(&2));
+        // ref
+        {
+            let mut it = pq.iter_ref();
+            assert_eq!(it.next(), Some(&1));
+            assert_eq!(it.next(), Some(&2));
+        }
+        // ownership
+        {
+            let mut it = pq.iter();
+            assert_eq!(it.next(), Some(1));
+            assert_eq!(it.next(), Some(2));
+        }
         Ok(())
     }
 
@@ -826,10 +901,10 @@ mod tests {
                 expected.remove(pos.unwrap());
             }
             let mut actual: Vec<i32> = Vec::new();
+            expected.sort();
             for value in queue.iter_ref() {
                 actual.push(*value);
             }
-            expected.sort();
             actual.sort();
             assert_eq!(actual, expected);
         }
