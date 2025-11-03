@@ -316,7 +316,7 @@ mod tests {
     }
 
     impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-        fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+        fn collect<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<()>
         where
             S: Scorable,
         {
@@ -352,7 +352,7 @@ mod tests {
         fn get_leaf_collector<'a, W, LR>(
             &'a mut self,
             context: &LeafReaderContext<LR>,
-            weight: Option<&W>,
+            _weight: Option<&W>,
         ) -> Result<Self::LeafCollector<'a, LR>>
         where
             LR: LeafReader,
@@ -423,15 +423,13 @@ mod tests {
         let cm = MyTopDocsCollectorMananger::new(num_results);
         searcher.search_with_collector_manager(query, &cm, None)
     }
-    fn do_search_with_threshold<R, CR>(
-        random: &mut R,
+    fn do_search_with_threshold<CR>(
         num_results: i32,
         threshold: i32,
         query: Query,
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        R: Rng + ?Sized,
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
@@ -441,15 +439,13 @@ mod tests {
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager, None)
     }
-    fn do_concurrent_search_with_threshold<R, CR>(
-        random: &mut R,
+    fn do_concurrent_search_with_threshold<CR>(
         num_results: i32,
         threshold: i32,
         query: Query,
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        R: Rng + ?Sized,
         CR: CompositeReader + Clone + Send + Sync + 'static,
         CR::LeafReader: LeafReader<ParentReader = CR> + Send + Sync,
     {
@@ -623,7 +619,6 @@ mod tests {
         // TODO: 这里没有定义合并策略
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
-        let doc = Document::new();
         writer.add_documents(vec![
             Document::new(),
             Document::new(),
@@ -725,10 +720,9 @@ mod tests {
         writer.close()?;
 
         let query = MatchAllDocsQuery::new();
-        let tdc =
-            do_concurrent_search_with_threshold(&mut random, 5, 10, query.into(), reader.clone())?;
+        let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), reader.clone())?;
         let query = MatchAllDocsQuery::new();
-        let tdc2 = do_search_with_threshold(&mut random, 5, 10, query.into(), reader.clone())?;
+        let tdc2 = do_search_with_threshold(5, 10, query.into(), reader.clone())?;
 
         let query = MatchAllDocsQuery::new();
         CheckHits::check_equal(&query.into(), &tdc.score_docs, &tdc2.score_docs)?;

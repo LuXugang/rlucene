@@ -733,7 +733,7 @@ where
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
             debug_assert!(pending_idx.len() == fields.len());
-            for ((field, pending), i) in fields.iter_mut().zip(pending_idx.iter_mut()).zip(0..) {
+            for ((field, pending), _) in fields.iter_mut().zip(pending_idx.iter_mut()).zip(0..) {
                 if self.process_field(doc_id, field, *pending, index_writer_config)? {
                     self.fields[indexed_field_count] = *pending;
                     indexed_field_count += 1;

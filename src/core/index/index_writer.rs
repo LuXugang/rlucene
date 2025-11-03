@@ -2852,7 +2852,7 @@ where
          * directory reader!
          */
         // let mut on_get_reader_merges = None;
-        let stop_collecting_merged_readers = std::sync::atomic::AtomicBool::new(false);
+        let _stop_collecting_merged_readers = std::sync::atomic::AtomicBool::new(false);
         // let mut merged_readers =
         //     std::collections::HashMap::new();
         let mut opened_read_only_clones = std::collections::HashMap::new();
