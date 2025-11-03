@@ -34,10 +34,12 @@ pub struct DoublePoint {
     parent_field: Field,
 }
 impl DoublePoint {
-    pub fn new<T>(name: T, point: &[f64]) -> Result<DoublePoint>
+    pub fn new<T, P>(name: T, point: P) -> Result<DoublePoint>
     where
         T: Into<String>,
+        P: AsRef<[f64]>,
     {
+        let point = point.as_ref();
         let packed = Self::pack(point)?;
         let len = packed.len();
         let value = BytesRef::from_slice(packed, 0, len);

@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod check_hits;
+mod test_sort_optimization;

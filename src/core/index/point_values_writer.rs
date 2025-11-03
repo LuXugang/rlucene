@@ -58,7 +58,7 @@ impl PointValuesWriter {
             .lock()
             .add_and_get((16 * BitUtil::INT_BYTES) as i64);
         let packed_bytes_length =
-            (field_info.get_point_dimension_count() + field_info.get_point_num_bytes()) as usize;
+            (field_info.get_point_dimension_count() * field_info.get_point_num_bytes()) as usize;
         Ok(Self {
             field_info,
             bytes_out,

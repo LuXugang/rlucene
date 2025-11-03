@@ -701,7 +701,6 @@ where
     policy: Arc<QCP>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P, LR>>,
-    _marker: PhantomData<LR>,
 }
 impl<W, QCP, P, LR> CachingWrapperWeight<W, QCP, P, LR>
 where
@@ -717,7 +716,6 @@ where
             policy,
             used: AtomicBool::new(false),
             lru_cache,
-            _marker: PhantomData,
         }
     }
     fn should_cache(&self, context: &LeafReaderContext<LR>) -> Result<bool> {

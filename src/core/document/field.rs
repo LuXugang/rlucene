@@ -996,7 +996,7 @@ mod tests {
 
     #[test]
     fn test_double_point() -> Result<()> {
-        let mut field = DoublePoint::new("foo", &[5.0])?;
+        let mut field = DoublePoint::new("foo", [5.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         result = try_set_bytes_value(&mut field);
@@ -1027,7 +1027,7 @@ mod tests {
     }
     #[test]
     fn test_double_point_2d() -> Result<()> {
-        let mut field = DoublePoint::new("foo", &[5.0, 4.0])?;
+        let mut field = DoublePoint::new("foo", [5.0, 4.0])?;
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         result = try_set_bytes_value(&mut field);

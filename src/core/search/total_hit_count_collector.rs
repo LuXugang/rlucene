@@ -30,6 +30,12 @@ use std::fmt::{Display, Formatter};
 pub struct TotalHitCountCollector {
     pub(crate) total_hit: i32,
 }
+impl Default for TotalHitCountCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TotalHitCountCollector {
     pub fn new() -> Self {
         Self { total_hit: 0 }

@@ -511,7 +511,7 @@ where
                 let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
                 let field_info = per_field.field_info.as_ref().unwrap();
                 if let Some(ref mut writer) = per_field.doc_values_writer {
-                    if *field_info.get_doc_values_type() != DocValuesType::None {
+                    if *field_info.get_doc_values_type() == DocValuesType::None {
                         return Err(LuceneError::illegal_state(format!(
                             "segment= {}: field={} has no docvalues but wrote them",
                             segment_info, field_info.name

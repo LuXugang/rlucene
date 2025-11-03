@@ -332,32 +332,32 @@ pub enum FieldComparatorValue {
 }
 
 impl FieldComparatorValue {
-    fn missing() -> Self {
+    pub fn missing() -> Self {
         FieldComparatorValue::Missing
     }
 
-    fn as_i32(&self) -> Option<&i32> {
+    pub fn as_i32(&self) -> Option<&i32> {
         match self {
             FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
             _ => None,
         }
     }
 
-    fn into_i32(self) -> Option<i32> {
+    pub fn into_i32(self) -> Option<i32> {
         match self {
             FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
             _ => None,
         }
     }
 
-    fn as_i64(&self) -> Option<&i64> {
+    pub fn as_i64(&self) -> Option<&i64> {
         match self {
             FieldComparatorValue::Long(v) => Some(v),
             _ => None,
         }
     }
 
-    fn into_i64(self) -> Option<i64> {
+    pub fn into_i64(self) -> Option<i64> {
         match self {
             FieldComparatorValue::Long(v) => Some(v),
             _ => None,
@@ -371,28 +371,28 @@ impl FieldComparatorValue {
         }
     }
 
-    fn into_f32(self) -> Option<f32> {
+    pub fn into_f32(self) -> Option<f32> {
         match self {
             FieldComparatorValue::Float(v) => Some(v),
             _ => None,
         }
     }
 
-    fn as_f64(&self) -> Option<&f64> {
+    pub fn as_f64(&self) -> Option<&f64> {
         match self {
             FieldComparatorValue::Double(v) => Some(v),
             _ => None,
         }
     }
 
-    fn into_f64(self) -> Option<f64> {
+    pub fn into_f64(self) -> Option<f64> {
         match self {
             FieldComparatorValue::Double(v) => Some(v),
             _ => None,
         }
     }
 
-    fn as_term_val(&self) -> Option<&BytesRef<Vec<u8>>> {
+    pub fn as_term_val(&self) -> Option<&BytesRef<Vec<u8>>> {
         match self {
             FieldComparatorValue::TermVal(v) => Some(v),
             FieldComparatorValue::Missing => None,
@@ -400,7 +400,7 @@ impl FieldComparatorValue {
         }
     }
 
-    fn into_term_val(self) -> Option<BytesRef<Vec<u8>>> {
+    pub fn into_term_val(self) -> Option<BytesRef<Vec<u8>>> {
         match self {
             FieldComparatorValue::TermVal(v) => Some(v),
             _ => None,

@@ -36,10 +36,12 @@ pub struct LongPoint {
 
 impl LongPoint {
     /// Create a new LongPoint with the given name and long values
-    pub fn new<T>(name: T, point: &[i64]) -> Result<LongPoint>
+    pub fn new<T, P>(name: T, point: P) -> Result<LongPoint>
     where
         T: Into<String>,
+        P: AsRef<[i64]>,
     {
+        let point = point.as_ref();
         let packed = Self::pack(point)?;
         let len = packed.len();
         let value = BytesRef::from_slice(packed, 0, len);
