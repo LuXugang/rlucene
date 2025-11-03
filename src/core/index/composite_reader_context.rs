@@ -140,7 +140,6 @@ where
     {
         match &reader {
             IndexReaderEnum::Leaf(ar) => {
-                self.leaf_doc_base += ar.max_doc()?;
                 let leaves_size = self.leaves.as_ref().unwrap().len();
                 let atomic = Arc::new(LeafReaderContext::new(
                     ar.clone(),
@@ -151,6 +150,7 @@ where
                     None,
                 ));
                 self.leaves.as_mut().unwrap().push(atomic);
+                self.leaf_doc_base += ar.max_doc()?;
             },
             IndexReaderEnum::Composite(composite_reader) => {
                 let sequential_sub_readers = composite_reader.get_sequential_sub_readers();

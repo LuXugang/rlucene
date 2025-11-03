@@ -212,7 +212,7 @@ where
 mod tests {
 
     use crate::core::document::document::Document;
-    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::composite_reader::{CompositeReader, get_context};
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::leaf_reader::LeafReader;
@@ -243,8 +243,14 @@ mod tests {
     use std::sync::Arc;
 
     use crate::core::index::index_reader_context::IndexReaderContext;
+
     use crate::core::search::dummy::dummy_weight::DummyWeight;
+
+    use crate::core::search::query::Query;
+
     use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+    use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
+    use crate::test::search::check_hits::CheckHits;
 
     #[allow(dead_code)] // for quick search
     struct TestTopDocsCollector;
@@ -417,6 +423,43 @@ mod tests {
         let cm = MyTopDocsCollectorMananger::new(num_results);
         searcher.search_with_collector_manager(query, &cm, None)
     }
+    fn do_search_with_threshold<R, CR>(
+        random: &mut R,
+        num_results: i32,
+        threshold: i32,
+        query: Query,
+        index_reader: CR,
+    ) -> Result<TopDocs<ScoreDoc>>
+    where
+        R: Rng + ?Sized,
+        CR: CompositeReader + Clone,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        // TODO：这里应该使用new_searcher的另一个变体
+        let mut searcher = new_searcher(index_reader)?;
+        let collector_manager =
+            TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
+        searcher.search_with_collector_manager(query, &collector_manager, None)
+    }
+    fn do_concurrent_search_with_threshold<R, CR>(
+        random: &mut R,
+        num_results: i32,
+        threshold: i32,
+        query: Query,
+        index_reader: CR,
+    ) -> Result<TopDocs<ScoreDoc>>
+    where
+        R: Rng + ?Sized,
+        CR: CompositeReader + Clone + Send + Sync + 'static,
+        CR::LeafReader: LeafReader<ParentReader = CR> + Send + Sync,
+    {
+        // TODO：这里应该使用new_searcher的另一个变体
+        let mut searcher = new_searcher(index_reader)?;
+        let collector_manager =
+            TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
+        searcher.search_with_collector_manager(query, &collector_manager, None)
+    }
+
     #[test]
     fn test_invalid_arguments() -> Result<()> {
         let mut random = random();
@@ -656,6 +699,171 @@ mod tests {
             Some(f32::from_bits((4.0f32).to_bits() + 1))
         );
 
+        Ok(())
+    }
+    #[test]
+    fn test_shared_count_collector_manager() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里没有定义合并策略
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        writer.add_documents(vec![
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+        ])?;
+        writer.flush()?;
+        writer.add_documents(vec![Document::new(), Document::new()])?;
+        writer.flush()?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let v = get_context(reader.clone())?;
+        assert_eq!(v.leaves()?.len(), 2);
+        writer.close()?;
+
+        let query = MatchAllDocsQuery::new();
+        let tdc =
+            do_concurrent_search_with_threshold(&mut random, 5, 10, query.into(), reader.clone())?;
+        let query = MatchAllDocsQuery::new();
+        let tdc2 = do_search_with_threshold(&mut random, 5, 10, query.into(), reader.clone())?;
+
+        let query = MatchAllDocsQuery::new();
+        CheckHits::check_equal(&query.into(), &tdc.score_docs, &tdc2.score_docs)?;
+        Ok(())
+    }
+    #[test]
+    fn test_total_hits() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里没有定义合并策略
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        writer.add_documents(vec![
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+        ])?;
+        writer.flush()?;
+        writer.add_documents(vec![
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+        ])?;
+        writer.flush()?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let v = get_context(reader.clone())?;
+        assert_eq!(v.leaves()?.len(), 2);
+        writer.close()?;
+        let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
+
+        for total_hits_threshold in 0..20 {
+            let collector_manager = TopScoreDocCollectorManager::new(2, total_hits_threshold)?;
+            let mut collector = collector_manager.new_collector()?;
+            let mut scorer = Score::new();
+            let mut leaf_collector =
+                collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
+            leaf_collector.set_scorer(&mut scorer)?;
+
+            scorer.score = 3.0;
+            leaf_collector.collect(0, &mut scorer)?;
+
+            scorer.score = 3.0;
+            leaf_collector.collect(1, &mut scorer)?;
+
+            let mut leaf_collector =
+                collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight))?;
+            leaf_collector.set_scorer(&mut scorer)?;
+
+            scorer.score = 3.0;
+            leaf_collector.collect(1, &mut scorer)?;
+
+            scorer.score = 4.0;
+            leaf_collector.collect(1, &mut scorer)?;
+
+            let top_docs = collector.top_docs()?;
+            assert_eq!(top_docs.total_hits.value, 4);
+            assert_eq!(
+                scorer.min_competitive_score.is_some(),
+                total_hits_threshold < 4
+            );
+            assert_eq!(
+                top_docs.total_hits,
+                if total_hits_threshold < 4 {
+                    TotalHits::new(4, GreaterThanOrEqualTo)
+                } else {
+                    TotalHits::new(4, EqualTo)
+                }
+            );
+        }
+        Ok(())
+    }
+    // // TODO: 这里需要调整TextField不可变使用后再来调整这个测试
+    #[test]
+    fn test_relation_vs_top_docs_count() -> Result<()> {
+        // let mut random = random();
+        // let dir = Arc::new(new_directory(&mut random)?);
+        // // TODO: 这里没有定义合并策略
+        // let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        //
+        // let mut doc = Document::new();
+        // doc.add(TextField::with_string("f", "foo bar", Store::No)?);
+        // writer.add_documents(vec![Document::new(), Document::new(), Document::new(), Document::new(), Document::new()])?;
+        // writer.flush()?;
+        // writer.add_documents(vec![Document::new(), Document::new(), Document::new(), Document::new(), Document::new()])?;
+        // writer.flush()?;
+        //
+        // let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        // let irc = get_context(reader.clone())?;
+        // let mut searcher = IndexSearcher::new(irc)?;
+        //
+        // let cm = TopScoreDocCollectorManager::new(2, 10)?;
+        // let top_docs = searcher.search_with_collector_manager(
+        //     TermQuery::new(Term::from_text("f", "foo")),
+        //     &cm,
+        //     None,
+        // )?;
+        // assert_eq!(top_docs.total_hits.value, 10);
+        // assert_eq!(top_docs.total_hits.relation, EqualTo);
+        //
+        // let cm = TopScoreDocCollectorManager::new(2, 2)?;
+        // let top_docs = searcher.search_with_collector_manager(
+        //     TermQuery::new(Term::from_text("f", "foo")),
+        //     &cm,
+        //     None,
+        // )?;
+        // assert!(10 >= top_docs.total_hits.value);
+        // assert_eq!(top_docs.total_hits.relation, GreaterThanOrEqualTo);
+        //
+        // let cm = TopScoreDocCollectorManager::new(10, 2)?;
+        // let top_docs = searcher.search_with_collector_manager(
+        //     TermQuery::new(Term::from_text("f", "foo")),
+        //     &cm,
+        //     None,
+        // )?;
+        // assert_eq!(top_docs.total_hits.value, 10);
+        // assert_eq!(top_docs.total_hits.relation, EqualTo);
+
+        Ok(())
+    }
+
+    fn test_concurrent_min_score() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    fn test_random_min_competitive_score() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    fn test_realistic_concurrent_minimum_score() -> Result<()> {
+        // TODO
         Ok(())
     }
 }
