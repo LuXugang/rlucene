@@ -391,7 +391,7 @@ where
             .expect("priority queue element should exist")
     }
 
-    pub fn iter(&'_ self) -> PriorityQueueIterator<'_, T, C> {
+    pub fn iter_ref(&'_ self) -> PriorityQueueIterator<'_, T, C> {
         PriorityQueueIterator::new(self)
     }
 }
@@ -549,7 +549,7 @@ mod tests {
             pq.insert_with_overflow(ObjectCompare::new(i, 0))?;
         }
         let mut indexes: Vec<i32> = Vec::new();
-        let iter = pq.iter();
+        let iter = pq.iter_ref();
         for e in iter {
             indexes.push(e.index)
         }
@@ -779,7 +779,7 @@ mod tests {
     #[test]
     fn test_iterator_empty() -> Result<()> {
         let pq = PriorityQueue::new(3, I32Compare)?;
-        let mut it = pq.iter();
+        let mut it = pq.iter_ref();
         assert_eq!(it.next(), None);
         Ok(())
     }
@@ -788,7 +788,7 @@ mod tests {
     fn test_iterator_one() -> Result<()> {
         let mut pq = PriorityQueue::new(3, I32Compare)?;
         pq.add(1)?;
-        let mut it = pq.iter();
+        let mut it = pq.iter_ref();
         assert_eq!(it.next(), Some(&1));
         Ok(())
     }
@@ -798,7 +798,7 @@ mod tests {
         let mut pq = PriorityQueue::new(3, I32Compare)?;
         pq.add(1)?;
         pq.add(2)?;
-        let mut it = pq.iter();
+        let mut it = pq.iter_ref();
         assert_eq!(it.next(), Some(&1));
         assert_eq!(it.next(), Some(&2));
         Ok(())
@@ -826,7 +826,7 @@ mod tests {
                 expected.remove(pos.unwrap());
             }
             let mut actual: Vec<i32> = Vec::new();
-            for value in queue.iter() {
+            for value in queue.iter_ref() {
                 actual.push(*value);
             }
             expected.sort();

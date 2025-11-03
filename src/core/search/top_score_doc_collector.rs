@@ -148,7 +148,11 @@ impl TopDocsCollector for TopScoreDocCollector {
     }
 
     fn top_docs_size(&self) -> usize {
-        self.base.pq.iter().filter(|sd| sd.doc != i32::MAX).count()
+        self.base
+            .pq
+            .iter_ref()
+            .filter(|sd| sd.doc != i32::MAX)
+            .count()
     }
 }
 pub struct TopScoreDocLeafCollector<'a> {
