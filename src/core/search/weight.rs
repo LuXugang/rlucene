@@ -16,16 +16,18 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
+use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either5BulkScorer};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::{Either2Matches, Matches};
+use crate::core::search::matches::{Either2Matches, Either5Matches, Matches};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
-use crate::core::search::scorer::{Either2Scorer, Scorer};
-use crate::core::search::scorer_supplier::{Either2ScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer::{Either2Scorer, Either5Scorer, Scorer};
+use crate::core::search::scorer_supplier::{
+    Either2ScorerSupplier, Either5ScorerSupplier, ScorerSupplier,
+};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
@@ -465,6 +467,7 @@ where
     Ok(doc)
 }
 
+#[macro_export]
 macro_rules! either_weight {
     (
         $vis:vis $name:ident
@@ -613,4 +616,14 @@ either_weight!(
         bulk: Either2BulkScorer
     }
     { A: A, B: B }
+);
+either_weight!(
+    pub Either5Weight
+    => {
+        matches: Either5Matches,
+        supplier: Either5ScorerSupplier,
+        scorer: Either5Scorer,
+        bulk: Either5BulkScorer
+    }
+    { A: A, B: B, C: C, D: D, E: E }
 );

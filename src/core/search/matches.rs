@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::matches_iterator::{Either2MatchesIterator, MatchesIterator};
+use crate::core::search::matches_iterator::{
+    Either2MatchesIterator, Either5MatchesIterator, MatchesIterator,
+};
 use crate::core::util::error::lucene_error::Result;
 
 /// Reports the positions and optionally offsets of all matching terms
@@ -94,4 +96,9 @@ either_matches!(
     pub Either2Matches
     => { mi: Either2MatchesIterator }
     { A: A, B: B }
+);
+either_matches!(
+    pub Either5Matches
+    => { mi: Either5MatchesIterator }
+    { A: A, B: B, C: C, D: D, E: E }
 );

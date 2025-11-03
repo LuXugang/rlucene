@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_fields::{Either2StoredFields, StoredFields};
