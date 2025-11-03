@@ -25,33 +25,21 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub struct DummyWeight<LR>
 where
     LR: LeafReader,
 {
-    _leaf_reader: PhantomData<LR>,
-}
-
-impl<LR> Default for DummyWeight<LR>
-where
-    LR: LeafReader,
-{
-    fn default() -> Self {
-        Self::new()
-    }
+    leaf_reader: LR,
 }
 
 impl<LR> DummyWeight<LR>
 where
     LR: LeafReader,
 {
-    pub fn new() -> Self {
-        Self {
-            _leaf_reader: PhantomData,
-        }
+    pub fn new(lr: LR) -> Self {
+        Self { leaf_reader: lr }
     }
 }
 

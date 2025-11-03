@@ -141,12 +141,13 @@ where
         match &reader {
             IndexReaderEnum::Leaf(ar) => {
                 self.leaf_doc_base += ar.max_doc()?;
+                let leaves_size = self.leaves.as_ref().unwrap().len();
                 let atomic = Arc::new(LeafReaderContext::new(
                     ar.clone(),
                     ord,
                     doc_base,
-                    0,
-                    0,
+                    leaves_size,
+                    self.leaf_doc_base,
                     None,
                 ));
                 self.leaves.as_mut().unwrap().push(atomic);

@@ -212,6 +212,8 @@ where
 mod tests {
 
     use crate::core::document::document::Document;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -239,6 +241,10 @@ mod tests {
     use rand::Rng;
     use std::fmt::{Display, Formatter};
     use std::sync::Arc;
+
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::search::dummy::dummy_weight::DummyWeight;
+    use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 
     #[allow(dead_code)] // for quick search
     struct TestTopDocsCollector;
@@ -435,6 +441,219 @@ mod tests {
             matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
                     "Number of hits requested must be greater than 0 but value was -1",
             ))
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn test_zero_results() -> Result<()> {
+        let mut tdc = MyTopDocsCollector::new(5)?;
+        let td = tdc.top_docs_with_start_limit(0, 1)?;
+        assert_eq!(td.score_docs.len(), 0);
+        Ok(())
+    }
+    #[test]
+    fn test_first_results_page() -> Result<()> {
+        let mut random = random();
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start_limit(0, 10)?;
+        assert_eq!(td.score_docs.len(), 10);
+        Ok(())
+    }
+    #[test]
+    fn test_second_results_pages() -> Result<()> {
+        let mut random = random();
+
+        // ask for more results than are available
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start_limit(10, 10)?;
+        assert_eq!(td.score_docs.len(), 5);
+
+        // ask for 5 results (exactly what there should be)
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start_limit(10, 5)?;
+        assert_eq!(td.score_docs.len(), 5);
+
+        // ask for less results than there are
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start_limit(10, 4)?;
+        assert_eq!(td.score_docs.len(), 4);
+
+        Ok(())
+    }
+    #[test]
+    fn test_get_all_results() -> Result<()> {
+        let mut random = random();
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs()?;
+        assert_eq!(td.score_docs.len(), 15);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_results_from_start() -> Result<()> {
+        let mut random = random();
+
+        // should bring all results
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start(0)?;
+        assert_eq!(td.score_docs.len(), 15);
+
+        // get the last 5 only
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs_with_start(10)?;
+        assert_eq!(td.score_docs.len(), 5);
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_arguments() -> Result<()> {
+        let mut random = random();
+        let mut tdc = do_search(&mut random, 15)?;
+
+        // start < 0
+        let result = tdc.top_docs_with_start(-1);
+        assert!(
+            matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+                "Expected value of starting position is between 0 and 15, got -1",
+            ))
+        );
+
+        // how_many < 0
+        let result = tdc.top_docs_with_start_limit(9, -1);
+        assert!(
+            matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+                "Number of hits requested must be greater than 0 but value was -1",
+            ))
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn test_results_order() -> Result<()> {
+        let mut random = random();
+        let mut tdc = do_search(&mut random, 15)?;
+        let td = tdc.top_docs()?;
+        let sd = td.score_docs;
+
+        assert_eq!(MAX_SCORE, sd[0].score);
+        for i in 1..sd.len() {
+            assert!(sd[i - 1].score >= sd[i].score);
+        }
+
+        Ok(())
+    }
+    const MAX_SCORE: f32 = 9.17561;
+
+    struct Score {
+        score: f32,
+        min_competitive_score: Option<f32>,
+    }
+    impl Score {
+        fn new() -> Self {
+            Self {
+                score: 0.0,
+                min_competitive_score: None,
+            }
+        }
+    }
+    impl Scorable for Score {
+        fn score(&mut self) -> Result<f32> {
+            Ok(self.score)
+        }
+
+        fn set_min_competitive_score(&mut self, score: f32) -> Result<()> {
+            assert!(
+                self.min_competitive_score.is_none()
+                    || score >= *self.min_competitive_score.as_ref().unwrap()
+            );
+            self.min_competitive_score = Some(score);
+            Ok(())
+        }
+
+        type Scorable = Score;
+    }
+    #[test]
+    fn test_set_min_competitive_score() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里没有定义合并策略
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        let doc = Document::new();
+        writer.add_documents(vec![
+            Document::new(),
+            Document::new(),
+            Document::new(),
+            Document::new(),
+        ])?;
+        writer.flush()?;
+        writer.add_documents(vec![Document::new(), Document::new()])?;
+        writer.flush()?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let v = get_context(reader)?;
+        assert_eq!(v.leaves()?.len(), 2);
+        writer.close()?;
+
+        let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
+        let mut collector = collector_manager.new_collector()?;
+        let mut scorer = Score::new();
+        let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
+        let mut leaf_collector =
+            collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
+        leaf_collector.set_scorer(&mut scorer)?;
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer.score = 1.0;
+        leaf_collector.collect(0, &mut scorer)?;
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer.score = 2.0;
+        leaf_collector.collect(1, &mut scorer)?;
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer.score = 3.0;
+        leaf_collector.collect(2, &mut scorer)?;
+        assert_eq!(
+            scorer.min_competitive_score,
+            Some(f32::from_bits((2.0f32).to_bits() + 1))
+        );
+
+        scorer.score = 0.5;
+        scorer.min_competitive_score = None;
+        leaf_collector.collect(3, &mut scorer)?;
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer.score = 4.0;
+        leaf_collector.collect(4, &mut scorer)?;
+        assert_eq!(
+            scorer.min_competitive_score,
+            Some(f32::from_bits((3.0f32).to_bits() + 1))
+        );
+
+        // Make sure the min score is set on scorers on new segments
+        scorer = Score::new();
+        let mut leaf_collector =
+            collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight))?;
+        leaf_collector.set_scorer(&mut scorer)?;
+        assert_eq!(
+            scorer.min_competitive_score,
+            Some(f32::from_bits((3.0f32).to_bits() + 1))
+        );
+
+        scorer.score = 1.0;
+        leaf_collector.collect(0, &mut scorer)?;
+        assert_eq!(
+            scorer.min_competitive_score,
+            Some(f32::from_bits((3.0f32).to_bits() + 1))
+        );
+
+        scorer.score = 4.0;
+        leaf_collector.collect(1, &mut scorer)?;
+        assert_eq!(
+            scorer.min_competitive_score,
+            Some(f32::from_bits((4.0f32).to_bits() + 1))
         );
 
         Ok(())
