@@ -84,11 +84,9 @@ where
 }
 macro_rules! either_scorer_supplier {
     (
-        $vis:vis $name:ident {
-            scorer = $scorer_ty:ident,
-            bulk   = $bulk_ty:ident;
-            $( $Variant:ident : $T:ident ),+ $(,)?
-        }
+        $vis:vis $name:ident
+        => { bulk: $bulk:ident, scorer: $scorer:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
         $vis enum $name<$( $T ),+> {
             $( $Variant($T), )+
@@ -99,10 +97,9 @@ macro_rules! either_scorer_supplier {
             LR: LeafReader,
             $( $T: ScorerSupplier<LR> ),+
         {
-            type Scorer     = $scorer_ty<$( < $T as ScorerSupplier<LR> >::Scorer ),+>;
-            type BulkScorer = $bulk_ty  <$( < $T as ScorerSupplier<LR> >::BulkScorer ),+>;
+            type Scorer = $scorer<$( <$T as ScorerSupplier<LR>>::Scorer ),+>;
+            type BulkScorer = $bulk<$( <$T as ScorerSupplier<LR>>::BulkScorer ),+>;
 
-            #[inline]
             fn get(
                 &mut self,
                 lead_cost: i64,
@@ -112,13 +109,12 @@ macro_rules! either_scorer_supplier {
                     $(
                         Self::$Variant(inner) => {
                             let opt = inner.get(lead_cost, context)?;
-                            Ok(opt.map($scorer_ty::$Variant))
+                            Ok(opt.map($scorer::$Variant))
                         }
                     ),+
                 }
             }
 
-            #[inline]
             fn bulk_scorer(
                 &mut self,
                 context: &LeafReaderContext<LR>,
@@ -126,21 +122,35 @@ macro_rules! either_scorer_supplier {
                 match self {
                     $(
                         Self::$Variant(inner) => {
-                            let bs = inner.bulk_scorer(context)?;
-                            Ok(bs.map($bulk_ty::$Variant))
+                            let opt = inner.bulk_scorer(context)?;
+                            Ok(opt.map($bulk::$Variant))
                         }
                     ),+
                 }
             }
 
-            #[inline]
+            fn default_bulk_scorer(
+                &mut self,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<DefaultBulkScorer<Self::Scorer>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => match inner.get(i64::MAX, context)? {
+                            Some(scorer) => Ok(DefaultBulkScorer::new($scorer::$Variant(scorer))),
+                            None => Err(LuceneError::illegal_state(
+                                "ScorerSupplier::get returned None",
+                            )),
+                        },
+                    )+
+                }
+            }
+
             fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
                 match self {
                     $( Self::$Variant(inner) => inner.cost(context), )+
                 }
             }
 
-            #[inline]
             fn set_top_level_scoring_clause(&mut self) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.set_top_level_scoring_clause(), )+
@@ -149,20 +159,15 @@ macro_rules! either_scorer_supplier {
         }
     };
 }
+
 either_scorer_supplier!(
-    pub Either2ScorerSupplier {
-        scorer = Either2Scorer,
-        bulk   = Either2BulkScorer;
-        A: A,
-        B: B,
-    }
+    pub Either2ScorerSupplier
+    => { bulk: Either2BulkScorer, scorer: Either2Scorer }
+    { A: A, B: B }
 );
+
 either_scorer_supplier!(
-    pub Either3ScorerSupplier {
-        scorer = Either3Scorer,
-        bulk   = Either3BulkScorer;
-        A: A,
-        B: B,
-        C: C,
-    }
+    pub Either3ScorerSupplier
+    => { bulk: Either3BulkScorer, scorer: Either3Scorer }
+    { A: A, B: B ,C:C}
 );
