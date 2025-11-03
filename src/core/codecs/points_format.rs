@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 use crate::core::codecs::points_reader::PointsReaderType;
-use crate::core::codecs::points_writer::PointsWriterEnum;
+use crate::core::codecs::points_writer::PointsWriterType;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 
+/// Encodes/decodes indexed points.
 pub trait PointsFormat {
-    fn fields_writer<D>(&self, state: &SegmentWriteState<D>) -> Result<PointsWriterEnum>
+    fn fields_writer<D>(&self, state: &SegmentWriteState<D>) -> Result<PointsWriterType>
     where
         D: Directory;
 
+    /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
+    ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
+    ///  the execution of this call before there is a chance to open them. Under these circumstances an
+    ///  IOException should be thrown by the implementation. IOExceptions are expected and will
+    ///  automatically cause a retry of the segment opening logic with the newly revised segments.
     fn fields_reader<D>(
         &self,
         state: &SegmentReadState<D>,

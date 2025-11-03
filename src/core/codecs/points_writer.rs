@@ -29,23 +29,4 @@ pub trait PointsWriter {
     /// Called once at the end before close
     fn finish(&mut self) -> Result<()>;
 }
-
-pub enum PointsWriterEnum {
-    Lucene90(Lucene90PointWriter),
-}
-impl PointsWriter for PointsWriterEnum {
-    fn write_field<PR>(&mut self, field_info: &Arc<FieldInfo>, values: &mut PR) -> Result<()>
-    where
-        PR: PointsReader,
-    {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.write_field(field_info, values),
-        }
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.finish(),
-        }
-    }
-}
+pub type PointsWriterType = Lucene90PointWriter;
