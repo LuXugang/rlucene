@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod binary_doc_values_field;
 #[allow(clippy::module_inception)]
 pub mod document;
 pub mod document_stored_field_visitor;

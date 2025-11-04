@@ -18,6 +18,7 @@ use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
+use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::double_point::DoublePoint;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
@@ -45,6 +46,7 @@ pub enum Fields {
     Reverse(ReservedField<NumericDocValuesField>),
     LongPoint(LongPoint),
     DoublePoint(DoublePoint),
+    BinaryDocValues(BinaryDocValuesField),
 }
 impl From<Field> for Fields {
     fn from(f: Field) -> Self {
@@ -89,6 +91,11 @@ impl From<DoublePoint> for Fields {
         Fields::DoublePoint(d)
     }
 }
+impl From<BinaryDocValuesField> for Fields {
+    fn from(b: BinaryDocValuesField) -> Self {
+        Fields::BinaryDocValues(b)
+    }
+}
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -100,6 +107,7 @@ impl Display for Fields {
             Fields::Reverse(f1) => f1.fmt(f),
             Fields::LongPoint(f1) => f1.fmt(f),
             Fields::DoublePoint(f1) => f1.fmt(f),
+            Fields::BinaryDocValues(f1) => f1.fmt(f),
         }
     }
 }
@@ -115,6 +123,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.name(),
             Fields::LongPoint(f) => f.name(),
             Fields::DoublePoint(f) => f.name(),
+            Fields::BinaryDocValues(f) => f.name(),
         }
     }
 
@@ -130,6 +139,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.field_type(),
             Fields::LongPoint(f) => f.field_type(),
             Fields::DoublePoint(f) => f.field_type(),
+            Fields::BinaryDocValues(f) => f.field_type(),
         }
     }
 
@@ -148,6 +158,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.token_stream(token_stream),
             Fields::LongPoint(f) => f.token_stream(token_stream),
             Fields::DoublePoint(f) => f.token_stream(token_stream),
+            Fields::BinaryDocValues(f) => f.token_stream(token_stream),
         }
     }
 
@@ -161,6 +172,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.binary_value(),
             Fields::LongPoint(f) => f.binary_value(),
             Fields::DoublePoint(f) => f.binary_value(),
+            Fields::BinaryDocValues(f) => f.binary_value(),
         }
     }
 
@@ -174,6 +186,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.take_binary_value(),
             Fields::LongPoint(f) => f.take_binary_value(),
             Fields::DoublePoint(f) => f.take_binary_value(),
+            Fields::BinaryDocValues(f) => f.take_binary_value(),
         }
     }
 
@@ -187,6 +200,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.string_value(),
             Fields::LongPoint(f) => f.string_value(),
             Fields::DoublePoint(f) => f.string_value(),
+            Fields::BinaryDocValues(f) => f.string_value(),
         }
     }
 
@@ -200,6 +214,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.take_string_value(),
             Fields::LongPoint(f) => f.take_string_value(),
             Fields::DoublePoint(f) => f.take_string_value(),
+            Fields::BinaryDocValues(f) => f.take_string_value(),
         }
     }
 
@@ -213,6 +228,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.get_char_sequence_value(),
             Fields::LongPoint(f) => f.get_char_sequence_value(),
             Fields::DoublePoint(f) => f.get_char_sequence_value(),
+            Fields::BinaryDocValues(f) => f.get_char_sequence_value(),
         }
     }
 
@@ -226,6 +242,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.take_reader_value(),
             Fields::LongPoint(f) => f.take_reader_value(),
             Fields::DoublePoint(f) => f.take_reader_value(),
+            Fields::BinaryDocValues(f) => f.take_reader_value(),
         }
     }
 
@@ -239,6 +256,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.numeric_value(),
             Fields::LongPoint(f) => f.numeric_value(),
             Fields::DoublePoint(f) => f.numeric_value(),
+            Fields::BinaryDocValues(f) => f.numeric_value(),
         }
     }
 
@@ -252,6 +270,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.stored_value(),
             Fields::LongPoint(f) => f.stored_value(),
             Fields::DoublePoint(f) => f.stored_value(),
+            Fields::BinaryDocValues(f) => f.stored_value(),
         }
     }
 
@@ -265,6 +284,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.take_stored_value(),
             Fields::LongPoint(f) => f.take_stored_value(),
             Fields::DoublePoint(f) => f.take_stored_value(),
+            Fields::BinaryDocValues(f) => f.take_stored_value(),
         }
     }
 
@@ -278,6 +298,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.invertable_type(),
             Fields::LongPoint(f) => f.invertable_type(),
             Fields::DoublePoint(f) => f.invertable_type(),
+            Fields::BinaryDocValues(f) => f.invertable_type(),
         }
     }
 
@@ -294,6 +315,7 @@ impl IndexableField for Fields {
             Fields::Reverse(f) => f.init_token_stream(analyzer),
             Fields::LongPoint(f) => f.init_token_stream(analyzer),
             Fields::DoublePoint(f) => f.init_token_stream(analyzer),
+            Fields::BinaryDocValues(f) => f.init_token_stream(analyzer),
         }
     }
 }
