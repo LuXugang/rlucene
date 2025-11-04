@@ -1031,7 +1031,7 @@ where
                                 ords_entry.base.bits_per_value as i32,
                             );
 
-                            let sbu = if ords_entry.base.docs_with_field_offset == -1 {
+                            let sub = if ords_entry.base.docs_with_field_offset == -1 {
                                 BaseSortedSetDocValuesEnum::Dense(DenseBaseSortedSetDocValues::new(
                                     self.max_doc,
                                     values,
@@ -1054,7 +1054,7 @@ where
                             return Ok(Either2SortedSetDocValues::B(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
                                 &self.data,
-                                sbu,
+                                sub,
                                 self.merging,
                             )?));
                         }
@@ -2414,7 +2414,17 @@ where
         Ok(self.count)
     }
 
-    type TermsEnum<'a> = BaseTermsEnum<TermsDict<I>> where I: 'a;
+    type TermsEnum<'a>
+        = DummyTermsEnum
+    where
+        I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2508,7 +2518,17 @@ where
         Ok(self.count)
     }
 
-    type TermsEnum<'a> = DummyTermsEnum where I: 'a;
+    type TermsEnum<'a>
+        = DummyTermsEnum
+    where
+        I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2568,7 +2588,17 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
-    type TermsEnum<'a> = BaseTermsEnum<TermsDict<I>> where I: 'a;
+    type TermsEnum<'a>
+        = DummyTermsEnum
+    where
+        I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2675,7 +2705,17 @@ where
         }
     }
 
-    type TermsEnum<'a> = TermsDict<I> where I: 'a;
+    type TermsEnum<'a>
+        = DummyTermsEnum
+    where
+        I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
     type SortedDocValues = DummySortedDocValues;
 }
 

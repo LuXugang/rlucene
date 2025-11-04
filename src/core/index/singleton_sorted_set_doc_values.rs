@@ -132,7 +132,10 @@ where
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 
-    type TermsEnum<'a> = S::TermsEnum where S: 'a;
+    type TermsEnum<'a>
+        = S::TermsEnum
+    where
+        S: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.inner.as_mut().unwrap().terms_enum()

@@ -38,7 +38,7 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::Either5LongValues;
 use std::borrow::Cow;
 
@@ -202,7 +202,17 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-    type TermsEnum<'a> = DummyTermsEnum where I: 'a;
+    type TermsEnum<'a>
+        = DummyTermsEnum
+    where
+        I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
     type SortedDocValues = DummySortedDocValues;
 }
 

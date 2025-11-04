@@ -28,11 +28,11 @@ use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::Either2SortedDocValues;
-use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::{
     BufferedSortedDocValues, SortingSortedDocValues, get_doc_values_producer,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::terms_enum::Either2TermsEnum;
 use crate::core::index::{BytesRef, docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo};
@@ -603,7 +603,14 @@ where
         Ok(self.ord_map.len() as i64)
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum where D: 'a;
+    type TermsEnum<'a>
+        = SortedSetDocValuesTermsEnum<'a, Self>
+    where
+        D: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 
     type SortedDocValues = DummySortedDocValues;
 }
@@ -708,7 +715,14 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum where S: 'a;
+    type TermsEnum<'a>
+        = SortedSetDocValuesTermsEnum<'a, Self>
+    where
+        S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 
     fn is_single_valued(&self) -> bool {
         self.input.is_single_valued()
@@ -871,7 +885,8 @@ where
         }
     }
 
-    type TermsEnum<'a> = Either2TermsEnum<A::TermsEnum<'a>, B::TermsEnum<'a>>
+    type TermsEnum<'a>
+        = Either2TermsEnum<A::TermsEnum<'a>, B::TermsEnum<'a>>
     where
         A: 'a,
         B: 'a;
