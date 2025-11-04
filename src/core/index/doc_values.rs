@@ -453,3 +453,134 @@ impl SortedDocValues for EmptySorted {
 
     type TermsEnum = DummyTermsEnum;
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use std::sync::Arc;
+
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::string_field::StringField;
+
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::doc_values::DocValues;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        get_only_leaf_reader, new_directory, new_index_writer_config, random,
+    };
+
+    #[allow(dead_code)] // for quick search
+    struct TestDocValues;
+
+    ///If the field doesn't exist, we return empty instances:
+    /// It can easily happen that a segment just doesn't have any docs with the field.
+    #[test]
+    fn test_empty_index() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let doc = Document::new();
+        writer.add_document(doc)?;
+
+        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let r = get_only_leaf_reader(dr.clone())?;
+
+        let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
+        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+        let mut v = DocValues::get_numeric(r.as_ref(), "bogus")?;
+        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+        let mut v = DocValues::get_sorted(r.as_ref(), "bogus")?;
+        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+        let mut v = DocValues::get_sorted_set(r.as_ref(), "bogus")?;
+        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+        let mut v = DocValues::get_sorted_numeric(r.as_ref(), "bogus")?;
+        assert_eq!(v.next_doc()?, NO_MORE_DOCS);
+
+        writer.close()?;
+        Ok(())
+    }
+    /// field just doesnt have any docvalues at all:error
+    #[test]
+    fn test_misconfigured_field() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        writer.add_document(doc)?;
+
+        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let r = get_only_leaf_reader(dr.clone())?;
+
+        // errors
+        assert!(matches!(
+            DocValues::get_binary(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_numeric(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_sorted(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_sorted_set(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_sorted_numeric(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+
+        writer.close()?;
+        Ok(())
+    }
+    /// field with numeric docvalues
+    #[test]
+    fn test_numeric_field() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
+        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("foo", 3));
+        writer.add_document(doc)?;
+
+        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let r = get_only_leaf_reader(dr.clone())?;
+
+        // ok
+        let mut v = DocValues::get_numeric(r.as_ref(), "foo")?;
+        assert_eq!(v.next_doc()?, 0);
+
+        let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
+        assert_eq!(v.next_doc()?, 0);
+
+        // errors
+        assert!(matches!(
+            DocValues::get_binary(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_sorted(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+        assert!(matches!(
+            DocValues::get_sorted_set(r.as_ref(), "foo"),
+            Err(LuceneError::IllegalState(_))
+        ));
+
+        writer.close()?;
+        Ok(())
+    }
+}

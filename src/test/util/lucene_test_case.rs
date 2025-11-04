@@ -54,6 +54,7 @@ pub mod lucene_test_case_util {
 
     use crate::core::index::composite_reader::{CompositeReader, get_context};
     use crate::core::index::composite_reader_context::CompositeReaderContext;
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field_type::IndexableFieldType;
     use crate::core::index::leaf_reader::LeafReader;
@@ -93,6 +94,24 @@ pub mod lucene_test_case_util {
     fn default_random_multiplier() -> i32 {
         if is_night_mode() { 2 } else { 1 }
     }
+
+    pub fn get_only_leaf_reader<CR>(reader: CR) -> Result<<CR as CompositeReader>::LeafReader>
+    where
+        CR: CompositeReader + Clone,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        let irc = get_context(reader.clone())?;
+        let sub_readers = irc.leaves()?;
+        if sub_readers.len() != 1 {
+            return Err(LuceneError::illegal_argument(format!(
+                "{} has {} segments instead of exactly one",
+                reader,
+                sub_readers.len()
+            )));
+        }
+        Ok(sub_readers[0].reader().clone())
+    }
+
     /// Returns a number of at least `i`
     ///
     /// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
