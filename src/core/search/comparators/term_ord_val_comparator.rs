@@ -292,7 +292,6 @@ where
         };
 
         if enable_skipping {
-            let doc_values_terms = leaf.terms_index.terms_enum()?;
 
             let docs_with_field = match leaf.dense {
                 true => None,
@@ -311,7 +310,6 @@ where
             leaf.competitive_iterator = Some(TermOrdValCompetitiveIterator::new(
                 context,
                 leaf.dense,
-                doc_values_terms,
                 docs_with_field,
                 terms_iter,
             )?);
@@ -410,7 +408,7 @@ where
         self.competitive_iterator
             .as_mut()
             .unwrap()
-            .update(min_ord, max_ord)?;
+            .update(&mut self.terms_index, min_ord, max_ord)?;
 
         Ok(())
     }
@@ -586,7 +584,6 @@ where
 {
     max_doc: i32,
     dense: bool,
-    doc_values_terms: <TermOrdValDocValues<LR> as SortedDocValues>::TermsEnum,
     doc: i32,
     postings: VecDeque<i32>,
     postings_init: bool,
@@ -603,7 +600,6 @@ where
     pub fn new(
         reader: &LeafReaderContext<LR>,
         dense: bool,
-        doc_values_terms: <TermOrdValDocValues<LR> as SortedDocValues>::TermsEnum,
         docs_with_field: Option<TermOrdValDocValues<LR>>,
         terms_enum: LRTermsEnum<LR>,
     ) -> Result<Self> {
@@ -615,7 +611,6 @@ where
         Ok(Self {
             max_doc,
             dense,
-            doc_values_terms,
             doc: -1,
             postings: VecDeque::new(),
             postings_init: false,
@@ -626,14 +621,19 @@ where
         })
     }
     /// Update this iterator to only match postings whose term has an ordinal between `minOrd` included and `maxOrd` included.
-    fn update(&mut self, min_ord: i32, max_ord: i32) -> Result<()> {
+    fn update(
+        &mut self,
+        doc_values: &mut TermOrdValDocValues<LR>,
+        min_ord: i32,
+        max_ord: i32,
+    ) -> Result<()> {
         let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count());
         let size = std::cmp::max(0, max_ord - min_ord + 1);
 
         if size > max_terms {
             self.using_skip = true;
         } else if !self.postings_init {
-            self.init(min_ord, max_ord)?;
+            self.init(doc_values, min_ord, max_ord)?;
         } else if size < self.postings.len() as i32 {
             // One or more ords got removed
             debug_assert!(self.postings.is_empty() || *self.postings.front().unwrap() <= min_ord);
@@ -666,6 +666,8 @@ where
                 }
                 disjunction.add(v)?;
             }
+        } else {
+            self.init(doc_values, min_ord, max_ord)?;
         }
 
         Ok(())
@@ -673,7 +675,12 @@ where
     /// For the first time, this iterator is allowed to skip documents.
     /// It needs to pull [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum)s from the terms dictionary of the inverted index
     /// and create a priority queue out of them.
-    fn init(&mut self, min_ord: i32, max_ord: i32) -> Result<()> {
+    fn init(
+        &mut self,
+        doc_values: &mut TermOrdValDocValues<LR>,
+        min_ord: i32,
+        max_ord: i32,
+    ) -> Result<()> {
         self.postings_init = true;
         let size = std::cmp::max(0, max_ord - min_ord + 1);
         self.postings = VecDeque::with_capacity(size as usize);
@@ -681,8 +688,7 @@ where
         debug_assert!(self.disjunction.is_none());
         let mut disjunction = PriorityQueue::new(size, PostingsEnumAndOrdCmp)?;
         if size > 0 {
-            self.doc_values_terms.seek_exact_with_ord(min_ord as i64)?;
-            let min_term = self.doc_values_terms.term()?;
+            let min_term = doc_values.lookup_ord(min_ord)?.into_owned();
             let terms = self
                 .terms_enum
                 .as_mut()
@@ -703,17 +709,17 @@ where
 
             for ord in (min_ord + 1)..=max_ord {
                 let next = terms.next()?;
-                if next.is_none() {
-                    return Err(LuceneError::illegal_state(format!(
-                        "Terms have more than {ord} unique terms while doc values have exactly {ord} terms"
-                    )));
-                }
+                let next = match next {
+                    Some(term) => term,
+                    None => {
+                        return Err(LuceneError::illegal_state(format!(
+                            "Terms have more than {ord} unique terms while doc values have exactly {ord} terms"
+                        )));
+                    }
+                };
 
-                debug_assert!(
-                    self.doc_values_terms.seek_exact(next.unwrap().as_ref())?
-                        && self.doc_values_terms.ord()? == ord as i64,
-                    "docValuesTerms not aligned with terms index"
-                );
+                let expected_ord = doc_values.lookup_term(next.as_ref())?;
+                debug_assert!(expected_ord == ord, "docValuesTerms not aligned with terms index");
                 disjunction.add(PostingsEnumAndOrd::new(
                     terms.postings_with_flags(None, NONE as i32)?,
                     ord,

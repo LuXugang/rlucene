@@ -172,7 +172,9 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
 pub struct MaxValue<S>
@@ -261,7 +263,9 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
 /// two)
@@ -351,7 +355,9 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
 /// two)
@@ -441,7 +447,9 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }
 
 pub enum SortedDocValuesWrap<S>
@@ -569,5 +577,7 @@ where
         }
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }

@@ -121,7 +121,9 @@ where
         }
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum<'a> = DummyTermsEnum
+    where
+        I: 'a;
 }
 
 pub enum BaseSortedSetDocValuesEnum<I>

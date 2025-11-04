@@ -70,7 +70,7 @@ impl SortedDocValues for DummySortedDocValues {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum<'a> = DummyTermsEnum;
 
     // fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
     //     unreachable!("Dummy implementation: this method should never be called in real usage")

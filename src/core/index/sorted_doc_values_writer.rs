@@ -414,7 +414,9 @@ where
         Ok(self.hash.size())
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        D: 'a;
 }
 
 pub(crate) struct SortingSortedDocValues<S>
@@ -498,7 +500,9 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    where
+        S: 'a;
 }
 
 pub(crate) fn get_doc_values_producer<DM>(

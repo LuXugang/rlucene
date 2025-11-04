@@ -92,14 +92,17 @@ pub trait SortedDocValues: DocValuesIterator {
         }
         Ok(-(low + 1)) // key not found
     }
-    type TermsEnum: TermsEnum;
+    type TermsEnum<'a>: TermsEnum
+    where
+        Self: 'a;
     /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
     /// [`TermsEnum::ord`] and
     /// [`TermsEnum::seek_exact_with_ord`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::not_implemented(""))
     }
+
     // TODO:
     // intersect not Implemented
 }
@@ -170,10 +173,12 @@ macro_rules! either_sorted_docvalues {
                 match self { $( Self::$Variant(inner) => inner.lookup_term(key), )+ }
             }
 
-            type TermsEnum = $terms_enum<$( $T::TermsEnum ),+>;
+            type TermsEnum<'a> = $terms_enum<$( $T::TermsEnum<'a> ),+>
+            where
+                $( $T: 'a ),+;
 
 
-            fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+            fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
                 match self {
                     $( Self::$Variant(inner) => {
                         let te = inner.terms_enum()?;

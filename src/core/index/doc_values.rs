@@ -451,7 +451,7 @@ impl SortedDocValues for EmptySorted {
         Ok(0)
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum<'a> = DummyTermsEnum;
 }
 
 #[cfg(test)]
