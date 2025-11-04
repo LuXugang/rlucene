@@ -19,8 +19,8 @@ use std::borrow::Cow;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -172,7 +172,8 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }
@@ -263,7 +264,8 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }
@@ -355,7 +357,8 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }
@@ -447,7 +450,8 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }
@@ -577,7 +581,8 @@ where
         }
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }

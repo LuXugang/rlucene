@@ -2113,7 +2113,8 @@ where
         Ok(self.value.get(self.doc as i64)? as i32)
     }
 
-    type TermsEnum<'a> = DummyTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         I: 'a;
 }
@@ -2172,7 +2173,8 @@ where
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
 
-    type TermsEnum<'a> = DummyTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         I: 'a;
 }
@@ -2229,7 +2231,8 @@ where
         Ok(self.ords.long_value()? as i32)
     }
 
-    type TermsEnum<'a> = DummyTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         I: 'a;
 }
@@ -2323,7 +2326,8 @@ where
             },
         }
     }
-    type TermsEnum<'a> = DummyTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         I: 'a;
 

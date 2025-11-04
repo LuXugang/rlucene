@@ -25,11 +25,11 @@ use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
+use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::sorted_doc_values::Either2SortedDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -414,7 +414,8 @@ where
         Ok(self.hash.size())
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         D: 'a;
 }
@@ -500,7 +501,8 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnum<'a> = SortedDocValuesTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         S: 'a;
 }

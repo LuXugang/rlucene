@@ -121,7 +121,8 @@ where
         }
     }
 
-    type TermsEnum<'a> = DummyTermsEnum
+    type TermsEnum<'a>
+        = DummyTermsEnum
     where
         I: 'a;
 }

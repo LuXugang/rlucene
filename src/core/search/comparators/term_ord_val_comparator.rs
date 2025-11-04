@@ -292,7 +292,6 @@ where
         };
 
         if enable_skipping {
-
             let docs_with_field = match leaf.dense {
                 true => None,
                 false => Some(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
@@ -405,10 +404,11 @@ where
         debug_assert!(min_ord >= 0);
         debug_assert!(max_ord < self.terms_index.get_value_count()?);
 
-        self.competitive_iterator
-            .as_mut()
-            .unwrap()
-            .update(&mut self.terms_index, min_ord, max_ord)?;
+        self.competitive_iterator.as_mut().unwrap().update(
+            &mut self.terms_index,
+            min_ord,
+            max_ord,
+        )?;
 
         Ok(())
     }
@@ -715,11 +715,14 @@ where
                         return Err(LuceneError::illegal_state(format!(
                             "Terms have more than {ord} unique terms while doc values have exactly {ord} terms"
                         )));
-                    }
+                    },
                 };
 
                 let expected_ord = doc_values.lookup_term(next.as_ref())?;
-                debug_assert!(expected_ord == ord, "docValuesTerms not aligned with terms index");
+                debug_assert!(
+                    expected_ord == ord,
+                    "docValuesTerms not aligned with terms index"
+                );
                 disjunction.add(PostingsEnumAndOrd::new(
                     terms.postings_with_flags(None, NONE as i32)?,
                     ord,
