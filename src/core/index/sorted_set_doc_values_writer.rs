@@ -603,7 +603,7 @@ where
         Ok(self.ord_map.len() as i64)
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum where D: 'a;
 
     type SortedDocValues = DummySortedDocValues;
 }
@@ -708,7 +708,7 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum where S: 'a;
 
     fn is_single_valued(&self) -> bool {
         self.input.is_single_valued()
@@ -871,9 +871,12 @@ where
         }
     }
 
-    type TermsEnum = Either2TermsEnum<A::TermsEnum, B::TermsEnum>;
+    type TermsEnum<'a> = Either2TermsEnum<A::TermsEnum<'a>, B::TermsEnum<'a>>
+    where
+        A: 'a,
+        B: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         match self {
             Either2SortedSetDocValues::A(t) => {
                 let terms_enum = t.terms_enum()?;

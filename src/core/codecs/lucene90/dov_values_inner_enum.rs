@@ -202,7 +202,7 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum<'a> = DummyTermsEnum where I: 'a;
     type SortedDocValues = DummySortedDocValues;
 }
 

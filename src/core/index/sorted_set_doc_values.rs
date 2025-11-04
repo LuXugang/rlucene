@@ -100,12 +100,14 @@ pub trait SortedSetDocValues: DocValuesIterator {
         }
         Ok(-(low + 1)) // key not found
     }
-    type TermsEnum: TermsEnum;
+    type TermsEnum<'a>: TermsEnum
+    where
+        Self: 'a;
     /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
     /// [`TermsEnum::ord()`] and
     /// [`TermsEnum::seek_exact_with_ord()`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::not_implemented(""))
     }
 

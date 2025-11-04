@@ -2414,7 +2414,7 @@ where
         Ok(self.count)
     }
 
-    type TermsEnum = BaseTermsEnum<TermsDict<I>>;
+    type TermsEnum<'a> = BaseTermsEnum<TermsDict<I>> where I: 'a;
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2508,7 +2508,7 @@ where
         Ok(self.count)
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum<'a> = DummyTermsEnum where I: 'a;
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2568,7 +2568,7 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
-    type TermsEnum = BaseTermsEnum<TermsDict<I>>;
+    type TermsEnum<'a> = BaseTermsEnum<TermsDict<I>> where I: 'a;
     type SortedDocValues = DummySortedDocValues;
 }
 
@@ -2675,7 +2675,7 @@ where
         }
     }
 
-    type TermsEnum = TermsDict<I>;
+    type TermsEnum<'a> = TermsDict<I> where I: 'a;
     type SortedDocValues = DummySortedDocValues;
 }
 
