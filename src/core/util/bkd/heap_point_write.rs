@@ -26,7 +26,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 /// Utility struct to write new points into in-heap arrays.
 pub struct HeapPointWriter {

@@ -22,8 +22,9 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use std::borrow::Cow;
+use std::sync::Arc;
 
-pub trait PointValues {
+pub trait PointValues: Clone {
     /// Returns minimum value for each dimension, packed, or None if `size()` is
     /// `0`
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>>;
@@ -440,5 +441,57 @@ where
             PointTreeEnum::Mutable(mpt) => mpt.visit_doc_values(_visitor),
             PointTreeEnum::Other(pt) => pt.visit_doc_values(_visitor),
         }
+    }
+}
+
+impl<T> PointValues for Arc<T>
+where
+    T: PointValues,
+{
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+        (**self).get_min_packed_value()
+    }
+
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+        (**self).get_max_packed_value()
+    }
+
+    fn get_num_dimensions(&self) -> Result<i32> {
+        (**self).get_num_dimensions()
+    }
+
+    fn get_num_index_dimensions(&self) -> Result<i32> {
+        (**self).get_num_index_dimensions()
+    }
+
+    fn get_bytes_per_dimension(&self) -> Result<i32> {
+        (**self).get_bytes_per_dimension()
+    }
+
+    fn size(&self) -> Result<i64> {
+        (**self).size()
+    }
+
+    fn get_doc_count(&self) -> Result<i32> {
+        (**self).get_doc_count()
+    }
+
+    type PointTree = T::PointTree;
+    type MutablePointTree = T::MutablePointTree;
+
+    fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+        (**self).get_point_tree()
+    }
+
+    fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+        (**self).intersect(visitor)
+    }
+
+    fn estimate_point_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+        (**self).estimate_point_count(visitor)
+    }
+
+    fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+        (**self).estimate_doc_count(visitor)
     }
 }

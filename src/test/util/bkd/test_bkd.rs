@@ -39,6 +39,7 @@ use crate::test::util::test_util::TestUtil;
 use bit_set::BitSet;
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
+use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngCore};
 use std::cell::RefCell;
@@ -48,8 +49,12 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestBKD;
 
-fn get_point_values<I: IndexInput>(index_input: Rc<RefCell<I>>) -> Result<BKDReader<I>> {
-    BKDReader::new(index_input.clone(), index_input.clone(), index_input)
+fn get_point_values<I: IndexInput>(index_input: Arc<Mutex<I>>) -> Result<BKDReader<I>> {
+    BKDReader::new(
+        &mut *index_input.clone().lock(),
+        index_input.clone(),
+        index_input,
+    )
 }
 #[test]
 fn test_basic_ints_1d() -> Result<()> {
@@ -79,7 +84,7 @@ fn test_basic_ints_1d() -> Result<()> {
         {
             let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
             input.seek(index_fp)?;
-            let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+            let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
 
             // Simple 1D range query:
             let mut query_min = vec![vec![0u8; 4]];
@@ -118,12 +123,7 @@ fn test_random_ints_n_dims() -> Result<()> {
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
     let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
-    let config = BKDConfig::new(
-        num_dims,
-        num_index_dims,
-        4,
-        max_points_in_leaf_node,
-    )?;
+    let config = BKDConfig::new(num_dims, num_index_dims, 4, max_points_in_leaf_node)?;
     let mut writer = BKDWriter::new(
         num_docs,
         dir.as_ref(),
@@ -173,7 +173,7 @@ fn test_random_ints_n_dims() -> Result<()> {
     {
         let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
         input.seek(index_fp)?;
-        let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+        let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
         let r = sub_point_values;
 
         let min_packed_value = r.get_min_packed_value()?.unwrap();
@@ -313,7 +313,7 @@ fn test_big_int_n_dims() -> Result<()> {
     {
         let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
         input.seek(index_fp)?;
-        let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+        let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
         let point_values = sub_point_values;
 
         let iters = at_least(&mut random, 100);
@@ -976,7 +976,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
         }
         drop(out);
-        input = Rc::new(RefCell::new(
+        input = Arc::new(Mutex::new(
             dir.open_input("bkd", &IOContext::default_io_context()?)?,
         ));
         seg += 1;
@@ -996,7 +996,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
         let mut readers = Vec::new();
         for fp in to_merge {
-            input.borrow_mut().seek(*fp)?;
+            input.lock().seek(*fp)?;
             readers.push(get_point_values(input.clone())?);
         }
 
@@ -1006,7 +1006,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             index_fp = out.get_file_pointer();
             writer.write_index(&mut out, None, &finalizer)?;
         }
-        input = Rc::new(RefCell::new(
+        input = Arc::new(Mutex::new(
             dir.open_input("bkd2", &IOContext::default_io_context()?)?,
         ));
     } else {
@@ -1014,12 +1014,12 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         index_fp = out.get_file_pointer();
         writer.write_index(&mut out, None, &finalizer)?;
         drop(out);
-        input = Rc::new(RefCell::new(
+        input = Arc::new(Mutex::new(
             dir.open_input("bkd", &IOContext::default_io_context()?)?,
         ));
     }
 
-    input.borrow_mut().seek(index_fp)?;
+    input.lock().seek(index_fp)?;
     let sub_point_values = get_point_values(input.clone())?;
     assert_size(&mut sub_point_values.get_point_tree()?, random)?;
     let point_values = sub_point_values;
@@ -1393,7 +1393,7 @@ fn test_tie_break_order() -> Result<()> {
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
-    let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+    let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
     let point_values = sub_point_values;
     point_values.intersect(&mut IntersectVisitorMock2::new())?;
     Ok(())
@@ -1503,7 +1503,7 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     let mut point_in = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     point_in.seek(index_fp)?;
 
-    let sub_point_values = get_point_values(Rc::new(RefCell::new(point_in)))?;
+    let sub_point_values = get_point_values(Arc::new(Mutex::new(point_in)))?;
     let point_values = sub_point_values;
     point_values.intersect(&mut IntersectVisitorMock3::new(
         num_data_dims,
@@ -1572,7 +1572,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
-    let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+    let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
     let point_values = sub_point_values;
 
     let mut count = [0];
@@ -1679,7 +1679,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
     }
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
-    let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+    let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
     let point_values = sub_point_values;
 
     let mut count = [0];
@@ -1764,12 +1764,7 @@ fn test_estimate_point_count() -> Result<()> {
     let mut unique_point_value = vec![0u8; num_bytes_per_dim as usize];
     random.fill_bytes(&mut unique_point_value);
 
-    let config = BKDConfig::new(
-        1,
-        1,
-        num_bytes_per_dim,
-        max_points_in_leaf_node,
-    )?;
+    let config = BKDConfig::new(1, 1, num_bytes_per_dim, max_points_in_leaf_node)?;
     let mut writer = BKDWriter::new(
         num_values,
         dir.as_ref(),
@@ -1803,7 +1798,7 @@ fn test_estimate_point_count() -> Result<()> {
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(index_fp)?;
-    let point_values = get_point_values(Rc::new(RefCell::new(input)))?;
+    let point_values = get_point_values(Arc::new(Mutex::new(input)))?;
 
     // If all points match, then the point count is numValues
     assert_eq!(

@@ -220,6 +220,15 @@ where
         >,
     >,
 }
+impl<DM> Clone for PointValuesImpl<DM>
+where
+    DM: DocMap,
+{
+    fn clone(&self) -> Self {
+        unreachable!("PointValuesImpl does not support clone");
+    }
+}
+
 // for padding
 impl<DM> Default
     for Either2MutablePointTree<

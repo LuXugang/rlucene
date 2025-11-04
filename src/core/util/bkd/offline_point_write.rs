@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
 
 use crate::core::codecs::CodecUtil;
 use crate::core::store::directory::Directory;

@@ -20,6 +20,7 @@ use crate::core::index::point_values::{PointTreeEnum, PointValues};
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
+#[derive(Clone)]
 pub struct DummyPointValuesBase;
 impl PointValues for DummyPointValuesBase {
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {

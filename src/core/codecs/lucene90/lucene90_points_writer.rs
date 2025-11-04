@@ -31,7 +31,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Writes dimensional values
@@ -51,6 +50,8 @@ impl<O> Lucene90PointsWriter<O>
 where
     O: IndexOutput,
 {
+    /// Uses the default values for `max_points_in_leaf_node` (512)
+    /// and `max_mb_sort_in_heap` (16.0).
     pub fn with_default_config<D1, D2>(
         write_state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
@@ -59,8 +60,6 @@ where
         D1: Directory<IndexOutput = O>,
         D2: Directory,
     {
-        /// Uses the default values for `max_points_in_leaf_node` (512)
-        /// and `max_mb_sort_in_heap` (16.0).
         Self::new(
             write_state,
             BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,

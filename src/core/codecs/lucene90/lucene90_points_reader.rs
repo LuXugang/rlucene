@@ -18,6 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::index::IndexFileNames;
+use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
@@ -25,15 +26,18 @@ use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::CoreHelper;
 use crate::core::util::bkd::bkd_reader::BKDReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::collections::HashMap;
-
+use std::sync::Arc;
+/// Reads point values previously written with [`Lucene90PointsWriter`](crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter)
 pub struct Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    index_in: I,
-    data_in: I,
-    readers: HashMap<i32, BKDReader<I>>,
+    index_in: Arc<Mutex<I>>,
+    data_in: Arc<Mutex<I>>,
+    readers: HashMap<i32, Arc<BKDReader<I>>>,
+    field_infos: Arc<FieldInfos>,
 }
 
 impl<I> Lucene90PointsReader<I>
@@ -100,8 +104,10 @@ where
 
         let mut index_length: i64 = -1;
         let mut data_length: i64 = -1;
-        let readers = HashMap::new();
+        let mut readers = HashMap::new();
 
+        let index_in = Arc::new(Mutex::new(index_in));
+        let data_in = Arc::new(Mutex::new(data_in));
         {
             let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
 
@@ -124,8 +130,12 @@ where
                             "Illegal field number: {field_number}"
                         )));
                     }
-                    // let reader = BKDReader::new(&mut meta_in, &mut index_in, &mut data_in)?;
-                    // readers.insert(field_number, PointValues::BKD(reader));
+                    let reader = Arc::new(BKDReader::new(
+                        &mut meta_in,
+                        index_in.clone(),
+                        data_in.clone(),
+                    )?);
+                    readers.insert(field_number, reader);
                 }
 
                 index_length = meta_in.read_long()?;
@@ -144,13 +154,14 @@ where
             }
         }
 
-        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
-        CodecUtil::retrieve_checksum_with_expected(&mut data_in, data_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut *index_in.lock(), index_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut *data_in.lock(), data_length)?;
 
         Ok(Self {
             index_in,
             data_in,
             readers,
+            field_infos: read_state.field_infos.clone(),
         })
     }
 }
@@ -173,12 +184,34 @@ where
     I: IndexInput,
 {
     fn check_integrity(&self) -> Result<()> {
-        todo!()
+        CodecUtil::checksum_entire_file(&mut *self.index_in.lock())?;
+        CodecUtil::checksum_entire_file(&mut *self.data_in.lock())?;
+        Ok(())
     }
 
-    type PointValuesType = BKDReader<I>;
+    type PointValuesType = Arc<BKDReader<I>>;
 
-    fn get_values(&self, _field: &str) -> Result<Self::PointValuesType> {
-        todo!()
+    fn get_values(&self, field_name: &str) -> Result<Self::PointValuesType> {
+        match self.field_infos.field_info_by_name(field_name) {
+            Some(field_info) => {
+                if field_info.get_point_dimension_count() == 0 {
+                    return Err(LuceneError::illegal_state(format!(
+                        "field=: {} does not index point values",
+                        field_name
+                    )));
+                }
+                match self.readers.get(&field_info.number) {
+                    Some(reader) => Ok(reader.clone()),
+                    None => Err(LuceneError::illegal_state(format!(
+                        "No BKDReader found for field: {}",
+                        field_name
+                    ))),
+                }
+            },
+            None => Err(LuceneError::illegal_state(format!(
+                "field=: {} is unrecognized",
+                field_name
+            ))),
+        }
     }
 }

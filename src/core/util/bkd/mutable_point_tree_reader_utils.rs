@@ -505,13 +505,8 @@ pub(crate) mod tests {
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
         let mut common_prefix_lengths = vec![0; config.num_dims as usize];
-        let points = create_random_points(
-            random,
-            &config,
-            max_doc,
-            &mut common_prefix_lengths,
-            false,
-        );
+        let points =
+            create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
         let sorted_dim = random.random_range(0..config.num_index_dims);
         let mut reader = DummyPointsReader::new(&points);
         MutablePointTreeReaderUtils::sort_by_dim(
@@ -574,13 +569,8 @@ pub(crate) mod tests {
         let mut common_prefix_lengths = vec![0; config.num_dims as usize];
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
-        let points = create_random_points(
-            random,
-            &config,
-            max_doc,
-            &mut common_prefix_lengths,
-            false,
-        );
+        let points =
+            create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
         let split_dim = random.random_range(0..config.num_index_dims);
         let mut reader = DummyPointsReader::new(&points);
         let pivot = TestUtil::next_int(random, 0, points.len() as i32 - 1);

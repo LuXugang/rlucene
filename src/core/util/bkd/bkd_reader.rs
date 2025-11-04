@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::index::BytesRef;
@@ -37,6 +33,9 @@ use crate::core::util::bkd::bkd_writer::{
 use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
+use parking_lot::Mutex;
+use std::borrow::Cow;
+use std::sync::Arc;
 
 /// Handles reading a block KD-tree in byte[] space previously written with
 /// `BKDWriter`
@@ -46,8 +45,9 @@ where
 {
     config: BKDConfig,
     num_leaves: i32,
-    index_in: Rc<RefCell<I>>,
-    data_in: Rc<RefCell<I>>,
+    // TODO IMPORTANT 可以不使用Arc<Mutex<>>，而是直接传递IndexInput的引用吗?
+    index_in: Arc<Mutex<I>>,
+    data_in: Arc<Mutex<I>>,
     min_packed_value: Vec<u8>,
     max_packed_value: Vec<u8>,
     point_count: i64,
@@ -59,6 +59,14 @@ where
     num_index_bytes: i32,
     is_tree_balanced: bool,
 }
+impl<I> Clone for BKDReader<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!("BKDReader does not support clone");
+    }
+}
 
 impl<I: IndexInput> BKDReader<I>
 where
@@ -66,12 +74,14 @@ where
 {
     /// Caller must pre-seek the provided `IndexInput` to the index location
     /// that `BKDWriter::finish()` returned. BKD tree is always stored off-heap.
-    pub fn new(
-        meta_in: Rc<RefCell<I>>,
-        index_in: Rc<RefCell<I>>,
-        data_in: Rc<RefCell<I>>,
-    ) -> Result<Self> {
-        let meta_in = &mut *meta_in.borrow_mut();
+    pub fn new<I1>(
+        meta_in: &mut I1,
+        index_in: Arc<Mutex<I>>,
+        data_in: Arc<Mutex<I>>,
+    ) -> Result<Self>
+    where
+        I1: IndexInput,
+    {
         let version = CodecUtil::check_header(meta_in, CODEC_NAME, VERSION_START, VERSION_CURRENT)?;
 
         let num_dims = meta_in.read_vint()?;
@@ -125,7 +135,7 @@ where
                 DataInput::read_long(meta_in)?,
             )
         } else {
-            let mut index_in = index_in.borrow_mut();
+            let mut index_in = index_in.lock();
             let index_start_pointer = index_in.get_file_pointer();
             let min_leaf_block_fp = index_in.read_vlong()?;
             index_in.seek(index_start_pointer)?;
@@ -219,7 +229,7 @@ where
     type MutablePointTree = DummyMutablePointTree;
 
     fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-        let slice = self.index_in.borrow_mut().slice(
+        let slice = self.index_in.lock().slice(
             "packedIndex",
             self.index_start_pointer,
             self.num_index_bytes as i64,
@@ -249,7 +259,7 @@ pub struct BKDPointTree<I: IndexInput> {
     /// Used to read the packed tree off-heap.
     inner_nodes: I::Slice,
     /// Used to read the packed leaves off-heap.
-    leaf_nodes: Rc<RefCell<I>>,
+    leaf_nodes: Arc<Mutex<I>>,
     /// Holds the minimum (left-most) leaf block file pointer for each level
     /// we've recursed to.
     leaf_block_fp_stack: Vec<i64>,
@@ -304,7 +314,7 @@ where
     #[allow(clippy::too_many_arguments)]
     fn new(
         inner_nodes: I::Slice,
-        leaf_nodes: Rc<RefCell<I>>,
+        leaf_nodes: Arc<Mutex<I>>,
         config: BKDConfig,
         num_leaves: i32,
         version: i32,
@@ -342,7 +352,7 @@ where
     #[allow(clippy::too_many_arguments)]
     fn with_scratch_iterator(
         inner_nodes: I::Slice,
-        leaf_nodes: Rc<RefCell<I>>,
+        leaf_nodes: Arc<Mutex<I>>,
         config: BKDConfig,
         num_leaves: i32,
         version: i32,
@@ -609,7 +619,7 @@ where
         }
 
         if self.is_leaf_node() {
-            let mut leaf_nodes = self.leaf_nodes.borrow_mut();
+            let mut leaf_nodes = self.leaf_nodes.lock();
             // Leaf node
             let leaf_fp = self.get_leaf_block_fp()?;
             leaf_nodes.seek(leaf_fp)?;
@@ -659,7 +669,7 @@ where
     }
 
     fn read_doc_ids(&mut self, block_fp: i64) -> Result<i32> {
-        let mut index_input = self.leaf_nodes.borrow_mut();
+        let mut index_input = self.leaf_nodes.lock();
         index_input.seek(block_fp)?;
         let count = index_input.read_vint()?;
         self.scratch_iterator.doc_ids_writer.read_ints(
@@ -885,7 +895,7 @@ where
         Ok(())
     }
     fn read_min_max(&mut self) -> Result<()> {
-        let index_input = &mut *self.leaf_nodes.borrow_mut();
+        let index_input = &mut *self.leaf_nodes.lock();
         for dim in 0..self.config.num_index_dims {
             let prefix = self.common_prefix_lengths[dim as usize];
             DataInput::read_bytes(
@@ -913,7 +923,7 @@ where
     ) -> Result<()> {
         let mut i = 0;
         {
-            let index_input = &mut *self.leaf_nodes.borrow_mut();
+            let index_input = &mut *self.leaf_nodes.lock();
             while i < count {
                 let length = DataInput::read_vint(index_input)?;
                 for dim in 0..self.config.num_dims {
@@ -939,7 +949,7 @@ where
                 "Sub blocks do not add up to the expected count: {} != {}, (resource={})",
                 count,
                 i,
-                self.leaf_nodes.borrow()
+                self.leaf_nodes.lock()
             )));
         }
 
@@ -976,7 +986,7 @@ where
 
         let mut i = 0;
         {
-            let index_input = &mut *self.leaf_nodes.borrow_mut();
+            let index_input = &mut *self.leaf_nodes.lock();
             while i < count {
                 self.scratch_data_packed_value[compressed_byte_offset] =
                     DataInput::read_byte(index_input)?;
@@ -1005,14 +1015,14 @@ where
                 "Sub blocks do not add up to the expected count: {} != {}, (resource={})",
                 count,
                 i,
-                self.leaf_nodes.borrow()
+                self.leaf_nodes.lock()
             )));
         }
 
         Ok(())
     }
     fn read_compressed_dim(&mut self) -> Result<i32> {
-        let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.borrow_mut())? as i8 as i32;
+        let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.lock())? as i8 as i32;
 
         if compressed_dim < -2
             || compressed_dim >= self.config.num_dims
@@ -1021,7 +1031,7 @@ where
             return Err(LuceneError::corrupt_index(format!(
                 "Got compressedDim={} from input, (resource={})",
                 compressed_dim,
-                self.leaf_nodes.borrow()
+                self.leaf_nodes.lock()
             )));
         }
 
@@ -1030,7 +1040,7 @@ where
 
     pub fn read_common_prefixes(&mut self) -> Result<()> {
         let num_dims = self.config.num_dims;
-        let index_input = &mut *self.leaf_nodes.borrow_mut();
+        let index_input = &mut *self.leaf_nodes.lock();
         for dim in 0..num_dims {
             let prefix = index_input.read_vint()?;
             self.common_prefix_lengths[dim as usize] = prefix;
