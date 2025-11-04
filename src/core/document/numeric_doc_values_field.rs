@@ -42,6 +42,7 @@ static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
         FieldType::from_ref(&*TYPE).expect("FieldType::from_ref should never fail in this context");
     ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)
         .expect("set_doc_values_skip_index_type should never fail in this context");
+    ft.freeze();
     ft
 });
 pub struct NumericDocValuesField {
