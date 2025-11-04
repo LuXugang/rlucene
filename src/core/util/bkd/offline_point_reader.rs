@@ -37,7 +37,7 @@ where
     check_sum_input: Option<BufferedChecksumIndexInput<I>>,
     offset: i32,
     checked: bool,
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     points_in_buffer: i32,
     max_point_on_heap: i32,
     // File name we are reading
@@ -50,7 +50,7 @@ where
     I: IndexInput,
 {
     pub fn new<D>(
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         temp_dir: &D,
         temp_file_name: &str,
         start: i64,

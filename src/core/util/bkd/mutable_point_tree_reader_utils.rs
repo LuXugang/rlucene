@@ -447,16 +447,16 @@ pub(crate) mod tests {
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
-        let config = Rc::new(BKDConfig::new(
+        let config = BKDConfig::new(
             1,
             1,
             bytes_per_dim,
             BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-        )?);
+        )?;
         let mut common_prefix_lengths = vec![0; 1];
         let points = create_random_points(
             random,
-            config.clone(),
+            &config,
             max_doc,
             &mut common_prefix_lengths,
             is_doc_id_incremental,
@@ -507,7 +507,7 @@ pub(crate) mod tests {
         let mut common_prefix_lengths = vec![0; config.num_dims as usize];
         let points = create_random_points(
             random,
-            config.clone(),
+            &config,
             max_doc,
             &mut common_prefix_lengths,
             false,
@@ -576,7 +576,7 @@ pub(crate) mod tests {
         let max_doc = TestUtil::next_int(random, 1, end);
         let points = create_random_points(
             random,
-            config.clone(),
+            &config,
             max_doc,
             &mut common_prefix_lengths,
             false,
@@ -661,7 +661,7 @@ pub(crate) mod tests {
     }
     fn create_random_points<R: Rng + ?Sized>(
         random: &mut R,
-        config: Rc<BKDConfig>,
+        config: &BKDConfig,
         max_doc: i32,
         common_prefix_lengths: &mut [i32],
         is_doc_id_incremental: bool,

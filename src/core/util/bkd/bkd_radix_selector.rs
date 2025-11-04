@@ -52,7 +52,7 @@ pub struct BKDRadixSelector {
     // prefix for temp files
     temp_file_name_prefix: String,
     // BKD tree configuration
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
 }
 
 impl BKDRadixSelector {
@@ -62,7 +62,7 @@ impl BKDRadixSelector {
     const MAX_SIZE_OFFLINE_BUFFER: usize = 1024 * 8;
     /// Sole constructor.
     pub fn new(
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         max_points_sort_in_heap: i32,
         temp_file_name_prefix: &str,
     ) -> Self {
@@ -1119,12 +1119,12 @@ mod tests {
             let middle = 2;
             let dimensions = 1;
             let bytes_per_dimensions = BitUtil::INT_BYTES;
-            let config = Rc::new(BKDConfig::new(
+            let config = BKDConfig::new(
                 dimensions,
                 dimensions,
                 bytes_per_dimensions as i32,
                 BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            )?);
+            )?;
             let mut points =
                 get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
@@ -1176,7 +1176,6 @@ mod tests {
         fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<()> {
             let config = get_random_config(random)?;
             let packed_bytes_length = config.packed_bytes_length();
-            let config = Rc::new(config);
             let values = TestUtil::next_int(random, count, count * 2);
             let dir = new_directory(random)?;
             let (start, end) = if random.random_bool(0.5) {
@@ -1212,12 +1211,12 @@ mod tests {
             let mut random = random();
             let dimensions = TestUtil::next_int(&mut random, 1, BKDConfig::MAX_INDEX_DIMS);
             let bytes_per_dimensions = TestUtil::next_int(&mut random, 2, 30);
-            let config = Rc::new(BKDConfig::new(
+            let config = BKDConfig::new(
                 dimensions,
                 dimensions,
                 bytes_per_dimensions,
                 BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            )?);
+            )?;
             let values = TestUtil::next_int(&mut random, 15000, 20000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
@@ -1254,7 +1253,7 @@ mod tests {
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let mut points =
                 get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
@@ -1288,7 +1287,7 @@ mod tests {
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let mut points =
                 get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
@@ -1314,7 +1313,7 @@ mod tests {
         #[test]
         fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let values = at_least(&mut random, 15000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
@@ -1349,7 +1348,7 @@ mod tests {
         #[test]
         fn test_random_data_dim_diff_values() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let values = at_least(&mut random, 15000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
@@ -1384,7 +1383,7 @@ mod tests {
         #[allow(clippy::too_many_arguments)]
         fn verify<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             dir: &D,
             points: &mut PointWriterEnum<D::IndexOutput>,
             start: i64,
@@ -1498,7 +1497,7 @@ mod tests {
 
         fn copy_points<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             dir: &D,
             points: &mut PointWriterEnum<D::IndexOutput>,
         ) -> Result<PointWriterEnum<D::IndexOutput>> {
@@ -1516,7 +1515,7 @@ mod tests {
 
         /// returns a common prefix length equal or lower than the current one.
         fn get_random_common_prefix<D: Directory, R: Rng + ?Sized>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             input_slice: &PathSlice<D::IndexOutput>,
             split_dim: i32,
             random: &mut R,
@@ -1543,7 +1542,7 @@ mod tests {
 
         fn get_random_point_writer<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             dir: &D,
             num_points: i64,
         ) -> Result<PointWriterEnum<D::IndexOutput>> {
@@ -1565,7 +1564,7 @@ mod tests {
         }
 
         fn get_min<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             path_slice: &PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &D,
@@ -1596,7 +1595,7 @@ mod tests {
         }
 
         fn get_min_doc_id<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
@@ -1637,7 +1636,7 @@ mod tests {
         }
 
         fn get_min_data_dimension<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             p: &PathSlice<D::IndexOutput>,
             min_dim: &[u8],
             split_dim: i32,
@@ -1672,7 +1671,7 @@ mod tests {
         }
 
         fn get_max<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &D,
@@ -1696,7 +1695,7 @@ mod tests {
         }
 
         fn get_max_data_dimension<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             p: &PathSlice<D::IndexOutput>,
             max_dim: &[u8],
             split_dim: i32,
@@ -1731,7 +1730,7 @@ mod tests {
         }
 
         fn get_max_doc_id<D: Directory>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
@@ -1806,7 +1805,7 @@ mod tests {
         #[test]
         fn test_random() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let num_points =
                 TestUtil::next_int(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
@@ -1825,7 +1824,7 @@ mod tests {
         #[test]
         fn test_random_all_equals() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let num_points =
                 TestUtil::next_int(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
@@ -1845,7 +1844,7 @@ mod tests {
         #[test]
         fn test_random_last_byte_two_values() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let num_points =
                 TestUtil::next_int(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
@@ -1869,7 +1868,7 @@ mod tests {
         #[test]
         fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let num_points =
                 TestUtil::next_int(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
@@ -1895,7 +1894,7 @@ mod tests {
         #[test]
         fn test_random_data_dim_different() -> Result<()> {
             let mut random = random();
-            let config = Rc::new(get_random_config(&mut random)?);
+            let config = get_random_config(&mut random)?;
             let num_points =
                 TestUtil::next_int(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
@@ -1921,7 +1920,7 @@ mod tests {
 
         fn verify_sort<O: IndexOutput, R: Rng + ?Sized>(
             random: &mut R,
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             points: Rc<RefCell<PointWriterEnum<O>>>,
             start: i32,
             end: i32,
@@ -2024,7 +2023,7 @@ mod tests {
             Ok(())
         }
         fn get_random_common_prefix<O: IndexOutput, R: Rng + ?Sized>(
-            config: Rc<BKDConfig>,
+            config: BKDConfig,
             points: Rc<RefCell<PointWriterEnum<O>>>,
             start: i32,
             end: i32,

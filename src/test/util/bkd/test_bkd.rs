@@ -54,7 +54,7 @@ fn get_point_values<I: IndexInput>(index_input: Rc<RefCell<I>>) -> Result<BKDRea
 #[test]
 fn test_basic_ints_1d() -> Result<()> {
     let mut random = random();
-    let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
+    let config = BKDConfig::new(1, 1, 4, 2)?;
     let dir = Arc::new(new_directory(&mut random)?);
 
     {
@@ -118,12 +118,12 @@ fn test_random_ints_n_dims() -> Result<()> {
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
     let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
-    let config = Rc::new(BKDConfig::new(
+    let config = BKDConfig::new(
         num_dims,
         num_index_dims,
         4,
         max_points_in_leaf_node,
-    )?);
+    )?;
     let mut writer = BKDWriter::new(
         num_docs,
         dir.as_ref(),
@@ -258,12 +258,12 @@ fn test_big_int_n_dims() -> Result<()> {
     let num_dims = TestUtil::next_int(&mut random, 1, 5);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
     let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
-    let config = Rc::new(BKDConfig::new(
+    let config = BKDConfig::new(
         num_dims,
         num_dims,
         num_bytes_per_dim,
         max_points_in_leaf_node,
-    )?);
+    )?;
     let mut writer = BKDWriter::new(
         num_docs,
         dir.as_ref(),
@@ -404,7 +404,7 @@ fn test_too_little_heap() -> Result<()> {
         1,
         dir.as_ref(),
         "bkd",
-        Rc::new(BKDConfig::new(1, 1, 16, 1_000_000)?),
+        BKDConfig::new(1, 1, 16, 1_000_000)?,
         0.001,
         0,
     );
@@ -870,12 +870,12 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         num_values as i32,
         dir.as_ref(),
         &format!("_{}", seg),
-        Rc::new(BKDConfig::new(
+        BKDConfig::new(
             num_data_dims,
             num_index_dims,
             num_bytes_per_dim,
             max_points_in_leaf_node,
-        )?),
+        )?,
         max_mb,
         max_docs,
     )?;
@@ -948,12 +948,12 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 num_values as i32,
                 dir.as_ref(),
                 &format!("_{}", seg),
-                Rc::new(BKDConfig::new(
+                BKDConfig::new(
                     num_data_dims,
                     num_index_dims,
                     num_bytes_per_dim,
                     max_points_in_leaf_node,
-                )?),
+                )?,
                 max_mb,
                 doc_values.len() as i64,
             )?;
@@ -984,12 +984,12 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             num_values as i32,
             dir.as_ref(),
             &format!("_{}", seg),
-            Rc::new(BKDConfig::new(
+            BKDConfig::new(
                 num_data_dims,
                 num_index_dims,
                 num_bytes_per_dim,
                 max_points_in_leaf_node,
-            )?),
+            )?,
             max_mb,
             doc_values.len() as i64,
         )?;
@@ -1062,12 +1062,12 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             }
         }
 
-        let config = Rc::new(BKDConfig::new(
+        let config = BKDConfig::new(
             num_data_dims,
             num_index_dims,
             num_bytes_per_dim as i32,
             max_points_in_leaf_node,
-        )?);
+        )?;
         let mut hits = BitSet::new();
         point_values.intersect(&mut IntersectVisitorImpl {
             hits: &mut hits,
@@ -1217,7 +1217,7 @@ where
     hits: &'a mut BitSet,
     query_min: &'a [Vec<u8>],
     query_max: &'a [Vec<u8>],
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     random: &'a mut R,
 }
 
@@ -1370,7 +1370,7 @@ fn test_tie_break_order() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     let num_docs = 10_000;
 
-    let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
+    let config = BKDConfig::new(1, 1, 4, 2)?;
     let mut writer = BKDWriter::new(
         num_docs + 1,
         dir.as_ref(),
@@ -1470,12 +1470,12 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
         );
     }
 
-    let config = Rc::new(BKDConfig::new(
+    let config = BKDConfig::new(
         num_data_dims,
         num_index_dims,
         num_bytes_per_dim,
         max_points_in_leaf_node,
-    )?);
+    )?;
 
     let index_fp;
     {
@@ -1546,7 +1546,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     let num_docs = 100_000;
 
-    let config = Rc::new(BKDConfig::new(2, 2, 4, 2)?);
+    let config = BKDConfig::new(2, 2, 4, 2)?;
     let mut writer = BKDWriter::new(
         num_docs + 1,
         dir.as_ref(),
@@ -1647,7 +1647,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
 
     let dir = Arc::new(new_directory(&mut random)?);
     let num_docs = at_least(&mut random, 10000);
-    let config = Rc::new(BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?);
+    let config = BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?;
 
     let mut writer = BKDWriter::new(
         num_docs + 1,
@@ -1764,12 +1764,12 @@ fn test_estimate_point_count() -> Result<()> {
     let mut unique_point_value = vec![0u8; num_bytes_per_dim as usize];
     random.fill_bytes(&mut unique_point_value);
 
-    let config = Rc::new(BKDConfig::new(
+    let config = BKDConfig::new(
         1,
         1,
         num_bytes_per_dim,
         max_points_in_leaf_node,
-    )?);
+    )?;
     let mut writer = BKDWriter::new(
         num_values,
         dir.as_ref(),
@@ -1903,12 +1903,12 @@ fn test_total_point_count_validation() -> Result<()> {
         num_points_added,
     };
 
-    let config = Rc::new(BKDConfig::new(
+    let config = BKDConfig::new(
         1,
         1,
         num_bytes_per_dim,
         BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-    )?);
+    )?;
 
     let mut writer = BKDWriter::new(
         num_values,
@@ -2000,7 +2000,7 @@ fn test_too_many_points() -> Result<()> {
         num_values as i32,
         &dir,
         "_temp",
-        Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?),
+        BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?,
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values,
     )?;
@@ -2048,7 +2048,7 @@ fn test_too_many_points_1d() -> Result<()> {
         doc_id: doc_ids,
     };
 
-    let config = Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim, 2)?);
+    let config = BKDConfig::new(1, 1, num_bytes_per_dim, 2)?;
     let mut writer = BKDWriter::new(
         num_values + 1,
         dir.as_ref(),

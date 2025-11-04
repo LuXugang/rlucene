@@ -32,7 +32,7 @@ use std::rc::Rc;
 pub struct HeapPointWriter {
     pub block: Vec<u8>,
     pub size: i32,
-    pub config: Rc<BKDConfig>,
+    pub config: BKDConfig,
     pub scratch: Vec<u8>,
     pub dim_comparator: ByteArrayComparatorEnum,
     // length is composed by the data dimensions plus the docID
@@ -46,7 +46,7 @@ impl Default for HeapPointWriter {
         Self {
             block: vec![],
             size: 0,
-            config: Rc::new(BKDConfig::default()),
+            config: BKDConfig::default(),
             scratch: vec![],
             dim_comparator: ArrayUtil::get_unsigned_comparator(1),
             data_dims_and_doc_length: 0,
@@ -58,7 +58,7 @@ impl Default for HeapPointWriter {
 }
 
 impl HeapPointWriter {
-    pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
+    pub fn new(config: BKDConfig, size: i32) -> Self {
         let data_dims_and_doc_length = config.bytes_per_doc() - config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
         let block = vec![0u8; bytes_per_doc * (size as usize)];

@@ -32,7 +32,7 @@ where
 {
     pub out: Option<O>,
     pub name: String,
-    pub config: Rc<BKDConfig>,
+    pub config: BKDConfig,
     pub count: i64,
     pub closed: bool,
     pub expected_count: i64,
@@ -44,7 +44,7 @@ where
 {
     /// Create a new writer with an unknown number of incoming points
     pub fn new<D>(
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         temp_dir: &D,
         temp_file_name_prefix: &str,
         desc: &str,

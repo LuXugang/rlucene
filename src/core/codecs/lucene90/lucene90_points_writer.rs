@@ -157,12 +157,12 @@ where
         D2: Directory,
     {
         let mut values = reader.get_values(&field_info.name)?.get_point_tree()?;
-        let config = Rc::new(BKDConfig::new(
+        let config = BKDConfig::new(
             field_info.get_point_index_dimension_count(),
             field_info.get_point_index_dimension_count(),
             field_info.get_point_num_bytes(),
             self.max_points_in_leaf_node,
-        )?);
+        )?;
         let mut writer = BKDWriter::new(
             segment_info.max_doc()?,
             write_state.directory,

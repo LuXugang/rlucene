@@ -79,7 +79,7 @@ pub struct BKDWriter<'a, D>
 where
     D: Directory,
 {
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     comparator: ByteArrayComparatorEnum,
     common_prefix_comparator: ByteArrayComparatorEnum,
     temp_dir: TrackingDirectoryWrapper<D, &'a D>,
@@ -117,7 +117,7 @@ where
         max_doc: i32,
         temp_dir: &'a D,
         temp_file_name_prefix: &str,
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         max_mb_sort_in_heap: f64,
         total_point_count: i64,
     ) -> Result<Self> {
@@ -2273,7 +2273,7 @@ where
 // only called from assert
 #[allow(clippy::too_many_arguments)]
 fn values_in_order_and_bounds(
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     count: i32,
     sorted_dim: i32,
     min_packed_value: &[u8],
@@ -2314,7 +2314,7 @@ fn values_in_order_and_bounds(
 // only called from assert
 #[allow(clippy::too_many_arguments)]
 fn value_in_order(
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     ord: i64,
     sorted_dim: i32,
     last_packed_value: &mut [u8],
@@ -2385,7 +2385,7 @@ fn value_in_order(
 
 // only called from assert
 fn value_in_bounds(
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     bytes: &[u8],
     bytes_offset: i32,
     min_packed_value: &[u8],

@@ -44,7 +44,7 @@ pub struct BKDReader<I>
 where
     I: IndexInput,
 {
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     num_leaves: i32,
     index_in: Rc<RefCell<I>>,
     data_in: Rc<RefCell<I>>,
@@ -83,12 +83,12 @@ where
 
         let max_points_in_leaf_node = meta_in.read_vint()?;
         let bytes_per_dim = meta_in.read_vint()?;
-        let config = Rc::new(BKDConfig::new(
+        let config = BKDConfig::new(
             num_dims,
             num_index_dims,
             bytes_per_dim,
             max_points_in_leaf_node,
-        )?);
+        )?;
 
         // Read index:
         let num_leaves = meta_in.read_vint()?;
@@ -276,7 +276,7 @@ pub struct BKDPointTree<I: IndexInput> {
     /// Holds the previous value of the split dimension.
     split_dim_value_stack: Vec<Vec<u8>>,
     /// Tree parameters.
-    config: Rc<BKDConfig>,
+    config: BKDConfig,
     /// Number of leaves.
     leaf_node_offset: i32,
     /// Version of the index.
@@ -305,7 +305,7 @@ where
     fn new(
         inner_nodes: I::Slice,
         leaf_nodes: Rc<RefCell<I>>,
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         num_leaves: i32,
         version: i32,
         point_count: i64,
@@ -343,7 +343,7 @@ where
     fn with_scratch_iterator(
         inner_nodes: I::Slice,
         leaf_nodes: Rc<RefCell<I>>,
-        config: Rc<BKDConfig>,
+        config: BKDConfig,
         num_leaves: i32,
         version: i32,
         point_count: i64,
