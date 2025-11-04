@@ -71,7 +71,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// [`Self::get_prepare_seek_exact_status`] to retrieve the final result,
     /// otherwise the state remains incomplete.
     fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
         Err(LuceneError::not_implemented(""))

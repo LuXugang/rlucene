@@ -2318,6 +2318,12 @@ where
         }
     }
     type TermsEnum = DummyTermsEnum;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
 }
 pub struct DenseBaseSortedSetDocValues<I>
 where

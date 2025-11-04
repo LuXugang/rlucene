@@ -20,6 +20,7 @@ use std::borrow::Cow;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -107,6 +108,14 @@ pub trait SortedSetDocValues: DocValuesIterator {
     fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         Err(LuceneError::not_implemented(""))
     }
+
+    fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<'_, Self>>
+    where
+        Self: Sized,
+    {
+        Ok(SortedSetDocValuesTermsEnum::new(self))
+    }
+
     // TODO:
     // intersect not Implemented
 

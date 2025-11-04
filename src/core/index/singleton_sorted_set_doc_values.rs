@@ -18,7 +18,6 @@ use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -133,7 +132,11 @@ where
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = S::TermsEnum;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+        self.inner.as_mut().unwrap().terms_enum()
+    }
 
     fn is_single_valued(&self) -> bool {
         true

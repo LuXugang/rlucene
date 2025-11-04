@@ -670,6 +670,7 @@ mod tests {
         Ok(())
     }
     /// field with sortedset docvalues
+    #[test]
     fn test_sorted_set_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
