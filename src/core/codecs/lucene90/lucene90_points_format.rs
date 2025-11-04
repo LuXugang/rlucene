@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
-use crate::core::codecs::lucene90_points_writer::Lucene90PointWriter;
+use crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::points_writer::PointsWriterType;
@@ -23,8 +23,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
-use crate::core::util::bkd::bkd_config::BKDConfig;
-use crate::core::util::bkd::bkd_writer::DEFAULT_MAX_MB_SORT_IN_HEAP;
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 9.0 point format, which encodes dimensional values in a block KD-tree structure for fast
 /// 1D range and N-dimensional shape intersection filtering. See the [BKD paper] for details.
@@ -71,12 +69,7 @@ impl PointsFormat for Lucene90PointsFormat {
         D1: Directory,
         D2: Directory,
     {
-        Lucene90PointWriter::new(
-            state,
-            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
-            info,
-        )
+        Lucene90PointsWriter::with_default_config(state, info)
     }
 
     fn fields_reader<D1, D2>(

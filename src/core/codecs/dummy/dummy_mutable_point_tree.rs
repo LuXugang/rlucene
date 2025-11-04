@@ -14,52 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::point_values::{IntersectVisitor, PointTree};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::codecs::mutable_point_tree::MutablePointTree;
+use crate::core::index::BytesRef;
+use crate::core::index::point_values::PointTree;
 
-pub struct DummyPointTree;
+pub struct DummyMutablePointTree;
 
-impl Clone for DummyPointTree {
+impl PointTree for DummyMutablePointTree {}
+
+impl Clone for DummyMutablePointTree {
     fn clone(&self) -> Self {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
-impl PointTree for DummyPointTree {
-    fn move_to_child(&mut self) -> Result<bool> {
+
+impl MutablePointTree for DummyMutablePointTree {
+    fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Vec<u8>>) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn move_to_sibling(&mut self) -> Result<bool> {
+    fn get_byte_at(&self, _i: usize, k: usize) -> u8 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn move_to_parent(&mut self) -> Result<bool> {
+    fn get_doc_id(&self, _i: usize) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn swap(&mut self, _i: usize, _j: usize) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn save(&mut self, _i: usize, _j: usize) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size(&self) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
-    where
-        IV: IntersectVisitor,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
-    where
-        IV: IntersectVisitor,
-    {
+    fn restore(&mut self, _i: usize, _j: usize) {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexInput;
 use crate::core::util::bkd::bkd_config::BKDConfig;
-use crate::core::util::bkd::bkd_reader::BKDPointTree;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use std::borrow::Cow;
@@ -47,7 +47,8 @@ pub trait PointValues {
     /// point.
     fn get_doc_count(&self) -> Result<i32>;
     type PointTree: PointTree;
-    fn get_point_tree(&self) -> Result<Self::PointTree>;
+    type MutablePointTree: MutablePointTree;
+    fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>>;
 
     /// Finds all documents and points matching the provided visitor.
     /// This method does not enforce live documents, so it's up to the caller
@@ -271,23 +272,6 @@ pub trait PointTree: Clone {
         ))
     }
 }
-pub enum PointTreeEnum<I>
-where
-    I: IndexInput,
-{
-    BKD(BKDPointTree<I>),
-}
-
-impl<I> Clone for PointTreeEnum<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
-impl<I> PointTree for PointTreeEnum<I> where I: IndexInput {}
 /// We recurse the [PointTree], using a provided instance of this to guide the
 /// recursion.
 pub trait IntersectVisitor {
@@ -368,3 +352,93 @@ pub trait IntersectVisitor {
 pub const MAX_NUM_BYTES: i32 = 16;
 pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
 pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
+
+pub(crate) enum PointTreeEnum<MPT, PT>
+where
+    MPT: MutablePointTree,
+    PT: PointTree,
+{
+    Mutable(MPT),
+    Other(PT),
+}
+
+impl<MPT, PT> Clone for PointTreeEnum<MPT, PT>
+where
+    MPT: MutablePointTree,
+    PT: PointTree,
+{
+    fn clone(&self) -> Self {
+        match self {
+            PointTreeEnum::Mutable(mpt) => PointTreeEnum::Mutable(mpt.clone()),
+            PointTreeEnum::Other(pt) => PointTreeEnum::Other(pt.clone()),
+        }
+    }
+}
+
+impl<MPT, PT> PointTree for PointTreeEnum<MPT, PT>
+where
+    MPT: MutablePointTree,
+    PT: PointTree,
+{
+    fn move_to_child(&mut self) -> Result<bool> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.move_to_child(),
+            PointTreeEnum::Other(pt) => pt.move_to_child(),
+        }
+    }
+
+    fn move_to_sibling(&mut self) -> Result<bool> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.move_to_sibling(),
+            PointTreeEnum::Other(pt) => pt.move_to_sibling(),
+        }
+    }
+
+    fn move_to_parent(&mut self) -> Result<bool> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.move_to_parent(),
+            PointTreeEnum::Other(pt) => pt.move_to_parent(),
+        }
+    }
+
+    fn get_min_packed_value(&self) -> Result<&[u8]> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.get_min_packed_value(),
+            PointTreeEnum::Other(pt) => pt.get_min_packed_value(),
+        }
+    }
+
+    fn get_max_packed_value(&self) -> Result<&[u8]> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.get_max_packed_value(),
+            PointTreeEnum::Other(pt) => pt.get_max_packed_value(),
+        }
+    }
+
+    fn size(&self) -> Result<i64> {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.size(),
+            PointTreeEnum::Other(pt) => pt.size(),
+        }
+    }
+
+    fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.visit_doc_ids(_visitor),
+            PointTreeEnum::Other(pt) => pt.visit_doc_ids(_visitor),
+        }
+    }
+
+    fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
+        match self {
+            PointTreeEnum::Mutable(mpt) => mpt.visit_doc_values(_visitor),
+            PointTreeEnum::Other(pt) => pt.visit_doc_values(_visitor),
+        }
+    }
+}

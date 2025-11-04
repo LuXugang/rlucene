@@ -17,7 +17,9 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
-use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
+use crate::core::index::point_values::{
+    IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
@@ -2424,7 +2426,8 @@ fn value_in_bounds(
     true
 }
 struct MergeReader<S: PointValues> {
-    point_tree: Option<S::PointTree>,
+    point_tree:
+        Option<PointTreeEnum<<S as PointValues>::MutablePointTree, <S as PointValues>::PointTree>>,
     packed_bytes_length: usize,
     doc_map: Option<Rc<DocMapEnum>>,
     merge_intersects_visitor: MergeIntersectsVisitor,

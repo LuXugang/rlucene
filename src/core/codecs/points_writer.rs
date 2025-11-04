@@ -14,19 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_points_writer::Lucene90PointWriter;
+use crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub trait PointsWriter {
     /// Write all values contained in the provided reader
-    fn write_field<PR>(&mut self, field_info: &Arc<FieldInfo>, values: &mut PR) -> Result<()>
+    fn write_field<PR, D1, D2>(
+        &mut self,
+        field_info: &Arc<FieldInfo>,
+        values: &mut PR,
+        write_state: &SegmentWriteState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<()>
     where
-        PR: PointsReader;
+        PR: PointsReader,
+        D1: Directory,
+        D2: Directory;
 
     /// Called once at the end before close
     fn finish(&mut self) -> Result<()>;
 }
-pub type PointsWriterType<O> = Lucene90PointWriter<O>;
+pub type PointsWriterType<O> = Lucene90PointsWriter<O>;

@@ -20,7 +20,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
 use crate::core::index::point_values::{
-    IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
+    IntersectVisitor, PointTreeEnum, PointValues, Relation,
+    is_estimated_point_count_greater_than_or_equal_to,
 };
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{
@@ -109,7 +110,12 @@ where
     pub(crate) doc_values: N,
     point_values: Option<LR::PointValues>,
     // lazily constructed to avoid performance overhead when this is not used
-    point_tree: Option<<LR::PointValues as PointValues>::PointTree>,
+    point_tree: Option<
+        PointTreeEnum<
+            <LR::PointValues as PointValues>::MutablePointTree,
+            <LR::PointValues as PointValues>::PointTree,
+        >,
+    >,
     // if skipping functionality should be enabled on this segment
     enable_skipping: bool,
     max_doc: i32,

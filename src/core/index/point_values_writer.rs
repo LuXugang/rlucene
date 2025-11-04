@@ -19,8 +19,12 @@ use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::BytesRef;
+use crate::core::index::dummy::dummy_point_tree::DummyPointTree;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
+use crate::core::index::point_values::{
+    IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+};
+use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::DataOutput;
@@ -112,14 +116,16 @@ impl PointValuesWriter {
     pub(crate) fn get_num_docs(&self) -> usize {
         self.num_docs
     }
-    pub(crate) fn flush<D, DM, PW>(
+    pub(crate) fn flush<D1, D2, DM, PW>(
         &mut self,
-        _state: &SegmentWriteState<D>,
+        state: &SegmentWriteState<D1>,
         sort_map: Option<Arc<DM>>,
         writer: &mut PW,
+        segment_info: &SegmentInfo<D2>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
         DM: DocMap,
         PW: PointsWriter,
     {
@@ -138,7 +144,7 @@ impl PointValuesWriter {
         };
         let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
 
-        writer.write_field(&self.field_info, &mut reader)
+        writer.write_field(&self.field_info, &mut reader, state, segment_info)
     }
 }
 struct PointsReaderImpl<DM>
@@ -275,13 +281,14 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointTree = Either2MutablePointTree<
+    type PointTree = DummyPointTree;
+    type MutablePointTree = Either2MutablePointTree<
         MutablePointTreeImpl,
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >;
 
-    fn get_point_tree(&self) -> Result<Self::PointTree> {
-        Ok(self.values.take())
+    fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+        Ok(PointTreeEnum::Mutable(self.values.take()))
     }
 }
 

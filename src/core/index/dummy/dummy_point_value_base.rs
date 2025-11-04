@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::index::dummy::dummy_point_tree::DummyPointTree;
-use crate::core::index::point_values::PointValues;
+use crate::core::index::point_values::{PointTreeEnum, PointValues};
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
@@ -50,8 +51,9 @@ impl PointValues for DummyPointValuesBase {
     }
 
     type PointTree = DummyPointTree;
+    type MutablePointTree = DummyMutablePointTree;
 
-    fn get_point_tree(&self) -> Result<Self::PointTree> {
+    fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

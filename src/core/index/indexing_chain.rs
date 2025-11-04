@@ -461,6 +461,7 @@ where
                             state,
                             sort_map.clone(),
                             points_writer.as_mut().unwrap(),
+                            info,
                         )?;
                     }
                 }

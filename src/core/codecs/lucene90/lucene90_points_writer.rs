@@ -20,14 +20,22 @@ use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::point_values::Relation::CellCrossesQuery;
+use crate::core::index::point_values::{
+    IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::bkd::bkd_config::BKDConfig;
+use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct Lucene90PointWriter<O>
+/// Writes dimensional values
+pub struct Lucene90PointsWriter<O>
 where
     O: IndexOutput,
 {
@@ -38,10 +46,27 @@ where
     max_mb_sort_in_heap: f64,
 }
 
-impl<O> Lucene90PointWriter<O>
+impl<O> Lucene90PointsWriter<O>
 where
     O: IndexOutput,
 {
+    pub fn with_default_config<D1, D2>(
+        write_state: &SegmentWriteState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self>
+    where
+        D1: Directory<IndexOutput = O>,
+        D2: Directory,
+    {
+        /// Uses the default values for `max_points_in_leaf_node` (512)
+        /// and `max_mb_sort_in_heap` (16.0).
+        Self::new(
+            write_state,
+            BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+            DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+            segment_info,
+        )
+    }
     pub fn new<D1, D2>(
         write_state: &SegmentWriteState<D1>,
         max_points_in_leaf_node: i32,
@@ -113,18 +138,75 @@ where
     }
 }
 
-impl<O> PointsWriter for Lucene90PointWriter<O>
+impl<O> PointsWriter for Lucene90PointsWriter<O>
 where
     O: IndexOutput,
 {
-    fn write_field<PR>(&mut self, _field_info: &Arc<FieldInfo>, _values: &mut PR) -> Result<()>
+    fn write_field<PR, D1, D2>(
+        &mut self,
+        field_info: &Arc<FieldInfo>,
+        reader: &mut PR,
+        write_state: &SegmentWriteState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<()>
     where
         PR: PointsReader,
+        D1: Directory,
+        D2: Directory,
     {
-        todo!()
+        let values = reader.get_values(&field_info.name)?.get_point_tree()?;
+        let config = Rc::new(BKDConfig::new(
+            field_info.get_point_index_dimension_count(),
+            field_info.get_point_index_dimension_count(),
+            field_info.get_point_num_bytes(),
+            self.max_points_in_leaf_node,
+        )?);
+        let writer = BKDWriter::new(
+            segment_info.max_doc()?,
+            write_state.directory,
+            &segment_info.name,
+            config,
+            self.max_mb_sort_in_heap,
+            values.size()?,
+        )?;
+        match values {
+            PointTreeEnum::Mutable(mutable_tree) => Ok(()),
+            PointTreeEnum::Other(tree) => Ok(()),
+        }
     }
 
     fn finish(&mut self) -> Result<()> {
         todo!()
+    }
+}
+
+struct IntersectVisitorImpl<'a, D>
+where
+    D: Directory,
+{
+    writer: &'a mut BKDWriter<'a, D>,
+}
+impl<'a, D> IntersectVisitorImpl<'a, D>
+where
+    D: Directory,
+{
+    pub fn new(writer: &'a mut BKDWriter<'a, D>) -> Self {
+        Self { writer }
+    }
+}
+impl<'a, D> IntersectVisitor for IntersectVisitorImpl<'a, D>
+where
+    D: Directory,
+{
+    fn visit(&mut self, _doc_id: i32) -> Result<()> {
+        Err(LuceneError::illegal_state(""))
+    }
+
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+        self.writer.add(packed_value, doc_id)
+    }
+
+    fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+        Ok(CellCrossesQuery)
     }
 }
