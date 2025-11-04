@@ -276,8 +276,8 @@ where
     /// method does not use transient disk in order to reorder points.
     pub fn write_field<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutput>>,
-        reader: Rc<RefCell<M>>,
+        data_out: &mut D::IndexOutput,
+        reader: &mut M,
         filename: &str,
     ) -> Result<Option<IORunnable>>
     where
@@ -353,8 +353,8 @@ where
     /// median value and partition other values around it.
     pub fn write_field_n_dims<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutput>>,
-        values: Rc<RefCell<M>>,
+        data_out: &mut D::IndexOutput,
+        values: &mut M,
     ) -> Result<Option<IORunnable>>
     where
         M: MutablePointTree,
@@ -371,7 +371,7 @@ where
         // Mark that we already finished:
         self.finished = true;
 
-        self.point_count = values.borrow().size()?;
+        self.point_count = values.size()?;
 
         if self.point_count == 0 {
             return Ok(None);
@@ -393,21 +393,18 @@ where
         let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
         // Compute the min/max for this slice
         self.compute_packed_value_bounds_with_tree(
-            &*values.borrow(),
+            values,
             0,
             point_count,
             &mut min_packed_value,
             &mut max_packed_value,
         )?;
 
-        {
-            let values_b = values.borrow();
-            for i in 0..self.point_count as i32 {
-                self.docs_seen.set(values_b.get_doc_id(i as usize));
-            }
+        for i in 0..self.point_count as i32 {
+            self.docs_seen.set(values.get_doc_id(i as usize));
         }
 
-        let data_start_fp = data_out.borrow().get_file_pointer();
+        let data_start_fp = data_out.get_file_pointer();
         let mut parent_splits = vec![0i32; self.config.num_index_dims as usize];
 
         self.build_with_reader(
@@ -416,7 +413,7 @@ where
             values,
             0,
             self.point_count as i32,
-            &mut *data_out.borrow_mut(),
+            data_out,
             &mut min_packed_value,
             &mut max_packed_value,
             &mut parent_splits,
@@ -446,16 +443,15 @@ where
     /// same writing logic as we use at merge time.
     fn write_field_1dim<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutput>>,
+        data_out: &mut D::IndexOutput,
         _field_name: &str,
-        reader: Rc<RefCell<M>>,
+        reader: &mut M,
     ) -> Result<Option<IORunnable>>
     where
         M: MutablePointTree,
     {
-        let mut reader = reader.borrow_mut();
         let size = reader.size()?.try_into()?;
-        MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut *reader, 0, size)?;
+        MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
         let mut intersect_visitor = IntersectVisitorImpl { one_dim_writer };
@@ -468,9 +464,7 @@ where
     /// containing dimensional values were deleted.
     pub fn merge<S>(
         &mut self,
-        _meta_out: Rc<RefCell<D::IndexOutput>>,
-        _index_out: Rc<RefCell<D::IndexOutput>>,
-        data_out: Rc<RefCell<D::IndexOutput>>,
+        data_out: &mut D::IndexOutput,
         doc_maps: Option<Vec<Rc<DocMapEnum>>>,
         readers: Vec<S>,
     ) -> Result<Option<IORunnable>>
@@ -502,7 +496,7 @@ where
             }
         }
 
-        let mut one_dim_writer = OneDimensionBKDWriter::new(data_out.clone(), self)?;
+        let mut one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
 
         while queue.size() != 0 {
             let reader = queue
@@ -560,7 +554,7 @@ where
     /// has been added, or `None` otherwise.
     pub fn finish(
         &mut self,
-        data_out: Rc<RefCell<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>>,
+        data_out: &mut <TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput,
     ) -> Result<Option<IORunnable>> {
         if self.finished {
             return Err(LuceneError::illegal_state("already finished"));
@@ -620,7 +614,7 @@ where
             &self.temp_file_name_prefix,
         );
 
-        let data_start_fp = data_out.borrow().get_file_pointer();
+        let data_start_fp = data_out.get_file_pointer();
 
         let result = (|| -> Result<()> {
             let mut parent_splits = vec![0i32; self.config.num_index_dims as usize];
@@ -628,7 +622,7 @@ where
                 0,
                 num_leaves,
                 &mut points,
-                &mut *data_out.borrow_mut(),
+                data_out,
                 &mut radix_selector,
                 &mut self.min_packed_value.clone(),
                 &mut self.max_packed_value.clone(),
@@ -913,8 +907,8 @@ where
     }
     pub fn write_index(
         &self,
-        meta_out: Rc<RefCell<D::IndexOutput>>,
-        index_out: Rc<RefCell<D::IndexOutput>>,
+        meta_out: &mut D::IndexOutput,
+        index_out: Option<&mut D::IndexOutput>,
         data: &IORunnable,
     ) -> Result<()> {
         let packed_index = self.pack_index(&data.leaf_nodes)?;
@@ -922,58 +916,53 @@ where
     }
     pub fn write_index_with_packed_index(
         &self,
-        meta_out: Rc<RefCell<D::IndexOutput>>,
-        index_out: Rc<RefCell<D::IndexOutput>>,
+        meta_out: &mut D::IndexOutput,
+        index_out: Option<&mut D::IndexOutput>,
         packed_index: &[u8],
         data: &IORunnable,
     ) -> Result<()> {
-        // If metaOut and indexOut are the same file, we account for the fact
-        // that writing a long makes the index start 8 bytes later.
-        let index_start_offset = if Rc::ptr_eq(&meta_out, &index_out) {
-            BitUtil::LONG_BYTES as i64
-        } else {
-            0
-        };
         let packed_index_len = packed_index.len() as i32;
-        {
-            let mut meta_out = meta_out.borrow_mut();
-            CodecUtil::write_header(&mut *meta_out, CODEC_NAME, VERSION_CURRENT)?;
-            meta_out.write_vint(self.config.num_dims)?;
-            meta_out.write_vint(self.config.num_index_dims)?;
-            meta_out.write_vint(data.count_per_leaf)?;
-            meta_out.write_vint(self.config.bytes_per_dim)?;
+        CodecUtil::write_header(&mut *meta_out, CODEC_NAME, VERSION_CURRENT)?;
+        meta_out.write_vint(self.config.num_dims)?;
+        meta_out.write_vint(self.config.num_index_dims)?;
+        meta_out.write_vint(data.count_per_leaf)?;
+        meta_out.write_vint(self.config.bytes_per_dim)?;
 
-            let num_leaves = data.leaf_nodes.num_leaves();
-            debug_assert!(num_leaves > 0);
-            meta_out.write_vint(num_leaves)?;
-            meta_out.write_bytes_range(
-                &self.min_packed_value,
-                0,
-                self.config.packed_index_bytes_length(),
-            )?;
-            meta_out.write_bytes_range(
-                &self.max_packed_value,
-                0,
-                self.config.packed_index_bytes_length(),
-            )?;
+        let num_leaves = data.leaf_nodes.num_leaves();
+        debug_assert!(num_leaves > 0);
+        meta_out.write_vint(num_leaves)?;
+        meta_out.write_bytes_range(
+            &self.min_packed_value,
+            0,
+            self.config.packed_index_bytes_length(),
+        )?;
+        meta_out.write_bytes_range(
+            &self.max_packed_value,
+            0,
+            self.config.packed_index_bytes_length(),
+        )?;
 
-            meta_out.write_vlong(self.point_count)?;
-            meta_out.write_vint(self.docs_seen.cardinality())?;
-            meta_out.write_vint(packed_index_len)?;
-            meta_out.write_long(data.data_start_fp)?;
+        meta_out.write_vlong(self.point_count)?;
+        meta_out.write_vint(self.docs_seen.cardinality())?;
+        meta_out.write_vint(packed_index_len)?;
+        meta_out.write_long(data.data_start_fp)?;
+        let (file_pointer, v) = match &index_out {
+            // If metaOut and indexOut are the same file, we account for the fact
+            // that writing a long makes the index start 8 bytes later.
+            None => (meta_out.get_file_pointer(), BitUtil::LONG_BYTES as i64),
+            Some(io) => (io.get_file_pointer(), 0),
+        };
+
+        meta_out.write_long(file_pointer + v)?;
+        match index_out {
+            None => {
+                // metaOut and indexOut are the same file
+                meta_out.write_bytes_range(packed_index, 0, packed_index_len)?;
+            },
+            Some(index_out) => {
+                index_out.write_bytes_range(packed_index, 0, packed_index_len)?;
+            },
         }
-        let file_pointer;
-        {
-            let index_out = index_out.borrow_mut();
-            file_pointer = index_out.get_file_pointer();
-        }
-        meta_out
-            .borrow_mut()
-            .write_long(file_pointer + index_start_offset)?;
-        index_out
-            .borrow_mut()
-            .write_bytes_range(packed_index, 0, packed_index_len)?;
-
         Ok(())
     }
     fn write_leaf_block_docs(
@@ -1431,7 +1420,7 @@ where
         &mut self,
         leaves_offset: i32,
         num_leaves: i32,
-        reader: Rc<RefCell<M>>,
+        reader: &mut M,
         from: i32,
         to: i32,
         out: &mut impl IndexOutput,
@@ -1456,10 +1445,9 @@ where
             let mut sorted_dim = 0;
             let mut leaf_cardinality = 1;
             {
-                let mut reader_ref = reader.borrow_mut();
-                reader_ref.get_value(from as usize, &mut self.scratch_bytes_ref1);
+                reader.get_value(from as usize, &mut self.scratch_bytes_ref1);
                 for i in from + 1..to {
-                    reader_ref.get_value(i as usize, &mut self.scratch_bytes_ref2);
+                    reader.get_value(i as usize, &mut self.scratch_bytes_ref2);
                     for dim in 0..self.config.num_dims {
                         let offset = (dim * self.config.bytes_per_dim) as usize;
                         let dimension_prefix_length = self.common_prefix_lengths[dim as usize];
@@ -1486,7 +1474,7 @@ where
                 for i in from + 1..to {
                     for dim in 0..self.config.num_dims {
                         if let Some(ref mut set) = used_bytes[dim as usize] {
-                            let b = reader_ref.get_byte_at(
+                            let b = reader.get_byte_at(
                                 i as usize,
                                 (dim * self.config.bytes_per_dim
                                     + self.common_prefix_lengths[dim as usize])
@@ -1512,7 +1500,7 @@ where
                     &self.config,
                     sorted_dim,
                     &self.common_prefix_lengths,
-                    &mut *reader_ref,
+                    reader,
                     from,
                     to,
                     &mut self.scratch_bytes_ref1,
@@ -1521,9 +1509,9 @@ where
 
                 let mut comparator = self.scratch_bytes_ref1.clone();
                 let mut collector = self.scratch_bytes_ref2.clone();
-                reader_ref.get_value(from as usize, &mut comparator);
+                reader.get_value(from as usize, &mut comparator);
                 for i in from + 1..to {
-                    reader_ref.get_value(i as usize, &mut collector);
+                    reader.get_value(i as usize, &mut collector);
                     for dim in 0..self.config.num_dims {
                         let start = (dim * self.config.bytes_per_dim) as usize;
                         if !self.equals_predicate.test(
@@ -1544,12 +1532,12 @@ where
 
                 // Write doc IDs
                 for i in from..to {
-                    spare_doc_ids[(i - from) as usize] = reader_ref.get_doc_id(i as usize);
+                    spare_doc_ids[(i - from) as usize] = reader.get_doc_id(i as usize);
                 }
                 self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
                 // Write the common prefixes:
-                reader_ref.get_value(from as usize, &mut self.scratch_bytes_ref1);
+                reader.get_value(from as usize, &mut self.scratch_bytes_ref1);
                 self.scratch.copy_from(
                     &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
                         ..self.scratch_bytes_ref1.offset
@@ -1561,7 +1549,7 @@ where
             // Write the full values:
             let mut packed_values = PackedValuesImpl2 {
                 scratch: BytesRef::new(),
-                reader: reader.clone(),
+                reader,
                 from,
             };
             debug_assert!(values_in_order_and_bounds(
@@ -1597,9 +1585,8 @@ where
                     && self.config.num_index_dims > 2
                     && parent_splits.iter().sum::<i32>() % SPLITS_BEFORE_EXACT_BOUNDS == 0
                 {
-                    let reader_ref = reader.borrow();
                     self.compute_packed_value_bounds_with_tree(
-                        &*reader_ref,
+                        reader,
                         from,
                         to,
                         min_packed_value,
@@ -1625,7 +1612,7 @@ where
                 self.max_doc,
                 split_dim,
                 common_prefix_len,
-                reader.clone(),
+                reader,
                 from,
                 to,
                 mid,
@@ -1637,9 +1624,7 @@ where
             let split_offset = right_offset - 1;
             let address = (split_offset * self.config.bytes_per_dim) as usize;
             split_dimension_values[split_offset as usize] = split_dim as u8;
-            reader
-                .borrow()
-                .get_value(mid as usize, &mut self.scratch_bytes_ref1);
+            reader.get_value(mid as usize, &mut self.scratch_bytes_ref1);
             let start =
                 self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             split_packed_values.copy_from(
@@ -1669,7 +1654,7 @@ where
             self.build_with_reader(
                 leaves_offset,
                 num_left_leaf_nodes,
-                reader.clone(),
+                reader,
                 from,
                 mid,
                 out,
@@ -1684,7 +1669,7 @@ where
             self.build_with_reader(
                 right_offset,
                 num_leaves - num_left_leaf_nodes,
-                reader.clone(),
+                reader,
                 mid,
                 to,
                 out,
@@ -2055,7 +2040,7 @@ pub struct OneDimensionBKDWriter<'b, 'a, D>
 where
     D: Directory,
 {
-    data_out: Rc<RefCell<D::IndexOutput>>,
+    data_out: &'b mut D::IndexOutput,
     data_start_fp: i64,
     leaf_block_fps: Vec<i64>,
     leaf_block_start_values: Vec<Vec<u8>>,
@@ -2075,7 +2060,7 @@ where
     D: Directory,
 {
     pub fn new(
-        data_out: Rc<RefCell<D::IndexOutput>>,
+        data_out: &'b mut D::IndexOutput,
         bkd_writer: &'b mut BKDWriter<'a, D>,
     ) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {
@@ -2096,7 +2081,7 @@ where
         // Mark that we already finished:
         bkd_writer.finished = true;
 
-        let data_start_fp = data_out.borrow().get_file_pointer();
+        let data_start_fp = data_out.get_file_pointer();
         let leaf_values = vec![
             0u8;
             (bkd_writer.config.max_points_in_leaf_node * bkd_writer.config.packed_bytes_length())
@@ -2220,8 +2205,7 @@ where
             self.leaf_block_start_values
                 .push(self.leaf_values[0..packed_index_bytes_length].to_vec());
         }
-        self.leaf_block_fps
-            .push(self.data_out.borrow().get_file_pointer());
+        self.leaf_block_fps.push(self.data_out.get_file_pointer());
         self.bkd_writer
             .check_max_leaf_node_count(self.leaf_block_fps.len())?;
 
@@ -2235,13 +2219,13 @@ where
             );
 
         self.bkd_writer.write_leaf_block_docs(
-            &mut *self.data_out.borrow_mut(),
+            self.data_out,
             &self.leaf_docs,
             0,
             self.leaf_count,
         )?;
         self.bkd_writer.write_common_prefixes(
-            &mut *self.data_out.borrow_mut(),
+            self.data_out,
             &self.bkd_writer.common_prefix_lengths,
             &self.leaf_values,
         )?;
@@ -2274,7 +2258,7 @@ where
         )?);
 
         self.bkd_writer.write_leaf_block_packed_values(
-            &mut *self.data_out.borrow_mut(),
+            self.data_out,
             self.leaf_count,
             0,
             &mut packed_values,
@@ -2769,21 +2753,20 @@ impl PackedValues for PackedValuesImpl1 {
     }
 }
 
-struct PackedValuesImpl2<M>
+struct PackedValuesImpl2<'a, M>
 where
     M: MutablePointTree,
 {
     scratch: BytesRef<Vec<u8>>,
-    reader: Rc<RefCell<M>>,
+    reader: &'a M,
     from: i32,
 }
-impl<M> PackedValues for PackedValuesImpl2<M>
+impl<M> PackedValues for PackedValuesImpl2<'_, M>
 where
     M: MutablePointTree,
 {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         self.reader
-            .borrow()
             .get_value((i + self.from) as usize, &mut self.scratch);
         Ok((
             self.scratch.bytes.as_slice(),

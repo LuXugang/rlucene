@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
@@ -70,7 +67,7 @@ impl MutablePointTreeReaderUtils {
         let max_length = config.packed_bytes_length() + (bits_per_doc_id + 7) / 8;
         let delegate_sorter = StableMSBRadixSorterImpl {
             reader,
-            config: Rc::new(config.clone()),
+            config,
             bits_per_doc_id,
         };
         let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, max_length);
@@ -100,7 +97,7 @@ impl MutablePointTreeReaderUtils {
         // only so there are not many values to sort.
         let mut intro_sorter = IntroSorterImpl {
             reader,
-            config: Rc::new(config.clone()),
+            config,
             pivot: BytesRef::new(),
             scratch2: BytesRef::new(),
             pivot_doc: 0,
@@ -119,7 +116,7 @@ impl MutablePointTreeReaderUtils {
         max_doc: i32,
         split_dim: i32,
         common_prefix_len: i32,
-        reader: Rc<RefCell<M>>,
+        reader: &mut M,
         from: i32,
         to: i32,
         mid: i32,
@@ -138,7 +135,7 @@ impl MutablePointTreeReaderUtils {
 
         let sub_selector = RadixSelectorImpl {
             split_dim,
-            config: Rc::new(config.clone()),
+            config,
             dim_cmp_bytes,
             reader,
             dim_offset,
@@ -155,7 +152,7 @@ where
     M: MutablePointTree,
 {
     reader: &'a mut M,
-    config: Rc<BKDConfig>,
+    config: &'a BKDConfig,
     bits_per_doc_id: i32,
 }
 
@@ -202,7 +199,7 @@ where
     M: MutablePointTree,
 {
     reader: &'a mut M,
-    config: Rc<BKDConfig>,
+    config: &'a BKDConfig,
     pivot: BytesRef<Vec<u8>>,
     scratch2: BytesRef<Vec<u8>>,
     pivot_doc: i32,
@@ -269,46 +266,46 @@ where
 
 impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree {}
 
-struct RadixSelectorImpl<M>
+struct RadixSelectorImpl<'a, M>
 where
     M: MutablePointTree,
 {
     split_dim: i32,
-    config: Rc<BKDConfig>,
+    config: &'a BKDConfig,
     dim_cmp_bytes: i32,
-    reader: Rc<RefCell<M>>,
+    reader: &'a mut M,
     dim_offset: i32,
     data_cmp_bytes: i32,
     bits_per_doc_id: i32,
 }
 
-impl<M> Selector for RadixSelectorImpl<M>
+impl<M> Selector for RadixSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.borrow_mut().swap(i as usize, j as usize);
+        self.reader.swap(i as usize, j as usize);
         Ok(())
     }
 }
 
-impl<M> RadixSelectorBase for RadixSelectorImpl<M>
+impl<M> RadixSelectorBase for RadixSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
     fn byte_at(&self, i: i32, k: i32) -> i32 {
-        let reader = self.reader.borrow();
         if k < self.dim_cmp_bytes {
-            reader.get_byte_at(i as usize, self.dim_offset as usize + k as usize) as i32
+            self.reader
+                .get_byte_at(i as usize, self.dim_offset as usize + k as usize) as i32
         } else if k < self.data_cmp_bytes {
-            reader.get_byte_at(
+            self.reader.get_byte_at(
                 i as usize,
                 (self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes) as usize,
             ) as i32
         } else {
             let shift = self.bits_per_doc_id - ((k - self.data_cmp_bytes + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
-            ((reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32
+            ((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32
         }
     }
 
@@ -329,7 +326,7 @@ where
             dim_cmp_bytes: self.dim_cmp_bytes,
             data_cmp_bytes: self.data_cmp_bytes,
             pivot: BytesRef::new(),
-            reader: self.reader.clone(),
+            reader: self.reader,
             pivot_doc: 0,
             k,
             scratch2: BytesRef::new(),
@@ -342,14 +339,14 @@ where
     }
 }
 
-struct IntroSelectorImpl<M>
+struct IntroSelectorImpl<'a, M>
 where
     M: MutablePointTree,
 {
     dim_cmp_bytes: i32,
     data_cmp_bytes: i32,
     pivot: BytesRef<Vec<u8>>,
-    reader: Rc<RefCell<M>>,
+    reader: &'a mut M,
     pivot_doc: i32,
     k: i32,
     scratch2: BytesRef<Vec<u8>>,
@@ -359,20 +356,18 @@ where
     data_end: i32,
 }
 
-impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<M>
+impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
     fn set_pivot(&mut self, i: i32) {
-        let reader = self.reader.borrow_mut();
-        reader.get_value(i as usize, &mut self.pivot);
-        self.pivot_doc = reader.get_doc_id(i as usize);
+        self.reader.get_value(i as usize, &mut self.pivot);
+        self.pivot_doc = self.reader.get_doc_id(i as usize);
     }
 
     fn compare_pivot(&mut self, j: i32) -> i32 {
-        let reader = self.reader.borrow();
         if self.k < self.dim_cmp_bytes {
-            reader.get_value(j as usize, &mut self.scratch2);
+            self.reader.get_value(j as usize, &mut self.scratch2);
             let cmp = self.dim_comparator.compare(
                 &self.pivot.bytes,
                 self.pivot.offset + self.dim_start as usize,
@@ -384,7 +379,7 @@ where
             }
         }
         if self.k < self.data_cmp_bytes {
-            reader.get_value(j as usize, &mut self.scratch2);
+            self.reader.get_value(j as usize, &mut self.scratch2);
             let pivot_slice = &self.pivot.bytes[self.pivot.offset + self.data_start as usize
                 ..self.pivot.offset + self.data_end as usize];
             let scratch_slice = &self.scratch2.bytes[self.scratch2.offset + self.data_start as usize
@@ -394,25 +389,25 @@ where
                 return cmp;
             }
         }
-        self.pivot_doc - reader.get_doc_id(j as usize)
+        self.pivot_doc - self.reader.get_doc_id(j as usize)
     }
 }
 
-impl<M> Selector for IntroSelectorImpl<M>
+impl<M> Selector for IntroSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.borrow_mut().swap(i as usize, j as usize);
+        self.reader.swap(i as usize, j as usize);
         Ok(())
     }
 }
 
-impl<M> IntroSelectorBase for IntroSelectorImpl<M> where M: MutablePointTree {}
+impl<M> IntroSelectorBase for IntroSelectorImpl<'_, M> where M: MutablePointTree {}
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::cell::RefCell;
+
     use std::fmt;
     use std::rc::Rc;
 
@@ -587,7 +582,7 @@ pub(crate) mod tests {
             false,
         );
         let split_dim = random.random_range(0..config.num_index_dims);
-        let reader = Rc::new(RefCell::new(DummyPointsReader::new(&points)));
+        let mut reader = DummyPointsReader::new(&points);
         let pivot = TestUtil::next_int(random, 0, points.len() as i32 - 1);
 
         MutablePointTreeReaderUtils::partition(
@@ -595,14 +590,13 @@ pub(crate) mod tests {
             max_doc,
             split_dim,
             common_prefix_lengths[split_dim as usize],
-            reader.clone(),
+            &mut reader,
             0,
             points.len() as i32,
             pivot,
             &mut BytesRef::default(),
             &mut BytesRef::default(),
         )?;
-        let reader = reader.borrow_mut();
         let pivot_point = &reader.points[pivot as usize];
         let pivot_value = &pivot_point.packed_value;
         let offset = split_dim * config.bytes_per_dim;

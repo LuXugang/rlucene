@@ -68,14 +68,12 @@ fn test_basic_ints_1d() -> Result<()> {
 
         let index_fp;
         {
-            let out = Rc::new(RefCell::new(
-                dir.create_output("bkd", &IOContext::default_io_context()?)?,
-            ));
-            let finalizer = writer.finish(out.clone())?.unwrap();
+            let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+            let finalizer = writer.finish(&mut out)?.unwrap();
             {
-                index_fp = out.borrow().get_file_pointer();
+                index_fp = out.get_file_pointer();
             }
-            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            writer.write_index(&mut out, None, &finalizer)?;
         }
 
         {
@@ -164,14 +162,12 @@ fn test_random_ints_n_dims() -> Result<()> {
 
     let index_fp;
     {
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
-        let finalizer = writer.finish(out.clone())?.unwrap();
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
         {
-            index_fp = out.borrow().get_file_pointer();
+            index_fp = out.get_file_pointer();
         }
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        writer.write_index(&mut out, None, &finalizer)?;
     }
 
     {
@@ -306,14 +302,12 @@ fn test_big_int_n_dims() -> Result<()> {
 
     let index_fp;
     {
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
-        let finalizer = writer.finish(out.clone())?.unwrap();
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
         {
-            index_fp = out.borrow().get_file_pointer();
+            index_fp = out.get_file_pointer();
         }
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        writer.write_index(&mut out, None, &finalizer)?;
     }
 
     {
@@ -886,9 +880,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         max_docs,
     )?;
 
-    let out = Rc::new(RefCell::new(
-        dir.create_output("bkd", &IOContext::default_io_context()?)?,
-    ));
+    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
     let mut scratch = vec![0u8; (num_bytes_per_dim * num_data_dims) as usize];
     let mut last_doc_id_base = 0;
@@ -941,12 +933,9 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 .unwrap()
                 .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
 
-            let finalizer = writer.finish(out.clone())?.unwrap();
-            to_merge
-                .as_mut()
-                .unwrap()
-                .push(out.borrow().get_file_pointer());
-            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            let finalizer = writer.finish(&mut out)?.unwrap();
+            to_merge.as_mut().unwrap().push(out.get_file_pointer());
+            writer.write_index(&mut out, None, &finalizer)?;
             values_in_this_seg =
                 TestUtil::next_int(random, num_values as i32 / 10, num_values as i32 / 2) as usize;
             seg_count = 0;
@@ -977,9 +966,9 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     let mut input;
     if let Some(to_merge) = &mut to_merge {
         if seg_count > 0 {
-            let finalizer = writer.finish(out.clone())?.unwrap();
-            to_merge.push(out.borrow().get_file_pointer());
-            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            let finalizer = writer.finish(&mut out)?.unwrap();
+            to_merge.push(out.get_file_pointer());
+            writer.write_index(&mut out, None, &finalizer)?;
             let cur_doc_id_base = last_doc_id_base;
             doc_maps
                 .as_mut()
@@ -1012,22 +1001,18 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         }
 
         {
-            let out = Rc::new(RefCell::new(
-                dir.create_output("bkd2", &IOContext::default_io_context()?)?,
-            ));
-            let finalizer = writer
-                .merge(out.clone(), out.clone(), out.clone(), doc_maps, readers)?
-                .unwrap();
-            index_fp = out.borrow().get_file_pointer();
-            writer.write_index(out.clone(), out.clone(), &finalizer)?;
+            let mut out = dir.create_output("bkd2", &IOContext::default_io_context()?)?;
+            let finalizer = writer.merge(&mut out, doc_maps, readers)?.unwrap();
+            index_fp = out.get_file_pointer();
+            writer.write_index(&mut out, None, &finalizer)?;
         }
         input = Rc::new(RefCell::new(
             dir.open_input("bkd2", &IOContext::default_io_context()?)?,
         ));
     } else {
-        let finalizer = writer.finish(out.clone())?.unwrap();
-        index_fp = out.borrow().get_file_pointer();
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
+        index_fp = out.get_file_pointer();
+        writer.write_index(&mut out, None, &finalizer)?;
         drop(out);
         input = Rc::new(RefCell::new(
             dir.open_input("bkd", &IOContext::default_io_context()?)?,
@@ -1400,13 +1385,11 @@ fn test_tie_break_order() -> Result<()> {
         writer.add(&bytes, doc_id)?;
     }
 
-    let out = Rc::new(RefCell::new(
-        dir.create_output("bkd", &IOContext::default_io_context()?)?,
-    ));
+    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-    let finalizer = writer.finish(out.clone())?.unwrap();
-    let fp = out.borrow().get_file_pointer();
-    writer.write_index(out.clone(), out.clone(), &finalizer)?;
+    let finalizer = writer.finish(&mut out)?.unwrap();
+    let fp = out.get_file_pointer();
+    writer.write_index(&mut out, None, &finalizer)?;
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
@@ -1510,12 +1493,10 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
             writer.add(&point_value2, i)?;
         }
 
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
-        let finalizer = writer.finish(out.clone())?.unwrap();
-        index_fp = out.borrow().get_file_pointer();
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
+        index_fp = out.get_file_pointer();
+        writer.write_index(&mut out, None, &finalizer)?;
         writer.close()?;
     }
 
@@ -1583,12 +1564,10 @@ fn test_2d_long_ords_offline() -> Result<()> {
 
     let fp;
     {
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
-        let finalizer = writer.finish(out.clone())?.unwrap();
-        fp = out.borrow().get_file_pointer();
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
+        fp = out.get_file_pointer();
+        writer.write_index(&mut out, None, &finalizer)?;
     }
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
@@ -1692,13 +1671,11 @@ fn test_wasted_leading_bytes() -> Result<()> {
     }
     let fp;
     {
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-        let finalizer = writer.finish(out.clone())?.unwrap();
-        fp = out.borrow().get_file_pointer();
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
+        fp = out.get_file_pointer();
+        writer.write_index(&mut out, None, &finalizer)?;
     }
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
@@ -1818,12 +1795,10 @@ fn test_estimate_point_count() -> Result<()> {
 
     let index_fp;
     {
-        let out = Rc::new(RefCell::new(
-            dir.create_output("bkd", &IOContext::default_io_context()?)?,
-        ));
-        let finalizer = writer.finish(out.clone())?.unwrap();
-        index_fp = out.borrow().get_file_pointer();
-        writer.write_index(out.clone(), out.clone(), &finalizer)?;
+        let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+        let finalizer = writer.finish(&mut out)?.unwrap();
+        index_fp = out.get_file_pointer();
+        writer.write_index(&mut out, None, &finalizer)?;
     }
 
     let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
@@ -1866,7 +1841,7 @@ fn test_estimate_point_count() -> Result<()> {
     Ok(())
 }
 pub struct MutablePointTreeMock1 {
-    point_values: Vec<u8>,
+    point_value: Vec<u8>,
     num_points_added: i32,
 }
 
@@ -1880,7 +1855,7 @@ impl PointTree for MutablePointTreeMock1 {
         IV: IntersectVisitor,
     {
         for _ in 0..self.num_points_added {
-            visitor.visit_with_packed_value(0, self.point_values.as_slice())?;
+            visitor.visit_with_packed_value(0, self.point_value.as_slice())?;
         }
         Ok(())
     }
@@ -1894,7 +1869,7 @@ impl Clone for MutablePointTreeMock1 {
 
 impl MutablePointTree for MutablePointTreeMock1 {
     fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
-        packed_value.bytes = self.point_values.clone();
+        packed_value.bytes = self.point_value.clone();
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
@@ -1923,11 +1898,10 @@ fn test_total_point_count_validation() -> Result<()> {
     let mut point_value = vec![0u8; num_bytes_per_dim as usize];
     random.fill_bytes(&mut point_value);
 
-    let mock = MutablePointTreeMock1 {
-        point_values: point_value.clone(),
+    let mut reader = MutablePointTreeMock1 {
+        point_value,
         num_points_added,
     };
-    let reader = Rc::new(RefCell::new(mock));
 
     let config = Rc::new(BKDConfig::new(
         1,
@@ -1944,11 +1918,9 @@ fn test_total_point_count_validation() -> Result<()> {
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
-    let out = Rc::new(RefCell::new(
-        dir.create_output("bkd", &IOContext::default_io_context()?)?,
-    ));
+    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-    let result = writer.write_field(out.clone(), reader, "test_field_name");
+    let result = writer.write_field(&mut out, &mut reader, "test_field_name");
 
     assert!(matches!(result, Err(LuceneError::IllegalState(_))));
     Ok(())
@@ -2068,14 +2040,13 @@ fn test_too_many_points_1d() -> Result<()> {
         doc_ids[i] = i as i32;
     }
 
-    let mock2 = MutablePointTreeMock2 {
+    let mut reader = MutablePointTreeMock2 {
         tmp_values: vec![vec![]; num_values as usize],
         tmp_docs: vec![],
         num_bytes_per_dim,
         point_values,
         doc_id: doc_ids,
     };
-    let reader = Rc::new(RefCell::new(mock2));
 
     let config = Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim, 2)?);
     let mut writer = BKDWriter::new(
@@ -2087,11 +2058,9 @@ fn test_too_many_points_1d() -> Result<()> {
         num_values as i64,
     )?;
 
-    let out = Rc::new(RefCell::new(
-        dir.create_output("bkd", &IOContext::default_io_context()?)?,
-    ));
+    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-    let result = writer.write_field(out.clone(), reader, "");
+    let result = writer.write_field(&mut out, &mut reader, "");
     assert!(
         matches!(result, Err(LuceneError::IllegalState(msg)) if msg.message.eq("totalPointCount=10 was passed when we were created, but we just hit 11 values"))
     );
