@@ -353,7 +353,7 @@ pub const MAX_NUM_BYTES: i32 = 16;
 pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
 pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
 
-pub(crate) enum PointTreeEnum<MPT, PT>
+pub enum PointTreeEnum<MPT, PT>
 where
     MPT: MutablePointTree,
     PT: PointTree,

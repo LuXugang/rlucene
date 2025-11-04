@@ -44,6 +44,7 @@ where
     index_out: O,
     max_points_in_leaf_node: i32,
     max_mb_sort_in_heap: f64,
+    finish: bool,
 }
 
 impl<O> Lucene90PointsWriter<O>
@@ -134,6 +135,7 @@ where
             index_out,
             max_points_in_leaf_node,
             max_mb_sort_in_heap,
+            finish: false,
         })
     }
 }
@@ -154,14 +156,14 @@ where
         D1: Directory,
         D2: Directory,
     {
-        let values = reader.get_values(&field_info.name)?.get_point_tree()?;
+        let mut values = reader.get_values(&field_info.name)?.get_point_tree()?;
         let config = Rc::new(BKDConfig::new(
             field_info.get_point_index_dimension_count(),
             field_info.get_point_index_dimension_count(),
             field_info.get_point_num_bytes(),
             self.max_points_in_leaf_node,
         )?);
-        let writer = BKDWriter::new(
+        let mut writer = BKDWriter::new(
             segment_info.max_doc()?,
             write_state.directory,
             &segment_info.name,
@@ -170,13 +172,40 @@ where
             values.size()?,
         )?;
         match values {
-            PointTreeEnum::Mutable(mutable_tree) => Ok(()),
-            PointTreeEnum::Other(tree) => Ok(()),
+            PointTreeEnum::Mutable(ref mut mutable_tree) => {
+                match writer.write_field(&mut self.data_out, mutable_tree, &field_info.name)? {
+                    Some(finalizer) => {
+                        self.meta_out.write_int(field_info.number)?;
+                        writer.write_index(
+                            &mut self.meta_out,
+                            Some(&mut self.index_out),
+                            &finalizer,
+                        )
+                    },
+                    None => Ok(()),
+                }
+            },
+            PointTreeEnum::Other(mut tree) => {
+                let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
+                tree.visit_doc_values(&mut intersect_visitor)
+            },
         }
     }
 
     fn finish(&mut self) -> Result<()> {
-        todo!()
+        if self.finish {
+            return Err(LuceneError::illegal_state("already finished"));
+        }
+        self.finish = true;
+
+        self.meta_out.write_int(-1)?;
+        CodecUtil::write_footer(&mut self.index_out)?;
+        CodecUtil::write_footer(&mut self.data_out)?;
+        self.meta_out
+            .write_long(self.index_out.get_file_pointer())?;
+        self.meta_out.write_long(self.data_out.get_file_pointer())?;
+        CodecUtil::write_footer(&mut self.meta_out)?;
+        Ok(())
     }
 }
 

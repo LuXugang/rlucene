@@ -276,7 +276,7 @@ where
     /// method does not use transient disk in order to reorder points.
     pub fn write_field<M>(
         &mut self,
-        data_out: &mut D::IndexOutput,
+        data_out: &mut impl IndexOutput,
         reader: &mut M,
         filename: &str,
     ) -> Result<Option<IORunnable>>
@@ -353,7 +353,7 @@ where
     /// median value and partition other values around it.
     pub fn write_field_n_dims<M>(
         &mut self,
-        data_out: &mut D::IndexOutput,
+        data_out: &mut impl IndexOutput,
         values: &mut M,
     ) -> Result<Option<IORunnable>>
     where
@@ -441,14 +441,15 @@ where
 
     /// In the 1D case, we can simply sort points in ascending order and use the
     /// same writing logic as we use at merge time.
-    fn write_field_1dim<M>(
+    fn write_field_1dim<M, O>(
         &mut self,
-        data_out: &mut D::IndexOutput,
+        data_out: &mut O,
         _field_name: &str,
         reader: &mut M,
     ) -> Result<Option<IORunnable>>
     where
         M: MutablePointTree,
+        O: IndexOutput,
     {
         let size = reader.size()?.try_into()?;
         MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, reader, 0, size)?;
@@ -464,7 +465,7 @@ where
     /// containing dimensional values were deleted.
     pub fn merge<S>(
         &mut self,
-        data_out: &mut D::IndexOutput,
+        data_out: &mut impl IndexOutput,
         doc_maps: Option<Vec<Rc<DocMapEnum>>>,
         readers: Vec<S>,
     ) -> Result<Option<IORunnable>>
@@ -905,19 +906,22 @@ where
             Ok(num_bytes + bytes2_len as i32 + left_num_bytes + right_num_bytes)
         }
     }
-    pub fn write_index(
+    pub fn write_index<O>(
         &self,
-        meta_out: &mut D::IndexOutput,
-        index_out: Option<&mut D::IndexOutput>,
+        meta_out: &mut O,
+        index_out: Option<&mut O>,
         data: &IORunnable,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+    {
         let packed_index = self.pack_index(&data.leaf_nodes)?;
         self.write_index_with_packed_index(meta_out, index_out, &packed_index, data)
     }
     pub fn write_index_with_packed_index(
         &self,
-        meta_out: &mut D::IndexOutput,
-        index_out: Option<&mut D::IndexOutput>,
+        meta_out: &mut impl IndexOutput,
+        index_out: Option<&mut impl IndexOutput>,
         packed_index: &[u8],
         data: &IORunnable,
     ) -> Result<()> {
@@ -2036,11 +2040,12 @@ where
     }
 }
 
-pub struct OneDimensionBKDWriter<'b, 'a, D>
+pub struct OneDimensionBKDWriter<'b, 'a, D, O>
 where
     D: Directory,
+    O: IndexOutput,
 {
-    data_out: &'b mut D::IndexOutput,
+    data_out: &'b mut O,
     data_start_fp: i64,
     leaf_block_fps: Vec<i64>,
     leaf_block_start_values: Vec<Vec<u8>>,
@@ -2055,14 +2060,12 @@ where
     bkd_writer: &'b mut BKDWriter<'a, D>,
 }
 
-impl<'b, 'a, D> OneDimensionBKDWriter<'b, 'a, D>
+impl<'b, 'a, D, O> OneDimensionBKDWriter<'b, 'a, D, O>
 where
     D: Directory,
+    O: IndexOutput,
 {
-    pub fn new(
-        data_out: &'b mut D::IndexOutput,
-        bkd_writer: &'b mut BKDWriter<'a, D>,
-    ) -> Result<Self> {
+    pub fn new(data_out: &'b mut O, bkd_writer: &'b mut BKDWriter<'a, D>) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {
             return Err(LuceneError::unsupported_operation(format!(
                 "config.numIndexDims() must be 1 but got {}",
@@ -2711,15 +2714,17 @@ pub struct IORunnable {
     data_start_fp: i64,
 }
 
-struct IntersectVisitorImpl<'b, 'a, D>
+struct IntersectVisitorImpl<'b, 'a, D, O>
 where
     D: Directory,
+    O: IndexOutput,
 {
-    pub one_dim_writer: OneDimensionBKDWriter<'b, 'a, D>,
+    pub one_dim_writer: OneDimensionBKDWriter<'b, 'a, D, O>,
 }
-impl<D> IntersectVisitor for IntersectVisitorImpl<'_, '_, D>
+impl<D, O> IntersectVisitor for IntersectVisitorImpl<'_, '_, D, O>
 where
     D: Directory,
+    O: IndexOutput,
 {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Err(LuceneError::illegal_argument(""))
