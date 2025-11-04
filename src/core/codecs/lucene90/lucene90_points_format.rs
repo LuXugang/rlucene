@@ -81,6 +81,6 @@ impl PointsFormat for Lucene90PointsFormat {
         D1: Directory,
         D2: Directory,
     {
-        Ok(Lucene90PointsReader::new(state))
+        Lucene90PointsReader::new(state, info)
     }
 }

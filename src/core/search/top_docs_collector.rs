@@ -446,8 +446,8 @@ mod tests {
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        CR: CompositeReader + Clone + Send + Sync + 'static,
-        CR::LeafReader: LeafReader<ParentReader = CR> + Send + Sync,
+        CR: CompositeReader + Clone + 'static,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
     {
         // TODO：这里应该使用new_searcher的另一个变体
         let mut searcher = new_searcher(index_reader)?;

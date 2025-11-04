@@ -14,31 +14,144 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::CodecUtil;
+use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::core::codecs::points_reader::PointsReader;
+use crate::core::index::IndexFileNames;
+use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
-use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::CoreHelper;
 use crate::core::util::bkd::bkd_reader::BKDReader;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::collections::HashMap;
 
 pub struct Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    // TODO 填充值
-    input: I,
+    index_in: I,
+    data_in: I,
+    readers: HashMap<i32, BKDReader<I>>,
 }
 
 impl<I> Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    pub fn new<D>(_state: &SegmentReadState<D>) -> Self
+    pub fn new<D1, D2>(
+        read_state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self>
     where
-        D: Directory,
+        D1: Directory<IndexInput = I>,
+        D2: Directory,
     {
-        todo!()
+        let suffix = &read_state.segment_suffix;
+
+        let meta_file_name = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            suffix,
+            Lucene90PointsFormat::META_EXTENSION,
+        );
+        let index_file_name = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            suffix,
+            Lucene90PointsFormat::INDEX_EXTENSION,
+        );
+        let data_file_name = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            suffix,
+            Lucene90PointsFormat::DATA_EXTENSION,
+        );
+
+        let mut index_in = read_state.directory.open_input(
+            &index_file_name,
+            &read_state
+                .context
+                .with_read_advice_self(ReadAdvice::RandomPreload)?,
+        )?;
+        CodecUtil::check_index_header(
+            &mut index_in,
+            Lucene90PointsFormat::INDEX_CODEC_NAME,
+            Lucene90PointsFormat::VERSION_START,
+            Lucene90PointsFormat::VERSION_CURRENT,
+            segment_info.get_id(),
+            suffix,
+        )?;
+        CodecUtil::retrieve_checksum(&mut index_in)?;
+        // Points read whole ranges of bytes at once, so pass ReadAdvice.NORMAL to perform readahead.
+        let mut data_in = read_state.directory.open_input(
+            &data_file_name,
+            &read_state
+                .context
+                .with_read_advice_self(ReadAdvice::Normal)?,
+        )?;
+        CodecUtil::check_index_header(
+            &mut data_in,
+            Lucene90PointsFormat::DATA_CODEC_NAME,
+            Lucene90PointsFormat::VERSION_START,
+            Lucene90PointsFormat::VERSION_CURRENT,
+            segment_info.get_id(),
+            suffix,
+        )?;
+        CodecUtil::retrieve_checksum(&mut data_in)?;
+
+        let mut index_length: i64 = -1;
+        let mut data_length: i64 = -1;
+        let readers = HashMap::new();
+
+        {
+            let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
+
+            let result: Result<()> = (|| {
+                CodecUtil::check_index_header(
+                    &mut meta_in,
+                    Lucene90PointsFormat::META_CODEC_NAME,
+                    Lucene90PointsFormat::VERSION_START,
+                    Lucene90PointsFormat::VERSION_CURRENT,
+                    segment_info.get_id(),
+                    suffix,
+                )?;
+
+                loop {
+                    let field_number = meta_in.read_int()?;
+                    if field_number == -1 {
+                        break;
+                    } else if field_number < 0 {
+                        return Err(LuceneError::corrupt_index(format!(
+                            "Illegal field number: {field_number}"
+                        )));
+                    }
+                    // let reader = BKDReader::new(&mut meta_in, &mut index_in, &mut data_in)?;
+                    // readers.insert(field_number, PointValues::BKD(reader));
+                }
+
+                index_length = meta_in.read_long()?;
+                data_length = meta_in.read_long()?;
+                Ok(())
+            })();
+
+            match result {
+                Ok(_) => {
+                    CodecUtil::check_footer(&mut meta_in)?;
+                },
+                Err(e) => {
+                    let e = CodecUtil::check_footer_with_error(&mut meta_in, e);
+                    return Err(e);
+                },
+            }
+        }
+
+        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut data_in, data_length)?;
+
+        Ok(Self {
+            index_in,
+            data_in,
+            readers,
+        })
     }
 }
 
