@@ -299,7 +299,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
     >;
 
     fn get_sorted(&self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        if Arc::ptr_eq(&self.writer_field_info, field_info_in) {
+        if !Arc::ptr_eq(&self.writer_field_info, field_info_in) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         let buf = BufferedSortedDocValues::new(

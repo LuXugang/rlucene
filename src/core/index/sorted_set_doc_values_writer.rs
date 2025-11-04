@@ -339,7 +339,6 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.docs_with_field.finish();
         if self.final_ords.is_none() {
             debug_assert!(
                 self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
@@ -363,6 +362,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         } else {
             debug_assert!(self.is_sorted);
         }
+        self.docs_with_field.finish();
         Ok(())
     }
 }

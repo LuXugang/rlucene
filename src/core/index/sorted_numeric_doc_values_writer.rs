@@ -282,7 +282,6 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.docs_with_field.finish();
         if self.final_values.is_none() {
             debug_assert!(self.final_values_count.is_none());
             self.finish_current_doc()?;
@@ -292,6 +291,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
                 None => None,
             };
         }
+        self.docs_with_field.finish();
         Ok(())
     }
 }

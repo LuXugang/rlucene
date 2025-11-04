@@ -112,6 +112,11 @@ impl From<SortedSetDocValuesField> for Fields {
         Fields::SortedSetDocValues(s)
     }
 }
+impl From<SortedNumericDocValuesField> for Fields {
+    fn from(s: SortedNumericDocValuesField) -> Self {
+        Fields::SortedNumericDocValues(s)
+    }
+}
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
