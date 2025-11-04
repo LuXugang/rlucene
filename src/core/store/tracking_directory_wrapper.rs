@@ -18,6 +18,7 @@ use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
+use crate::core::util::access::SharedReadOnly;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
@@ -26,22 +27,23 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// A delegating Directory that records which files were written to and deleted.
-pub struct TrackingDirectoryWrapper<D>
+pub struct TrackingDirectoryWrapper<D, A = Arc<D>>
 where
     D: Directory,
+    A: SharedReadOnly<D>,
 {
-    pub(crate) base: FilterDirectory<D, Arc<D>>,
+    pub(crate) base: FilterDirectory<D, A>,
     inner: Mutex<Inner>,
 }
 pub struct Inner {
     pub(crate) created_filenames: HashSet<String>,
 }
-impl<D> TrackingDirectoryWrapper<D>
+impl<D, A> TrackingDirectoryWrapper<D, A>
 where
     D: Directory,
+    A: SharedReadOnly<D>,
 {
-    // TODO: 能否支持 在编译期间支持引用跟Arc<D>
-    pub fn new(input: Arc<D>) -> Self {
+    pub fn new(input: A) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
         });
@@ -63,18 +65,20 @@ where
     }
 }
 
-impl<D> Display for TrackingDirectoryWrapper<D>
+impl<D, A> Display for TrackingDirectoryWrapper<D, A>
 where
     D: Directory,
+    A: SharedReadOnly<D>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "TrackingDirectoryWrapper({})", self.base)
     }
 }
 
-impl<D> Closeable for TrackingDirectoryWrapper<D>
+impl<D, A> Closeable for TrackingDirectoryWrapper<D, A>
 where
     D: Directory,
+    A: SharedReadOnly<D>,
 {
     fn close(&mut self) -> Result<()> {
         // TODO
@@ -82,16 +86,17 @@ where
     }
 }
 
-impl<D> Directory for TrackingDirectoryWrapper<D>
+impl<D, A> Directory for TrackingDirectoryWrapper<D, A>
 where
     D: Directory,
+    A: SharedReadOnly<D>,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         self.base.list_all()
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
-        self.base.delegate.delete_file(name)?;
+        self.base.delete_file(name)?;
         self.inner.lock().created_filenames.remove(name);
         Ok(())
     }
@@ -101,12 +106,12 @@ where
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        let output = self.base.delegate.create_output(name, context)?;
+        let output = self.base.create_output(name, context)?;
         self.inner.lock().created_filenames.insert(name.to_string());
         Ok(output)
     }
 
-    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
+    type IndexOutput = <FilterDirectory<D, A> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -129,7 +134,7 @@ where
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.base.delegate.rename(source, dest)?;
+        self.base.rename(source, dest)?;
         let mut inner = self.inner.lock();
         inner.created_filenames.insert(dest.to_string());
         inner.created_filenames.remove(source);
@@ -137,7 +142,7 @@ where
         Ok(())
     }
 
-    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
+    type IndexInput = <FilterDirectory<D, A> as Directory>::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
@@ -150,7 +155,7 @@ where
         self.base.open_checksum_input(name)
     }
 
-    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
+    type Lock = <FilterDirectory<D, A> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)
@@ -163,7 +168,7 @@ where
         dest: &str,
         context: &IOContext,
     ) -> Result<()> {
-        self.base.delegate.copy_from(from, src, dest, context)?;
+        self.base.copy_from(from, src, dest, context)?;
         self.inner.lock().created_filenames.insert(dest.to_string());
         Ok(())
     }

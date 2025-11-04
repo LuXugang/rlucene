@@ -130,6 +130,12 @@ impl<T> SharedReadOnly<T> for Arc<T> {
     }
 }
 
+impl<T> SharedReadOnly<T> for &T {
+    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        f(self)
+    }
+}
+
 /// Similar to the `Access` trait, but specifically for `Vec<T>`.
 pub trait SharedAccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> R

@@ -58,7 +58,7 @@ fn test_basic_ints_1d() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
 
     {
-        let mut writer = BKDWriter::new(100, dir.clone(), "tmp", config.clone(), 1.0, 100)?;
+        let mut writer = BKDWriter::new(100, dir.as_ref(), "tmp", config.clone(), 1.0, 100)?;
         let mut scratch = [0u8; 4];
 
         for doc_id in 0..100 {
@@ -128,7 +128,7 @@ fn test_random_ints_n_dims() -> Result<()> {
     )?);
     let mut writer = BKDWriter::new(
         num_docs,
-        dir.clone(),
+        dir.as_ref(),
         "tmp",
         config.clone(),
         max_mb as f64,
@@ -270,7 +270,7 @@ fn test_big_int_n_dims() -> Result<()> {
     )?);
     let mut writer = BKDWriter::new(
         num_docs,
-        dir.clone(),
+        dir.as_ref(),
         "tmp",
         config.clone(),
         max_mb as f64,
@@ -408,7 +408,7 @@ fn test_too_little_heap() -> Result<()> {
 
     let err = BKDWriter::new(
         1,
-        dir.clone(),
+        dir.as_ref(),
         "bkd",
         Rc::new(BKDConfig::new(1, 1, 16, 1_000_000)?),
         0.001,
@@ -874,7 +874,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     let mut writer = BKDWriter::new(
         num_values as i32,
-        dir.clone(),
+        dir.as_ref(),
         &format!("_{}", seg),
         Rc::new(BKDConfig::new(
             num_data_dims,
@@ -957,7 +957,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
             writer = BKDWriter::new(
                 num_values as i32,
-                dir.clone(),
+                dir.as_ref(),
                 &format!("_{}", seg),
                 Rc::new(BKDConfig::new(
                     num_data_dims,
@@ -993,7 +993,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         seg += 1;
         writer = BKDWriter::new(
             num_values as i32,
-            dir.clone(),
+            dir.as_ref(),
             &format!("_{}", seg),
             Rc::new(BKDConfig::new(
                 num_data_dims,
@@ -1388,7 +1388,7 @@ fn test_tie_break_order() -> Result<()> {
     let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
     let mut writer = BKDWriter::new(
         num_docs + 1,
-        dir.clone(),
+        dir.as_ref(),
         "tmp",
         config,
         0.01,
@@ -1498,7 +1498,7 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     {
         let mut writer = BKDWriter::new(
             2 * num_values,
-            dir.clone(),
+            dir.as_ref(),
             "_temp",
             config.clone(),
             max_mb,
@@ -1568,7 +1568,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
     let config = Rc::new(BKDConfig::new(2, 2, 4, 2)?);
     let mut writer = BKDWriter::new(
         num_docs + 1,
-        dir.clone(),
+        dir.as_ref(),
         "tmp",
         config,
         0.01,
@@ -1672,7 +1672,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
 
     let mut writer = BKDWriter::new(
         num_docs + 1,
-        dir.clone(),
+        dir.as_ref(),
         "tmp",
         config.clone(),
         1.0,
@@ -1795,7 +1795,7 @@ fn test_estimate_point_count() -> Result<()> {
     )?);
     let mut writer = BKDWriter::new(
         num_values,
-        dir.clone(),
+        dir.as_ref(),
         "_temp",
         config.clone(),
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
@@ -1938,7 +1938,7 @@ fn test_total_point_count_validation() -> Result<()> {
 
     let mut writer = BKDWriter::new(
         num_values,
-        dir.clone(),
+        dir.as_ref(),
         "_temp",
         config,
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
@@ -2018,7 +2018,7 @@ impl MutablePointTree for MutablePointTreeMock2 {
 #[test]
 fn test_too_many_points() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory(&mut random)?;
 
     let num_values = 10;
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
@@ -2026,7 +2026,7 @@ fn test_too_many_points() -> Result<()> {
 
     let mut w = BKDWriter::new(
         num_values as i32,
-        Arc::clone(&dir),
+        &dir,
         "_temp",
         Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?),
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
@@ -2080,7 +2080,7 @@ fn test_too_many_points_1d() -> Result<()> {
     let config = Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim, 2)?);
     let mut writer = BKDWriter::new(
         num_values + 1,
-        dir.clone(),
+        dir.as_ref(),
         "_temp",
         config,
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
