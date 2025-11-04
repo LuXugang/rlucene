@@ -125,6 +125,12 @@ where
         = DummyTermsEnum
     where
         I: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
 }
 
 pub enum BaseSortedSetDocValuesEnum<I>

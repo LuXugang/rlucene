@@ -18,6 +18,7 @@ use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::terms_enum::Either2TermsEnum;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -99,8 +100,12 @@ pub trait SortedDocValues: DocValuesIterator {
     /// values. The enum supports
     /// [`TermsEnum::ord`] and
     /// [`TermsEnum::seek_exact_with_ord`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        Err(LuceneError::not_implemented(""))
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
+    fn default_terms_enum(&mut self) -> Result<SortedDocValuesTermsEnum<'_, Self>>
+    where
+        Self: Sized,
+    {
+        Ok(SortedDocValuesTermsEnum::new(self))
     }
 
     // TODO:

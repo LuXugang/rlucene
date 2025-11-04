@@ -19,8 +19,8 @@ use std::borrow::Cow;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -173,9 +173,13 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = SortedDocValuesTermsEnum<'a, Self>
     where
         S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
 pub struct MaxValue<S>
@@ -265,9 +269,13 @@ where
     }
 
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = SortedDocValuesTermsEnum<'a, Self>
     where
         S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
 /// two)
@@ -358,9 +366,13 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = SortedDocValuesTermsEnum<'a, Self>
     where
         S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
 /// two)
@@ -451,9 +463,13 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = SortedDocValuesTermsEnum<'a, Self>
     where
         S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }
 
 pub enum SortedDocValuesWrap<S>
@@ -582,7 +598,11 @@ where
     }
 
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = SortedDocValuesTermsEnum<'a, Self>
     where
         S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }

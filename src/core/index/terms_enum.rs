@@ -325,6 +325,19 @@ where
     A: TermsEnum,
     B: TermsEnum,
 {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        match self {
+            Either2TermsEnum::A(t) => t.next(),
+            Either2TermsEnum::B(s) => s.next(),
+        }
+    }
+
+    fn set_next(&mut self) -> Result<bool> {
+        match self {
+            Either2TermsEnum::A(t) => t.set_next(),
+            Either2TermsEnum::B(s) => s.set_next(),
+        }
+    }
 }
 
 impl<A, B> TermsEnum for Either2TermsEnum<A, B>

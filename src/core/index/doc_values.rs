@@ -19,7 +19,6 @@ use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values::Either2BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -27,6 +26,7 @@ use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDoc
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
+use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
     Either2SortedNumericDocValues, SortedNumericDocValues,
 };
@@ -451,7 +451,11 @@ impl SortedDocValues for EmptySorted {
         Ok(0)
     }
 
-    type TermsEnum<'a> = DummyTermsEnum;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum<'a, Self>;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
 }
 
 #[cfg(test)]
@@ -630,6 +634,7 @@ mod tests {
         Ok(())
     }
     /// field with sorted docvalues
+    #[test]
     fn test_sorted_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
