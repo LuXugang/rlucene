@@ -60,7 +60,6 @@ mod tests {
         terms: &[String],
         automata: &mut [Automaton],
     ) -> Result<()> {
-        let mut automata = automata.to_vec();
         automata.shuffle(random);
         let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
         let lex = Operations::determinize(&lex, 1_000_000)?;

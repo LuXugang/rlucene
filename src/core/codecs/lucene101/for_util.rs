@@ -789,15 +789,9 @@ mod tests {
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
 
                 for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
-                let restored_ints: Vec<i32> = restored.to_vec();
 
                 let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
-                assert_eq!(
-                    restored_ints,
-                    expected.to_vec(),
-                    "Mismatch at iteration {}",
-                    i
-                );
+                assert_eq!(restored, expected, "Mismatch at iteration {}", i);
 
                 let expected_bytes = ForUtil::num_bytes(bits_per_value) as i64;
                 let actual_bytes = input.borrow().get_file_pointer() - current_fp;

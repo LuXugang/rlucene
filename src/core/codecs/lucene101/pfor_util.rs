@@ -192,15 +192,9 @@ mod tests {
             }
             let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
             pfor_util.decode(&mut pdu, &mut restored)?;
-            let restored_ints: Vec<i32> = restored.to_vec();
 
             let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
-            assert_eq!(
-                restored_ints,
-                expected.to_vec(),
-                "Mismatch at iteration {}",
-                i
-            );
+            assert_eq!(restored, expected, "Mismatch at iteration {}", i);
         }
 
         assert_eq!(end_pointer, input.borrow().get_file_pointer());
