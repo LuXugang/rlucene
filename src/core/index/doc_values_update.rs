@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::term::Term;
 use crate::core::store::DataOutput;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
+use std::sync::Arc;
 
 /// An in-place update to a DocValues field.
 pub struct DocValuesUpdate {
     pub(crate) doc_values_type: DocValuesType,
-    pub term: Term,
+    pub term: Arc<Term>,
     pub field: String,
     // used in BufferedDeletes to apply this update only to a slice of docs.
     // It's initialized to BufferedUpdates.MAX_INT
@@ -36,17 +36,19 @@ pub struct DocValuesUpdate {
 }
 impl DocValuesUpdate {
     const RAW_SIZE_IN_BYTES: i32 = 0;
-    pub fn new<T>(
+    pub fn new<T, F>(
         doc_values_type: DocValuesType,
-        term: Term,
+        term: F,
         field: T,
         doc_id_upto: i32,
         sub_update: DocValuesUpdateEnum,
     ) -> Self
     where
         T: Into<String>,
+        F: Into<Arc<Term>>,
     {
         let field = field.into();
+        let term = term.into();
         debug_assert!(doc_id_upto >= 0, "{doc_id_upto} must be >= 0");
         let has_value = sub_update.has_value();
         DocValuesUpdate {
