@@ -888,16 +888,15 @@ mod tests {
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_binary_update(&mut random, 0);
-        updates.push(random_update.clone());
 
         let doc_id_upto = random_update.doc_id_upto;
         let mut buffer =
             FieldUpdatesBuffer::from_binary_update(counter.clone(), &random_update, doc_id_upto)?;
+        updates.push(random_update);
 
         for i in 0..num_updates {
             random_update = get_random_binary_update(&mut random, i + 1);
             let doc_id_upto = random_update.doc_id_upto;
-            updates.push(random_update.clone());
 
             if random_update.has_value {
                 buffer.add_update_with_bytes_ref(
@@ -908,6 +907,7 @@ mod tests {
             } else {
                 buffer.add_no_value(&random_update.term, doc_id_upto)?;
             }
+            updates.push(random_update);
         }
         buffer.finish()?;
 
@@ -945,21 +945,16 @@ mod tests {
         let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
         let mut random_update = get_random_numeric_update(&mut random, 0);
-        updates.push(random_update.clone());
 
         let doc_id_upto = random_update.doc_id_upto;
         let mut buffer =
             FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_upto)?;
+        updates.push(random_update);
 
-        let mut last_update: Option<DocValuesUpdate> = None;
         for i in 0..num_updates {
             random_update = get_random_numeric_update(&mut random, i + 1);
             // last
-            if i == num_updates - 1 {
-                last_update = Some(random_update.clone());
-            }
             let doc_id_upto = random_update.doc_id_upto;
-            updates.push(random_update.clone());
 
             if random_update.has_value {
                 buffer.add_update_with_long(
@@ -970,19 +965,23 @@ mod tests {
             } else {
                 buffer.add_no_value(&random_update.term, doc_id_upto)?;
             }
+            updates.push(random_update);
         }
+        let last_update = (num_updates - 1) as usize;
         buffer.finish()?;
-        assert!(last_update.is_some());
-        let last_update = last_update.unwrap();
-        let terms_sorted = last_update.has_value
+        let terms_sorted = updates[last_update].has_value
             && updates.iter().all(|update| {
-                update.field == last_update.field
+                update.field == updates[last_update].field
                     && update.has_value
                     && update.sub_update.get_numeric().unwrap().get_value()
-                        == last_update.sub_update.get_numeric().unwrap().get_value()
+                        == updates[last_update]
+                            .sub_update
+                            .get_numeric()
+                            .unwrap()
+                            .get_value()
             });
 
-        assert_buffer_updates(&buffer, &mut updates, terms_sorted)?;
+        assert_buffer_updates(&buffer, updates, terms_sorted)?;
 
         Ok(())
     }
@@ -1029,11 +1028,10 @@ mod tests {
         if let Some(v) = random_update.prepare_for_apply(0) {
             random_update = v
         }
-        updates.push(random_update.clone());
         let doc_id_upto = random_update.doc_id_upto;
         let mut buffer =
             FieldUpdatesBuffer::from_numeric_update(counter.clone(), &random_update, doc_id_upto)?;
-
+        updates.push(random_update);
         for i in 0..num_updates {
             random_update = DocValuesUpdate::new(
                 DocValuesType::Numeric,
@@ -1048,41 +1046,47 @@ mod tests {
             if let Some(v) = random_update.prepare_for_apply(i + 1) {
                 random_update = v
             }
-            updates.push(random_update.clone());
             buffer.add_update_with_long(
                 &random_update.term,
                 doc_value,
                 random_update.doc_id_upto,
             )?;
+            updates.push(random_update);
         }
 
         buffer.finish()?;
 
         // We can now assert that the buffer updates are correct after sorting
         // and deduplication
-        assert_buffer_updates(&buffer, &mut updates, true)?;
+        assert_buffer_updates(&buffer, updates, true)?;
 
         Ok(())
     }
 
     fn assert_buffer_updates(
         buffer: &FieldUpdatesBuffer,
-        updates: &mut [DocValuesUpdate],
+        mut updates: Vec<DocValuesUpdate>,
         term_sorted: bool,
     ) -> Result<()> {
-        let mut updates = updates.to_owned();
-        if term_sorted {
+        let updates: Vec<_> = if term_sorted {
             updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));
-            let mut by_terms: BTreeMap<BytesRef<Vec<u8>>, DocValuesUpdate> = BTreeMap::new();
 
-            for update in updates.iter() {
+            let mut by_terms: BTreeMap<&BytesRef<Vec<u8>>, &DocValuesUpdate> = BTreeMap::new();
+            for update in &updates {
                 by_terms
-                    .entry(update.term.bytes.clone())
-                    .or_insert_with(|| update.clone());
+                    .entry(&update.term.bytes)
+                    .and_modify(|v| {
+                        if v.doc_id_upto < update.doc_id_upto {
+                            *v = update;
+                        }
+                    })
+                    .or_insert(update);
             }
 
-            updates = by_terms.into_values().collect();
-        }
+            by_terms.values().copied().collect()
+        } else {
+            updates.iter().collect()
+        };
 
         let mut iterator = buffer.iterator()?;
         let mut count = 0;

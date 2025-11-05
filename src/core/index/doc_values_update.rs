@@ -23,7 +23,6 @@ use crate::core::store::DataOutput;
 use crate::core::util::error::lucene_error::Result;
 
 /// An in-place update to a DocValues field.
-#[derive(Clone)]
 pub struct DocValuesUpdate {
     pub(crate) doc_values_type: DocValuesType,
     pub term: Term,
@@ -173,7 +172,6 @@ impl DocValuesUpdateBase for NumericDocValuesUpdate {
     }
 }
 
-#[derive(Clone)]
 pub enum DocValuesUpdateEnum {
     Binary(BinaryDocValuesUpdate),
     Numeric(NumericDocValuesUpdate),

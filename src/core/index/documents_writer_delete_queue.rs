@@ -176,9 +176,9 @@ impl DocumentsWriterDeleteQueue {
         Node::new(NodeEnum::QueryNode(QueryNode::new(Arc::new(query))))
     }
 
-    pub(crate) fn new_node_with_doc_values(updates: &[DocValuesUpdate]) -> Node {
+    pub(crate) fn new_node_with_doc_values(updates: Vec<DocValuesUpdate>) -> Node {
         Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
-            updates.to_vec(),
+            updates,
         )))
     }
     /// invariant for document update
