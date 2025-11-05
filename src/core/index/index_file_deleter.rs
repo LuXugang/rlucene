@@ -316,7 +316,8 @@ where
                     ),
                 );
             }
-            self.dec_ref(std::mem::take(&mut commit.files))?
+            let files = std::mem::take(&mut commit.files);
+            self.dec_ref(files.iter())?
         }
 
         // Now compact commits to remove deleted ones (preserving the sort):
@@ -374,7 +375,7 @@ where
     pub fn close(&mut self) -> Result<()> {
         if !self.last_files.is_empty() {
             let files = std::mem::take(&mut self.last_files);
-            self.dec_ref(files)?;
+            self.dec_ref(files.iter())?;
         }
         Ok(())
     }
@@ -456,7 +457,7 @@ where
         } else {
             // DecRef old files from the last checkpoint, if any:
             let files = std::mem::take(&mut self.last_files);
-            self.dec_ref(files)?;
+            self.dec_ref(files.iter())?;
             // Save files so we can decr on next checkpoint/commit:
             self.last_files = segment_infos.files(false)?.into_iter().collect();
         }
@@ -492,11 +493,15 @@ where
     }
 
     /// Decrefs all provided files, even on exception; throws first exception hit, if any.
-    pub(crate) fn dec_ref(&mut self, files: impl IntoIterator<Item = String>) -> Result<()> {
+    pub(crate) fn dec_ref<'a, I>(&mut self, files: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
         self.file_deleter.dec_ref(files)
     }
     pub(crate) fn dec_ref_from_segment(&mut self, segment_infos: &SegmentInfos<D>) -> Result<()> {
-        self.dec_ref(segment_infos.files(false)?)
+        let files = segment_infos.files(false)?;
+        self.dec_ref(files.iter())
     }
     pub fn exists(&self, file_name: &str) -> bool {
         self.file_deleter.exists(file_name)

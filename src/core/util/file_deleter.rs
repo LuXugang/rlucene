@@ -75,18 +75,18 @@ where
 
     /// Decrease ref counts for all provided files, delete them if ref counts down to 0, even on
     /// error. Throw first exception hit, if any
-    pub fn dec_ref<I>(&mut self, file_names: I) -> Result<()>
+    pub fn dec_ref<'a, I>(&mut self, file_names: I) -> Result<()>
     where
-        I: IntoIterator<Item = String>,
+        I: IntoIterator<Item = &'a String>,
     {
         let mut to_delete = Vec::new();
 
         for file_name in file_names {
-            if self.dec_ref_single(&file_name) {
+            if self.dec_ref_single(file_name.as_str()) {
                 to_delete.push(file_name)
             }
         }
-        self.delete_files(&to_delete)
+        self.delete_files(to_delete)
     }
     /// Returns true if the file should be deleted
     fn dec_ref_single(&mut self, file_name: &str) -> bool {

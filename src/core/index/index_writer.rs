@@ -1624,7 +1624,7 @@ where
                 let mut inner = self.inner.lock();
                 match std::mem::take(&mut commit_lock.files_to_commit) {
                     Some(files_to_commit) => {
-                        match inner.deleter.dec_ref(files_to_commit) {
+                        match inner.deleter.dec_ref(files_to_commit.iter()) {
                             Ok(()) => Err(t),
                             Err(e) => {
                                 // TODO: IMPORTANT 这里没有处理好嵌套错误
@@ -1947,7 +1947,7 @@ where
                     commit_lock.pending_commit = None;
                     let files = commit_lock.files_to_commit.take().unwrap();
 
-                    body_res = match inner.deleter.dec_ref(files) {
+                    body_res = match inner.deleter.dec_ref(files.iter()) {
                         Ok(()) => body_res,
                         Err(e) => {
                             // TODO: IMPORTANT 这里没有处理好嵌套错误
@@ -2245,9 +2245,8 @@ where
                         self.info_stream
                             .message("IW", "  skip startCommit(): no changes pending");
                     }
-                    inner
-                        .deleter
-                        .dec_ref(commit_lock.files_to_commit.take().unwrap())?;
+                    let files = commit_lock.files_to_commit.take().unwrap();
+                    inner.deleter.dec_ref(files.iter())?;
                     return Ok(());
                 }
 
@@ -2341,10 +2340,8 @@ where
                             self.info_stream
                                 .message("IW", "hit exception committing segments file");
                         }
-                        match inner
-                            .deleter
-                            .dec_ref(commit_lock.files_to_commit.take().unwrap())
-                        {
+                        let files = commit_lock.files_to_commit.take().unwrap();
+                        match inner.deleter.dec_ref(files.iter()) {
                             Ok(()) => Err(t),
                             Err(e) => {
                                 // TODO: IMPORTANT 这里没有正确的嵌套错误
@@ -2958,7 +2955,7 @@ where
         inner: &mut Inner<D>, // we hold lock
     ) -> Result<()> {
         let close_res = self.close_segment_states(seg_states, success, inner);
-        inner.deleter.dec_ref(del_files)?;
+        inner.deleter.dec_ref(del_files.iter())?;
         let result = close_res?;
 
         if result.any_new_deletes {
