@@ -80,15 +80,13 @@ use std::thread;
 /// structures. These updates are consistent but represent only a part of the document seen up
 /// until the exception was hit. When this happens, we immediately mark the document as deleted so
 /// that the document is always atomically (“all or none”) added to the index.
-pub(crate) struct DocumentsWriter<D, L, FN>
+pub(crate) struct DocumentsWriter<D, FN>
 where
     D: Directory,
-    L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
     closed: AtomicBool,
     info_stream: InfoStreamMT,
-    config: Arc<L>,
     num_docs_in_ram: AtomicI32,
     ticket_queue: DocumentsWriterFlushQueue<D>,
     // we preserve changes during a full flush since IW might not check out before
@@ -97,7 +95,7 @@ where
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
     pub(crate) inner: Mutex<Inner>,
-    flush_control: DocumentsWriterFlushControl<D, L>,
+    flush_control: DocumentsWriterFlushControl<D>,
     index_created_version_major: i32,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     directory_orig: Arc<D>,
@@ -109,28 +107,29 @@ pub(crate) struct Inner {
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
     current_full_flush_del_queue: Option<Arc<DocumentsWriterDeleteQueue>>,
 }
-impl<D, L, FN> DocumentsWriter<D, L, FN>
+impl<D, FN> DocumentsWriter<D, FN>
 where
     D: Directory,
-    L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub(crate) fn new<L>(
         flush_notifications: FN,
         index_created_version_major: i32,
         enable_test_points: bool,
-        config: Arc<L>,
+        config: &L,
         directory_orig: Arc<D>,
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         global_field_number_map: Arc<Mutex<FieldNumbers>>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        L: LiveIndexWriterConfig,
+    {
         let info_stream = config.get_info_stream();
         let delete_queue = Arc::new(DocumentsWriterDeleteQueue::new(info_stream.clone()));
         Ok(DocumentsWriter {
             closed: AtomicBool::new(false),
             info_stream,
-            config: config.clone(),
             num_docs_in_ram: AtomicI32::new(0),
             ticket_queue: DocumentsWriterFlushQueue::new(),
             pending_changes_in_current_full_flush: AtomicBool::new(false),
@@ -147,22 +146,36 @@ where
             flush_notifications,
         })
     }
-    pub(crate) fn delete_queries(&self, queries: Vec<Query>) -> Result<i64> {
-        self.apply_delete_or_update(|upd| {
+    pub(crate) fn delete_queries<L>(&self, config: &L, queries: Vec<Query>) -> Result<i64>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        self.apply_delete_or_update(config, |upd| {
             upd.add_delete_query(queries.into_iter().map(Arc::new).collect())
         })
     }
 
-    pub(crate) fn delete_terms(&self, terms: Vec<Term>) -> Result<i64> {
-        self.apply_delete_or_update(|upd| upd.add_delete_term(terms))
+    pub(crate) fn delete_terms<L>(&self, config: &L, terms: Vec<Term>) -> Result<i64>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        self.apply_delete_or_update(config, |upd| upd.add_delete_term(terms))
     }
 
-    pub(crate) fn update_doc_values(&self, updates: Vec<DocValuesUpdate>) -> Result<i64> {
-        self.apply_delete_or_update(|upd| upd.add_doc_values_updates(updates))
+    pub(crate) fn update_doc_values<L>(
+        &self,
+        config: &L,
+        updates: Vec<DocValuesUpdate>,
+    ) -> Result<i64>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        self.apply_delete_or_update(config, |upd| upd.add_doc_values_updates(updates))
     }
-    fn apply_delete_or_update<F>(&self, func: F) -> Result<i64>
+    fn apply_delete_or_update<F, L>(&self, config: &L, func: F) -> Result<i64>
     where
         F: FnOnce(&DocumentsWriterDeleteQueue) -> Result<i64>,
+        L: LiveIndexWriterConfig,
     {
         // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
         // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
@@ -170,7 +183,7 @@ where
         let inner = self.inner.lock();
         let mut seq_no = func(&inner.delete_queue)?;
         self.flush_control
-            .do_on_delete(self.config.get_flush_policy(), inner.delete_queue.as_ref())?;
+            .do_on_delete(inner.delete_queue.as_ref(), config)?;
         if self.apply_all_deletes(Some(&inner))? {
             seq_no = -seq_no;
         }
@@ -202,7 +215,7 @@ where
         }
         Ok(false)
     }
-    pub(crate) fn purge_flush_tickets<F, B>(
+    pub(crate) fn purge_flush_tickets<F, L, B>(
         &self,
         forced: bool,
         writer: &IndexWriter<D, L, B>,
@@ -211,6 +224,7 @@ where
     where
         F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         if forced {
             self.ticket_queue.force_purge(writer, consumer)
@@ -232,9 +246,10 @@ where
             Ok(())
         }
     }
-    pub(crate) fn flush_one_dwpt<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    pub(crate) fn flush_one_dwpt<B, L>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         {
             if self.info_stream.enabled("DW") {
@@ -259,14 +274,21 @@ where
         // TODO
     }
     /// Returns how many documents were aborted.
-    fn abort_documents_writer_per_thread(&self, per_thread: Arc<DwptWrapper<D>>) -> Result<()> {
+    fn abort_documents_writer_per_thread<L>(
+        &self,
+        per_thread: Arc<DwptWrapper<D>>,
+        config: &L,
+    ) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
         debug_assert!(self.inner.is_locked());
         {
             let num = per_thread.state.get_num_docs_in_ram();
             self.subtract_flushed_num_docs(num);
             per_thread.dwpt.lock().abort()?;
         }
-        self.flush_control.do_on_abort(&per_thread);
+        self.flush_control.do_on_abort(&per_thread, config);
 
         Ok(())
     }
@@ -321,15 +343,16 @@ where
         self.closed.store(true, Ordering::SeqCst);
         // TODO
     }
-    fn pre_update<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    fn pre_update<L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         self.ensure_open()?;
         let mut has_events = false;
 
         while self.flush_control.any_stalled_threads()
-            || (self.config.get_check_pending_flush_on_update()
+            || (writer.config.get_check_pending_flush_on_update()
                 && self.flush_control.num_queued_flushes() > 0)
         {
             // Help out flushing any queued DWPTs so we can un-stall:
@@ -342,7 +365,7 @@ where
         Ok(has_events)
     }
 
-    fn post_update<B>(
+    fn post_update<B, L>(
         &self,
         flushing_dwpt: Option<Arc<DwptWrapper<D>>>,
         mut has_events: bool,
@@ -350,17 +373,18 @@ where
     ) -> Result<bool>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         has_events |= self.apply_all_deletes(None)?;
         if let Some(dwpt) = flushing_dwpt {
             self.do_flush(dwpt, writer)?;
             has_events = true;
-        } else if self.config.get_check_pending_flush_on_update() {
+        } else if writer.config.get_check_pending_flush_on_update() {
             has_events |= self.maybe_flush(writer)?;
         }
         Ok(has_events)
     }
-    pub(crate) fn update_documents<DI, DF, B>(
+    pub(crate) fn update_documents<DI, DF, B, L>(
         &self,
         docs: DI,
         del_node: Option<Arc<Node>>,
@@ -370,6 +394,7 @@ where
         DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         let has_events = self.pre_update(writer)?;
 
@@ -378,6 +403,7 @@ where
             .obtain_and_lock(&self.inner.lock().delete_queue, writer)?;
         let mut flushing_dwpt_opt = None;
         let mut seq_no = 0;
+        let config = &writer.config;
         let result = (|| {
             // This must happen after we've pulled the DWPT because IW.close
             // waits for all DWPT to be released:
@@ -387,20 +413,19 @@ where
                     docs,
                     del_node,
                     &self.flush_notifications,
-                    self.config.as_ref(),
                     &self.num_docs_in_ram,
                     writer,
                 )?;
                 Ok(())
             };
             if dwpt_wrapper.state.is_aborted() {
-                self.flush_control.do_on_abort(&dwpt_wrapper);
+                self.flush_control.do_on_abort(&dwpt_wrapper, config);
             }
             if result.is_ok() {
                 flushing_dwpt_opt = self.flush_control.do_after_document(
                     &dwpt_wrapper.dwpt.lock(),
-                    self.config.get_flush_policy(),
                     self.inner.lock().delete_queue.as_ref(),
+                    config,
                 )?
             }
             {
@@ -430,11 +455,14 @@ where
         Ok(seq_no)
     }
 
-    fn maybe_flush<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    fn maybe_flush<B, L>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
-        let flushing_dwpt = self.flush_control.next_pending_flush(None)?;
+        let flushing_dwpt = self
+            .flush_control
+            .next_pending_flush(None, &writer.config)?;
 
         if let Some(flushing_dwpt) = flushing_dwpt {
             self.do_flush(flushing_dwpt, writer)?;
@@ -443,13 +471,14 @@ where
             Ok(false)
         }
     }
-    fn do_flush<B>(
+    fn do_flush<B, L>(
         &self,
         mut flushing_dwpt: Arc<DwptWrapper<D>>,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<()>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         loop {
             assert!(!flushing_dwpt.state.has_flushed());
@@ -494,11 +523,7 @@ where
                             {
                                 let mut dwpt = flushing_dwpt.dwpt.lock();
                                 let result = (|| {
-                                    let v = dwpt.flush(
-                                        &self.flush_notifications,
-                                        self.config.as_ref(),
-                                        writer,
-                                    )?;
+                                    let v = dwpt.flush(&self.flush_notifications, writer)?;
                                     match v {
                                         Some(new_segment) => {
                                             self.ticket_queue.add_segment(ticket, new_segment);
@@ -549,9 +574,10 @@ where
                 }
                 Ok(())
             })();
-            self.flush_control.do_after_flush(flushing_dwpt);
+            let config = &writer.config;
+            self.flush_control.do_after_flush(flushing_dwpt, config);
             res?;
-            let v = self.flush_control.next_pending_flush(None)?;
+            let v = self.flush_control.next_pending_flush(None, config)?;
 
             match v {
                 Some(next_dwpt) => {
@@ -644,9 +670,14 @@ where
     // FlushAllThreads is synced by IW fullFlushLock. Flushing all threads is a
     // two stage operation; the caller must ensure (in try/finally) that finishFlush
     // is called after this method, to release the flush lock in DWFlushControl
-    pub(crate) fn flush_all_threads<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<i64>
+    pub(crate) fn flush_all_threads<B, L>(
+        &self,
+        writer: &IndexWriter<D, L, B>,
+        config: &L,
+    ) -> Result<i64>
     where
         B: IndexWriterBase,
+        L: LiveIndexWriterConfig,
     {
         if self.info_stream.enabled("DW") {
             self.info_stream.message("DW", "startFullFlush");
@@ -660,7 +691,9 @@ where
             // Cutover to a new delete queue.  This must be synced on the flush control
             // otherwise a new DWPT could sneak into the loop with an already flushing
             // delete queue
-            let sn = self.flush_control.mark_for_full_flush(self, &mut inner)?;
+            let sn = self
+                .flush_control
+                .mark_for_full_flush(self, &mut inner, config)?;
             debug_assert!(self.set_flushing_delete_queue(Some(Arc::clone(&fq)), Some(&mut inner)));
             (fq, sn)
         };
@@ -707,7 +740,10 @@ where
         result?;
         Ok(if anything_flushed { -seq_no } else { seq_no })
     }
-    pub(crate) fn finish_full_flush(&self, success: bool) -> Result<()> {
+    pub(crate) fn finish_full_flush<L>(&self, success: bool, config: &L) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
         if self.info_stream.enabled("DW") {
             let thread_name = thread::current().name().unwrap_or("<unnamed>").to_string();
             self.info_stream.message(
@@ -720,7 +756,7 @@ where
         {
             let delete_queue = &self.inner.lock().delete_queue;
             if success {
-                self.flush_control.finish_full_flush(delete_queue)?;
+                self.flush_control.finish_full_flush(delete_queue, config)?;
             } else {
                 // TODO
                 // self.flush_control.abort_full_flushes(delete_queue)?;
@@ -741,10 +777,9 @@ where
         self.flush_control.get_flushing_bytes(None)
     }
 }
-impl<D, L, FN> Accountable for DocumentsWriter<D, L, FN>
+impl<D, FN> Accountable for DocumentsWriter<D, FN>
 where
     D: Directory,
-    L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
     fn ram_bytes_used(&self) -> Result<i64> {

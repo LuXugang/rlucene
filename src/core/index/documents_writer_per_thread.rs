@@ -310,7 +310,6 @@ where
         docs: DI,
         delete_node: Option<Arc<Node>>,
         flush_notifications: &FN,
-        index_writer_config: &L,
         num_docs_in_ram: &AtomicI32,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<i64>
@@ -345,6 +344,7 @@ where
 
         let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
         let mut all_docs_indexed = false;
+        let index_writer_config = writer.get_config();
         let result = (|| -> Result<i64> {
             for doc in docs {
                 match &self.parent_field {
@@ -502,7 +502,6 @@ where
     pub(crate) fn flush<FN, L, B>(
         &mut self,
         flush_notifications: &FN,
-        index_writer_config: &L,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<Option<FlushedSegment<D>>>
     where
@@ -520,6 +519,7 @@ where
         self.segment_info
             .set_max_doc(self.state.num_docs_in_ram.load(SeqCst))?;
 
+        let index_writer_config = writer.get_config();
         let result = (|| -> Result<Option<FlushedSegment<D>>> {
             let (mut fs, sort_map, t0) = {
                 let io_context = IOContext::with_flush(FlushInfo::new(

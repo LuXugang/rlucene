@@ -17,7 +17,6 @@
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexInput;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;

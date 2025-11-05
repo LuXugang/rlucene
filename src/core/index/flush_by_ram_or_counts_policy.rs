@@ -50,8 +50,8 @@ impl FlushByRamOrCountsPolicy {
 impl FlushByRamOrCountsPolicy {
     fn flush_deletes<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
-        index_writer_config: &impl LiveIndexWriterConfig,
+        control: &DocumentsWriterFlushControl<D>,
+        index_writer_config: &L,
         delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<()>
     where
@@ -75,10 +75,11 @@ impl FlushByRamOrCountsPolicy {
     }
     fn flush_active_bytes<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
+        control: &DocumentsWriterFlushControl<D>,
         per_thread: &DocumentsWriterPerThread<D>,
         delete_queue: &DocumentsWriterDeleteQueue,
         inner: &mut Inner<D>,
+        config: &L,
     ) -> Result<()>
     where
         D: Directory,
@@ -91,20 +92,21 @@ impl FlushByRamOrCountsPolicy {
                     "trigger flush: activeBytes={} deleteBytes={} vs ramBufferMB={}",
                     control.active_bytes(Some(inner)),
                     control.get_delete_bytes_used(delete_queue)?,
-                    control.config.get_ram_buffer_size_mb()
+                    config.get_ram_buffer_size_mb()
                 ),
             );
         }
 
-        self.mark_largest_writer_pending(control, per_thread, inner)?;
+        self.mark_largest_writer_pending(control, per_thread, inner, config)?;
         Ok(())
     }
     /// Marks the most ram consuming active [`DocumentsWriterPerThread`] flush pending
     pub(crate) fn mark_largest_writer_pending<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
+        control: &DocumentsWriterFlushControl<D>,
         per_thread: &DocumentsWriterPerThread<D>,
         inner: &mut Inner<D>,
+        config: &L,
     ) -> Result<()>
     where
         D: Directory,
@@ -113,7 +115,11 @@ impl FlushByRamOrCountsPolicy {
         let largest_non_pendingwriter =
             self.find_largest_non_pending_writer_for_thread(control, per_thread);
         if let Some(largest_non_pendingwriter) = largest_non_pendingwriter {
-            control.set_flush_pending(&*largest_non_pendingwriter.dwpt.lock(), Some(inner))?;
+            control.set_flush_pending(
+                &*largest_non_pendingwriter.dwpt.lock(),
+                Some(inner),
+                config,
+            )?;
         }
         Ok(())
     }
@@ -138,22 +144,23 @@ impl FlushByRamOrCountsPolicy {
 impl FlushPolicy for FlushByRamOrCountsPolicy {
     fn on_change<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
+        control: &DocumentsWriterFlushControl<D>,
         inner: &mut Inner<D>,
         per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
         delete_queue: &DocumentsWriterDeleteQueue,
+        config: &L,
     ) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
     {
-        let index_writer_config = control.config.as_ref();
+        let index_writer_config = config;
         if let Some(pt) = per_thread
             && self.flush_on_doc_count(index_writer_config)
             && pt.get_num_docs_in_ram() >= index_writer_config.get_max_buffered_docs()
         {
             // Flush this state by num docs
-            control.set_flush_pending(pt, Some(inner))?;
+            control.set_flush_pending(pt, Some(inner), config)?;
             return Ok(());
         }
 
@@ -167,7 +174,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
                 && let Some(pt) = per_thread
             {
                 self.flush_deletes(control, index_writer_config, delete_queue)?;
-                self.flush_active_bytes(control, pt, delete_queue, inner)?;
+                self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
                 return Ok(());
             }
 
@@ -176,7 +183,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
             } else if active_ram + deletes_ram >= limit
                 && let Some(pt) = per_thread
             {
-                self.flush_active_bytes(control, pt, delete_queue, inner)?;
+                self.flush_active_bytes(control, pt, delete_queue, inner, config)?;
             }
         }
         Ok(())

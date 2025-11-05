@@ -53,10 +53,11 @@ pub trait FlushPolicy {
     /// [`DocumentsWriterPerThread`].
     fn on_change<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
+        control: &DocumentsWriterFlushControl<D>,
         inner: &mut Inner<D>,
         per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
         delete_queue: &DocumentsWriterDeleteQueue,
+        config: &L,
     ) -> Result<()>
     where
         D: Directory,
@@ -65,14 +66,13 @@ pub trait FlushPolicy {
     /// with at least one indexed document.
     ///
     /// This method will never return `None`.
-    fn find_largest_non_pending_writer_for_thread<D, L>(
+    fn find_largest_non_pending_writer_for_thread<D>(
         &self,
-        control: &DocumentsWriterFlushControl<D, L>,
+        control: &DocumentsWriterFlushControl<D>,
         per_thread: &DocumentsWriterPerThread<D>,
     ) -> Option<Arc<DwptWrapper<D>>>
     where
         D: Directory,
-        L: LiveIndexWriterConfig,
     {
         debug_assert!(
             per_thread.state.get_num_docs_in_ram() > 0,

@@ -33,7 +33,7 @@ impl MutablePointTree for DummyMutablePointTree {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_byte_at(&self, _i: usize, k: usize) -> u8 {
+    fn get_byte_at(&self, _i: usize, _k: usize) -> u8 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

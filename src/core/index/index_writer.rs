@@ -51,7 +51,7 @@ where
     pending_commit_change_count: AtomicI64,
     // TODO: IMPORTANT 必须要用Mutext封装吗
     pub(crate) global_field_number_map: Arc<Mutex<FieldNumbers>>,
-    doc_writer: DocumentsWriter<D, L, FlushNotificationsImpl>,
+    doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
     write_doc_values_lock: ReentrantMutex<()>,
     // used by forceMerge to note those needing merging
@@ -72,7 +72,7 @@ where
     reader_pool: ReaderPool<D>,
     buffered_updates_stream: Arc<BufferedUpdatesStream>,
     merge_finished_gen: AtomicI64,
-    pub(crate) config: Arc<L>,
+    pub(crate) config: L,
     pub(crate) pending_num_docs: Arc<AtomicI64>,
     soft_deletes_enabled: bool,
     info_stream: InfoStreamMT,
@@ -292,12 +292,11 @@ where
 
             let event_queue = Arc::new(EventQueue::new());
             let global_field_number_map = Arc::new(Mutex::new(global_field_number_map));
-            let conf = Arc::new(conf);
             let doc_writer = DocumentsWriter::new(
                 FlushNotificationsImpl::new(event_queue.clone()),
                 segment_infos.get_index_created_version_major(),
                 enable_test_points,
-                conf.clone(),
+                &conf,
                 directory_orig.clone(),
                 directory.clone(),
                 global_field_number_map.clone(),
@@ -494,7 +493,7 @@ where
         Ok(map)
     }
     pub fn get_config(&self) -> &L {
-        self.config.as_ref()
+        &self.config
     }
     fn message_state(&mut self) -> Result<()> {
         if self.info_stream.enabled("IW") && !self.did_message_state {
@@ -605,7 +604,8 @@ where
     pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
         self.do_ensure_open(true)?;
         let res = (|| {
-            let seq = self.maybe_process_events(self.doc_writer.delete_terms(terms)?)?;
+            let seq =
+                self.maybe_process_events(self.doc_writer.delete_terms(&self.config, terms)?)?;
             Ok(seq)
         })();
 
@@ -636,7 +636,7 @@ where
         }
 
         let res = (|| {
-            let seq0 = self.doc_writer.delete_queries(queries)?;
+            let seq0 = self.doc_writer.delete_queries(&self.config, queries)?;
             let seq = self.maybe_process_events(seq0)?;
             Ok(seq)
         })();
@@ -1505,7 +1505,7 @@ where
             let _guard = self.full_flush_lock.lock();
             let mut flush_success = false;
             let body_res: Result<()> = (|| {
-                seq_no = self.doc_writer.flush_all_threads(self)?;
+                seq_no = self.doc_writer.flush_all_threads(self, &self.config)?;
                 if seq_no < 0 {
                     any_changes = true;
                     seq_no = -seq_no;
@@ -1568,7 +1568,8 @@ where
                     .message("IW", "hit exception during prepareCommit");
             }
             // Done: finish the full flush!
-            self.doc_writer.finish_full_flush(flush_success)?;
+            self.doc_writer
+                .finish_full_flush(flush_success, &self.config)?;
             if let Some(ref s) = self.sub {
                 s.do_after_flush()?
             }
@@ -2046,7 +2047,7 @@ where
                 let _guard = self.full_flush_lock.lock();
                 let mut flush_success = false;
                 let result: Result<bool> = (|| {
-                    let any_changes = self.doc_writer.flush_all_threads(self)? < 0;
+                    let any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
                     if !any_changes {
                         // flushCount is incremented in flushAllThreads if true
                         self.flush_count.fetch_add(1, Ordering::SeqCst);
@@ -2055,7 +2056,8 @@ where
                     flush_success = true;
                     Ok(any_changes)
                 })();
-                self.doc_writer.finish_full_flush(flush_success)?;
+                self.doc_writer
+                    .finish_full_flush(flush_success, &self.config)?;
                 self.process_events(false)?;
                 result?
             };
@@ -2108,7 +2110,7 @@ where
         self.buffered_updates_stream.wait_apply_all(self)
     }
     #[cfg(test)]
-    pub(crate) fn get_docs_writer(&self) -> &DocumentsWriter<D, L, FlushNotificationsImpl> {
+    pub(crate) fn get_docs_writer(&self) -> &DocumentsWriter<D, FlushNotificationsImpl> {
         &self.doc_writer
     }
     /// Return the number of documents currently buffered in RAM.
@@ -3150,7 +3152,7 @@ where
             ));
         }
 
-        let t_start = std::time::Instant::now();
+        let _t_start = std::time::Instant::now();
 
         if self.info_stream.enabled("IW") {
             self.info_stream.message("IW", "flush at getReader");
@@ -3182,7 +3184,7 @@ where
         let mut opened_read_only_clones = std::collections::HashMap::new();
 
         let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
-        let opening_segment_infos: Option<SegmentInfos<D>> = None;
+        let _opening_segment_infos: Option<SegmentInfos<D>> = None;
         let result1 = (|| {
             /*
             This is the essential part of the getReader method. We need to take care of the following things:
@@ -3206,7 +3208,7 @@ where
             {
                 let _full_flush_lock = self.full_flush_lock.lock();
                 let result2 = (|| {
-                    any_changes = self.doc_writer.flush_all_threads(self)? < 0;
+                    any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
                     if !any_changes {
                         self.flush_count.fetch_add(1, Ordering::AcqRel);
                     }
@@ -3249,7 +3251,7 @@ where
                     success = true;
                     Ok(r)
                 })();
-                self.doc_writer.finish_full_flush(success)?;
+                self.doc_writer.finish_full_flush(success, &self.config)?;
                 if success {
                     self.process_events(false)?;
                     if let Some(ref s) = self.sub {
