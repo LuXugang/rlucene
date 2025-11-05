@@ -957,7 +957,9 @@ where
                 MAX_INT,
                 DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(value))),
             );
-            let seq = self.doc_writer.update_doc_values(vec![dv_update])?;
+            let seq = self
+                .doc_writer
+                .update_doc_values(&self.config, vec![dv_update])?;
             self.maybe_process_events(seq)
         })();
 
@@ -1015,7 +1017,9 @@ where
                 MAX_INT,
                 DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Some(value))),
             );
-            let seq = self.doc_writer.update_doc_values(vec![dv_update])?;
+            let seq = self
+                .doc_writer
+                .update_doc_values(&self.config, vec![dv_update])?;
             self.maybe_process_events(seq)
         })();
 
@@ -1050,7 +1054,9 @@ where
         let dv_updates = self.build_doc_values_update(term, updates)?;
 
         let res = (|| {
-            let seq = self.doc_writer.update_doc_values(dv_updates)?;
+            let seq = self
+                .doc_writer
+                .update_doc_values(&self.config, dv_updates)?;
             self.maybe_process_events(seq)
         })();
 
