@@ -620,7 +620,7 @@ impl FieldNumbers {
     pub fn verify_or_create_dv_only_field(
         &mut self,
         field_name: &str,
-        dv_type: DocValuesType,
+        dv_type: &DocValuesType,
         field_must_exist: bool,
     ) -> Result<()> {
         if !self.field_properties.contains_key(field_name) {
@@ -637,7 +637,7 @@ impl FieldNumbers {
                     false,
                     false,
                     IndexOptions::None,
-                    dv_type,
+                    *dv_type,
                     DocValuesSkipIndexType::None,
                     -1,
                     HashMap::new(),
@@ -660,7 +660,7 @@ impl FieldNumbers {
             // verify that field is doc values only field with the give doc
             // values type
             let field_props = self.field_properties.get(field_name).unwrap();
-            if dv_type != field_props.doc_values_type {
+            if *dv_type != field_props.doc_values_type {
                 return Err(LuceneError::illegal_argument(format!(
                     "Can't update [{:?}] doc values; the field [{}] has inconsistent doc values' type of [{:?}].",
                     dv_type, field_name, field_props.doc_values_type

@@ -680,8 +680,7 @@ where
     where
         DF: IntoIterator<Item = Fields>,
     {
-        let docs = vec![doc];
-        self.update_documents_with_term(None, docs)
+        self.update_documents_with_term(None, doc)
     }
 
     /// Atomically adds a block of documents with sequentially assigned document IDs, such that an
@@ -734,19 +733,14 @@ where
     /// - Returns an `io::Error` if there is a low-level I/O error.
     ///
     /// @lucene.experimental
-    pub fn update_documents_with_term<DI, DF>(
-        &self,
-        del_term: Option<Term>,
-        docs: DI,
-    ) -> Result<i64>
+    pub fn update_documents_with_term<DF>(&self, del_term: Option<Term>, docs: DF) -> Result<i64>
     where
-        DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
     {
         let del_node: Option<Arc<Node>> =
             del_term.map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
-        self.update_documents(del_node, docs)
+        self.update_documents(del_node, vec![docs])
     }
 
     /// Similar to [`update_documents(Term, Iterable)`](Self::update_documents_with_term), but takes a query instead of a term to
@@ -789,6 +783,49 @@ where
         }
         res
     }
+    /// Expert: Atomically updates documents matching the provided `term` with the given
+    /// DocValues fields and adds a block of documents with sequentially assigned document IDs,
+    /// ensuring that an external reader will see **all or none** of the documents.
+    ///
+    /// One use of this API is to **retain older versions** of documents instead of replacing them.
+    /// Existing documents can be updated to reflect they are no longer current,
+    /// while atomically adding new documents at the same time.
+    ///
+    /// In contrast to [`update_documents`](Self::update_documents),
+    /// this method does **not delete** documents in the index matching the given term,
+    /// but instead updates them with the specified DocValues fields —
+    /// which can be used as a **soft-delete mechanism**.
+    ///
+    /// See also [`add_documents`](Self::add_documents)
+    /// and [`update_documents`](Self::update_documents).
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
+    /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+    pub fn soft_update_documents<T, DF>(
+        &self,
+        term: T,
+        docs: DF,
+        soft_deletes: Vec<Fields>,
+    ) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        DF: IntoIterator<Item = Vec<Fields>>,
+    {
+        if soft_deletes.is_empty() {
+            return Err(LuceneError::illegal_argument(
+                "at least one soft delete must be present",
+            ));
+        }
+
+        let updates = self.build_doc_values_update(term, soft_deletes)?;
+        let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
+        self.update_documents(Some(Arc::new(node)), docs)
+    }
+
     /// Drops a segment that has 100% deleted documents.
     pub(crate) fn drop_deleted_segment(&self, seg_id: &str, inner: &mut Inner<D>) -> Result<()> {
         // If a merge has already registered for this
@@ -827,6 +864,293 @@ where
         }
         res
     }
+    /// Expert: Updates a document by first updating the document(s) containing the given `term`
+    /// with the provided DocValues fields, and then adding a new document.
+    /// The DocValues update and the addition are **atomic** as observed by readers
+    /// of the same index (a flush may only occur after the add).
+    ///
+    /// One use of this API is to **retain older versions** of documents instead of replacing them.
+    /// Existing documents can be updated to reflect they are no longer current,
+    /// while atomically adding new documents at the same time.
+    ///
+    /// In contrast to [`update_document`](Self::update_document),
+    /// this method does **not delete** documents in the index matching the given term,
+    /// but instead updates them with the specified DocValues fields —
+    /// which can be used as a **soft-delete mechanism**.
+    ///
+    /// See also [`add_documents`](Self::add_documents) and [`update_documents`](Self::update_documents).
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
+    /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+    pub fn soft_update_document<T, DF>(
+        &self,
+        term: T,
+        docs: DF,
+        soft_deletes: Vec<Fields>,
+    ) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        DF: IntoIterator<Item = Fields>,
+    {
+        if soft_deletes.is_empty() {
+            return Err(LuceneError::illegal_argument(
+                "at least one soft delete must be present",
+            ));
+        }
+
+        let updates = self.build_doc_values_update(term, soft_deletes)?;
+        let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
+        self.update_documents(Some(Arc::new(node)), vec![docs])
+    }
+
+    /// Updates a document's [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues)
+    /// for the given `field` to the specified `value`.
+    ///
+    /// You can only update fields that already exist in the index —
+    /// new fields cannot be added through this method.
+    /// Additionally, only fields that were indexed **solely with DocValues**
+    /// are eligible for update.
+    ///
+    /// # Parameters
+    /// * `term` - The term to identify the document(s) to be updated.
+    /// * `field` - Field name of the [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues) field.
+    /// * `value` - New numeric value for the field.
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
+    /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+    pub fn update_numeric_doc_value<T, F>(&self, term: T, field: F, value: i64) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        F: Into<String>,
+    {
+        let field = field.into();
+        self.do_ensure_open(true)?;
+
+        self.global_field_number_map
+            .lock()
+            .verify_or_create_dv_only_field(&field, &DocValuesType::Numeric, true)?;
+
+        if self.config.get_index_sort_fields().contains(&field) {
+            return Err(LuceneError::illegal_argument(format!(
+                "cannot update docvalues field involved in the index sort, field={}, sort={}",
+                field,
+                match self.config.get_index_sort() {
+                    Some(s) => s.to_string(),
+                    None => "<None>".to_string(),
+                }
+            )));
+        }
+
+        let res = (|| {
+            let dv_update = DocValuesUpdate::new(
+                DocValuesType::Numeric,
+                term,
+                field,
+                MAX_INT,
+                DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(value))),
+            );
+            let seq = self.doc_writer.update_doc_values(vec![dv_update])?;
+            self.maybe_process_events(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "updateNumericDocValue");
+        }
+        res
+    }
+
+    /// Updates a document's [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues) for the given `field` to the specified `value`.
+    ///
+    /// You can only update fields that already exist in the index —
+    /// new fields cannot be added through this method.
+    /// Additionally, only fields that were indexed **solely with DocValues**
+    /// are eligible for update.
+    ///
+    ///
+    /// **Note:**
+    /// This method currently replaces the existing value of **all** affected
+    /// documents with the new value.
+    ///
+    /// # Parameters
+    /// * `term` - The term to identify the document(s) to be updated.
+    /// * `field` - Field name of the [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues) field.
+    /// * `value` - New value for the field.
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
+    /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+    pub fn update_binary_doc_value<T, F>(
+        &self,
+        term: T,
+        field: F,
+        value: BytesRef<Vec<u8>>,
+    ) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+        F: Into<String>,
+    {
+        let field = field.into();
+        self.do_ensure_open(true)?;
+
+        self.global_field_number_map
+            .lock()
+            .verify_or_create_dv_only_field(&field, &DocValuesType::Binary, true)?;
+
+        let res = (|| {
+            let dv_update = DocValuesUpdate::new(
+                DocValuesType::Binary,
+                term,
+                field,
+                MAX_INT,
+                DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Some(value))),
+            );
+            let seq = self.doc_writer.update_doc_values(vec![dv_update])?;
+            self.maybe_process_events(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "updateBinaryDocValue");
+        }
+        res
+    }
+
+    /// Updates documents' DocValues fields to the given values.
+    /// Each field update is applied to the set of documents that are associated
+    /// with the [`Term`] to the same value.
+    ///
+    /// All updates are atomically applied and flushed together.
+    /// If a doc values field's data is `None`, the existing value is removed
+    /// from all documents matching the term.
+    ///
+    /// # Parameters
+    /// * `updates` - The updates to apply.
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
+    /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+    pub fn update_doc_values<T>(&self, term: T, updates: Vec<Fields>) -> Result<i64>
+    where
+        T: Into<Arc<Term>>,
+    {
+        self.do_ensure_open(true)?;
+        let dv_updates = self.build_doc_values_update(term, updates)?;
+
+        let res = (|| {
+            let seq = self.doc_writer.update_doc_values(dv_updates)?;
+            self.maybe_process_events(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "updateDocValues");
+        }
+        res
+    }
+
+    fn build_doc_values_update<T>(
+        &self,
+        term: T,
+        updates: Vec<Fields>,
+    ) -> Result<Vec<DocValuesUpdate>>
+    where
+        T: Into<Arc<Term>>,
+    {
+        let term = term.into();
+        let mut dv_updates = Vec::with_capacity(updates.len());
+
+        for mut f in updates {
+            let name = f.name().to_string();
+            let dv_type = f.field_type().doc_values_type();
+            if *dv_type == DocValuesType::None {
+                return Err(LuceneError::illegal_argument(format!(
+                    "can only update NUMERIC or BINARY fields! field={}",
+                    name
+                )));
+            }
+            // if this field doesn't exists we try to add it.
+            // if it exists and the DV type doesn't match or it is not DV only field,
+            // we will get an error.
+            self.global_field_number_map
+                .lock()
+                .verify_or_create_dv_only_field(&name, dv_type, false)?;
+
+            if self.config.get_index_sort_fields().contains(&name) {
+                return Err(LuceneError::illegal_argument(format!(
+                    "cannot update docvalues field involved in the index sort, field={}, sort={}",
+                    name,
+                    match self.config.get_index_sort() {
+                        Some(s) => s.to_string(),
+                        None => "<None>".to_string(),
+                    }
+                )));
+            }
+
+            let update = match dv_type {
+                DocValuesType::Numeric => {
+                    let value = match f.numeric_value()? {
+                        Some(v) => match v.to_i64() {
+                            Some(n) => n,
+                            None => {
+                                return Err(LuceneError::illegal_argument(format!(
+                                    "numeric value for field={} can not convert to i64: {:?}",
+                                    name, v
+                                )));
+                            },
+                        },
+                        None => {
+                            return Err(LuceneError::illegal_argument(format!(
+                                "missing numeric value for field={}",
+                                name
+                            )));
+                        },
+                    };
+                    let sub_update =
+                        DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(value)));
+                    DocValuesUpdate::new(
+                        DocValuesType::Numeric,
+                        term.clone(),
+                        name,
+                        MAX_INT,
+                        sub_update,
+                    )
+                },
+                DocValuesType::Binary => {
+                    let bytes = f.take_binary_value()?;
+                    let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(bytes));
+                    DocValuesUpdate::new(
+                        DocValuesType::Binary,
+                        term.clone(),
+                        name,
+                        MAX_INT,
+                        sub_update,
+                    )
+                },
+                _ => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "can only update NUMERIC or BINARY fields: field={}, type={:?}",
+                        name, dv_type
+                    )));
+                },
+            };
+
+            dv_updates.push(update);
+        }
+        Ok(dv_updates)
+    }
+
     /// Return an unmodifiable set of all field names as visible from this IndexWriter, across all segments of the index.
     pub fn get_field_names(&self) -> HashSet<String> {
         // FieldNumbers#getFieldNames() returns an unmodifiableSet
@@ -3197,14 +3521,19 @@ impl LongSupplier for LongSupplierImpl {
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC, get_default_code};
 use crate::core::document::fields::Fields;
-use crate::core::index::IndexFileNames;
+use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::doc_values_update::{
+    BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum, NumericDocValuesUpdate,
+};
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, OpenMode};
+use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -3216,6 +3545,7 @@ use crate::core::index::standard_directory_reader::{
     StandardDirectoryReaderType, open_with_reader_function,
 };
 use crate::core::index::term::Term;
+use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::query::Query;
 use crate::core::store::IOContext;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;

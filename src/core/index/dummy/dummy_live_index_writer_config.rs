@@ -89,6 +89,10 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         None
     }
 
+    fn get_index_sort_fields(&self) -> &[String] {
+        &[]
+    }
+
     fn get_use_compound_file(&self) -> bool {
         false
     }

@@ -51,6 +51,7 @@ pub trait LiveIndexWriterConfig: Display {
     fn get_codec(&self) -> &Self::Codec;
 
     fn get_index_sort(&self) -> Option<Arc<Sort>>;
+    fn get_index_sort_fields(&self) -> &[String];
 
     fn get_use_compound_file(&self) -> bool;
 
@@ -118,6 +119,7 @@ pub struct LiveIndexWriterConfigBase {
     pub check_pending_flush_on_update: bool,
     pub parent_field: Option<String>,
     pub sort: Option<Arc<Sort>>,
+    pub index_sort_fields: Vec<String>,
 }
 impl Default for LiveIndexWriterConfigBase {
     fn default() -> Self {
@@ -148,6 +150,7 @@ impl LiveIndexWriterConfigBase {
             check_pending_flush_on_update: true,
             parent_field: None,
             sort: None,
+            index_sort_fields: Vec::new(),
         }
     }
 }

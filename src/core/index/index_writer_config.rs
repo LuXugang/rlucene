@@ -76,6 +76,10 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
         self.base.sort.clone()
     }
 
+    fn get_index_sort_fields(&self) -> &[String] {
+        self.base.index_sort_fields.as_slice()
+    }
+
     fn get_use_compound_file(&self) -> bool {
         self.base.use_compound_file
     }
