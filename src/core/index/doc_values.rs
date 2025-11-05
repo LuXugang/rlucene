@@ -596,6 +596,7 @@ mod tests {
     fn test_binary_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         let mut doc = Document::new();
@@ -638,6 +639,7 @@ mod tests {
     fn test_sorted_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         let mut doc = Document::new();
@@ -675,9 +677,11 @@ mod tests {
         Ok(())
     }
     /// field with sortedset docvalues
+    #[test]
     fn test_sorted_set_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         let mut doc = Document::new();
@@ -720,6 +724,7 @@ mod tests {
     fn test_sorted_numeric_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         let mut doc = Document::new();

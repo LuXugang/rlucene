@@ -341,7 +341,7 @@ where
             }
             Option::from(Arc::new(table))
         } else {
-            Some(Arc::new(Vec::new()))
+            None
         };
 
         entry.block_shift = if table_size < -1 { -2 - table_size } else { -1 };
@@ -405,16 +405,13 @@ where
     }
     fn read_sorted_set(meta: &mut impl IndexInput) -> Result<SortedSetEntry> {
         let multi_valued = meta.read_byte()?;
-        let mut entry = match multi_valued {
+        let mut entry = SortedSetEntry::default();
+        match multi_valued {
             0 => {
-                let single_value_entry = Arc::new(Self::read_sorted(meta)?);
-                SortedSetEntry {
-                    single_value_entry: Some(single_value_entry),
-                    ords_entry: None,
-                    terms_dict_entry: None,
-                }
+                entry.single_value_entry = Some(Arc::new(Self::read_sorted(meta)?));
+                return Ok(entry);
             },
-            1 => SortedSetEntry::default(),
+            1 => {},
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
                     "Invalid multiValued flag: {multi_valued} resource {meta}"
