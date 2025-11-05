@@ -1220,7 +1220,7 @@ impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>
         &self,
         info: &Arc<FieldInfo>,
     ) -> Result<Option<MergedIterator<DocValuesFieldIteratorEnum>>> {
-        if !std::ptr::eq(info, &self.field_info) {
+        if !Arc::ptr_eq(info, &self.field_info) {
             return Err(LuceneError::illegal_argument(format!(
                 "expected field info for field: {} but got: {}",
                 self.field_info.name, info.name

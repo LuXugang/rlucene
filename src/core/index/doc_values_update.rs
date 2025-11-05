@@ -218,3 +218,104 @@ impl DocValuesUpdateBase for DocValuesUpdateEnum {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::BytesRef;
+    use crate::core::index::binary_doc_values::BinaryDocValues;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::term::Term;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_with_length, new_directory, new_index_writer_config, random,
+    };
+
+    #[allow(dead_code)] // for quick search
+    struct TestBinaryDocValuesUpdates;
+
+    fn get_value(bdv: &mut impl BinaryDocValues) -> Result<i64> {
+        let term = bdv.binary_value()?;
+        let mut idx = term.offset;
+        debug_assert!(term.length > 0);
+        let mut b = term.bytes[idx];
+        idx += 1;
+
+        let mut value = (b & 0x7F) as i64;
+        let mut shift = 7;
+        while (b as i64 & 0x80) != 0 {
+            b = term.bytes[idx];
+            idx += 1;
+            value |= ((b & 0x7F) as i64) << shift;
+            shift += 7;
+        }
+
+        Ok(value)
+    }
+    // encodes a long into a BytesRef as VLong so that we get varying number of bytes when we update
+    fn to_bytes(mut value: i64) -> Result<BytesRef<Vec<u8>>> {
+        let mut random = random();
+        let mut bytes: BytesRef<Vec<u8>> = new_bytes_ref_with_length(10, &mut random)?;
+        let mut upto = 0usize;
+
+        while (value & !0x7f) != 0 {
+            bytes.bytes[bytes.offset + upto] = ((value & 0x7f) | 0x80) as u8;
+            upto += 1;
+            value = ((value as u64) >> 7) as i64;
+        }
+
+        bytes.bytes[bytes.offset + upto] = value as u8;
+        upto += 1;
+        bytes.length = upto;
+
+        Ok(bytes)
+    }
+    fn doc(id: i32) -> Result<Document> {
+        let mut doc = Document::new();
+
+        let id_field = StringField::with_string("id", format!("doc-{}", id), Store::No)?;
+        doc.add(id_field);
+
+        let val_bytes = to_bytes((id + 1) as i64)?;
+        let val_field = BinaryDocValuesField::new("val", val_bytes);
+        doc.add(val_field);
+        Ok(doc)
+    }
+    #[test]
+    fn test_updates_are_flushed() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_ram_buffer_size_mb(0.00000001);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        writer.add_document(doc(0)?)?; // val=1
+        writer.add_document(doc(1)?)?; // val=2
+        writer.add_document(doc(3)?)?; // val=4
+        writer.commit()?;
+
+        assert_eq!(1, writer.get_flush_deletes_count());
+
+        writer.update_binary_doc_value(Term::from_text("id", "doc-0"), "val", to_bytes(5)?)?;
+        assert_eq!(2, writer.get_flush_deletes_count());
+
+        writer.update_binary_doc_value(Term::from_text("id", "doc-1"), "val", to_bytes(6)?)?;
+        assert_eq!(3, writer.get_flush_deletes_count());
+
+        writer.update_binary_doc_value(Term::from_text("id", "doc-2"), "val", to_bytes(7)?)?;
+        assert_eq!(4, writer.get_flush_deletes_count());
+
+        writer.get_config_mut().set_ram_buffer_size_mb(1000.0);
+        writer.update_binary_doc_value(Term::from_text("id", "doc-2"), "val", to_bytes(7)?)?;
+        assert_eq!(4, writer.get_flush_deletes_count());
+
+        writer.close()?;
+        Ok(())
+    }
+}

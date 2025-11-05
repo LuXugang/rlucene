@@ -495,6 +495,9 @@ where
     pub fn get_config(&self) -> &L {
         &self.config
     }
+    pub fn get_config_mut(&mut self) -> &mut L {
+        &mut self.config
+    }
     fn message_state(&mut self) -> Result<()> {
         if self.info_stream.enabled("IW") && !self.did_message_state {
             self.did_message_state = true;

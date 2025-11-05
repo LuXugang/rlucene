@@ -164,8 +164,8 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
         self.base.reader_pooling
     }
 
-    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase {
-        todo!()
+    fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase {
+        &mut self.base
     }
 }
 

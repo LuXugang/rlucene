@@ -95,7 +95,12 @@ pub trait LiveIndexWriterConfig: Display {
     fn get_index_created_version_major(&self) -> i32;
 
     fn get_reader_pooling(&self) -> bool;
-    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase;
+    fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase;
+
+    fn set_ram_buffer_size_mb(&mut self, ram_buffer_size_mb: f64) -> &mut Self {
+        self.get_base_mut().ram_buffer_size_mb = ram_buffer_size_mb;
+        self
+    }
 }
 
 pub struct LiveIndexWriterConfigBase {

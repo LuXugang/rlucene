@@ -176,7 +176,7 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         false
     }
 
-    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase {
+    fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

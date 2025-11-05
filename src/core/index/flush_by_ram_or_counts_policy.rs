@@ -24,6 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStream;
 use parking_lot::MutexGuard;
+use std::sync::Arc;
 /// Default [`FlushPolicy`] implementation that flushes new segments based on RAM usage and
 /// document count, depending on the `IndexWriter`'s [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig).
 /// It also applies pending deletes based on the number of buffered delete terms.
@@ -112,14 +113,16 @@ impl FlushByRamOrCountsPolicy {
         D: Directory,
         L: LiveIndexWriterConfig,
     {
-        let largest_non_pendingwriter =
+        let largest_non_pending_writer =
             self.find_largest_non_pending_writer_for_thread(control, per_thread);
-        if let Some(largest_non_pendingwriter) = largest_non_pendingwriter {
-            control.set_flush_pending(
-                &*largest_non_pendingwriter.dwpt.lock(),
-                Some(inner),
-                config,
-            )?;
+        if let Some(largest_non_pendingwriter) = largest_non_pending_writer {
+            // If the found instance is itself, then use the `per_thread` parameter; otherwise, it may cause a deadlock.
+            let v = if Arc::ptr_eq(&largest_non_pendingwriter.state, &per_thread.state) {
+                per_thread
+            } else {
+                &*largest_non_pendingwriter.dwpt.lock()
+            };
+            control.set_flush_pending(v, Some(inner), config)?;
         }
         Ok(())
     }

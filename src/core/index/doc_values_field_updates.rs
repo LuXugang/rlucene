@@ -312,7 +312,8 @@ where
     D: DocValuesFieldUpdatesBase,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
+        // TODO: memory calculation not implemented
+        Ok(0)
     }
 }
 
