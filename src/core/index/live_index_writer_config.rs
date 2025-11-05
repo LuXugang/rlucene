@@ -101,6 +101,11 @@ pub trait LiveIndexWriterConfig: Display {
         self.get_base_mut().ram_buffer_size_mb = ram_buffer_size_mb;
         self
     }
+
+    fn set_max_buffered_docs(&mut self, max_buffered_docs: i32) -> &mut Self {
+        self.get_base_mut().max_buffered_docs = max_buffered_docs;
+        self
+    }
 }
 
 pub struct LiveIndexWriterConfigBase {

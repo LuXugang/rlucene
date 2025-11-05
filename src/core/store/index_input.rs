@@ -19,7 +19,7 @@ use crate::core::store::{DataInput, ReadAdvice};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Pointer};
 
 /// Provides random-access input operations for files within a
 /// [`Directory`](crate::core::store::directory::Directory).
@@ -340,8 +340,11 @@ where
     A: IndexInput,
     B: IndexInput,
 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Either2IndexInput::A(w) => w.fmt(f),
+            Either2IndexInput::B(w) => w.fmt(f),
+        }
     }
 }
 

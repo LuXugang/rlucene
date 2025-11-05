@@ -20,6 +20,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -42,7 +43,7 @@ pub struct FieldInfos {
     pub soft_deletes_field: Option<String>,
 
     pub parent_field: Option<String>,
-    pub by_number: Vec<Arc<FieldInfo>>,
+    pub by_number: Vec<Option<Arc<FieldInfo>>>,
     pub by_name: HashMap<String, Arc<FieldInfo>>,
     pub values: Vec<Arc<FieldInfo>>,
 }
@@ -64,7 +65,7 @@ impl FieldInfos {
         let mut soft_deletes_field: Option<String> = None;
         let mut parent_field: Option<String> = None;
 
-        let mut by_name = HashMap::new();
+        let mut by_name = CollectionUtil::new_hashmap(infos.len());
         let mut max_field_number = -1;
         let mut field_number_strictly_ascending = true;
 
@@ -125,26 +126,42 @@ impl FieldInfos {
             }
         }
 
+        let mut by_number: Vec<Option<Arc<FieldInfo>>> = Vec::with_capacity(infos.len());
+        let mut values: Vec<Arc<FieldInfo>> = Vec::with_capacity(infos.len());
         if field_number_strictly_ascending && (max_field_number as usize == infos.len() - 1) {
             // The input FieldInfo[] contains all fields numbered from 0 to
             // infos.length - 1, and they are sorted, use it
             // directly. This is an optimization when reading a segment with all
             // fields since the FieldInfo[] is sorted.
+            for x in &infos {
+                by_number.push(Some(x.clone()));
+            }
+            values = infos.clone();
         } else {
-            infos.sort_by(|a, b| a.number.cmp(&b.number));
-            #[cfg(debug_assertions)]
-            {
-                let mut seen_numbers = HashSet::new();
-                for field in infos.iter() {
-                    debug_assert!(
-                        seen_numbers.insert(field.number),
-                        "Duplicate number found: {}",
-                        field.number
-                    );
+            by_number = vec![None; max_field_number as usize + 1];
+            for field_info in &infos {
+                match &by_number[field_info.number as usize] {
+                    None => {},
+                    Some(existing) => {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "duplicate field numbers: {} and {} have: {}",
+                            existing.name, field_info.name, field_info.number
+                        )));
+                    },
                 }
+                by_number[field_info.number as usize] = Some(field_info.clone());
+            }
+            if max_field_number as usize == infos.len() - 1 {
+                for fi in by_number.iter().flatten() {
+                    values.push(fi.clone())
+                }
+            } else {
+                if !field_number_strictly_ascending {
+                    infos.sort_by_key(|fi| fi.number);
+                }
+                values = infos.clone();
             }
         }
-        let by_number: Vec<Arc<FieldInfo>> = infos.clone();
 
         Ok(FieldInfos {
             has_freq,
@@ -161,7 +178,7 @@ impl FieldInfos {
             parent_field,
             by_number,
             by_name,
-            values: infos.clone(),
+            values,
         })
     }
     /// Returns true if any fields have freqs.
@@ -257,10 +274,10 @@ impl FieldInfos {
                 "Illegal field number: {field_number}"
             )));
         }
-        match self.by_number.get(field_number as usize) {
-            Some(fi) => Ok(Some(fi.clone())),
-            None => Ok(None),
-        }
+        Ok(self
+            .by_number
+            .get(field_number as usize)
+            .and_then(|fi| fi.clone()))
     }
 }
 impl<'a> IntoIterator for &'a FieldInfos {

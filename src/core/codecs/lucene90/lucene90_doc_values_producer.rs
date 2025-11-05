@@ -1363,7 +1363,7 @@ where
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        if self.doc >= self.max_doc {
+        if target >= self.max_doc {
             self.doc = NO_MORE_DOCS;
         } else {
             self.doc = target;

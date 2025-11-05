@@ -221,21 +221,27 @@ impl DocValuesUpdateBase for DocValuesUpdateEnum {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
     use crate::core::document::string_field::StringField;
     use crate::core::index::BytesRef;
     use crate::core::index::binary_doc_values::BinaryDocValues;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
+    use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::term::Term;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_with_length, new_directory, new_index_writer_config, random,
     };
+    use rand::Rng;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestBinaryDocValuesUpdates;
@@ -316,6 +322,53 @@ mod tests {
         assert_eq!(4, writer.get_flush_deletes_count());
 
         writer.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_simple() -> Result<()> {
+        let mut random = random();
+        // TODO: 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        // make sure random config doesn't flush on us
+        config.set_max_buffered_docs(10);
+        config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        writer.add_document(doc(0)?)?; // val=1
+        writer.add_document(doc(1)?)?; // val=2
+
+        if random.random_bool(0.5) {
+            // randomly commit before the update is sent
+            writer.commit()?;
+        }
+
+        writer.update_binary_doc_value(Term::from_text("id", "doc-0"), "val", to_bytes(2)?)?; // doc=0, exp=2
+
+        // Open reader: either NRT or non-NRT
+        let reader = if random.random_bool(0.5) {
+            writer.close()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            writer.close()?;
+            r
+        };
+
+        let reader = get_context(Arc::new(reader))?;
+        assert_eq!(1, reader.leaves()?.len());
+        let leaf = &reader.leaves()?[0];
+        let r = leaf.reader();
+
+        let mut bdv = r.get_binary_doc_values("val")?.unwrap();
+        assert_eq!(0, bdv.next_doc()?);
+        assert_eq!(2, get_value(&mut bdv)?);
+
+        assert_eq!(1, bdv.next_doc()?);
+        assert_eq!(2, get_value(&mut bdv)?);
+
         Ok(())
     }
 }
