@@ -29,6 +29,8 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 
 /// This struct keeps track of each `SegmentInfos` instance that is still "live", either because it
 /// corresponds to a `segments_N` file in the `Directory` (a "commit", i.e. a committed
@@ -68,7 +70,7 @@ where
     last_files: Vec<String>,
 
     /// Commits that the IndexDeletionPolicy have decided to delete.
-    commits_to_delete: Vec<CommitPoint<D>>,
+    commits_to_delete: Arc<AtomicBool>,
 
     info_stream: InfoStreamMT,
     directory_orig: Arc<D>,
@@ -123,7 +125,7 @@ where
         let mut index_file_deleter = Self {
             commits,
             last_files: Vec::new(),
-            commits_to_delete: Vec::new(),
+            commits_to_delete: Arc::new(AtomicBool::new(false)),
             info_stream,
             directory_orig: directory_orig.clone(),
             directory,
@@ -155,7 +157,11 @@ where
                                 .message("IFD", &format!("init: load commit \"{file}\""));
                         }
                         let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?;
-                        let commit_point = CommitPoint::new(directory_orig.clone(), &sis)?;
+                        let commit_point = CommitPoint::new(
+                            index_file_deleter.commits_to_delete.clone(),
+                            directory_orig.clone(),
+                            &sis,
+                        )?;
                         index_file_deleter.commits.push(commit_point);
                         let index = index_file_deleter.commits.len() - 1;
                         if sis.get_generation() == current_gen {
@@ -199,7 +205,11 @@ where
                     ),
                 );
             }
-            let commit_point = CommitPoint::new(directory_orig.clone(), &sis)?;
+            let commit_point = CommitPoint::new(
+                index_file_deleter.commits_to_delete.clone(),
+                directory_orig.clone(),
+                &sis,
+            )?;
             index_file_deleter.commits.push(commit_point);
             current_commit_point = Some(index_file_deleter.commits.len());
             index_file_deleter.inc_ref_from_segment(&sis, true)?;
@@ -298,15 +308,24 @@ where
     }
     /// Remove the CommitPoints in the commitsToDelete List by DecRef'ing all files from each SegmentInfos.
     fn delete_commits(&mut self) -> Result<()> {
-        // TODO：important 这里应该总是为0 因为 没有将commits_to_delete作为CommitPoint的字段
-        let size = self.commits_to_delete.len();
-        if size == 0 {
+        if !self.commits_to_delete.load(SeqCst) {
             return Ok(());
         }
-        // First decref all files that had been referred to by
+        // Now compact commits to remove deleted ones (preserving the sort):
+        let mut write_to = 0;
+        for read_from in 0..self.commits.len() {
+            if !self.commits[read_from].deleted {
+                if write_to != read_from {
+                    self.commits.swap(read_from, write_to);
+                }
+                write_to += 1;
+            }
+        }
+        let removed = self.commits.split_off(write_to);
+
+        // then decref all files that had been referred to by
         // the now-deleted commits:
-        let commits_to_delete = std::mem::take(&mut self.commits_to_delete);
-        for mut commit in commits_to_delete {
+        for mut commit in removed {
             if self.info_stream.enabled("IFD") {
                 self.info_stream.message(
                     "IFD",
@@ -319,18 +338,7 @@ where
             let files = std::mem::take(&mut commit.files);
             self.dec_ref(files.iter())?
         }
-
-        // Now compact commits to remove deleted ones (preserving the sort):
-        let mut write_to = 0;
-        for read_from in 0..self.commits.len() {
-            if !self.commits[read_from].deleted {
-                if write_to != read_from {
-                    self.commits.swap(read_from, write_to);
-                }
-                write_to += 1;
-            }
-        }
-        self.commits.truncate(write_to);
+        self.commits_to_delete.store(false, SeqCst);
         Ok(())
     }
 
@@ -446,6 +454,7 @@ where
         if is_commit {
             // Append to our commits list:
             self.commits.push(CommitPoint::new(
+                Arc::clone(&self.commits_to_delete),
                 Arc::clone(&self.directory_orig),
                 segment_infos,
             )?);
@@ -541,12 +550,17 @@ pub(crate) struct CommitPoint<D> {
     pub(crate) generation: i64,
     pub(crate) user_data: HashMap<String, String>,
     pub(crate) segment_count: usize,
+    pub(crate) commits_to_delete: Arc<AtomicBool>,
 }
 impl<D> CommitPoint<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(directory_orig: Arc<D>, segment_infos: &SegmentInfos<D>) -> Result<Self> {
+    pub(crate) fn new(
+        commits_to_delete: Arc<AtomicBool>,
+        directory_orig: Arc<D>,
+        segment_infos: &SegmentInfos<D>,
+    ) -> Result<Self> {
         // TODO：是不是只要保存segment的ID就行,避免一些拷贝
         let user_data = segment_infos.get_user_data().clone();
         let segments_file_name = segment_infos
@@ -564,6 +578,7 @@ where
             generation,
             user_data,
             segment_count,
+            commits_to_delete,
         })
     }
 }
@@ -633,7 +648,8 @@ where
     fn delete(&mut self) -> Result<()> {
         if !self.deleted {
             self.deleted = true;
-            // TODO 未完成
+            self.commits_to_delete
+                .store(true, std::sync::atomic::Ordering::SeqCst);
         }
         Ok(())
     }

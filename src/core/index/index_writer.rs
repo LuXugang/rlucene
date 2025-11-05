@@ -445,46 +445,13 @@ where
 
         fields1 == &fields2[..fields1.len()]
     }
-    // reads latest field infos for the commit
-    // this is used on IW init and addIndexes(Dir) to create/update the global field map.
-    // TODO: fix tests abusing this method!
-    fn read_field_infos(si: &SegmentCommitInfo<D>) -> Result<FieldInfos> {
-        let codec = get_default_code();
-        let reader = codec.field_infos_format();
-
-        if si.has_field_updates() {
-            // there are updates, we read latest (always outside of CFS)
-            let segment_suffix = BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
-            reader.read(
-                si.info.dir.as_ref(),
-                &si.info,
-                &segment_suffix,
-                &IOContext::read_once_io_context()?,
-            )
-        } else if si.info.get_use_compound_file() {
-            // cfs
-            let cfs = codec
-                .compound_format()
-                .get_compound_reader(si.info.dir.as_ref(), &si.info)?;
-            let fis = reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?)?;
-            Ok(fis)
-        } else {
-            // no cfs
-            reader.read(
-                si.info.dir.as_ref(),
-                &si.info,
-                "",
-                &IOContext::read_once_io_context()?,
-            )
-        }
-    }
     /// Loads or returns the already loaded the global field number map for this [`SegmentInfos`].
     /// If this [`SegmentInfos`] has no global field number map the returned instance is empty
     fn get_field_number_map(config: &L, segment_infos: &SegmentInfos<D>) -> Result<FieldNumbers> {
         let mut map =
             FieldNumbers::new(config.get_soft_deletes_field(), config.get_parent_field())?;
         for info in segment_infos.iter() {
-            let fis = Self::read_field_infos(info)?;
+            let fis = read_field_infos(info)?;
             for fi in fis.iter() {
                 map.add_or_get(fi)?;
             }
@@ -3628,6 +3595,42 @@ fn set_diagnostics_impl<D>(
         }
     }
     info.set_diagnostics(diagnostics);
+}
+// reads latest field infos for the commit
+// this is used on IW init and addIndexes(Dir) to create/update the global field map.
+// TODO: fix tests abusing this method!
+pub(crate) fn read_field_infos<D>(si: &SegmentCommitInfo<D>) -> Result<FieldInfos>
+where
+    D: Directory,
+{
+    let codec = get_default_code();
+    let reader = codec.field_infos_format();
+
+    if si.has_field_updates() {
+        // there are updates, we read latest (always outside of CFS)
+        let segment_suffix = BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
+        reader.read(
+            si.info.dir.as_ref(),
+            &si.info,
+            &segment_suffix,
+            &IOContext::read_once_io_context()?,
+        )
+    } else if si.info.get_use_compound_file() {
+        // cfs
+        let cfs = codec
+            .compound_format()
+            .get_compound_reader(si.info.dir.as_ref(), &si.info)?;
+        let fis = reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?)?;
+        Ok(fis)
+    } else {
+        // no cfs
+        reader.read(
+            si.info.dir.as_ref(),
+            &si.info,
+            "",
+            &IOContext::read_once_io_context()?,
+        )
+    }
 }
 /// NOTE: this method creates a compound file for all files returned by `info.files()`. While,
 /// generally, this may include separate norms and deletion files, this `SegmentInfo` must not

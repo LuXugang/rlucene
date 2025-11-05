@@ -893,13 +893,93 @@ mod tests {
     use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::core::util::error::lucene_error::Result;
 
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::index_writer::{IndexWriter, read_field_infos};
+    use crate::core::index::segment_infos::SegmentInfos;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestFieldInfos;
     #[test]
     fn test_field_infos() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        // TODO: 未定义NoMergePolicy
+        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut d1 = Document::new();
+        for i in 0..15 {
+            d1.add(StringField::with_string(
+                format!("f{}", i),
+                format!("v{}", i),
+                Store::Yes,
+            )?);
+        }
+        writer.add_document(d1)?;
+        writer.commit()?;
+
+        let mut d2 = Document::new();
+        d2.add(StringField::with_string("f0", "v0", Store::Yes)?);
+        d2.add(StringField::with_string("f15", "v15", Store::Yes)?);
+        d2.add(StringField::with_string("f16", "v16", Store::Yes)?);
+        writer.add_document(d2)?;
+        writer.commit()?;
+
+        let d3 = Document::new();
+        writer.add_document(d3)?;
+        writer.close()?;
+
+        // --- verify segment infos ---
+        let sis = SegmentInfos::read_latest_commit(dir.clone())?;
+        assert_eq!(3, sis.size());
+
+        let fis1 = read_field_infos(sis.info_idx(0).unwrap())?;
+        let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
+        let fis3 = read_field_infos(sis.info_idx(2).unwrap())?;
+
+        // --- dense FieldInfos ---
+        let iter = fis1.iter();
+        let mut i = 0;
+        for fi in iter {
+            assert_eq!(i, fi.number);
+            assert_eq!(format!("f{}", i), fi.name);
+            assert_eq!(
+                format!("f{}", i),
+                fis1.field_info_by_number(i)?.unwrap().name
+            ); // lookup by number
+            assert_eq!(
+                format!("f{}", i),
+                fis1.field_info_by_name(&format!("f{}", i)).unwrap().name
+            ); // lookup by name
+            i += 1;
+        }
+
+        // testing sparse FieldInfos
+        assert_eq!("f0", fis2.field_info_by_number(0)?.unwrap().name);
+        assert_eq!("f0", fis2.field_info_by_name("f0").unwrap().name);
+        assert!(fis2.field_info_by_number(1)?.is_none());
+        assert!(fis2.field_info_by_name("f1").is_none());
+        assert_eq!("f15", fis2.field_info_by_number(15)?.unwrap().name);
+        assert_eq!("f15", fis2.field_info_by_name("f15").unwrap().name);
+        assert_eq!("f16", fis2.field_info_by_number(16)?.unwrap().name);
+        assert_eq!("f16", fis2.field_info_by_name("f16").unwrap().name);
+
+        // testing empty FieldInfos
+        assert!(fis3.field_info_by_number(0)?.is_none());
+        assert!(fis3.field_info_by_name("f0").is_none());
+        assert_eq!(0, fis3.size());
+        let mut it3 = fis3.iter();
+        assert!(it3.next().is_none());
+
         Ok(())
     }
     #[test]
