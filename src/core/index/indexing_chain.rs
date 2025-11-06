@@ -136,6 +136,9 @@ where
     next_field_gen: i64,
     fields: Vec<i32>,
     doc_fields: Vec<Option<PerField>>,
+    // When adding a new PerField, if a hash collision occurs,
+    // Put it into `hash_conflict_doc_fields`; otherwise, put it into `doc_fields`.
+    hash_conflict_doc_fields: Vec<PerField>,
     info_stream: InfoStreamMT,
     byte_block_allocator: MTAllocatorByteEnum,
     index_created_version_major: i32,
@@ -205,6 +208,7 @@ where
             next_field_gen: 0,
             fields: vec![0; 1],
             doc_fields: vec![],
+            hash_conflict_doc_fields: vec![],
             byte_block_allocator,
             info_stream,
             index_created_version_major,
@@ -970,14 +974,20 @@ where
     /// Returns a previously created [`PerField`], absorbing the type information from
     /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
     pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> i32 {
+        // let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
         let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
-        let mut pf;
+        let mut conflict = false;
         while per_field_index >= 0 {
-            pf = &self.doc_fields[per_field_index as usize];
-            let pf_as_ref = pf.as_ref().unwrap();
-            if pf_as_ref.field_name != field_name {
-                per_field_index = pf_as_ref.next;
+            let pf = if conflict {
+                &self.hash_conflict_doc_fields[per_field_index as usize]
+            } else {
+                debug_assert!(self.doc_fields.get(per_field_index as usize).is_some());
+                self.doc_fields[per_field_index as usize].as_ref().unwrap()
+            };
+            if pf.field_name != field_name {
+                conflict = true;
+                per_field_index = pf.next;
             } else {
                 break;
             }
@@ -990,11 +1000,25 @@ where
                 schema,
                 reserved,
             );
-            pf.next = self.field_hash[hash_pos];
-            per_field_index = self.doc_fields.len() as i32;
-            pf.idx_in_doc_field = per_field_index;
-            self.doc_fields.push(Some(pf));
-            self.field_hash[hash_pos] = per_field_index;
+            // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
+            if conflict {
+                per_field_index = self.field_hash[hash_pos];
+                let index = per_field_index as usize;
+                // take old PerField;
+                let old_per_field = self.doc_fields[index].take().unwrap();
+                let new_idx = self.hash_conflict_doc_fields.len() as i32;
+                // move old PerField to `hash_conflict_doc_fields` list
+                self.hash_conflict_doc_fields.push(old_per_field);
+                // new PerField points to old one
+                pf.next = new_idx;
+                // pub new PerField in `doc_fields` list
+                self.doc_fields[index] = Some(pf);
+            } else {
+                per_field_index = self.doc_fields.len() as i32;
+                pf.idx_in_doc_field = per_field_index;
+                self.doc_fields.push(Some(pf));
+                self.field_hash[hash_pos] = per_field_index;
+            }
             self.total_field_count += 1;
 
             if self.total_field_count >= (self.field_hash.len() >> 1) {
@@ -1277,6 +1301,7 @@ pub(crate) struct PerField {
     pub(crate) point_values_writer: Option<PointValuesWriter>,
     // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
     pub(crate) field_gen: i64,
+    // index Of PerFiled in IndexChain#hash_conflict_doc_fields with same field name hash,
     pub(crate) next: i32,
     pub(crate) norms: Option<NormValuesWriter>,
     pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
@@ -1301,7 +1326,7 @@ impl PerField {
             doc_values_writer: None,
             point_values_writer: None,
             field_gen: -1,
-            next: 0,
+            next: -1,
             norms: None,
             token_stream: None,
             first: false,
