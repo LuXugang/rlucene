@@ -229,6 +229,7 @@ mod tests {
     use crate::core::index::binary_doc_values::BinaryDocValues;
     use crate::core::index::composite_reader::get_context;
     use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
@@ -368,6 +369,64 @@ mod tests {
 
         assert_eq!(1, bdv.next_doc()?);
         assert_eq!(2, get_value(&mut bdv)?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_update_few_segments() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(2); // generate few segments
+        // TODO: 未实现 NoMergePolicy
+        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        let num_docs = 10;
+        let mut expected_values = vec![0i64; num_docs];
+        for i in 0..num_docs {
+            writer.add_document(doc(i as i32)?)?;
+            expected_values[i] = (i + 1) as i64;
+        }
+        writer.commit()?;
+
+        // update few docs
+        for i in 0..num_docs {
+            if random.random_range(0.0..1.0) < 0.4 {
+                let value = ((i + 1) * 2) as i64;
+                writer.update_binary_doc_value(
+                    Term::from_text("id", &format!("doc-{i}")),
+                    "val",
+                    to_bytes(value)?,
+                )?;
+                expected_values[i] = value;
+            }
+        }
+
+        let reader = if random.random_bool(0.5) {
+            writer.close()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            writer.close()?;
+            r
+        };
+        let reader = get_context(Arc::new(reader))?;
+        for context in reader.leaves()?.iter() {
+            let r = context.reader();
+            let bdv = r.get_binary_doc_values("val")?;
+            assert!(bdv.is_some(), "BinaryDocValues should not be None");
+            let mut bdv = bdv.unwrap();
+
+            let max_doc = r.max_doc()?;
+            for i in 0..max_doc {
+                assert_eq!(i, bdv.next_doc()?);
+                let expected = expected_values[(i + context.doc_base) as usize];
+                let actual = get_value(&mut bdv)?;
+                assert_eq!(expected, actual);
+            }
+        }
 
         Ok(())
     }

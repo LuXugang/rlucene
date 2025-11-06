@@ -473,8 +473,6 @@ where
                     );
                     fields_consumer.add_numeric_field(&field_info, &v)?;
                 }
-
-                drop(fields_consumer);
             }
 
             info.advance_doc_values_gen();

@@ -329,9 +329,10 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>> {
-        if let Some(e) = reuse
+        if let Some(mut e) = reuse
             && e.can_reuse(&self.doc_in, field_info, flags, false, self)
         {
+            e.reset(term_state, flags, self)?;
             return Ok(Some(e));
         }
 

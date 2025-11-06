@@ -2740,7 +2740,7 @@ where
                     InfoFrom::Updates => {
                         vec![updates.private_segment.as_ref().unwrap()]
                     },
-                    InfoFrom::All => inner.segment_infos.segments.keys().collect(),
+                    InfoFrom::All => inner.segment_infos.segments_idx.iter().collect::<Vec<_>>(),
                 };
                 for id in &keys {
                     let info = inner
@@ -2752,6 +2752,7 @@ where
                 let v = match v {
                     InfoFrom::None => return Err(LuceneError::unreachable("should not be here")),
                     InfoFrom::Updates => Some(updates.private_segment.as_ref().unwrap()),
+                    // all segments
                     InfoFrom::All => None,
                 };
                 // Must open while holding IW lock so that e.g. segments are not merged
@@ -3066,7 +3067,8 @@ where
 
         let result: Result<()> = (|| {
             let infos = match info_from {
-                None => inner.segment_infos.segments.keys().collect(),
+                // all segments, `segments_idx`'s values are sorted by segment name
+                None => inner.segment_infos.segments_idx.iter().collect::<Vec<_>>(),
                 Some(it) => vec![it],
             };
             for info_id in infos {

@@ -314,7 +314,7 @@ impl FrozenBufferedUpdates {
             let inner = seg_state.rld.inner.lock();
             let reader = inner.reader.as_ref().unwrap();
             let mut term_docs_iterator = TermDocsIterator::new(
-                TermsProviderImpl2::new(reader.clone()),
+                TermsProviderImpl2::new(reader.as_ref()),
                 iterator.is_sorted_terms(),
             );
             let mut dv_updates = None;
@@ -426,10 +426,10 @@ impl FrozenBufferedUpdates {
         }
 
         // now freeze & publish:
-        for mut upd in resolved_updates {
-            if upd.any() {
-                upd.finish()?;
-                seg_state.rld.add_dv_update(upd)?;
+        for mut update in resolved_updates {
+            if update.any() {
+                update.finish()?;
+                seg_state.rld.add_dv_update(update)?;
             }
         }
 
@@ -470,10 +470,9 @@ impl FrozenBufferedUpdates {
             let mut iter = self.delete_terms.iterator();
             {
                 let mut inner = seg_state.rld.inner.lock();
-                let mut term_docs_iter = TermDocsIterator::new(
-                    TermsProviderImpl2::new(inner.reader.as_ref().unwrap().clone()),
-                    true,
-                );
+                let reader = inner.reader.as_ref().unwrap().clone();
+                let mut term_docs_iter =
+                    TermDocsIterator::new(TermsProviderImpl2::new(&reader), true);
                 while iter.set_next()? {
                     if let Some(it) =
                         term_docs_iter.next_term(iter.field(), &iter.builder.bytes_ref)?
@@ -696,7 +695,7 @@ type Disi<P> = <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>:
 
 pub(crate) trait TermsProvider {
     type Terms: Terms;
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>>;
 }
 
 pub(crate) struct TermsProviderImpl1<'a, F>
@@ -719,32 +718,32 @@ where
 {
     type Terms = F::Terms;
 
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         self.fields.terms(field)
     }
 }
 
-struct TermsProviderImpl2<L>
+struct TermsProviderImpl2<'a, L>
 where
     L: LeafReader,
 {
-    reader: L,
+    reader: &'a L,
 }
-impl<L> TermsProviderImpl2<L>
+impl<'a, L> TermsProviderImpl2<'a, L>
 where
     L: LeafReader,
 {
-    pub(crate) fn new(reader: L) -> Self {
+    pub(crate) fn new(reader: &'a L) -> Self {
         Self { reader }
     }
 }
-impl<L> TermsProvider for TermsProviderImpl2<L>
+impl<'a, L> TermsProvider for TermsProviderImpl2<'_, L>
 where
     L: LeafReader,
 {
     type Terms = L::Terms;
 
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         self.reader.terms(field)
     }
 }
