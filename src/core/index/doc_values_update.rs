@@ -224,6 +224,9 @@ mod tests {
     use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+    use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
     use crate::core::document::string_field::StringField;
     use crate::core::index::BytesRef;
     use crate::core::index::binary_doc_values::BinaryDocValues;
@@ -235,11 +238,16 @@ mod tests {
     use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::index::sorted_doc_values::SortedDocValues;
+    use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
     use crate::core::index::term::Term;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_with_length, new_directory, new_index_writer_config, random,
+        new_bytes_ref_from_string, new_bytes_ref_with_length, new_directory,
+        new_index_writer_config, random,
     };
     use rand::Rng;
     use std::sync::Arc;
@@ -425,6 +433,148 @@ mod tests {
                 let expected = expected_values[(i + context.doc_base) as usize];
                 let actual = get_value(&mut bdv)?;
                 assert_eq!(expected, actual);
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_reopen() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_updates_and_deletes() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_updates_with_deletes() -> Result<()> {
+        let mut random = random();
+        // update and delete different documents in the same commit session
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(10); // control segment flushing
+        // config.set_merge_policy(NoMergePolicy::INSTANCE);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        writer.add_document(doc(0)?)?;
+        writer.add_document(doc(1)?)?;
+
+        if random.random_bool(0.5) {
+            writer.commit()?;
+        }
+
+        // update and delete different documents in the same commit session
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "doc-0")])?;
+        writer.update_binary_doc_value(Term::from_text("id", "doc-1"), "val", to_bytes(17_i64)?)?;
+
+        // open reader
+        let reader = if random.random_bool(0.5) {
+            writer.close()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            writer.close()?;
+            r
+        };
+        let reader = get_context(Arc::new(reader))?;
+        let leaves = reader.leaves()?;
+        let r = leaves[0].reader();
+        let live_docs = r.get_live_docs()?.unwrap();
+        assert!(!live_docs.get(0));
+
+        let mut bdv = r.get_binary_doc_values("val")?.unwrap();
+        assert_eq!(1, bdv.advance(1)?);
+        assert_eq!(17_i64, get_value(&mut bdv)?);
+
+        Ok(())
+    }
+    fn test_multiple_doc_values_types() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(10); // prevent merges
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        for i in 0..4 {
+            let mut doc = Document::new();
+            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            doc.add(NumericDocValuesField::new("ndv", i as i64));
+            doc.add(BinaryDocValuesField::new(
+                "bdv",
+                new_bytes_ref_from_string(&mut random, &i.to_string())?,
+            ));
+            doc.add(SortedDocValuesField::new(
+                "sdv",
+                new_bytes_ref_from_string(&mut random, &i.to_string())?,
+            ));
+            doc.add(SortedSetDocValuesField::new(
+                "ssdv",
+                new_bytes_ref_from_string(&mut random, &i.to_string())?,
+            ));
+            doc.add(SortedSetDocValuesField::new(
+                "ssdv",
+                new_bytes_ref_from_string(&mut random, &(i * 2).to_string())?,
+            ));
+            writer.add_document(doc)?;
+        }
+        writer.commit()?;
+
+        // update all docs' bdv field
+        writer.update_binary_doc_value(
+            Term::from_text("dvUpdateKey", "dv"),
+            "bdv",
+            to_bytes(17_i64)?,
+        )?;
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+        let leaves = reader.leaves()?;
+        let r = leaves[0].reader();
+
+        let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
+        let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
+        let mut sdv = r.get_sorted_doc_values("sdv")?.unwrap();
+        let mut ssdv = r.get_sorted_set_doc_values("ssdv")?.unwrap();
+
+        let max_doc = r.max_doc()?;
+        for i in 0..max_doc {
+            // NumericDocValues
+            assert_eq!(i, ndv.next_doc()?);
+            assert_eq!(i as i64, ndv.long_value()?);
+
+            // BinaryDocValues
+            assert_eq!(i, bdv.next_doc()?);
+            assert_eq!(17_i64, get_value(&mut bdv)?);
+
+            // SortedDocValues
+            assert_eq!(i, sdv.next_doc()?);
+            let v = sdv.ord_value()?;
+            let term = sdv.lookup_ord(v)?;
+            let v: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, &i.to_string())?;
+            assert_eq!(&v, term.as_ref());
+
+            // SortedSetDocValues
+            assert_eq!(i, ssdv.next_doc()?);
+            let ord = ssdv.next_ord()?;
+            let term = ssdv.lookup_ord(ord)?;
+            let parsed = term.utf8_to_string()?.parse::<i32>()?;
+            assert_eq!(i, parsed);
+            // For the i=0 case, we added the same value twice, which was dedup'd by IndexWriter so it has
+            // only one value:
+            if i == 0 {
+                assert_eq!(1, ssdv.doc_value_count()?);
+            } else {
+                assert_eq!(2, ssdv.doc_value_count()?);
+                let ord = ssdv.next_ord()?;
+                let term = ssdv.lookup_ord(ord)?;
+                let parsed = term.utf8_to_string()?.parse::<i32>()?;
+                assert_eq!(i * 2, parsed);
             }
         }
 

@@ -31,9 +31,10 @@ impl ReaderUtil {
     }
     pub fn sub_index(n: i32, doc_starts: &[i32]) -> usize {
         debug_assert!(doc_starts.len() <= i32::MAX as usize);
+        // find searcher/reader for doc n:
         let size = doc_starts.len();
-        let mut lo: i32 = 0;
-        let mut hi: i32 = (size as i32) - 1;
+        let mut lo: i32 = 0; // search starts array
+        let mut hi: i32 = (size as i32) - 1; // for first element less than n, return its index
 
         while hi >= lo {
             let mid = (lo + hi) >> 1;
@@ -43,9 +44,10 @@ impl ReaderUtil {
             } else if n > mid_value {
                 lo = mid + 1;
             } else {
+                // found a match
                 let mut mid = mid;
                 while (mid + 1) < size as i32 && doc_starts[(mid + 1) as usize] == mid_value {
-                    mid += 1;
+                    mid += 1; // scan to last match
                 }
                 return mid as usize;
             }

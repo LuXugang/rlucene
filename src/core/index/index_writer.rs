@@ -502,8 +502,9 @@ where
                 Ok(_) => {
                     // TODO : rollback 未实现
                 },
-                Err(_e) => {
+                Err(e) => {
                     // TODO : rollback 未实现
+                    return Err(e);
                 },
             }
         }
@@ -2362,7 +2363,8 @@ where
     ///
     /// @lucene.internal
     fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
-        todo!()
+        // TODO
+        Ok(())
     }
 
     /// This method set the tragic exception unless it's already set and closes the writer if necessary.

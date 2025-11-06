@@ -430,7 +430,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
     >;
 
     fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-        if Arc::ptr_eq(&self.field_info, field_info) {
+        if !Arc::ptr_eq(&self.field_info, field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         let buf = SortedSetDocValuesWriter::get_values(
