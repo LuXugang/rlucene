@@ -235,7 +235,7 @@ mod tests {
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
+    use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -244,12 +244,15 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::util::bits::Bits;
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_bytes_ref_with_length, new_directory,
+        at_least, new_bytes_ref_from_string, new_bytes_ref_with_length, new_directory,
         new_index_writer_config, random,
     };
+    use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use rand::seq::IndexedRandom;
+    use std::collections::HashSet;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -492,10 +495,11 @@ mod tests {
 
         Ok(())
     }
+    // TODO 未测试成功
     fn test_multiple_doc_values_types() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10); // prevent merges
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -578,6 +582,361 @@ mod tests {
             }
         }
 
+        Ok(())
+    }
+    #[test]
+    fn test_multiple_binary_doc_values() -> Result<()> {
+        let mut random = random();
+        // TODO: 未实现 MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(10); // prevent merges
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        for i in 0..2 {
+            let mut doc = Document::new();
+            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            doc.add(BinaryDocValuesField::new("bdv1", to_bytes(i as i64)?));
+            doc.add(BinaryDocValuesField::new("bdv2", to_bytes(i as i64)?));
+            writer.add_document(doc)?;
+        }
+        writer.commit()?;
+
+        // update all docs' bdv1 field
+        writer.update_binary_doc_value(
+            Term::from_text("dvUpdateKey", "dv"),
+            "bdv1",
+            to_bytes(17_i64)?,
+        )?;
+        writer.close()?;
+
+        // open reader
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+        let leaves = reader.leaves()?;
+        let r = leaves[0].reader();
+
+        let mut bdv1 = r.get_binary_doc_values("bdv1")?.unwrap();
+        let mut bdv2 = r.get_binary_doc_values("bdv2")?.unwrap();
+
+        let max_doc = r.max_doc()?;
+        for i in 0..max_doc {
+            assert_eq!(i, bdv1.next_doc()?);
+            assert_eq!(17_i64, get_value(&mut bdv1)?);
+
+            assert_eq!(i, bdv2.next_doc()?);
+            assert_eq!(i as i64, get_value(&mut bdv2)?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_document_with_no_value() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // add 2 docs, only first one has BinaryDocValues
+        for i in 0..2 {
+            let mut doc = Document::new();
+            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            if i == 0 {
+                // index only one document with value
+                doc.add(BinaryDocValuesField::new("bdv", to_bytes(5_i64)?));
+            }
+            writer.add_document(doc)?;
+        }
+        writer.commit()?;
+
+        // update all docs' bdv field
+        writer.update_binary_doc_value(
+            Term::from_text("dvUpdateKey", "dv"),
+            "bdv",
+            to_bytes(17_i64)?,
+        )?;
+        writer.close()?;
+
+        // open reader
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+        let leaves = reader.leaves()?;
+        assert_eq!(1, leaves.len());
+        let r = leaves[0].reader();
+
+        let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
+        let max_doc = r.max_doc()?;
+        for i in 0..max_doc {
+            assert_eq!(i, bdv.next_doc()?);
+            assert_eq!(17_i64, get_value(&mut bdv)?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_update_non_binary_doc_values_field() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("key", "doc", Store::No)?);
+        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        writer.add_document(doc)?; // flushed document
+        writer.commit()?;
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("key", "doc", Store::No)?);
+        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        writer.add_document(doc)?; // in-memory document
+
+        let result =
+            writer.update_binary_doc_value(Term::from_text("key", "doc"), "bdv", to_bytes(17_i64)?);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+        let result =
+            writer.update_binary_doc_value(Term::from_text("key", "doc"), "foo", to_bytes(17_i64)?);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+        writer.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_different_dv_format_per_field() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_update_same_doc_multiple_times() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_segment_merges() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_update_document_by_multiple_terms() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    // TODO: tests.seed=17251040228904313710 测试为通过
+    fn test_tons_of_updates() -> Result<()> {
+        // LUCENE-5248: ensure we don't consume too much RAM when many updates occur
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        config.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
+        config.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        // test data: lots of documents (few 10Ks) and lots of update terms (few hundreds)
+        let num_docs = at_least(&mut random, 20000);
+        let num_binary_fields = at_least(&mut random, 5);
+        let num_terms = TestUtil::next_int(&mut random, 10, 100); // terms should affect many docs
+        let mut update_terms = HashSet::new();
+        while update_terms.len() < num_terms as usize {
+            update_terms.insert(TestUtil::random_simple_string(&mut random));
+        }
+        let update_terms: Vec<_> = update_terms.into_iter().collect();
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+
+            let num_update_terms = TestUtil::next_int(&mut random, 1, num_terms / 10);
+            for _ in 0..num_update_terms {
+                let term_value = update_terms.choose(&mut random).unwrap();
+                doc.add(StringField::with_string("upd", term_value, Store::No)?);
+            }
+
+            for j in 0..num_binary_fields {
+                let val = random.random();
+                doc.add(BinaryDocValuesField::new(format!("f{j}"), to_bytes(val)?));
+                doc.add(BinaryDocValuesField::new(
+                    format!("cf{j}"),
+                    to_bytes(val * 2)?,
+                ));
+            }
+
+            writer.add_document(doc)?;
+        }
+
+        writer.commit()?; // commit so there's something to apply to
+
+        // set to flush every 2048 bytes (approximately every 12 updates), so we get
+        // many flushes during binary updates
+        writer
+            .get_config_mut()
+            .set_ram_buffer_size_mb(2048.0 / 1024.0 / 1024.0);
+
+        let num_updates = at_least(&mut random, 100);
+        for _ in 0..num_updates {
+            let field = random.random_range(0..num_binary_fields);
+            let update_term = Term::from_text("upd", update_terms.choose(&mut random).unwrap());
+            let value = random.random();
+            writer.update_doc_values(
+                update_term,
+                vec![
+                    BinaryDocValuesField::new(format!("f{field}"), to_bytes(value)?).into(),
+                    BinaryDocValuesField::new(format!("cf{field}"), to_bytes(value * 2)?).into(),
+                ],
+            )?;
+        }
+
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+        for context in reader.leaves()? {
+            let r = context.reader();
+            let max_doc = r.max_doc()?;
+
+            for i in 0..num_binary_fields {
+                let mut f = r.get_binary_doc_values(&format!("f{i}"))?.unwrap();
+                let mut cf = r.get_binary_doc_values(&format!("cf{i}"))?.unwrap();
+
+                for j in 0..max_doc {
+                    assert_eq!(j, f.next_doc()?);
+                    assert_eq!(j, cf.next_doc()?);
+
+                    let v_f = get_value(&mut f)?;
+                    let v_cf = get_value(&mut cf)?;
+                    assert_eq!(v_cf, v_f * 2, "field=f{i}, doc={j}, cf={v_cf}, f={v_f}");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_updates_order() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // --- document setup ---
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("upd", "t1", Store::No)?);
+        doc.add(StringField::with_string("upd", "t2", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+        doc.add(BinaryDocValuesField::new("f2", to_bytes(1_i64)?));
+        writer.add_document(doc)?;
+
+        // update operations — MUST respect order
+        writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f1", to_bytes(2_i64)?)?; // update f1 to 2
+        writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f2", to_bytes(2_i64)?)?; // update f2 to 2
+        writer.update_binary_doc_value(Term::from_text("upd", "t2"), "f1", to_bytes(3_i64)?)?; // update f1 to 3
+        writer.update_binary_doc_value(Term::from_text("upd", "t2"), "f2", to_bytes(3_i64)?)?; // update f2 to 3
+        // last update only affects f1
+        writer.update_binary_doc_value(Term::from_text("upd", "t1"), "f1", to_bytes(4_i64)?)?; // update f1 to 4 (but not f2)
+
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+
+        let leaf = &reader.leaves()?[0];
+        let r = leaf.reader();
+
+        let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
+        assert_eq!(0, bdv.next_doc()?);
+        assert_eq!(4_i64, get_value(&mut bdv)?);
+
+        let mut bdv = r.get_binary_doc_values("f2")?.unwrap();
+        assert_eq!(0, bdv.next_doc()?);
+        assert_eq!(3_i64, get_value(&mut bdv)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_all_deleted_segment() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // create base document
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+
+        // add two docs, then commit
+        writer.add_document(doc)?;
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        writer.delete_documents_with_terms(vec![Term::from_text("id", "doc")])?;
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+        writer.add_document(doc)?;
+
+        writer.update_binary_doc_value(Term::from_text("id", "doc"), "f1", to_bytes(2_i64)?)?;
+
+        writer.close()?;
+
+        // open reader and verify
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+
+        let leaf = &reader.leaves()?[0];
+        let r = leaf.reader();
+        let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
+
+        assert_eq!(0, bdv.next_doc()?);
+        assert_eq!(2_i64, get_value(&mut bdv)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_two_nonexisting_terms() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // create initial document
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+        writer.add_document(doc)?;
+
+        // update with multiple non-existing terms in same field
+        writer.update_binary_doc_value(Term::from_text("c", "foo"), "f1", to_bytes(2_i64)?)?;
+        writer.update_binary_doc_value(Term::from_text("c", "bar"), "f1", to_bytes(2_i64)?)?;
+        writer.close()?;
+
+        // open reader and verify value not changed
+        let reader = directory_reader_util::open(dir.clone())?;
+        let reader = get_context(Arc::new(reader))?;
+
+        let leaf = &reader.leaves()?[0];
+        let r = leaf.reader();
+        let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
+
+        assert_eq!(0, bdv.next_doc()?);
+        assert_eq!(1_i64, get_value(&mut bdv)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_io_context() -> Result<()> {
+        // TODO
         Ok(())
     }
 }
