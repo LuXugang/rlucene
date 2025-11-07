@@ -420,7 +420,7 @@ where
         let mut readers = Vec::with_capacity(sis.size());
 
         // ensure cleanup on failure
-        for i in (0..sis.size()).rev() {
+        for i in 0..sis.size() {
             debug_assert!(sis.info_idx(i).is_some());
             let reader = SegmentReader::new(
                 sis.info_idx(i).as_ref().unwrap(),

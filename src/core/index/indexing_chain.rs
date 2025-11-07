@@ -682,12 +682,12 @@ where
         self.terms_hash.start_document()?;
         self.start_stored_fields(doc_id, info, index_writer_config)?;
 
-        let mut fields: Vec<Fields> = document.into_iter().collect();
+        let mut document: Vec<Fields> = document.into_iter().collect();
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
 
         let result = (|| {
-            for field in &fields {
+            for field in &document {
                 let field_type = field.field_type();
                 let is_reserved = field.is_reserved();
                 let pf_idx = self.get_or_add_per_field(field.name(), false);
@@ -737,7 +737,7 @@ where
             // also count the number of unique fields indexed with postings
             doc_field_idx = 0;
 
-            for field in &mut fields {
+            for field in &mut document {
                 let per_field_idx = self.doc_fields[doc_field_idx];
                 if self.process_field(doc_id, field, per_field_idx, index_writer_config)? {
                     self.fields[indexed_field_count] = self.doc_fields[doc_field_idx];
@@ -759,6 +759,7 @@ where
                     index_writer_config.get_similarity(),
                 )?;
             }
+            // TODO: IMPORTANT: 这里没有使用abortingExceptionConsumer
             self.finish_stored_fields()?;
             self.terms_hash.finish_document(
                 doc_id,
