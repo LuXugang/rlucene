@@ -163,7 +163,7 @@ where
         doc_id: i32,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
-        per_fields: &mut [Option<PerField>],
+        per_fields: &mut [PerField],
     ) -> Result<()>
     where
         D1: Directory,
@@ -195,7 +195,7 @@ where
         }
         let idxs = std::mem::take(&mut self.per_fields_idxs);
         for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
-            let v = per_fields[per_field_idx.idx as usize].as_mut().unwrap();
+            let v = &mut per_fields[per_field_idx.idx as usize];
             v.terms_hash_per_field
                 .as_mut()
                 .unwrap()

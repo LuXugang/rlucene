@@ -193,7 +193,7 @@ where
         doc_id: i32,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
-        per_fields: &mut [Option<PerField>],
+        per_fields: &mut [PerField],
     ) -> Result<()>
     where
         D1: Directory,
