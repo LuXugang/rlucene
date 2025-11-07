@@ -847,7 +847,7 @@ where
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
             for field in &mut fields {
-                self.process_field(doc_id, field, index_writer_config)?;
+                let _ = self.process_field(doc_id, field, index_writer_config)?;
             }
             Ok(())
         })();
@@ -859,11 +859,15 @@ where
                 } else {
                     self.doc_fields[idx.1].as_mut().unwrap()
                 };
-                pf.finish(
-                    doc_id,
-                    &mut self.terms_hash.next_terms_hash,
-                    index_writer_config.get_similarity(),
-                )?;
+                debug_assert!(pf.field_info.is_some());
+                // TODO: IMPORTANT 我们能否在process_field中提前过滤掉不需要倒排的？
+                if pf.field_info.as_ref().unwrap().index_options != IndexOptions::None {
+                    pf.finish(
+                        doc_id,
+                        &mut self.terms_hash.next_terms_hash,
+                        index_writer_config.get_similarity(),
+                    )?;
+                }
             }
             self.finish_stored_fields()?;
             self.terms_hash.finish_document(
@@ -1000,13 +1004,14 @@ where
         doc_id: i32,
         field: &mut impl IndexableField,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let per_field_index = self.fields.get(field.name()).unwrap();
         let pf = if per_field_index.0 {
             &mut self.conflict_doc_fields[per_field_index.1]
         } else {
             self.doc_fields[per_field_index.1].as_mut().unwrap()
         };
+        let mut indexed_field = false;
         let field_type = field.field_type();
 
         // Invert indexed fields
@@ -1021,6 +1026,7 @@ where
                     self.info_stream.as_ref(),
                 )?;
                 pf.first = false;
+                indexed_field = true;
             } else {
                 pf.invert(
                     doc_id,
@@ -1076,7 +1082,7 @@ where
         //     )?;
         // }
 
-        Ok(())
+        Ok(indexed_field)
     }
     /// Returns a previously created [`PerField`], absorbing the type information from
     /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
