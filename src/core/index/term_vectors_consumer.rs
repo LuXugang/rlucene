@@ -228,7 +228,7 @@ where
         self.num_vector_fields = 0;
         Ok(())
     }
-    pub(crate) fn add_field(&mut self, field_info: Arc<FieldInfo>) -> TermVectorsConsumerPerField {
+    pub(crate) fn add_field(&self, field_info: Arc<FieldInfo>) -> TermVectorsConsumerPerField {
         TermVectorsConsumerPerField::new(self, field_info)
     }
     pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) {

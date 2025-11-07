@@ -56,7 +56,7 @@ pub(crate) struct FreqProxTermsWriterPerField {
 }
 impl FreqProxTermsWriterPerField {
     pub fn new<D>(
-        terms_hash: &mut FreqProxTermsWriter<D>,
+        terms_hash: &FreqProxTermsWriter<D>,
         field_info: Arc<FieldInfo>,
         next_per_field: Option<TermVectorsConsumerPerField>,
     ) -> FreqProxTermsWriterPerField
@@ -88,7 +88,7 @@ impl FreqProxTermsWriterPerField {
             stream_count,
             terms_hash.base.int_pool.clone(),
             terms_hash.base.byte_pool.clone(),
-            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.base.term_byte_pool.as_ref().unwrap().clone(),
             terms_hash.base.bytes_used.clone(),
             postings_array_wrapper,
             name,

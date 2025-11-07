@@ -97,7 +97,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
 };
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set::{Either2BitSet, of};
@@ -120,6 +119,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
+use std::vec;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 pub(crate) struct IndexingChain<D>
@@ -134,15 +134,58 @@ where
     hash_mask: usize,
     total_field_count: usize,
     next_field_gen: i64,
-    fields: Vec<i32>,
+    fields: FieldsWrapper,
     doc_fields: Vec<Option<PerField>>,
     // When adding a new PerField, if a hash collision occurs,
-    // Put it into `hash_conflict_doc_fields`; otherwise, put it into `doc_fields`.
-    hash_conflict_doc_fields: Vec<PerField>,
+    // Put it into `conflict_doc_fields`; otherwise, put it into `doc_fields`.
+    conflict_doc_fields: Vec<PerField>,
     info_stream: InfoStreamMT,
     byte_block_allocator: MTAllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
+}
+#[derive(Default)]
+pub struct FieldsWrapper {
+    field_names: Vec<String>,
+    meta: HashMap<String, (bool, usize)>,
+}
+
+impl FieldsWrapper {
+    fn update(&mut self, field_name: &str, new_meta: (bool, usize)) {
+        match self.meta.get_mut(field_name) {
+            Some(meta) => {
+                meta.0 = new_meta.0;
+                meta.1 = new_meta.1;
+            },
+            None => {
+                self.field_names.push(field_name.to_string());
+                self.meta.insert(field_name.to_string(), new_meta);
+            },
+        }
+    }
+    fn get(&self, field_name: &str) -> Option<&(bool, usize)> {
+        self.meta.get(field_name)
+    }
+    fn reset(&mut self) {
+        self.field_names.clear();
+        self.meta.clear();
+    }
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a str, (bool, usize))> + 'a {
+        self.field_names
+            .iter()
+            .filter_map(|name| self.meta.get(name).map(|v| (name.as_str(), *v)))
+    }
+    fn copy_meta_to_vec(&self) -> Vec<(bool, usize)> {
+        let mut v = Vec::new();
+        for name in &self.field_names {
+            if let Some(meta) = self.meta.get(name) {
+                v.push(*meta);
+            } else {
+                debug_assert!(false, "field name {} not found in meta", name);
+            }
+        }
+        v
+    }
 }
 impl<D> IndexingChain<D>
 where
@@ -197,6 +240,7 @@ where
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
         )));
         let info_stream = index_writer_config.get_info_stream().clone();
+        let fields = FieldsWrapper::default();
         IndexingChain {
             bytes_used,
             terms_hash,
@@ -206,9 +250,9 @@ where
             hash_mask: 1,
             total_field_count: 0,
             next_field_gen: 0,
-            fields: vec![0; 1],
+            fields,
             doc_fields: vec![],
-            hash_conflict_doc_fields: vec![],
+            conflict_doc_fields: vec![],
             byte_block_allocator,
             info_stream,
             index_created_version_major,
@@ -355,8 +399,14 @@ where
         let mut fields_to_flush = HashMap::new();
         for &idx in &self.field_hash {
             let mut fp_idx = idx;
+            let mut move_to_conflict = false;
             while fp_idx >= 0 {
-                let pf = self.doc_fields[fp_idx as usize].as_mut().unwrap();
+                let pf = if move_to_conflict {
+                    &mut self.conflict_doc_fields[fp_idx as usize]
+                } else {
+                    move_to_conflict = true;
+                    self.doc_fields[fp_idx as usize].as_mut().unwrap()
+                };
                 if pf.invert_state.is_some() {
                     fields_to_flush.insert(
                         pf.field_info.as_ref().unwrap().name.clone(),
@@ -450,8 +500,14 @@ where
 
         for bucket in 0..self.field_hash.len() {
             let mut per_field_index = self.field_hash[bucket];
+            let mut move_to_conflict = false;
             while per_field_index >= 0 {
-                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                let per_field = if move_to_conflict {
+                    &mut self.conflict_doc_fields[per_field_index as usize]
+                } else {
+                    move_to_conflict = true;
+                    self.doc_fields[per_field_index as usize].as_mut().unwrap()
+                };
                 let field_info = per_field.field_info.as_ref().unwrap();
                 if per_field.point_values_writer.is_some() {
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
@@ -484,8 +540,15 @@ where
         let mut per_field_index;
         for i in 0..self.field_hash.len() {
             per_field_index = self.field_hash[i];
+            let mut move_to_conflict = false;
             while per_field_index >= 0 {
-                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                let per_field = if move_to_conflict {
+                    &mut self.conflict_doc_fields[per_field_index as usize]
+                } else {
+                    move_to_conflict = true;
+                    self.doc_fields[per_field_index as usize].as_mut().unwrap()
+                };
+
                 if let Some(ref mut writer) = per_field.doc_values_writer {
                     writer.finish()?;
                 }
@@ -514,8 +577,14 @@ where
         debug_assert!(self.field_hash.len() <= i32::MAX as usize);
         for bucket in 0..self.field_hash.len() {
             per_field_index = self.field_hash[bucket];
+            let mut move_to_conflict = false;
             while per_field_index >= 0 {
-                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                let per_field = if move_to_conflict {
+                    &mut self.conflict_doc_fields[per_field_index as usize]
+                } else {
+                    move_to_conflict = true;
+                    self.doc_fields[per_field_index as usize].as_mut().unwrap()
+                };
                 let field_info = per_field.field_info.as_ref().unwrap();
                 if let Some(ref mut writer) = per_field.doc_values_writer {
                     if *field_info.get_doc_values_type() == DocValuesType::None {
@@ -614,19 +683,50 @@ where
         debug_assert!(new_hash_size > self.field_hash.len());
 
         let mut new_hash_array = vec![-1; new_hash_size];
+        let mut new_doc_field = Vec::new();
+        let mut new_conflict_doc_field = Vec::new();
         let new_hash_mask = new_hash_size - 1;
         for &idx in &self.field_hash {
             let mut fp_idx = idx;
+            let mut move_to_conflict = false;
             while fp_idx >= 0 {
-                let fp0 = self.doc_fields[fp_idx as usize].as_mut().unwrap();
-
-                let hash_pos2 = CoreHelper::compute_hash(&fp0.field_name) & new_hash_mask as u64;
+                let mut fp0 = if move_to_conflict {
+                    std::mem::take(&mut self.conflict_doc_fields[fp_idx as usize])
+                } else {
+                    move_to_conflict = true;
+                    self.doc_fields[fp_idx as usize].take().unwrap()
+                };
                 let next_fp0 = fp0.next;
-                fp0.next = new_hash_array[hash_pos2 as usize];
-                new_hash_array[hash_pos2 as usize] = fp_idx;
+                let hash_pos2 = CoreHelper::compute_hash(&fp0.field_name) & new_hash_mask as u64;
+                let idx = new_hash_array[hash_pos2 as usize];
+                // not conflicting, put into new_doc_field
+                if idx < 0 {
+                    let new_fp_idx = new_doc_field.len() as i32;
+                    new_hash_array[hash_pos2 as usize] = new_fp_idx;
+                    fp0.next = -1;
+                    self.fields
+                        .update(&fp0.field_name, (false, new_fp_idx as usize));
+                    new_doc_field.push(Some(fp0));
+                } else {
+                    let old_per_field = std::mem::take(&mut new_doc_field[idx as usize]).unwrap();
+                    // next position in new_conflict_doc_field to put `old_per_field`
+                    let new_conflict_doc_field_idx = new_conflict_doc_field.len() as i32;
+                    self.fields.update(
+                        &old_per_field.field_name,
+                        (true, new_conflict_doc_field_idx as usize),
+                    );
+                    new_conflict_doc_field.push(old_per_field);
+                    // old_per_field is fp0's next per_field
+                    fp0.next = new_conflict_doc_field_idx;
+                    self.fields.update(&fp0.field_name, (false, idx as usize));
+                    // replace fp0 to the position where old_per_field ever was
+                    new_doc_field[idx as usize] = Some(fp0);
+                };
                 fp_idx = next_fp0;
             }
         }
+        self.doc_fields = new_doc_field;
+        self.conflict_doc_fields = new_conflict_doc_field;
         self.field_hash = new_hash_array;
         self.hash_mask = new_hash_mask;
     }
@@ -671,7 +771,7 @@ where
         // number of unique fields by names (collapses multiple field instances by the same name)
         let mut field_count = 0;
         // number of unique fields indexed with postings
-        let mut indexed_field_count = 0;
+        let indexed_field_count = 0;
         let field_gen = self.next_field_gen;
         self.next_field_gen += 1;
         let mut doc_field_idx: i32 = 0;
@@ -685,18 +785,21 @@ where
         self.start_stored_fields(doc_id, info, index_writer_config)?;
 
         let mut fields: Vec<Fields> = document.into_iter().collect();
-        // The set of indexes of pending fields in doc_fields.
-        let mut pending_idx = Vec::new();
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
+
         let result = (|| {
+            self.reset_fields_wrapper();
             for field in &fields {
                 let field_type = field.field_type();
                 let is_reserved = field.is_reserved();
                 let pf_idx = self.get_or_add_per_field(field.name(), false);
-                pending_idx.push(pf_idx);
                 {
-                    let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
+                    let pf = if pf_idx.0 {
+                        &mut self.conflict_doc_fields[pf_idx.1]
+                    } else {
+                        self.doc_fields[pf_idx.1].as_mut().unwrap()
+                    };
 
                     if pf.reserved != is_reserved {
                         return Err(LuceneError::illegal_argument(format!(
@@ -707,18 +810,17 @@ where
 
                     if pf.field_gen != field_gen {
                         // first time we see this field in this document
-                        self.fields[field_count] = pf_idx;
                         field_count += 1;
                         pf.field_gen = field_gen;
                         pf.reset(doc_id);
                     }
                 }
-
-                if doc_field_idx as usize >= self.doc_fields.len() {
-                    self.oversize_doc_fields();
-                }
                 doc_field_idx += 1;
-                let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
+                let pf = if pf_idx.0 {
+                    &mut self.conflict_doc_fields[pf_idx.1]
+                } else {
+                    self.doc_fields[pf_idx.1].as_mut().unwrap()
+                };
                 Self::update_doc_field_schema(field.name(), &mut pf.schema, field_type)?;
             }
 
@@ -726,9 +828,14 @@ where
             // initialize its FieldInfo.
             // If we have already seen this field, verify that its schema
             // within the current doc matches its schema in the index.
-            for i in 0..field_count {
-                let idx = self.fields[i];
-                let pf = self.doc_fields[idx as usize].as_mut().unwrap();
+            // TODO: due to Rust Language, we have to copy here, could we avoid?
+            let meta_vec = self.fields.copy_meta_to_vec();
+            for idx in meta_vec {
+                let pf = if idx.0 {
+                    &mut self.conflict_doc_fields[idx.1]
+                } else {
+                    self.doc_fields[idx.1].as_mut().unwrap()
+                };
                 if pf.field_info.is_none() {
                     self.initialize_field_info(idx, field_infos, index_writer_config)?;
                 } else {
@@ -739,20 +846,19 @@ where
 
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
-            debug_assert!(pending_idx.len() == fields.len());
-            for ((field, pending), _) in fields.iter_mut().zip(pending_idx.iter_mut()).zip(0..) {
-                if self.process_field(doc_id, field, *pending, index_writer_config)? {
-                    self.fields[indexed_field_count] = *pending;
-                    indexed_field_count += 1;
-                }
+            for field in &mut fields {
+                self.process_field(doc_id, field, index_writer_config)?;
             }
             Ok(())
         })();
         if !self.has_hit_aborting_exception {
             // Finish each indexed field name seen in the document:
-            for i in 0..indexed_field_count {
-                let idx = self.fields[i];
-                let pf = self.doc_fields[idx as usize].as_mut().unwrap();
+            for (_name, idx) in self.fields.iter() {
+                let pf = if idx.0 {
+                    &mut self.conflict_doc_fields[idx.1]
+                } else {
+                    self.doc_fields[idx.1].as_mut().unwrap()
+                };
                 pf.finish(
                     doc_id,
                     &mut self.terms_hash.next_terms_hash,
@@ -769,15 +875,10 @@ where
         }
         result
     }
-    fn oversize_doc_fields(&mut self) {
-        let required = self.doc_fields.len() + 1;
-        // TODO: _bytes_per_element is padding value
-        let new_len = ArrayUtil::oversize(required, 1);
-        ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
-    }
+
     pub(crate) fn initialize_field_info(
         &mut self,
-        per_field_index: i32,
+        per_field_index: (bool, usize),
         field_infos: &mut Builder,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()> {
@@ -789,7 +890,11 @@ where
         // it will be added there.
         // If the field already exists in globalFieldNumbers (i.e. field present in other segments),
         // we check consistency of its schema with schema for the whole index.
-        let pf = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+        let pf = if per_field_index.0 {
+            &mut self.conflict_doc_fields[per_field_index.1]
+        } else {
+            self.doc_fields[per_field_index.1].as_mut().unwrap()
+        };
         let s = &mut pf.schema;
 
         // validate sort DV type
@@ -894,12 +999,15 @@ where
         &mut self,
         doc_id: i32,
         field: &mut impl IndexableField,
-        per_field_index: i32,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<bool> {
-        let pf = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+    ) -> Result<()> {
+        let per_field_index = self.fields.get(field.name()).unwrap();
+        let pf = if per_field_index.0 {
+            &mut self.conflict_doc_fields[per_field_index.1]
+        } else {
+            self.doc_fields[per_field_index.1].as_mut().unwrap()
+        };
         let field_type = field.field_type();
-        let mut indexed_field = false;
 
         // Invert indexed fields
         if *field_type.index_options() != IndexOptions::None {
@@ -913,7 +1021,6 @@ where
                     self.info_stream.as_ref(),
                 )?;
                 pf.first = false;
-                indexed_field = true;
             } else {
                 pf.invert(
                     doc_id,
@@ -969,18 +1076,23 @@ where
         //     )?;
         // }
 
-        Ok(indexed_field)
+        Ok(())
     }
     /// Returns a previously created [`PerField`], absorbing the type information from
     /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-    pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> i32 {
-        // let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
+    pub(crate) fn get_or_add_per_field(
+        &mut self,
+        field_name: &str,
+        reserved: bool,
+    ) -> (bool, usize) {
         let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
+        // per_field in `doc_fields` or `conflict_doc_fields`, if conflict is false,
+        // then per_field is in `doc_fields`, otherwise in `conflict_doc_fields`
         let mut conflict = false;
         while per_field_index >= 0 {
             let pf = if conflict {
-                &self.hash_conflict_doc_fields[per_field_index as usize]
+                &self.conflict_doc_fields[per_field_index as usize]
             } else {
                 debug_assert!(self.doc_fields.get(per_field_index as usize).is_some());
                 self.doc_fields[per_field_index as usize].as_ref().unwrap()
@@ -1006,31 +1118,42 @@ where
                 let index = per_field_index as usize;
                 // take old PerField;
                 let old_per_field = self.doc_fields[index].take().unwrap();
-                let new_idx = self.hash_conflict_doc_fields.len() as i32;
-                // move old PerField to `hash_conflict_doc_fields` list
-                self.hash_conflict_doc_fields.push(old_per_field);
+                let new_idx = self.conflict_doc_fields.len();
+                self.fields
+                    .update(&old_per_field.field_name, (true, new_idx));
+                // move old PerField to `conflict_doc_fields` list
+                self.conflict_doc_fields.push(old_per_field);
                 // new PerField points to old one
-                pf.next = new_idx;
+                pf.next = new_idx as i32;
                 // pub new PerField in `doc_fields` list
                 self.doc_fields[index] = Some(pf);
+                self.fields.update(field_name, (false, index));
+                // `pf` move to `doc_fields`, so we should set conflict to false
+                conflict = false;
             } else {
                 per_field_index = self.doc_fields.len() as i32;
                 pf.idx_in_doc_field = per_field_index;
                 self.doc_fields.push(Some(pf));
                 self.field_hash[hash_pos] = per_field_index;
+                conflict = false;
+                self.fields
+                    .update(field_name, (false, per_field_index as usize));
             }
             self.total_field_count += 1;
 
             if self.total_field_count >= (self.field_hash.len() >> 1) {
                 self.rehash();
+                debug_assert!(self.fields.get(field_name).is_some());
+                // after rehash, get updated per_field_index
+                let new_status = self.fields.get(field_name).unwrap();
+                conflict = new_status.0;
+                per_field_index = new_status.1 as i32;
             }
-            if self.total_field_count > self.fields.len() {
-                // TODO:_bytes_per_element is padding value
-                let new_len = ArrayUtil::oversize(self.total_field_count, 1);
-                ArrayUtil::grow_with_len(&mut self.fields, new_len);
-            }
+        } else {
+            self.fields
+                .update(field_name, (conflict, per_field_index as usize));
         }
-        per_field_index
+        (conflict, per_field_index as usize)
     }
     // update schema for field as seen in a particular document
     fn update_doc_field_schema<IFT>(
@@ -1247,8 +1370,14 @@ where
     fn get_per_field(&self, name: &str) -> Option<usize> {
         let hash_pos = CoreHelper::compute_hash(&name.to_string()) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
+        let mut move_to_conflict = false;
         while per_field_index >= 0 {
-            let pf = self.doc_fields[per_field_index as usize].as_ref().unwrap();
+            let pf = if move_to_conflict {
+                &self.conflict_doc_fields[per_field_index as usize]
+            } else {
+                move_to_conflict = true;
+                self.doc_fields[per_field_index as usize].as_ref().unwrap()
+            };
             if pf.field_name == name {
                 return Some(per_field_index as usize);
             }
@@ -1278,6 +1407,9 @@ where
         }
         Ok(None)
     }
+    fn reset_fields_wrapper(&mut self) {
+        self.fields.reset()
+    }
 }
 impl<D> Accountable for IndexingChain<D>
 where
@@ -1301,12 +1433,34 @@ pub(crate) struct PerField {
     pub(crate) point_values_writer: Option<PointValuesWriter>,
     // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
     pub(crate) field_gen: i64,
-    // index Of PerFiled in IndexChain#hash_conflict_doc_fields with same field name hash,
+    // index Of PerFiled in IndexChain#conflict_doc_fields with same field name hash,
     pub(crate) next: i32,
     pub(crate) norms: Option<NormValuesWriter>,
     pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
     pub(crate) first: bool,
     pub(crate) idx_in_doc_field: i32,
+}
+// used for std::mem::take
+impl Default for PerField {
+    fn default() -> Self {
+        PerField {
+            field_name: String::new(),
+            index_created_version_major: 0,
+            schema: FieldSchema::new(""),
+            reserved: false,
+            field_info: None,
+            invert_state: None,
+            terms_hash_per_field: None,
+            doc_values_writer: None,
+            point_values_writer: None,
+            field_gen: -1,
+            next: -1,
+            norms: None,
+            token_stream: None,
+            first: false,
+            idx_in_doc_field: -1,
+        }
+    }
 }
 impl PerField {
     pub(crate) fn new(

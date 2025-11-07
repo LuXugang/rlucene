@@ -206,7 +206,7 @@ where
         self.next_terms_hash.start_document()?;
         Ok(())
     }
-    pub(crate) fn add_field(&mut self, field_info: Arc<FieldInfo>) -> FreqProxTermsWriterPerField {
+    pub(crate) fn add_field(&self, field_info: Arc<FieldInfo>) -> FreqProxTermsWriterPerField {
         let next_per_field = self.next_terms_hash.add_field(field_info.clone());
         FreqProxTermsWriterPerField::new(self, field_info, Some(next_per_field))
     }

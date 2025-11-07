@@ -66,10 +66,7 @@ impl Clone for TermVectorsConsumerPerField {
 }
 
 impl TermVectorsConsumerPerField {
-    pub(crate) fn new<D>(
-        terms_hash: &mut TermVectorsConsumer<D>,
-        field_info: Arc<FieldInfo>,
-    ) -> Self
+    pub(crate) fn new<D>(terms_hash: &TermVectorsConsumer<D>, field_info: Arc<FieldInfo>) -> Self
     where
         D: Directory,
     {
@@ -78,7 +75,7 @@ impl TermVectorsConsumerPerField {
             2,
             terms_hash.base.int_pool.clone(),
             terms_hash.base.byte_pool.clone(),
-            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.base.term_byte_pool.as_ref().unwrap().clone(),
             terms_hash.base.bytes_used.clone(),
             postings_array_wrapper,
             field_info.name.clone(),
