@@ -183,7 +183,7 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
         Ok(())
     }
 
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "BinaryDocValuesIterator does not support long_value",
         ))

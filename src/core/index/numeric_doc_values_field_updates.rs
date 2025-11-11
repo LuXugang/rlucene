@@ -172,7 +172,7 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
         Ok(())
     }
 
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         Ok(self.value)
     }
 

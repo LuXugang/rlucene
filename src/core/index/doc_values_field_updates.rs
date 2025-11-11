@@ -595,7 +595,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 pub trait DocValuesFieldIterator: DocValuesIterator {
     /// Returns a long value for the current document if this iterator is a long
     /// iterator.
-    fn long_value(&mut self) -> Result<i64>;
+    fn long_value(&self) -> Result<i64>;
 
     /// Returns a binary value for the current document if this iterator is a
     /// binary value iterator.
@@ -666,7 +666,7 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
 }
 
 impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         match self {
             DocValuesFieldIteratorEnum::AbstractBinary(_) => Err(LuceneError::illegal_state(
                 "long_value is not supported for binary doc values",
@@ -857,9 +857,9 @@ impl<T> DocValuesFieldIterator for MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         self.queue
-            .top_mut()
+            .top()
             .expect("priority queue top element should exist")
             .long_value()
     }
@@ -992,7 +992,7 @@ impl<A> DocValuesFieldIterator for AbstractIterator<A>
 where
     A: AbstractIteratorBase,
 {
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         self.sub.long_value()
     }
 
@@ -1015,7 +1015,7 @@ pub trait AbstractIteratorBase {
     ///
     /// * `idx` - The internal index to set the value to.
     fn set(&mut self, idx: i64) -> Result<()>;
-    fn long_value(&mut self) -> Result<i64>;
+    fn long_value(&self) -> Result<i64>;
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
 
@@ -1195,7 +1195,7 @@ impl SingleValueDocValuesFieldUpdatesIterator {
 impl DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator {}
 
 impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
-    fn long_value(&mut self) -> Result<i64> {
+    fn long_value(&self) -> Result<i64> {
         self.single.long_value()
     }
 
