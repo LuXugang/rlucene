@@ -95,7 +95,7 @@ where
         self.single_sort = true;
     }
 
-    fn disable_skipping(&mut self) {
+    pub(crate) fn disable_skipping(&mut self) {
         self.pruning = Pruning::None;
     }
 }

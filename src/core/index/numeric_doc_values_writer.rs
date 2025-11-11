@@ -234,7 +234,11 @@ impl BufferedNumericDocValues {
     }
 }
 
-impl DocValuesIterator for BufferedNumericDocValues {}
+impl DocValuesIterator for BufferedNumericDocValues {
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
 
 impl DocIdSetIterator for BufferedNumericDocValues {
     fn doc_id(&self) -> i32 {

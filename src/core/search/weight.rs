@@ -435,7 +435,7 @@ where
     while doc < max {
         if has_competitive {
             let competitive_iterator = competitive_iterator.as_mut().unwrap();
-            debug_assert!(competitive_iterator.doc_id() < doc);
+            debug_assert!(competitive_iterator.doc_id() <= doc);
             if competitive_iterator.doc_id() < doc {
                 competitive_iterator.advance(doc)?;
             }

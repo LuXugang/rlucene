@@ -348,24 +348,20 @@ impl SortFieldProvider for NumericProvider {
             match field_type {
                 SortFieldType::Int => {
                     let missing_value = data_input.read_int()?;
-                    sorted_numeric_sort_field
-                        .set_missing_value(MissingValueEnum::Int(missing_value))?;
+                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
                 },
                 SortFieldType::Long => {
                     let missing_value = data_input.read_long()?;
-                    sorted_numeric_sort_field
-                        .set_missing_value(MissingValueEnum::Long(missing_value))?;
+                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
                 },
                 SortFieldType::Float => {
                     let missing_value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
-                    sorted_numeric_sort_field
-                        .set_missing_value(MissingValueEnum::Float(missing_value))?;
+                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
                 },
                 SortFieldType::Double => {
                     let missing_value =
                         NumericUtils::sortable_long_to_double(data_input.read_long()?);
-                    sorted_numeric_sort_field
-                        .set_missing_value(MissingValueEnum::Double(missing_value))?;
+                    sorted_numeric_sort_field.set_missing_value(missing_value)?;
                 },
                 SortFieldType::Custom
                 | SortFieldType::Doc

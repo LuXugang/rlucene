@@ -98,6 +98,10 @@ impl FieldComparator for LongComparator {
     {
         LongLeafComparator::new(self, context, None, None)
     }
+
+    fn disable_skipping(&mut self) {
+        self.base.disable_skipping();
+    }
 }
 pub struct LongLeafComparator<LR>
 where

@@ -720,19 +720,19 @@ impl SortFieldProvider for Provider {
                 },
                 SortFieldType::Int => {
                     let value = data_input.read_int()?;
-                    sort_field.set_missing_value(MissingValueEnum::Int(value))?;
+                    sort_field.set_missing_value(value)?;
                 },
                 SortFieldType::Long => {
                     let value = data_input.read_long()?;
-                    sort_field.set_missing_value(MissingValueEnum::Long(value))?;
+                    sort_field.set_missing_value(value)?;
                 },
                 SortFieldType::Float => {
                     let value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
-                    sort_field.set_missing_value(MissingValueEnum::Float(value))?;
+                    sort_field.set_missing_value(value)?;
                 },
                 SortFieldType::Double => {
                     let value = NumericUtils::sortable_long_to_double(data_input.read_long()?);
-                    sort_field.set_missing_value(MissingValueEnum::Double(value))?;
+                    sort_field.set_missing_value(value)?;
                 },
                 SortFieldType::Custom
                 | SortFieldType::Doc
@@ -859,6 +859,29 @@ pub enum MissingValueEnum {
     Long(i64),
     Float(f32),
     Double(f64),
+}
+impl From<i32> for MissingValueEnum {
+    fn from(v: i32) -> Self {
+        MissingValueEnum::Int(v)
+    }
+}
+
+impl From<i64> for MissingValueEnum {
+    fn from(v: i64) -> Self {
+        MissingValueEnum::Long(v)
+    }
+}
+
+impl From<f32> for MissingValueEnum {
+    fn from(v: f32) -> Self {
+        MissingValueEnum::Float(v)
+    }
+}
+
+impl From<f64> for MissingValueEnum {
+    fn from(v: f64) -> Self {
+        MissingValueEnum::Double(v)
+    }
 }
 
 impl MissingValueEnum {

@@ -356,7 +356,12 @@ impl EmptyNumeric {
     }
 }
 
-impl DocValuesIterator for EmptyNumeric {}
+impl DocValuesIterator for EmptyNumeric {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.doc = target;
+        Ok(false)
+    }
+}
 
 impl DocIdSetIterator for EmptyNumeric {
     fn doc_id(&self) -> i32 {

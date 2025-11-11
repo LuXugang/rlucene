@@ -1192,7 +1192,11 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     }
 }
 
-impl DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator {}
+impl DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator {
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
 
 impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     fn long_value(&self) -> Result<i64> {

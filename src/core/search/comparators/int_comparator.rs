@@ -97,6 +97,10 @@ impl FieldComparator for IntComparator {
     {
         IntLeafComparator::new(self, context, None, None)
     }
+
+    fn disable_skipping(&mut self) {
+        self.base.disable_skipping();
+    }
 }
 
 pub struct IntLeafComparator<LR>

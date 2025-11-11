@@ -115,6 +115,10 @@ impl FieldComparator for FloatComparator {
             0
         }
     }
+
+    fn disable_skipping(&mut self) {
+        self.base.disable_skipping()
+    }
 }
 pub struct FloatLeafComparator<LR>
 where
