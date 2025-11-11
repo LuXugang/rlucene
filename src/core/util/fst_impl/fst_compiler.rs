@@ -180,12 +180,17 @@ where
 
         let bytes_pos_start = self.num_bytes_written;
 
-        let node = if num_arcs == 0 {
-            let node = self.add_node(node_in_idx)?;
-            self.last_frozen_node = node;
-            node
-        } else {
-            NodeHash::add(node_in_idx, self)?
+        let node = match self.dedup_hash {
+            Some(_) => {
+                if num_arcs == 0 {
+                    let node = self.add_node(node_in_idx)?;
+                    self.last_frozen_node = node;
+                    node
+                } else {
+                    NodeHash::add(node_in_idx, self)?
+                }
+            },
+            _ => self.add_node(node_in_idx)?,
         };
 
         debug_assert!(node != -2);
