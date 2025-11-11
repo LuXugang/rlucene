@@ -468,11 +468,13 @@ where
     pub(crate) fn competitive_iterator(
         &mut self,
     ) -> Option<CompetitiveIterator<CompetitiveIteratorType<N>>> {
-        debug_assert!(self.competitive_iterator.is_some());
         match self.enable_skipping {
-            true => Some(CompetitiveIterator::new(
-                self.competitive_iterator.take().unwrap(),
-            )),
+            true => {
+                debug_assert!(self.competitive_iterator.is_some());
+                Some(CompetitiveIterator::new(
+                    self.competitive_iterator.take().unwrap(),
+                ))
+            },
             false => None,
         }
     }

@@ -250,7 +250,7 @@ mod tests {
         doc.add(NumericDocValuesField::new("val", val));
         Ok(doc)
     }
-    // TODO: 测试未通过
+    #[test]
     fn test_multiple_updates_same_doc() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);

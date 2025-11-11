@@ -237,7 +237,7 @@ where
             PrepareState::Ready(ord) => Ok(self.states[ord].clone()),
 
             PrepareState::Pending(term, ord, mut te) => {
-                if self.states[ord - 1].as_ref().is_none() {
+                if self.states[ord].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
                         self.states[ord] = Some(Arc::new(EitherEmptyTermState::A(state)))
