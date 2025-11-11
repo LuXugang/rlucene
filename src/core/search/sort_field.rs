@@ -304,65 +304,66 @@ impl SortField {
 }
 impl SortFiledBase for SortField {
     /// Set the value to use for documents that don't have a value.
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+    where
+        T: Into<MissingValueEnum>,
+    {
+        let missing_value = missing_value.into();
         match self.type_ {
-            SortFieldType::String | SortFieldType::StringVal => {
-                if let Some(MissingValueEnum::StringFirst | MissingValueEnum::StringLast) =
-                    missing_value
-                {
-                    self.missing_value = missing_value;
-                } else {
-                    return Err(LuceneError::illegal_argument(
-                        "For STRING type, missing value must be either STRING_FIRST or STRING_LAST"
-                            .to_string(),
-                    ));
-                }
+            SortFieldType::String | SortFieldType::StringVal => match missing_value {
+                MissingValueEnum::StringFirst | MissingValueEnum::StringLast => {
+                    self.missing_value = Some(missing_value);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_argument(
+                    "For STRING type, missing value must be either STRING_FIRST or STRING_LAST"
+                        .to_string(),
+                )),
             },
-            SortFieldType::Int => {
-                if let Some(MissingValueEnum::Int(_)) = missing_value {
-                    self.missing_value = missing_value;
-                } else {
-                    return Err(LuceneError::illegal_argument(
-                        "Missing values for Type.INT can only be of type MissingValueEnum::Int"
-                            .to_string(),
-                    ));
-                }
+            SortFieldType::Int => match missing_value {
+                MissingValueEnum::Int(_) => {
+                    self.missing_value = Some(missing_value);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_argument(
+                    "Missing values for Type.INT can only be of type MissingValueEnum::Int"
+                        .to_string(),
+                )),
             },
-            SortFieldType::Long => {
-                if let Some(MissingValueEnum::Long(_)) = missing_value {
-                    self.missing_value = missing_value;
-                } else {
-                    return Err(LuceneError::illegal_argument(
-                        "Missing values for Type.LONG can only be of type MissingValueEnum::Long"
-                            .to_string(),
-                    ));
-                }
+            SortFieldType::Long => match missing_value {
+                MissingValueEnum::Long(_) => {
+                    self.missing_value = Some(missing_value);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_argument(
+                    "Missing values for Type.LONG can only be of type MissingValueEnum::Long"
+                        .to_string(),
+                )),
             },
-            SortFieldType::Float => {
-                if let Some(MissingValueEnum::Float(_)) = missing_value {
-                    self.missing_value = missing_value;
-                } else {
-                    return Err(LuceneError::illegal_argument(
-                        "Missing values for Type.FLOAT can only be of type MissingValueEnum::Float"
-                            .to_string(),
-                    ));
-                }
+            SortFieldType::Float => match missing_value {
+                MissingValueEnum::Float(_) => {
+                    self.missing_value = Some(missing_value);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_argument(
+                    "Missing values for Type.FLOAT can only be of type MissingValueEnum::Float"
+                        .to_string(),
+                )),
             },
-            SortFieldType::Double => {
-                if let Some(MissingValueEnum::Double(_)) = missing_value {
-                    self.missing_value = missing_value;
-                } else {
-                    return Err(LuceneError::illegal_argument("Missing values for Type.DOUBLE can only be of type MissingValueEnum::Double".to_string()));
-                }
+            SortFieldType::Double => match missing_value {
+                MissingValueEnum::Double(_) => {
+                    self.missing_value = Some(missing_value);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_argument(
+                    "Missing values for Type.DOUBLE can only be of type MissingValueEnum::Double"
+                        .to_string(),
+                )),
             },
-            _ => {
-                return Err(LuceneError::illegal_argument(
-                    "Missing value only works for numeric or STRING types".to_string(),
-                ));
-            },
+            _ => Err(LuceneError::illegal_argument(
+                "Missing value only works for numeric or STRING types".to_string(),
+            )),
         }
-
-        Ok(())
     }
 
     fn needs_scores(&self) -> bool {
@@ -713,25 +714,25 @@ impl SortFieldProvider for Provider {
                 SortFieldType::String => {
                     let missing_string = data_input.read_int()?;
                     match missing_string {
-                        1 => sort_field.set_missing_value(Some(MissingValueEnum::StringFirst))?,
-                        _ => sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?,
+                        1 => sort_field.set_missing_value(MissingValueEnum::StringFirst)?,
+                        _ => sort_field.set_missing_value(MissingValueEnum::StringLast)?,
                     }
                 },
                 SortFieldType::Int => {
                     let value = data_input.read_int()?;
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(value)))?;
+                    sort_field.set_missing_value(MissingValueEnum::Int(value))?;
                 },
                 SortFieldType::Long => {
                     let value = data_input.read_long()?;
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(value)))?;
+                    sort_field.set_missing_value(MissingValueEnum::Long(value))?;
                 },
                 SortFieldType::Float => {
                     let value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(value)))?;
+                    sort_field.set_missing_value(MissingValueEnum::Float(value))?;
                 },
                 SortFieldType::Double => {
                     let value = NumericUtils::sortable_long_to_double(data_input.read_long()?);
-                    sort_field.set_missing_value(Some(MissingValueEnum::Double(value)))?;
+                    sort_field.set_missing_value(MissingValueEnum::Double(value))?;
                 },
                 SortFieldType::Custom
                 | SortFieldType::Doc
@@ -859,6 +860,7 @@ pub enum MissingValueEnum {
     Float(f32),
     Double(f64),
 }
+
 impl MissingValueEnum {
     pub fn as_i32(&self) -> i32 {
         match self {
@@ -1078,7 +1080,9 @@ impl IndexSorter for IndexSorterEnumSorter {
 
 pub trait SortFiledBase: Display {
     /// Set the value to use for documents that don't have a value.
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
+    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+    where
+        T: Into<MissingValueEnum>;
     /// Rewrites this [`SortField`], returning a new [`SortField`] if a change is made.
     ///
     /// Subclasses should override this to define their rewriting behavior when this

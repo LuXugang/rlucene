@@ -46,7 +46,11 @@ impl SortFieldEnum {
 }
 
 impl SortFiledBase for SortFieldEnum {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+    where
+        T: Into<MissingValueEnum>,
+    {
+        let missing_value = missing_value.into();
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.set_missing_value(missing_value),
             SortFieldEnum::SortedSet(sort_field) => sort_field.set_missing_value(missing_value),

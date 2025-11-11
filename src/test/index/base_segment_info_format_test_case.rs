@@ -320,7 +320,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Int(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             },
@@ -331,7 +331,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Int(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Int(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             },
@@ -342,7 +342,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Long(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             },
@@ -353,7 +353,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Long(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Long(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             },
@@ -364,7 +364,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Float(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             },
@@ -375,7 +375,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::Float(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Float(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             },
@@ -386,8 +386,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Double(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             },
@@ -398,8 +397,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(random.random())))?;
+                    sort_field.set_missing_value(MissingValueEnum::Double(random.random()))?;
                 }
                 Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
             },
@@ -410,7 +408,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     reversed,
                 )?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                    sort_field.set_missing_value(MissingValueEnum::StringLast)?;
                 }
                 Ok(Some(SortFieldEnum::Sorter(sort_field)))
             },
@@ -418,7 +416,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 let mut sort_field =
                     SortedSetSortField::new(TestUtil::random_simple_string(random), reversed)?;
                 if random.random_bool(0.5) {
-                    sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?;
+                    sort_field.set_missing_value(MissingValueEnum::StringLast)?;
                 }
                 Ok(Some(SortFieldEnum::SortedSet(sort_field)))
             },

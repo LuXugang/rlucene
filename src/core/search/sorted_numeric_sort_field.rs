@@ -131,8 +131,11 @@ impl SortedNumericSortField {
 }
 
 impl SortFiledBase for SortedNumericSortField {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
-        self.base.missing_value = missing_value;
+    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+    where
+        T: Into<MissingValueEnum>,
+    {
+        self.base.missing_value = Some(missing_value.into());
         Ok(())
     }
 
@@ -346,23 +349,23 @@ impl SortFieldProvider for NumericProvider {
                 SortFieldType::Int => {
                     let missing_value = data_input.read_int()?;
                     sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Int(missing_value)))?;
+                        .set_missing_value(MissingValueEnum::Int(missing_value))?;
                 },
                 SortFieldType::Long => {
                     let missing_value = data_input.read_long()?;
                     sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Long(missing_value)))?;
+                        .set_missing_value(MissingValueEnum::Long(missing_value))?;
                 },
                 SortFieldType::Float => {
                     let missing_value = NumericUtils::sortable_int_to_float(data_input.read_int()?);
                     sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Float(missing_value)))?;
+                        .set_missing_value(MissingValueEnum::Float(missing_value))?;
                 },
                 SortFieldType::Double => {
                     let missing_value =
                         NumericUtils::sortable_long_to_double(data_input.read_long()?);
                     sorted_numeric_sort_field
-                        .set_missing_value(Some(MissingValueEnum::Double(missing_value)))?;
+                        .set_missing_value(MissingValueEnum::Double(missing_value))?;
                 },
                 SortFieldType::Custom
                 | SortFieldType::Doc

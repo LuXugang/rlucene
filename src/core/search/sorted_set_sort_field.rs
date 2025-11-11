@@ -127,10 +127,14 @@ impl Display for SortedSetSortField {
     }
 }
 impl SortFiledBase for SortedSetSortField {
-    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
+    fn set_missing_value<T>(&mut self, missing_value: T) -> Result<()>
+    where
+        T: Into<MissingValueEnum>,
+    {
+        let missing_value = missing_value.into();
         match missing_value {
-            Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
-                self.base.missing_value = missing_value;
+            MissingValueEnum::StringFirst | MissingValueEnum::StringLast => {
+                self.base.missing_value = Some(missing_value);
                 Ok(())
             },
             _ => Err(LuceneError::illegal_argument(
@@ -222,8 +226,8 @@ impl SortFieldProvider for SetProvider {
 
         let value = data_input.read_int()?;
         match value {
-            1 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringFirst))?,
-            2 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?,
+            1 => sorted_set_sort_field.set_missing_value(MissingValueEnum::StringFirst)?,
+            2 => sorted_set_sort_field.set_missing_value(MissingValueEnum::StringLast)?,
             _ => {
                 debug_assert!(value == 0);
             },
