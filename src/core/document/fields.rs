@@ -23,7 +23,7 @@ use crate::core::document::double_point::DoublePoint;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::document::long_field::LongPoint;
+use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;

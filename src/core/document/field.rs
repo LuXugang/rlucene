@@ -48,7 +48,7 @@ use std::sync::Arc;
 ///   indexed verbatim as a single token.
 /// - [`IntField`](crate::core::document::int_field::IntField): `i32` indexed for
 ///   exact/range queries.
-/// - [`LongField`](crate::core::document::long_field::LongField): `i64` indexed for
+/// - [`LongField`](crate::core::document::long_point::LongField): `i64` indexed for
 ///   exact/range queries.
 /// - [`FloatField`](crate::core::document::float_field::FloatField): `f32` indexed
 ///   for exact/range queries.

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::long_field::LongPoint;
+use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;

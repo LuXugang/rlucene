@@ -27,7 +27,7 @@ pub mod fields;
 pub mod float_field;
 pub mod int_field;
 pub mod invertable_field;
-pub mod long_field;
+pub mod long_point;
 pub mod numeric_doc_values_field;
 pub mod sorted_doc_values_field;
 pub mod sorted_numeric_doc_values_field;
