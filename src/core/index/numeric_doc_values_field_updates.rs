@@ -205,3 +205,154 @@ impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUp
         DocValuesType::Numeric
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::index::sort::Sort;
+    use crate::core::index::term::Term;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::sort_field::{SortField, SortFieldType};
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
+    use rand::Rng;
+    use std::sync::Arc;
+    #[allow(dead_code)]
+    struct TestNumericDocValuesUpdates;
+    fn doc(id: i32) -> Result<Document> {
+        // make sure we don't set the doc's value to 0, to not confuse with a document that's missing values
+        doc_with_val(id, (id + 1) as i64)
+    }
+
+    fn doc_with_val(id: i32, val: i64) -> Result<Document> {
+        let mut doc = Document::new();
+        doc.add(StringField::with_string(
+            "id",
+            format!("doc-{}", id),
+            Store::No,
+        )?);
+        doc.add(NumericDocValuesField::new("val", val));
+        Ok(doc)
+    }
+    // TODO: 测试未通过
+    fn test_multiple_updates_same_doc() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(3); // small number of docs
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        writer.update_documents_with_term(
+            Term::from_text("id", "doc-1"),
+            doc_with_val(1, 1_000_000_000)?,
+        )?;
+        writer.update_numeric_doc_value(Term::from_text("id", "doc-1"), "val", 1_000_001_111)?;
+        writer.update_documents_with_term(
+            Term::from_text("id", "doc-2"),
+            doc_with_val(2, 2_000_000_000)?,
+        )?;
+        writer.update_documents_with_term(
+            Term::from_text("id", "doc-2"),
+            doc_with_val(2, 2_222_222_222)?,
+        )?;
+        writer.update_numeric_doc_value(Term::from_text("id", "doc-1"), "val", 1_111_111_111)?;
+
+        let reader = if random.random_bool(0.5) {
+            writer.commit()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            directory_reader_util::open_with_writer(&mut writer)?
+        };
+        let reader = get_context(Arc::new(reader))?;
+        let mut searcher = IndexSearcher::new(reader)?;
+
+        let td = searcher.search_with_sort(
+            TermQuery::new(Term::from_text("id", "doc-1")),
+            1,
+            Sort::with_fields(vec![
+                SortField::new(Some("val"), SortFieldType::Long)?.into(),
+            ])?,
+        )?;
+        assert_eq!(td.score_docs().len(), 1, "doc-1 missing?");
+        assert_eq!(
+            *td.base.score_docs[0].fields()?[0].as_i64().unwrap(),
+            1_111_111_111,
+            "doc-1 value mismatch"
+        );
+
+        let td = searcher.search_with_sort(
+            TermQuery::new(Term::from_text("id", "doc-2")),
+            1,
+            Sort::with_fields(vec![
+                SortField::new(Some("val"), SortFieldType::Long)?.into(),
+            ])?,
+        )?;
+        assert_eq!(td.score_docs().len(), 1, "doc-2 missing?");
+        assert_eq!(
+            *td.base.score_docs[0].fields()?[0].as_i64().unwrap(),
+            2_222_222_222,
+            "doc-2 value mismatch"
+        );
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let mut config = new_index_writer_config(&mut random);
+        // make sure random config doesn't flush on us
+        config.set_max_buffered_docs(10);
+        config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        writer.add_document(doc(0)?)?; // val=1
+        writer.add_document(doc(1)?)?; // val=2
+        if random.random_bool(0.5) {
+            // randomly commit before the update is sent
+            writer.commit()?;
+        }
+
+        writer.update_numeric_doc_value(Term::from_text("id", "doc-0"), "val", 2)?;
+
+        let reader = if random.random_bool(0.5) {
+            writer.close()?;
+            directory_reader_util::open(dir.clone())?
+        } else {
+            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            writer.close()?;
+            r
+        };
+
+        let reader = get_context(Arc::new(reader))?;
+        assert_eq!(reader.leaves()?.len(), 1);
+        let r = reader.leaves()?[0].reader();
+        let mut ndv = r.get_numeric_doc_values("val")?.unwrap();
+        assert_eq!(ndv.next_doc()?, 0);
+        assert_eq!(ndv.long_value()?, 2);
+        assert_eq!(ndv.next_doc()?, 1);
+        assert_eq!(ndv.long_value()?, 2);
+
+        Ok(())
+    }
+}

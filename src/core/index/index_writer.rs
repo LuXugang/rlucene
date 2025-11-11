@@ -704,12 +704,14 @@ where
     /// - Returns an `io::Error` if there is a low-level I/O error.
     ///
     /// @lucene.experimental
-    pub fn update_documents_with_term<DF>(&self, del_term: Option<Term>, docs: DF) -> Result<i64>
+    pub fn update_documents_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
     where
+        T: Into<Option<Term>>,
         DF: IntoIterator<Item = Fields>,
     {
-        let del_node: Option<Arc<Node>> =
-            del_term.map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
+        let del_node = del_term
+            .into()
+            .map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
         self.update_documents(del_node, vec![docs])
     }
@@ -718,20 +720,19 @@ where
     /// identify the documents to be updated.
     ///
     /// @lucene.experimental
-    pub fn update_documents_with_query<DI, DF>(
-        &self,
-        del_query: Option<Query>,
-        docs: DI,
-    ) -> Result<i64>
+    pub fn update_documents_with_query<T, DI, DF>(&self, del_query: T, docs: DI) -> Result<i64>
     where
+        T: Into<Option<Query>>,
         DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
     {
-        let del_node: Option<Arc<Node>> =
-            del_query.map(|q| Arc::new(DocumentsWriterDeleteQueue::new_node_with_query(q)));
+        let del_node = del_query
+            .into()
+            .map(|q| Arc::new(DocumentsWriterDeleteQueue::new_node_with_query(q)));
 
         self.update_documents(del_node, docs)
     }
+
     fn update_documents<DI, DF>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,

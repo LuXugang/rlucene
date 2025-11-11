@@ -911,9 +911,7 @@ where
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
 
-        let producer = EmptyDocValuesProducerSub1 {
-            values_producer: Some(values_producer),
-        };
+        let producer = EmptyDocValuesProducerSub1 { values_producer };
 
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
             self.write_skip_index(field, &producer)?;
@@ -1204,8 +1202,7 @@ struct EmptyDocValuesProducerSub1<'a, D>
 where
     D: DocValuesProducer,
 {
-    // wrap with `Option` for std::mem::take
-    values_producer: Option<&'a D>,
+    values_producer: &'a D,
 }
 
 impl<D> Clone for EmptyDocValuesProducerSub1<'_, D>
@@ -1231,7 +1228,7 @@ where
     type SortedNumericDocValues = SingletonSortedNumericDocValues<D::NumericDocValues>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-        let v = self.values_producer.as_ref().unwrap().get_numeric(field)?;
+        let v = self.values_producer.get_numeric(field)?;
         DocValues::singleton_numeric(v)
     }
     type SortedSetDocValues = DummySortedSetDocValues;

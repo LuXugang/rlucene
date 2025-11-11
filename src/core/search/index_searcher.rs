@@ -235,6 +235,43 @@ where
     pub fn search(&mut self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
         self.search_with_term_state(query, n, None)
     }
+    /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
+    /// score should be computed.
+    /// Finds the top `n` hits for `query`, sorting the hits by the criteria in `sort`.
+    /// If `do_doc_scores` is `true`, the score of each hit will be computed and returned.
+    /// If `do_max_score` is `true`, the maximum score over all collected hits will be computed.
+    ///
+    /// # Errors
+    /// Returns a [`LuceneError::TooManyClauses`] if a query would exceed
+    /// [`get_max_clause_count()`] clauses.
+    pub fn search_with_sort_score(
+        &mut self,
+        query: impl Into<Query>,
+        n: i32,
+        sort: Sort,
+        do_doc_scores: bool,
+    ) -> Result<TopFieldDocs> {
+        self.search_after_field_with_score(None, query.into(), n, sort, do_doc_scores, None)
+    }
+    /// Search implementation with arbitrary sorting.
+    ///
+    /// * `query` — The query to search for
+    /// * `n` — Return only the top `n` results
+    /// * `sort` — The [`Sort`] object
+    ///
+    /// # Returns
+    /// The top docs, sorted according to the supplied [`Sort`] instance.
+    ///
+    /// # Errors
+    /// Returns an error if a low-level I/O error occurs.
+    pub fn search_with_sort(
+        &mut self,
+        query: impl Into<Query>,
+        n: i32,
+        sort: Sort,
+    ) -> Result<TopFieldDocs> {
+        self.search_after_field_with_score(None, query.into(), n, sort, false, None)
+    }
     pub fn search_with_term_state(
         &mut self,
         query: impl Into<Query>,

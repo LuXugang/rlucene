@@ -527,7 +527,7 @@ where
                         self.merging,
                         Arc::new(Mutex::new(slice)),
                         entry.bits_per_value as i32,
-                        9,
+                        0,
                         entry.num_values,
                     )?;
                     match entry.table {
@@ -657,7 +657,7 @@ where
                     self.merging,
                     Arc::new(Mutex::new(slice)),
                     entry.bits_per_value as i32,
-                    9,
+                    0,
                     entry.num_values,
                 )?;
                 match entry.table {
