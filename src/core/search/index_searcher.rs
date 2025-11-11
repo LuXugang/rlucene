@@ -230,7 +230,7 @@ where
         let manager =
             TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
 
-        self.search_with_collector_manager(query, &manager, term_state)
+        self.search_with_collector_manager_with_state(query, &manager, term_state)
     }
     pub fn search(&mut self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
         self.search_with_term_state(query, n, None)
@@ -332,14 +332,15 @@ where
         // TODO: IMPORTANT
         // let rewritten_sort = sort.rewrite(self)?;
         let sort = Rc::new(sort);
-        let manager = TopFieldCollectorManager::new_with_after(
+        let manager = TopFieldCollectorManager::with_after(
             sort,
             capped_num_hits,
             after,
             TOTAL_HITS_THRESHOLD,
         )?;
 
-        let top_field_docs = self.search_with_collector_manager(query, &manager, term_state)?;
+        let top_field_docs =
+            self.search_with_collector_manager_with_state(query, &manager, term_state)?;
 
         if do_doc_scores {
             // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;
@@ -347,8 +348,18 @@ where
 
         Ok(top_field_docs)
     }
-
     pub fn search_with_collector_manager<CM>(
+        &mut self,
+        query: impl Into<Query>,
+        collector_manager: &CM,
+    ) -> Result<CM::T>
+    where
+        CM: CollectorManager,
+    {
+        self.search_with_collector_manager_with_state(query, collector_manager, None)
+    }
+
+    pub fn search_with_collector_manager_with_state<CM>(
         &mut self,
         query: impl Into<Query>,
         collector_manager: &CM,

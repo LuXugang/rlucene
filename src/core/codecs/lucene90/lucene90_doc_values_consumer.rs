@@ -390,11 +390,17 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             // meta[-1]: All values are 0
             num_bits_per_value = 0;
             self.meta.write_int(-1)?;
-        } else if let Some(set) = unique_values.as_ref() {
-            if set.len() > 1
-                && unsigned_bits_required(set.len() as i64 - 1)
-                    < unsigned_bits_required((max - min) / gcd)
-            {
+        } else {
+            let use_unique_encoding = unique_values
+                .as_ref()
+                .map(|set| {
+                    set.len() > 1
+                        && unsigned_bits_required(set.len() as i64 - 1)
+                            < unsigned_bits_required((max - min) / gcd)
+                })
+                .unwrap_or(false);
+            if use_unique_encoding {
+                let set = unique_values.unwrap();
                 let mut sorted: Vec<i64> = set.iter().cloned().collect();
                 sorted.sort_unstable();
                 debug_assert!(sorted.len() <= i32::MAX as usize);

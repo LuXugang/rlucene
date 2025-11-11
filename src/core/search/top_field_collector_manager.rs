@@ -64,7 +64,7 @@ impl TopFieldCollectorManager {
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
     pub fn new(sort: Rc<Sort>, num_hits: i32, total_hits_threshold: i32) -> Result<Self> {
-        Self::new_with_after(sort, num_hits, None, total_hits_threshold)
+        Self::with_after(sort, num_hits, None, total_hits_threshold)
     }
     /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
     /// with thread-safe internal states.
@@ -85,7 +85,7 @@ impl TopFieldCollectorManager {
     ///   then the hit count of the result will be accurate.
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
-    pub fn new_with_after(
+    pub fn with_after(
         sort: Rc<Sort>,
         num_hits: i32,
         after: Option<FieldDoc>,

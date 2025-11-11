@@ -228,6 +228,7 @@ where
         {
             return Ok(());
         }
+        debug_assert!(self.point_values.is_some());
         // if some documents have missing points, check that missing values prohibits optimization
         if let Some(ref pv) = self.point_values
             && pv.get_doc_count()? < self.max_doc
@@ -469,12 +470,10 @@ where
         &mut self,
     ) -> Option<CompetitiveIterator<CompetitiveIteratorType<N>>> {
         match self.enable_skipping {
-            true => {
-                debug_assert!(self.competitive_iterator.is_some());
-                Some(CompetitiveIterator::new(
-                    self.competitive_iterator.take().unwrap(),
-                ))
-            },
+            true => self
+                .competitive_iterator
+                .take()
+                .map(CompetitiveIterator::new),
             false => None,
         }
     }

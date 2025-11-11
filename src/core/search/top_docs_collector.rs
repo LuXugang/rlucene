@@ -421,7 +421,7 @@ mod tests {
         let reader = Arc::new(get_reader(dir)?);
         let mut searcher = new_searcher(reader)?;
         let cm = MyTopDocsCollectorMananger::new(num_results);
-        searcher.search_with_collector_manager(query, &cm, None)
+        searcher.search_with_collector_manager(query, &cm)
     }
     fn do_search_with_threshold<CR>(
         num_results: i32,
@@ -437,7 +437,7 @@ mod tests {
         let mut searcher = new_searcher(index_reader)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
-        searcher.search_with_collector_manager(query, &collector_manager, None)
+        searcher.search_with_collector_manager(query, &collector_manager)
     }
     fn do_concurrent_search_with_threshold<CR>(
         num_results: i32,
@@ -453,7 +453,7 @@ mod tests {
         let mut searcher = new_searcher(index_reader)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
-        searcher.search_with_collector_manager(query, &collector_manager, None)
+        searcher.search_with_collector_manager(query, &collector_manager)
     }
 
     #[test]

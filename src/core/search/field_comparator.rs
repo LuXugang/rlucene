@@ -330,7 +330,35 @@ pub enum FieldComparatorValue {
     Long(i64),
     TermVal(BytesRef<Vec<u8>>),
 }
+impl From<i32> for FieldComparatorValue {
+    fn from(v: i32) -> Self {
+        FieldComparatorValue::Int(v)
+    }
+}
 
+impl From<i64> for FieldComparatorValue {
+    fn from(v: i64) -> Self {
+        FieldComparatorValue::Long(v)
+    }
+}
+
+impl From<f32> for FieldComparatorValue {
+    fn from(v: f32) -> Self {
+        FieldComparatorValue::Float(v)
+    }
+}
+
+impl From<f64> for FieldComparatorValue {
+    fn from(v: f64) -> Self {
+        FieldComparatorValue::Double(v)
+    }
+}
+
+impl From<BytesRef<Vec<u8>>> for FieldComparatorValue {
+    fn from(v: BytesRef<Vec<u8>>) -> Self {
+        FieldComparatorValue::TermVal(v)
+    }
+}
 impl FieldComparatorValue {
     pub fn missing() -> Self {
         FieldComparatorValue::Missing

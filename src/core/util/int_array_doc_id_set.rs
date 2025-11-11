@@ -127,7 +127,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
             bound *= 2;
         }
         let mut start = self.i as usize + (bound / 2) as usize;
-        let end = std::cmp::min(self.i + bound + 1, self.length - 1) as usize;
+        let end = std::cmp::min(self.i + bound + 1, self.length) as usize;
         let index = self.docs[start..end]
             .binary_search(&target)
             .unwrap_or_else(|index| index);

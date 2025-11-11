@@ -2136,7 +2136,7 @@ where
         self.leaf_values.copy_from(&packed_value[0..length], offset);
 
         self.leaf_docs[self.leaf_count as usize] = doc_id;
-        // docsSeen.set(doc_id);
+        self.bkd_writer.docs_seen.set(doc_id);
         self.leaf_count += 1;
 
         if self.value_count + self.leaf_count as i64 > self.bkd_writer.total_point_count {
@@ -2169,9 +2169,6 @@ where
             return Ok(None);
         }
         self.bkd_writer.point_count = self.value_count;
-        // self.bkd_writer.scratch_bytes_ref1.length =
-        // self.bkd_writer.config.bytes_per_dim; self.bkd_writer.
-        // scratch_bytes_ref1.offset = 0;
 
         debug_assert!(self.leaf_block_start_values.len() + 1 == self.leaf_block_fps.len());
 

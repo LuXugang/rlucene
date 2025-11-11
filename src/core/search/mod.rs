@@ -31,7 +31,7 @@ pub mod dummy;
 pub mod explanation;
 pub mod field_comparator;
 pub mod field_comparator_source;
-mod field_doc;
+pub mod field_doc;
 pub mod field_value_hit_queue;
 mod filter_leaf_collector;
 mod hit_queue;
