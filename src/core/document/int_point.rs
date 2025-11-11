@@ -30,16 +30,17 @@ use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 
-pub struct LongPoint {
+/// A field that indexes one or more `i32` (int) point values.
+pub struct IntPoint {
     parent_field: Field,
 }
 
-impl LongPoint {
-    /// Create a new LongPoint with the given name and long values
-    pub fn new<T, P>(name: T, point: P) -> Result<LongPoint>
+impl IntPoint {
+    /// Create a new IntPoint with the given name and int values
+    pub fn new<T, P>(name: T, point: P) -> Result<IntPoint>
     where
         T: Into<String>,
-        P: AsRef<[i64]>,
+        P: AsRef<[i32]>,
     {
         let point = point.as_ref();
         let packed = Self::pack(point)?;
@@ -48,18 +49,18 @@ impl LongPoint {
         debug_assert!(len <= i32::MAX as usize);
         let field_type = Self::get_type(point.len() as i32)?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
-        Ok(LongPoint { parent_field })
+        Ok(IntPoint { parent_field })
     }
 
     fn get_type(num_dims: i32) -> Result<FieldType> {
         let mut field_type = FieldType::new();
-        field_type.set_dimensions(num_dims, BitUtil::LONG_BYTES as i32)?;
+        field_type.set_dimensions(num_dims, BitUtil::INT_BYTES as i32)?;
         field_type.freeze();
         Ok(field_type)
     }
 
     /// Change the values of this field
-    pub fn set_long_values(&mut self, point: &[i64]) -> Result<()> {
+    pub fn set_int_values(&mut self, point: &[i32]) -> Result<()> {
         if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -76,45 +77,38 @@ impl LongPoint {
         Ok(())
     }
 
-    /// Pack a long array into bytes
-    pub fn pack(point: &[i64]) -> Result<Vec<u8>> {
+    /// Pack an int array into bytes
+    pub fn pack(point: &[i32]) -> Result<Vec<u8>> {
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),
             ));
         }
-        let mut packed = vec![0u8; point.len() * BitUtil::LONG_BYTES];
+        let mut packed = vec![0u8; point.len() * BitUtil::INT_BYTES];
         for (i, &dim) in point.iter().enumerate() {
-            Self::encode_dimension(dim, &mut packed, i * BitUtil::LONG_BYTES);
+            Self::encode_dimension(dim, &mut packed, i * BitUtil::INT_BYTES);
         }
         Ok(packed)
     }
 
-    /// Unpack bytes into a long array
-    pub fn unpack(bytes_ref: &BytesRef<Vec<u8>>, start: usize, buf: &mut [i64]) {
-        for (i, val) in buf.iter_mut().enumerate() {
-            *val = Self::decode_dimension(&bytes_ref.bytes, start + i * BitUtil::LONG_BYTES);
-        }
+    /// Encode single int dimension
+    pub fn encode_dimension(value: i32, dest: &mut [u8], offset: usize) {
+        NumericUtils::int_to_sortable_bytes(value, dest, offset);
     }
 
-    /// Encode single long dimension
-    pub fn encode_dimension(value: i64, dest: &mut [u8], offset: usize) {
-        NumericUtils::long_to_sortable_bytes(value, dest, offset);
-    }
-
-    /// Decode single long dimension
-    pub fn decode_dimension(value: &[u8], offset: usize) -> i64 {
-        NumericUtils::sortable_bytes_to_long(value, offset)
+    /// Decode single int dimension
+    pub fn decode_dimension(value: &[u8], offset: usize) -> i32 {
+        NumericUtils::sortable_bytes_to_int(value, offset)
     }
 }
 
-impl FieldBase for LongPoint {
-    fn set_long_value(&mut self, value: i64) -> Result<()> {
-        self.set_long_values(&[value])
+impl FieldBase for IntPoint {
+    fn set_int_value(&mut self, value: i32) -> Result<()> {
+        self.set_int_values(&[value])
     }
 }
 
-impl IndexableField for LongPoint {
+impl IndexableField for IntPoint {
     fn name(&self) -> &str {
         self.parent_field.name()
     }
@@ -165,9 +159,9 @@ impl IndexableField for LongPoint {
         }
         match &self.parent_field.fields_data {
             FieldDataEnum::Binary(bytes) => {
-                debug_assert!(bytes.length == BitUtil::LONG_BYTES);
+                debug_assert!(bytes.length == BitUtil::INT_BYTES);
                 let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
-                Ok(Some(Number::I64(value)))
+                Ok(Some(value.into()))
             },
             _ => {
                 debug_assert!(false, "no possible here");
@@ -196,9 +190,9 @@ impl IndexableField for LongPoint {
     }
 }
 
-impl fmt::Display for LongPoint {
+impl fmt::Display for IntPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "LongPoint <{}:", self.parent_field.name())?;
+        write!(f, "IntPoint <{}:", self.parent_field.name())?;
         match &self.parent_field.fields_data {
             FieldDataEnum::Binary(bytes) => {
                 let dim_count = self.parent_field.field_type().point_dimension_count();
@@ -208,7 +202,7 @@ impl fmt::Display for LongPoint {
                     }
                     let value = Self::decode_dimension(
                         &bytes.bytes,
-                        bytes.offset + dim as usize * BitUtil::LONG_BYTES,
+                        bytes.offset + dim as usize * BitUtil::INT_BYTES,
                     );
                     write!(f, "{value}")?;
                 }

@@ -174,7 +174,7 @@ impl IndexableField for DoublePoint {
     }
 
     fn invertable_type(&self) -> &InvertableType {
-        todo!()
+        self.parent_field.invertable_type()
     }
 
     fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
