@@ -243,6 +243,8 @@ mod tests {
     use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
     use crate::core::index::term::Term;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::store::directory::Directory;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -725,12 +727,238 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_sorted_index() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_many_reopens_and_fields() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_update_segment_with_no_doc_values() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer NoMergePolicy
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // First segment with BDV
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc0", Store::No)?);
+        doc.add(BinaryDocValuesField::new("bdv", to_bytes(3i64)?));
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc4", Store::No)?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        // Second segment with no BDV
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc1", Store::No)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc2", Store::No)?);
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        // update document in the first segment - should not affect docsWithField of
+        // the document without BDV field
+        writer.update_binary_doc_value(Term::from_text("id", "doc0"), "bdv", to_bytes(5i64)?)?;
+        // update document in the second segment - field should be added and we should
+        // be able to handle the other document correctly (e.g. no NPE)
+        writer.update_binary_doc_value(Term::from_text("id", "doc1"), "bdv", to_bytes(5i64)?)?;
+        writer.close()?;
+
+        // Validation phase
+        let reader = directory_reader_util::open(dir)?;
+        let reader = get_context(Arc::new(reader))?;
+        for ctx in reader.leaves()? {
+            let r = ctx.reader();
+            let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
+            assert_eq!(bdv.next_doc()?, 0);
+            assert_eq!(get_value(&mut bdv)?, 5);
+            assert_eq!(bdv.next_doc()?, NO_MORE_DOCS);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer NoMergePolicy
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        // First segment with BDV
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "doc0", Store::No)?);
+        doc.add(StringField::with_string("bdv", "mock-value", Store::No)?);
+        doc.add(BinaryDocValuesField::new("bdv", to_bytes(5i64)?));
+        writer.add_document(doc)?;
+        writer.commit()?;
+
+        // Second segment with no BDV
+        let mut doc2 = Document::new();
+        doc2.add(StringField::with_string("id", "doc1", Store::No)?);
+        doc2.add(StringField::with_string("bdv", "mock-value", Store::No)?);
+        let result = writer.add_document(doc2);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        let expected_err_msg = "cannot change field \"bdv\" from doc values type=Binary to inconsistent doc values type=None";
+        let actual_err_msg = result.unwrap_err().to_string();
+        assert_eq!(actual_err_msg, expected_err_msg);
+
+        let mut doc2 = Document::new();
+        doc2.add(StringField::with_string("id", "doc1", Store::No)?);
+        doc2.add(StringField::with_string("bdv", "mock-value", Store::No)?);
+        doc2.add(BinaryDocValuesField::new("bdv", to_bytes(10i64)?));
+        writer.add_document(doc2)?;
+
+        // update doc values of bdv field in the second segment
+        let err = writer
+            .update_binary_doc_value(Term::from_text("id", "doc1"), "bdv", to_bytes(5i64)?)
+            .unwrap_err();
+        let expected_err_msg = "Can't update [Binary] doc values; the field [bdv] must be doc values only field, but is also indexed with postings.";
+        assert_eq!(err.to_string(), expected_err_msg);
+
+        writer.commit()?;
+        writer.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let reader = get_context(Arc::new(reader))?;
+        let leaves = reader.leaves()?;
+        let r1 = leaves[0].reader();
+        let mut bdv1 = r1.get_binary_doc_values("bdv")?.unwrap();
+        assert_eq!(bdv1.next_doc()?, 0);
+        assert_eq!(get_value(&mut bdv1)?, 5);
+
+        let r2 = leaves[1].reader();
+        let mut bdv2 = r2.get_binary_doc_values("bdv")?.unwrap();
+        assert_eq!(bdv2.next_doc()?, 1);
+        assert_eq!(get_value(&mut bdv2)?, 10);
+
+        Ok(())
+    }
+
+    // TODO: 这个测试未通过
+    fn test_update_different_docs_in_different_gens() -> Result<()> {
+        // update same document multiple times across generations
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(4);
+        let mut writer = IndexWriter::new(dir.clone(), config)?;
+
+        let num_docs = at_least(&mut random, 10);
+        for i in 0..num_docs {
+            let mut doc = Document::new();
+            doc.add(StringField::with_string(
+                "id",
+                format!("doc{i}"),
+                Store::No,
+            )?);
+            let value = random.random();
+            doc.add(BinaryDocValuesField::new("f", to_bytes(value)?));
+            doc.add(BinaryDocValuesField::new("cf", to_bytes(value * 2)?));
+            writer.add_document(doc)?;
+        }
+
+        let num_gens = at_least(&mut random, 5);
+        for _ in 0..num_gens {
+            let doc_idx = random.random_range(0..num_docs);
+            let t = Term::from_text("id", &format!("doc{doc_idx}"));
+            let value = random.random();
+            writer.update_doc_values(
+                t,
+                vec![
+                    BinaryDocValuesField::new("f", to_bytes(value)?).into(),
+                    BinaryDocValuesField::new("cf", to_bytes(value * 2)?).into(),
+                ],
+            )?;
+
+            let reader = directory_reader_util::open_with_writer(&mut writer)?;
+            let reader = get_context(Arc::new(reader))?;
+
+            for ctx in reader.leaves()? {
+                let r = ctx.reader();
+                let mut fbdv = r.get_binary_doc_values("f")?.unwrap();
+                let mut cfbdv = r.get_binary_doc_values("cf")?.unwrap();
+                let max_doc = r.max_doc()?;
+
+                for j in 0..max_doc {
+                    assert_eq!(j, fbdv.next_doc()?);
+                    assert_eq!(j, cfbdv.next_doc()?);
+                    let f = get_value(&mut fbdv)?;
+                    let cf = get_value(&mut cfbdv)?;
+                    assert_eq!(cf, f * 2);
+                }
+            }
+        }
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_change_codec() {
+        // this test is not required in Rust Lucene
+    }
+
+    #[test]
+    fn test_add_indexes() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete_unused_updates_files() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("id", "d0", Store::No)?);
+        doc.add(BinaryDocValuesField::new("f1", to_bytes(1_i64)?));
+        doc.add(BinaryDocValuesField::new("f2", to_bytes(1_i64)?));
+        writer.add_document(doc)?;
+
+        // update each field twice to make sure all unneeded files are deleted
+        for f in ["f1", "f2"] {
+            writer.update_binary_doc_value(Term::from_text("id", "d0"), f, to_bytes(2_i64)?)?;
+            writer.commit()?;
+            let num_files = dir.list_all()?.len();
+
+            // update again, number of files shouldn't change (old field's gen is
+            // removed)
+            writer.update_binary_doc_value(Term::from_text("id", "d0"), f, to_bytes(3_i64)?)?;
+            writer.commit()?;
+
+            // assert: file count should not grow
+            assert_eq!(
+                num_files,
+                dir.list_all()?.len(),
+                "Old updates files for field {f} were not deleted"
+            );
+        }
+
+        writer.close()?;
+        Ok(())
+    }
+
     // TODO: tests.seed=17251040228904313710 测试为通过
     fn test_tons_of_updates() -> Result<()> {
         // LUCENE-5248: ensure we don't consume too much RAM when many updates occur
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-
+        // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
         config.set_max_buffered_docs(DISABLE_AUTO_FLUSH);

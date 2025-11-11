@@ -345,8 +345,9 @@ where
         let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
         let mut all_docs_indexed = false;
         let index_writer_config = writer.get_config();
+        let mut docs_iter = docs.into_iter().peekable();
         let result = (|| -> Result<i64> {
-            for doc in docs {
+            while let Some(doc) = docs_iter.next() {
                 match &self.parent_field {
                     Some(parent) => {
                         let doc_wrapper = DocWrapper::new(doc, parent.clone());
@@ -362,7 +363,9 @@ where
                         )?;
                     },
                     None => {
+                        let has_next_doc = docs_iter.peek().is_some();
                         if self.segment_info.index_sort.is_some()
+                            && has_next_doc
                             && self.index_major_version_created >= LUCENE_10_0_0.major
                         {
                             return Err(LuceneError::illegal_argument(
@@ -461,8 +464,6 @@ where
             self.delete_doc_ids[self.state.num_docs_in_ram.load(SeqCst) as usize] = doc_id;
             self.num_deleted_doc_ids += 1;
         }
-        debug_assert!(self.delete_doc_ids.len() <= i32::MAX as usize);
-        self.num_deleted_doc_ids = self.delete_doc_ids.len() as i32;
         // NOTE: we do not trigger flush here.  This is
         // potentially a RAM leak, if you have an app that tries
         // to add docs but every single doc always hits a

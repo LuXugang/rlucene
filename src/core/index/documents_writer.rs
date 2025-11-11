@@ -408,26 +408,25 @@ where
             // This must happen after we've pulled the DWPT because IW.close
             // waits for all DWPT to be released:
             self.ensure_open()?;
-            let result: Result<()> = {
-                seq_no = dwpt_wrapper.dwpt.lock().update_documents(
-                    docs,
-                    del_node,
-                    &self.flush_notifications,
-                    &self.num_docs_in_ram,
-                    writer,
-                )?;
-                Ok(())
-            };
+            let res = dwpt_wrapper.dwpt.lock().update_documents(
+                docs,
+                del_node,
+                &self.flush_notifications,
+                &self.num_docs_in_ram,
+                writer,
+            );
             if dwpt_wrapper.state.is_aborted() {
                 self.flush_control.do_on_abort(&dwpt_wrapper, config);
             }
-            if result.is_ok() {
+            if let Ok(sno) = &res {
+                seq_no = *sno;
                 flushing_dwpt_opt = self.flush_control.do_after_document(
                     &dwpt_wrapper.dwpt.lock(),
                     self.inner.lock().delete_queue.as_ref(),
                     config,
-                )?
+                )?;
             }
+
             {
                 // If a flush is occurring, we don't want to allow this dwpt to be reused
                 // If it is aborted, we shouldn't allow it to be reused
@@ -446,7 +445,7 @@ where
                 }
                 drop(inner)
             }
-            result
+            res
         })();
         result?;
         if self.post_update(flushing_dwpt_opt, has_events, writer)? {
