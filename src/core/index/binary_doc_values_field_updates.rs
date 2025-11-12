@@ -326,7 +326,7 @@ mod tests {
         config.set_max_buffered_docs(10);
         config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
 
-        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        let writer = IndexWriter::new(dir.clone(), config)?;
 
         writer.add_document(doc(0)?)?; // val=1
         writer.add_document(doc(1)?)?; // val=2
@@ -343,7 +343,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            let r = directory_reader_util::open_with_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -371,7 +371,7 @@ mod tests {
         config.set_max_buffered_docs(2); // generate few segments
         // TODO: 未实现 NoMergePolicy
         // config.set_merge_policy(NoMergePolicy::INSTANCE);
-        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        let writer = IndexWriter::new(dir.clone(), config)?;
 
         let num_docs = 10;
         let mut expected_values = vec![0i64; num_docs];
@@ -398,7 +398,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            let r = directory_reader_util::open_with_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -440,7 +440,7 @@ mod tests {
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10); // control segment flushing
         // config.set_merge_policy(NoMergePolicy::INSTANCE);
-        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        let writer = IndexWriter::new(dir.clone(), config)?;
 
         writer.add_document(doc(0)?)?;
         writer.add_document(doc(1)?)?;
@@ -458,7 +458,7 @@ mod tests {
             writer.close()?;
             directory_reader_util::open(dir.clone())?
         } else {
-            let r = directory_reader_util::open_with_writer(&mut writer)?;
+            let r = directory_reader_util::open_with_writer(&writer)?;
             writer.close()?;
             r
         };
@@ -873,7 +873,7 @@ mod tests {
 
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(4);
-        let mut writer = IndexWriter::new(dir.clone(), config)?;
+        let writer = IndexWriter::new(dir.clone(), config)?;
 
         let num_docs = at_least(&mut random, 10);
         for i in 0..num_docs {
@@ -902,7 +902,7 @@ mod tests {
                 ],
             )?;
 
-            let reader = directory_reader_util::open_with_writer(&mut writer)?;
+            let reader = directory_reader_util::open_with_writer(&writer)?;
             let reader = get_context(Arc::new(reader))?;
 
             for ctx in reader.leaves()? {

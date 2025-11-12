@@ -20,7 +20,7 @@ use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams}
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::document::long_field::long_field::{FIELD_TYPE, FIELD_TYPE_STORED};
+use crate::core::document::long_field::long_field_type::{FIELD_TYPE, FIELD_TYPE_STORED};
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::bit_util::BitUtil;
@@ -31,7 +31,7 @@ use std::borrow::Cow;
 use std::fmt;
 
 /// Indexed as SortedNumeric DocValue, not stored.
-pub mod long_field {
+pub mod long_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::util::bit_util::BitUtil;

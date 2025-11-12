@@ -28,7 +28,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-pub mod int_field {
+pub mod int_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::util::bit_util::BitUtil;
@@ -66,9 +66,9 @@ impl IntField {
     {
         let stored = stored.into();
         let field_type = if stored {
-            int_field::FIELD_TYPE_STORED.clone()
+            int_field_type::FIELD_TYPE_STORED.clone()
         } else {
-            int_field::FIELD_TYPE.clone()
+            int_field_type::FIELD_TYPE.clone()
         };
         let parent_field = Field::new(name, field_type, value);
         Ok(IntField { parent_field })

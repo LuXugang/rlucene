@@ -250,14 +250,14 @@ pub type ScorerSupplierAlias<S, IRC, QCP, QC> = <WeightEnum<Query, S, IRC, QCP, 
 pub type TPI<S, IRC, QCP, QC> = <<ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
     <IRC as IndexReaderContext>::LeafReader,
 >>::Scorer as Scorer>::TwoPhaseIter;
-pub type DISI<S, IRC, QCP, QC> = <<ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
+pub type Disi<S, IRC, QCP, QC> = <<ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
     <IRC as IndexReaderContext>::LeafReader,
 >>::Scorer as Scorer>::DocIdSetIterator;
 pub type BS<S, IRC, QCP, QC> = <ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
     <IRC as IndexReaderContext>::LeafReader,
 >>::BulkScorer;
 pub type ConstantScoreScorerEnum<S, IRC, QCP, QC> = Either2Scorer<
-    ConstantScoreScorer<DISI<S, IRC, QCP, QC>, DummyTwoPhaseIterator>,
+    ConstantScoreScorer<Disi<S, IRC, QCP, QC>, DummyTwoPhaseIterator>,
     ConstantScoreScorer<DummyDocIdSetIterator, TPI<S, IRC, QCP, QC>>,
 >;
 pub type BulkScorerEnum<S, IRC, QCP, QC> = Either2BulkScorer<

@@ -19,7 +19,7 @@ use crate::core::store::{DataInput, ReadAdvice};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter, Pointer};
+use std::fmt::{Display, Formatter};
 
 /// Provides random-access input operations for files within a
 /// [`Directory`](crate::core::store::directory::Directory).

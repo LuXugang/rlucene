@@ -737,7 +737,7 @@ where
         Self { reader }
     }
 }
-impl<'a, L> TermsProvider for TermsProviderImpl2<'_, L>
+impl<L> TermsProvider for TermsProviderImpl2<'_, L>
 where
     L: LeafReader,
 {

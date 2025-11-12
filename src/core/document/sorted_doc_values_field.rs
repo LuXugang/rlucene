@@ -32,7 +32,6 @@ use std::fmt::{Display, Formatter};
 /// Field that stores a per-document [`BytesRef`] value, indexed for sorting.
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 /// This value can be at most **32766 bytes** long.
-
 static TYPE: Lazy<FieldType> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_doc_values_type(DocValuesType::Sorted)

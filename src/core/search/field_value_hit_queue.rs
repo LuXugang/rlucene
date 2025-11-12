@@ -77,7 +77,6 @@ impl FieldValueHitQueue {
 ///   cannot be empty.
 /// * `size` – The number of hits to retain.
 /// Must be greater than zero.
-
 pub fn create(
     fields: &[SortFieldEnum],
     size: i32,

@@ -30,7 +30,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 
-pub mod float_field {
+pub mod float_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::util::bit_util::BitUtil;
@@ -68,9 +68,9 @@ impl FloatField {
     {
         let stored = stored.into();
         let field_type = if stored {
-            float_field::FIELD_TYPE_STORED.clone()
+            float_field_type::FIELD_TYPE_STORED.clone()
         } else {
-            float_field::FIELD_TYPE.clone()
+            float_field_type::FIELD_TYPE.clone()
         };
         let sortable_long = NumericUtils::float_to_sortable_int(value) as i64;
         let parent_field = Field::new(name, field_type, sortable_long);

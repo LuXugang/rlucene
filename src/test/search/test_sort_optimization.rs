@@ -337,7 +337,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
             vec![after_value.into()],
         );
         let mut sort_field = SortField::with_reverse(Some("my_field"), SortFieldType::Long, true)?;
-        sort_field.set_missing_value(i64::MAX);
+        sort_field.set_missing_value(i64::MAX)?;
         let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager = TopFieldCollectorManager::with_after(
             sort.clone(),

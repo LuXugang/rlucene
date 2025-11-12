@@ -382,7 +382,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         self.meta.write_long(num_values)?;
 
-        let mut num_bits_per_value = 0;
+        let num_bits_per_value;
         let mut do_blocks = false;
         let mut encode: Option<HashMap<i64, i32>> = None;
 
