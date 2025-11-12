@@ -15,21 +15,27 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::float_doc_values_field::FloatDocValuesField;
+use crate::core::document::float_point::FloatPoint;
+use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::sort::Sort;
 use crate::core::search::field_doc::FieldDoc;
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
-use crate::core::search::top_docs::TopDocsLike;
+use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, new_searcher, random,
+    at_least, is_night_mode, new_directory, new_searcher, random,
 };
 use rand::Rng;
 use std::rc::Rc;
@@ -475,6 +481,256 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
         assert_eq!(top_docs.total_hits().value as i32, num_docs as i32);
     }
+
+    Ok(())
+}
+#[test]
+fn test_sort_optimization_equal_values() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let config = IndexWriterConfig::new();
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let num_docs = if is_night_mode() {
+        at_least(&mut random, 50_000)
+    } else {
+        at_least(&mut random, 10_000)
+    };
+
+    for i in 1..=num_docs {
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("my_field1", 100));
+        doc.add(IntPoint::new("my_field1", vec![100])?);
+        doc.add(NumericDocValuesField::new(
+            "my_field2",
+            (num_docs - i) as i64,
+        ));
+        writer.add_document(doc)?;
+        if i == 7000 && random.random_bool(0.5) {
+            writer.flush()?;
+        }
+    }
+
+    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    writer.close()?;
+
+    let mut searcher = new_searcher(reader.clone())?;
+    let num_hits = 3;
+    let total_hits_threshold = 3;
+
+    {
+        let sort_field = SortField::new(Some("my_field1"), SortFieldType::Int)?;
+        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let collector_manager =
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+        let top_docs =
+            searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
+
+        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+
+        for i in 0..num_hits {
+            let fd = &top_docs.score_docs()[i as usize];
+            let fields = fd.fields()?;
+            assert_eq!(*fields[0].as_i32().unwrap(), 100);
+        }
+
+        if searcher.reader_context.leaves()?.len() == 1 {
+            assert_eq!(top_docs.total_hits().value as i32, num_hits + 1);
+        }
+
+        assert_non_competitive_hits_are_skipped(
+            top_docs.total_hits().value as i64,
+            num_docs as i64,
+        )?;
+    }
+
+    {
+        let after_value = 100_i32;
+        let after_doc_id = 10 + random.random_range(0..1000);
+        let sort_field = SortField::new(Some("my_field1"), SortFieldType::Int)?;
+        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let after = FieldDoc::with_fields(after_doc_id, f32::NAN, vec![after_value.into()]);
+        let collector_manager = TopFieldCollectorManager::with_after(
+            sort.clone(),
+            num_hits,
+            Some(after),
+            total_hits_threshold,
+        )?;
+        let top_docs =
+            searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
+
+        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        for i in 0..num_hits {
+            let fd = &top_docs.score_docs()[i as usize];
+            let fields = fd.fields()?;
+            assert_eq!(*fields[0].as_i32().unwrap(), 100);
+            assert!(fd.doc() > after_doc_id);
+        }
+
+        assert_non_competitive_hits_are_skipped(
+            top_docs.total_hits().value as i64,
+            num_docs as i64,
+        )?;
+    }
+
+    {
+        let sf1 = SortField::new(Some("my_field1"), SortFieldType::Int)?;
+        let sf2 = SortField::new(Some("my_field2"), SortFieldType::Int)?;
+        let sort = Rc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
+        let collector_manager =
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+        let top_docs =
+            searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
+
+        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+
+        for i in 0..num_hits {
+            let fd = &top_docs.score_docs()[i as usize];
+            let fields = fd.fields()?;
+            assert_eq!(*fields[0].as_i32().unwrap(), 100);
+            assert_eq!(*fields[1].as_i32().unwrap(), i);
+        }
+
+        assert_eq!(top_docs.total_hits().value as i32, num_docs);
+    }
+
+    Ok(())
+}
+#[test]
+fn test_float_sort_optimization() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let config = IndexWriterConfig::new();
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let num_docs = at_least(&mut random, 10_000);
+    for i in 0..num_docs {
+        let mut doc = Document::new();
+        let f = i as f32;
+        doc.add(FloatDocValuesField::new("my_field", f));
+        doc.add(FloatPoint::new("my_field", vec![f])?);
+        writer.add_document(doc)?;
+    }
+
+    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    writer.close()?;
+
+    let mut searcher = new_searcher(reader)?;
+    let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
+    let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+    let num_hits = 3;
+    let total_hits_threshold = 3;
+
+    {
+        let collector_manager =
+            TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+        let top_docs =
+            searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
+
+        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+
+        for i in 0..num_hits {
+            let fd = &top_docs.score_docs()[i as usize];
+            let fields = fd.fields()?;
+            let v = *fields[0].as_f32().expect("should be f32");
+            assert!((v - i as f32).abs() < f32::EPSILON);
+        }
+
+        assert_eq!(
+            top_docs.total_hits().relation,
+            Relation::GreaterThanOrEqualTo
+        );
+
+        assert_non_competitive_hits_are_skipped(
+            top_docs.total_hits().value as i64,
+            num_docs as i64,
+        )?;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
+    let mut random = random();
+    let num_indices = 3;
+    let num_docs_in_index = at_least(&mut random, 50);
+
+    let mut readers = Vec::with_capacity(num_indices);
+
+    for i in 0..num_indices {
+        let dir = Arc::new(new_directory(&mut random)?);
+        let config = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), config)?;
+        for doc_id in 0..num_docs_in_index {
+            let mut doc = Document::new();
+            doc.add(NumericDocValuesField::new(
+                "my_field",
+                (doc_id as usize * num_indices + i) as i64,
+            ));
+            writer.add_document(doc)?;
+        }
+        writer.flush()?;
+        writer.close()?;
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        readers.push(reader);
+    }
+
+    let size = 7;
+    let total_hits_threshold = 7;
+    let sort = Rc::new(Sort::with_fields(vec![
+        SortField::get_field_doc()?.into(),
+        SortField::new(Some("my_field"), SortFieldType::Long)?.into(),
+    ])?);
+
+    let mut cur_num_hits;
+    let mut after: Option<FieldDoc> = None;
+    let mut collected_docs: i64 = 0;
+    let mut total_docs: i64 = 0;
+    let mut num_hits = 0;
+
+    loop {
+        let mut top_docs_vec = Vec::new();
+        for i in 0..num_indices {
+            // TODO: 这里应该使用new_searcher的另一个变体
+            let mut searcher = new_searcher(readers[i].clone())?;
+            let collector_manager = TopFieldCollectorManager::with_after(
+                sort.clone(),
+                size,
+                after.clone(),
+                total_hits_threshold,
+            )?;
+            let mut top_docs =
+                searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
+            for doc_id in 0..top_docs.base.score_docs.len() {
+                top_docs.score_docs_mut()[doc_id].set_shard_index(i as i32)
+            }
+            collected_docs += top_docs.total_hits().value as i64;
+            total_docs += num_docs_in_index as i64;
+            top_docs_vec.push(top_docs.base)
+        }
+
+        let mut merged_top_docs =
+            top_docs_util::merge_top_field_docs(sort.as_ref(), size, top_docs_vec)?;
+        cur_num_hits = merged_top_docs.score_docs().len();
+        num_hits += cur_num_hits;
+        if cur_num_hits > 0 {
+            let v = std::mem::take(&mut merged_top_docs.score_docs_mut()[cur_num_hits - 1]);
+            match v {
+                TopFieldScoreDoc::Field(field_doc) => {
+                    after = Some(field_doc);
+                },
+                _ => {
+                    return Err(LuceneError::illegal_state("Expected FieldDoc type"));
+                },
+            }
+        } else {
+            break;
+        }
+    }
+    let expected_num_hits = num_docs_in_index as usize * num_indices;
+    assert_eq!(expected_num_hits, num_hits);
+    assert_non_competitive_hits_are_skipped(collected_docs, total_docs)?;
 
     Ok(())
 }

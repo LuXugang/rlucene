@@ -80,7 +80,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache<IRC::LeafReader>,
 {
-    reader_context: IRC,
+    pub reader_context: IRC,
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
     similarity: Arc<S>,
     leaf_slices_init_lock: Mutex<()>,

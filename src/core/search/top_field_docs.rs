@@ -61,4 +61,8 @@ impl TopDocsLike for TopFieldDocs {
     fn score_docs(&self) -> &[Self::ScoreDocLike] {
         &self.base.score_docs
     }
+
+    fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike] {
+        &mut self.base.score_docs
+    }
 }

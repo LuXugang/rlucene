@@ -36,7 +36,6 @@ use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
-use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -269,7 +268,7 @@ impl TopDocsCollector for TopFieldCollector {
     where
         Self: Sized,
     {
-        let result = results.unwrap_or_else(|| vec![ScoreDoc::default().into()]);
+        let result = results.unwrap_or_else(std::vec::Vec::new);
         // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
         TopFieldDocs::new(
             TotalHits::new(self.total_hits(), self.get_total_hits_relation()),

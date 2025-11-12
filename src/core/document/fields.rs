@@ -19,10 +19,12 @@ use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_field::IntField;
@@ -52,6 +54,8 @@ pub enum Fields {
     String(StringField),
     Stored(StoredField),
     NumericDocValues(NumericDocValuesField),
+    FloatDocValues(FloatDocValuesField),
+    DoubleDocValues(DoubleDocValuesField),
     Reverse(ReservedField<NumericDocValuesField>),
     FloatPoint(FloatPoint),
     LongPoint(LongPoint),
@@ -94,6 +98,17 @@ impl From<NumericDocValuesField> for Fields {
         Fields::NumericDocValues(n)
     }
 }
+impl From<FloatDocValuesField> for Fields {
+    fn from(n: FloatDocValuesField) -> Self {
+        Fields::FloatDocValues(n)
+    }
+}
+impl From<DoubleDocValuesField> for Fields {
+    fn from(n: DoubleDocValuesField) -> Self {
+        Fields::DoubleDocValues(n)
+    }
+}
+
 impl From<ReservedField<NumericDocValuesField>> for Fields {
     fn from(r: ReservedField<NumericDocValuesField>) -> Self {
         Fields::Reverse(r)
@@ -168,6 +183,8 @@ impl Display for Fields {
             Fields::String(f1) => f1.fmt(f),
             Fields::Stored(f1) => f1.fmt(f),
             Fields::NumericDocValues(f1) => f1.fmt(f),
+            Fields::FloatDocValues(f1) => f1.fmt(f),
+            Fields::DoubleDocValues(f1) => f1.fmt(f),
             Fields::Reverse(f1) => f1.fmt(f),
             Fields::FloatPoint(f1) => f1.fmt(f),
             Fields::LongPoint(f1) => f1.fmt(f),
@@ -193,6 +210,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.name(),
             Fields::Stored(f) => f.name(),
             Fields::NumericDocValues(f) => f.name(),
+            Fields::FloatDocValues(f) => f.name(),
+            Fields::DoubleDocValues(f) => f.name(),
             Fields::Reverse(f) => f.name(),
             Fields::FloatPoint(f) => f.name(),
             Fields::LongPoint(f) => f.name(),
@@ -218,6 +237,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.field_type(),
             Fields::Stored(f) => f.field_type(),
             Fields::NumericDocValues(f) => f.field_type(),
+            Fields::FloatDocValues(f) => f.field_type(),
+            Fields::DoubleDocValues(f) => f.field_type(),
             Fields::Reverse(f) => f.field_type(),
             Fields::FloatPoint(f) => f.field_type(),
             Fields::LongPoint(f) => f.field_type(),
@@ -246,6 +267,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.token_stream(token_stream),
             Fields::Stored(f) => f.token_stream(token_stream),
             Fields::NumericDocValues(f) => f.token_stream(token_stream),
+            Fields::FloatDocValues(f) => f.token_stream(token_stream),
+            Fields::DoubleDocValues(f) => f.token_stream(token_stream),
             Fields::Reverse(f) => f.token_stream(token_stream),
             Fields::FloatPoint(f) => f.token_stream(token_stream),
             Fields::LongPoint(f) => f.token_stream(token_stream),
@@ -269,6 +292,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.binary_value(),
             Fields::Stored(f) => f.binary_value(),
             Fields::NumericDocValues(f) => f.binary_value(),
+            Fields::FloatDocValues(f) => f.binary_value(),
+            Fields::DoubleDocValues(f) => f.binary_value(),
             Fields::Reverse(f) => f.binary_value(),
             Fields::FloatPoint(f) => f.binary_value(),
             Fields::LongPoint(f) => f.binary_value(),
@@ -292,6 +317,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.take_binary_value(),
             Fields::Stored(f) => f.take_binary_value(),
             Fields::NumericDocValues(f) => f.take_binary_value(),
+            Fields::FloatDocValues(f) => f.take_binary_value(),
+            Fields::DoubleDocValues(f) => f.take_binary_value(),
             Fields::Reverse(f) => f.take_binary_value(),
             Fields::FloatPoint(f) => f.take_binary_value(),
             Fields::LongPoint(f) => f.take_binary_value(),
@@ -315,6 +342,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.string_value(),
             Fields::Stored(f) => f.string_value(),
             Fields::NumericDocValues(f) => f.string_value(),
+            Fields::FloatDocValues(f) => f.string_value(),
+            Fields::DoubleDocValues(f) => f.string_value(),
             Fields::Reverse(f) => f.string_value(),
             Fields::FloatPoint(f) => f.string_value(),
             Fields::LongPoint(f) => f.string_value(),
@@ -338,6 +367,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.take_string_value(),
             Fields::Stored(f) => f.take_string_value(),
             Fields::NumericDocValues(f) => f.take_string_value(),
+            Fields::FloatDocValues(f) => f.take_string_value(),
+            Fields::DoubleDocValues(f) => f.take_string_value(),
             Fields::Reverse(f) => f.take_string_value(),
             Fields::FloatPoint(f) => f.take_string_value(),
             Fields::LongPoint(f) => f.take_string_value(),
@@ -361,6 +392,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.get_char_sequence_value(),
             Fields::Stored(f) => f.get_char_sequence_value(),
             Fields::NumericDocValues(f) => f.get_char_sequence_value(),
+            Fields::FloatDocValues(f) => f.get_char_sequence_value(),
+            Fields::DoubleDocValues(f) => f.get_char_sequence_value(),
             Fields::Reverse(f) => f.get_char_sequence_value(),
             Fields::FloatPoint(f) => f.get_char_sequence_value(),
             Fields::LongPoint(f) => f.get_char_sequence_value(),
@@ -384,6 +417,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.take_reader_value(),
             Fields::Stored(f) => f.take_reader_value(),
             Fields::NumericDocValues(f) => f.take_reader_value(),
+            Fields::FloatDocValues(f) => f.take_reader_value(),
+            Fields::DoubleDocValues(f) => f.take_reader_value(),
             Fields::Reverse(f) => f.take_reader_value(),
             Fields::FloatPoint(f) => f.take_reader_value(),
             Fields::LongPoint(f) => f.take_reader_value(),
@@ -407,6 +442,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.numeric_value(),
             Fields::Stored(f) => f.numeric_value(),
             Fields::NumericDocValues(f) => f.numeric_value(),
+            Fields::FloatDocValues(f) => f.numeric_value(),
+            Fields::DoubleDocValues(f) => f.numeric_value(),
             Fields::Reverse(f) => f.numeric_value(),
             Fields::FloatPoint(f) => f.numeric_value(),
             Fields::LongPoint(f) => f.numeric_value(),
@@ -430,6 +467,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.stored_value(),
             Fields::Stored(f) => f.stored_value(),
             Fields::NumericDocValues(f) => f.stored_value(),
+            Fields::FloatDocValues(f) => f.stored_value(),
+            Fields::DoubleDocValues(f) => f.stored_value(),
             Fields::Reverse(f) => f.stored_value(),
             Fields::FloatPoint(f) => f.stored_value(),
             Fields::LongPoint(f) => f.stored_value(),
@@ -453,6 +492,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.take_stored_value(),
             Fields::Stored(f) => f.take_stored_value(),
             Fields::NumericDocValues(f) => f.take_stored_value(),
+            Fields::FloatDocValues(f) => f.take_stored_value(),
+            Fields::DoubleDocValues(f) => f.take_stored_value(),
             Fields::Reverse(f) => f.take_stored_value(),
             Fields::FloatPoint(f) => f.take_stored_value(),
             Fields::LongPoint(f) => f.take_stored_value(),
@@ -476,6 +517,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.invertable_type(),
             Fields::Stored(f) => f.invertable_type(),
             Fields::NumericDocValues(f) => f.invertable_type(),
+            Fields::FloatDocValues(f) => f.invertable_type(),
+            Fields::DoubleDocValues(f) => f.invertable_type(),
             Fields::Reverse(f) => f.invertable_type(),
             Fields::FloatPoint(f) => f.invertable_type(),
             Fields::LongPoint(f) => f.invertable_type(),
@@ -502,6 +545,8 @@ impl IndexableField for Fields {
             Fields::String(f) => f.init_token_stream(analyzer),
             Fields::Stored(f) => f.init_token_stream(analyzer),
             Fields::NumericDocValues(f) => f.init_token_stream(analyzer),
+            Fields::FloatDocValues(f) => f.init_token_stream(analyzer),
+            Fields::DoubleDocValues(f) => f.init_token_stream(analyzer),
             Fields::Reverse(f) => f.init_token_stream(analyzer),
             Fields::FloatPoint(f) => f.init_token_stream(analyzer),
             Fields::IntPoint(f) => f.init_token_stream(analyzer),

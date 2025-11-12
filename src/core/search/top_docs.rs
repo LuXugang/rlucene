@@ -54,6 +54,7 @@ pub mod top_docs_util {
 
     use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
     use crate::core::search::score_doc::ScoreDocLike;
+
     use crate::core::search::top_docs::{
         DefaultTieBreaker, MergeSortQueueCmp, ScoreMergeSortQueueCmp, TopDocs, merge_aux,
     };
@@ -69,9 +70,11 @@ pub mod top_docs_util {
     /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
     ///
     /// lucene.experimental
-    pub fn merge_top_field_docs<C>(
+    pub fn merge_top_field_docs(
         sort: &Sort,
         top_n: i32,
+        // The reason the type of shard_hits is Vec<TopDocs<TopFieldScoreDoc>> instead of Vec<TopFieldDocs>
+        // is that the field property inside TopFieldDocs is currently unused.
         shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
     ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
@@ -471,10 +474,15 @@ where
     fn score_docs(&self) -> &[Self::ScoreDocLike] {
         &self.score_docs
     }
+
+    fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike] {
+        &mut self.score_docs
+    }
 }
 
 pub trait TopDocsLike {
     fn total_hits(&self) -> &TotalHits;
     type ScoreDocLike: ScoreDocLike;
     fn score_docs(&self) -> &[Self::ScoreDocLike];
+    fn score_docs_mut(&mut self) -> &mut [Self::ScoreDocLike];
 }

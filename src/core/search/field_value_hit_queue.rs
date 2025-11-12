@@ -112,6 +112,10 @@ impl ScoreDocLike for Entry {
     fn shard_index(&self) -> i32 {
         self.base.shard_index
     }
+
+    fn set_shard_index(&mut self, shard_index: i32) {
+        self.base.shard_index = shard_index
+    }
 }
 impl fmt::Display for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -348,6 +352,14 @@ impl ScoreDocLike for TopFieldScoreDoc {
             TopFieldScoreDoc::Entry(e) => e.shard_index(),
             TopFieldScoreDoc::Field(fd) => fd.shard_index(),
             TopFieldScoreDoc::Score(sd) => sd.shard_index(),
+        }
+    }
+
+    fn set_shard_index(&mut self, shard_index: i32) {
+        match self {
+            TopFieldScoreDoc::Entry(e) => e.set_shard_index(shard_index),
+            TopFieldScoreDoc::Field(fd) => fd.set_shard_index(shard_index),
+            TopFieldScoreDoc::Score(sd) => sd.set_shard_index(shard_index),
         }
     }
 }
