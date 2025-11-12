@@ -76,7 +76,6 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type DocIdSetIterator = DummyDISI;
     type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
 
     fn competitive_iterator(

@@ -329,7 +329,6 @@ mod tests {
             Ok(())
         }
 
-        type DocIdSetIterator = DummyDocIdSetIterator;
         type DocIdSetIteratorRef<'b>
             = DummyDocIdSetIterator
         where

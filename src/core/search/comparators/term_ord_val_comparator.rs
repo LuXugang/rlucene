@@ -562,7 +562,6 @@ where
         Ok(())
     }
 
-    type DocIdSetIterator = TermOrdValCompetitiveIterator<LR>;
     type DocIdSetIteratorRef<'a>
         = &'a mut TermOrdValCompetitiveIterator<LR>
     where

@@ -474,7 +474,6 @@ where
         self.base.collect_stream(stream, scorer)
     }
 
-    type DocIdSetIterator = <FilterLeafCollectorRef<'a, LC> as LeafCollector>::DocIdSetIterator;
     type DocIdSetIteratorRef<'b>
         = <FilterLeafCollectorRef<'a, LC> as LeafCollector>::DocIdSetIteratorRef<'b>
     where

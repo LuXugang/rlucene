@@ -30,8 +30,7 @@ use crate::core::search::field_value_hit_queue::{
 };
 use crate::core::search::leaf_collector::{Either2LeafCollector, LeafCollector};
 use crate::core::search::leaf_field_comparator::{
-    LeafFieldComparator, LeafFieldComparatorDocIdSetIterator,
-    LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
+    LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
@@ -494,7 +493,6 @@ where
         unreachable!("should not be called")
     }
 
-    type DocIdSetIterator = TopFieldLeafComparatorEnumIter<LR>;
     type DocIdSetIteratorRef<'b>
         = TopFieldLeafComparatorEnumIterRef<'b, LR>
     where
@@ -721,7 +719,6 @@ where
         self.base.collect_stream(stream, scorer)
     }
 
-    type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
     type DocIdSetIteratorRef<'b>
         = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
     where
@@ -964,7 +961,6 @@ where
         Ok(())
     }
 
-    type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
     type DocIdSetIteratorRef<'b>
         = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
     where
@@ -1018,10 +1014,6 @@ impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
 where
     LR: LeafReader,
 {
-    type DocIdSetIterator = Either2DocIdSetIterator<
-        <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
-        <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
-    >;
     type DocIdSetIteratorRef<'b>
         = Either2DocIdSetIterator<
         <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
@@ -1308,10 +1300,6 @@ where
         }
     }
 }
-pub type TopFieldLeafComparatorEnumIter<LR> = Either2DocIdSetIterator<
-    LeafFieldComparatorDocIdSetIterator<LR>,
-    <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIterator,
->;
 pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = Either2DocIdSetIterator<
     LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
     <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,

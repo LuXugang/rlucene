@@ -120,7 +120,6 @@ where
         self.inner_mut().collect(doc, scorer)
     }
 
-    type DocIdSetIterator = L::DocIdSetIterator;
     type DocIdSetIteratorRef<'b>
         = L::DocIdSetIteratorRef<'b>
     where

@@ -253,7 +253,6 @@ where
         )
     }
 
-    type DocIdSetIterator = NumericCompetitiveIterator<LR>;
     type DocIdSetIteratorRef<'a>
         = &'a mut NumericCompetitiveIterator<LR>
     where

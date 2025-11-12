@@ -1127,7 +1127,6 @@ impl LeafCollector for LeafCollectorImpl {
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = DummyDocIdSetIterator
     where
@@ -1175,7 +1174,6 @@ impl LeafCollector for RoaringCollectorImpl {
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = DummyDocIdSetIterator
     where

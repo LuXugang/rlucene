@@ -52,7 +52,6 @@ impl LeafCollector for DummyLeafCollector {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = DummyDocIdSetIterator
     where

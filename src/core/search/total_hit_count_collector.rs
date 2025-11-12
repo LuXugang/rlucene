@@ -111,7 +111,6 @@ impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'b>
         = DummyDocIdSetIterator
     where

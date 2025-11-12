@@ -303,7 +303,6 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDISI;
     type DocIdSetIteratorRef<'a>
         = DummyDISI
     where

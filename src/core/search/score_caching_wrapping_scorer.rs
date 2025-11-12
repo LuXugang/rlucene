@@ -120,7 +120,6 @@ where
         self.base.collect(doc, scorer)
     }
 
-    type DocIdSetIterator = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
     where

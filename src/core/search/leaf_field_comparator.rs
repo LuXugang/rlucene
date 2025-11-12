@@ -174,7 +174,6 @@ pub trait LeafFieldComparator {
     where
         S: Scorable;
 
-    type DocIdSetIterator: DocIdSetIterator;
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
     where
         Self: 'a;
@@ -419,7 +418,6 @@ where
         }
     }
 
-    type DocIdSetIterator = LeafFieldComparatorDocIdSetIterator<LR>;
     type DocIdSetIteratorRef<'a>
         = LeafFieldComparatorDocIdSetIteratorRef<'a, LR>
     where

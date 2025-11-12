@@ -227,7 +227,6 @@ impl LeafFieldComparator for DocLeafComparator {
         Ok(())
     }
 
-    type DocIdSetIterator = DocComparatorIterator;
     type DocIdSetIteratorRef<'a> = &'a mut DocComparatorIterator;
 
     fn competitive_iterator(

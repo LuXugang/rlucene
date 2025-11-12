@@ -77,7 +77,6 @@ pub trait LeafCollector: Display {
         stream.for_each(|doc| self.collect(doc, scorer))
     }
 
-    type DocIdSetIterator: DocIdSetIterator;
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
     where
         Self: 'a;
@@ -134,7 +133,6 @@ macro_rules! either_leaf_collector {
         where
             $( $T: LeafCollector ),+
         {
-            type DocIdSetIterator = $disi::<$( <$T as LeafCollector>::DocIdSetIterator ),+>;
             type DocIdSetIteratorRef<'a> = $disi::<$( <$T as LeafCollector>::DocIdSetIteratorRef<'a> ),+>
             where
                 $( $T: 'a ),+;

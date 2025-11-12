@@ -316,7 +316,6 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'a> = &'a mut DummyDocIdSetIterator;
 }
 
@@ -1097,7 +1096,6 @@ where
         Ok(())
     }
 
-    type DocIdSetIterator = DummyDocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = &'a mut DummyDocIdSetIterator
     where
