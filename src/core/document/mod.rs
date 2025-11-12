@@ -25,6 +25,7 @@ pub mod field;
 pub mod field_type;
 pub mod fields;
 pub mod float_field;
+mod float_point;
 pub mod int_field;
 pub mod int_point;
 pub mod invertable_field;
