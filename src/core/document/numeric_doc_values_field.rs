@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -70,6 +70,11 @@ impl Display for NumericDocValuesField {
     }
 }
 
+impl FieldBase for NumericDocValuesField {
+    fn set_long_value(&mut self, value: i64) -> Result<()> {
+        self.parent_field.set_long_value(value)
+    }
+}
 impl IndexableField for NumericDocValuesField {
     fn name(&self) -> &str {
         self.parent_field.name()

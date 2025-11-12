@@ -99,7 +99,11 @@ impl LongField {
 
 impl FieldBase for LongField {
     fn set_long_value(&mut self, value: i64) -> Result<()> {
-        self.parent_field.set_long_value(value)
+        self.parent_field.set_long_value(value)?;
+        if self.stored_value.is_some() {
+            self.stored_value = Some(value.into());
+        }
+        Ok(())
     }
 }
 
@@ -181,7 +185,7 @@ impl fmt::Display for LongField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}<{}:{}>",
+            "{} <{}:{}>",
             std::any::type_name::<Self>(),
             self.parent_field.name(),
             self.parent_field.fields_data

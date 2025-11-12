@@ -48,6 +48,12 @@ impl TotalHits {
     pub fn new(value: usize, relation: Relation) -> Self {
         Self { value, relation }
     }
+    pub fn value(&self) -> usize {
+        self.value
+    }
+    pub fn relation(&self) -> Relation {
+        self.relation
+    }
 }
 
 impl fmt::Display for TotalHits {

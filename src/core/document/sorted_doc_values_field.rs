@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -82,7 +82,11 @@ impl Display for SortedDocValuesField {
         self.parent_field.fmt(f)
     }
 }
-
+impl FieldBase for SortedDocValuesField {
+    fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+        self.parent_field.set_bytes_value(value)
+    }
+}
 impl IndexableField for SortedDocValuesField {
     fn name(&self) -> &str {
         self.parent_field.name()

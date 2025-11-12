@@ -100,7 +100,11 @@ impl DoubleField {
 impl FieldBase for DoubleField {
     fn set_double_value(&mut self, value: f64) -> Result<()> {
         let sortable = NumericUtils::double_to_sortable_long(value);
-        self.parent_field.set_long_value(sortable)
+        self.parent_field.set_long_value(sortable)?;
+        if self.stored_value.is_some() {
+            self.stored_value = Some(value.into());
+        }
+        Ok(())
     }
 
     fn set_long_value(&mut self, _value: i64) -> Result<()> {
@@ -183,7 +187,7 @@ impl fmt::Display for DoubleField {
         let v = self.get_value_as_double().expect("should get double value");
         write!(
             f,
-            "{}<{}:{}>",
+            "{} <{}:{}>",
             std::any::type_name::<Self>(),
             self.parent_field.name(),
             v

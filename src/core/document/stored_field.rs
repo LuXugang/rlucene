@@ -197,7 +197,34 @@ impl StoredField {
         Ok(Self { parent_field })
     }
 }
-impl FieldBase for StoredField {}
+impl FieldBase for StoredField {
+    fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+        self.parent_field.set_bytes_value(value)
+    }
+
+    fn set_int_value(&mut self, value: i32) -> Result<()> {
+        self.parent_field.set_int_value(value)
+    }
+
+    fn set_long_value(&mut self, value: i64) -> Result<()> {
+        self.parent_field.set_long_value(value)
+    }
+
+    fn set_float_value(&mut self, value: f32) -> Result<()> {
+        self.parent_field.set_float_value(value)
+    }
+
+    fn set_double_value(&mut self, value: f64) -> Result<()> {
+        self.parent_field.set_double_value(value)
+    }
+
+    fn set_string_value<T>(&mut self, value: T) -> Result<()>
+    where
+        T: Into<String>,
+    {
+        self.parent_field.set_string_value(value)
+    }
+}
 
 impl Display for StoredField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

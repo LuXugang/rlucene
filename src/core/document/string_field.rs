@@ -25,7 +25,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
 pub mod string {
@@ -130,8 +130,8 @@ impl StringField {
 
 impl FieldBase for StringField {
     fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
-        self.has_stored_value = true;
         self.parent_field.set_bytes_value(value)?;
+        self.has_stored_value = true;
         Ok(())
     }
 
@@ -140,9 +140,14 @@ impl FieldBase for StringField {
         T: Into<String>,
     {
         let v = value.into();
-        self.has_stored_value = true;
-        self.binary_value = Some(BytesRef::from_string(&v));
         self.parent_field.set_string_value(v)?;
+        match &self.parent_field.fields_data {
+            FieldDataEnum::String(v) => {
+                self.binary_value = Some(BytesRef::from_string(v));
+            },
+            _ => return Err(LuceneError::illegal_state("shoudl not be here")),
+        }
+        self.has_stored_value = true;
         Ok(())
     }
 }
@@ -183,7 +188,7 @@ impl IndexableField for StringField {
     fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
         match &self.binary_value {
             None => Ok(self.parent_field.take_binary_value()?),
-            Some(v) => Ok(self.binary_value.take()),
+            Some(_) => Ok(self.binary_value.take()),
         }
     }
 

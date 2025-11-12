@@ -91,7 +91,7 @@ impl FloatField {
                 "field does not have a numeric value",
             )),
             Some(n) => match n {
-                Number::I32(v) => Ok(NumericUtils::sortable_int_to_float(v)),
+                Number::I64(v) => Ok(NumericUtils::sortable_int_to_float(v.try_into()?)),
                 _ => Err(LuceneError::illegal_state(
                     "numeric value is not a sortable int float",
                 )),
@@ -103,7 +103,11 @@ impl FloatField {
 impl FieldBase for FloatField {
     fn set_float_value(&mut self, value: f32) -> Result<()> {
         let sortable = NumericUtils::float_to_sortable_int(value) as i64;
-        self.parent_field.set_long_value(sortable)
+        self.parent_field.set_long_value(sortable)?;
+        if self.stored_value.is_some() {
+            self.stored_value = Some(value.into());
+        }
+        Ok(())
     }
 
     fn set_long_value(&mut self, _value: i64) -> Result<()> {
@@ -186,7 +190,7 @@ impl fmt::Display for FloatField {
         let v = self.get_value_as_float().expect("should get float value");
         write!(
             f,
-            "{}<{}:{}>",
+            "{} <{}:{}>",
             std::any::type_name::<Self>(),
             self.parent_field.name(),
             v

@@ -248,7 +248,16 @@ where
         StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED)
     }
 }
-
+impl From<String> for BytesRef<Vec<u8>> {
+    fn from(value: String) -> Self {
+        BytesRef::from_string(value.as_ref())
+    }
+}
+impl From<&str> for BytesRef<Vec<u8>> {
+    fn from(value: &str) -> Self {
+        BytesRef::from_string(value)
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::ptr;

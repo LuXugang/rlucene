@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -59,6 +59,11 @@ impl BinaryDocValuesField {
 impl Display for BinaryDocValuesField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.parent_field.fmt(f)
+    }
+}
+impl FieldBase for BinaryDocValuesField {
+    fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+        self.parent_field.set_bytes_value(value)
     }
 }
 
