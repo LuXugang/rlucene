@@ -36,6 +36,7 @@ use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
+use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -48,6 +49,7 @@ use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::vec;
+
 /// A [`Collector`] that sorts by [`SortField`] using [`FieldComparator`]s.
 ///
 /// See the constructor of [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for instantiating a
@@ -736,7 +738,7 @@ pub struct PagingFieldCollector {
     base: TopFieldCollector,
     sort: Rc<Sort>,
     collected_hits: i32,
-    after: FieldDoc,
+    after: ScoreDoc,
 }
 
 impl PagingFieldCollector {
@@ -759,6 +761,7 @@ impl PagingFieldCollector {
         // set top values for comparators
         let comparators = base.base.pq.get_comparators_mut();
         let fields = std::mem::take(&mut after.fields);
+        let score_doc = std::mem::take(&mut after.base);
 
         for (comp, top_value) in comparators.iter_mut().zip(fields.into_iter()) {
             comp.set_top_value(top_value);
@@ -768,7 +771,7 @@ impl PagingFieldCollector {
             base,
             sort,
             collected_hits: 0,
-            after,
+            after: score_doc,
         })
     }
 }
@@ -791,7 +794,7 @@ impl Collector for PagingFieldCollector {
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
-        let after_doc = self.after.base.doc - self.base.doc_base;
+        let after_doc = self.after.doc - self.base.doc_base;
 
         let needs_scores = self.base.needs_scores;
         let collector = PagingFieldLeafCollector::new(

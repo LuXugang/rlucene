@@ -249,12 +249,24 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.set_bottom(slot, c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.set_bottom(slot, &mut c.base)
+            },
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.set_bottom(slot, c)
             },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.set_bottom(slot, &mut c.base)
+            },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator.set_bottom(slot, c),
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.set_bottom(slot, &mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.set_bottom(slot, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.set_bottom(slot, &mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.set_bottom(slot, c)
@@ -285,14 +297,27 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.compare_bottom(doc, scorer, &mut c.base)
+            },
+
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.compare_bottom(doc, scorer, &mut c.base)
             },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
             },
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.compare_bottom(doc, scorer, &mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.compare_bottom(doc, scorer, &mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
@@ -323,14 +348,27 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.compare_top(doc, scorer, c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.compare_top(doc, scorer, &mut c.base)
+            },
+
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.compare_top(doc, scorer, &mut c.base)
             },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
                 comparator.compare_top(doc, scorer, c)
             },
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.compare_top(doc, scorer, &mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.compare_top(doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.compare_top(doc, scorer, &mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.compare_top(doc, scorer, c)
@@ -362,14 +400,26 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.copy(slot, doc, scorer, c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.copy(slot, doc, scorer, &mut c.base)
+            },
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.copy(slot, doc, scorer, &mut c.base)
             },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
                 comparator.copy(slot, doc, scorer, c)
             },
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.copy(slot, doc, scorer, &mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.copy(slot, doc, scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.copy(slot, doc, scorer, &mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.copy(slot, doc, scorer, c)
@@ -399,14 +449,26 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.set_scorer(scorer, c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.set_scorer(scorer, &mut c.base)
+            },
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.set_scorer(scorer, c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.set_scorer(scorer, &mut c.base)
             },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
                 comparator.set_scorer(scorer, c)
             },
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.set_scorer(scorer, &mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.set_scorer(scorer, c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.set_scorer(scorer, &mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.set_scorer(scorer, c)
@@ -437,14 +499,26 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => comparator
                 .competitive_iterator(c)
                 .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => comparator
+                .competitive_iterator(&mut c.base)
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => comparator
                 .competitive_iterator(c)
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => comparator
+                .competitive_iterator(&mut c.base)
                 .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator
                 .competitive_iterator(c)
                 .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => comparator
+                .competitive_iterator(&mut c.base)
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => comparator
                 .competitive_iterator(c)
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => comparator
+                .competitive_iterator(&mut c.base)
                 .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => comparator
                 .competitive_iterator(c)
@@ -467,14 +541,26 @@ where
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => {
                 comparator.set_hits_threshold_reached(c)
             },
+            (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
+                comparator.set_hits_threshold_reached(&mut c.base)
+            },
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => {
+                comparator.set_hits_threshold_reached(&mut c.base)
             },
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => {
                 comparator.set_hits_threshold_reached(c)
             },
+            (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => {
+                comparator.set_hits_threshold_reached(&mut c.base)
+            },
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => {
                 comparator.set_hits_threshold_reached(c)
+            },
+            (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => {
+                comparator.set_hits_threshold_reached(&mut c.base)
             },
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => {
                 comparator.set_hits_threshold_reached(c)

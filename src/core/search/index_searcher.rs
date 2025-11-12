@@ -251,7 +251,7 @@ where
         sort: Sort,
         do_doc_scores: bool,
     ) -> Result<TopFieldDocs> {
-        self.search_after_field_with_score(None, query.into(), n, sort, do_doc_scores, None)
+        self.search_after_field_with_score(None, query, n, sort, do_doc_scores, None)
     }
     /// Search implementation with arbitrary sorting.
     ///
@@ -270,7 +270,7 @@ where
         n: i32,
         sort: Sort,
     ) -> Result<TopFieldDocs> {
-        self.search_after_field_with_score(None, query.into(), n, sort, false, None)
+        self.search_after_field_with_score(None, query, n, sort, false, None)
     }
     pub fn search_with_term_state(
         &mut self,
@@ -286,37 +286,46 @@ where
     pub fn get_similarity(&self) -> Arc<S> {
         self.similarity.clone()
     }
-    pub fn search_after_field_with_score(
+
+    pub fn search_after_field_with_score<Q>(
         &mut self,
         after: Option<FieldDoc>,
-        query: Query,
+        query: Q,
         num_hits: i32,
         sort: Sort,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<TopFieldDocs> {
+    ) -> Result<TopFieldDocs>
+    where
+        Q: Into<Query>,
+    {
         self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
     }
-    pub fn search_after_field(
+    pub fn search_after<Q>(
         &mut self,
         after: Option<FieldDoc>,
-        query: Query,
+        query: Q,
         num_hits: i32,
         sort: Sort,
-        term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<TopFieldDocs> {
-        self.do_search_after_field(after, query, num_hits, sort, false, term_state)
+    ) -> Result<TopFieldDocs>
+    where
+        Q: Into<Query>,
+    {
+        self.do_search_after_field(after, query, num_hits, sort, false, None)
     }
 
-    fn do_search_after_field(
+    fn do_search_after_field<Q>(
         &mut self,
         after: Option<FieldDoc>,
-        query: Query,
+        query: Q,
         num_hits: i32,
         sort: Sort,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<TopFieldDocs> {
+    ) -> Result<TopFieldDocs>
+    where
+        Q: Into<Query>,
+    {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
 
         if let Some(ref a) = after
@@ -340,7 +349,7 @@ where
         )?;
 
         let top_field_docs =
-            self.search_with_collector_manager_with_state(query, &manager, term_state)?;
+            self.search_with_collector_manager_with_state(query.into(), &manager, term_state)?;
 
         if do_doc_scores {
             // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;

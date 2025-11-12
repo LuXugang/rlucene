@@ -34,7 +34,11 @@ use std::fmt;
 pub mod long_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
+    use crate::core::search::sort_field::SortFieldType;
+    use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+    use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
     use crate::core::util::bit_util::BitUtil;
+    use crate::core::util::error::lucene_error::Result;
     use once_cell::sync::Lazy;
 
     pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
@@ -54,6 +58,17 @@ pub mod long_field_type {
         ft.freeze();
         ft
     });
+
+    pub fn new_sort_field<S>(
+        field: S,
+        reverse: bool,
+        selector: SortedNumericSelectorType,
+    ) -> Result<SortedNumericSortField>
+    where
+        S: Into<String>,
+    {
+        SortedNumericSortField::with_selector(field, SortFieldType::Long, reverse, selector)
+    }
 }
 
 pub struct LongField {

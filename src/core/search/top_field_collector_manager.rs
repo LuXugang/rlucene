@@ -167,6 +167,7 @@ impl CollectorManager for TopFieldCollectorManager {
                 self.min_score_acc.clone(),
             )?)
         } else {
+            // TODO: clone here
             let after = self.after.clone().ok_or_else(|| {
                 LuceneError::illegal_argument(
                     "`after` must be set before creating a PagingFieldCollector",

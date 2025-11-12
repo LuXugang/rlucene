@@ -26,7 +26,6 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
-use std::fmt::Display;
 pub struct FloatDocValuesField {
     parent_field: NumericDocValuesField,
 }

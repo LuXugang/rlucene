@@ -471,7 +471,7 @@ impl IndexSorter for IndexSorterNumeric {
 macro_rules! impl_sorted_numeric_comparator {
     ($name:ident, $base:ty, $leaf:ident) => {
         pub struct $name {
-            base: $base,
+            pub(crate) base: $base,
             selector: SortedNumericSelectorType,
             type_: SortFieldType,
         }
