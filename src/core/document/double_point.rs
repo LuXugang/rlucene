@@ -40,10 +40,7 @@ impl DoublePoint {
         P: AsRef<[f64]>,
     {
         let point = point.as_ref();
-        let packed = Self::pack(point)?;
-        let len = packed.len();
-        let value = BytesRef::from_slice(packed, 0, len);
-        debug_assert!(len <= i32::MAX as usize);
+        let value = Self::pack(point)?;
         let field_type = Self::get_type(point.len() as i32)?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(DoublePoint { parent_field })
@@ -65,14 +62,11 @@ impl DoublePoint {
                 point.len()
             )));
         }
-        let packed = Self::pack(point)?;
-        let len = packed.len();
-        let value = BytesRef::from_slice(packed, 0, len);
-        debug_assert!(len <= i32::MAX as usize);
-        self.parent_field.fields_data = FieldDataEnum::Binary(value);
+        let value = Self::pack(point)?;
+        self.parent_field.fields_data = value.into();
         Ok(())
     }
-    fn pack(point: &[f64]) -> Result<Vec<u8>> {
+    fn pack(point: &[f64]) -> Result<BytesRef<Vec<u8>>> {
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),
@@ -82,7 +76,7 @@ impl DoublePoint {
         for (i, &dim) in point.iter().enumerate() {
             Self::encode_dimension(dim, &mut packed, i * BitUtil::DOUBLE_BYTES);
         }
-        Ok(packed)
+        Ok(BytesRef::from_bytes(packed))
     }
     /// Encode a single double dimension into byte array
     pub fn encode_dimension(value: f64, dest: &mut [u8], offset: usize) {
@@ -99,6 +93,12 @@ impl DoublePoint {
     }
 }
 impl FieldBase for DoublePoint {
+    fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+        Err(LuceneError::illegal_argument(
+            "cannot change value type from double to BytesRef",
+        ))
+    }
+
     fn set_double_value(&mut self, value: f64) -> Result<()> {
         self.set_double_values(&[value])
     }
@@ -141,7 +141,7 @@ impl IndexableField for DoublePoint {
     }
 
     fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-        todo!()
+        self.parent_field.take_reader_value()
     }
 
     fn numeric_value(&self) -> Result<Option<Number>> {

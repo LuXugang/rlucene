@@ -43,10 +43,7 @@ impl IntPoint {
         P: AsRef<[i32]>,
     {
         let point = point.as_ref();
-        let packed = Self::pack(point)?;
-        let len = packed.len();
-        let value = BytesRef::from_slice(packed, 0, len);
-        debug_assert!(len <= i32::MAX as usize);
+        let value = Self::pack(point)?;
         let field_type = Self::get_type(point.len() as i32)?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(IntPoint { parent_field })
@@ -69,16 +66,13 @@ impl IntPoint {
                 point.len()
             )));
         }
-        let packed = Self::pack(point)?;
-        let len = packed.len();
-        let value = BytesRef::from_slice(packed, 0, len);
-        debug_assert!(len <= i32::MAX as usize);
+        let value = Self::pack(point)?;
         self.parent_field.fields_data = FieldDataEnum::Binary(value);
         Ok(())
     }
 
     /// Pack an int array into bytes
-    pub fn pack(point: &[i32]) -> Result<Vec<u8>> {
+    pub fn pack(point: &[i32]) -> Result<BytesRef<Vec<u8>>> {
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),
@@ -88,7 +82,7 @@ impl IntPoint {
         for (i, &dim) in point.iter().enumerate() {
             Self::encode_dimension(dim, &mut packed, i * BitUtil::INT_BYTES);
         }
-        Ok(packed)
+        Ok(BytesRef::from_bytes(packed))
     }
 
     /// Encode single int dimension
@@ -103,6 +97,12 @@ impl IntPoint {
 }
 
 impl FieldBase for IntPoint {
+    fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+        Err(LuceneError::illegal_argument(
+            "cannot change value type from int to BytesRef".to_string(),
+        ))
+    }
+
     fn set_int_value(&mut self, value: i32) -> Result<()> {
         self.set_int_values(&[value])
     }
@@ -163,10 +163,9 @@ impl IndexableField for IntPoint {
                 let value = Self::decode_dimension(&bytes.bytes, bytes.offset);
                 Ok(Some(value.into()))
             },
-            _ => {
-                debug_assert!(false, "no possible here");
-                Ok(None)
-            },
+            _ => Err(LuceneError::illegal_argument(
+                "Unsupported FieldDataEnum variant",
+            )),
         }
     }
 
