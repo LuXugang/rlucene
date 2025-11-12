@@ -121,8 +121,13 @@ where
     }
 
     type DocIdSetIterator = L::DocIdSetIterator;
+    type DocIdSetIteratorRef<'b>
+        = L::DocIdSetIteratorRef<'b>
+    where
+        Self: 'b,
+        L: 'b;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         self.inner_mut().competitive_iterator()
     }
 

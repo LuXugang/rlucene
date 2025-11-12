@@ -53,8 +53,12 @@ impl LeafCollector for DummyLeafCollector {
     }
 
     type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIteratorRef<'a>
+        = DummyDocIdSetIterator
+    where
+        Self: 'a;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

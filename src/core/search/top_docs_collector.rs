@@ -330,6 +330,10 @@ mod tests {
         }
 
         type DocIdSetIterator = DummyDocIdSetIterator;
+        type DocIdSetIteratorRef<'b>
+            = DummyDocIdSetIterator
+        where
+            Self: 'b;
     }
     struct MyTopDocsCollector {
         base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,

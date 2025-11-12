@@ -78,13 +78,16 @@ pub trait LeafCollector: Display {
     }
 
     type DocIdSetIterator: DocIdSetIterator;
+    type DocIdSetIteratorRef<'a>: DocIdSetIterator
+    where
+        Self: 'a;
     /// Optionally returns an iterator over competitive documents.
     ///
     /// Collectors should delegate this method to their comparators if their
     /// comparators provide skipping functionality over non-competitive docs.
     ///
     /// The default is `None`, meaning no competitive iterator is provided.
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         Ok(None)
     }
 
@@ -132,6 +135,9 @@ macro_rules! either_leaf_collector {
             $( $T: LeafCollector ),+
         {
             type DocIdSetIterator = $disi::<$( <$T as LeafCollector>::DocIdSetIterator ),+>;
+            type DocIdSetIteratorRef<'a> = $disi::<$( <$T as LeafCollector>::DocIdSetIteratorRef<'a> ),+>
+            where
+                $( $T: 'a ),+;
 
             fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
             where
@@ -161,7 +167,9 @@ macro_rules! either_leaf_collector {
                 }
             }
 
-            fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+            fn competitive_iterator(
+                &mut self,
+            ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
                 match self {
                     $( Self::$Variant(inner) => inner.competitive_iterator()
                         .map(|opt| opt.map($disi::$Variant)), )+

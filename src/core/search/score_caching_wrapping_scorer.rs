@@ -121,8 +121,13 @@ where
     }
 
     type DocIdSetIterator = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIterator;
+    type DocIdSetIteratorRef<'a>
+        = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a,
+        LC: 'a;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         self.base.competitive_iterator()
     }
 

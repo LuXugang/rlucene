@@ -304,4 +304,8 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
     }
 
     type DocIdSetIterator = DummyDISI;
+    type DocIdSetIteratorRef<'a>
+        = DummyDISI
+    where
+        Self: 'a;
 }

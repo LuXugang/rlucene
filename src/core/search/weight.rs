@@ -266,8 +266,10 @@ where
             self.scorer.iterator().doc_id()
         };
 
-        let competitive_iterator = collector.competitive_iterator()?;
-        let has_competitive_iterator = competitive_iterator.is_some();
+        let has_competitive_iterator = {
+            let opt = collector.competitive_iterator()?;
+            opt.is_some()
+        };
 
         if !has_competitive_iterator
             && doc_id == -1
@@ -284,7 +286,7 @@ where
                 min,
                 max,
                 &mut self.scorer,
-                competitive_iterator,
+                has_competitive_iterator,
             )
         }
     }
@@ -388,17 +390,22 @@ fn score_range<C, B, S>(
     mut min: i32,
     max: i32,
     scorer: &mut S,
-    mut competitive_iterator: Option<C::DocIdSetIterator>,
+    mut has_competitive: bool,
 ) -> Result<i32>
 where
     C: LeafCollector,
     B: Bits,
     S: Scorer,
 {
-    if let Some(ref iterator) = competitive_iterator
-        && iterator.doc_id() > min
-    {
-        min = iterator.doc_id().min(max);
+    if has_competitive {
+        let mut opt = collector.competitive_iterator()?;
+        if let Some(iterator) = opt.as_mut() {
+            if iterator.doc_id() > min {
+                min = iterator.doc_id().min(max);
+            }
+        } else {
+            has_competitive = false;
+        }
     }
 
     let mut doc = {
@@ -417,8 +424,6 @@ where
 
     let has_two_phase = scorer.two_phase_iterator().is_some();
 
-    let has_competitive = competitive_iterator.is_some();
-
     if !has_two_phase && !has_competitive {
         while doc < max {
             if accept_docs.is_none_or(|a| a.get(doc)) {
@@ -433,17 +438,15 @@ where
     }
 
     while doc < max {
-        if has_competitive {
-            let competitive_iterator = competitive_iterator.as_mut().unwrap();
+        // competitive_iterator may be updated by collector.collect
+        if let Some(mut competitive_iterator) = collector.competitive_iterator()? {
             debug_assert!(competitive_iterator.doc_id() <= doc);
-            if competitive_iterator.doc_id() < doc {
-                competitive_iterator.advance(doc)?;
+            let mut competitive_doc = competitive_iterator.doc_id();
+            if competitive_doc < doc {
+                competitive_doc = competitive_iterator.advance(doc)?;
             }
-            if competitive_iterator.doc_id() != doc {
-                doc = {
-                    let mut iter = scorer.iterator();
-                    iter.advance(competitive_iterator.doc_id())?
-                };
+            if competitive_doc != doc {
+                doc = scorer.iterator().advance(competitive_doc)?;
                 continue;
             }
         }
@@ -457,18 +460,9 @@ where
             };
             if matches {
                 collector.collect(doc, scorer)?;
-                // try update competitive iterator
-                competitive_iterator = match collector.competitive_iterator()? {
-                    Some(it) => Some(it),
-                    None => competitive_iterator,
-                }
             }
         }
-
-        doc = {
-            let mut iter = scorer.iterator();
-            iter.next_doc()?
-        };
+        doc = scorer.iterator().next_doc()?
     }
 
     Ok(doc)

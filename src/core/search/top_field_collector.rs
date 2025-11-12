@@ -493,8 +493,12 @@ where
     }
 
     type DocIdSetIterator = TopFieldLeafComparatorEnumIter<LR>;
+    type DocIdSetIteratorRef<'b>
+        = TopFieldLeafComparatorEnumIter<LR>
+    where
+        Self: 'b;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         let comparators = self.base.base.pq.get_comparators_mut();
         Ok(self.comparator.competitive_iterator(comparators))
     }
@@ -711,8 +715,12 @@ where
     }
 
     type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
+    type DocIdSetIteratorRef<'b>
+        = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
+    where
+        Self: 'b;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         self.base.competitive_iterator()
     }
 
@@ -950,8 +958,12 @@ where
     }
 
     type DocIdSetIterator = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator;
+    type DocIdSetIteratorRef<'b>
+        = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
+    where
+        Self: 'b;
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         self.base.competitive_iterator()
     }
 
@@ -1003,6 +1015,13 @@ where
         <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
         <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIterator,
     >;
+    type DocIdSetIteratorRef<'b>
+        = Either2DocIdSetIterator<
+        <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
+        <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
+    >
+    where
+        Self: 'b;
 
     fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
     where
@@ -1035,7 +1054,7 @@ where
         }
     }
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIterator>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         match self {
             Self::Simple(inner) => inner
                 .competitive_iterator()

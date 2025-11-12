@@ -112,4 +112,8 @@ impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
     }
 
     type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIteratorRef<'b>
+        = DummyDocIdSetIterator
+    where
+        Self: 'b;
 }

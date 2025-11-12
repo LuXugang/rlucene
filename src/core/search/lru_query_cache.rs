@@ -1128,6 +1128,10 @@ impl LeafCollector for LeafCollectorImpl {
     }
 
     type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIteratorRef<'a>
+        = DummyDocIdSetIterator
+    where
+        Self: 'a;
 }
 
 fn cache_into_roaring_doc_id_set<BS>(
@@ -1172,6 +1176,10 @@ impl LeafCollector for RoaringCollectorImpl {
     }
 
     type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIteratorRef<'a>
+        = DummyDocIdSetIterator
+    where
+        Self: 'a;
 }
 pub(crate) enum CacheAndCountEnum {
     BitSet(CacheAndCount<BitDocIdSet<FixedBitSet>>),
