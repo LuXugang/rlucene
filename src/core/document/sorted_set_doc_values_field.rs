@@ -83,13 +83,7 @@ impl SortedSetDocValuesField {
 
 impl Display for SortedSetDocValuesField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}(name: {}, value: {:?})",
-            std::any::type_name::<Self>(),
-            self.parent_field.name(),
-            self.binary_value().ok()
-        )
+        self.parent_field.fmt(f)
     }
 }
 

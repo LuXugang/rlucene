@@ -17,76 +17,74 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::long_field::long_field::{FIELD_TYPE, FIELD_TYPE_STORED};
 use crate::core::index::BytesRef;
-use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::IndexableField;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
+use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
-/// Field that stores per-document `long` values for scoring, sorting, or value retrieval.  
-/// Note that if you want to encode `f64` or `f32` values with proper sort order,  
-/// you should encode them using [`NumericUtils`](crate::core::util::numeric_utils::NumericUtils):
-/// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
-static TYPE: Lazy<FieldType> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_doc_values_type(DocValuesType::SortedNumeric)
-        .expect("set_doc_values_type should never fail in this context");
-    ft.freeze();
-    ft
-});
+use std::fmt;
 
-static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
-    let mut ft =
-        FieldType::from_ref(&*TYPE).expect("FieldType::from_ref should never fail in this context");
-    ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)
-        .expect("set_doc_values_skip_index_type should never fail in this context");
-    ft.freeze();
-    ft
-});
+/// Indexed as SortedNumeric DocValue, not stored.
+pub mod long_field {
+    use crate::core::document::field_type::FieldType;
+    use crate::core::index::doc_values_type::DocValuesType;
+    use crate::core::util::bit_util::BitUtil;
+    use once_cell::sync::Lazy;
 
-pub struct SortedNumericDocValuesField {
+    pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_dimensions(1, BitUtil::LONG_BYTES as i32)
+            .expect("set_dimensions should not fail");
+        ft.set_doc_values_type(DocValuesType::SortedNumeric)
+            .expect("set_doc_values_type should not fail");
+        ft.freeze();
+        ft
+    });
+    /// Indexed as SortedNumeric DocValue, and stored.
+    pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+        let mut ft = FieldType::from_ref(&FIELD_TYPE.clone()).expect("should not fail");
+        ft.set_stored(true)
+            .expect("set_stored(true) should not fail");
+        ft.freeze();
+        ft
+    });
+}
+
+pub struct LongField {
     parent_field: Field,
 }
 
-impl SortedNumericDocValuesField {
-    /// Creates a new sorted numeric DocValues field.
-    pub fn new<T>(name: T, value: i64) -> Self
+impl LongField {
+    /// Creates a new `LongField`, indexing the provided value,
+    /// storing it as a DocValue, and optionally as a stored field.
+    pub fn new<T>(name: T, value: i64, stored: Store) -> Result<LongField>
     where
         T: Into<String>,
     {
-        Self::with_type(name, value, TYPE.clone())
-    }
-
-    /// Creates a new sorted numeric DocValues field that also creates a skip index.
-    pub fn indexed_field<T>(name: T, value: i64) -> Self
-    where
-        T: Into<String>,
-    {
-        Self::with_type(name, value, INDEXED_TYPE.clone())
-    }
-
-    pub fn with_type<T>(name: T, value: i64, field_type: FieldType) -> Self
-    where
-        T: Into<String>,
-    {
+        let stored = stored.into();
+        let field_type = if stored {
+            FIELD_TYPE_STORED.clone()
+        } else {
+            FIELD_TYPE.clone()
+        };
         let parent_field = Field::new(name, field_type, value);
-        Self { parent_field }
+        Ok(LongField { parent_field })
     }
 }
 
-impl Display for SortedNumericDocValuesField {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.parent_field.fmt(f)
+impl FieldBase for LongField {
+    fn set_long_value(&mut self, value: i64) -> Result<()> {
+        self.parent_field.set_long_value(value)
     }
 }
 
-impl IndexableField for SortedNumericDocValuesField {
+impl IndexableField for LongField {
     fn name(&self) -> &str {
         self.parent_field.name()
     }
@@ -108,11 +106,20 @@ impl IndexableField for SortedNumericDocValuesField {
     }
 
     fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.parent_field.binary_value()
+        match &self.parent_field.fields_data {
+            FieldDataEnum::Number(Number::I64(v)) => {
+                let mut bytes = vec![0u8; BitUtil::LONG_BYTES];
+                NumericUtils::long_to_sortable_bytes(*v, &mut bytes, 0);
+                Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
+            },
+            _ => Err(LuceneError::illegal_state(
+                "parent_field`s fields_data does not have a long value",
+            )),
+        }
     }
 
     fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        self.parent_field.take_binary_value()
+        self.binary_value().map(|v| v.map(|c| c.into_owned()))
     }
 
     fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
@@ -148,5 +155,17 @@ impl IndexableField for SortedNumericDocValuesField {
         A: Analyzer,
     {
         self.parent_field.init_token_stream(analyzer)
+    }
+}
+
+impl fmt::Display for LongField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}<{}:{}>",
+            std::any::type_name::<Self>(),
+            self.parent_field.name(),
+            self.parent_field.fields_data
+        )
     }
 }

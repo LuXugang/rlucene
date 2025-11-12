@@ -389,7 +389,7 @@ impl Field {
                 )));
             },
         }
-        self.fields_data = FieldDataEnum::Number(Number::U8(value));
+        self.fields_data = value.into();
         Ok(())
     }
     /// Expert: changes the value of this field. See

@@ -27,6 +27,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Formatter;
 
 pub mod text {
 
@@ -190,12 +191,7 @@ impl IndexableField for TextField {
 }
 
 impl fmt::Display for TextField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}(name: {})",
-            std::any::type_name::<Self>(),
-            self.parent_field.name()
-        )
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.parent_field.fmt(f)
     }
 }
