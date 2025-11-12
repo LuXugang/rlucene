@@ -51,8 +51,8 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
     fn write_field_with_input(
         &mut self,
         _field_info: &FieldInfo,
-        input: &mut impl DataInput,
-        length: i32,
+        _input: &mut impl DataInput,
+        _length: i32,
     ) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

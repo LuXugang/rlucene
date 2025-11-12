@@ -310,11 +310,11 @@ where
         self.reader.prefetch(doc_id)
     }
 
-    fn document_with_visitor(
+    fn document_with_visitor<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<()> {
         // Don't trust the codec to do proper checks
         CoreHelper::check_index(doc_id, self.max_doc)?;

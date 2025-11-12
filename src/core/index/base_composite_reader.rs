@@ -396,11 +396,11 @@ where
         Ok(())
     }
 
-    fn document_with_visitor(
+    fn document_with_visitor<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, &self.starts);
 

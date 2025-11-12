@@ -65,10 +65,10 @@ pub trait StoredFields {
     // TODO: we need a separate StoredField, so that the
     // Document returned here contains that struct not
     // IndexableField
-    fn document(
+    fn document<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::new();
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
@@ -79,21 +79,21 @@ pub trait StoredFields {
     /// processing/loading of each field. If you simply want to load all
     /// fields, use [`document`](Document). If you want to load a subset,
     /// use [`DocumentStoredFieldVisitor`].
-    fn document_with_visitor(
+    fn document_with_visitor<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<()>;
 
     /// Like [`document`](Document) but only loads the specified fields. Note
     /// that this is simply sugar
     /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
-    fn document_with_fields(
+    fn document_with_fields<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
         fields_to_load: &HashSet<String>,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
@@ -118,32 +118,32 @@ macro_rules! either_stored_fields {
                 }
             }
 
-            fn document(
+            fn document<S: StoredFieldsWriter>(
                 &mut self,
                 doc_id: i32,
-                writer: Option<&mut impl StoredFieldsWriter>
+                writer: Option<&mut S>
             ) -> Result<Document> {
                 match self {
                     $( Self::$Variant(inner) => inner.document(doc_id, writer), )+
                 }
             }
 
-            fn document_with_visitor(
+            fn document_with_visitor<S: StoredFieldsWriter>(
                 &mut self,
                 doc_id: i32,
                 visitor: &mut impl StoredFieldVisitor,
-                writer: Option<&mut impl StoredFieldsWriter>,
+                writer: Option<&mut S>,
             ) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
                 }
             }
 
-            fn document_with_fields(
+            fn document_with_fields<S: StoredFieldsWriter>(
                 &mut self,
                 doc_id: i32,
                 fields_to_load: &HashSet<String>,
-                writer: Option<&mut impl StoredFieldsWriter>,
+                writer: Option<&mut S>,
             ) -> Result<Document> {
                 match self {
                     $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load, writer), )+

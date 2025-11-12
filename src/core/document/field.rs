@@ -2704,10 +2704,9 @@ mod tests {
         let query = TermQuery::new(Term::new("binary", br.clone()));
         let hits = searcher.search(query, 1)?;
         assert_eq!(hits.total_hits().value(), 1);
-        let stored_doc = searcher.stored_fields()?.document(
-            hits.score_docs()[0].doc,
-            None::<&mut DummyStoredFieldsWriter>,
-        )?;
+        let stored_doc = searcher
+            .stored_fields()?
+            .document::<DummyStoredFieldsWriter>(hits.score_docs()[0].doc, None)?;
         let stored_field = stored_doc.get_field("binary").unwrap();
         assert_eq!(stored_field.binary_value()?.as_ref().unwrap().as_ref(), &br);
         writer.close()?;

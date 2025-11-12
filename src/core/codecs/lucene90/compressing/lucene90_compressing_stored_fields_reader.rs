@@ -290,12 +290,12 @@ where
             self.closed = true;
         }
     }
-    pub fn read_field(
+    pub fn read_field<S: StoredFieldsWriter>(
         input: &mut impl DataInput,
         visitor: &mut impl StoredFieldVisitor,
         info: Arc<FieldInfo>,
         bits: i32,
-        writer: Option<&mut impl StoredFieldsWriter>,
+        writer: Option<&mut S>,
     ) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
             BYTE_ARR => {
@@ -462,11 +462,11 @@ where
         Ok(())
     }
 
-    fn document_with_visitor(
+    fn document_with_visitor<S: StoredFieldsWriter>(
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        mut writer: Option<&mut impl StoredFieldsWriter>,
+        mut writer: Option<&mut S>,
     ) -> Result<()> {
         let field_infos = &self.field_infos.clone();
         let mut doc = self.serialized_document(doc_id)?;
