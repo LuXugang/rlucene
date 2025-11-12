@@ -57,6 +57,7 @@ pub mod double_field {
 }
 pub struct DoubleField {
     parent_field: Field,
+    stored_value: Option<FieldDataEnum>,
 }
 
 impl DoubleField {
@@ -67,14 +68,17 @@ impl DoubleField {
         T: Into<String>,
     {
         let stored = stored.into();
-        let field_type = if stored {
-            double_field::FIELD_TYPE_STORED.clone()
+        let (field_type, stored_value) = if stored {
+            (double_field::FIELD_TYPE_STORED.clone(), Some(value.into()))
         } else {
-            double_field::FIELD_TYPE.clone()
+            (double_field::FIELD_TYPE.clone(), None)
         };
         let sortable_long = NumericUtils::double_to_sortable_long(value);
         let parent_field = Field::new(name, field_type, sortable_long);
-        Ok(DoubleField { parent_field })
+        Ok(DoubleField {
+            parent_field,
+            stored_value,
+        })
     }
 
     /// Convert the stored sortable long back into a double.
@@ -155,7 +159,7 @@ impl IndexableField for DoubleField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        self.stored_value.as_ref()
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {

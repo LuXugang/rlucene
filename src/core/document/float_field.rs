@@ -57,6 +57,7 @@ pub mod float_field_type {
 }
 pub struct FloatField {
     parent_field: Field,
+    stored_value: Option<FieldDataEnum>,
 }
 
 impl FloatField {
@@ -67,14 +68,20 @@ impl FloatField {
         T: Into<String>,
     {
         let stored = stored.into();
-        let field_type = if stored {
-            float_field_type::FIELD_TYPE_STORED.clone()
+        let (field_type, stored_value) = if stored {
+            (
+                float_field_type::FIELD_TYPE_STORED.clone(),
+                Some(value.into()),
+            )
         } else {
-            float_field_type::FIELD_TYPE.clone()
+            (float_field_type::FIELD_TYPE.clone(), None)
         };
         let sortable_long = NumericUtils::float_to_sortable_int(value) as i64;
         let parent_field = Field::new(name, field_type, sortable_long);
-        Ok(FloatField { parent_field })
+        Ok(FloatField {
+            parent_field,
+            stored_value,
+        })
     }
 
     /// Convert the stored sortable int back into a float.
@@ -155,7 +162,7 @@ impl IndexableField for FloatField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        self.stored_value.as_ref()
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {

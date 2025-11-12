@@ -65,6 +65,7 @@ pub mod text {
 /// a document's text.
 pub struct TextField {
     parent_field: Field,
+    has_stored_value: bool,
 }
 
 impl TextField {
@@ -78,7 +79,10 @@ impl TextField {
         T: Into<String>,
     {
         let parent_field = Field::with_reader(name, reader, text::TYPE_NOT_STORED.clone())?;
-        Ok(Self { parent_field })
+        Ok(Self {
+            parent_field,
+            has_stored_value: false,
+        })
     }
     /// Creates a new `TextField` with a string value.
     ///
@@ -91,13 +95,16 @@ impl TextField {
         T: Into<String>,
     {
         let store = store.into();
-        let field_type = if store {
-            text::TYPE_STORED.clone()
+        let (field_type, has_stored_value) = if store {
+            (text::TYPE_STORED.clone(), true)
         } else {
-            text::TYPE_NOT_STORED.clone()
+            (text::TYPE_NOT_STORED.clone(), false)
         };
         let parent_field = Field::with_string(name, value, field_type.clone())?;
-        Ok(Self { parent_field })
+        Ok(Self {
+            parent_field,
+            has_stored_value,
+        })
     }
     /// Creates a new un-stored `TextField` with a `TokenStreamEnum` value.
     ///
@@ -109,7 +116,10 @@ impl TextField {
         T: Into<String>,
     {
         let parent_field = Field::with_token_stream(name, stream, text::TYPE_NOT_STORED.clone())?;
-        Ok(Self { parent_field })
+        Ok(Self {
+            parent_field,
+            has_stored_value: false,
+        })
     }
 }
 impl FieldBase for TextField {
@@ -117,6 +127,7 @@ impl FieldBase for TextField {
     where
         T: Into<String>,
     {
+        self.has_stored_value = true;
         self.parent_field.set_string_value(value)?;
         Ok(())
     }
@@ -171,7 +182,11 @@ impl IndexableField for TextField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        if self.has_stored_value {
+            self.parent_field.stored_value()
+        } else {
+            None
+        }
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {

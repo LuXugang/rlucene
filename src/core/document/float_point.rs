@@ -192,7 +192,12 @@ impl IndexableField for FloatPoint {
 
 impl fmt::Display for FloatPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "FloatPoint <{}:", self.parent_field.name())?;
+        write!(
+            f,
+            "{} <{}:",
+            std::any::type_name::<Self>(),
+            self.parent_field.name()
+        )?;
         match &self.parent_field.fields_data {
             FieldDataEnum::Binary(bytes) => {
                 let dim_count = self.parent_field.field_type().point_dimension_count();

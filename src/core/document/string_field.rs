@@ -68,6 +68,7 @@ pub mod string {
 pub struct StringField {
     parent_field: Field,
     binary_value: Option<BytesRef<Vec<u8>>>,
+    has_stored_value: bool,
 }
 
 impl StringField {
@@ -84,18 +85,19 @@ impl StringField {
         T2: Into<String>,
     {
         let store = store.into();
-        let field_type = if store {
-            string::TYPE_STORED.clone()
+        let (field_type, has_stored_value) = if store {
+            (string::TYPE_STORED.clone(), true)
         } else {
-            string::TYPE_NOT_STORED.clone()
+            (string::TYPE_NOT_STORED.clone(), false)
         };
-        let value_str: String = value.into();
+        let value_str = value.into();
         let binary_value = Some(BytesRef::from_string(&value_str));
         let parent_field = Field::with_string(name, value_str, field_type)?;
 
         Ok(Self {
             parent_field,
             binary_value,
+            has_stored_value,
         })
     }
     /// Creates a new binary `StringField`, indexing the provided binary
@@ -112,22 +114,23 @@ impl StringField {
         T: Into<String>,
     {
         let store = store.into();
-        let field_type = if store {
-            string::TYPE_STORED.clone()
+        let (field_type, has_stored_value) = if store {
+            (string::TYPE_STORED.clone(), true)
         } else {
-            string::TYPE_NOT_STORED.clone()
+            (string::TYPE_NOT_STORED.clone(), false)
         };
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(Self {
             parent_field,
             binary_value: None,
+            has_stored_value,
         })
     }
 }
 
 impl FieldBase for StringField {
     fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
-        debug_assert!(self.binary_value.is_none());
+        self.has_stored_value = true;
         self.parent_field.set_bytes_value(value)?;
         Ok(())
     }
@@ -136,8 +139,8 @@ impl FieldBase for StringField {
     where
         T: Into<String>,
     {
-        debug_assert!(self.binary_value.is_some());
         let v = value.into();
+        self.has_stored_value = true;
         self.binary_value = Some(BytesRef::from_string(&v));
         self.parent_field.set_string_value(v)?;
         Ok(())
@@ -171,16 +174,16 @@ impl IndexableField for StringField {
         self.parent_field.token_stream(token_stream)
     }
     fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        match self.binary_value {
-            Some(ref b) => Ok(Some(Cow::Borrowed(b))),
-            None => self.parent_field.binary_value(),
+        match &self.binary_value {
+            None => Ok(self.parent_field.binary_value()?),
+            Some(v) => Ok(Some(Cow::Borrowed(v))),
         }
     }
 
     fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-        match &mut self.binary_value {
-            Some(b) => Ok(Some(std::mem::take(b))),
-            None => self.parent_field.take_binary_value(),
+        match &self.binary_value {
+            None => Ok(self.parent_field.take_binary_value()?),
+            Some(v) => Ok(self.binary_value.take()),
         }
     }
 
@@ -201,7 +204,11 @@ impl IndexableField for StringField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        if self.has_stored_value {
+            self.parent_field.stored_value()
+        } else {
+            None
+        }
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {

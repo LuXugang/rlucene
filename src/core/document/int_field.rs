@@ -55,6 +55,7 @@ pub mod int_field_type {
 }
 pub struct IntField {
     parent_field: Field,
+    stored_value: Option<FieldDataEnum>,
 }
 
 impl IntField {
@@ -65,19 +66,29 @@ impl IntField {
         T: Into<String>,
     {
         let stored = stored.into();
-        let field_type = if stored {
-            int_field_type::FIELD_TYPE_STORED.clone()
+        let (field_type, stored_value) = if stored {
+            (
+                int_field_type::FIELD_TYPE_STORED.clone(),
+                Some(value.into()),
+            )
         } else {
-            int_field_type::FIELD_TYPE.clone()
+            (int_field_type::FIELD_TYPE.clone(), None)
         };
         let parent_field = Field::new(name, field_type, value);
-        Ok(IntField { parent_field })
+        Ok(IntField {
+            parent_field,
+            stored_value,
+        })
     }
 }
 
 impl FieldBase for IntField {
     fn set_int_value(&mut self, value: i32) -> Result<()> {
-        self.parent_field.set_int_value(value)
+        self.parent_field.set_int_value(value)?;
+        if self.stored_value.is_some() {
+            self.stored_value = Some(value.into());
+        }
+        Ok(())
     }
 }
 
@@ -136,7 +147,7 @@ impl IndexableField for IntField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        self.stored_value.as_ref()
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
@@ -159,7 +170,7 @@ impl fmt::Display for IntField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}<{}:{}>",
+            "{} <{}:{}>",
             std::any::type_name::<Self>(),
             self.parent_field.name(),
             self.parent_field.fields_data

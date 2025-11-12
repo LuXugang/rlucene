@@ -73,6 +73,7 @@ pub mod long_field_type {
 
 pub struct LongField {
     parent_field: Field,
+    stored_value: Option<FieldDataEnum>,
 }
 
 impl LongField {
@@ -83,13 +84,16 @@ impl LongField {
         T: Into<String>,
     {
         let stored = stored.into();
-        let field_type = if stored {
-            FIELD_TYPE_STORED.clone()
+        let (field_type, stored_value) = if stored {
+            (FIELD_TYPE_STORED.clone(), Some(value.into()))
         } else {
-            FIELD_TYPE.clone()
+            (FIELD_TYPE.clone(), None)
         };
         let parent_field = Field::new(name, field_type, value);
-        Ok(LongField { parent_field })
+        Ok(LongField {
+            parent_field,
+            stored_value,
+        })
     }
 }
 
@@ -154,7 +158,7 @@ impl IndexableField for LongField {
     }
 
     fn stored_value(&self) -> Option<&FieldDataEnum> {
-        self.parent_field.stored_value()
+        self.stored_value.as_ref()
     }
 
     fn take_stored_value(&mut self) -> Option<FieldDataEnum> {

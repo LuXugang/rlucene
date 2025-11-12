@@ -975,21 +975,28 @@ impl TokenStream for StringTokenStream {
 
 #[cfg(test)]
 mod tests {
-
+    use std::io::Read;
     use std::sync::Arc;
 
     use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
     use crate::core::analysis::reader::ReaderEnum;
     use crate::core::analysis::reusable_string_reader::ReusableStringReader;
+    use crate::core::document::double_doc_values_field::DoubleDocValuesField;
     use crate::core::document::double_point::DoublePoint;
-    use crate::core::document::field::{Field, FieldBase};
+    use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
     use crate::core::document::field_type::FieldType;
     use crate::core::document::fields::TokenStreamEnum;
+    use crate::core::document::float_doc_values_field::FloatDocValuesField;
+    use crate::core::document::float_point::FloatPoint;
+    use crate::core::document::int_field::IntField;
+    use crate::core::document::int_point::IntPoint;
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
     use crate::core::index::indexable_field::IndexableField;
+    use crate::core::index::indexable_field_type::IndexableFieldType;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::number::Number;
+    use crate::core::util::numeric_utils::NumericUtils;
 
     #[allow(dead_code)] // for quick search
     struct TestField;
@@ -997,27 +1004,47 @@ mod tests {
     #[test]
     fn test_double_point() -> Result<()> {
         let mut field = DoublePoint::new("foo", [5.0])?;
-        let mut result = try_set_byte_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_bytes_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        result = try_set_bytes_ref_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
         field.set_double_value(6.0)?;
-        result = try_set_int_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_long_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_float_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_reader_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_short_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_string_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_token_stream_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
         match field.numeric_value() {
             Ok(Some(Number::F64(value))) => assert_eq!(value, 6.0),
             _ => unreachable!(),
@@ -1031,85 +1058,509 @@ mod tests {
     #[test]
     fn test_double_point_2d() -> Result<()> {
         let mut field = DoublePoint::new("foo", [5.0, 4.0])?;
-        let mut result = try_set_byte_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_bytes_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        result = try_set_bytes_ref_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        result = try_set_double_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
         field.set_double_values(&[6.0, 7.0])?;
-        result = try_set_int_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_long_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_float_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_reader_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_short_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_string_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
-        result = try_set_token_stream_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
 
-        let result = field.numeric_value();
-        assert!(result.is_err() || matches!(result, Ok(Some(_)) if false));
-
-        if let Err(err) = result {
-            assert!(
-                err.to_string()
-                    .contains("cannot convert to a single numeric value")
-            );
+        match field.numeric_value() {
+            Err(err) => {
+                assert!(
+                    err.to_string()
+                        .contains("cannot convert to a single numeric value")
+                );
+            },
+            _ => unreachable!(),
         }
 
         assert_eq!(
-            field.to_string(),
-            format!("{} <foo:6,7>", std::any::type_name::<DoublePoint>())
+            format!("{} <foo:6,7>", std::any::type_name::<DoublePoint>()),
+            field.to_string()
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_doc_values_field() -> Result<()> {
+        let mut field = DoubleDocValuesField::new("foo", 5.0);
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        field.set_double_value(6.0)?;
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Ok(Some(Number::I64(bits))) => {
+                let value = f64::from_bits(bits as u64);
+                assert_eq!(value, 6.0);
+            },
+            _ => unreachable!(),
+        }
 
         Ok(())
     }
-    #[test]
-    fn test_double_doc_values_field() -> Result<()> {
-        // TODO
-        Ok(())
-    }
+
     #[test]
     fn test_float_doc_values_field() -> Result<()> {
-        // TODO
+        let mut field = FloatDocValuesField::new("foo", 5.0);
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        field.set_float_value(6.0)?;
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Ok(Some(Number::I64(bits))) => {
+                let value = f32::from_bits(bits as u32);
+                assert_eq!(value, 6.0);
+            },
+            _ => unreachable!(),
+        }
+
         Ok(())
     }
 
     #[test]
     fn test_float_point() -> Result<()> {
-        // TODO
+        let mut field = FloatPoint::new("foo", [5.0])?;
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        field.set_float_value(6.0)?;
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Ok(Some(Number::F32(value))) => assert_eq!(value, 6.0),
+            _ => unreachable!(),
+        }
+
+        assert_eq!(
+            format!("{} <foo:6>", std::any::type_name::<FloatPoint>()),
+            field.to_string()
+        );
         Ok(())
     }
 
     #[test]
     fn test_float_point_2d() -> Result<()> {
-        // TODO
+        let mut field = FloatPoint::new("foo", [5.0, 4.0])?;
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        field.set_float_values(&[6.0, 7.0])?;
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Err(err) => {
+                assert!(
+                    err.to_string()
+                        .contains("cannot convert to a single numeric value")
+                );
+            },
+            _ => unreachable!(),
+        }
+
+        assert_eq!(
+            format!("{} <foo:6,7>", std::any::type_name::<FloatPoint>()),
+            field.to_string()
+        );
         Ok(())
     }
 
     #[test]
     fn test_int_point() -> Result<()> {
-        // TODO
+        let mut field = IntPoint::new("foo", [5])?;
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        field.set_int_value(6)?;
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Ok(Some(Number::I32(value))) => assert_eq!(value, 6),
+            _ => unreachable!(),
+        }
+
+        assert_eq!(
+            format!("{} <foo:6>", std::any::type_name::<IntPoint>()),
+            field.to_string()
+        );
         Ok(())
     }
 
     #[test]
     fn test_int_point_2d() -> Result<()> {
-        // TODO
+        let mut field = IntPoint::new("foo", [5, 4])?;
+        assert!(matches!(
+            try_set_byte_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_bytes_ref_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        assert!(matches!(
+            try_set_double_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_int_value(&mut field),
+            Err(LuceneError::IllegalArgument(_))
+        ));
+        field.set_int_values(&[6, 7])?;
+        assert!(matches!(
+            try_set_float_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_long_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_reader_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_short_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_string_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+        assert!(matches!(
+            try_set_token_stream_value(&mut field),
+            Err(LuceneError::NotImplemented(_))
+        ));
+
+        match field.numeric_value() {
+            Err(err) => {
+                assert!(
+                    err.to_string()
+                        .contains("cannot convert to a single numeric value")
+                );
+            },
+            _ => unreachable!(),
+        }
+
+        assert_eq!(
+            format!("{} <foo:6,7>", std::any::type_name::<IntPoint>()),
+            field.to_string()
+        );
         Ok(())
     }
 
     #[test]
     fn test_int_field() -> Result<()> {
-        // TODO
+        let fields = vec![
+            IntField::new("foo", 12, Store::No)?,
+            IntField::new("foo", 12, Store::Yes)?,
+        ];
+
+        for mut field in fields {
+            assert!(matches!(
+                try_set_byte_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_bytes_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_bytes_ref_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_double_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            field.set_int_value(6)?;
+            assert!(matches!(
+                try_set_long_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_float_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_long_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_reader_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_short_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_string_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+            assert!(matches!(
+                try_set_token_stream_value(&mut field),
+                Err(LuceneError::NotImplemented(_))
+            ));
+
+            match field.numeric_value() {
+                Ok(Some(Number::I32(value))) => assert_eq!(value, 6),
+                _ => unreachable!(),
+            }
+
+            assert_eq!(
+                NumericUtils::sortable_bytes_to_int(&field.binary_value()?.unwrap().bytes, 0),
+                6
+            );
+
+            assert_eq!(
+                format!("{} <foo:6>", std::any::type_name::<IntField>()),
+                field.to_string()
+            );
+
+            if field.field_type().stored() {
+                match field.stored_value() {
+                    Some(value) => match value {
+                        FieldDataEnum::Number(v) => assert_eq!(v.to_i32().unwrap(), 6),
+                        _ => assert!(false),
+                    },
+                    None => assert!(false),
+                }
+            } else {
+                assert!(field.stored_value().is_none());
+            }
+        }
+
         Ok(())
     }
 
