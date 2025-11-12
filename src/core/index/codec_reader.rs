@@ -314,7 +314,7 @@ where
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         // Don't trust the codec to do proper checks
         CoreHelper::check_index(doc_id, self.max_doc)?;

@@ -295,7 +295,7 @@ where
         visitor: &mut impl StoredFieldVisitor,
         info: Arc<FieldInfo>,
         bits: i32,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         match bits & *TYPE_MASK as i32 {
             BYTE_ARR => {
@@ -466,7 +466,7 @@ where
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: &mut impl StoredFieldsWriter,
+        mut writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         let field_infos = &self.field_infos.clone();
         let mut doc = self.serialized_document(doc_id)?;
@@ -482,14 +482,14 @@ where
             );
             match field_info {
                 Some(field_info) => {
-                    match visitor.needs_field(field_info.clone(), writer)? {
+                    match visitor.needs_field(field_info.clone(), writer.as_deref_mut())? {
                         Status::Yes => {
                             Self::read_field(
                                 &mut doc.input,
                                 visitor,
                                 field_info.clone(),
                                 bits,
-                                writer,
+                                writer.as_deref_mut(),
                             )?;
                         },
                         Status::No => {

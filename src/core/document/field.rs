@@ -978,9 +978,9 @@ mod tests {
     use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
     use crate::core::analysis::reader::ReaderEnum;
     use crate::core::analysis::reusable_string_reader::ReusableStringReader;
+    use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
     use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
-    use std::sync::Arc;
-
+    use crate::core::document::document::Document;
     use crate::core::document::double_doc_values_field::DoubleDocValuesField;
     use crate::core::document::double_field::DoubleField;
     use crate::core::document::double_point::DoublePoint;
@@ -1001,16 +1001,21 @@ mod tests {
     use crate::core::document::text_field::TextField;
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
-
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field::IndexableField;
     use crate::core::index::indexable_field_type::IndexableFieldType;
-
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::index::term::Term;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::number::Number;
     use crate::core::util::numeric_utils::NumericUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, random,
+        new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory, new_searcher, random,
     };
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestField;
@@ -2680,36 +2685,32 @@ mod tests {
 
     #[test]
     fn test_indexed_binary_field() -> Result<()> {
-        // let mut random = random();
-        // let dir = Arc::new(new_directory(&mut random)?);
-        // // TODO RandomIndexWriter未实现
-        // let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
-        //
-        // let mut doc = Document::new();
-        // let br = new_bytes_ref_from_bytes(&mut random, &vec![0u8; 5])?;
-        // let field = StringField::with_bytes_ref("binary", br.clone(), Store::Yes)?;
-        // assert_eq!(field.binary_value()?.as_ref().unwrap().as_ref(), &br);
-        //
-        // doc.add(field);
-        // writer.add_document(doc)?;
-        //
-        // // TODO 要使用RandomIndexWriter中的get_reader
-        // let reader = writer.get_reader(true, false)?;
-        // let mut searcher = new_searcher(Arc::new(reader))?;
-        // let query = TermQuery::new(Term::new("binary", br.clone()));
-        // let hits = searcher.search(query, 1)?;
-        // assert_eq!(hits.total_hits().value(), 1);
-        // let stored_fields = searcher.stored_fields()?;
-        // let stored_doc = searcher
-        //     .stored_fields()?
-        //     .document(hits.score_docs()[0].doc)?;
-        // let stored_field = stored_doc.get_field("binary").unwrap();
-        // assert_eq!(
-        //     stored_field.binary_value()?.as_ref().unwrap().as_ref(),
-        //     &br
-        // );
-        // writer.close()?;
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO RandomIndexWriter未实现
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
+        let field = StringField::with_bytes_ref("binary", br.clone(), Store::Yes)?;
+        assert_eq!(field.binary_value()?.as_ref().unwrap().as_ref(), &br);
+
+        doc.add(field);
+        writer.add_document(doc)?;
+
+        // TODO 要使用RandomIndexWriter中的get_reader
+        let reader = writer.get_reader(true, false)?;
+        let mut searcher = new_searcher(Arc::new(reader))?;
+        let query = TermQuery::new(Term::new("binary", br.clone()));
+        let hits = searcher.search(query, 1)?;
+        assert_eq!(hits.total_hits().value(), 1);
+        let stored_doc = searcher.stored_fields()?.document(
+            hits.score_docs()[0].doc,
+            None::<&mut DummyStoredFieldsWriter>,
+        )?;
+        let stored_field = stored_doc.get_field("binary").unwrap();
+        assert_eq!(stored_field.binary_value()?.as_ref().unwrap().as_ref(), &br);
+        writer.close()?;
         Ok(())
     }
 

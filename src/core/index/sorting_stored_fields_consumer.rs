@@ -39,7 +39,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -125,7 +125,7 @@ where
             } else {
                 doc_id
             };
-            reader.document_with_visitor(mapped_doc, &mut visitor, &mut sort_writer)?;
+            reader.document_with_visitor(mapped_doc, &mut visitor, Some(&mut sort_writer))?;
             sort_writer.finish_document()?;
         }
 
@@ -153,8 +153,10 @@ impl StoredFieldVisitor for CopyVisitor {
         field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_with_input(&field_info, input, length)
     }
 
@@ -162,8 +164,10 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: Vec<u8>,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_bytes(&field_info, &BytesRef::from_bytes(value))
     }
 
@@ -171,8 +175,10 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: String,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_str(&field_info, &value)
     }
 
@@ -180,8 +186,10 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i32,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_i32(&field_info, value)
     }
 
@@ -189,8 +197,10 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i64,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_i64(&field_info, value)
     }
 
@@ -198,8 +208,10 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f32,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_f32(&field_info, value)
     }
 
@@ -207,15 +219,17 @@ impl StoredFieldVisitor for CopyVisitor {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f64,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
+        let writer =
+            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
         writer.write_field_f64(&field_info, value)
     }
 
     fn needs_field(
         &mut self,
         _field_info: Arc<FieldInfo>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Status> {
         Ok(Status::Yes)
     }

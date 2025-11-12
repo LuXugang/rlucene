@@ -65,7 +65,11 @@ pub trait StoredFields {
     // TODO: we need a separate StoredField, so that the
     // Document returned here contains that struct not
     // IndexableField
-    fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
+    fn document(
+        &mut self,
+        doc_id: i32,
+        writer: Option<&mut impl StoredFieldsWriter>,
+    ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::new();
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
         Ok(visitor.get_document_owner())
@@ -79,7 +83,7 @@ pub trait StoredFields {
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()>;
 
     /// Like [`document`](Document) but only loads the specified fields. Note
@@ -89,7 +93,7 @@ pub trait StoredFields {
         &mut self,
         doc_id: i32,
         fields_to_load: &HashSet<String>,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
         self.document_with_visitor(doc_id, &mut visitor, writer)?;
@@ -117,7 +121,7 @@ macro_rules! either_stored_fields {
             fn document(
                 &mut self,
                 doc_id: i32,
-                writer: &mut impl StoredFieldsWriter
+                writer: Option<&mut impl StoredFieldsWriter>
             ) -> Result<Document> {
                 match self {
                     $( Self::$Variant(inner) => inner.document(doc_id, writer), )+
@@ -128,7 +132,7 @@ macro_rules! either_stored_fields {
                 &mut self,
                 doc_id: i32,
                 visitor: &mut impl StoredFieldVisitor,
-                writer: &mut impl StoredFieldsWriter,
+                writer: Option<&mut impl StoredFieldsWriter>,
             ) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
@@ -139,7 +143,7 @@ macro_rules! either_stored_fields {
                 &mut self,
                 doc_id: i32,
                 fields_to_load: &HashSet<String>,
-                writer: &mut impl StoredFieldsWriter,
+                writer: Option<&mut impl StoredFieldsWriter>,
             ) -> Result<Document> {
                 match self {
                     $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load, writer), )+

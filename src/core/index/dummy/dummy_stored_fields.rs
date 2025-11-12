@@ -30,7 +30,7 @@ impl StoredFields for DummyStoredFields {
     fn document(
         &mut self,
         _doc_id: i32,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Document> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -39,7 +39,7 @@ impl StoredFields for DummyStoredFields {
         &mut self,
         _doc_id: i32,
         _visitor: &mut impl StoredFieldVisitor,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -48,7 +48,7 @@ impl StoredFields for DummyStoredFields {
         &mut self,
         _doc_id: i32,
         _fields_to_load: &HashSet<String>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Document> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

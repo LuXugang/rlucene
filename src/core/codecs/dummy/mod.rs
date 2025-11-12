@@ -22,3 +22,4 @@ pub mod dummy_numeric_doc_values;
 pub mod dummy_sorted_doc_values;
 pub mod dummy_sorted_numeric_doc_values;
 pub mod dummy_sorted_set_doc_values;
+pub mod stored_fields_writer;

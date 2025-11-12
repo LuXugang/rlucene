@@ -406,7 +406,7 @@ where
     {
         let candidate = &merge_state.stored_fields_readers[reader_index];
         // Currently we only allow to hanlde same version
-        let (is_lucene90_compressing_stored_fields_reader, same_version) = { (false, true) };
+        let (is_lucene90_compressing_stored_fields_reader, same_version) = { (false, false) };
         if !matching_readers.matching_readers[reader_index]
             || is_lucene90_compressing_stored_fields_reader
             || same_version
@@ -619,7 +619,7 @@ where
                     self.start_document()?;
                     match visitors[sub.sub.reader_index] {
                         Some(ref mut visitor) => {
-                            reader.document_with_visitor(sub.sub.doc_id, visitor, self)?;
+                            reader.document_with_visitor(sub.sub.doc_id, visitor, Some(self))?;
                             self.finish_document()?;
                             doc_count += 1;
                         },

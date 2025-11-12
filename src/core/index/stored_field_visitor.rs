@@ -41,7 +41,7 @@ pub trait StoredFieldVisitor {
         field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         let mut buffer = vec![0u8; length as usize];
         input.read_bytes(&mut buffer, 0, length)?;
@@ -53,7 +53,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: Vec<u8>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -63,7 +63,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: String,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -73,7 +73,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: i32,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -83,7 +83,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: i64,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -93,7 +93,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: f32,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -103,7 +103,7 @@ pub trait StoredFieldVisitor {
         &mut self,
         _field_info: Arc<FieldInfo>,
         _value: f64,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         Ok(())
     }
@@ -113,7 +113,7 @@ pub trait StoredFieldVisitor {
     fn needs_field(
         &mut self,
         field_info: Arc<FieldInfo>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Status>;
 }
 

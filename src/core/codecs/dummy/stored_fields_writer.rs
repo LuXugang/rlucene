@@ -1,0 +1,87 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
+use crate::core::index::BytesRef;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::MergeState;
+use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, IndexInput};
+use crate::core::util::error::lucene_error::Result;
+
+pub struct DummyStoredFieldsWriter;
+impl StoredFieldsWriter for DummyStoredFieldsWriter {
+    fn start_document(&mut self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_i32(&mut self, _field_info: &FieldInfo, _value: i32) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_i64(&mut self, _field_info: &FieldInfo, _value: i64) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_f32(&mut self, _field_info: &FieldInfo, _value: f32) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_f64(&mut self, _field_info: &FieldInfo, _value: f64) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_with_input(
+        &mut self,
+        _field_info: &FieldInfo,
+        input: &mut impl DataInput,
+        length: i32,
+    ) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_bytes(
+        &mut self,
+        _field_info: &FieldInfo,
+        _value: &BytesRef<Vec<u8>>,
+    ) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn write_field_str(&mut self, _field_info: &FieldInfo, _value: &str) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn finish<D>(&mut self, _num_docs: i32, _dir: &D) -> Result<()>
+    where
+        D: Directory,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn merge<I, D>(&mut self, _merge_state: &mut MergeState<I>, _dir: &D) -> Result<i32>
+    where
+        I: IndexInput,
+        D: Directory,
+        Self: Sized,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}

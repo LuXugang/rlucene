@@ -400,7 +400,7 @@ where
         &mut self,
         doc_id: i32,
         visitor: &mut impl StoredFieldVisitor,
-        writer: &mut impl StoredFieldsWriter,
+        writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, &self.starts);
 

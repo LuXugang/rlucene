@@ -77,7 +77,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: Vec<u8>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         self.doc
             .add(StoredField::with_binary(&field_info.name, value)?);
@@ -88,7 +88,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: String,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         let mut ft = FieldType::from_ref(&*text::TYPE_STORED)?;
         ft.set_store_term_vectors(field_info.has_term_vectors())?;
@@ -106,7 +106,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i32,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         self.doc
             .add(StoredField::with_i32(&field_info.name, value)?);
@@ -117,7 +117,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i64,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         self.doc
             .add(StoredField::with_i64(&field_info.name, value)?);
@@ -128,7 +128,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f32,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         self.doc
             .add(StoredField::with_f32(&field_info.name, value)?);
@@ -139,7 +139,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f64,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<()> {
         self.doc
             .add(StoredField::with_f64(&field_info.name, value)?);
@@ -149,7 +149,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
     fn needs_field(
         &mut self,
         field_info: Arc<FieldInfo>,
-        _writer: &mut impl StoredFieldsWriter,
+        _writer: Option<&mut impl StoredFieldsWriter>,
     ) -> Result<Status> {
         match self.fields_to_add {
             Some(fields) => {
