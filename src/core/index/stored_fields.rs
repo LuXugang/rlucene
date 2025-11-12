@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-
+use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::util::error::lucene_error::Result;
+use std::collections::HashSet;
 
 /// API for reading stored fields.
 ///
@@ -65,13 +65,9 @@ pub trait StoredFields {
     // TODO: we need a separate StoredField, so that the
     // Document returned here contains that struct not
     // IndexableField
-    fn document<S: StoredFieldsWriter>(
-        &mut self,
-        doc_id: i32,
-        writer: Option<&mut S>,
-    ) -> Result<Document> {
+    fn document(&mut self, doc_id: i32) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::new();
-        self.document_with_visitor(doc_id, &mut visitor, writer)?;
+        self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
         Ok(visitor.get_document_owner())
     }
 
@@ -89,14 +85,13 @@ pub trait StoredFields {
     /// Like [`document`](Document) but only loads the specified fields. Note
     /// that this is simply sugar
     /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
-    fn document_with_fields<S: StoredFieldsWriter>(
+    fn document_with_fields(
         &mut self,
         doc_id: i32,
         fields_to_load: &HashSet<String>,
-        writer: Option<&mut S>,
     ) -> Result<Document> {
         let mut visitor = DocumentStoredFieldVisitor::with_fields(fields_to_load);
-        self.document_with_visitor(doc_id, &mut visitor, writer)?;
+        self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;
         Ok(visitor.get_document_owner())
     }
 }
@@ -118,13 +113,12 @@ macro_rules! either_stored_fields {
                 }
             }
 
-            fn document<S: StoredFieldsWriter>(
+            fn document(
                 &mut self,
                 doc_id: i32,
-                writer: Option<&mut S>
             ) -> Result<Document> {
                 match self {
-                    $( Self::$Variant(inner) => inner.document(doc_id, writer), )+
+                    $( Self::$Variant(inner) => inner.document(doc_id), )+
                 }
             }
 
@@ -139,14 +133,13 @@ macro_rules! either_stored_fields {
                 }
             }
 
-            fn document_with_fields<S: StoredFieldsWriter>(
+            fn document_with_fields(
                 &mut self,
                 doc_id: i32,
                 fields_to_load: &HashSet<String>,
-                writer: Option<&mut S>,
             ) -> Result<Document> {
                 match self {
-                    $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load, writer), )+
+                    $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load), )+
                 }
             }
         }

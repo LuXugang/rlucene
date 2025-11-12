@@ -978,7 +978,7 @@ mod tests {
     use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
     use crate::core::analysis::reader::ReaderEnum;
     use crate::core::analysis::reusable_string_reader::ReusableStringReader;
-    use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
+
     use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
     use crate::core::document::document::Document;
     use crate::core::document::double_doc_values_field::DoubleDocValuesField;
@@ -2706,7 +2706,7 @@ mod tests {
         assert_eq!(hits.total_hits().value(), 1);
         let stored_doc = searcher
             .stored_fields()?
-            .document::<DummyStoredFieldsWriter>(hits.score_docs()[0].doc, None)?;
+            .document(hits.score_docs()[0].doc)?;
         let stored_field = stored_doc.get_field("binary").unwrap();
         assert_eq!(stored_field.binary_value()?.as_ref().unwrap().as_ref(), &br);
         writer.close()?;
