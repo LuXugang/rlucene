@@ -98,7 +98,7 @@ pub struct DocLeafComparator {
     doc_base: i32,
     min_doc: i32,
     max_doc: i32,
-    competitive_iterator: Option<DocComparatorCompetitiveIterator>,
+    competitive_iterator: Option<DocComparatorIterator>,
 }
 
 impl DocLeafComparator {
@@ -115,7 +115,9 @@ impl DocLeafComparator {
             // with the same docID.
             let min_doc = comparator.top_value;
             let max_doc = context.reader().max_doc()?;
-            let it = Some(DocComparatorCompetitiveIterator::A(AllDISI::new(max_doc)));
+            let it = Some(DocComparatorIterator::new(
+                DocComparatorCompetitiveIterator::A(AllDISI::new(max_doc)),
+            ));
             (min_doc, max_doc, it)
         } else {
             (-1, -1, None)
@@ -134,16 +136,18 @@ impl DocLeafComparator {
         }
 
         if comparator.bottom_value_set {
-            self.competitive_iterator =
-                Some(DocComparatorCompetitiveIterator::B(EmptyDISI::default()));
+            self.competitive_iterator = Some(DocComparatorIterator::new(
+                DocComparatorCompetitiveIterator::B(EmptyDISI::default()),
+            ));
         } else if comparator.top_value_set {
             // since we've collected top N matches, we can early terminate
             // Currently early termination on _doc is also implemented in TopFieldCollector, but this
             // will be removed
             // once all bulk scores uses collectors' iterators
             if self.doc_base + self.max_doc <= self.min_doc {
-                self.competitive_iterator =
-                    Some(DocComparatorCompetitiveIterator::B(EmptyDISI::default())); // skip this segment
+                self.competitive_iterator = Some(DocComparatorIterator::new(
+                    DocComparatorCompetitiveIterator::B(EmptyDISI::default()),
+                )); // skip this segment
             } else {
                 let current_doc = self
                     .competitive_iterator
@@ -152,8 +156,11 @@ impl DocLeafComparator {
                     .doc_id();
                 let segment_min_doc = current_doc.max(self.min_doc - self.doc_base);
 
-                self.competitive_iterator = Some(DocComparatorCompetitiveIterator::C(
-                    MinDocIterator::new(segment_min_doc, self.max_doc),
+                self.competitive_iterator = Some(DocComparatorIterator::new(
+                    DocComparatorCompetitiveIterator::C(MinDocIterator::new(
+                        segment_min_doc,
+                        self.max_doc,
+                    )),
                 ));
             }
         }
@@ -221,15 +228,13 @@ impl LeafFieldComparator for DocLeafComparator {
     }
 
     type DocIdSetIterator = DocComparatorIterator;
+    type DocIdSetIteratorRef<'a> = &'a mut DocComparatorIterator;
 
     fn competitive_iterator(
         &mut self,
         _comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        debug_assert!(self.competitive_iterator.is_some());
-        Some(DocComparatorIterator::new(
-            self.competitive_iterator.take().unwrap(),
-        ))
+    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        Ok(self.competitive_iterator.as_mut())
     }
 
     fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {

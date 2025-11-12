@@ -563,12 +563,16 @@ where
     }
 
     type DocIdSetIterator = TermOrdValCompetitiveIterator<LR>;
+    type DocIdSetIteratorRef<'a>
+        = &'a mut TermOrdValCompetitiveIterator<LR>
+    where
+        LR: 'a;
 
     fn competitive_iterator(
         &mut self,
         _comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        self.competitive_iterator.take()
+    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        Ok(self.competitive_iterator.as_mut())
     }
 
     fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {

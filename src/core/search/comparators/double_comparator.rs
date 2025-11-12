@@ -255,12 +255,16 @@ where
     }
 
     type DocIdSetIterator = NumericCompetitiveIterator<LR>;
+    type DocIdSetIteratorRef<'a>
+        = &'a mut NumericCompetitiveIterator<LR>
+    where
+        LR: 'a;
 
     fn competitive_iterator(
         &mut self,
         _comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        self.base.competitive_iterator()
+    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        Ok(self.base.competitive_iterator())
     }
 
     fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {

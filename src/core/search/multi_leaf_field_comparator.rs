@@ -17,7 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::leaf_field_comparator::{
-    LeafFieldComparator, LeafFieldComparatorDocIdSetIterator, LeafFieldComparatorEnum,
+    LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -196,7 +196,7 @@ where
     pub(crate) fn competitive_iterator(
         &mut self,
         comparators: &mut [FieldComparatorEnum],
-    ) -> Option<LeafFieldComparatorDocIdSetIterator<LR>> {
+    ) -> Result<Option<LeafFieldComparatorDocIdSetIteratorRef<'_, LR>>> {
         debug_assert!(!comparators.is_empty());
         self.comparators[0].competitive_iterator(&mut comparators[0])
     }

@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sort::Sort;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
@@ -29,7 +30,8 @@ use crate::core::search::field_value_hit_queue::{
 };
 use crate::core::search::leaf_collector::{Either2LeafCollector, LeafCollector};
 use crate::core::search::leaf_field_comparator::{
-    LeafFieldComparator, LeafFieldComparatorDocIdSetIterator, LeafFieldComparatorEnum,
+    LeafFieldComparator, LeafFieldComparatorDocIdSetIterator,
+    LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
@@ -494,13 +496,18 @@ where
 
     type DocIdSetIterator = TopFieldLeafComparatorEnumIter<LR>;
     type DocIdSetIteratorRef<'b>
-        = TopFieldLeafComparatorEnumIter<LR>
+        = TopFieldLeafComparatorEnumIterRef<'b, LR>
     where
-        Self: 'b;
+        Self: 'b,
+        LR: 'b,
+        <LR as LeafReader>::NumericDocValues: 'b,
+        <LR as LeafReader>::SortedNumericDocValues: 'b,
+        <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
+            'b;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         let comparators = self.base.base.pq.get_comparators_mut();
-        Ok(self.comparator.competitive_iterator(comparators))
+        self.comparator.competitive_iterator(comparators)
     }
 }
 
@@ -1280,14 +1287,14 @@ where
     pub(crate) fn competitive_iterator(
         &mut self,
         comparators: &mut [FieldComparatorEnum],
-    ) -> Option<TopFieldLeafComparatorEnumIter<LR>> {
+    ) -> Result<Option<TopFieldLeafComparatorEnumIterRef<'_, LR>>> {
         match self {
             Self::Multi(inner) => inner
                 .competitive_iterator(comparators)
-                .map(Either2DocIdSetIterator::A),
+                .map(|opt| opt.map(Either2DocIdSetIterator::A)),
             Self::Single(inner) => inner
                 .competitive_iterator(&mut comparators[0])
-                .map(Either2DocIdSetIterator::B),
+                .map(|opt| opt.map(Either2DocIdSetIterator::B)),
         }
     }
 
@@ -1304,4 +1311,8 @@ where
 pub type TopFieldLeafComparatorEnumIter<LR> = Either2DocIdSetIterator<
     LeafFieldComparatorDocIdSetIterator<LR>,
     <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIterator,
+>;
+pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = Either2DocIdSetIterator<
+    LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
+    <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;

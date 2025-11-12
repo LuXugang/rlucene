@@ -122,7 +122,7 @@ where
     leaf_top_set: bool,
     min_value_as_long: i64,
     max_value_as_long: i64,
-    competitive_iterator: Option<CompetitiveIteratorType<N>>,
+    competitive_iterator: Option<CompetitiveIterator<CompetitiveIteratorType<N>>>,
     iterator_cost: i64,
     max_doc_visited: i32,
     update_counter: i32,
@@ -187,7 +187,9 @@ where
             }
 
             let max_doc = context.reader().max_doc()?;
-            let competitive_iterator = Some(CompetitiveIteratorType::A(AllDISI::new(max_doc)));
+            let competitive_iterator = Some(CompetitiveIterator::new(CompetitiveIteratorType::A(
+                AllDISI::new(max_doc),
+            )));
             (true, max_doc, competitive_iterator)
         } else {
             (false, 0, None)
@@ -277,8 +279,8 @@ where
                 let pv = self.point_values.as_ref().unwrap();
                 if (pv.get_doc_count()? as i64) < self.iterator_cost {
                     debug_assert!(self.skip_doc_values.is_some());
-                    self.competitive_iterator = Some(CompetitiveIteratorType::B(
-                        self.skip_doc_values.take().unwrap(),
+                    self.competitive_iterator = Some(CompetitiveIterator::new(
+                        CompetitiveIteratorType::B(self.skip_doc_values.take().unwrap()),
                     ));
 
                     self.iterator_cost = pv.get_doc_count()? as i64
@@ -294,7 +296,8 @@ where
         match visitor.result.build()?.iterator()? {
             Some(it) => {
                 self.iterator_cost = it.cost()?;
-                self.competitive_iterator = Some(CompetitiveIteratorType::C(it));
+                self.competitive_iterator =
+                    Some(CompetitiveIterator::new(CompetitiveIteratorType::C(it)));
                 self.update_skip_interval(true);
                 Ok(())
             },
@@ -468,12 +471,9 @@ where
 
     pub(crate) fn competitive_iterator(
         &mut self,
-    ) -> Option<CompetitiveIterator<CompetitiveIteratorType<N>>> {
+    ) -> Option<&mut CompetitiveIterator<CompetitiveIteratorType<N>>> {
         match self.enable_skipping {
-            true => self
-                .competitive_iterator
-                .take()
-                .map(CompetitiveIterator::new),
+            true => self.competitive_iterator.as_mut(),
             false => None,
         }
     }

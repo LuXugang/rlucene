@@ -175,6 +175,9 @@ pub trait LeafFieldComparator {
         S: Scorable;
 
     type DocIdSetIterator: DocIdSetIterator;
+    type DocIdSetIteratorRef<'a>: DocIdSetIterator
+    where
+        Self: 'a;
     /// Returns a competitive iterator over documents stronger than already
     /// collected docs, or `None` if such an iterator is not available for
     /// the current comparator or segment.
@@ -187,8 +190,8 @@ pub trait LeafFieldComparator {
     fn competitive_iterator(
         &mut self,
         _comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
-        None
+    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        Ok(None)
     }
 
     /// Informs this leaf comparator that the hit's threshold is reached.
@@ -211,6 +214,12 @@ pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     NumericCompetitiveIterator<LR>,
     DummyDocIdSetIterator,
     TermOrdValCompetitiveIterator<LR>,
+>;
+pub type LeafFieldComparatorDocIdSetIteratorRef<'a, LR> = Either4DocIdSetIterator<
+    <DocLeafComparator as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
+    <DoubleLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
+    &'a mut DummyDocIdSetIterator,
+    <TermOrdValLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;
 
 pub enum LeafFieldComparatorEnum<LR>
@@ -411,37 +420,41 @@ where
     }
 
     type DocIdSetIterator = LeafFieldComparatorDocIdSetIterator<LR>;
+    type DocIdSetIteratorRef<'a>
+        = LeafFieldComparatorDocIdSetIteratorRef<'a, LR>
+    where
+        LR: 'a;
 
     fn competitive_iterator(
         &mut self,
         comparator: &mut Self::FieldComparator,
-    ) -> Option<Self::DocIdSetIterator> {
+    ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
             (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::A),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::A)),
             (Self::Double(comparator), FieldComparatorEnum::Double(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::Long(comparator), FieldComparatorEnum::Long(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::B),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
             (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::C),
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => comparator
                 .competitive_iterator(c)
-                .map(LeafFieldComparatorDocIdSetIterator::<LR>::D),
-            _ => None,
+                .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D)),
+            _ => Ok(None),
         }
     }
 
