@@ -193,7 +193,7 @@ impl fmt::Display for IntPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}<{}:",
+            "{} <{}:",
             std::any::type_name::<Self>(),
             self.parent_field.name()
         )?;

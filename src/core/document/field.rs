@@ -1000,9 +1000,9 @@ mod tests {
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         result = try_set_bytes_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         result = try_set_bytes_ref_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         field.set_double_value(6.0)?;
         result = try_set_int_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
@@ -1022,7 +1022,10 @@ mod tests {
             Ok(Some(Number::F64(value))) => assert_eq!(value, 6.0),
             _ => unreachable!(),
         }
-        assert_eq!("DoublePoint <foo:6>", field.to_string());
+        assert_eq!(
+            format!("{} <foo:6>", std::any::type_name::<DoublePoint>()),
+            field.to_string()
+        );
         Ok(())
     }
     #[test]
@@ -1031,9 +1034,9 @@ mod tests {
         let mut result = try_set_byte_value(&mut field);
         assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
         result = try_set_bytes_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         result = try_set_bytes_ref_value(&mut field);
-        assert!(matches!(result, Err(LuceneError::NotImplemented(_))));
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         result = try_set_double_value(&mut field);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         field.set_double_values(&[6.0, 7.0])?;
@@ -1062,7 +1065,10 @@ mod tests {
             );
         }
 
-        assert_eq!(field.to_string(), "DoublePoint <foo:6,7>");
+        assert_eq!(
+            field.to_string(),
+            format!("{} <foo:6,7>", std::any::type_name::<DoublePoint>())
+        );
 
         Ok(())
     }

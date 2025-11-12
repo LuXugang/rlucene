@@ -188,7 +188,7 @@ impl fmt::Display for DoublePoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}<{}:",
+            "{} <{}:",
             std::any::type_name::<Self>(),
             self.parent_field.name()
         )?;
