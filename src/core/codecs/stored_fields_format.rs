@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
+
+use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -33,7 +34,7 @@ pub trait StoredFieldsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
+    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;
@@ -60,7 +61,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
+    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,

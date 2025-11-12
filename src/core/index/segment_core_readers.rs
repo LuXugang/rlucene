@@ -24,7 +24,7 @@ use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
+
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
 use crate::core::codecs::{Codec, CompoundFormat, get_default_code};
@@ -35,6 +35,7 @@ use crate::core::store::directory::{Directory, Either2Directory};
 use crate::core::store::{Either2IndexInput, IOContext, IndexInput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
+use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use std::sync::Arc;
@@ -53,7 +54,7 @@ where
     pub(crate) r#ref: AtomicI32,
     pub(crate) fields: Option<FieldsProducerType<CfsOrBaseInput<D>>>,
     pub(crate) norms_producer: Option<NormsProducerType<CfsOrBaseInput<D>>>,
-    pub(crate) fields_reader_orig: StoredFieldsReaderEnum<CfsOrBaseInput<D>>,
+    pub(crate) fields_reader_orig: StoredFieldsReaderType<CfsOrBaseInput<D>>,
     pub(crate) term_vectors_reader_orig: Option<TermVectorsReaderType<CfsOrBaseInput<D>>>,
     pub(crate) points_reader: Option<PointsReaderType<CfsOrBaseInput<D>>>,
     pub(crate) cfs_reader: Option<CompoundDirectory<Lucene90CompoundReader<D>>>,

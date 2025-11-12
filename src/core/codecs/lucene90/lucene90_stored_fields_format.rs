@@ -20,7 +20,8 @@ use crate::core::codecs::compression::compression_mode::{
 };
 use crate::core::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
 use crate::core::codecs::stored_fields_format::{StoredFieldsFormat, StoredFieldsFormatEnum};
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
+
+use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -150,7 +151,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
+    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,

@@ -18,7 +18,8 @@ use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader:
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
+
+use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -145,22 +146,20 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
+    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,
     {
-        Ok(StoredFieldsReaderEnum::Lucene90(
-            Lucene90CompressingStoredFieldsReader::new(
-                directory,
-                segment_info,
-                &self.segment_suffix,
-                field_infos,
-                context,
-                &self.format_name,
-                self.compression_mode.clone(),
-            )?,
-        ))
+        Lucene90CompressingStoredFieldsReader::new(
+            directory,
+            segment_info,
+            &self.segment_suffix,
+            field_infos,
+            context,
+            &self.format_name,
+            self.compression_mode.clone(),
+        )
     }
 
     fn fields_writer<D1, D2>(

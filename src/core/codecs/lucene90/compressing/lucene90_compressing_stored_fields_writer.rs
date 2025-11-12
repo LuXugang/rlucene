@@ -31,7 +31,7 @@ use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::matching_readers::MatchingReaders;
 use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
-use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
+use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{MergeVisitor, StoredFieldsWriter};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{DocMapEnum, MergeState};
@@ -283,8 +283,7 @@ where
         from_doc_id: i32,
         to_doc_id: i32,
     ) -> Result<()> {
-        let StoredFieldsReaderEnum::Lucene90(reader) =
-            &mut merge_state.stored_fields_readers[sub.reader_index];
+        let reader = &mut merge_state.stored_fields_readers[sub.reader_index];
 
         debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
         debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);
@@ -406,12 +405,8 @@ where
         I: IndexInput,
     {
         let candidate = &merge_state.stored_fields_readers[reader_index];
-        let (is_lucene90_compressing_stored_fields_reader, same_version) = match &candidate {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                let version = reader.get_version();
-                (false, version != VERSION_CURRENT)
-            },
-        };
+        // Currently we only allow to hanlde same version
+        let (is_lucene90_compressing_stored_fields_reader, same_version) = { (false, true) };
         if !matching_readers.matching_readers[reader_index]
             || is_lucene90_compressing_stored_fields_reader
             || same_version
@@ -419,7 +414,7 @@ where
             return Ok(MergeStrategy::Visitor);
         }
 
-        let StoredFieldsReaderEnum::Lucene90(reader) = &candidate;
+        let reader = candidate;
         if *BULK_MERGE_ENABLED
             && discriminant(reader.get_compression_mode()) == discriminant(&self.compression_mode)
             && reader.get_chunk_size() == self.chunk_size
@@ -616,8 +611,7 @@ where
                     doc_count += to_doc_id - from_doc;
                 },
                 MergeStrategy::Doc => {
-                    let StoredFieldsReaderEnum::Lucene90(lucene_90) = reader;
-                    self.copy_one_doc(lucene_90, sub.sub.doc_id)?;
+                    self.copy_one_doc(reader, sub.sub.doc_id)?;
                     doc_count += 1;
                 },
                 MergeStrategy::Visitor => {

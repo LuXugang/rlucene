@@ -14,14 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
 
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
-use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
-use crate::core::document::document::Document;
-use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
-use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 
 /// Codec API for reading stored fields.
@@ -47,89 +42,4 @@ pub trait StoredFieldsReader: StoredFields + Clone {
     }
 }
 
-pub enum StoredFieldsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    Lucene90(Lucene90CompressingStoredFieldsReader<I>),
-}
-
-impl<I> StoredFields for StoredFieldsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.prefetch(doc_id),
-        }
-    }
-
-    fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.document(doc_id, writer),
-        }
-    }
-
-    fn document_with_visitor(
-        &mut self,
-        doc_id: i32,
-        visitor: &mut impl StoredFieldVisitor,
-        writer: &mut impl StoredFieldsWriter,
-    ) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                reader.document_with_visitor(doc_id, visitor, writer)
-            },
-        }
-    }
-
-    fn document_with_fields(
-        &mut self,
-        doc_id: i32,
-        fields_to_load: &HashSet<String>,
-        writer: &mut impl StoredFieldsWriter,
-    ) -> Result<Document> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                reader.document_with_fields(doc_id, fields_to_load, writer)
-            },
-        }
-    }
-}
-
-impl<I> Clone for StoredFieldsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                StoredFieldsReaderEnum::Lucene90(reader.clone())
-            },
-        }
-    }
-}
-
-impl<I> StoredFieldsReader for StoredFieldsReaderEnum<I>
-where
-    I: IndexInput,
-{
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
-        match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                let merge_instance = reader.get_merge_instance()?;
-                if let Some(instance) = merge_instance {
-                    Ok(Some(StoredFieldsReaderEnum::Lucene90(instance)))
-                } else {
-                    Ok(None)
-                }
-            },
-        }
-    }
-}
+pub type StoredFieldsReaderType<I> = Lucene90CompressingStoredFieldsReader<I>;
