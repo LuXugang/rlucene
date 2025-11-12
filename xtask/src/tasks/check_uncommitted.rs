@@ -35,11 +35,6 @@ pub(crate) fn run() {
             "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again.",
         );
         log(&stdout);
-        let diff = Command::new("git")
-            .args(["diff"])
-            .output()
-            .expect("failed to execute git diff");
-        log(&String::from_utf8_lossy(&diff.stdout));
         process::exit(1);
     }
     log(&colorize(
