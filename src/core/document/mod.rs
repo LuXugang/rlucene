@@ -18,12 +18,14 @@ pub mod binary_doc_values_field;
 #[allow(clippy::module_inception)]
 pub mod document;
 pub mod document_stored_field_visitor;
+pub mod double_doc_values_field;
 pub mod double_field;
 pub mod double_point;
 pub mod dummy;
 pub mod field;
 pub mod field_type;
 pub mod fields;
+pub mod float_doc_values_field;
 pub mod float_field;
 pub mod float_point;
 pub mod int_field;
