@@ -21,6 +21,7 @@ use crate::core::codecs::compression::compression_mode::{
 };
 use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
+use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
@@ -39,7 +40,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -116,17 +117,21 @@ where
                 .fields_writer(state.directory, info, state.context)?;
 
         reader.check_integrity()?;
-        let mut visitor = CopyVisitor;
+        let mut visitor = CopyVisitor::new(&mut sort_writer);
         let max_doc = info.max_doc()?;
         for doc_id in 0..max_doc {
-            sort_writer.start_document()?;
+            visitor.writer.start_document()?;
             let mapped_doc = if let Some(sort_map) = &sort_map {
                 sort_map.new_to_old(doc_id)
             } else {
                 doc_id
             };
-            reader.document_with_visitor(mapped_doc, &mut visitor, Some(&mut sort_writer))?;
-            sort_writer.finish_document()?;
+            reader.document_with_visitor(
+                mapped_doc,
+                &mut visitor,
+                None::<&mut DummyStoredFieldsWriter>,
+            )?;
+            visitor.writer.finish_document()?;
         }
 
         sort_writer.finish(max_doc, state.directory)?;
@@ -145,91 +150,94 @@ where
 }
 
 /// A visitor that copies every field it sees in the provided [`StoredFieldsWriter`]
-#[derive(Default)]
-pub(crate) struct CopyVisitor;
-impl StoredFieldVisitor for CopyVisitor {
-    fn binary_field_with_input<S: StoredFieldsWriter>(
+pub(crate) struct CopyVisitor<'a, S>
+where
+    S: StoredFieldsWriter,
+{
+    pub(crate) writer: &'a mut S,
+}
+impl<'a, S> CopyVisitor<'a, S>
+where
+    S: StoredFieldsWriter,
+{
+    pub fn new(writer: &'a mut S) -> Self {
+        Self { writer }
+    }
+}
+impl<'a, S> StoredFieldVisitor for CopyVisitor<'_, S>
+where
+    S: StoredFieldsWriter,
+{
+    fn binary_field_with_input<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_with_input(&field_info, input, length)
+        self.writer
+            .write_field_with_input(&field_info, input, length)
     }
 
-    fn binary_field<S: StoredFieldsWriter>(
+    fn binary_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: Vec<u8>,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_bytes(&field_info, &BytesRef::from_bytes(value))
+        self.writer
+            .write_field_bytes(&field_info, &BytesRef::from_bytes(value))
     }
 
-    fn string_field<S: StoredFieldsWriter>(
+    fn string_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: String,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_str(&field_info, &value)
+        self.writer.write_field_str(&field_info, &value)
     }
 
-    fn int_field<S: StoredFieldsWriter>(
+    fn int_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i32,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_i32(&field_info, value)
+        self.writer.write_field_i32(&field_info, value)
     }
 
-    fn long_field<S: StoredFieldsWriter>(
+    fn long_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: i64,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_i64(&field_info, value)
+        self.writer.write_field_i64(&field_info, value)
     }
 
-    fn float_field<S: StoredFieldsWriter>(
+    fn float_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f32,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_f32(&field_info, value)
+        self.writer.write_field_f32(&field_info, value)
     }
 
-    fn double_field<S: StoredFieldsWriter>(
+    fn double_field<S1: StoredFieldsWriter>(
         &mut self,
         field_info: Arc<FieldInfo>,
         value: f64,
-        writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<()> {
-        let writer =
-            writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-        writer.write_field_f64(&field_info, value)
+        self.writer.write_field_f64(&field_info, value)
     }
 
-    fn needs_field<S: StoredFieldsWriter>(
+    fn needs_field<S1: StoredFieldsWriter>(
         &mut self,
         _field_info: Arc<FieldInfo>,
-        _writer: Option<&mut S>,
+        _writer: Option<&mut S1>,
     ) -> Result<Status> {
         Ok(Status::Yes)
     }
