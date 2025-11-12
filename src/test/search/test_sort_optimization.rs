@@ -1044,6 +1044,12 @@ fn test_max_doc_visited() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_random_long() -> Result<()> {
+    // TODO LongPoint.newRangeQuery未实现
+    Ok(())
+}
 #[test]
 fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let mut random = random();
@@ -1142,10 +1148,25 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
     Ok(())
 }
+fn test_string_sort_optimization() -> Result<()> {
+    // TODO
+    Ok(())
+}
+fn test_string_sort_optimization_with_missing_values() -> Result<()> {
+    // TODO
+    Ok(())
+}
+fn do_test_string_sort_optimization() -> Result<()> {
+    // TODO
+    Ok(())
+}
+fn assert_sort() -> Result<()> {
+    // TODO
+    Ok(())
+}
 
-#[test]
-fn test_random_long() -> Result<()> {
-    // TODO LongPoint.newRangeQuery未实现
+fn assert_search_hits() -> Result<()> {
+    // TODO
     Ok(())
 }
 
