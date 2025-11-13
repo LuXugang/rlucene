@@ -60,6 +60,17 @@ pub trait Scorable {
         Ok(vec![])
     }
 
+    /// In Java Lucene, some methods define their parameters as [`Scorable`],
+    /// But internally they use `instanceOf` to cast them to Scorer,
+    /// And then call Scorer’s defaultCost() method.
+    /// Therefore, when implementing in Rust, if a struct implements Scorer,
+    /// it must also implement the Scorable trait’s cost method,
+    /// and the implementation should delegate to Scorer’s default_cost() method for consistency.
+    ///
+    /// We simulate Java’s instanceof behavior by checking whether a struct implements the Scorable trait’s cost method.
+    /// In other words, instead of performing a runtime type check like instanceof Scorer in Java,
+    /// We use Rust’s compile-time trait implementation detection:
+    /// If a type implements Scorable::cost, It is treated as if it “is a Scorer,” and we delegate accordingly.
     fn cost(&mut self) -> Result<i64> {
         Err(LuceneError::unsupported_operation(""))
     }

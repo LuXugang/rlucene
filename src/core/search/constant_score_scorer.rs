@@ -121,7 +121,7 @@ where
     type Scorable = DummyScorable;
 
     fn cost(&mut self) -> Result<i64> {
-        self.iterator().cost()
+        Scorer::default_cost(self)
     }
 }
 
