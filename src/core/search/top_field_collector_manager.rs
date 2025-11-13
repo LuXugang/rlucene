@@ -64,7 +64,10 @@ impl TopFieldCollectorManager {
     ///   then the hit count of the result will be accurate.
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
-    pub fn new(sort: Arc<Sort>, num_hits: i32, total_hits_threshold: i32) -> Result<Self> {
+    pub fn new<S>(sort: S, num_hits: i32, total_hits_threshold: i32) -> Result<Self>
+    where
+        S: Into<Arc<Sort>>,
+    {
         Self::with_after(sort, num_hits, None, total_hits_threshold)
     }
     /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
@@ -86,12 +89,15 @@ impl TopFieldCollectorManager {
     ///   then the hit count of the result will be accurate.
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
-    pub fn with_after(
-        sort: Arc<Sort>,
+    pub fn with_after<S>(
+        sort: S,
         num_hits: i32,
         after: Option<FieldDoc>,
         total_hits_threshold: i32,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        S: Into<Arc<Sort>>,
+    {
         if total_hits_threshold < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "totalHitsThreshold must be >= 0, got {}",
@@ -104,7 +110,7 @@ impl TopFieldCollectorManager {
                 "numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count".to_string(),
             ));
         }
-
+        let sort = sort.into();
         let sort_fields = sort.get_sort();
         if sort_fields.is_empty() {
             return Err(LuceneError::illegal_argument(

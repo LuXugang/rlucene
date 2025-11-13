@@ -114,7 +114,11 @@ pub trait LiveIndexWriterConfig: Display {
         self
     }
 
-    fn set_index_sort(&mut self, sort: Arc<Sort>) -> Result<&mut Self> {
+    fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
+    where
+        T: Into<Arc<Sort>>,
+    {
+        let sort = sort.into();
         let base = self.get_base_mut();
         for sort_field in sort.get_sort() {
             if sort_field.get_index_sorter()?.is_none() {

@@ -243,13 +243,16 @@ where
     /// # Errors
     /// Returns a [`LuceneError::TooManyClauses`] if a query would exceed
     /// [`get_max_clause_count()`] clauses.
-    pub fn search_with_sort_score(
+    pub fn search_with_sort_score<T>(
         &mut self,
         query: impl Into<Query>,
         n: i32,
-        sort: Sort,
+        sort: T,
         do_doc_scores: bool,
-    ) -> Result<TopFieldDocs> {
+    ) -> Result<TopFieldDocs>
+    where
+        T: Into<Arc<Sort>>,
+    {
         self.search_after_field_with_score(None, query, n, sort, do_doc_scores, None)
     }
     /// Search implementation with arbitrary sorting.
@@ -263,12 +266,15 @@ where
     ///
     /// # Errors
     /// Returns an error if a low-level I/O error occurs.
-    pub fn search_with_sort(
+    pub fn search_with_sort<T>(
         &mut self,
         query: impl Into<Query>,
         n: i32,
-        sort: Sort,
-    ) -> Result<TopFieldDocs> {
+        sort: T,
+    ) -> Result<TopFieldDocs>
+    where
+        T: Into<Arc<Sort>>,
+    {
         self.search_after_field_with_score(None, query, n, sort, false, None)
     }
     pub fn search_with_term_state(
@@ -286,44 +292,47 @@ where
         self.similarity.clone()
     }
 
-    pub fn search_after_field_with_score<Q>(
+    pub fn search_after_field_with_score<Q, T>(
         &mut self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
-        sort: Sort,
+        sort: T,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
+        T: Into<Arc<Sort>>,
     {
         self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
     }
-    pub fn search_after<Q>(
+    pub fn search_after<Q, T>(
         &mut self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
-        sort: Sort,
+        sort: T,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
+        T: Into<Arc<Sort>>,
     {
         self.do_search_after_field(after, query, num_hits, sort, false, None)
     }
 
-    fn do_search_after_field<Q>(
+    fn do_search_after_field<Q, T>(
         &mut self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
-        sort: Sort,
+        sort: T,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopFieldDocs>
     where
         Q: Into<Query>,
+        T: Into<Arc<Sort>>,
     {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
 
@@ -339,7 +348,6 @@ where
         let capped_num_hits = std::cmp::min(num_hits, limit);
         // TODO: IMPORTANT
         // let rewritten_sort = sort.rewrite(self)?;
-        let sort = Arc::new(sort);
         let manager = TopFieldCollectorManager::with_after(
             sort,
             capped_num_hits,

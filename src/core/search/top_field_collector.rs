@@ -1392,7 +1392,7 @@ mod tests {
         ];
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let collector_manager = TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?;
+            let collector_manager = TopFieldCollectorManager::new(sort, 10, i32::MAX)?;
 
             let top_docs = is.search_with_collector_manager(query, &collector_manager)?;
             let sd = top_docs.score_docs();
@@ -1415,7 +1415,7 @@ mod tests {
 
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let tdc = TopFieldCollectorManager::with_after(Arc::new(sort), 10, None, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX)?;
             let top_docs = is.search_with_collector_manager(query, &tdc)?;
             let sd = top_docs.score_docs();
 
@@ -1439,16 +1439,16 @@ mod tests {
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
-            Sort::with_fields(vec![SortField::get_field_doc()?.into()])?,
-            Sort::new()?,
+            Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?),
+            Arc::new(Sort::new()?),
         ];
 
         for sort in sorts {
-            let tdc = TopFieldCollectorManager::new(Arc::new(sort.clone()), 10, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX)?;
             let td =
                 single_threaded_searcher.search_with_collector_manager(MatchAllDocsQuery, &tdc)?;
 
-            let tsdc = TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?;
+            let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX)?;
             let td2 =
                 concurrent_searcher.search_with_collector_manager(MatchAllDocsQuery, &tsdc)?;
 
@@ -1509,7 +1509,7 @@ mod tests {
         // TODO 没有定义 合并策略
         let mut config = IndexWriterConfig::new();
         config
-            .set_index_sort(sort)?
+            .set_index_sort(sort.clone())?
             .set_max_buffered_docs(7)
             .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
 
@@ -1530,9 +1530,6 @@ mod tests {
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
 
-        let sort = Arc::new(Sort::with_fields(vec![
-            SortField::new("foo".into(), SortFieldType::Long)?.into(),
-        ])?);
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
             let after_variants: [Option<FieldDoc>; 2] = [
@@ -1624,12 +1621,12 @@ mod tests {
         writer.close()?;
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
 
-        let sort = Arc::new(Sort::with_fields(vec![
+        let sort = Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             SortField::new("foo".into(), SortFieldType::Long)?.into(),
-        ])?);
+        ])?;
 
-        let mut collector = TopFieldCollectorManager::new(sort.clone(), 2, 2)?.new_collector()?;
+        let mut collector = TopFieldCollectorManager::new(sort, 2, 2)?.new_collector()?;
         let mut scorer = Score::default();
 
         let leaves = reader.leaves()?;
@@ -1698,10 +1695,10 @@ mod tests {
         writer.close()?;
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
-            let sort = Arc::new(Sort::with_fields(vec![
+            let sort = Sort::with_fields(vec![
                 SortField::get_field_score()?.into(),
                 SortField::new("foo".into(), SortFieldType::Long)?.into(),
-            ])?);
+            ])?;
 
             let mut collector =
                 TopFieldCollectorManager::new(sort, 2, total_hits_threshold)?.new_collector()?;
@@ -1752,7 +1749,7 @@ mod tests {
 
         for sort in sorts {
             let mut collector =
-                TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?.new_collector()?;
+                TopFieldCollectorManager::new(sort, 10, i32::MAX)?.new_collector()?;
             let top_docs = collector.top_docs()?;
 
             assert_eq!(top_docs.total_hits().value(), 0);
@@ -1791,10 +1788,10 @@ mod tests {
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;
 
-        let sort = Arc::new(Sort::with_fields(vec![
+        let sort = Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             SortField::get_field_doc()?.into(),
-        ])?);
+        ])?;
         DEFAULT_INTERVAL.store(0, std::sync::atomic::Ordering::Relaxed);
         let manager = TopFieldCollectorManager::new(sort, 2, 0)?;
         let mut collector = manager.new_collector()?;
