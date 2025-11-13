@@ -159,10 +159,6 @@ impl<R> LongValues for DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
-        self.get_immutable(index)
-    }
-
     fn get_immutable(&self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;

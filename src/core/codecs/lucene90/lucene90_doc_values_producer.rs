@@ -1878,7 +1878,7 @@ pub struct LongValuesImpl {
     min_values: i64,
 }
 impl LongValues for LongValuesImpl {
-    fn get(&mut self, _index: i64) -> Result<i64> {
+    fn get_immutable(&self, _index: i64) -> Result<i64> {
         Ok(self.min_values)
     }
 }
@@ -1908,6 +1908,10 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
+        self.get_immutable(index)
+    }
+
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         Ok(self.table[self.values.get_immutable(index)? as usize])
     }
 }
@@ -1924,6 +1928,10 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
+        self.get_immutable(index)
+    }
+
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         Ok(self.gcd * self.values.get_immutable(index)? + self.min_value)
     }
 }
@@ -1939,6 +1947,10 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
+        self.get_immutable(index)
+    }
+
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         Ok(self.values.get_immutable(index)? + self.min_value)
     }
 }
@@ -1982,8 +1994,9 @@ where
     I: IndexInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let start_offset = self.addresses.get(doc as i64)?;
-        self.bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as usize;
+        let start_offset = self.addresses.get_immutable(doc as i64)?;
+        self.bytes.length =
+            (self.addresses.get_immutable((doc + 1) as i64)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
             start_offset,
             &mut self.bytes.bytes,
@@ -2033,8 +2046,8 @@ where
 {
     fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let index = disi.index() as i64;
-        let start_offset = self.addresses.get(index)?;
-        self.bytes.length = (self.addresses.get(index + 1)? - start_offset) as usize;
+        let start_offset = self.addresses.get_immutable(index)?;
+        self.bytes.length = (self.addresses.get_immutable(index + 1)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
             start_offset,
             &mut self.bytes.bytes,
@@ -2107,7 +2120,7 @@ where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get(self.doc as i64)? as i32)
+        Ok(self.value.get_immutable(self.doc as i64)? as i32)
     }
 
     type TermsEnum<'a>
@@ -2173,7 +2186,7 @@ where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get(self.disi.index() as i64)? as i32)
+        Ok(self.value.get_immutable(self.disi.index() as i64)? as i32)
     }
 
     type TermsEnum<'a>
@@ -2388,8 +2401,8 @@ where
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.curr = self.addresses.get(target as i64)?;
-        let end = self.addresses.get((target as i64) + 1)?;
+        self.curr = self.addresses.get_immutable(target as i64)?;
+        let end = self.addresses.get_immutable((target as i64) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
         Ok(true)
@@ -2414,8 +2427,8 @@ where
             return Ok(NO_MORE_DOCS);
         }
 
-        self.curr = self.addresses.get(target as i64)?;
-        let end = self.addresses.get((target as i64) + 1)?;
+        self.curr = self.addresses.get_immutable(target as i64)?;
+        let end = self.addresses.get_immutable((target as i64) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
 
@@ -2432,7 +2445,7 @@ where
     I: IndexInput,
 {
     fn next_ord(&mut self) -> Result<i64> {
-        let ord = self.value.get(self.curr)?;
+        let ord = self.value.get_immutable(self.curr)?;
         self.count += 1;
         Ok(ord)
     }
@@ -2487,8 +2500,8 @@ where
     fn set(&mut self) -> Result<()> {
         if !self.set {
             let index = self.disi.index();
-            self.curr = self.addresses.get(index as i64)?;
-            let end = self.addresses.get((index as i64) + 1)?;
+            self.curr = self.addresses.get_immutable(index as i64)?;
+            let end = self.addresses.get_immutable((index as i64) + 1)?;
             self.count = (end - self.curr) as i32;
             self.set = true;
         }
@@ -2535,7 +2548,7 @@ where
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.set()?;
-        let ord = self.value.get(self.curr)?;
+        let ord = self.value.get_immutable(self.curr)?;
         self.curr += 1;
         Ok(ord)
     }
@@ -2848,8 +2861,8 @@ where
             "index {index} out of range"
         );
 
-        let start = self.index_addresses.get(index)?;
-        let end = self.index_addresses.get(index + 1)?;
+        let start = self.index_addresses.get_immutable(index)?;
+        let end = self.index_addresses.get_immutable(index + 1)?;
         let len = (end - start) as i32;
         self.term.length = len as usize;
 
@@ -2906,7 +2919,7 @@ where
                         as i64
         );
 
-        let block_address = self.block_addresses.get(block)?;
+        let block_address = self.block_addresses.get_immutable(block)?;
         self.bytes.seek(block_address)?;
 
         let len = self.bytes.read_vint()?;
@@ -2976,7 +2989,7 @@ where
         // reset ord and bytes to the ceiling block even if
         // text is before the first term (blockHi == -1)
         let block = std::cmp::max(block_hi, 0);
-        let block_address = self.block_addresses.get(block)?;
+        let block_address = self.block_addresses.get_immutable(block)?;
         self.ord = block << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
         self.bytes.seek(block_address)?;
         self.decompress_block()?;
@@ -3132,7 +3145,7 @@ where
         if ord < self.ord || block_index != current_block_index {
             // The looked up ord is before the current ord or belongs to a
             // different block, seek again
-            let block_address = self.block_addresses.get(block_index)?;
+            let block_address = self.block_addresses.get_immutable(block_index)?;
             self.bytes.seek(block_address)?;
             self.ord = (block_index << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
         }
@@ -3222,8 +3235,8 @@ where
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.start = self.addresses.get(target as i64)?;
-        self.end = self.addresses.get((target as i64) + 1)?;
+        self.start = self.addresses.get_immutable(target as i64)?;
+        self.end = self.addresses.get_immutable((target as i64) + 1)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
         Ok(true)
@@ -3248,8 +3261,8 @@ where
             return Ok(NO_MORE_DOCS);
         }
 
-        self.start = self.addresses.get(target as i64)?;
-        self.end = self.addresses.get((target + 1) as i64)?;
+        self.start = self.addresses.get_immutable(target as i64)?;
+        self.end = self.addresses.get_immutable((target + 1) as i64)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
 
@@ -3311,8 +3324,8 @@ where
     fn set(&mut self) -> Result<()> {
         if !self.set {
             let index = self.disi.index();
-            self.start = self.addresses.get(index as i64)?;
-            self.end = self.addresses.get((index as i64) + 1)?;
+            self.start = self.addresses.get_immutable(index as i64)?;
+            self.end = self.addresses.get_immutable((index as i64) + 1)?;
             self.count = (self.end - self.start) as i32;
             self.set = true;
         }

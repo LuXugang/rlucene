@@ -14,27 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
     fn get(&mut self, _index: i64) -> Result<i64> {
-        unimplemented!("")
+        Err(LuceneError::not_implemented(
+            "Mutable get method not implemented",
+        ))
     }
 
     /// Add an extra, immutable version of the method.
     /// If you need to call get in an immutable context, you can implement this method.
     fn get_immutable(&self, _index: i64) -> Result<i64> {
-        unimplemented!("")
+        Err(LuceneError::not_implemented(
+            "Immutable get method not implemented",
+        ))
     }
 }
 
 pub struct Zeroes;
 impl LongValues for Zeroes {
-    fn get(&mut self, _index: i64) -> Result<i64> {
-        Ok(0)
-    }
-
     fn get_immutable(&self, _index: i64) -> Result<i64> {
         Ok(0)
     }
