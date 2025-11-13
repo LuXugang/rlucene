@@ -1012,8 +1012,7 @@ mod tests {
     use crate::core::document::text_field::TextField;
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::IndexWriterConfig;
+
     use crate::core::index::indexable_field::IndexableField;
     use crate::core::index::indexable_field_type::IndexableFieldType;
     use crate::core::index::stored_fields::StoredFields;
@@ -1023,6 +1022,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::number::Number;
     use crate::core::util::numeric_utils::NumericUtils;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
         new_searcher_with_reader, random,
@@ -2699,8 +2699,7 @@ mod tests {
     fn test_indexed_binary_field() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        // TODO RandomIndexWriter未实现
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
         let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
@@ -2710,8 +2709,7 @@ mod tests {
         doc.add(field);
         writer.add_document(doc)?;
 
-        // TODO 要使用RandomIndexWriter中的get_reader
-        let reader = writer.get_reader(true, false)?;
+        let reader = writer.get_reader()?;
         let mut searcher = new_searcher_with_reader(Arc::new(reader))?;
         let query = TermQuery::new(Term::new("binary", br.clone()));
         let hits = searcher.search(query, 1)?;

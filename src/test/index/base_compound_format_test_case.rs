@@ -21,8 +21,13 @@ use rand::Rng;
 
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC, get_default_code};
+use crate::core::document::document::Document;
+use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::string_field::StringField;
+use crate::core::document::text_field::TextField;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
@@ -30,9 +35,11 @@ use crate::core::store::{IO_CONTEXT_DEFAULT, IndexInput};
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
+use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, new_io_context,
+    at_least, new_directory, new_io_context, random,
 };
+use crate::test::util::test_util::TestUtil;
 
 pub trait BaseCompoundFormatTestCase {
     fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
@@ -135,8 +142,49 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     fn test_list_all(&self) -> Result<()> {
-        // TODO: RandomIndexWriter not implemented, so this test could not be
-        // implemented
+        let mut random = random();
+        // riw should sometimes create docvalues fields, etc
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let riw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        // these fields should sometimes get term vectors, etc
+        let mut id_field = StringField::with_string("id", "", Store::No)?;
+        let mut body_field = TextField::with_string("body", "", Store::No)?;
+        doc.add(id_field.clone());
+        doc.add(body_field.clone());
+
+        for i in 0..100 {
+            id_field.set_string_value(i.to_string())?;
+            body_field.set_string_value(TestUtil::random_unicode_string(&mut random))?;
+            let mut doc = Document::new();
+            doc.add(id_field.clone());
+            doc.add(body_field.clone());
+            riw.add_document(doc)?;
+
+            if random.random_range(0..7) == 0 {
+                riw.commit()?;
+            }
+        }
+
+        riw.close()?;
+
+        let infos = SegmentInfos::read_latest_commit(dir.clone())?;
+
+        for si in infos.iter() {
+            if si.info.get_use_compound_file() {
+                let cfs_dir = get_default_code()
+                    .compound_format()
+                    .get_compound_reader(dir.as_ref(), &si.info)?;
+                let files = cfs_dir.list_all()?;
+
+                for file in files {
+                    cfs_dir.open_input(&file, &IOContext::default_io_context()?)?;
+                }
+            }
+        }
+
         Ok(())
     }
     /// Test that the compound file system (CFS) reader is read-only by

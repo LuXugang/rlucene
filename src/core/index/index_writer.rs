@@ -122,6 +122,7 @@ where
         }
     }
 }
+pub type DefaultIndexWriterType<D> = IndexWriter<D, IndexWriterConfig, EmptyIndexWriterBase>;
 impl<D, L> IndexWriter<D, L, EmptyIndexWriterBase>
 where
     D: Directory,
@@ -3511,7 +3512,7 @@ use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQue
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, OpenMode};
+use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::merge_trigger::MergeTrigger;

@@ -247,6 +247,7 @@ mod tests {
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::priority_queue::PriorityQueue;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory, new_index_writer_config, new_searcher, new_searcher_with_reader, random,
@@ -413,12 +414,11 @@ mod tests {
         D: Directory,
     {
         let mut random = random();
-        // TODO IMPORTANT：RandomIndexWriter
-        let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let writer = RandomIndexWriter::new(&mut random, dir);
         for _ in 0..30 {
             let _ = writer.add_document(Document::new())?;
         }
-        let reader = writer.get_reader(true, false)?;
+        let reader = writer.get_reader()?;
         writer.close()?;
         Ok(reader)
     }

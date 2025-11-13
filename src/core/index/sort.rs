@@ -148,16 +148,15 @@ mod tests {
     use crate::core::document::field::Store;
     use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
     use crate::core::document::string_field::StringField;
-    use crate::core::index::index_writer::IndexWriter;
-    use crate::core::index::index_writer_config::IndexWriterConfig;
+
     use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::sort_field::MissingValueEnum::StringFirst;
     use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, new_directory, new_searcher_with_reader, random,
     };
@@ -236,8 +235,7 @@ mod tests {
     fn test_string() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        // TODO RandomIndexWriter未实现
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
         doc.add(SortedDocValuesField::new(
@@ -255,7 +253,7 @@ mod tests {
         doc.add(StringField::with_string("value", "bar", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let ir = writer.get_reader(true, false)?;
+        let ir = writer.get_reader()?;
         writer.close()?;
 
         let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
@@ -284,8 +282,7 @@ mod tests {
     fn test_string_reverse() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        // TODO RandomIndexWriter未实现
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let writer = RandomIndexWriter::new(&mut random, dir);
 
         // doc 1: bar
         let mut doc = Document::new();
@@ -304,7 +301,7 @@ mod tests {
         doc.add(StringField::with_string("value", "foo", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let ir = writer.get_reader(true, false)?;
+        let ir = writer.get_reader()?;
         writer.close()?;
 
         let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
@@ -333,9 +330,7 @@ mod tests {
     fn test_string_val() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
-
-        // doc 1: foo
+        let writer = RandomIndexWriter::new(&mut random, dir);
         let mut doc = Document::new();
         doc.add(BinaryDocValuesField::new(
             "value",
@@ -344,7 +339,6 @@ mod tests {
         doc.add(StringField::with_string("value", "foo", Store::Yes)?);
         writer.add_document(doc)?;
 
-        // doc 2: bar
         let mut doc = Document::new();
         doc.add(BinaryDocValuesField::new(
             "value",
@@ -353,7 +347,7 @@ mod tests {
         doc.add(StringField::with_string("value", "bar", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let ir = writer.get_reader(true, false)?;
+        let ir = writer.get_reader()?;
         writer.close()?;
 
         let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
@@ -364,7 +358,6 @@ mod tests {
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
         assert_eq!(2, td.total_hits().value);
 
-        // bar < foo
         let v0 = searcher
             .stored_fields()?
             .document(td.score_docs()[0].doc())?;
@@ -374,6 +367,52 @@ mod tests {
             .stored_fields()?
             .document(td.score_docs()[1].doc())?;
         assert_eq!("foo", v1.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests reverse sorting on type string_val
+    #[test]
+    fn test_string_val_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+        let mut doc = Document::new();
+        doc.add(BinaryDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(StringField::with_string("value", "bar", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(BinaryDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(StringField::with_string("value", "foo", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::StringVal, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value);
+
+        // reverse: foo first, bar second
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("foo", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("bar", v1.get("value")?.unwrap().as_ref());
 
         Ok(())
     }

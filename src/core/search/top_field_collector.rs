@@ -1355,6 +1355,7 @@ mod tests {
     use crate::core::store::nio_fs_directory::NIOFSDirectory;
     use crate::core::store::{FSDirectory, NativeFSLockFactory};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -1371,14 +1372,13 @@ mod tests {
     )> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        // TODO 未实现RandomIndexWriter
-        let iw = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let iw = RandomIndexWriter::new(&mut random, dir);
         let num_docs = at_least(&mut random, 100);
         for _ in 0..num_docs {
             let doc = Document::new();
             iw.add_document(doc)?;
         }
-        let ir = Arc::new(iw.get_reader(true, false)?);
+        let ir = Arc::new(iw.get_reader()?);
         iw.close()?;
         let is = new_searcher(ir.clone(), true, true, false)?;
         Ok((ir, is))
@@ -1604,7 +1604,6 @@ mod tests {
         let config = IndexWriterConfig::new();
         // TODO: 未设置合并策略
         let writer = IndexWriter::new(dir.clone(), config)?;
-        let doc = Document::new();
 
         for _ in 0..4 {
             writer.add_document(Document::new())?;
