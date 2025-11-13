@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
@@ -40,6 +41,11 @@ where
 {
     pub fn new(lr: LR) -> Self {
         Self { leaf_reader: lr }
+    }
+}
+impl Default for DummyWeight<DummyLeafReader> {
+    fn default() -> Self {
+        Self::new(DummyLeafReader)
     }
 }
 

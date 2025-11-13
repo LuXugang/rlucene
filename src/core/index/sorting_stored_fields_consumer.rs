@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codec;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, CompressorEnum, DecompressorEnum,
@@ -25,6 +24,7 @@ use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
+use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -96,7 +96,6 @@ where
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Arc<DM>>,
-        codec: &impl Codec,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>
     where
@@ -111,10 +110,11 @@ where
         )?;
         // Don't pull a merge instance, since merge instances optimize for
         // sequential access while we consume stored fields in random order here.
-        let mut sort_writer =
-            codec
-                .stored_fields_format()
-                .fields_writer(state.directory, info, state.context)?;
+        let mut sort_writer = get_default_code().stored_fields_format().fields_writer(
+            state.directory,
+            info,
+            state.context,
+        )?;
 
         reader.check_integrity()?;
         let mut visitor = CopyVisitor::new(&mut sort_writer);

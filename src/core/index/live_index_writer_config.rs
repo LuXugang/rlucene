@@ -34,9 +34,13 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -51,7 +55,7 @@ pub trait LiveIndexWriterConfig: Display {
     fn get_codec(&self) -> &Self::Codec;
 
     fn get_index_sort(&self) -> Option<Arc<Sort>>;
-    fn get_index_sort_fields(&self) -> &[String];
+    fn get_index_sort_fields(&self) -> &HashSet<String>;
 
     fn get_use_compound_file(&self) -> bool;
 
@@ -83,7 +87,10 @@ pub trait LiveIndexWriterConfig: Display {
     fn set_max_full_flush_merge_wait_millis(
         &mut self,
         max_full_flush_merge_wait_millis: i64,
-    ) -> &mut Self;
+    ) -> &mut Self {
+        self.get_base_mut().max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
+        self
+    }
 
     fn get_commit_on_close(&self) -> bool;
 
@@ -105,6 +112,27 @@ pub trait LiveIndexWriterConfig: Display {
     fn set_max_buffered_docs(&mut self, max_buffered_docs: i32) -> &mut Self {
         self.get_base_mut().max_buffered_docs = max_buffered_docs;
         self
+    }
+
+    fn set_index_sort(&mut self, sort: Arc<Sort>) -> Result<&mut Self> {
+        let base = self.get_base_mut();
+        for sort_field in sort.get_sort() {
+            if sort_field.get_index_sorter()?.is_none() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Cannot sort index with sort field {}",
+                    sort_field
+                )));
+            }
+        }
+        let index_sort_fields: HashSet<String> = sort
+            .get_sort()
+            .iter()
+            .filter_map(|f| f.get_field_name())
+            .cloned()
+            .collect();
+        base.index_sort_fields = index_sort_fields;
+        base.index_sort = Some(sort);
+        Ok(self)
     }
 }
 
@@ -128,8 +156,8 @@ pub struct LiveIndexWriterConfigBase {
     pub commit_on_close: bool,
     pub check_pending_flush_on_update: bool,
     pub parent_field: Option<String>,
-    pub sort: Option<Arc<Sort>>,
-    pub index_sort_fields: Vec<String>,
+    pub index_sort: Option<Arc<Sort>>,
+    pub index_sort_fields: HashSet<String>,
 }
 impl Default for LiveIndexWriterConfigBase {
     fn default() -> Self {
@@ -159,8 +187,8 @@ impl LiveIndexWriterConfigBase {
             commit_on_close: DEFAULT_COMMIT_ON_CLOSE,
             check_pending_flush_on_update: true,
             parent_field: None,
-            sort: None,
-            index_sort_fields: Vec::new(),
+            index_sort: None,
+            index_sort_fields: HashSet::new(),
         }
     }
 }

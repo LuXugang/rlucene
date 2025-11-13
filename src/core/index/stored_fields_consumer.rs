@@ -179,8 +179,9 @@ where
 
     pub(crate) fn flush<DM, D1>(
         &mut self,
-        _sort_map: Option<Arc<DM>>,
-        info: &SegmentInfo<D1>,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Arc<DM>>,
+        info: &mut SegmentInfo<D1>,
         dir: &D,
     ) -> Result<()>
     where
@@ -188,10 +189,11 @@ where
         D1: Directory,
     {
         match self.sub {
+            // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
             Some(ref mut sub) => {
                 sub.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
+                sub.flush(state, sort_map, info)?;
                 let _ = sub.writer.take();
-                unimplemented!("这里要调用sub的flush方法");
             },
             None => {
                 self.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
@@ -218,7 +220,6 @@ pub(crate) trait StoredFieldsConsumerBase {
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Arc<DM>>,
-        codec: &impl Codec,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>
     where

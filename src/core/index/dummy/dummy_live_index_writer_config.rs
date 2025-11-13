@@ -28,6 +28,7 @@ use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -39,6 +40,7 @@ pub struct DummyLiveIndexWriterConfig {
     open_mode: OpenMode,
     policy: KeepOnlyLastCommitDeletionPolicy,
     flush_policy: DummyFlushPolicy,
+    index_sort: HashSet<String>,
 }
 impl Default for DummyLiveIndexWriterConfig {
     fn default() -> Self {
@@ -56,6 +58,7 @@ impl DummyLiveIndexWriterConfig {
             open_mode: OpenMode::Create,
             policy: KeepOnlyLastCommitDeletionPolicy,
             flush_policy: DummyFlushPolicy,
+            index_sort: HashSet::new(),
         }
     }
 }
@@ -89,8 +92,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         None
     }
 
-    fn get_index_sort_fields(&self) -> &[String] {
-        &[]
+    fn get_index_sort_fields(&self) -> &HashSet<String> {
+        &self.index_sort
     }
 
     fn get_use_compound_file(&self) -> bool {

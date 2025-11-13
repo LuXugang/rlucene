@@ -177,8 +177,8 @@ impl FieldComparator for RelevanceComparator {
     type V = f32;
 
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        let slot1_v = self.scores[slot1 as usize];
-        let slot2_v = self.scores[slot2 as usize];
+        let slot1_v = self.scores[slot2 as usize];
+        let slot2_v = self.scores[slot1 as usize];
         match slot1_v.partial_cmp(&slot2_v) {
             Some(r) => r.to_int(),
             None => self.fallback_compare(&slot1_v, &slot2_v),

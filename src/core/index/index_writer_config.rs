@@ -27,6 +27,7 @@ use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::info_stream::InfoStreamMT;
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -73,11 +74,11 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
     }
 
     fn get_index_sort(&self) -> Option<Arc<Sort>> {
-        self.base.sort.clone()
+        self.base.index_sort.clone()
     }
 
-    fn get_index_sort_fields(&self) -> &[String] {
-        self.base.index_sort_fields.as_slice()
+    fn get_index_sort_fields(&self) -> &HashSet<String> {
+        &self.base.index_sort_fields
     }
 
     fn get_use_compound_file(&self) -> bool {
@@ -132,14 +133,6 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
 
     fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
         self.base.max_full_flush_merge_wait_millis
-    }
-
-    fn set_max_full_flush_merge_wait_millis(
-        &mut self,
-        max_full_flush_merge_wait_millis: i64,
-    ) -> &mut Self {
-        self.base.max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
-        self
     }
 
     fn get_commit_on_close(&self) -> bool {

@@ -344,8 +344,12 @@ where
             max_doc,
             segment_info,
         )?;
-        self.stored_fields_consumer
-            .flush(sort_map.clone(), segment_info, state.directory)?;
+        self.stored_fields_consumer.flush(
+            state,
+            sort_map.clone(),
+            segment_info,
+            state.directory,
+        )?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
                 "IW",

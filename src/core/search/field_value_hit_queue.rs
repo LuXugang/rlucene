@@ -89,7 +89,7 @@ pub fn create(
     FieldValueHitQueue::new(fields, size)
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Entry {
     pub base: ScoreDoc,
     pub slot: i32,
@@ -277,7 +277,7 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TopFieldScoreDoc {
     Entry(Entry),
     Field(FieldDoc),
