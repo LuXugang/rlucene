@@ -149,6 +149,9 @@ mod tests {
     use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
     use crate::core::document::string_field::StringField;
 
+    use crate::core::document::double_doc_values_field::DoubleDocValuesField;
+    use crate::core::document::float_doc_values_field::FloatDocValuesField;
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
     use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -162,6 +165,7 @@ mod tests {
     };
     use std::hash::DefaultHasher;
     use std::sync::Arc;
+    use std::vec;
 
     #[allow(dead_code)] // for quick search
     struct TestSort;
@@ -414,6 +418,1108 @@ mod tests {
             .document(td.score_docs()[1].doc())?;
         assert_eq!("bar", v1.get("value")?.unwrap().as_ref());
 
+        Ok(())
+    }
+    /// Tests sorting on type int
+    #[test]
+    fn test_int() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 300000));
+        doc.add(StringField::with_string("value", "300000", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Int)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("300000", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type int in reverse
+    #[test]
+    fn test_int_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 300000));
+        doc.add(StringField::with_string("value", "300000", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::Int, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("300000", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("-1", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type int with a missing value
+    #[test]
+    fn test_int_missing() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let doc = Document::new();
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Int)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert!(v1.get("value")?.is_none());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type int, specifying the missing value should be treated as Integer.MAX_VALUE
+    #[test]
+    fn test_int_missing_last() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let doc = Document::new();
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+
+        let mut sort_field = SortField::new("value".into(), SortFieldType::Int)?;
+        sort_field.set_missing_value(i32::MAX)?;
+        let sort = Sort::with_fields(vec![sort_field.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert!(v2.get("value")?.is_none());
+
+        Ok(())
+    }
+
+    /// Tests sorting on type long
+    #[test]
+    fn test_long() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 3_000_000_000i64));
+        doc.add(StringField::with_string("value", "3000000000", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1i64));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4i64));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Long)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // numeric: -1, 4, 3000000000
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("3000000000", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type long in reverse
+    #[test]
+    fn test_long_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // doc 1: 3000000000
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 3_000_000_000i64));
+        doc.add(StringField::with_string("value", "3000000000", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc 2: -1
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1i64));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc 3: 4
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4i64));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::Long, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // reverse numeric order: 3000000000, 4, -1
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("3000000000", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("-1", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type long with a missing value
+    #[test]
+    fn test_long_missing() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let doc = Document::new();
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1i64));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4i64));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Long)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // null treated as 0 → -1, null, 4
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert!(v1.get("value")?.is_none());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type long, specifying the missing value should be treated as Long.MAX_VALUE
+    #[test]
+    fn test_long_missing_last() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        let doc = Document::new();
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", -1i64));
+        doc.add(StringField::with_string("value", "-1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("value", 4i64));
+        doc.add(StringField::with_string("value", "4", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+
+        let mut sort_field = SortField::new("value".into(), SortFieldType::Long)?;
+        sort_field.set_missing_value(i64::MAX)?;
+        let sort = Sort::with_fields(vec![sort_field.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert!(v2.get("value")?.is_none());
+
+        Ok(())
+    }
+    /// Tests sorting on type float
+    #[test]
+    fn test_float() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // 30.1
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 30.1f32));
+        doc.add(StringField::with_string("value", "30.1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", -1.3f32));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 4.2f32));
+        doc.add(StringField::with_string("value", "4.2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Float)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // numeric: -1.3, 4.2, 30.1
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("30.1", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type float in reverse
+    #[test]
+    fn test_float_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // 30.1
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 30.1f32));
+        doc.add(StringField::with_string("value", "30.1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", -1.3f32));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 4.2f32));
+        doc.add(StringField::with_string("value", "4.2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::Float, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // reverse: 30.1, 4.2, -1.3
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("30.1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("-1.3", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type float with a missing value
+    #[test]
+    fn test_float_missing() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // missing
+        writer.add_document(Document::new())?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", -1.3f32));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 4.2f32));
+        doc.add(StringField::with_string("value", "4.2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Float)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // null treated as 0 → -1.3, null, 4.2
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert!(v1.get("value")?.is_none());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4.2", v2.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type float, specifying the missing value should be treated as Float.MAX_VALUE
+    #[test]
+    fn test_float_missing_last() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // missing
+        writer.add_document(Document::new())?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", -1.3f32));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2
+        let mut doc = Document::new();
+        doc.add(FloatDocValuesField::new("value", 4.2f32));
+        doc.add(StringField::with_string("value", "4.2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+
+        let mut sort_field = SortField::new("value".into(), SortFieldType::Float)?;
+        sort_field.set_missing_value(f32::MAX)?;
+        let sort = Sort::with_fields(vec![sort_field.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value);
+
+        // null → Float.MAX_VALUE
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert!(v2.get("value")?.is_none());
+
+        Ok(())
+    }
+    /// Tests sorting on type double
+    #[test]
+    fn test_double() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // 30.1
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 30.1f64));
+        doc.add(StringField::with_string("value", "30.1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", -1.3f64));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333333
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333333",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333332
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333332",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Double)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(4, td.total_hits().value);
+
+        // numeric order
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2333333333332", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4.2333333333333", v2.get("value")?.unwrap().as_ref());
+
+        let v3 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[3].doc())?;
+        assert_eq!("30.1", v3.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type double with +/- zero
+    #[test]
+    fn test_double_signed_zero() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // +0
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 0.0f64));
+        doc.add(StringField::with_string("value", "+0", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // -0
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", -0.0f64));
+        doc.add(StringField::with_string("value", "-0", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Double)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value);
+
+        // -0 < +0
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-0", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("+0", v1.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type double in reverse
+    #[test]
+    fn test_double_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // 30.1
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 30.1f64));
+        doc.add(StringField::with_string("value", "30.1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", -1.3f64));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333333
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333333",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333332
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333332",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::Double, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(4, td.total_hits().value);
+
+        // reverse numeric order
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("30.1", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2333333333333", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4.2333333333332", v2.get("value")?.unwrap().as_ref());
+
+        let v3 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[3].doc())?;
+        assert_eq!("-1.3", v3.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type double with a missing value
+    #[test]
+    fn test_double_missing() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // missing
+        writer.add_document(Document::new())?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", -1.3f64));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333333
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333333",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333332
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333332",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::Double)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(4, td.total_hits().value);
+
+        // null treated as 0
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert!(v1.get("value")?.is_none());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4.2333333333332", v2.get("value")?.unwrap().as_ref());
+
+        let v3 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[3].doc())?;
+        assert_eq!("4.2333333333333", v3.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+
+    /// Tests sorting on type double, specifying the missing value should be treated as Double.MAX_VALUE
+    #[test]
+    fn test_double_missing_last() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // missing
+        writer.add_document(Document::new())?;
+
+        // -1.3
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", -1.3f64));
+        doc.add(StringField::with_string("value", "-1.3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333333
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333333",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        // 4.2333333333332
+        let mut doc = Document::new();
+        doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
+        doc.add(StringField::with_string(
+            "value",
+            "4.2333333333332",
+            Store::Yes,
+        )?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+
+        let mut sort_field = SortField::new("value".into(), SortFieldType::Double)?;
+        sort_field.set_missing_value(f64::MAX)?;
+        let sort = Sort::with_fields(vec![sort_field.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(4, td.total_hits().value);
+
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("-1.3", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("4.2333333333332", v1.get("value")?.unwrap().as_ref());
+
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("4.2333333333333", v2.get("value")?.unwrap().as_ref());
+
+        let v3 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[3].doc())?;
+        assert!(v3.get("value")?.is_none());
+
+        Ok(())
+    }
+    /// Tests sorting on multiple sort fields
+    #[test]
+    fn test_multi_sort() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir);
+
+        // doc1: foo, 0
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value1",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(NumericDocValuesField::new("value2", 0));
+        doc.add(StringField::with_string("value1", "foo", Store::Yes)?);
+        doc.add(StringField::with_string("value2", "0", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc2: bar, 1
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value1",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(NumericDocValuesField::new("value2", 1));
+        doc.add(StringField::with_string("value1", "bar", Store::Yes)?);
+        doc.add(StringField::with_string("value2", "1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc3: bar, 0
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value1",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(NumericDocValuesField::new("value2", 0));
+        doc.add(StringField::with_string("value1", "bar", Store::Yes)?);
+        doc.add(StringField::with_string("value2", "0", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc4: foo, 1
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value1",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(NumericDocValuesField::new("value2", 1));
+        doc.add(StringField::with_string("value1", "foo", Store::Yes)?);
+        doc.add(StringField::with_string("value2", "1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader()?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Arc::new(Sort::with_fields(vec![
+            SortField::new("value1".into(), SortFieldType::String)?.into(),
+            SortField::new("value2".into(), SortFieldType::Long)?.into(),
+        ])?);
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort.clone())?;
+        assert_eq!(4, td.total_hits().value);
+
+        // bar < foo
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        let v2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        let v3 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[3].doc())?;
+
+        assert_eq!("bar", v0.get("value1")?.unwrap().as_ref());
+        assert_eq!("bar", v1.get("value1")?.unwrap().as_ref());
+        assert_eq!("foo", v2.get("value1")?.unwrap().as_ref());
+        assert_eq!("foo", v3.get("value1")?.unwrap().as_ref());
+
+        assert_eq!("0", v0.get("value2")?.unwrap().as_ref());
+        assert_eq!("1", v1.get("value2")?.unwrap().as_ref());
+        assert_eq!("0", v2.get("value2")?.unwrap().as_ref());
+        assert_eq!("1", v3.get("value2")?.unwrap().as_ref());
+
+        // overflow = top 1
+        let td2 = searcher.search_with_sort(MatchAllDocsQuery::new(), 1, sort)?;
+        assert_eq!(4, td2.total_hits().value);
+
+        let v = searcher
+            .stored_fields()?
+            .document(td2.score_docs()[0].doc())?;
+        assert_eq!("bar", v.get("value1")?.unwrap().as_ref());
+        assert_eq!("0", v.get("value2")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    #[test]
+    fn test_rewrite() -> Result<()> {
+        // TODO rewrite未实现
+        Ok(())
+    }
+    #[test]
+    fn test_string_ghost() -> Result<()> {
+        do_test_string_ghost(true)?;
+        do_test_string_ghost(false)?;
+        Ok(())
+    }
+
+    fn do_test_string_ghost(_indexed: bool) -> Result<()> {
+        // TODO merge 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_int_ghost() -> Result<()> {
+        do_test_string_ghost(true)?;
+        do_test_string_ghost(false)?;
+        Ok(())
+    }
+
+    fn do_test_int_ghost(_indexed: bool) -> Result<()> {
+        // TODO merge 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_long_ghost() -> Result<()> {
+        do_test_string_ghost(true)?;
+        do_test_string_ghost(false)?;
+        Ok(())
+    }
+
+    fn do_test_long_ghost(_indexed: bool) -> Result<()> {
+        // TODO merge 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_double_ghost() -> Result<()> {
+        do_test_string_ghost(true)?;
+        do_test_string_ghost(false)?;
+        Ok(())
+    }
+
+    fn do_test_double_ghost(_indexed: bool) -> Result<()> {
+        // TODO merge 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_float_ghost() -> Result<()> {
+        do_test_string_ghost(true)?;
+        do_test_string_ghost(false)?;
+        Ok(())
+    }
+
+    fn do_test_float_ghost(_indexed: bool) -> Result<()> {
+        // TODO merge 未实现
         Ok(())
     }
 }

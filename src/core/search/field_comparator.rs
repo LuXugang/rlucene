@@ -38,6 +38,7 @@ use crate::core::search::sorted_numeric_sort_field::{
 use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::Result;
+use num_traits::float::TotalOrder;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 
@@ -179,10 +180,7 @@ impl FieldComparator for RelevanceComparator {
     fn compare(&self, slot1: i32, slot2: i32) -> i32 {
         let slot1_v = self.scores[slot2 as usize];
         let slot2_v = self.scores[slot1 as usize];
-        match slot1_v.partial_cmp(&slot2_v) {
-            Some(r) => r.to_int(),
-            None => self.fallback_compare(&slot1_v, &slot2_v),
-        }
+        slot1_v.total_cmp(&slot2_v).to_int()
     }
 
     fn set_top_value(&mut self, value: Self::V) {

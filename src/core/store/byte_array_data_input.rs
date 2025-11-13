@@ -57,7 +57,10 @@ where
         data_input.reset_with_range(bytes, offset, length);
         data_input
     }
-
+    pub fn reset_meta(&mut self, offset: usize, length: usize) {
+        self.pos = offset;
+        self.limit = offset + length;
+    }
     pub fn reset(&mut self, bytes: AV) {
         let len = bytes.access(|bytes| bytes.len());
         self.reset_with_range(bytes, 0, len);

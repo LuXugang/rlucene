@@ -2763,18 +2763,19 @@ pub struct TermsDict<I>
 where
     I: IndexInput,
 {
-    pub entry: Arc<TermsDictEntry>,
-    pub block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
-    pub bytes: I::Slice,
-    pub block_mask: u64,
-    pub index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
-    pub index_bytes: I::RandomAccessSlice,
-    pub term: BytesRef<Vec<u8>>,
-    pub ord: i64,
-    pub block_buffer: BytesRef<Vec<u8>>,
-    pub block_input: ByteArrayDataInput<Vec<u8>>,
-    pub current_compressed_block_start: i64,
-    pub current_compressed_block_end: i64,
+    entry: Arc<TermsDictEntry>,
+    block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    bytes: I::Slice,
+    block_mask: u64,
+    index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    index_bytes: I::RandomAccessSlice,
+    term: BytesRef<Vec<u8>>,
+    ord: i64,
+    block_input: ByteArrayDataInput<Vec<u8>>,
+    block_buffer_offset: usize,
+    block_buffer_length: usize,
+    current_compressed_block_start: i64,
+    current_compressed_block_end: i64,
 }
 
 impl<I> TermsDict<I>
@@ -2831,9 +2832,8 @@ where
         let buffer_size =
             entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
 
-        let block_buffer =
-            BytesRef::from_slice(vec![0u8; buffer_size as usize], 0, buffer_size as usize);
-        let block_input = ByteArrayDataInput::new(); // assuming default constructor
+        let block_buffer = vec![0u8; buffer_size as usize];
+        let block_input = ByteArrayDataInput::with_bytes(block_buffer);
 
         let sub = Self {
             entry,
@@ -2844,8 +2844,9 @@ where
             index_bytes,
             term,
             ord: -1,
-            block_buffer,
             block_input,
+            block_buffer_offset: 0,
+            block_buffer_length: buffer_size as usize,
             current_compressed_block_start: -1,
             current_compressed_block_end: -1,
         };
@@ -3012,16 +3013,16 @@ where
                 let block_buffer_offset = self.term.length;
                 let block_buffer_len = self.bytes.read_vint()?;
 
-                self.block_buffer.offset = block_buffer_offset;
-                self.block_buffer.length = block_buffer_len as usize;
+                self.block_buffer_offset = block_buffer_offset;
+                self.block_buffer_length = block_buffer_len as usize;
                 // Decompress the remaining of current block, using the first
                 // term as a dictionary
-                self.block_buffer.bytes.access_mut(|buffer_bytes| {
+                self.block_input.bytes.access_mut(|buffer_bytes| {
                     self.term.bytes.access(|term_bytes| {
                         buffer_bytes.copy_from(&term_bytes[..block_buffer_offset], 0);
                     })
                 });
-                self.block_buffer.bytes.access_mut(|buffer_bytes| {
+                self.block_input.bytes.access_mut(|buffer_bytes| {
                     LZ4::decompress(
                         &mut self.bytes,
                         block_buffer_len,
@@ -3040,11 +3041,8 @@ where
             }
 
             // Reset buffer reader
-            self.block_input = ByteArrayDataInput::with_range(
-                std::mem::take(&mut self.block_buffer.bytes),
-                self.block_buffer.offset,
-                self.block_buffer.length,
-            );
+            self.block_input
+                .reset_meta(self.block_buffer_offset, self.block_buffer_length);
         }
 
         Ok(())
