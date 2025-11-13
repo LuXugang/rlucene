@@ -28,7 +28,6 @@ use crate::core::search::top_field_collector::{
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Creates a [`TopFieldCollectorManager`] which uses a shared hit counter to maintain
@@ -40,7 +39,7 @@ use std::sync::Arc;
 /// A new collector manager should be created for each search,
 /// since it maintains internal state that is not thread-safe or reusable.
 pub struct TopFieldCollectorManager {
-    sort: Rc<Sort>,
+    sort: Arc<Sort>,
     num_hits: i32,
     after: Option<FieldDoc>,
     total_hits_threshold: i32,
@@ -65,7 +64,7 @@ impl TopFieldCollectorManager {
     ///   then the hit count of the result will be accurate.
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
-    pub fn new(sort: Rc<Sort>, num_hits: i32, total_hits_threshold: i32) -> Result<Self> {
+    pub fn new(sort: Arc<Sort>, num_hits: i32, total_hits_threshold: i32) -> Result<Self> {
         Self::with_after(sort, num_hits, None, total_hits_threshold)
     }
     /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
@@ -88,7 +87,7 @@ impl TopFieldCollectorManager {
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
     pub fn with_after(
-        sort: Rc<Sort>,
+        sort: Arc<Sort>,
         num_hits: i32,
         after: Option<FieldDoc>,
         total_hits_threshold: i32,
@@ -162,7 +161,7 @@ impl CollectorManager for TopFieldCollectorManager {
             }
 
             TopFieldCollectorEnum::Simple(SimpleFieldCollector::new(
-                Rc::clone(&self.sort),
+                Arc::clone(&self.sort),
                 queue,
                 self.num_hits,
                 self.total_hits_threshold,
@@ -191,7 +190,7 @@ impl CollectorManager for TopFieldCollectorManager {
             }
 
             TopFieldCollectorEnum::Paging(PagingFieldCollector::new(
-                Rc::clone(&self.sort),
+                Arc::clone(&self.sort),
                 queue,
                 after,
                 self.num_hits,

@@ -51,7 +51,6 @@ use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, LazyLock};
 use sysinfo::System;
@@ -340,7 +339,7 @@ where
         let capped_num_hits = std::cmp::min(num_hits, limit);
         // TODO: IMPORTANT
         // let rewritten_sort = sort.rewrite(self)?;
-        let sort = Rc::new(sort);
+        let sort = Arc::new(sort);
         let manager = TopFieldCollectorManager::with_after(
             sort,
             capped_num_hits,

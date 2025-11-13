@@ -44,7 +44,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, is_night_mode, new_directory, new_searcher, random,
 };
 use rand::Rng;
-use std::rc::Rc;
 use std::sync::Arc;
 
 #[allow(dead_code)]
@@ -75,7 +74,7 @@ fn test_long_sort_optimization() -> Result<()> {
     // TODO：这里应该使用new_searcher的另一个变体
     let mut searcher = new_searcher(reader)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
-    let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+    let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
     let total_hits_threshold = 3;
     // simple sort
@@ -141,7 +140,7 @@ fn test_long_sort_optimization() -> Result<()> {
     // test that if there is the secondary sort on _score, scores are filled correctly
     {
         let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             sort_field.into(),
             SortField::get_field_score()?.into(),
         ])?);
@@ -178,7 +177,7 @@ fn test_long_sort_optimization() -> Result<()> {
     // test that if numeric field is a secondary sort, no optimization is run
     {
         let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             sort_field.into(),
         ])?);
@@ -219,7 +218,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     // TODO: 这里应该使用new_searcher的另一个变体
     let mut searcher = new_searcher(reader)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
-    let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+    let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -275,7 +274,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     {
         let mut sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
         sort_field.set_missing_value(0i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
@@ -292,7 +291,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         let mut sf2 = SortField::new(Some("my_field2"), SortFieldType::Long)?;
         sf1.set_missing_value(0i64)?;
         sf2.set_missing_value(0i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
@@ -304,7 +303,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     {
         let mut sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
         sort_field.set_missing_value(100i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
@@ -325,7 +324,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         );
         let mut sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
         sort_field.set_missing_value(i64::MAX)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager = TopFieldCollectorManager::with_after(
             sort.clone(),
             num_hits,
@@ -350,7 +349,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         );
         let mut sort_field = SortField::with_reverse(Some("my_field"), SortFieldType::Long, true)?;
         sort_field.set_missing_value(i64::MAX)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager = TopFieldCollectorManager::with_after(
             sort.clone(),
             num_hits,
@@ -371,7 +370,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         let after = FieldDoc::with_fields(3, f32::NAN, vec![after_value.into()]);
         let mut sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
         sort_field.set_missing_value(2i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager = TopFieldCollectorManager::with_after(
             sort.clone(),
             num_hits,
@@ -436,7 +435,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     {
         let mut sort_field = SortField::with_reverse(Some("my_field"), SortFieldType::Long, true)?;
         sort_field.set_missing_value(0i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
 
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
@@ -452,7 +451,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
         let mut sort_field = SortField::with_reverse(Some("my_field"), SortFieldType::Long, true)?;
         sort_field.set_missing_value(0i64)?;
         sort_field.set_optimize_sort_with_points(false);
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
 
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
@@ -479,7 +478,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
         let mut sf2 = SortField::with_reverse(Some("other"), SortFieldType::Long, true)?;
         sf1.set_missing_value(0i64)?;
         sf2.set_missing_value(0i64)?;
-        let sort = Rc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
 
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
@@ -526,7 +525,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
 
     {
         let sort_field = SortField::new(Some("my_field1"), SortFieldType::Int)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
@@ -554,7 +553,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
         let after_value = 100_i32;
         let after_doc_id = 10 + random.random_range(0..1000);
         let sort_field = SortField::new(Some("my_field1"), SortFieldType::Int)?;
-        let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
         let after = FieldDoc::with_fields(after_doc_id, f32::NAN, vec![after_value.into()]);
         let collector_manager = TopFieldCollectorManager::with_after(
             sort.clone(),
@@ -582,7 +581,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     {
         let sf1 = SortField::new(Some("my_field1"), SortFieldType::Int)?;
         let sf2 = SortField::new(Some("my_field2"), SortFieldType::Int)?;
-        let sort = Rc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![sf1.into(), sf2.into()])?);
         let collector_manager =
             TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
         let top_docs =
@@ -623,7 +622,7 @@ fn test_float_sort_optimization() -> Result<()> {
 
     let mut searcher = new_searcher(reader)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
-    let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+    let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -684,7 +683,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
 
     let size = 7;
     let total_hits_threshold = 7;
-    let sort = Rc::new(Sort::with_fields(vec![
+    let sort = Arc::new(Sort::with_fields(vec![
         SortField::get_field_doc()?.into(),
         SortField::new(Some("my_field"), SortFieldType::Long)?.into(),
     ])?);
@@ -764,7 +763,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
     for &search_after in &search_afters {
         {
-            let sort = Rc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
+            let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
             let after = FieldDoc::with_fields(
                 search_after,
                 f32::NAN,
@@ -799,7 +798,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
         // sort by _doc + _score with search after should trigger optimization
         {
-            let sort = Rc::new(Sort::with_fields(vec![
+            let sort = Arc::new(Sort::with_fields(vec![
                 SortField::get_field_doc()?.into(),
                 SortField::get_field_score()?.into(),
             ])?);
@@ -841,7 +840,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         // sort by _doc desc should not trigger optimization
         {
             let sort_field = SortField::with_reverse(None::<String>, SortFieldType::Doc, true)?;
-            let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+            let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
             let after = FieldDoc::with_fields(
                 search_after,
                 f32::NAN,
@@ -960,7 +959,7 @@ fn test_doc_sort_optimization() -> Result<()> {
 
     let num_hits = 3;
     let total_hits_threshold = 3;
-    let sort = Rc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
+    let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
 
     // sort by _doc should skip all non-competitive documents
     {
@@ -1079,10 +1078,10 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
     let mut sort_field = long_field_type::new_sort_field("my_field", reverse, selector_type)?;
     sort_field.base.set_optimize_sort_with_indexed_data(false);
-    let sort = Rc::new(Sort::with_fields(vec![sort_field.into()])?);
+    let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
 
     let sort_field2 = long_field_type::new_sort_field("my_field", reverse, selector_type)?;
-    let sort2 = Rc::new(Sort::with_fields(vec![sort_field2.into()])?);
+    let sort2 = Arc::new(Sort::with_fields(vec![sort_field2.into()])?);
 
     let total_hits_threshold = 3;
 

@@ -47,7 +47,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::vec;
 
@@ -542,11 +541,11 @@ fn can_early_terminate_on_prefix(search_sort: &Sort, index_sort: Option<&Sort>) 
 /// Implements a TopFieldCollector over one SortField criteria, with tracking document scores and maxScore
 pub struct SimpleFieldCollector {
     base: TopFieldCollector,
-    sort: Rc<Sort>,
+    sort: Arc<Sort>,
 }
 impl SimpleFieldCollector {
     pub fn new(
-        sort: Rc<Sort>,
+        sort: Arc<Sort>,
         queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
         num_hits: i32,
         total_hits_threshold: i32,
@@ -737,14 +736,14 @@ where
 /// Implements a TopFieldCollector when after is Some.
 pub struct PagingFieldCollector {
     base: TopFieldCollector,
-    sort: Rc<Sort>,
+    sort: Arc<Sort>,
     collected_hits: i32,
     after: ScoreDoc,
 }
 
 impl PagingFieldCollector {
     pub fn new(
-        sort: Rc<Sort>,
+        sort: Arc<Sort>,
         queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
         mut after: FieldDoc,
         num_hits: i32,
@@ -1361,7 +1360,6 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory, new_searcher, random,
     };
-    use std::rc::Rc;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -1395,7 +1393,7 @@ mod tests {
         ];
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let collector_manager = TopFieldCollectorManager::new(Rc::new(sort), 10, i32::MAX)?;
+            let collector_manager = TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?;
 
             let top_docs = is.search_with_collector_manager(query, &collector_manager)?;
             let sd = top_docs.score_docs();
@@ -1418,7 +1416,7 @@ mod tests {
 
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let tdc = TopFieldCollectorManager::with_after(Rc::new(sort), 10, None, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::with_after(Arc::new(sort), 10, None, i32::MAX)?;
             let top_docs = is.search_with_collector_manager(query, &tdc)?;
             let sd = top_docs.score_docs();
 
@@ -1449,11 +1447,11 @@ mod tests {
         ];
 
         for sort in sorts {
-            let tdc = TopFieldCollectorManager::new(Rc::new(sort.clone()), 10, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::new(Arc::new(sort.clone()), 10, i32::MAX)?;
             let td =
                 single_threaded_searcher.search_with_collector_manager(MatchAllDocsQuery, &tdc)?;
 
-            let tsdc = TopFieldCollectorManager::new(Rc::new(sort), 10, i32::MAX)?;
+            let tsdc = TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?;
             let td2 =
                 concurrent_searcher.search_with_collector_manager(MatchAllDocsQuery, &tsdc)?;
 
@@ -1474,7 +1472,7 @@ mod tests {
     #[test]
     fn test_sort_without_total_hit_tracking() -> Result<()> {
         let (_ir, mut is) = setup()?;
-        let sort = Rc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
+        let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?.into()])?);
 
         for i in 0..2 {
             let query = MatchAllDocsQuery::new();
@@ -1535,7 +1533,7 @@ mod tests {
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
 
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             SortField::new("foo".into(), SortFieldType::Long)?.into(),
         ])?);
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
@@ -1629,7 +1627,7 @@ mod tests {
         writer.close()?;
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
 
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             SortField::new("foo".into(), SortFieldType::Long)?.into(),
         ])?);
@@ -1703,7 +1701,7 @@ mod tests {
         writer.close()?;
         let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
         for total_hits_threshold in 0..20 {
-            let sort = Rc::new(Sort::with_fields(vec![
+            let sort = Arc::new(Sort::with_fields(vec![
                 SortField::get_field_score()?.into(),
                 SortField::new("foo".into(), SortFieldType::Long)?.into(),
             ])?);
@@ -1757,7 +1755,7 @@ mod tests {
 
         for sort in sorts {
             let mut collector =
-                TopFieldCollectorManager::new(Rc::new(sort), 10, i32::MAX)?.new_collector()?;
+                TopFieldCollectorManager::new(Arc::new(sort), 10, i32::MAX)?.new_collector()?;
             let top_docs = collector.top_docs()?;
 
             assert_eq!(top_docs.total_hits().value(), 0);
@@ -1796,7 +1794,7 @@ mod tests {
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;
 
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             SortField::get_field_doc()?.into(),
         ])?);
@@ -1928,7 +1926,7 @@ mod tests {
     #[test]
     fn test_relation_vs_top_docs_count() -> Result<()> {
         let mut random = random();
-        let sort = Rc::new(Sort::with_fields(vec![
+        let sort = Arc::new(Sort::with_fields(vec![
             SortField::get_field_score()?.into(),
             SortField::get_field_doc()?.into(),
         ])?);
