@@ -80,6 +80,17 @@ pub struct Field {
     // TODO: IMPORTANT 在这里定义没有无法实现复用
     ts: Option<Either2TokenStream<BinaryTokenStream, StringTokenStream>>,
 }
+#[cfg(test)]
+impl Clone for Field {
+    fn clone(&self) -> Self {
+        Self {
+            indexable_field_type: self.indexable_field_type.clone(),
+            name: self.name.clone(),
+            fields_data: self.fields_data.clone(),
+            ts: None,
+        }
+    }
+}
 impl Field {
     /// Expert: creates a field with no initial value. This is intended to be
     /// used by custom [`Field`] sub-classes with pre-configured

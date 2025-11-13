@@ -67,7 +67,15 @@ pub struct TextField {
     parent_field: Field,
     has_stored_value: bool,
 }
-
+#[cfg(test)]
+impl Clone for TextField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            has_stored_value: self.has_stored_value,
+        }
+    }
+}
 impl TextField {
     /// Creates a new un-stored `TextField` with a `ReaderEnum` value.
     ///

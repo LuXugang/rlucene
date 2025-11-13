@@ -22,6 +22,7 @@ use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector::TopScoreDocCollector;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 /// Create a [`TopScoreDocCollectorManager`] which uses:
 /// - a shared hit counter to maintain the number of hits, and
 /// - a shared [`MaxScoreAccumulator`] to propagate the minimum score across segments.
@@ -33,7 +34,7 @@ pub struct TopScoreDocCollectorManager {
     num_hits: i32,
     after: Option<ScoreDoc>,
     total_hits_threshold: i32,
-    min_score_acc: Option<MaxScoreAccumulator>,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopScoreDocCollectorManager {
     /// Creates a new [`TopScoreDocCollectorManager`] given the number of hits to collect
@@ -84,7 +85,7 @@ impl TopScoreDocCollectorManager {
         let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
 
         let min_score_acc = if total_hits_threshold != i32::MAX {
-            Some(MaxScoreAccumulator::new())
+            Some(Arc::new(MaxScoreAccumulator::new()))
         } else {
             None
         };

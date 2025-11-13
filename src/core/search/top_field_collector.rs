@@ -48,6 +48,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::vec;
 
 /// A [`Collector`] that sorts by [`SortField`] using [`FieldComparator`]s.
@@ -60,7 +61,7 @@ pub struct TopFieldCollector {
     total_hits_threshold: i32,
     can_set_min_score: bool,
     search_sort_part_of_index_sort: Option<bool>,
-    min_score_acc: Option<MaxScoreAccumulator>,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     min_competitive_score: f32,
     num_comparators: i32,
     queue_full: bool,
@@ -74,7 +75,7 @@ impl TopFieldCollector {
         num_hits: i32,
         total_hits_threshold: i32,
         needs_scores: bool,
-        min_score_acc: Option<MaxScoreAccumulator>,
+        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
         debug_assert!(total_hits_threshold >= 0);
@@ -549,7 +550,7 @@ impl SimpleFieldCollector {
         queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
         num_hits: i32,
         total_hits_threshold: i32,
-        min_score_acc: Option<MaxScoreAccumulator>,
+        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let base = TopFieldCollector::new(
             queue,
@@ -748,7 +749,7 @@ impl PagingFieldCollector {
         mut after: FieldDoc,
         num_hits: i32,
         total_hits_threshold: i32,
-        min_score_acc: Option<MaxScoreAccumulator>,
+        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let mut base = TopFieldCollector::new(
             queue,
@@ -990,6 +991,14 @@ type PagingLeafCollector<'a, LR> = Either2LeafCollector<
 pub enum TopFieldCollectorEnum {
     Simple(SimpleFieldCollector),
     Paging(PagingFieldCollector),
+}
+impl TopFieldCollectorEnum {
+    pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
+        match self {
+            Self::Simple(inner) => inner.base.min_score_acc.clone(),
+            Self::Paging(inner) => inner.base.min_score_acc.clone(),
+        }
+    }
 }
 
 pub enum FieldLeafCollectorEnum<'a, LR>
@@ -1310,7 +1319,9 @@ pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = Either2DocIdSetIterator<
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
+
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+
     use crate::core::index::composite_reader::get_context;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_reader_context::IndexReaderContext;
@@ -1319,6 +1330,7 @@ mod tests {
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::sort::Sort;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
@@ -1326,9 +1338,11 @@ mod tests {
     use crate::core::search::field_doc::FieldDoc;
     use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
     use crate::core::search::scorable::Scorable;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::sort_field::{SortField, SortFieldType};
+
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::search::top_docs_collector::TopDocsCollector;
     use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
@@ -1592,7 +1606,6 @@ mod tests {
 
         let config = IndexWriterConfig::new();
         // TODO: 未设置合并策略
-
         let writer = IndexWriter::new(dir.clone(), config)?;
         let doc = Document::new();
 
@@ -1659,6 +1672,247 @@ mod tests {
         leaf_collector.collect(1, &mut scorer)?;
         assert_eq!(*scorer.min_competitive_score.as_ref().unwrap(), 4.0);
 
+        Ok(())
+    }
+    #[test]
+    fn test_total_hits_with_score() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 未设置合并策略
+        let config = IndexWriterConfig::new();
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        for _ in 0..4 {
+            writer.add_document(Document::new())?;
+        }
+        writer.flush()?;
+        for _ in 0..6 {
+            writer.add_document(Document::new())?;
+        }
+        writer.flush()?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = get_context(reader)?;
+        assert_eq!(2, reader.leaves()?.len());
+        writer.close()?;
+        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+        for total_hits_threshold in 0..20 {
+            let sort = Rc::new(Sort::with_fields(vec![
+                SortField::get_field_score()?.into(),
+                SortField::new("foo".into(), SortFieldType::Long)?.into(),
+            ])?);
+
+            let mut collector =
+                TopFieldCollectorManager::new(sort, 2, total_hits_threshold)?.new_collector()?;
+            let mut scorer = Score::default();
+
+            // segment 0
+            let leaves = reader.leaves()?;
+            let mut lc0 = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+            lc0.set_scorer(&mut scorer)?;
+
+            scorer.score = 3.0;
+            lc0.collect(0, &mut scorer)?;
+            scorer.score = 3.0;
+            lc0.collect(1, &mut scorer)?;
+
+            let mut lc1 = collector.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+            lc1.set_scorer(&mut scorer)?;
+
+            scorer.score = 3.0;
+            lc1.collect(1, &mut scorer)?;
+            scorer.score = 4.0;
+            lc1.collect(1, &mut scorer)?;
+
+            let top_docs = collector.top_docs()?;
+
+            assert_eq!(
+                total_hits_threshold < 4,
+                scorer.min_competitive_score.is_some()
+            );
+
+            let expected = if total_hits_threshold < 4 {
+                TotalHits::new(4, GreaterThanOrEqualTo)
+            } else {
+                TotalHits::new(4, EqualTo)
+            };
+            assert_eq!(*top_docs.total_hits(), expected);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_sort_no_results() -> Result<()> {
+        // Two Sort criteria to instantiate the multi/single comparators.
+        let sorts = [
+            Sort::with_fields(vec![SortField::get_field_doc()?.into()])?,
+            Sort::new()?,
+        ];
+
+        for sort in sorts {
+            let mut collector =
+                TopFieldCollectorManager::new(Rc::new(sort), 10, i32::MAX)?.new_collector()?;
+            let top_docs = collector.top_docs()?;
+
+            assert_eq!(top_docs.total_hits().value(), 0);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_compute_scores_only_once() -> Result<()> {
+        // TODO  BooleanQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_populate_scores() -> Result<()> {
+        // TODO TopFieldCollector.populateScores未实现
+        Ok(())
+    }
+    #[test]
+    fn test_concurrent_min_score() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO 未实现合并策略
+        let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+        let doc = Document::new();
+        w.add_documents(vec![doc.clone(); 5])?;
+        w.flush()?;
+        w.add_documents(vec![doc.clone(); 6])?;
+        w.flush()?;
+        w.add_documents(vec![doc; 2])?;
+        w.flush()?;
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = get_context(Arc::new(reader))?;
+        assert_eq!(3, reader.leaves()?.len());
+        w.close()?;
+
+        let sort = Rc::new(Sort::with_fields(vec![
+            SortField::get_field_score()?.into(),
+            SortField::get_field_doc()?.into(),
+        ])?);
+        DEFAULT_INTERVAL.store(0, std::sync::atomic::Ordering::Relaxed);
+        let manager = TopFieldCollectorManager::new(sort, 2, 0)?;
+        let mut collector = manager.new_collector()?;
+        let mut collector2 = manager.new_collector()?;
+
+        assert!(Arc::ptr_eq(
+            &collector.min_score_acc().unwrap(),
+            &collector2.min_score_acc().unwrap()
+        ));
+        let min_value_checker = collector.min_score_acc().clone().unwrap();
+        // force checking every round
+        assert_eq!(min_value_checker.mod_interval, 0);
+
+        // simple test scorer that exposes current `score` and tracks minCompetitiveScore
+        let mut scorer = Score::default();
+        let mut scorer2 = Score::default();
+
+        let leaves = reader.leaves()?;
+        let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
+
+        let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+        leaf_collector.set_scorer(&mut scorer)?;
+        let mut leaf_collector2 = collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+        leaf_collector2.set_scorer(&mut scorer2)?;
+
+        scorer.score = 3.0;
+        leaf_collector.collect(0, &mut scorer)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer2.score = 6.0;
+        leaf_collector2.collect(0, &mut scorer2)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer2.min_competitive_score.is_none());
+
+        scorer.score = 2.0;
+        leaf_collector.collect(1, &mut scorer)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer2.score = 9.0;
+        leaf_collector2.collect(1, &mut scorer2)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer2.min_competitive_score.is_none());
+
+        scorer2.score = 7.0;
+        leaf_collector2.collect(2, &mut scorer2)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!(scorer.min_competitive_score.is_none());
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+        scorer2.score = 1.0;
+        leaf_collector2.collect(3, &mut scorer2)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!(scorer.min_competitive_score.is_none());
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+        scorer.score = 10.0;
+        leaf_collector.collect(2, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!((scorer.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+        scorer.score = 11.0;
+        leaf_collector.collect(3, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
+                < f32::EPSILON
+        );
+        assert!((scorer.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+
+        let mut collector3 = manager.new_collector()?;
+        let mut leaf_collector3 = collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight))?;
+        let mut scorer3 = Score::default();
+        leaf_collector3.set_scorer(&mut scorer3)?;
+        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+        scorer3.score = 1.0;
+        leaf_collector3.collect(0, &mut scorer3)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
+                < f32::EPSILON
+        );
+        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+        scorer.score = 11.0;
+        leaf_collector.collect(4, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
+                < f32::EPSILON
+        );
+        assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+        assert!((scorer3.min_competitive_score.unwrap() - 10.0).abs() < f32::EPSILON);
+
+        scorer3.score = 2.0;
+        leaf_collector3.collect(1, &mut scorer3)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
+                < f32::EPSILON
+        );
+        assert!((scorer.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+        assert!((scorer2.min_competitive_score.unwrap() - 7.0).abs() < f32::EPSILON);
+        assert!((scorer3.min_competitive_score.unwrap() - 11.0).abs() < f32::EPSILON);
+
+        let top_docs = manager.reduce(vec![collector, collector2, collector3])?;
+        assert_eq!(11, top_docs.total_hits().value());
+        assert_eq!(
+            TotalHits::new(11, GreaterThanOrEqualTo),
+            *top_docs.total_hits()
+        );
         Ok(())
     }
 

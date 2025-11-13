@@ -47,7 +47,6 @@ use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-
 pub enum Fields {
     Field(Field),
     Text(TextField),

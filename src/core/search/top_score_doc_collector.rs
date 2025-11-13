@@ -32,6 +32,8 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+
 /// A [`Collector`] implementation that collects the top-scoring hits,
 /// returning them as a [`TopDocs`].
 ///
@@ -47,14 +49,14 @@ pub struct TopScoreDocCollector {
     base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
     after: Option<ScoreDoc>,
     total_hits_threshold: i32,
-    min_score_acc: Option<MaxScoreAccumulator>,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopScoreDocCollector {
     pub fn new(
         num_hits: i32,
         after: Option<ScoreDoc>,
         total_hits_threshold: i32,
-        min_score_acc: Option<MaxScoreAccumulator>,
+        min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let pq = HitQueue::new(num_hits, true)?;
         let base = TopDocsCollectorBase::new(pq);

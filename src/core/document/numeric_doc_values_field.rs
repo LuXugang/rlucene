@@ -48,6 +48,15 @@ static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
 pub struct NumericDocValuesField {
     pub(crate) parent_field: Field,
 }
+#[cfg(test)]
+impl Clone for NumericDocValuesField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}
+
 impl NumericDocValuesField {
     pub fn new<T>(name: T, value: i64) -> Self
     where

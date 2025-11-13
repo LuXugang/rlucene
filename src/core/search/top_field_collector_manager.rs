@@ -29,6 +29,8 @@ use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
+use std::sync::Arc;
+
 /// Creates a [`TopFieldCollectorManager`] which uses a shared hit counter to maintain
 /// the number of hits, and a shared [`MaxScoreAccumulator`] to propagate the minimum
 /// score across segments when the primary sort is by relevancy.
@@ -42,7 +44,7 @@ pub struct TopFieldCollectorManager {
     num_hits: i32,
     after: Option<FieldDoc>,
     total_hits_threshold: i32,
-    min_score_acc: Option<MaxScoreAccumulator>,
+    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopFieldCollectorManager {
     /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
@@ -128,7 +130,7 @@ impl TopFieldCollectorManager {
         }
 
         let min_score_acc = if total_hits_threshold != i32::MAX {
-            Some(MaxScoreAccumulator::new())
+            Some(Arc::new(MaxScoreAccumulator::new()))
         } else {
             None
         };
