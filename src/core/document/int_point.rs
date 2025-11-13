@@ -219,3 +219,12 @@ impl fmt::Display for IntPoint {
         write!(f, ">")
     }
 }
+
+#[cfg(test)]
+impl Clone for IntPoint {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

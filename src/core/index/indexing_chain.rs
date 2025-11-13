@@ -2478,6 +2478,18 @@ where
     }
 }
 
+#[cfg(test)]
+impl<T> Clone for ReservedField<T>
+where
+    T: IndexableField + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            delegate: self.delegate.clone(),
+        }
+    }
+}
+
 impl<T> Display for ReservedField<T>
 where
     T: IndexableField,

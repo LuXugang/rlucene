@@ -231,3 +231,14 @@ impl IndexableField for StringField {
         self.parent_field.init_token_stream(analyzer)
     }
 }
+
+#[cfg(test)]
+impl Clone for StringField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            binary_value: self.binary_value.clone(),
+            has_stored_value: self.has_stored_value,
+        }
+    }
+}

@@ -192,3 +192,13 @@ impl fmt::Display for LongField {
         )
     }
 }
+
+#[cfg(test)]
+impl Clone for LongField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            stored_value: self.stored_value.clone(),
+        }
+    }
+}

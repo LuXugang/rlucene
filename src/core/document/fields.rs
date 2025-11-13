@@ -564,6 +564,34 @@ impl IndexableField for Fields {
     }
 }
 
+#[cfg(test)]
+impl Clone for Fields {
+    fn clone(&self) -> Self {
+        match self {
+            Fields::Field(f) => f.clone().into(),
+            Fields::Text(f) => f.clone().into(),
+            Fields::String(f) => f.clone().into(),
+            Fields::Stored(f) => f.clone().into(),
+            Fields::NumericDocValues(f) => f.clone().into(),
+            Fields::FloatDocValues(f) => f.clone().into(),
+            Fields::DoubleDocValues(f) => f.clone().into(),
+            Fields::Reverse(f) => f.clone().into(),
+            Fields::FloatPoint(f) => f.clone().into(),
+            Fields::LongPoint(f) => f.clone().into(),
+            Fields::IntPoint(f) => f.clone().into(),
+            Fields::DoublePoint(f) => f.clone().into(),
+            Fields::LongField(f) => f.clone().into(),
+            Fields::IntField(f) => f.clone().into(),
+            Fields::DoubleField(f) => f.clone().into(),
+            Fields::FloatField(f) => f.clone().into(),
+            Fields::BinaryDocValues(f) => f.clone().into(),
+            Fields::SortedDocValues(f) => f.clone().into(),
+            Fields::SortedSetDocValues(f) => f.clone().into(),
+            Fields::SortedNumericDocValues(f) => f.clone().into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TokenStreamEnum {
     Dummy(Arc<DummyTokenStream>),

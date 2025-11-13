@@ -177,3 +177,13 @@ impl fmt::Display for IntField {
         )
     }
 }
+
+#[cfg(test)]
+impl Clone for IntField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            stored_value: self.stored_value.clone(),
+        }
+    }
+}

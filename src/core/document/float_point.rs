@@ -220,3 +220,12 @@ impl fmt::Display for FloatPoint {
         write!(f, ">")
     }
 }
+
+#[cfg(test)]
+impl Clone for FloatPoint {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

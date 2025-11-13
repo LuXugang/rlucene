@@ -229,6 +229,16 @@ impl Document {
         self.fields.clear();
     }
 }
+
+#[cfg(test)]
+impl Clone for Document {
+    fn clone(&self) -> Self {
+        Self {
+            fields: self.fields.clone(),
+        }
+    }
+}
+
 impl fmt::Display for Document {
     /// Prints the fields of a document for human consumption.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

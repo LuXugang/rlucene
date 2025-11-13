@@ -300,3 +300,12 @@ impl IndexableField for StoredField {
         self.parent_field.init_token_stream(analyzer)
     }
 }
+
+#[cfg(test)]
+impl Clone for StoredField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

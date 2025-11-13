@@ -216,3 +216,12 @@ impl fmt::Display for DoublePoint {
         write!(f, ">")
     }
 }
+
+#[cfg(test)]
+impl Clone for DoublePoint {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

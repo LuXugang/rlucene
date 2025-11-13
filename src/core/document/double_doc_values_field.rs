@@ -132,3 +132,12 @@ impl FieldBase for DoubleDocValuesField {
         self.parent_field.parent_field.set_long_value(value)
     }
 }
+
+#[cfg(test)]
+impl Clone for DoubleDocValuesField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

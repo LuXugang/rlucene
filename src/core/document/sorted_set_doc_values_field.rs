@@ -151,3 +151,12 @@ impl IndexableField for SortedSetDocValuesField {
         self.parent_field.init_token_stream(analyzer)
     }
 }
+
+#[cfg(test)]
+impl Clone for SortedSetDocValuesField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}

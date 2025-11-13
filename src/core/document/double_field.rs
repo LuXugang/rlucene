@@ -194,3 +194,13 @@ impl fmt::Display for DoubleField {
         )
     }
 }
+
+#[cfg(test)]
+impl Clone for DoubleField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            stored_value: self.stored_value.clone(),
+        }
+    }
+}

@@ -197,3 +197,13 @@ impl fmt::Display for FloatField {
         )
     }
 }
+
+#[cfg(test)]
+impl Clone for FloatField {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+            stored_value: self.stored_value.clone(),
+        }
+    }
+}

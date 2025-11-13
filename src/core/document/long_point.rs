@@ -226,3 +226,12 @@ impl fmt::Display for LongPoint {
         write!(f, ">")
     }
 }
+
+#[cfg(test)]
+impl Clone for LongPoint {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
+}
