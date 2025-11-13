@@ -1380,8 +1380,7 @@ mod tests {
         }
         let ir = Arc::new(iw.get_reader(true, false)?);
         iw.close()?;
-        // TODO 应该使用new_searcher的另一个变体
-        let is = new_searcher(ir.clone())?;
+        let is = new_searcher(ir.clone(), true, true, false)?;
         Ok((ir, is))
     }
     #[test]
@@ -1435,10 +1434,8 @@ mod tests {
     fn test_shared_hitcount_collector() -> Result<()> {
         // 对应 newSearcher(ir, true, true, true)
         let (ir, _) = setup()?;
-        // TODO 这里需要用到另一个new_searcher的另一个变体
-        // TODO: 这里目前并没有体现出多线程搜索的效果, 因为还未实现多线程
-        let mut concurrent_searcher = new_searcher(ir.clone())?;
-        let mut single_threaded_searcher = new_searcher(ir.clone())?;
+        let mut concurrent_searcher = new_searcher(ir.clone(), true, true, true)?;
+        let mut single_threaded_searcher = new_searcher(ir.clone(), true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [

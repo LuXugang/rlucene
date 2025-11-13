@@ -1024,7 +1024,8 @@ mod tests {
     use crate::core::util::number::Number;
     use crate::core::util::numeric_utils::NumericUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory, new_searcher, random,
+        new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
+        new_searcher_with_reader, random,
     };
     use std::sync::Arc;
 
@@ -2711,7 +2712,7 @@ mod tests {
 
         // TODO 要使用RandomIndexWriter中的get_reader
         let reader = writer.get_reader(true, false)?;
-        let mut searcher = new_searcher(Arc::new(reader))?;
+        let mut searcher = new_searcher_with_reader(Arc::new(reader))?;
         let query = TermQuery::new(Term::new("binary", br.clone()));
         let hits = searcher.search(query, 1)?;
         assert_eq!(hits.total_hits().value(), 1);

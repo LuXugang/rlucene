@@ -249,7 +249,7 @@ mod tests {
     use crate::core::util::priority_queue::PriorityQueue;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, new_searcher, random,
+        new_directory, new_index_writer_config, new_searcher, new_searcher_with_reader, random,
     };
     use rand::Rng;
     use std::fmt::{Display, Formatter};
@@ -426,7 +426,7 @@ mod tests {
         let query = MatchAllDocsQuery::new();
         let dir = Arc::new(new_directory(random)?);
         let reader = Arc::new(get_reader(dir)?);
-        let mut searcher = new_searcher(reader)?;
+        let mut searcher = new_searcher_with_reader(reader)?;
         let cm = MyTopDocsCollectorMananger::new(num_results);
         searcher.search_with_collector_manager(query, &cm)
     }
@@ -440,8 +440,7 @@ mod tests {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        // TODO：这里应该使用new_searcher的另一个变体
-        let mut searcher = new_searcher(index_reader)?;
+        let mut searcher = new_searcher(index_reader, true, true, false)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)
@@ -456,8 +455,7 @@ mod tests {
         CR: CompositeReader + Clone + 'static,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        // TODO：这里应该使用new_searcher的另一个变体
-        let mut searcher = new_searcher(index_reader)?;
+        let mut searcher = new_searcher(index_reader, true, true, true)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)

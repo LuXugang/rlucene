@@ -41,9 +41,9 @@ use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_directory, new_searcher, random,
+    at_least, is_night_mode, new_directory, new_searcher, new_searcher_with_reader, random,
 };
-use rand::Rng;
+use rand::{Rng, random_bool};
 use std::sync::Arc;
 
 #[allow(dead_code)]
@@ -71,8 +71,7 @@ fn test_long_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    // TODO：这里应该使用new_searcher的另一个变体
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, true, true, false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
@@ -215,8 +214,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     writer.close()?;
 
     // single-threaded so totalHits is deterministic
-    // TODO: 这里应该使用new_searcher的另一个变体
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, random.random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
@@ -266,8 +264,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    // TODO: 这里应该使用new_searcher的另一个变体
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -424,8 +421,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    // TODO: 这里应该使用new_searcher的另一个变体
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -519,7 +515,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher = new_searcher(reader.clone())?;
+    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -620,7 +616,7 @@ fn test_float_sort_optimization() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
     let sort = Arc::new(Sort::with_fields(vec![sort_field.into()])?);
     let num_hits = 3;
@@ -697,8 +693,12 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     loop {
         let mut top_docs_vec = Vec::new();
         for i in 0..num_indices {
-            // TODO: 这里应该使用new_searcher的另一个变体
-            let mut searcher = new_searcher(readers[i].clone())?;
+            let mut searcher = new_searcher(
+                readers[i].clone(),
+                random_bool(0.5),
+                random_bool(0.5),
+                false,
+            )?;
             let collector_manager = TopFieldCollectorManager::with_after(
                 sort.clone(),
                 size,
@@ -756,7 +756,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader)?;
+    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 10;
     let total_hits_threshold = 10;
     let search_afters = [3, 10, num_docs - 10];
@@ -895,7 +895,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
     writer.flush()?;
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-    let mut searcher = new_searcher(reader.clone())?;
+    let mut searcher = new_searcher_with_reader(reader.clone())?;
     writer.close()?;
 
     let mut visited_hits = 0;
@@ -954,8 +954,7 @@ fn test_doc_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    // TODO: 这里应该使用new_searcher的另一个变体
-    let mut searcher = new_searcher(reader.clone())?;
+    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let num_hits = 3;
     let total_hits_threshold = 3;
@@ -1027,7 +1026,7 @@ fn test_max_doc_visited() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader.clone())?;
+    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Sort::with_fields(vec![sort_field.into()])?;
@@ -1067,7 +1066,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader.clone())?;
+    let mut searcher = new_searcher(reader.clone(), true, true, false)?;
 
     let selector_type = if random.random_bool(0.5) {
         SortedNumericSelectorType::Min
