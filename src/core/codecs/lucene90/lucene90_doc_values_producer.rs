@@ -421,12 +421,6 @@ where
         let mut ords_entry = SortedNumericEntry::default();
         Self::read_sorted_numeric_with_entry(meta, &mut ords_entry)?;
         let mut terms_dict_entry = TermsDictEntry::default();
-        // The definitions of terms_addresses_meta and
-        // terms_index_addresses_meta are set as Option for ease of
-        // initialization. However, in the current implementation, these
-        // two values are guaranteed not to be None, so we add an assert here.
-        debug_assert!(terms_dict_entry.terms_addresses_meta.is_some());
-        debug_assert!(terms_dict_entry.terms_index_addresses_meta.is_some());
         Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
 
         entry.ords_entry = Some(Arc::new(ords_entry));

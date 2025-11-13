@@ -271,20 +271,15 @@ impl SegmentTermsEnumFrame {
             frame.is_floor,
             frame.is_last_in_floor
         );
-        // TODO: if suffixes were stored in random-access
-        // array structure, then we could do binary search
-        // instead of linear scan to find target term; eg
-        // we could have simple array of offsets
         let start_suffix_fp = input.get_file_pointer();
         // term suffixes:
         let code_l = input.read_vlong()?;
         frame.is_leaf_block = (code_l & 0x04) != 0;
         let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
 
-        let mut suffix_bytes = std::mem::take(&mut frame.suffixes_reader.bytes);
-        if suffix_bytes.len() < num_suffix_bytes as usize {
+        if frame.suffixes_reader.bytes.len() < num_suffix_bytes as usize {
             let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1);
-            suffix_bytes = vec![0u8; new_len];
+            frame.suffixes_reader.bytes = vec![0u8; new_len];
         }
 
         let alg_code = (code_l & 0x03) as u8;
@@ -292,72 +287,62 @@ impl SegmentTermsEnumFrame {
 
         frame
             .compression_alg
-            .read(input, &mut suffix_bytes, num_suffix_bytes)?;
+            .read(input, &mut frame.suffixes_reader.bytes, num_suffix_bytes)?;
         frame
             .suffixes_reader
-            .reset_with_range(suffix_bytes, 0, num_suffix_bytes as usize);
+            .reset_meta(0, num_suffix_bytes as usize);
 
         let num_suffix_length_bytes = input.read_vint()?;
         debug_assert!(num_suffix_length_bytes >= 0);
         let mut num_suffix_length_bytes = num_suffix_length_bytes as usize;
         frame.all_equal = (num_suffix_length_bytes & 0x01) != 0;
         num_suffix_length_bytes >>= 1;
-        // TODO IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
-        let mut suffix_length_bytes = std::mem::take(&mut frame.suffix_lengths_reader.bytes);
-        if suffix_length_bytes.len() < num_suffix_length_bytes {
+        if frame.suffix_lengths_reader.bytes.len() < num_suffix_length_bytes {
             let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1);
-            suffix_length_bytes = vec![0u8; new_len];
+            frame.suffix_lengths_reader.bytes = vec![0u8; new_len];
         }
 
         if frame.all_equal {
             let fill_byte = input.read_byte()?;
             for i in 0..num_suffix_length_bytes {
-                suffix_length_bytes[i] = fill_byte;
+                frame.suffix_lengths_reader.bytes[i] = fill_byte;
             }
         } else {
-            input.read_bytes(&mut suffix_length_bytes, 0, num_suffix_length_bytes as i32)?;
+            input.read_bytes(
+                &mut frame.suffix_lengths_reader.bytes,
+                0,
+                num_suffix_length_bytes as i32,
+            )?;
         }
 
-        frame.suffix_lengths_reader.reset_with_range(
-            suffix_length_bytes,
-            0,
-            num_suffix_length_bytes,
-        );
+        frame
+            .suffix_lengths_reader
+            .reset_meta(0, num_suffix_length_bytes);
         frame.total_suffix_bytes = input.get_file_pointer() - start_suffix_fp;
 
         // stats
         let mut num_bytes = input.read_vint()?;
         debug_assert!(num_bytes >= 0);
-        // TODO IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
-        let mut stat_bytes = std::mem::take(&mut frame.stats_reader.bytes);
-        if stat_bytes.len() < num_bytes as usize {
+        if frame.stats_reader.bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            stat_bytes = vec![0u8; new_len];
+            frame.stats_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut stat_bytes, 0, num_bytes)?;
-        frame
-            .stats_reader
-            .reset_with_range(stat_bytes, 0, num_bytes as usize);
+        input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
+        frame.stats_reader.reset_meta(0, num_bytes as usize);
         frame.stats_singleton_run_length = 0;
         frame.meta_data_upto = 0;
 
         frame.state.get_block_term_state().term_block_ord = 0;
         frame.next_ent = 0;
         frame.last_sub_fp = -1;
-        // TODO: we could skip this if !hasTerms; but
-        // that's rare so won't help much
         // metadata
         num_bytes = input.read_vint()?;
-        // TODO IMPORTANT 这里不需要移动所有权 但是我们需要在ByteArrayDataInput增加只重置offset 跟limit的方法 不着急实现
-        let mut bytes = std::mem::take(&mut frame.bytes_reader.bytes);
-        if bytes.len() < num_bytes as usize {
+        if frame.bytes_reader.bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            bytes = vec![0u8; new_len];
+            frame.bytes_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut bytes, 0, num_bytes)?;
-        frame
-            .bytes_reader
-            .reset_with_range(bytes, 0, num_bytes as usize);
+        input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
+        frame.bytes_reader.reset_meta(0, num_bytes as usize);
 
         frame.fp_end = input.get_file_pointer();
 
