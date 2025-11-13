@@ -1343,6 +1343,11 @@ mod tests {
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::sort_field::{SortField, SortFieldType};
 
+    use crate::core::document::field::Store;
+    use crate::core::document::text_field::TextField;
+    use crate::core::index::term::Term;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::search::top_docs_collector::TopDocsCollector;
     use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
@@ -1913,6 +1918,54 @@ mod tests {
             TotalHits::new(11, GreaterThanOrEqualTo),
             *top_docs.total_hits()
         );
+        Ok(())
+    }
+    #[test]
+    fn test_random_min_competitive_score() -> Result<()> {
+        // TODO BooleanQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_relation_vs_top_docs_count() -> Result<()> {
+        let mut random = random();
+        let sort = Rc::new(Sort::with_fields(vec![
+            SortField::get_field_score()?.into(),
+            SortField::get_field_doc()?.into(),
+        ])?);
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO 未实现合并策略
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        doc.add(TextField::with_string("f", "foo bar", Store::No)?);
+
+        writer.add_documents(vec![doc.clone(); 5])?;
+        writer.flush()?;
+        writer.add_documents(vec![doc.clone(); 5])?;
+        writer.flush()?;
+
+        let reader = writer.get_reader(false, false)?;
+        let mut searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+
+        let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert_eq!(10, top_docs.total_hits().value());
+        assert_eq!(EqualTo, top_docs.total_hits().relation());
+
+        let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 2)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert!(10 >= top_docs.total_hits().value());
+        assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
+
+        let manager = TopFieldCollectorManager::with_after(sort.clone(), 10, None, 2)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert_eq!(10, top_docs.total_hits().value());
+        assert_eq!(EqualTo, top_docs.total_hits().relation());
+        writer.close()?;
         Ok(())
     }
 

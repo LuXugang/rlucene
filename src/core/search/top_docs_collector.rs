@@ -212,45 +212,49 @@ where
 mod tests {
 
     use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::text_field::TextField;
     use crate::core::index::composite_reader::{CompositeReader, get_context};
     use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::leaf_reader_context::LeafReaderContext;
     use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+    use crate::core::index::term::Term;
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
     use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+    use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
+    use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
+    use crate::core::search::query::Query;
     use crate::core::search::scorable::Scorable;
     use crate::core::search::score_doc::ScoreDoc;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
-    use crate::core::search::top_docs::TopDocs;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::{TopDocs, TopDocsLike};
     use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
+    use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+    use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
     use crate::core::search::total_hits::{Relation, TotalHits};
     use crate::core::search::weight::Weight;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::priority_queue::PriorityQueue;
+    use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory, new_index_writer_config, new_searcher, random,
     };
     use rand::Rng;
     use std::fmt::{Display, Formatter};
     use std::sync::Arc;
-
-    use crate::core::index::index_reader_context::IndexReaderContext;
-
-    use crate::core::search::dummy::dummy_weight::DummyWeight;
-
-    use crate::core::search::query::Query;
-
-    use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
-    use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
-    use crate::test::search::check_hits::CheckHits;
+    use std::sync::atomic::Ordering;
 
     #[allow(dead_code)] // for quick search
     struct TestTopDocsCollector;
@@ -802,61 +806,193 @@ mod tests {
         }
         Ok(())
     }
-    // // TODO: 这里需要调整TextField不可变使用后再来调整这个测试
     #[test]
     fn test_relation_vs_top_docs_count() -> Result<()> {
-        // let mut random = random();
-        // let dir = Arc::new(new_directory(&mut random)?);
-        // // TODO: 这里没有定义合并策略
-        // let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
-        //
-        // let mut doc = Document::new();
-        // doc.add(TextField::with_string("f", "foo bar", Store::No)?);
-        // writer.add_documents(vec![Document::new(), Document::new(), Document::new(), Document::new(), Document::new()])?;
-        // writer.flush()?;
-        // writer.add_documents(vec![Document::new(), Document::new(), Document::new(), Document::new(), Document::new()])?;
-        // writer.flush()?;
-        //
-        // let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        // let irc = get_context(reader.clone())?;
-        // let mut searcher = IndexSearcher::new(irc)?;
-        //
-        // let cm = TopScoreDocCollectorManager::new(2, 10)?;
-        // let top_docs = searcher.search_with_collector_manager(
-        //     TermQuery::new(Term::from_text("f", "foo")),
-        //     &cm,
-        //     None,
-        // )?;
-        // assert_eq!(top_docs.total_hits.value, 10);
-        // assert_eq!(top_docs.total_hits.relation, EqualTo);
-        //
-        // let cm = TopScoreDocCollectorManager::new(2, 2)?;
-        // let top_docs = searcher.search_with_collector_manager(
-        //     TermQuery::new(Term::from_text("f", "foo")),
-        //     &cm,
-        //     None,
-        // )?;
-        // assert!(10 >= top_docs.total_hits.value);
-        // assert_eq!(top_docs.total_hits.relation, GreaterThanOrEqualTo);
-        //
-        // let cm = TopScoreDocCollectorManager::new(10, 2)?;
-        // let top_docs = searcher.search_with_collector_manager(
-        //     TermQuery::new(Term::from_text("f", "foo")),
-        //     &cm,
-        //     None,
-        // )?;
-        // assert_eq!(top_docs.total_hits.value, 10);
-        // assert_eq!(top_docs.total_hits.relation, EqualTo);
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO : 这里没有定义合并策略
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
+        let mut doc = Document::new();
+        doc.add(TextField::with_string("f", "foo bar", Store::No)?);
+
+        writer.add_documents(vec![doc.clone(); 5])?;
+        writer.flush()?;
+        writer.add_documents(vec![doc.clone(); 5])?;
+        writer.flush()?;
+
+        let reader = writer.get_reader(false, false)?;
+        let mut searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+
+        let manager = TopScoreDocCollectorManager::new(2, 10)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert_eq!(10, top_docs.total_hits().value());
+        assert_eq!(EqualTo, top_docs.total_hits().relation());
+
+        let manager = TopScoreDocCollectorManager::new(2, 2)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert!(10 >= top_docs.total_hits().value());
+        assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
+
+        let manager = TopScoreDocCollectorManager::new(10, 2)?;
+        let top_docs = searcher
+            .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
+        assert_eq!(10, top_docs.total_hits().value());
+        assert_eq!(EqualTo, top_docs.total_hits().relation());
+
+        writer.close()?;
         Ok(())
     }
 
+    #[test]
     fn test_concurrent_min_score() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO 未实现合并策略
+        let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let doc = Document::new();
+
+        w.add_documents(vec![doc.clone(); 5])?;
+        w.flush()?;
+        w.add_documents(vec![doc.clone(); 6])?;
+        w.flush()?;
+        w.add_documents(vec![doc.clone(); 2])?;
+        w.flush()?;
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        let reader = get_context(Arc::new(reader))?;
+        assert_eq!(3, reader.leaves()?.len());
+        w.close()?;
+
+        // TopScoreDocCollector — no sort; just score descending, then doc
+        DEFAULT_INTERVAL.store(0, Ordering::Relaxed);
+        let manager = TopScoreDocCollectorManager::new(2, 0)?;
+        let mut collector = manager.new_collector()?;
+        let mut collector2 = manager.new_collector()?;
+
+        // both collectors share same MaxScoreAccumulator
+        assert!(Arc::ptr_eq(
+            collector.min_score_acc.as_ref().unwrap(),
+            collector2.min_score_acc.as_ref().unwrap()
+        ));
+        let min_value_checker = collector.min_score_acc.clone().unwrap();
+        assert_eq!(min_value_checker.mod_interval, 0);
+
+        let mut scorer = Score::new();
+        let mut scorer2 = Score::new();
+
+        let leaves = reader.leaves()?;
+        let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
+
+        let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+        leaf_collector.set_scorer(&mut scorer)?;
+
+        let mut leaf_collector2 = collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+        leaf_collector2.set_scorer(&mut scorer2)?;
+
+        scorer.score = 3.0;
+        leaf_collector.collect(0, &mut scorer)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer2.score = 6.0;
+        leaf_collector2.collect(0, &mut scorer2)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer2.min_competitive_score.is_none());
+
+        scorer.score = 2.0;
+        leaf_collector.collect(1, &mut scorer)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer.min_competitive_score.is_none());
+
+        scorer2.score = 9.0;
+        leaf_collector2.collect(1, &mut scorer2)?;
+        assert_eq!(i64::MIN, min_value_checker.get_raw());
+        assert!(scorer2.min_competitive_score.is_none());
+
+        scorer2.score = 7.0;
+        leaf_collector2.collect(2, &mut scorer2)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!(scorer.min_competitive_score.is_none());
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer2.score = 1.0;
+        leaf_collector2.collect(3, &mut scorer2)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!(scorer.min_competitive_score.is_none());
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer.score = 10.0;
+        leaf_collector.collect(2, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 7.0).abs() < f32::EPSILON
+        );
+        assert!((7.0 - scorer.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer.score = 11.0;
+        leaf_collector.collect(3, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
+                < f32::EPSILON
+        );
+        assert!((10f32.next_up() - scorer.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        let mut collector3 = manager.new_collector()?;
+        let mut leaf_collector3 = collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight))?;
+        let mut scorer3 = Score::new();
+        leaf_collector3.set_scorer(&mut scorer3)?;
+        assert!((10f32.next_up() - scorer3.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer3.score = 1.0;
+        leaf_collector3.collect(0, &mut scorer3)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 10.0).abs()
+                < f32::EPSILON
+        );
+        assert!((10f32.next_up() - scorer3.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer.score = 11.0;
+        leaf_collector.collect(4, &mut scorer)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
+                < f32::EPSILON
+        );
+        assert!((11f32.next_up() - scorer.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((10f32.next_up() - scorer3.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        scorer3.score = 2.0;
+        leaf_collector3.collect(1, &mut scorer3)?;
+        assert!(
+            (MaxScoreAccumulator::to_score(min_value_checker.get_raw()) - 11.0).abs()
+                < f32::EPSILON
+        );
+        assert!((11f32.next_up() - scorer.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+        assert!((11f32.next_up() - scorer3.min_competitive_score.unwrap()).abs() < f32::EPSILON);
+
+        let top_docs = manager.reduce(vec![collector, collector2, collector3])?;
+        assert_eq!(11, top_docs.total_hits().value());
+        assert_eq!(
+            TotalHits::new(11, GreaterThanOrEqualTo),
+            *top_docs.total_hits()
+        );
+
         Ok(())
     }
+
     fn test_random_min_competitive_score() -> Result<()> {
-        // TODO
+        // TODO BooleanQuery未实现
         Ok(())
     }
     fn test_realistic_concurrent_minimum_score() -> Result<()> {

@@ -49,7 +49,7 @@ pub struct TopScoreDocCollector {
     base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
     after: Option<ScoreDoc>,
     total_hits_threshold: i32,
-    min_score_acc: Option<Arc<MaxScoreAccumulator>>,
+    pub(crate) min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopScoreDocCollector {
     pub fn new(
