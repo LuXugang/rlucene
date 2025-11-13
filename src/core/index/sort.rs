@@ -140,3 +140,241 @@ impl Hash for Sort {
         self.fields.hash(state);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::sort::Sort;
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::sort_field::MissingValueEnum::StringFirst;
+    use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_from_string, new_directory, new_searcher_with_reader, random,
+    };
+    use std::hash::DefaultHasher;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestSort;
+    fn assert_equals_sort(a: &Sort, b: &Sort) {
+        assert!(a == b);
+        assert!(b == a);
+
+        use std::hash::{Hash, Hasher};
+        let mut ha = DefaultHasher::new();
+        let mut hb = DefaultHasher::new();
+        a.hash(&mut ha);
+        b.hash(&mut hb);
+        assert_eq!(ha.finish(), hb.finish());
+    }
+    fn assert_different_sort(a: &Sort, b: &Sort) {
+        assert!(a != b);
+        assert!(b != a);
+
+        use std::hash::{Hash, Hasher};
+        let mut ha = DefaultHasher::new();
+        let mut hb = DefaultHasher::new();
+        a.hash(&mut ha);
+        b.hash(&mut hb);
+        assert_ne!(ha.finish(), hb.finish());
+    }
+    #[test]
+    fn test_equals() -> Result<()> {
+        let sort_field1 = SortField::new("foo".into(), SortFieldType::String)?;
+
+        let mut sort_field2 = SortField::new("foo".into(), SortFieldType::String)?;
+        assert_equals_sort(
+            &Sort::with_fields(vec![sort_field1.clone().into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        sort_field2 = SortField::new("bar".into(), SortFieldType::String)?;
+        assert_different_sort(
+            &Sort::with_fields(vec![sort_field1.clone().into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        sort_field2 = SortField::new("foo".into(), SortFieldType::Long)?;
+        assert_different_sort(
+            &Sort::with_fields(vec![sort_field1.clone().into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        sort_field2 = SortField::new("foo".into(), SortFieldType::String)?;
+        sort_field2.set_missing_value(StringFirst)?;
+        assert_different_sort(
+            &Sort::with_fields(vec![sort_field1.clone().into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        sort_field2 = SortField::with_reverse("foo".into(), SortFieldType::String, false)?;
+        assert_equals_sort(
+            &Sort::with_fields(vec![sort_field1.clone().into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        sort_field2 = SortField::with_reverse("foo".into(), SortFieldType::String, true)?;
+        assert_different_sort(
+            &Sort::with_fields(vec![sort_field1.into()])?,
+            &Sort::with_fields(vec![sort_field2.into()])?,
+        );
+
+        Ok(())
+    }
+    /// Tests sorting on type string
+    #[test]
+    fn test_string() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO RandomIndexWriter未实现
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(StringField::with_string("value", "foo", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(StringField::with_string("value", "bar", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader(true, false)?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::String)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value);
+
+        // 'bar' comes before 'foo'
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("bar", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("foo", v1.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests reverse sorting on type string
+    #[test]
+    fn test_string_reverse() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO RandomIndexWriter未实现
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        // doc 1: bar
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(StringField::with_string("value", "bar", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(StringField::with_string("value", "foo", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader(true, false)?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::with_reverse("value".into(), SortFieldType::String, true)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value);
+
+        // reverse order: foo first, bar second
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("foo", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("bar", v1.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    /// Tests sorting on type string_val
+    #[test]
+    fn test_string_val() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        // doc 1: foo
+        let mut doc = Document::new();
+        doc.add(BinaryDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc.add(StringField::with_string("value", "foo", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc 2: bar
+        let mut doc = Document::new();
+        doc.add(BinaryDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc.add(StringField::with_string("value", "bar", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let ir = writer.get_reader(true, false)?;
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let sort = Sort::with_fields(vec![
+            SortField::new("value".into(), SortFieldType::StringVal)?.into(),
+        ])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value);
+
+        // bar < foo
+        let v0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("bar", v0.get("value")?.unwrap().as_ref());
+
+        let v1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("foo", v1.get("value")?.unwrap().as_ref());
+
+        Ok(())
+    }
+}
