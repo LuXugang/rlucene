@@ -100,8 +100,8 @@ impl DocValuesFieldInner {
         Ok(())
     }
     pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let tmp_doc = self.docs.get_mut(j as i64)?;
-        let value_i = self.docs.get_mut(i as i64)?;
+        let tmp_doc = self.docs.get(j as i64)?;
+        let value_i = self.docs.get(i as i64)?;
         self.docs.set(j as i64, value_i);
         self.docs.set(i as i64, tmp_doc);
         Ok(())
@@ -543,8 +543,7 @@ where
         // same segment, in which case we rely on sort being
         // stable and preserving the original order so the last update to that
         // docID wins
-        let cmp = (self.inner.docs.get_mut(i as i64)? >> 1)
-            .cmp(&(self.inner.docs.get_mut(j as i64)? >> 1));
+        let cmp = (self.inner.docs.get(i as i64)? >> 1).cmp(&(self.inner.docs.get(j as i64)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {
             Ok((self.ords.get(i) - self.ords.get(j)) as i32)
@@ -564,7 +563,7 @@ where
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.pivot_doc = self.inner.docs.get_mut(i as i64)? >> 1;
+        self.pivot_doc = self.inner.docs.get(i as i64)? >> 1;
         self.pivot_ord = self.ords.get(i);
         Ok(())
     }
@@ -572,7 +571,7 @@ where
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         let mut cmp = self
             .pivot_doc
-            .cmp(&((self.inner.docs.get_mut(j as i64)? as u64 >> 1) as i64));
+            .cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
             cmp = (self.pivot_ord - self.ords.get(j)).cmp(&0);
