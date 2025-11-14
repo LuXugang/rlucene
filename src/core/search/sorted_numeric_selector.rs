@@ -343,8 +343,8 @@ where
     N: NumericDocValues,
 {
     fn long_value(&mut self) -> Result<i64> {
-        let v = self.base.long_value()? as i32;
-        Ok(NumericUtils::sortable_float_bits(v) as i64)
+        let v = self.base.long_value()?;
+        Ok(NumericUtils::sortable_double_bits(v))
     }
 }
 
