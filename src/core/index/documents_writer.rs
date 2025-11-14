@@ -215,21 +215,14 @@ where
         }
         Ok(false)
     }
-    pub(crate) fn purge_flush_tickets<F, L, B>(
-        &self,
-        forced: bool,
-        writer: &IndexWriter<D, L, B>,
-        consumer: F,
-    ) -> Result<()>
+    pub(crate) fn purge_flush_tickets<F>(&self, forced: bool, consumer: F) -> Result<()>
     where
-        F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
-        B: IndexWriterBase,
-        L: LiveIndexWriterConfig,
+        F: Fn(FlushTicket<D>) -> Result<()>,
     {
         if forced {
-            self.ticket_queue.force_purge(writer, consumer)
+            self.ticket_queue.force_purge(consumer)
         } else {
-            self.ticket_queue.try_purge(writer, consumer)
+            self.ticket_queue.try_purge(consumer)
         }
     }
     /// Returns how many docs are currently buffered in RAM.

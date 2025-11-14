@@ -16,8 +16,6 @@
  */
 use crate::core::index::documents_writer_per_thread::FlushedSegment;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::supplier::Supplier;
@@ -104,15 +102,9 @@ where
         debug_assert!(count >= 0, "ticket_count should be >= 0 but was: {count}");
         count != 0
     }
-    pub(crate) fn inner_purge<F, L, B>(
-        &self,
-        writer: &IndexWriter<D, L, B>,
-        consumer: F,
-    ) -> Result<()>
+    pub(crate) fn inner_purge<F>(&self, consumer: F) -> Result<()>
     where
-        F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+        F: Fn(FlushTicket<D>) -> Result<()>,
     {
         debug_assert!(self.purge_lock.is_locked());
         loop {
@@ -131,7 +123,7 @@ where
                  */
                 let mut inner = self.inner.lock();
                 let head = inner.queue.pop_front().unwrap();
-                consumer(head, writer)?;
+                consumer(head)?;
                 self.dec_tickets();
             } else {
                 break;
@@ -139,32 +131,20 @@ where
         }
         Ok(())
     }
-    pub(crate) fn force_purge<F, L, B>(
-        &self,
-        writer: &IndexWriter<D, L, B>,
-        consumer: F,
-    ) -> Result<()>
+    pub(crate) fn force_purge<F>(&self, consumer: F) -> Result<()>
     where
-        F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+        F: Fn(FlushTicket<D>) -> Result<()>,
     {
         let _purge_guard = self.purge_lock.lock();
-        self.inner_purge(writer, consumer)
+        self.inner_purge(consumer)
     }
 
-    pub(crate) fn try_purge<F, L, B>(
-        &self,
-        writer: &IndexWriter<D, L, B>,
-        consumer: F,
-    ) -> Result<()>
+    pub(crate) fn try_purge<F>(&self, consumer: F) -> Result<()>
     where
-        F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
-        L: LiveIndexWriterConfig,
-        B: IndexWriterBase,
+        F: Fn(FlushTicket<D>) -> Result<()>,
     {
         if let Some(_purge_guard) = self.purge_lock.try_lock() {
-            self.inner_purge(writer, consumer)?;
+            self.inner_purge(consumer)?;
         }
         Ok(())
     }

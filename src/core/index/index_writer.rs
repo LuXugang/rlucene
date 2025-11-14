@@ -2432,7 +2432,7 @@ where
     }
 
     fn publish_flushed_segments(&self, forced: bool) -> Result<()> {
-        let c = |mut ticket: FlushTicket<D>, writer: &IndexWriter<D, L, B>| {
+        let c = |mut ticket: FlushTicket<D>| {
             let buffered_updates = ticket.take_frozen_updates();
             ticket.mark_published();
             let new_segment = ticket.get_flushed_segment();
@@ -2442,13 +2442,13 @@ where
                     if let Some(buffered_updates) = buffered_updates
                         && buffered_updates.any()
                     {
-                        if writer.info_stream.enabled("IW") {
+                        if self.info_stream.enabled("IW") {
                             self.info_stream.message(
                                 "IW",
                                 &format!("flush: push buffered updates: {buffered_updates:?}"),
                             );
                         }
-                        writer.publish_frozen_updates(buffered_updates, None)?;
+                        self.publish_frozen_updates(buffered_updates, None)?;
                     }
                 },
                 Some(seg) => {
@@ -2481,7 +2481,7 @@ where
             }
             Ok(())
         };
-        self.doc_writer.purge_flush_tickets(forced, self, c)?;
+        self.doc_writer.purge_flush_tickets(forced, c)?;
         Ok(())
     }
 
