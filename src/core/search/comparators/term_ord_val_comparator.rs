@@ -156,7 +156,13 @@ impl FieldComparator for TermOrdValComparator {
         LR: LeafReader,
     {
         self.current_reader_gen += 1;
-        TermOrdValLeafComparator::new(context, None, self)
+        let c = |context: &LeafReaderContext<LR>| -> Result<TermOrdValDocValues<LR>> {
+            Ok(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
+                context,
+                &self.field,
+            )?))
+        };
+        TermOrdValLeafComparator::new(context, c, self)
     }
 
     fn compare_values(&self, val1: Option<&Self::V>, val2: Option<&Self::V>) -> i32 {
@@ -204,17 +210,15 @@ impl<LR> TermOrdValLeafComparator<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(
+    pub fn new<F>(
         context: &LeafReaderContext<LR>,
-        terms_index: Option<TermOrdValDocValues<LR>>,
+        doc_value_producer: F,
         comparator: &TermOrdValComparator,
-    ) -> Result<Self> {
-        let mut terms_index = match terms_index {
-            Some(v) => v,
-            None => {
-                TermOrdValDocValues::<LR>::B(get_sorted_doc_values(context, &comparator.field)?)
-            },
-        };
+    ) -> Result<Self>
+    where
+        F: Fn(&LeafReaderContext<LR>) -> Result<TermOrdValDocValues<LR>>,
+    {
+        let mut terms_index = doc_value_producer(context)?;
         let missing_ord = if comparator.sort_missing_last {
             i32::MAX
         } else {
@@ -294,10 +298,7 @@ where
         if enable_skipping {
             let docs_with_field = match leaf.dense {
                 true => None,
-                false => Some(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
-                    context,
-                    &comparator.field,
-                )?)),
+                false => Some(doc_value_producer(context)?),
             };
             let terms = context.reader().terms(&comparator.field)?;
             let terms_enum = match terms {

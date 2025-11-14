@@ -34,6 +34,7 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+
 /// SortField for [`SortedSetDocValues`](crate::core::index::sorted_set_doc_values::SortedSetDocValues).
 ///
 /// A SortedSetDocValues contains multiple values for a field, so sorting with this technique
@@ -313,11 +314,13 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
         LR: LeafReader,
     {
         self.base.current_reader_gen += 1;
-        let doc_values = TermOrdValDocValues::<LR>::A(SortedSetSelector::wrap(
-            DocValues::get_sorted_set(context.reader(), &self.base.field)?,
-            self.selector,
-        )?);
-        TermOrdValLeafComparator::new(context, Some(doc_values), &self.base)
+        let c = |context: &LeafReaderContext<LR>| -> Result<TermOrdValDocValues<LR>> {
+            Ok(TermOrdValDocValues::<LR>::A(SortedSetSelector::wrap(
+                DocValues::get_sorted_set(context.reader(), &self.base.field)?,
+                self.selector,
+            )?))
+        };
+        TermOrdValLeafComparator::new(context, c, &self.base)
     }
 
     fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
@@ -336,6 +339,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
         self.base.disable_skipping()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
@@ -437,54 +441,51 @@ mod tests {
     }
     #[test]
     fn test_reverse() -> Result<()> {
-        // let mut random = random();
-        // let dir = Arc::new(new_directory(&mut random)?);
-        // let writer = RandomIndexWriter::new(&mut random, dir.clone());
-        //
-        // let mut doc = Document::new();
-        // doc.add(
-        //     KeywordField::with_bytes_ref(
-        //         "value",
-        //         new_bytes_ref_from_string(&mut random, "foo")?,
-        //         Store::No,
-        //     )?,
-        // );
-        // doc.add(
-        //     KeywordField::with_bytes_ref(
-        //         "value",
-        //         new_bytes_ref_from_string(&mut random, "bar")?,
-        //         Store::No,
-        //     )?,
-        // );
-        // doc.add(StringField::with_string("id", "1", Store::Yes)?);
-        // writer.add_document(doc)?;
-        //
-        // let mut doc = Document::new();
-        // doc.add(
-        //     KeywordField::with_bytes_ref(
-        //         "value",
-        //         new_bytes_ref_from_string(&mut random, "baz")?,
-        //         Store::No,
-        //     )?,
-        // );
-        // doc.add(StringField::with_string("id", "2", Store::Yes)?);
-        // writer.add_document(doc)?;
-        //
-        // let reader = Arc::new(writer.get_reader()?);
-        // writer.close()?;
-        //
-        // let mut searcher = new_searcher_with_reader(reader.clone())?;
-        // let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?.into()])?;
-        //
-        // let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
-        // assert_eq!(2, td.total_hits().value());
-        //
-        // let doc0 = searcher.stored_fields()?.document(td.score_docs()[0].doc())?;
-        // assert_eq!("2", doc0.get("id")?.unwrap().as_ref());
-        //
-        // let doc1 = searcher.stored_fields()?.document(td.score_docs()[1].doc())?;
-        // assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+            Store::No,
+        )?);
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+            Store::No,
+        )?);
+        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "baz")?,
+            Store::No,
+        )?);
+        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        let doc0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("2", doc0.get("id")?.unwrap().as_ref());
+
+        let doc1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
         Ok(())
     }
 }
