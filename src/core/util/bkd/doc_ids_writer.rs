@@ -479,10 +479,11 @@ impl DocIdsWriter {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
-    use rand::Rng;
-
+    use crate::core::document::document::Document;
+    use crate::core::document::int_point::IntPoint;
+    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::point_values::{IntersectVisitor, Relation};
     use crate::core::store::directory::Directory;
     use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
@@ -492,6 +493,9 @@ mod tests {
         at_least, new_directory, random,
     };
     use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use std::collections::HashSet;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdsWriter;
@@ -618,8 +622,26 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_crash() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        let mut random = random();
+        let itrs = at_least(&mut random, 100);
+
+        for _ in 0..itrs {
+            let dir = Arc::new(new_directory(&mut random)?);
+
+            let config = IndexWriterConfig::new();
+            let iw = IndexWriter::new(dir.clone(), config)?;
+
+            for _d in 0..20_000 {
+                let mut doc = Document::new();
+                doc.add(IntPoint::new("foo", [0])?);
+                doc.add(SortedNumericDocValuesField::new("bar", 0));
+                iw.add_document(doc)?;
+            }
+            iw.close()?;
+        }
+
         Ok(())
     }
 

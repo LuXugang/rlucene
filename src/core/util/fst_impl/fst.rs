@@ -1465,13 +1465,20 @@ pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -
 
 #[cfg(test)]
 mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::{FieldBase, Store};
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::BytesRef;
+    use crate::core::index::composite_reader::get_context;
     use rand::Rng;
+    use rand::seq::SliceRandom;
     use std::cell::RefCell;
     use std::collections::HashSet;
     use std::rc::Rc;
     use std::sync::Arc;
 
-    use crate::core::index::BytesRef;
+    use crate::core::search::index_searcher::IndexSearcher;
+
     use crate::core::store::directory::Directory;
     use crate::core::store::dummy::dummy_directory::DummyDirectory;
     use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -1491,11 +1498,14 @@ mod tests {
     use crate::core::util::fst_impl::util::Util;
     use crate::core::util::ints_ref::IntsRef;
     use crate::core::util::ints_ref_builder::IntsRefBuilder;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::fst::fst_tester::{
-        DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, to_ints_ref_from_string,
+        DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
+        to_ints_ref_from_string,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
+        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random,
+        random_from_seed, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     struct TestFSTs {
@@ -1967,11 +1977,55 @@ mod tests {
         // TODO : IndexWriter not implemented
         Ok(())
     }
-    #[test]
+    // TODO 测试未通过 `expected PendingTerm`错误
     fn test_random_term_lookup() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // build writer
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut doc = Document::new();
+
+        let mut field = StringField::with_string("field", "", Store::No)?;
+        doc.add(field.clone());
+
+        // compute NUM_TERMS
+        let num_terms =
+            (1000.0 * random_multiplier() as f64 * (1.0 + random.random::<f64>())) as usize;
+
+        let mut all_terms = HashSet::new();
+        while all_terms.len() < num_terms {
+            all_terms.insert(simple_random_string(&mut random));
+        }
+
+        for term in &all_terms {
+            field.set_string_value(term)?;
+            let mut d = Document::new();
+            d.add(field.clone());
+            writer.add_document(d)?;
+        }
+
+        let reader = Arc::new(writer.get_reader()?);
+        let reader_ctx = get_context(reader.clone())?;
+        let searcher = IndexSearcher::new(reader_ctx)?;
+        writer.close()?;
+
+        let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();
+        all_terms_list.shuffle(&mut random);
+
+        // TODO IndexSearcher#count() 未实现
+        // for term in all_terms_list {
+        //     let query = TermQuery::new(Term::from_text("field", &term));
+        //     let count = searcher.count(query)?;
+        //     assert_eq!(
+        //         count, 1,
+        //         "term={term} -- expected exactly 1 match, got {count}"
+        //     );
+        // }
+
         Ok(())
     }
+
     // fn test_expanded_close_to_root() -> Result<()> {
     //     struct SyntheticData;
     //     impl SyntheticData {

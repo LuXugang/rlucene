@@ -342,7 +342,6 @@ mod tests {
     use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 
     use crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
-    use crate::core::index::dummy::dummy_live_index_writer_config::DummyLiveIndexWriterConfig;
 
     use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
@@ -351,7 +350,9 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
 
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
 
     use std::sync::Arc;
 
@@ -362,9 +363,7 @@ mod tests {
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
         let directory_orig = Arc::new(new_directory(&mut random)?);
-        // TODO: LuceneTestCase::newIndexWriterConfig 为实现
-        let dummy_config = DummyLiveIndexWriterConfig::new();
-        let iw = IndexWriter::new(directory_orig, dummy_config)?;
+        let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),
         )));
@@ -413,9 +412,7 @@ mod tests {
 
         let mut random = random();
         let directory_orig = Arc::new(new_directory(&mut random)?);
-        // TODO: LuceneTestCase::newIndexWriterConfig 为实现
-        let dummy_config = DummyLiveIndexWriterConfig::new();
-        let iw = IndexWriter::new(directory_orig, dummy_config)?;
+        let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),
         )));
