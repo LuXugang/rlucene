@@ -29,6 +29,7 @@ use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
+use crate::core::document::int_range::IntRange;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::long_field::LongField;
@@ -71,7 +72,9 @@ pub enum Fields {
     SortedSetDocValues(SortedSetDocValuesField),
     SortedNumericDocValues(SortedNumericDocValuesField),
     Keyword(KeywordField),
+    Int(IntRange),
 }
+
 impl From<Field> for Fields {
     fn from(f: Field) -> Self {
         Fields::Field(f)
@@ -95,16 +98,19 @@ impl From<StoredField> for Fields {
         Fields::Stored(s)
     }
 }
+
 impl From<NumericDocValuesField> for Fields {
     fn from(n: NumericDocValuesField) -> Self {
         Fields::NumericDocValues(n)
     }
 }
+
 impl From<FloatDocValuesField> for Fields {
     fn from(n: FloatDocValuesField) -> Self {
         Fields::FloatDocValues(n)
     }
 }
+
 impl From<DoubleDocValuesField> for Fields {
     fn from(n: DoubleDocValuesField) -> Self {
         Fields::DoubleDocValues(n)
@@ -116,11 +122,13 @@ impl From<ReservedField<NumericDocValuesField>> for Fields {
         Fields::Reverse(r)
     }
 }
+
 impl From<FloatPoint> for Fields {
     fn from(f: FloatPoint) -> Self {
         Fields::FloatPoint(f)
     }
 }
+
 impl From<LongPoint> for Fields {
     fn from(l: LongPoint) -> Self {
         Fields::LongPoint(l)
@@ -132,54 +140,70 @@ impl From<IntPoint> for Fields {
         Fields::IntPoint(l)
     }
 }
+
 impl From<DoublePoint> for Fields {
     fn from(d: DoublePoint) -> Self {
         Fields::DoublePoint(d)
     }
 }
+
 impl From<LongField> for Fields {
     fn from(l: LongField) -> Self {
         Fields::LongField(l)
     }
 }
+
 impl From<IntField> for Fields {
     fn from(i: IntField) -> Self {
         Fields::IntField(i)
     }
 }
+
 impl From<DoubleField> for Fields {
     fn from(d: DoubleField) -> Self {
         Fields::DoubleField(d)
     }
 }
+
 impl From<FloatField> for Fields {
     fn from(f: FloatField) -> Self {
         Fields::FloatField(f)
     }
 }
+
 impl From<BinaryDocValuesField> for Fields {
     fn from(b: BinaryDocValuesField) -> Self {
         Fields::BinaryDocValues(b)
     }
 }
+
 impl From<SortedDocValuesField> for Fields {
     fn from(s: SortedDocValuesField) -> Self {
         Fields::SortedDocValues(s)
     }
 }
+
 impl From<SortedSetDocValuesField> for Fields {
     fn from(s: SortedSetDocValuesField) -> Self {
         Fields::SortedSetDocValues(s)
     }
 }
+
 impl From<SortedNumericDocValuesField> for Fields {
     fn from(s: SortedNumericDocValuesField) -> Self {
         Fields::SortedNumericDocValues(s)
     }
 }
+
 impl From<KeywordField> for Fields {
     fn from(k: KeywordField) -> Self {
         Fields::Keyword(k)
+    }
+}
+
+impl From<IntRange> for Fields {
+    fn from(r: IntRange) -> Self {
+        Fields::Int(r)
     }
 }
 
@@ -207,6 +231,7 @@ impl Display for Fields {
             Fields::SortedSetDocValues(f1) => f1.fmt(f),
             Fields::SortedNumericDocValues(f1) => f1.fmt(f),
             Fields::Keyword(f1) => f1.fmt(f),
+            Fields::Int(f1) => f1.fmt(f),
         }
     }
 }
@@ -235,6 +260,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.name(),
             Fields::SortedNumericDocValues(f) => f.name(),
             Fields::Keyword(f) => f.name(),
+            Fields::Int(f) => f.name(),
         }
     }
 
@@ -263,10 +289,12 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.field_type(),
             Fields::SortedNumericDocValues(f) => f.field_type(),
             Fields::Keyword(f) => f.field_type(),
+            Fields::Int(f) => f.field_type(),
         }
     }
 
     type TokenStream = <Field as IndexableField>::TokenStream;
+
     fn token_stream<'a>(
         &'a mut self,
         token_stream: Option<&'a mut InnerTokenStreams>,
@@ -294,6 +322,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.token_stream(token_stream),
             Fields::SortedNumericDocValues(f) => f.token_stream(token_stream),
             Fields::Keyword(f) => f.token_stream(token_stream),
+            Fields::Int(f) => f.token_stream(token_stream),
         }
     }
 
@@ -320,6 +349,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.binary_value(),
             Fields::SortedNumericDocValues(f) => f.binary_value(),
             Fields::Keyword(f) => f.binary_value(),
+            Fields::Int(f) => f.binary_value(),
         }
     }
 
@@ -346,6 +376,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.take_binary_value(),
             Fields::SortedNumericDocValues(f) => f.take_binary_value(),
             Fields::Keyword(f) => f.take_binary_value(),
+            Fields::Int(f) => f.take_binary_value(),
         }
     }
 
@@ -372,6 +403,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.string_value(),
             Fields::SortedNumericDocValues(f) => f.string_value(),
             Fields::Keyword(f) => f.string_value(),
+            Fields::Int(f) => f.string_value(),
         }
     }
 
@@ -398,6 +430,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.take_string_value(),
             Fields::SortedNumericDocValues(f) => f.take_string_value(),
             Fields::Keyword(f) => f.take_string_value(),
+            Fields::Int(f) => f.take_string_value(),
         }
     }
 
@@ -424,6 +457,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.get_char_sequence_value(),
             Fields::SortedNumericDocValues(f) => f.get_char_sequence_value(),
             Fields::Keyword(f) => f.get_char_sequence_value(),
+            Fields::Int(f) => f.get_char_sequence_value(),
         }
     }
 
@@ -450,6 +484,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.take_reader_value(),
             Fields::SortedNumericDocValues(f) => f.take_reader_value(),
             Fields::Keyword(f) => f.take_reader_value(),
+            Fields::Int(f) => f.take_reader_value(),
         }
     }
 
@@ -476,6 +511,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.numeric_value(),
             Fields::SortedNumericDocValues(f) => f.numeric_value(),
             Fields::Keyword(f) => f.numeric_value(),
+            Fields::Int(f) => f.numeric_value(),
         }
     }
 
@@ -502,6 +538,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.stored_value(),
             Fields::SortedNumericDocValues(f) => f.stored_value(),
             Fields::Keyword(f) => f.stored_value(),
+            Fields::Int(f) => f.stored_value(),
         }
     }
 
@@ -528,6 +565,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.take_stored_value(),
             Fields::SortedNumericDocValues(f) => f.take_stored_value(),
             Fields::Keyword(f) => f.take_stored_value(),
+            Fields::Int(f) => f.take_stored_value(),
         }
     }
 
@@ -554,6 +592,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.invertable_type(),
             Fields::SortedNumericDocValues(f) => f.invertable_type(),
             Fields::Keyword(f) => f.invertable_type(),
+            Fields::Int(f) => f.invertable_type(),
         }
     }
 
@@ -583,6 +622,7 @@ impl IndexableField for Fields {
             Fields::SortedSetDocValues(f) => f.init_token_stream(analyzer),
             Fields::SortedNumericDocValues(f) => f.init_token_stream(analyzer),
             Fields::Keyword(f) => f.init_token_stream(analyzer),
+            Fields::Int(f) => f.init_token_stream(analyzer),
         }
     }
 }
@@ -612,6 +652,7 @@ impl Clone for Fields {
             Fields::SortedSetDocValues(f) => f.clone().into(),
             Fields::SortedNumericDocValues(f) => f.clone().into(),
             Fields::Keyword(f) => f.clone().into(),
+            Fields::Int(f) => f.clone().into(),
         }
     }
 }
