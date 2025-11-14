@@ -151,16 +151,6 @@ impl From<SortedSetSortField> for SortFieldEnum {
     }
 }
 
-pub trait SortFieldVecExt {
-    fn push_iterm(&mut self, item: impl Into<SortFieldEnum>);
-}
-
-impl SortFieldVecExt for Vec<SortFieldEnum> {
-    fn push_iterm(&mut self, item: impl Into<SortFieldEnum>) {
-        self.push(item.into());
-    }
-}
-
 pub enum IndexSortEnum {
     SortedNumeric(IndexSorterNumeric),
     SortedSet(StringSorter<SortedDocValuesProviderImpl>),
