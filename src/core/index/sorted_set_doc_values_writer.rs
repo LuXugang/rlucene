@@ -802,6 +802,12 @@ where
     A: SortedSetDocValues,
     B: SortedSetDocValues,
 {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            Either2SortedSetDocValues::A(t) => t.advance_exact(target),
+            Either2SortedSetDocValues::B(s) => s.advance_exact(target),
+        }
+    }
 }
 
 impl<A, B> DocIdSetIterator for Either2SortedSetDocValues<A, B>
