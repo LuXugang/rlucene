@@ -153,10 +153,6 @@ impl NeighborArray {
         let mut count = 0;
 
         while self.sorted_node_size != self.size {
-            // TODO: Instead of do an array copy on every insertion, I think we can do
-            // better here:       Remember the insertion point of each unsorted
-            // node and insert them altogether       We can save several array
-            // copy by doing that
             let inserted_index = self.insert_sorted_internal(scorer)?;
             unchecked_indexes[count] = inserted_index;
 

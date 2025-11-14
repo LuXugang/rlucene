@@ -32,18 +32,6 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
-// TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
-// more costly hash? hmmm, though, hash is not so wasteful
-// since it does not have to store value of each entry: the value is the node
-// pointer in the FST. actually, there is much to save
-// there -- we would not need any long per entry -- we'd be able to start at the
-// FST end node and work backwards from the transitions
-
-// TODO: couldn't we prune naturally back until we see a transition with an
-// output?  it's highly unlikely (mostly impossible) such suffixes can be
-// shared?
-
-// Used to dedup states (lookup already-frozen states)
 pub struct NodeHash<T>
 where
     T: OutputsBound,
@@ -512,12 +500,6 @@ where
         O: Outputs<V = T>,
         F: FstReader,
     {
-        // TODO: https://github.com/apache/lucene/issues/12744
-        // should we always use a small startBitsPerValue here (e.g 8) instead
-        // base off of lastNodeAddress?
-
-        // double hash table size on each rehash
-        // Double the hash table size
         let new_size = self.inner.fst_node_address.size() * 2;
 
         let position = self.inner.bytes_reader.get_position();

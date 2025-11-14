@@ -88,8 +88,6 @@ pub trait Outputs: Display + Clone {
 
     fn output_to_string(&self, output: &Self::V) -> String;
 
-    // TODO: maybe make valid(Self::V output) public...? for asserts
-
     fn merge(&self, _first: &Self::V, _second: &Self::V) -> Result<Self::V> {
         Err(LuceneError::unsupported_operation(""))
     }

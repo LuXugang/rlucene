@@ -264,7 +264,6 @@ impl IntoIterator for Document {
 
 #[cfg(test)]
 mod tests {
-
     use crate::core::document::document::Document;
     use crate::core::document::field::{Field, Store};
     use crate::core::document::field_type::FieldType;
@@ -274,7 +273,10 @@ mod tests {
     use crate::core::index::index_options::IndexOptions;
     use crate::core::index::indexable_field::IndexableField;
     use crate::core::index::indexable_field_type::IndexableFieldType;
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocument;
@@ -388,9 +390,35 @@ mod tests {
     }
     #[test]
     fn test_constructor_exceptions() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        let mut ft = FieldType::new();
+        ft.set_stored(true)?;
+        Field::with_string("name", "value", ft.clone())?;
+
+        StringField::with_string("name", "value", Store::No)?;
+
+        let ft_invalid = FieldType::new();
+        let result = Field::with_string("name", "value", ft_invalid);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+        Field::with_string("name", "value", ft.clone())?;
+
+        let mut doc = Document::new();
+        let mut ft2 = FieldType::new();
+        ft2.set_stored(true)?;
+        ft2.set_store_term_vectors(true)?;
+        doc.add(Field::with_string("name", "value", ft2)?);
+
+        let result = writer.add_document(doc);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+
+        writer.close()?;
         Ok(())
     }
+
     #[test]
     fn test_clear_document() -> Result<()> {
         let mut doc = make_document_with_fields()?;

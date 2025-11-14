@@ -306,7 +306,7 @@ impl Field {
         T2: Into<String>,
     {
         if !indexable_field_type.stored()
-            && indexable_field_type.index_options() == &IndexOptions::None
+            && *indexable_field_type.index_options() == IndexOptions::None
         {
             return Err(LuceneError::illegal_argument(
                 "it doesn't make sense to have a field that is neither indexed nor stored",

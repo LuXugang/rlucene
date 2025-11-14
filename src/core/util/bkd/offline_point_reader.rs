@@ -30,8 +30,6 @@ where
     I: IndexInput,
 {
     count_left: i64,
-    // TODO:Perhaps we can use an enum here to encapsulate
-    // BufferedChecksumIndexInput and other types of Input
     input: Option<I>,
     check_sum_input: Option<BufferedChecksumIndexInput<I>>,
     offset: i32,

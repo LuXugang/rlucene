@@ -137,12 +137,6 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        // TODO: possibly caller could/should provide common
-        // prefix length?  ie this work may be redundant if
-        // caller is in fact intersecting against its own automaton
-
-        // Save time by starting at the end of the shared prefix
-        // between current term & the target:
         self.rewind_prefix(sub, target)?;
         let mut upto = self.upto;
 
@@ -450,14 +444,6 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        // TODO: possibly caller could/should provide common
-        // prefix length?  ie this work may be redundant if
-        // caller is in fact intersecting against its own
-        // automaton
-        // System.out.println("FE: seek floor upto=" + upto);
-
-        // Save CPU by starting at the end of the shared prefix
-        // b/w our current term & the target:
         self.rewind_prefix(sub, target)?;
         let mut upto = self.upto;
 
@@ -985,12 +971,6 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        // TODO: possibly caller could/should provide common
-        // prefix length?  ie this work may be redundant if
-        // caller is in fact intersecting against its own
-        // automaton
-        // Save time by starting at the end of the shared prefix
-        // b/w our current term & the target:
         self.rewind_prefix(sub, target)?;
         let mut upto = self.upto - 1;
         let mut target_label = sub.get_target_label(self, target)?;

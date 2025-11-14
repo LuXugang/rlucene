@@ -248,13 +248,6 @@ where
                         LuceneError::Io(ref io_err)
                             if io_err.kind() == std::io::ErrorKind::NotFound
                     ) {
-                        // TODO: can we remove this OS-specific hacky logic?  If windows deleteFile is buggy, we
-                        // should instead contain this workaround in
-                        // a WindowsFSDirectory ...
-                        // LUCENE-6684: we suppress this assert for Windows, since a file could be in a confusing
-                        // "pending delete" state, where we already
-                        // deleted it once, yet it still shows up in directory listings, and if you try to delete it
-                        // again you'll hit NSFE/FNFE:
                         Ok(())
                     } else {
                         Err(e)

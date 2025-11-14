@@ -44,20 +44,6 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{IOUtils, SliceCopyOps, ToInt};
 use std::cell::RefCell;
 use std::rc::Rc;
-// TODO
-//   - allow variable length `byte[]` (across docs and dims), but this is quite
-//     a bit more complex
-//   - we could also index "auto-prefix terms" here, and use better compression,
-//     and maybe only use for the "fully contained" case so we'd only index
-//     docIDs
-//   - the index could be efficiently encoded as an FST, so we don't have
-//     wasteful (monotonic) `long[]` leafBlockFPs; or we could use
-//     `MonotonicLongValues` ... but then the index is already quite small: 60M
-//     OSM points --> 1.1 MB with 128 points per leaf, and you can reduce that
-//     by putting more points per leaf
-//   - we could use threads while building; the higher nodes are very
-//     parallelizable
-
 /// Recursively builds a block KD-tree to assign all incoming points in N-dim
 /// space to smaller and smaller N-dim rectangles (cells) until the number of
 /// points in a given rectangle is <= `config.max_points_in_leaf_node()`. The
@@ -1297,10 +1283,6 @@ where
         prior_exception: LuceneError,
         writer: &PointWriterEnum<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
     ) -> Result<()> {
-        // TODO: we could improve this, to always validate checksum as we recurse, if we shared left and
-        // right reader after recursing to children, and possibly within recursed children,
-        // since all together they make a single pass through the file.  But this is a sizable re-org,
-        // and would mean leaving readers (IndexInputs) open for longer:
         if let PointWriterEnum::Offline(writer) = writer {
             // We are reading from a temp file; go verify the checksum:
             if self

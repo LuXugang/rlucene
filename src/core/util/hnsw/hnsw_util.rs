@@ -284,9 +284,6 @@ impl HnswUtil {
     ///
     /// This method evaluates connectivity starting from a single node,
     /// effectively checking whether the graph is a "rooted graph".
-    ///
-    /// TODO: Evaluate whether the graph is "strongly connected", meaning there
-    /// exists a path from every node to every other node.
     pub fn graph_is_rooted() {
         // TODO: IndexReader not Implemented
     }

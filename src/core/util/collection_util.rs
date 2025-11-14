@@ -23,8 +23,6 @@ use std::collections::HashMap;
 pub struct CollectionUtil;
 
 impl CollectionUtil {
-    // TODO: does this suitable for Rust HashMap?
-    /// Currently not used in Rust Lucene
     #[allow(dead_code)]
     pub fn new_hashmap<K, V>(size: usize) -> HashMap<K, V> {
         let capacity = ((size as f32) / 0.75f32 + 1f32) as usize;

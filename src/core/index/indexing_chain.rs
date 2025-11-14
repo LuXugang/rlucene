@@ -457,8 +457,8 @@ where
             let mut per_field_index = self.field_hash[bucket];
             while per_field_index >= 0 {
                 let per_field = &mut self.per_fields[per_field_index as usize];
-                let field_info = per_field.field_info.as_ref().unwrap();
                 if per_field.point_values_writer.is_some() {
+                    let field_info = per_field.field_info.as_ref().unwrap();
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
                     if field_info.get_point_dimension_count() > 0 {
                         if points_writer.is_none() {
@@ -521,8 +521,8 @@ where
             per_field_index = self.field_hash[bucket];
             while per_field_index >= 0 {
                 let per_field = &mut self.per_fields[per_field_index as usize];
-                let field_info = per_field.field_info.as_ref().unwrap();
                 if let Some(ref mut writer) = per_field.doc_values_writer {
+                    let field_info = per_field.field_info.as_ref().unwrap();
                     if *field_info.get_doc_values_type() == DocValuesType::None {
                         return Err(LuceneError::illegal_state(format!(
                             "segment= {}: field={} has no docvalues but wrote them",
@@ -540,9 +540,11 @@ where
                         dv_consumer.as_mut().unwrap(),
                         segment_info,
                     )?;
-                } else if *field_info.get_doc_values_type() != DocValuesType::None {
+                } else if let Some(field_info) = &per_field.field_info
+                    && field_info.get_doc_values_type() != &DocValuesType::None
+                {
                     return Err(LuceneError::illegal_state(format!(
-                        "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
+                        "segment={segment_info}: fieldInfos has docValues but did not write them"
                     )));
                 }
                 per_field.doc_values_writer = None;
