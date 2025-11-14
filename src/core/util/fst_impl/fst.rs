@@ -2007,7 +2007,7 @@ mod tests {
 
         let reader = Arc::new(writer.get_reader()?);
         let reader_ctx = get_context(reader.clone())?;
-        let searcher = IndexSearcher::new(reader_ctx)?;
+        let _searcher = IndexSearcher::new(reader_ctx)?;
         writer.close()?;
 
         let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();

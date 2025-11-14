@@ -30,7 +30,7 @@ pub mod float_field;
 pub mod float_point;
 pub mod int_field;
 pub mod int_point;
-mod int_range;
+pub mod int_range;
 pub mod invertable_field;
 pub mod keyword_field;
 pub mod long_field;

@@ -19,6 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
+use crate::core::document::int_range::IntRange;
 use crate::core::document::long_field::{LongField, long_field_type};
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -40,8 +41,10 @@ use crate::core::search::top_docs::{TopDocsLike, top_docs_util};
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_directory, new_searcher, new_searcher_with_reader, random,
+    at_least, is_night_mode, new_directory, new_searcher, new_searcher_with_reader,
+    new_searcher_with_threads, random,
 };
 use rand::{Rng, random_bool};
 use std::sync::Arc;
@@ -71,7 +74,7 @@ fn test_long_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader, true, true, false)?;
+    let mut searcher = new_searcher_with_threads(reader, true, true, false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Arc::new(Sort::with_fields(vec![sort_field])?);
     let num_hits = 3;
@@ -208,7 +211,8 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     writer.close()?;
 
     // single-threaded so totalHits is deterministic
-    let mut searcher = new_searcher(reader, random.random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader, random.random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let num_hits = 3;
@@ -257,7 +261,8 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -414,7 +419,8 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -508,7 +514,8 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -609,7 +616,8 @@ fn test_float_sort_optimization() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let num_hits = 3;
@@ -686,7 +694,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     loop {
         let mut top_docs_vec = Vec::new();
         for i in 0..num_indices {
-            let mut searcher = new_searcher(
+            let mut searcher = new_searcher_with_threads(
                 readers[i].clone(),
                 random_bool(0.5),
                 random_bool(0.5),
@@ -749,7 +757,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 10;
     let total_hits_threshold = 10;
     let search_afters = [3, 10, num_docs - 10];
@@ -947,7 +956,8 @@ fn test_doc_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let num_hits = 3;
     let total_hits_threshold = 3;
@@ -982,9 +992,88 @@ fn test_doc_sort() -> Result<()> {
 
 #[test]
 fn test_point_validation() -> Result<()> {
-    // TODO 为实现IntRange
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let mut doc = Document::new();
+
+    doc.add(IntPoint::new("intField", [4])?);
+    doc.add(NumericDocValuesField::new("intField", 4i64));
+
+    doc.add(LongPoint::new("longField", [42i64])?);
+    doc.add(NumericDocValuesField::new("longField", 42i64));
+
+    doc.add(IntRange::new("intRange", &[1], &[10])?);
+    doc.add(NumericDocValuesField::new("intRange", 4i64));
+
+    writer.add_document(doc)?;
+    let reader = Arc::new(writer.get_reader()?);
+    writer.close()?;
+
+    let mut searcher = new_searcher(
+        reader.clone(),
+        random.random_bool(0.5),
+        random.random_bool(0.5),
+    )?;
+
+    let mut long_sort_on_int_field = SortField::new("intField".into(), SortFieldType::Long)?;
+    assert!(
+        searcher
+            .search_with_sort(
+                MatchAllDocsQuery::new(),
+                1,
+                Sort::with_fields(vec![long_sort_on_int_field.clone()])?
+            )
+            .is_err()
+    );
+
+    long_sort_on_int_field.set_optimize_sort_with_indexed_data(false);
+    searcher.search_with_sort(
+        MatchAllDocsQuery::new(),
+        1,
+        Sort::with_fields(vec![long_sort_on_int_field])?,
+    )?;
+
+    let mut int_sort_on_long_field = SortField::new("longField".into(), SortFieldType::Int)?;
+    assert!(
+        searcher
+            .search_with_sort(
+                MatchAllDocsQuery::new(),
+                1,
+                Sort::with_fields(vec![int_sort_on_long_field.clone()])?
+            )
+            .is_err()
+    );
+
+    int_sort_on_long_field.set_optimize_sort_with_indexed_data(false);
+    searcher.search_with_sort(
+        MatchAllDocsQuery::new(),
+        1,
+        Sort::with_fields(vec![int_sort_on_long_field])?,
+    )?;
+
+    let mut int_sort_on_int_range_field = SortField::new("intRange".into(), SortFieldType::Int)?;
+    assert!(
+        searcher
+            .search_with_sort(
+                MatchAllDocsQuery::new(),
+                1,
+                Sort::with_fields(vec![int_sort_on_int_range_field.clone()])?
+            )
+            .is_err()
+    );
+
+    int_sort_on_int_range_field.set_optimize_sort_with_indexed_data(false);
+    searcher.search_with_sort(
+        MatchAllDocsQuery::new(),
+        1,
+        Sort::with_fields(vec![int_sort_on_int_range_field])?,
+    )?;
+
     Ok(())
 }
+
 #[test]
 fn test_max_doc_visited() -> Result<()> {
     let mut random = random();
@@ -1019,7 +1108,8 @@ fn test_max_doc_visited() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
+    let mut searcher =
+        new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Sort::with_fields(vec![sort_field])?;
@@ -1059,7 +1149,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher(reader.clone(), true, true, false)?;
+    let mut searcher = new_searcher_with_threads(reader.clone(), true, true, false)?;
 
     let selector_type = if random.random_bool(0.5) {
         SortedNumericSelectorType::Min

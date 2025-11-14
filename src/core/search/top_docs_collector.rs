@@ -250,7 +250,8 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, new_searcher, new_searcher_with_reader, random,
+        new_directory, new_index_writer_config, new_searcher_with_reader,
+        new_searcher_with_threads, random,
     };
     use rand::Rng;
     use std::fmt::{Display, Formatter};
@@ -440,7 +441,7 @@ mod tests {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let mut searcher = new_searcher(index_reader, true, true, false)?;
+        let mut searcher = new_searcher_with_threads(index_reader, true, true, false)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)
@@ -455,7 +456,7 @@ mod tests {
         CR: CompositeReader + Clone + 'static,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let mut searcher = new_searcher(index_reader, true, true, true)?;
+        let mut searcher = new_searcher_with_threads(index_reader, true, true, true)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)

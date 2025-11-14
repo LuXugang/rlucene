@@ -1361,7 +1361,7 @@ mod tests {
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, new_searcher, random,
+        at_least, new_directory, new_searcher_with_threads, random,
     };
     use std::sync::Arc;
 
@@ -1382,7 +1382,7 @@ mod tests {
         }
         let ir = Arc::new(iw.get_reader()?);
         iw.close()?;
-        let is = new_searcher(ir.clone(), true, true, false)?;
+        let is = new_searcher_with_threads(ir.clone(), true, true, false)?;
         Ok((ir, is))
     }
     #[test]
@@ -1436,8 +1436,9 @@ mod tests {
     fn test_shared_hitcount_collector() -> Result<()> {
         // 对应 newSearcher(ir, true, true, true)
         let (ir, _) = setup()?;
-        let mut concurrent_searcher = new_searcher(ir.clone(), true, true, true)?;
-        let mut single_threaded_searcher = new_searcher(ir.clone(), true, true, false)?;
+        let mut concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
+        let mut single_threaded_searcher =
+            new_searcher_with_threads(ir.clone(), true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
