@@ -260,6 +260,7 @@ pub mod lucene_test_case_util {
             &field_type,
         )
     }
+    // TODO IMPORTANT 这里需要线程同步吗
     pub(crate) fn new_field<S, V>(name: S, value: V, field_type: &FieldType) -> Result<Field>
     where
         S: Into<String>,

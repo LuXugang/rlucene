@@ -522,11 +522,15 @@ impl IndexableField for Field {
         }
         if !self.field_type().tokenized() {
             if self.string_value()?.is_some() {
-                let string_value = self.take_string_value()?.ok_or_else(|| {
-                    LuceneError::illegal_state(
-                        "Expected string value to be present, but it was None",
-                    )
-                })?;
+                // TODO IMPORTANT avoid copy here?
+                let string_value = self
+                    .string_value()?
+                    .ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "Expected string value to be present, but it was None",
+                        )
+                    })?
+                    .into_owned();
                 if self.ts.is_none() {
                     self.ts = Some(Either2TokenStream::B(StringTokenStream::new()))
                 }
@@ -944,7 +948,7 @@ impl Drop for StringTokenStream {
 impl TokenStream for StringTokenStream {
     fn increment_token(&mut self) -> Result<bool> {
         if self.used {
-            return Ok(true);
+            return Ok(false);
         }
         self.token_stream_base.att.clear_attributes();
         let value = self.value.as_ref().unwrap();

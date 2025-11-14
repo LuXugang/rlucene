@@ -349,6 +349,8 @@ mod tests {
     use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::sort_field::MissingValueEnum::StringFirst;
+    use crate::core::search::sort_field::SortFiledBase;
     use crate::core::search::sorted_set_selector::SortedSetSelectorType::Max;
     use crate::core::search::sorted_set_sort_field::SortedSetSortField;
     use crate::core::search::top_docs::TopDocsLike;
@@ -356,7 +358,8 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_directory, new_searcher_with_reader, random,
+        new_bytes_ref_from_string, new_directory, new_searcher_with_reader, new_string_field,
+        random,
     };
     use std::sync::Arc;
 
@@ -485,6 +488,69 @@ mod tests {
             .stored_fields()?
             .document(td.score_docs()[1].doc())?;
         assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+        Ok(())
+    }
+    #[test]
+    fn test_missing_first() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "baz")?,
+            Store::No,
+        )?);
+        doc.add(new_string_field("id", "2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+            Store::No,
+        )?);
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+            Store::No,
+        )?);
+        doc.add(new_string_field("id", "1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc3: missing 'value'
+        let mut doc = Document::new();
+        doc.add(new_string_field("id", "3", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+
+        let mut sort_field = SortedSetSortField::new("value", false)?;
+        sort_field.set_missing_value(StringFirst)?;
+        let sort = Sort::with_fields(vec![sort_field.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(3, td.total_hits().value());
+
+        let doc0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("3", doc0.get("id")?.unwrap().as_ref());
+
+        let doc1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+
+        let doc2 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[2].doc())?;
+        assert_eq!("2", doc2.get("id")?.unwrap().as_ref());
+
         Ok(())
     }
 }
