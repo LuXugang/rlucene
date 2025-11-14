@@ -300,7 +300,7 @@ where
                 )?)),
             };
             let terms = context.reader().terms(&comparator.field)?;
-            let terms_iter = match terms {
+            let terms_enum = match terms {
                 None => {
                     return Err(LuceneError::illegal_state("terms is None"));
                 },
@@ -310,7 +310,7 @@ where
                 context,
                 leaf.dense,
                 docs_with_field,
-                terms_iter,
+                terms_enum,
             )?);
         }
 

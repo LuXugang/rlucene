@@ -240,6 +240,7 @@ where
     LR: LeafReader,
 {
     type FieldComparator = FieldComparatorEnum;
+
     fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
@@ -274,6 +275,10 @@ where
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.set_bottom(slot, c)
             },
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.set_bottom(slot, &mut c.base)
+            },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
@@ -300,7 +305,6 @@ where
             (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
                 comparator.compare_bottom(doc, scorer, &mut c.base)
             },
-
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
             },
@@ -324,6 +328,10 @@ where
             },
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.compare_bottom(doc, scorer, c)
+            },
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.compare_bottom(doc, scorer, &mut c.base)
             },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
@@ -351,7 +359,6 @@ where
             (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => {
                 comparator.compare_top(doc, scorer, &mut c.base)
             },
-
             (Self::Float(comparator), FieldComparatorEnum::Float(c)) => {
                 comparator.compare_top(doc, scorer, c)
             },
@@ -375,6 +382,10 @@ where
             },
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.compare_top(doc, scorer, c)
+            },
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.compare_top(doc, scorer, &mut c.base)
             },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
@@ -427,6 +438,10 @@ where
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.copy(slot, doc, scorer, c)
             },
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.copy(slot, doc, scorer, &mut c.base)
+            },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
     }
@@ -475,6 +490,9 @@ where
             },
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.set_scorer(scorer, c)
+            },
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.set_scorer(scorer, &mut c.base)
             },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }
@@ -526,6 +544,12 @@ where
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => comparator
                 .competitive_iterator(c)
                 .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D)),
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator
+                    .competitive_iterator(&mut c.base)
+                    .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D))
+            },
             _ => Ok(None),
         }
     }
@@ -567,6 +591,10 @@ where
             },
             (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => {
                 comparator.set_hits_threshold_reached(c)
+            },
+
+            (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
+                comparator.set_hits_threshold_reached(&mut c.base)
             },
             _ => Err(LuceneError::illegal_state("Mismatched comparator types")),
         }

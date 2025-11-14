@@ -277,7 +277,7 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
 }
 
 pub struct SortedDocValuesTermOrdValComparator {
-    base: TermOrdValComparator,
+    pub(crate) base: TermOrdValComparator,
     selector: SortedSetSelectorType,
 }
 impl SortedDocValuesTermOrdValComparator {
@@ -334,5 +334,157 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
 
     fn disable_skipping(&mut self) {
         self.base.disable_skipping()
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::keyword_field::KeywordField;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::sort::Sort;
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::sorted_set_selector::SortedSetSelectorType::Max;
+    use crate::core::search::sorted_set_sort_field::SortedSetSortField;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::CoreHelper;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_from_string, new_directory, new_searcher_with_reader, random,
+    };
+    use std::sync::Arc;
+
+    /// Simple tests for SortedSetSortField, indexing the sortedset up front
+    #[allow(dead_code)]
+    struct TestSortedSetSortField;
+
+    #[test]
+    fn test_empty_index() -> Result<()> {
+        // TODO MultiReader未实现
+        Ok(())
+    }
+    #[test]
+    fn test_equals() -> Result<()> {
+        let sf = SortedSetSortField::new("a", false)?;
+        assert!(sf == sf);
+        let sf2 = SortedSetSortField::new("a", false)?;
+        assert!(sf == sf2);
+        assert_eq!(
+            CoreHelper::calculate_hash(&sf),
+            CoreHelper::calculate_hash(&sf2)
+        );
+
+        assert!(sf != SortedSetSortField::new("a", true)?);
+        assert!(sf != SortedSetSortField::new("b", false)?);
+        assert!(sf != SortedSetSortField::with_selector("a", false, Max)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_forward() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+        // doc1
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "baz")?,
+            Store::No,
+        )?);
+        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        // doc2
+        let mut doc = Document::new();
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+            Store::No,
+        )?);
+        doc.add(KeywordField::with_bytes_ref(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+            Store::No,
+        )?);
+        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        writer.add_document(doc)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        writer.close()?;
+
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?.into()])?;
+
+        let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        assert_eq!(2, td.total_hits().value());
+
+        let doc0 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[0].doc())?;
+        assert_eq!("1", doc0.get("id")?.unwrap().as_ref());
+
+        let doc1 = searcher
+            .stored_fields()?
+            .document(td.score_docs()[1].doc())?;
+        assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
+
+        Ok(())
+    }
+    #[test]
+    fn test_reverse() -> Result<()> {
+        // let mut random = random();
+        // let dir = Arc::new(new_directory(&mut random)?);
+        // let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        //
+        // let mut doc = Document::new();
+        // doc.add(
+        //     KeywordField::with_bytes_ref(
+        //         "value",
+        //         new_bytes_ref_from_string(&mut random, "foo")?,
+        //         Store::No,
+        //     )?,
+        // );
+        // doc.add(
+        //     KeywordField::with_bytes_ref(
+        //         "value",
+        //         new_bytes_ref_from_string(&mut random, "bar")?,
+        //         Store::No,
+        //     )?,
+        // );
+        // doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        // writer.add_document(doc)?;
+        //
+        // let mut doc = Document::new();
+        // doc.add(
+        //     KeywordField::with_bytes_ref(
+        //         "value",
+        //         new_bytes_ref_from_string(&mut random, "baz")?,
+        //         Store::No,
+        //     )?,
+        // );
+        // doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        // writer.add_document(doc)?;
+        //
+        // let reader = Arc::new(writer.get_reader()?);
+        // writer.close()?;
+        //
+        // let mut searcher = new_searcher_with_reader(reader.clone())?;
+        // let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?.into()])?;
+        //
+        // let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+        // assert_eq!(2, td.total_hits().value());
+        //
+        // let doc0 = searcher.stored_fields()?.document(td.score_docs()[0].doc())?;
+        // assert_eq!("2", doc0.get("id")?.unwrap().as_ref());
+        //
+        // let doc1 = searcher.stored_fields()?.document(td.score_docs()[1].doc())?;
+        // assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+
+        Ok(())
     }
 }

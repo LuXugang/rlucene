@@ -618,7 +618,7 @@ where
             while fp_idx >= 0 {
                 let fp0 = &mut self.per_fields[fp_idx as usize];
                 let next_fp0 = fp0.next;
-                let hash_pos2 = CoreHelper::compute_hash(&fp0.field_name) & new_hash_mask as u64;
+                let hash_pos2 = CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64;
                 let idx = new_hash_array[hash_pos2 as usize];
                 if idx < 0 {
                     fp0.next = -1;
@@ -982,7 +982,7 @@ where
     /// Returns a previously created [`PerField`], absorbing the type information from
     /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
     pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> usize {
-        let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
+        let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
         let mut conflict = false;
         while per_field_index >= 0 {
@@ -1239,7 +1239,7 @@ where
     }
 
     fn get_per_field(&self, name: &str) -> Option<usize> {
-        let hash_pos = CoreHelper::compute_hash(&name.to_string()) as usize & self.hash_mask;
+        let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
         while per_field_index >= 0 {
             let pf = &self.per_fields[per_field_index as usize];

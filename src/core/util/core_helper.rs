@@ -77,7 +77,7 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
         *target = reset_fn(&old);
         old
     }
-    pub fn compute_hash<T>(value: &T) -> u64
+    pub fn calculate_hash<T>(value: &T) -> u64
     where
         T: Hash + ?Sized,
     {
