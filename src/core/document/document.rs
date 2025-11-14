@@ -265,14 +265,22 @@ impl IntoIterator for Document {
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
-    use crate::core::document::field::{Field, Store};
+    use crate::core::document::field::{Field, FieldBase, Store};
     use crate::core::document::field_type::FieldType;
     use crate::core::document::stored_field::StoredField;
     use crate::core::document::string_field::StringField;
     use crate::core::document::text_field::TextField;
+    use crate::core::index::composite_reader::get_context;
     use crate::core::index::index_options::IndexOptions;
+    use crate::core::index::index_reader::IndexReader;
     use crate::core::index::indexable_field::IndexableField;
     use crate::core::index::indexable_field_type::IndexableFieldType;
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::index::term::Term;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
@@ -430,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_get_fields_immutable() -> Result<()> {
-        //`fields` is an immutable slice.
+        // this test is not required in Rust Lucene
         Ok(())
     }
 
@@ -440,9 +448,33 @@ mod tests {
     }
     #[test]
     fn test_get_values_for_indexed_document() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(make_document_with_fields()?)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let reader_ctx = get_context(reader.clone())?;
+        let mut searcher = IndexSearcher::new(reader_ctx)?;
+
+        // search for something that does exist
+        let query = TermQuery::new(Term::from_text("keyword", "test1"));
+
+        // ensure that queries return expected results without DateFilter first
+        let top_docs = searcher.search(query, 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(hits.len(), 1);
+
+        let doc = searcher.stored_fields()?.document(hits[0].doc())?;
+
+        do_assert(&doc, true)?;
+
+        writer.close()?;
+
         Ok(())
     }
+
     #[test]
     fn test_get_values() -> Result<()> {
         let doc = make_document_with_fields()?;
@@ -466,7 +498,7 @@ mod tests {
     }
     #[test]
     fn test_position_increment_multi_fields() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        // TODO PhraseQuery未实现
         Ok(())
     }
 
@@ -554,18 +586,108 @@ mod tests {
     }
     #[test]
     fn test_field_set_value() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut field = StringField::with_string("id", "id1", Store::Yes)?;
+        let mut doc = Document::new();
+        doc.add(field.clone());
+        let field2 = StringField::with_string("keyword", "test", Store::Yes)?;
+        doc.add(field2.clone());
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(doc.clone())?;
+
+        field.set_string_value("id2")?;
+        doc = Document::new();
+        doc.add(field.clone());
+        doc.add(field2.clone());
+        writer.add_document(doc.clone())?;
+
+        field.set_string_value("id3")?;
+        doc = Document::new();
+        doc.add(field.clone());
+        doc.add(field2.clone());
+        writer.add_document(doc.clone())?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let reader_ctx = get_context(reader.clone())?;
+        let mut searcher = IndexSearcher::new(reader_ctx)?;
+
+        let query = TermQuery::new(Term::from_text("keyword", "test"));
+        // ensure that queries return expected results without DateFilter first
+        let top_docs = searcher.search(query, 1000)?;
+        let hits = top_docs.score_docs();
+        assert_eq!(hits.len(), 3);
+
+        let mut stored_fields = searcher.stored_fields()?;
+
+        let mut result = 0;
+
+        for i in 0..3 {
+            let doc2 = stored_fields.document(hits[i].doc())?;
+
+            let f = doc2
+                .get_field("id")
+                .ok_or_else(|| LuceneError::illegal_state("missing id field"))?;
+
+            let string_value = f.string_value()?.unwrap();
+            let val = string_value.as_ref().as_str();
+
+            match val {
+                "id1" => result |= 1,
+                "id2" => result |= 2,
+                "id3" => result |= 4,
+                _ => return Err(LuceneError::illegal_state("unexpected id field")),
+            }
+        }
+
+        writer.close()?;
+
+        assert_eq!(7, result, "did not see all IDs");
         Ok(())
     }
 
     #[test]
     fn test_invalid_fields() {
-        // TODO : IndexWriter not implemented
+        // TODO : MockTokenizer not implemented
     }
 
     #[test]
     fn test_numeric_field_as_string() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        // build document
+        let mut doc = Document::new();
+        doc.add(StoredField::with_i32("int", 5)?);
+        assert_eq!("5", doc.get("int")?.unwrap().as_ref());
+        assert_eq!(None, doc.get("somethingElse")?);
+
+        doc.add(StoredField::with_i32("int", 4)?);
+
+        let values = doc.get_values("int")?;
+        assert_eq!(
+            values.iter().map(|v| v.as_ref()).collect::<Vec<&String>>(),
+            vec!["5", "4"]
+        );
+
+        // index it
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+        iw.add_document(doc.clone())?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        let sdoc = ir.stored_fields()?.document(0)?;
+
+        assert_eq!("5", sdoc.get("int")?.unwrap().as_ref());
+        assert_eq!(None, sdoc.get("somethingElse")?);
+
+        let svalues = sdoc.get_values("int")?;
+        assert_eq!(
+            svalues.iter().map(|v| v.as_ref()).collect::<Vec<&String>>(),
+            vec!["5", "4"]
+        );
+
+        iw.close()?;
         Ok(())
     }
 }
