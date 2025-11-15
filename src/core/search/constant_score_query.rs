@@ -86,7 +86,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = Either2Weight<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>
+        = ConstantScoreQueryWeight<S, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
