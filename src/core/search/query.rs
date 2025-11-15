@@ -24,6 +24,7 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllWeight};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -90,6 +91,7 @@ pub enum Query {
     Dummy(DummyQuery),
     Boost(BoostQuery),
     ConstantScore(ConstantScoreQuery),
+    PointRange(PointRangeQuery),
 }
 impl Default for Query {
     fn default() -> Self {
@@ -108,6 +110,7 @@ impl PartialEq for Query {
             (Query::Dummy(d1), Query::Dummy(d2)) => d1 == d2,
             (Query::Boost(b1), Query::Boost(b2)) => b1 == b2,
             (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
+            (Query::PointRange(c1), Query::PointRange(c2)) => c1 == c2,
             _ => false,
         }
     }
@@ -134,6 +137,9 @@ impl Hash for Query {
             Query::ConstantScore(c) => {
                 c.hash(state);
             },
+            Query::PointRange(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -158,6 +164,9 @@ impl Debug for Query {
             Query::ConstantScore(c) => {
                 write!(f, "Query::ConstantScore({:?})", c)
             },
+            Query::PointRange(c) => {
+                write!(f, "Query::PointRange({:?})", c)
+            },
         }
     }
 }
@@ -171,6 +180,7 @@ impl QueryBase for Query {
             Query::Dummy(d) => d.as_string(field),
             Query::Boost(b) => b.as_string(field),
             Query::ConstantScore(c) => c.as_string(field),
+            Query::PointRange(c) => c.as_string(field),
         }
     }
 
@@ -268,6 +278,11 @@ impl From<BoostQuery> for Query {
 impl From<ConstantScoreQuery> for Query {
     fn from(value: ConstantScoreQuery) -> Self {
         Query::ConstantScore(value)
+    }
+}
+impl From<PointRangeQuery> for Query {
+    fn from(value: PointRangeQuery) -> Self {
+        Query::PointRange(value)
     }
 }
 #[derive(Clone, Debug)]

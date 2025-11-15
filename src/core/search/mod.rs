@@ -85,6 +85,7 @@ pub mod boost_query;
 mod constant_score_query;
 mod dummy_query_caching_policy;
 pub mod filter_scorable;
+mod point_range_query;
 pub mod top_field_collector;
 pub mod top_field_collector_manager;
 mod top_field_docs;

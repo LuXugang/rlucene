@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::point_values::PointValues;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -47,6 +48,17 @@ impl DocIdSetBuilder {
     /// Create a builder that can contain doc IDs between  0 and maxDoc.
     pub fn new(max_doc: i32) -> DocIdSetBuilder {
         Self::with_count(max_doc, -1, -1)
+    }
+
+    pub fn with_point_values<PV>(max_doc: i32, values: &PV, _field: &str) -> Result<DocIdSetBuilder>
+    where
+        PV: PointValues,
+    {
+        Ok(Self::with_count(
+            max_doc,
+            values.get_doc_count()?,
+            values.size()?,
+        ))
     }
 
     pub fn with_count(max_doc: i32, doc_count: i32, value_count: i64) -> DocIdSetBuilder {

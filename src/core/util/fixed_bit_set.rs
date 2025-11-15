@@ -283,7 +283,7 @@ impl FixedBitSet {
         }
     }
 
-    pub fn and_not_iter(&mut self, mut iter: impl DocIdSetIterator) -> Result<()> {
+    pub fn and_not_iter(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.clear_with_index(doc);
@@ -1286,8 +1286,8 @@ mod tests {
             // test BitSetIterator
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
             let fixed_bit = Rc::new(make_fixed_bitset(&mut random, &bits1, num_bits1)?);
-            let disi = BitSetIterator::new(fixed_bit, count1 as i64)?;
-            fixed_bit_set2.and_not_iter(disi)?;
+            let mut disi = BitSetIterator::new(fixed_bit, count1 as i64)?;
+            fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }
         {
@@ -1295,8 +1295,8 @@ mod tests {
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
             let offset_bits: Vec<i32> = bits1.iter().map(|&i| i - offset1).collect();
             let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1)?;
-            let disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1)?;
-            fixed_bit_set2.and_not_iter(disi)?;
+            let mut disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1)?;
+            fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }
         {
@@ -1305,8 +1305,8 @@ mod tests {
             let mut sorted = bits1.clone();
             sorted.push(0);
             sorted[bits1.len()] = NO_MORE_DOCS;
-            let disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1);
-            fixed_bit_set2.and_not_iter(disi)?;
+            let mut disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1);
+            fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }
         Ok(())
