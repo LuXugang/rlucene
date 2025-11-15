@@ -77,7 +77,8 @@ impl Hash for ConstantScoreQuery {
         self.query.hash(state);
     }
 }
-
+pub type ConstantScoreQueryWeight<S, IRC, QCP, QC> =
+    Either2Weight<WeightImpl<S, IRC, QCP, QC>, WeightEnum<Query, S, IRC, QCP, QC>>;
 impl QueryBase for ConstantScoreQuery {
     fn as_string(&self, field: &str) -> String {
         let inner = self.query.as_string(field);
@@ -85,8 +86,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        =
-        Either2Weight<ConstantScoreQueryWeight<S, IRC, QCP, QC>, WeightEnum<Query, S, IRC, QCP, QC>>
+        = Either2Weight<WeightImpl<S, IRC, QCP, QC>, WeightEnum<Query, S, IRC, QCP, QC>>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -117,11 +117,11 @@ impl QueryBase for ConstantScoreQuery {
         let inner_weight =
             searcher.create_weight(query, inner_score_mode, 1.0, per_reader_term_state)?;
         if score_mode.needs_scores() {
-            Ok(Either2Weight::A(
-                ConstantScoreQueryWeight::<S, IRC, QCP, QC>::new(boost, inner_weight, *score_mode),
+            Ok(ConstantScoreQueryWeight::A(
+                WeightImpl::<S, IRC, QCP, QC>::new(boost, inner_weight, *score_mode),
             ))
         } else {
-            Ok(Either2Weight::B(inner_weight))
+            Ok(ConstantScoreQueryWeight::B(inner_weight))
         }
     }
 
@@ -149,7 +149,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 }
 
-pub struct ConstantScoreQueryWeight<S, IRC, QCP, QC>
+pub struct WeightImpl<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
@@ -160,7 +160,7 @@ where
     inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
     score_mode: ScoreMode,
 }
-impl<S, IRC, QCP, QC> ConstantScoreQueryWeight<S, IRC, QCP, QC>
+impl<S, IRC, QCP, QC> WeightImpl<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
@@ -179,8 +179,7 @@ where
         }
     }
 }
-impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader>
-    for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader> for WeightImpl<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
@@ -192,7 +191,7 @@ where
     }
 }
 
-impl<S, IRC, QCP, QC> Weight<IRC::LeafReader> for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+impl<S, IRC, QCP, QC> Weight<IRC::LeafReader> for WeightImpl<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
