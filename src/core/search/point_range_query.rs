@@ -54,7 +54,18 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
-
+/// Struct for range queries over single- or multi-dimensional point fields,
+/// such as [`IntPoint`](crate::core::document::int_point::IntPoint).
+///
+/// This type is intended for subclasses and works directly on the underlying
+/// binary encoding. For Lucene's standard point types, use the factory methods
+/// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::new_point_range_query) for fields
+/// indexed with [`IntPoint`](crate::core::document::int_point::IntPoint).
+///
+/// For single-dimensional fields, this represents a simple range query; for
+/// multi-dimensional fields, it represents a box-shaped query.
+///
+/// See also: [`PointValues`]
 #[derive(Debug, Clone)]
 pub struct PointRangeQuery {
     field: String,
@@ -65,6 +76,17 @@ pub struct PointRangeQuery {
     sub: PointRangeBaseEnum,
 }
 impl PointRangeQuery {
+    /// Expert: create a multi-dimensional range query over point values.
+    ///
+    /// # Parameters
+    /// - `field`: the field name.
+    /// - `lower_point`: the inclusive lower bound of the range.
+    /// - `upper_point`: the inclusive upper bound of the range.
+    /// - `num_dims`: number of dimensions.
+    ///
+    /// # Errors
+    /// Returns an error if `field` is empty or if the lengths of `lower_point` and
+    /// `upper_point` do not match.
     pub fn new<S>(
         field: String,
         lower_point: Vec<u8>,
@@ -119,7 +141,7 @@ impl PointRangeQuery {
             && self.lower_point == other.lower_point
             && self.upper_point == other.upper_point
     }
-    fn to_string(&self, field: &str) -> String {
+    pub fn to_string(&self, field: &str) -> String {
         let mut sb = String::new();
 
         if self.field != field {
@@ -155,6 +177,7 @@ impl PointRangeQuery {
         &self.upper_point
     }
 }
+
 pub fn check_args(_field: &String, _lower_point: &Vec<u8>, _upper_point: &Vec<u8>) -> Result<()> {
     // not required in Rust Lucene, return Ok directly
     Ok(())
@@ -288,7 +311,17 @@ where
     ) -> IntersectVisitorImpl1 {
         IntersectVisitorImpl1::new(result, weight.query.clone(), weight.comparator.clone())
     }
-
+    /// Count the number of points that satisfy the given range constraints.
+    ///
+    /// This is faster than calling [`PointValues::intersect`] to collect and count
+    /// matching points. It does **not** enforce live documents, so it must only be
+    /// used when there are no deleted documents.
+    ///
+    /// # Parameters
+    /// - `point_tree`: the starting node of the count operation.
+    ///
+    /// # Returns
+    /// The number of points that match the queried range.
     fn point_count(&self, point_tree: &mut impl PointTree) -> Result<i64> {
         let mut visitor = IntersectVisitorImpl2::new(self.query.clone(), self.comparator.clone());
         self.point_count_with_visitor(&mut visitor, point_tree)?;
@@ -887,7 +920,7 @@ impl IntersectVisitor for IntersectVisitorImpl2 {
         )))
     }
 
-    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    fn visit_with_packed_value(&mut self, _doc_id: i32, packed_value: &[u8]) -> Result<()> {
         if matches(&self.query, &self.comparator, packed_value)? {
             self.matching_node_count += 1;
         }
@@ -904,6 +937,14 @@ impl IntersectVisitor for IntersectVisitorImpl2 {
     }
 }
 pub trait PointRangeBase {
+    /// Format a single point value as a human-readable string for debugging.
+    ///
+    /// # Parameters
+    /// - `dimension`: the dimension index of this value.
+    /// - `value`: the encoded point value .
+    ///
+    /// # Returns
+    /// A human-readable representation of the value for debugging.
     fn to_string(&self, dimension: i32, value: &[u8]) -> String;
 }
 #[derive(Debug, Clone)]
