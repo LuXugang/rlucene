@@ -33,7 +33,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -521,26 +521,22 @@ where
         // TODO
         Ok(original)
     }
-    pub(crate) fn create_weight<Q>(
+    pub(crate) fn create_weight(
         &self,
-        query: Q,
+        query: Query,
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<WeightEnum<Q, S, IRC, QCP, QC>>
-    where
-        Q: QueryBase,
-    {
+    ) -> Result<IndexSearcherWeight<S, IRC, QCP, QC>> {
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
-        let v = if !score_mode.needs_scores() {
-            Either2Weight::A(
+        if !score_mode.needs_scores() {
+            Ok(Either2Weight::A(
                 self.query_cache
                     .do_cache(weight, self.query_caching_policy.clone()),
-            )
+            ))
         } else {
-            Either2Weight::B(weight)
-        };
-        Ok(v)
+            Ok(Either2Weight::B(weight))
+        }
     }
     /// Returns [`TermStatistics`] for a term.
     ///
@@ -599,12 +595,9 @@ where
         Ok(Some(stats))
     }
 }
-pub type WeightEnum<Q, S, IRC, QCP, QC> = Either2Weight<
-    <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<
-        <Q as QueryBase>::Weight<S, IRC, QCP, QC>,
-        QCP,
-    >,
-    <Q as QueryBase>::Weight<S, IRC, QCP, QC>,
+pub type IndexSearcherWeight<S, IRC, QCP, QC> = Either2Weight<
+    <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<QueryWeight<S, IRC>, QCP>,
+    QueryWeight<S, IRC>,
 >;
 
 /// Returns the maximum number of clauses permitted, `1024` by default.

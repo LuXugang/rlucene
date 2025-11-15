@@ -30,7 +30,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_leaf_collector::{FilterLeafCollectorRef, FilterSource};
 use crate::core::search::filter_scorable::FilterScorable;
-use crate::core::search::index_searcher::{IndexSearcher, WeightEnum};
+use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherWeight};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -78,7 +78,7 @@ impl Hash for ConstantScoreQuery {
     }
 }
 pub type ConstantScoreQueryWeight<S, IRC, QCP, QC> =
-    Either2Weight<WeightImpl<S, IRC, QCP, QC>, WeightEnum<Query, S, IRC, QCP, QC>>;
+    Either2Weight<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
 impl QueryBase for ConstantScoreQuery {
     fn as_string(&self, field: &str) -> String {
         let inner = self.query.as_string(field);
@@ -86,7 +86,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = Either2Weight<WeightImpl<S, IRC, QCP, QC>, WeightEnum<Query, S, IRC, QCP, QC>>
+        = Either2Weight<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -157,7 +157,7 @@ where
     QC: QueryCache<IRC::LeafReader>,
 {
     base: ConstantScoreWeight,
-    inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
+    inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
     score_mode: ScoreMode,
 }
 impl<S, IRC, QCP, QC> WeightImpl<S, IRC, QCP, QC>
@@ -169,7 +169,7 @@ where
 {
     pub fn new(
         boost: f32,
-        inner_weight: WeightEnum<Query, S, IRC, QCP, QC>,
+        inner_weight: IndexSearcherWeight<S, IRC, QCP, QC>,
         score_mode: ScoreMode,
     ) -> Self {
         Self {
@@ -198,7 +198,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache<IRC::LeafReader>,
 {
-    type Matches = <WeightEnum<Query, S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
+    type Matches = <IndexSearcherWeight<S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
 
     fn matches(
         &self,
@@ -243,7 +243,7 @@ where
         self.inner_weight.count(context)
     }
 }
-pub type ScorerSupplierAlias<S, IRC, QCP, QC> = <WeightEnum<Query, S, IRC, QCP, QC> as Weight<
+pub type ScorerSupplierAlias<S, IRC, QCP, QC> = <IndexSearcherWeight<S, IRC, QCP, QC> as Weight<
     <IRC as IndexReaderContext>::LeafReader,
 >>::ScorerSupplier;
 pub type TPI<S, IRC, QCP, QC> = <<ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
@@ -263,7 +263,7 @@ pub type BulkScorerEnum<S, IRC, QCP, QC> = Either2BulkScorer<
     DefaultBulkScorer<ConstantScoreScorerEnum<S, IRC, QCP, QC>>,
     ConstantBulkScorer<
         BS<S, IRC, QCP, QC>,
-        WeightEnum<Query, S, IRC, QCP, QC>,
+        IndexSearcherWeight<S, IRC, QCP, QC>,
         <IRC as IndexReaderContext>::LeafReader,
     >,
 >;
@@ -274,7 +274,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache<IRC::LeafReader>,
 {
-    inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
+    inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
     score_mode: ScoreMode,
     inner_scorer_supplier: ScorerSupplierAlias<S, IRC, QCP, QC>,
     score: f32,
@@ -287,7 +287,7 @@ where
     QC: QueryCache<IRC::LeafReader>,
 {
     fn new(
-        inner_weight: Arc<WeightEnum<Query, S, IRC, QCP, QC>>,
+        inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
         score_mode: ScoreMode,
         inner_scorer_supplier: ScorerSupplierAlias<S, IRC, QCP, QC>,
         score: f32,
