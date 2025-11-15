@@ -197,10 +197,6 @@ impl BinaryPoint {
     }
 }
 
-// ========================
-//   FieldBase delegations
-// ========================
-
 impl FieldBase for BinaryPoint {
     fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
         Err(LuceneError::illegal_argument(
