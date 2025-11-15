@@ -24,13 +24,13 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllWeight};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::point_range_query::PointRangeQuery;
+use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Either2Weight, Weight};
+use crate::core::search::weight::{Either3Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -208,13 +208,19 @@ impl QueryBase for Query {
         Self: Sized,
     {
         match self {
-            Query::Term(t) => Ok(Either2Weight::A(t.create_weight(
+            Query::Term(t) => Ok(QueryWeight::A(t.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::MatchAll(m) => Ok(Either2Weight::B(m.create_weight(
+            Query::MatchAll(m) => Ok(QueryWeight::B(m.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::PointRange(p) => Ok(QueryWeight::C(p.create_weight(
                 searcher,
                 score_mode,
                 boost,
@@ -247,8 +253,11 @@ impl QueryBase for Query {
         todo!()
     }
 }
-pub type QueryWeight<S, IRC> =
-    Either2Weight<TermWeight<S, IRC>, MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>>;
+pub type QueryWeight<S, IRC> = Either3Weight<
+    TermWeight<S, IRC>,
+    MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
+    PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
+>;
 
 impl From<TermQuery> for Query {
     fn from(value: TermQuery) -> Self {

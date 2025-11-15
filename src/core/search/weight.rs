@@ -16,17 +16,19 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer, Either5BulkScorer};
+use crate::core::search::bulk_scorer::{
+    BulkScorer, Either2BulkScorer, Either3BulkScorer, Either5BulkScorer,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::{Either2Matches, Either5Matches, Matches};
+use crate::core::search::matches::{Either2Matches, Either3Matches, Either5Matches, Matches};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
-use crate::core::search::scorer::{Either2Scorer, Either5Scorer, Scorer};
+use crate::core::search::scorer::{Either2Scorer, Either3Scorer, Either5Scorer, Scorer};
 use crate::core::search::scorer_supplier::{
-    Either2ScorerSupplier, Either5ScorerSupplier, ScorerSupplier,
+    Either2ScorerSupplier, Either3ScorerSupplier, Either5ScorerSupplier, ScorerSupplier,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -617,6 +619,16 @@ either_weight!(
         bulk: Either2BulkScorer
     }
     { A: A, B: B }
+);
+either_weight!(
+    pub Either3Weight
+    => {
+        matches: Either3Matches,
+        supplier: Either3ScorerSupplier,
+        scorer: Either3Scorer,
+        bulk: Either3BulkScorer
+    }
+    { A: A, B: B, C: C }
 );
 either_weight!(
     pub Either5Weight
