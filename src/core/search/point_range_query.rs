@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::double_point::DoublePointRangeQuery;
+use crate::core::document::float_point::FloatPointRangeQuery;
+use crate::core::document::int_point::IntPointRangeQuery;
+use crate::core::document::long_point::LongPointRangeQuery;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -58,15 +62,20 @@ pub struct PointRangeQuery {
     bytes_per_dim: i32,
     lower_point: Vec<u8>,
     upper_point: Vec<u8>,
+    sub: PointRangeBaseEnum,
 }
 impl PointRangeQuery {
-    fn new(
+    pub fn new<S>(
         field: String,
         lower_point: Vec<u8>,
         upper_point: Vec<u8>,
         num_dims: i32,
-    ) -> Result<Self> {
-        Self::check_args(&field, lower_point.as_ref(), upper_point.as_ref())?;
+        sub: S,
+    ) -> Result<Self>
+    where
+        S: Into<PointRangeBaseEnum>,
+    {
+        check_args(&field, lower_point.as_ref(), upper_point.as_ref())?;
         if num_dims <= 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "num_dims must be positive, got {}",
@@ -99,15 +108,10 @@ impl PointRangeQuery {
             bytes_per_dim,
             lower_point,
             upper_point,
+            sub: sub.into(),
         })
     }
-    pub fn check_args(
-        _field: &String,
-        _lower_point: &Vec<u8>,
-        _upper_point: &Vec<u8>,
-    ) -> Result<()> {
-        Ok(())
-    }
+
     fn equals_to(&self, other: &PointRangeQuery) -> bool {
         self.field == other.field
             && self.num_dims == other.num_dims
@@ -115,7 +119,7 @@ impl PointRangeQuery {
             && self.lower_point == other.lower_point
             && self.upper_point == other.upper_point
     }
-    fn to_string(&self, field: &str, lower_point_message: &str, up_point_message: &str) -> String {
+    fn to_string(&self, field: &str) -> String {
         let mut sb = String::new();
 
         if self.field != field {
@@ -127,11 +131,16 @@ impl PointRangeQuery {
             if i > 0 {
                 sb.push(',');
             }
+            let start = (self.bytes_per_dim * i) as usize;
+            let end = start + self.bytes_per_dim as usize;
+
+            let lower = &self.lower_point[start..end];
+            let upper = &self.upper_point[start..end];
 
             sb.push('[');
-            sb.push_str(lower_point_message);
+            sb.push_str(&self.sub.to_string(i, lower));
             sb.push_str(" TO ");
-            sb.push_str(up_point_message);
+            sb.push_str(&self.sub.to_string(i, upper));
             sb.push(']');
         }
 
@@ -145,6 +154,10 @@ impl PointRangeQuery {
     fn get_upper_point(&self) -> &[u8] {
         &self.upper_point
     }
+}
+pub fn check_args(_field: &String, _lower_point: &Vec<u8>, _upper_point: &Vec<u8>) -> Result<()> {
+    // not required in Rust Lucene, return Ok directly
+    Ok(())
 }
 
 impl Eq for PointRangeQuery {}
@@ -888,5 +901,45 @@ impl IntersectVisitor for IntersectVisitorImpl2 {
             min_packed_value,
             max_packed_value,
         )
+    }
+}
+pub trait PointRangeBase {
+    fn to_string(&self, dimension: i32, value: &[u8]) -> String;
+}
+#[derive(Debug, Clone)]
+pub enum PointRangeBaseEnum {
+    Int(IntPointRangeQuery),
+    Long(LongPointRangeQuery),
+    Float(FloatPointRangeQuery),
+    Double(DoublePointRangeQuery),
+}
+impl From<IntPointRangeQuery> for PointRangeBaseEnum {
+    fn from(v: IntPointRangeQuery) -> Self {
+        PointRangeBaseEnum::Int(v)
+    }
+}
+impl From<LongPointRangeQuery> for PointRangeBaseEnum {
+    fn from(v: LongPointRangeQuery) -> Self {
+        PointRangeBaseEnum::Long(v)
+    }
+}
+impl From<FloatPointRangeQuery> for PointRangeBaseEnum {
+    fn from(v: FloatPointRangeQuery) -> Self {
+        PointRangeBaseEnum::Float(v)
+    }
+}
+impl From<DoublePointRangeQuery> for PointRangeBaseEnum {
+    fn from(v: DoublePointRangeQuery) -> Self {
+        PointRangeBaseEnum::Double(v)
+    }
+}
+impl PointRangeBase for PointRangeBaseEnum {
+    fn to_string(&self, dimension: i32, value: &[u8]) -> String {
+        match self {
+            PointRangeBaseEnum::Int(q) => q.to_string(dimension, value),
+            PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),
+            PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
+            PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
+        }
     }
 }

@@ -23,6 +23,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery, check_args};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -218,6 +219,47 @@ impl fmt::Display for FloatPoint {
             },
         }
         write!(f, ">")
+    }
+}
+pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
+where
+    T: Into<String>,
+    V: AsRef<[f32]>,
+{
+    let value = value.as_ref();
+    new_point_range_query(field, value, value)
+}
+
+pub fn new_point_range_query<T, V>(
+    field: T,
+    lower_point: V,
+    upper_point: V,
+) -> Result<PointRangeQuery>
+where
+    T: Into<String>,
+    V: AsRef<[f32]>,
+{
+    let field = field.into();
+
+    let mut lower_point = FloatPoint::pack(lower_point.as_ref())?;
+    let mut upper_point = FloatPoint::pack(upper_point.as_ref())?;
+
+    check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
+
+    PointRangeQuery::new(
+        field,
+        lower_point.take_bytes(),
+        upper_point.take_bytes(),
+        lower_point.length.try_into()?,
+        FloatPointRangeQuery,
+    )
+}
+#[derive(Debug, Clone)]
+pub struct FloatPointRangeQuery;
+
+impl PointRangeBase for FloatPointRangeQuery {
+    fn to_string(&self, _dimension: i32, value: &[u8]) -> String {
+        FloatPoint::decode_dimension(value, 0).to_string()
     }
 }
 

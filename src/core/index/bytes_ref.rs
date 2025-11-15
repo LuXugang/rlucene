@@ -167,6 +167,9 @@ where
         })?;
         Ok(true)
     }
+    pub fn take_bytes(&mut self) -> AV {
+        std::mem::take(&mut self.bytes)
+    }
 }
 impl<AV> PartialOrd for BytesRef<AV>
 where
