@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::binary_point::BinaryPointRangeQuery;
 use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
 use crate::core::document::int_point::IntPointRangeQuery;
@@ -54,6 +55,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// Struct for range queries over single- or multi-dimensional point fields,
 /// such as [`IntPoint`](crate::core::document::int_point::IntPoint).
 ///
@@ -178,7 +180,7 @@ impl PointRangeQuery {
     }
 }
 
-pub fn check_args(_field: &String, _lower_point: &Vec<u8>, _upper_point: &Vec<u8>) -> Result<()> {
+pub fn check_args(_field: &String, _lower_point: &[u8], _upper_point: &[u8]) -> Result<()> {
     // not required in Rust Lucene, return Ok directly
     Ok(())
 }
@@ -953,6 +955,7 @@ pub enum PointRangeBaseEnum {
     Long(LongPointRangeQuery),
     Float(FloatPointRangeQuery),
     Double(DoublePointRangeQuery),
+    Binary(BinaryPointRangeQuery),
 }
 impl From<IntPointRangeQuery> for PointRangeBaseEnum {
     fn from(v: IntPointRangeQuery) -> Self {
@@ -974,6 +977,11 @@ impl From<DoublePointRangeQuery> for PointRangeBaseEnum {
         PointRangeBaseEnum::Double(v)
     }
 }
+impl From<BinaryPointRangeQuery> for PointRangeBaseEnum {
+    fn from(v: BinaryPointRangeQuery) -> Self {
+        PointRangeBaseEnum::Binary(v)
+    }
+}
 impl PointRangeBase for PointRangeBaseEnum {
     fn to_string(&self, dimension: i32, value: &[u8]) -> String {
         match self {
@@ -981,6 +989,7 @@ impl PointRangeBase for PointRangeBaseEnum {
             PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),
             PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
             PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
+            PointRangeBaseEnum::Binary(q) => q.to_string(dimension, value),
         }
     }
 }

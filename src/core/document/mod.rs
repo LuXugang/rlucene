@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 pub mod binary_doc_values_field;
+pub mod binary_point;
 #[allow(clippy::module_inception)]
 pub mod document;
 pub mod document_stored_field_visitor;
