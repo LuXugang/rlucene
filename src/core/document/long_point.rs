@@ -101,6 +101,38 @@ impl LongPoint {
     pub fn decode_dimension(value: &[u8], offset: usize) -> i64 {
         NumericUtils::sortable_bytes_to_long(value, offset)
     }
+    pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
+    where
+        T: Into<String>,
+        V: AsRef<[i64]>,
+    {
+        let value = value.as_ref();
+        Self::new_point_range_query(field, value, value)
+    }
+    pub fn new_point_range_query<T, V>(
+        field: T,
+        lower_point: V,
+        upper_point: V,
+    ) -> Result<PointRangeQuery>
+    where
+        T: Into<String>,
+        V: AsRef<[i64]>,
+    {
+        let field = field.into();
+
+        let mut lower_point = LongPoint::pack(lower_point.as_ref())?;
+        let mut upper_point = LongPoint::pack(upper_point.as_ref())?;
+
+        check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
+
+        PointRangeQuery::new(
+            field,
+            lower_point.take_bytes(),
+            upper_point.take_bytes(),
+            lower_point.length.try_into()?, // numDims
+            LongPointRangeQuery,
+        )
+    }
 }
 
 impl FieldBase for LongPoint {
@@ -227,38 +259,7 @@ impl fmt::Display for LongPoint {
         write!(f, ">")
     }
 }
-pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
-where
-    T: Into<String>,
-    V: AsRef<[i64]>,
-{
-    let value = value.as_ref();
-    new_point_range_query(field, value, value)
-}
-pub fn new_point_range_query<T, V>(
-    field: T,
-    lower_point: V,
-    upper_point: V,
-) -> Result<PointRangeQuery>
-where
-    T: Into<String>,
-    V: AsRef<[i64]>,
-{
-    let field = field.into();
 
-    let mut lower_point = LongPoint::pack(lower_point.as_ref())?;
-    let mut upper_point = LongPoint::pack(upper_point.as_ref())?;
-
-    check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
-
-    PointRangeQuery::new(
-        field,
-        lower_point.take_bytes(),
-        upper_point.take_bytes(),
-        lower_point.length.try_into()?, // numDims
-        LongPointRangeQuery,
-    )
-}
 #[derive(Debug, Clone)]
 pub struct LongPointRangeQuery;
 

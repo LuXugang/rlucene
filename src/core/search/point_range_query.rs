@@ -59,7 +59,7 @@ use std::sync::Arc;
 ///
 /// This type is intended for subclasses and works directly on the underlying
 /// binary encoding. For Lucene's standard point types, use the factory methods
-/// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::new_point_range_query) for fields
+/// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::IntPoint::new_point_range_query) for fields
 /// indexed with [`IntPoint`](crate::core::document::int_point::IntPoint).
 ///
 /// For single-dimensional fields, this represents a simple range query; for
