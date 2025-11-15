@@ -29,6 +29,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Formatter;
 
 /// BinaryPoint field (Rust translation of Lucene's BinaryPoint)
 pub struct BinaryPoint {
@@ -281,37 +282,8 @@ impl IndexableField for BinaryPoint {
 }
 
 impl fmt::Display for BinaryPoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} <{}:",
-            std::any::type_name::<Self>(),
-            self.parent_field.name()
-        )?;
-
-        match &self.parent_field.fields_data {
-            FieldDataEnum::Binary(bytes) => {
-                let dims = self.parent_field.field_type().point_dimension_count();
-                let bpd = self.parent_field.field_type().point_num_bytes() as usize;
-                for dim in 0..dims {
-                    if dim > 0 {
-                        write!(f, ",")?;
-                    }
-                    let start = bytes.offset + dim as usize * bpd;
-                    let slice = &bytes.bytes[start..start + bpd];
-                    write!(f, "binary(")?;
-                    for (i, b) in slice.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, " ")?;
-                        }
-                        write!(f, "{:x}", b)?;
-                    }
-                    write!(f, ")")?;
-                }
-            },
-            _ => write!(f, "Unsupported FieldDataEnum variant")?,
-        }
-        write!(f, ">")
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.parent_field.fmt(f)
     }
 }
 
@@ -329,5 +301,14 @@ impl PointRangeBase for BinaryPointRangeQuery {
         }
         out.push(')');
         out
+    }
+}
+
+#[cfg(test)]
+impl Clone for BinaryPoint {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
     }
 }
