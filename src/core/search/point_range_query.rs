@@ -23,39 +23,41 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
+use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
-use crate::core::search::dummy::dummy_matches::DummyMatches;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer::Either2Scorer;
+use crate::core::search::scorer_supplier::{Either2ScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
-use crate::core::util::array_util::{ByteArrayComparator, ByteArrayComparatorEnum};
+use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
+use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PointRangeQuery {
     field: String,
     num_dims: i32,
     bytes_per_dim: i32,
-    lower_point: Arc<Vec<u8>>,
-    upper_point: Arc<Vec<u8>>,
+    lower_point: Vec<u8>,
+    upper_point: Vec<u8>,
 }
 impl PointRangeQuery {
     fn new(
@@ -95,8 +97,8 @@ impl PointRangeQuery {
             field,
             num_dims,
             bytes_per_dim,
-            lower_point: Arc::new(lower_point),
-            upper_point: Arc::new(upper_point),
+            lower_point,
+            upper_point,
         })
     }
     pub fn check_args(
@@ -169,7 +171,7 @@ impl QueryBase for PointRangeQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = PointRangeWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -179,8 +181,8 @@ impl QueryBase for PointRangeQuery {
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC, QCP, QC>>
     where
@@ -191,12 +193,12 @@ impl QueryBase for PointRangeQuery {
         QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
-        todo!()
+        Ok(PointRangeWeight::new(boost, self, *score_mode))
     }
 
     type RewriteQuery = PointRangeQuery;
 
-    fn visit<QV>(&self, visitor: &QV)
+    fn visit<QV>(&self, _visitor: &QV)
     where
         QV: QueryVisitor,
     {
@@ -208,91 +210,31 @@ pub struct PointRangeWeight<LR>
 where
     LR: LeafReader,
 {
-    query: Arc<Query>,
+    base: ConstantScoreWeight,
+    parent_query: Arc<Query>,
     comparator: ByteArrayComparatorEnum,
     _leaf_reader: PhantomData<LR>,
+    query: Arc<PointRangeQuery>,
+    score_mode: ScoreMode,
 }
 impl<LR> PointRangeWeight<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(query: PointRangeQuery, comparator: ByteArrayComparatorEnum) -> Self {
+    pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
+        let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim as usize);
+        let point_range_query = Arc::new(query.clone());
+        let parent_query = Arc::new(query.into());
         Self {
-            query: Arc::new(query.into()),
+            base: ConstantScoreWeight::new(score),
+            parent_query,
             comparator,
             _leaf_reader: PhantomData,
+            query: point_range_query,
+            score_mode,
         }
     }
-    fn matches(&self, packed_value: &[u8]) -> Result<bool> {
-        let query = self.point_range_query()?;
 
-        let num_dims = query.num_dims as usize;
-        let bytes_per_dim = query.bytes_per_dim as usize;
-        let mut offset = 0usize;
-        for _ in 0..num_dims {
-            if self
-                .comparator
-                .compare(packed_value, offset, query.lower_point.as_ref(), offset)
-                < 0
-            {
-                // Doc's value is too low, in this dimension
-                return Ok(false);
-            }
-            if self
-                .comparator
-                .compare(packed_value, offset, query.upper_point.as_ref(), offset)
-                > 0
-            {
-                // Doc's value is too high, in this dimension
-                return Ok(false);
-            }
-            offset += bytes_per_dim;
-        }
-        Ok(true)
-    }
-    fn relate(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        let q = self.point_range_query()?;
-
-        let num_dims = q.num_dims as usize;
-        let bytes_per_dim = q.bytes_per_dim as usize;
-
-        let mut crosses = false;
-        let mut offset = 0usize;
-
-        for _ in 0..num_dims {
-            if self
-                .comparator
-                .compare(min_packed_value, offset, &q.upper_point, offset)
-                > 0
-                || self
-                    .comparator
-                    .compare(max_packed_value, offset, &q.lower_point, offset)
-                    < 0
-            {
-                return Ok(Relation::CellOutsideQuery);
-            }
-
-            if self
-                .comparator
-                .compare(min_packed_value, offset, &q.lower_point, offset)
-                < 0
-                || self
-                    .comparator
-                    .compare(max_packed_value, offset, &q.upper_point, offset)
-                    > 0
-            {
-                crosses = true;
-            }
-
-            offset += bytes_per_dim;
-        }
-
-        if crosses {
-            Ok(Relation::CellCrossesQuery)
-        } else {
-            Ok(Relation::CellInsideQuery)
-        }
-    }
     pub fn check_valid_point_values<PV>(&self, values: Option<&PV>) -> Result<bool>
     where
         PV: PointValues,
@@ -330,27 +272,19 @@ where
     fn get_intersect_visitor(
         result: DocIdSetBuilder,
         weight: &'_ PointRangeWeight<LR>,
-    ) -> IntersectVisitorImpl1<'_, LR> {
-        IntersectVisitorImpl1::new(result, weight)
-    }
-
-    fn get_inverse_intersect_visitor<'a>(
-        result: &'a mut FixedBitSet,
-        cost: &'a mut [i64],
-        weight: &'a PointRangeWeight<LR>,
-    ) -> IntersectVisitorImpl<'a, LR> {
-        IntersectVisitorImpl::new(result, cost, weight)
+    ) -> IntersectVisitorImpl1 {
+        IntersectVisitorImpl1::new(result, weight.query.clone(), weight.comparator.clone())
     }
 
     fn point_count(&self, point_tree: &mut impl PointTree) -> Result<i64> {
-        let mut visitor = IntersectVisitorImpl2::new(self);
+        let mut visitor = IntersectVisitorImpl2::new(self.query.clone(), self.comparator.clone());
         self.point_count_with_visitor(&mut visitor, point_tree)?;
         Ok(visitor.matching_node_count)
     }
 
     fn point_count_with_visitor(
         &self,
-        visitor: &mut IntersectVisitorImpl2<LR>,
+        visitor: &mut IntersectVisitorImpl2,
         point_tree: &mut impl PointTree,
     ) -> Result<()> {
         let relation = visitor.compare(
@@ -392,7 +326,7 @@ where
         }
     }
     fn point_range_query(&self) -> Result<&PointRangeQuery> {
-        match self.query.as_ref() {
+        match self.parent_query.as_ref() {
             Query::PointRange(q) => Ok(q),
             _ => Err(LuceneError::illegal_state("should never be here")),
         }
@@ -412,27 +346,126 @@ impl<LR> Weight<LR> for PointRangeWeight<LR>
 where
     LR: LeafReader,
 {
-    type Matches = DummyMatches;
+    type Matches = MatchWithNoTerms;
 
     fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        todo!()
+        self.default_matches(context, doc)
     }
 
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        todo!()
+        let scorer = self.scorer(context)?;
+        self.base
+            .explain(scorer, doc, self.parent_query.as_string(""))
     }
 
     fn get_query(&self) -> Arc<Query> {
-        todo!()
+        self.parent_query.clone()
     }
 
-    type ScorerSupplier = DummyScorerSupplier;
+    type ScorerSupplier = PointRangeWeightScorerSupplier<LR::PointValues>;
 
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        todo!()
+        let reader = context.reader();
+
+        let values_opt = reader.get_point_values(&self.query.field)?;
+        if !self.check_valid_point_values(values_opt.as_ref())? {
+            return Ok(None);
+        }
+
+        let values = match values_opt {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        if values.get_doc_count()? == 0 {
+            return Ok(None);
+        } else {
+            let field_packed_lower = values.get_min_packed_value()?.expect("should be some");
+            let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
+
+            let q = self.query.as_ref();
+            let num_dims = q.num_dims as usize;
+            let bytes_per_dim = q.bytes_per_dim as usize;
+
+            for i in 0..num_dims {
+                let offset = i * bytes_per_dim;
+
+                if self.comparator.compare(
+                    &q.lower_point,
+                    offset,
+                    field_packed_upper.as_ref(),
+                    offset,
+                ) > 0
+                    || self.comparator.compare(
+                        &q.upper_point,
+                        offset,
+                        field_packed_lower.as_ref(),
+                        offset,
+                    ) < 0
+                {
+                    // If this query is a required clause of a boolean query, then returning null here
+                    // will help make sure that we don't call ScorerSupplier#get on other required clauses
+                    // of the same boolean query, which is an expensive operation for some queries (e.g.
+                    // multi-term queries).
+                    return Ok(None);
+                }
+            }
+        }
+
+        let mut all_docs_match;
+
+        if values.get_doc_count()? == reader.max_doc()? {
+            let field_packed_lower = values.get_min_packed_value()?.expect("should be some");
+            let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
+
+            let q = self.query.as_ref();
+            let num_dims = q.num_dims as usize;
+            let bytes_per_dim = q.bytes_per_dim as usize;
+
+            all_docs_match = true;
+            for i in 0..num_dims {
+                let offset = i * bytes_per_dim;
+
+                if self.comparator.compare(
+                    &q.lower_point,
+                    offset,
+                    field_packed_lower.as_ref(),
+                    offset,
+                ) > 0
+                    || self.comparator.compare(
+                        &q.upper_point,
+                        offset,
+                        field_packed_upper.as_ref(),
+                        offset,
+                    ) < 0
+                {
+                    all_docs_match = false;
+                    break;
+                }
+            }
+        } else {
+            all_docs_match = false;
+        }
+        let max_doc = reader.max_doc()?;
+        if all_docs_match {
+            Ok(Some(PointRangeWeightScorerSupplier::A(
+                ScorerSupplierImpl::new(self.base.score(), self.score_mode, max_doc),
+            )))
+        } else {
+            let result =
+                DocIdSetBuilder::with_point_values(max_doc, &values, self.query.field.as_ref())?;
+            Ok(Some(PointRangeWeightScorerSupplier::B(
+                ScorerSupplierImpl1::new(
+                    self.base.score(),
+                    self.score_mode,
+                    values,
+                    Self::get_intersect_visitor(result, self),
+                ),
+            )))
+        }
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
@@ -448,7 +481,9 @@ where
         if !reader.has_deletions()? {
             let values = values.unwrap();
 
-            let relation = self.relate(
+            let relation = relate(
+                query,
+                &self.comparator,
                 values.get_min_packed_value()?.as_ref().unwrap().as_ref(),
                 values.get_max_packed_value()?.as_ref().unwrap().as_ref(),
             )?;
@@ -469,38 +504,171 @@ where
         self.default_count(context)
     }
 }
+pub type PointRangeWeightScorerSupplier<PV> =
+    Either2ScorerSupplier<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
+pub(crate) fn matches(
+    query: &PointRangeQuery,
+    comparator: &ByteArrayComparatorEnum,
+    packed_value: &[u8],
+) -> Result<bool> {
+    let num_dims = query.num_dims as usize;
+    let bytes_per_dim = query.bytes_per_dim as usize;
+    let mut offset = 0usize;
+    for _ in 0..num_dims {
+        if comparator.compare(packed_value, offset, query.lower_point.as_ref(), offset) < 0 {
+            // Doc's value is too low, in this dimension
+            return Ok(false);
+        }
+        if comparator.compare(packed_value, offset, query.upper_point.as_ref(), offset) > 0 {
+            // Doc's value is too high, in this dimension
+            return Ok(false);
+        }
+        offset += bytes_per_dim;
+    }
+    Ok(true)
+}
+fn get_inverse_intersect_visitor<'a>(
+    result: &'a mut FixedBitSet,
+    cost: i64,
+    comparator: &'a ByteArrayComparatorEnum,
+    query: &'a PointRangeQuery,
+) -> IntersectVisitorImpl<'a> {
+    IntersectVisitorImpl::new(result, cost, query, comparator)
+}
+pub(crate) fn relate(
+    query: &PointRangeQuery,
+    comparator: &ByteArrayComparatorEnum,
+    min_packed_value: &[u8],
+    max_packed_value: &[u8],
+) -> Result<Relation> {
+    let num_dims = query.num_dims as usize;
+    let bytes_per_dim = query.bytes_per_dim as usize;
 
-pub struct ScorerSupplierImpl1 {
-    weight: ConstantScoreWeight,
+    let mut crosses = false;
+    let mut offset = 0usize;
+
+    for _ in 0..num_dims {
+        if comparator.compare(min_packed_value, offset, &query.upper_point, offset) > 0
+            || comparator.compare(max_packed_value, offset, &query.lower_point, offset) < 0
+        {
+            return Ok(Relation::CellOutsideQuery);
+        }
+
+        if comparator.compare(min_packed_value, offset, &query.lower_point, offset) < 0
+            || comparator.compare(max_packed_value, offset, &query.upper_point, offset) > 0
+        {
+            crosses = true;
+        }
+
+        offset += bytes_per_dim;
+    }
+
+    if crosses {
+        Ok(Relation::CellCrossesQuery)
+    } else {
+        Ok(Relation::CellInsideQuery)
+    }
+}
+pub struct ScorerSupplierImpl1<PV>
+where
+    PV: PointValues,
+{
+    score: f32,
     score_mode: ScoreMode,
-    max_doc: i32,
+    values: PV,
+    visitor: IntersectVisitorImpl1,
     cost: i64,
 }
-impl ScorerSupplierImpl1 {
+impl<PV> ScorerSupplierImpl1<PV>
+where
+    PV: PointValues,
+{
     pub fn new(
-        weight: ConstantScoreWeight,
+        score: f32,
         score_mode: ScoreMode,
-        max_doc: i32,
-        cost: i64,
+        values: PV,
+        visitor: IntersectVisitorImpl1,
     ) -> Self {
         Self {
-            weight,
+            score,
             score_mode,
-            max_doc,
-            cost,
+            values,
+            visitor,
+            cost: -1,
         }
+    }
+}
+pub type PointRangeWeightScorer = Either2Scorer<
+    ConstantScoreScorer<BitSetIterator<FixedBitSet, Rc<FixedBitSet>>, DummyTwoPhaseIterator>,
+    ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
+>;
+impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl1<LR::PointValues>
+where
+    LR: LeafReader,
+{
+    type Scorer = PointRangeWeightScorer;
+    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+
+    fn get(
+        &mut self,
+        _lead_cost: i64,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::Scorer>> {
+        let reader = context.reader();
+        if self.values.get_doc_count()? == reader.max_doc()?
+            && self.values.get_doc_count()? as i64 == self.values.size()?
+            && self.cost(context)? > (reader.max_doc()? as i64 / 2)
+        {
+            let max_doc = reader.max_doc()?;
+            // If all docs have exactly one value and the cost is greater
+            // than half the leaf size then maybe we can make things faster
+            // by computing the set of documents that do NOT match the range
+            let mut result = FixedBitSet::new(max_doc);
+            result.set_with_range(0, max_doc);
+            let mut visitor = get_inverse_intersect_visitor(
+                &mut result,
+                max_doc as i64,
+                &self.visitor.comparator,
+                self.visitor.query.as_ref(),
+            );
+            self.values.intersect(&mut visitor)?;
+            let cost = visitor.cost;
+            let iterator = BitSetIterator::new(Rc::new(result), cost)?;
+            return Ok(Some(PointRangeWeightScorer::A(
+                ConstantScoreScorer::with_disi(self.score, self.score_mode, iterator),
+            )));
+        }
+        self.values.intersect(&mut self.visitor)?;
+        let iterator = self.visitor.result.build()?.iterator()?;
+        debug_assert!(iterator.is_some());
+        Ok(Some(PointRangeWeightScorer::B(
+            ConstantScoreScorer::with_disi(self.score, self.score_mode, iterator.unwrap()),
+        )))
+    }
+
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        Ok(Some(self.default_bulk_scorer(context)?))
+    }
+
+    fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
+        if self.cost == -1 {
+            // Computing the cost may be expensive, so only do it if necessary
+            self.cost = self.values.estimate_doc_count(&mut self.visitor)?;
+            debug_assert!(self.cost >= 0);
+        }
+        Ok(self.cost)
     }
 }
 
 pub struct ScorerSupplierImpl {
-    weight: ConstantScoreWeight,
     score_mode: ScoreMode,
     max_doc: i32,
+    score: f32,
 }
 impl ScorerSupplierImpl {
-    pub fn new(weight: ConstantScoreWeight, score_mode: ScoreMode, max_doc: i32) -> Self {
+    pub fn new(score: f32, score_mode: ScoreMode, max_doc: i32) -> Self {
         Self {
-            weight,
+            score,
             score_mode,
             max_doc,
         }
@@ -519,9 +687,8 @@ where
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::Scorer>> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
-        let score = self.weight.score();
         Ok(Some(ConstantScoreScorer::with_disi(
-            score,
+            self.score,
             self.score_mode,
             AllDISI::new(self.max_doc),
         )))
@@ -537,43 +704,37 @@ where
     }
 }
 
-struct IntersectVisitorImpl<'a, LR>
-where
-    LR: LeafReader,
-{
+struct IntersectVisitorImpl<'a> {
     result: &'a mut FixedBitSet,
-    cost: &'a mut [i64],
-    weight: &'a PointRangeWeight<LR>,
+    cost: i64,
+    query: &'a PointRangeQuery,
+    comparator: &'a ByteArrayComparatorEnum,
 }
-impl<'a, LR> IntersectVisitorImpl<'a, LR>
-where
-    LR: LeafReader,
-{
+impl<'a> IntersectVisitorImpl<'a> {
     fn new(
         result: &'a mut FixedBitSet,
-        cost: &'a mut [i64],
-        weight: &'a PointRangeWeight<LR>,
+        cost: i64,
+        query: &'a PointRangeQuery,
+        comparator: &'a ByteArrayComparatorEnum,
     ) -> Self {
         Self {
             result,
             cost,
-            weight,
+            query,
+            comparator,
         }
     }
 }
-impl<LR> IntersectVisitor for IntersectVisitorImpl<'_, LR>
-where
-    LR: LeafReader,
-{
+impl IntersectVisitor for IntersectVisitorImpl<'_> {
     fn visit(&mut self, doc_id: i32) -> Result<()> {
         self.result.clear_with_index(doc_id);
-        self.cost[doc_id as usize] -= 1;
+        self.cost -= 1;
         Ok(())
     }
 
     fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
         self.result.and_not_iter(iterator)?;
-        self.cost[0] = self.cost[0].max(iterator.cost()?);
+        self.cost = (self.cost - iterator.cost()?).max(0);
         Ok(())
     }
 
@@ -581,12 +742,12 @@ where
         for i in ints_ref.offset..(ints_ref.offset + ints_ref.length) {
             self.result.clear_with_index(ints_ref.ints[i])
         }
-        self.cost[0] -= ints_ref.length as i64;
+        self.cost -= ints_ref.length as i64;
         Ok(())
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        if self.weight.matches(packed_value)? {
+        if matches(self.query, self.comparator, packed_value)? {
             self.visit(doc_id)?;
         }
         Ok(())
@@ -597,14 +758,19 @@ where
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
     ) -> Result<()> {
-        if self.weight.matches(packed_value)? {
+        if matches(self.query, self.comparator, packed_value)? {
             self.visit_with_iterator(iterator)?;
         }
         Ok(())
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        let relation = self.weight.relate(min_packed_value, max_packed_value)?;
+        let relation = relate(
+            self.query,
+            self.comparator,
+            min_packed_value,
+            max_packed_value,
+        )?;
 
         Ok(match relation {
             // all points match, skip this subtree
@@ -615,27 +781,27 @@ where
         })
     }
 }
-struct IntersectVisitorImpl1<'a, LR>
-where
-    LR: LeafReader,
-{
+pub struct IntersectVisitorImpl1 {
     result: DocIdSetBuilder,
-    weight: &'a PointRangeWeight<LR>,
+    query: Arc<PointRangeQuery>,
+    comparator: ByteArrayComparatorEnum,
 }
 
-impl<'a, LR> IntersectVisitorImpl1<'a, LR>
-where
-    LR: LeafReader,
-{
-    pub fn new(result: DocIdSetBuilder, weight: &'a PointRangeWeight<LR>) -> Self {
-        Self { result, weight }
+impl IntersectVisitorImpl1 {
+    pub fn new(
+        result: DocIdSetBuilder,
+        query: Arc<PointRangeQuery>,
+        comparator: ByteArrayComparatorEnum,
+    ) -> Self {
+        Self {
+            result,
+            query,
+            comparator,
+        }
     }
 }
 
-impl<'a, LR> IntersectVisitor for IntersectVisitorImpl1<'a, LR>
-where
-    LR: LeafReader,
-{
+impl IntersectVisitor for IntersectVisitorImpl1 {
     fn grow(&mut self, count: i32) -> Result<()> {
         self.result.grow(count);
         Ok(())
@@ -659,7 +825,7 @@ where
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        if self.weight.matches(packed_value)? {
+        if matches(&self.query, &self.comparator, packed_value)? {
             self.visit(doc_id)?;
         }
         Ok(())
@@ -670,39 +836,37 @@ where
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
     ) -> Result<()> {
-        if self.weight.matches(packed_value)? {
+        if matches(&self.query, &self.comparator, packed_value)? {
             self.result.add_disi(iterator)?;
         }
         Ok(())
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        self.weight.relate(min_packed_value, max_packed_value)
+        relate(
+            &self.query,
+            &self.comparator,
+            min_packed_value,
+            max_packed_value,
+        )
     }
 }
 
-struct IntersectVisitorImpl2<'a, LR>
-where
-    LR: LeafReader,
-{
-    weight: &'a PointRangeWeight<LR>,
+struct IntersectVisitorImpl2 {
+    query: Arc<PointRangeQuery>,
+    comparator: ByteArrayComparatorEnum,
     matching_node_count: i64,
 }
-impl<'a, LR> IntersectVisitorImpl2<'a, LR>
-where
-    LR: LeafReader,
-{
-    pub fn new(weight: &'a PointRangeWeight<LR>) -> Self {
+impl IntersectVisitorImpl2 {
+    pub fn new(query: Arc<PointRangeQuery>, comparator: ByteArrayComparatorEnum) -> Self {
         Self {
-            weight,
+            query,
+            comparator,
             matching_node_count: 0,
         }
     }
 }
-impl<'a, LR> IntersectVisitor for IntersectVisitorImpl2<'a, LR>
-where
-    LR: LeafReader,
-{
+impl IntersectVisitor for IntersectVisitorImpl2 {
     fn visit(&mut self, doc_id: i32) -> Result<()> {
         Err(LuceneError::unsupported_operation(format!(
             "This IntersectVisitor does not perform any actions on a docID={} node being visited",
@@ -711,13 +875,18 @@ where
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        if self.weight.matches(packed_value)? {
+        if matches(&self.query, &self.comparator, packed_value)? {
             self.matching_node_count += 1;
         }
         Ok(())
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        self.weight.relate(min_packed_value, max_packed_value)
+        relate(
+            &self.query,
+            &self.comparator,
+            min_packed_value,
+            max_packed_value,
+        )
     }
 }

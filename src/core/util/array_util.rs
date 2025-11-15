@@ -470,7 +470,7 @@ pub trait ByteArrayComparator {
     /// The return value has the same contract as [`Ord::cmp`].
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32;
 }
-
+#[derive(Clone)]
 pub enum ByteArrayComparatorEnum {
     U64(U64byteArrayComparator),
     U32(U32byteArrayComparator),
@@ -492,6 +492,7 @@ impl ByteArrayComparator for ByteArrayComparatorEnum {
     }
 }
 
+#[derive(Clone)]
 pub struct U64byteArrayComparator;
 impl ByteArrayComparator for U64byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
@@ -500,6 +501,7 @@ impl ByteArrayComparator for U64byteArrayComparator {
             .to_int()
     }
 }
+#[derive(Clone)]
 pub struct U32byteArrayComparator;
 impl ByteArrayComparator for U32byteArrayComparator {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
@@ -508,6 +510,7 @@ impl ByteArrayComparator for U32byteArrayComparator {
             .to_int()
     }
 }
+#[derive(Clone)]
 pub struct ByteByteArrayComparator {
     num_bytes: usize,
 }
@@ -520,18 +523,21 @@ impl ByteArrayComparator for ByteByteArrayComparator {
             .to_int()
     }
 }
+#[derive(Clone)]
 pub struct CommonPrefixLength8;
 impl ByteArrayComparator for CommonPrefixLength8 {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
         BKDUtil::common_prefix_length8(a, a_i, b, b_i)
     }
 }
+#[derive(Clone)]
 pub struct CommonPrefixLength4;
 impl ByteArrayComparator for CommonPrefixLength4 {
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32 {
         BKDUtil::common_prefix_length4(a, a_i, b, b_i)
     }
 }
+#[derive(Clone)]
 pub struct CommonPrefixLengthN {
     pub(crate) num_bytes: usize,
 }
