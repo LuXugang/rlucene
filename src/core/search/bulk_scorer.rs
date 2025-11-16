@@ -104,4 +104,5 @@ macro_rules! either_bulk_scorer {
 }
 either_bulk_scorer!(pub Either2BulkScorer { A: A1, B: B1});
 either_bulk_scorer!(pub Either3BulkScorer { A: A1, B: B1, C: C1});
+either_bulk_scorer!(pub Either4BulkScorer { A: A1, B: B1, C: C1, D: D1});
 either_bulk_scorer!(pub Either5BulkScorer { A: A1, B: B1, C: C1, D: D1, E: E1});

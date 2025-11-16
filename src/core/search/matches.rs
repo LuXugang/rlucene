@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::search::matches_iterator::{
-    Either2MatchesIterator, Either3MatchesIterator, Either5MatchesIterator, MatchesIterator,
+    Either2MatchesIterator, Either3MatchesIterator, Either4MatchesIterator, Either5MatchesIterator,
+    MatchesIterator,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -101,6 +102,11 @@ either_matches!(
     pub Either3Matches
     => { mi: Either3MatchesIterator }
     { A: A, B: B,C:C }
+);
+either_matches!(
+    pub Either4Matches
+    => { mi: Either4MatchesIterator }
+    { A: A, B: B,C:C,D:D }
 );
 either_matches!(
     pub Either5Matches

@@ -163,5 +163,8 @@ either_scorable!(
     pub Either3Scorable { A: A, B: B , C: C }
 );
 either_scorable!(
+    pub Either4Scorable { A: A, B: B , C: C ,D:D}
+);
+either_scorable!(
     pub Either5Scorable { A: A, B: B , C: C, D: D, E: E }
 );
