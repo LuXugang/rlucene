@@ -14,5 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod default_vector_util_support;
 pub mod posting_decoding_util;
+pub mod vector_util_support;
 pub mod vectorization_provider;
