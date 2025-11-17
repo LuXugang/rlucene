@@ -142,6 +142,7 @@ where
 {
     type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, PR>>;
 
+    // TODO IMPORTANT 这里可以改成引用
     fn iterator(&self) -> Result<Self::TermsEnum> {
         SegmentTermsEnum::new(self.clone())
     }

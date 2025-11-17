@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
-
+#[derive(Default)]
 pub struct DefaultVectorization;
 impl VectorUtilSupport for DefaultVectorization {
     fn dot_product_f32(&self, _a: &[f32], _b: &[f32]) -> f32 {

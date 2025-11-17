@@ -29,7 +29,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Formatter;
 
-pub mod text {
+pub mod text_field_type {
 
     use once_cell::sync::Lazy;
 
@@ -86,7 +86,8 @@ impl TextField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::with_reader(name, reader, text::TYPE_NOT_STORED.clone())?;
+        let parent_field =
+            Field::with_reader(name, reader, text_field_type::TYPE_NOT_STORED.clone())?;
         Ok(Self {
             parent_field,
             has_stored_value: false,
@@ -104,9 +105,9 @@ impl TextField {
     {
         let store = store.into();
         let (field_type, has_stored_value) = if store {
-            (text::TYPE_STORED.clone(), true)
+            (text_field_type::TYPE_STORED.clone(), true)
         } else {
-            (text::TYPE_NOT_STORED.clone(), false)
+            (text_field_type::TYPE_NOT_STORED.clone(), false)
         };
         let parent_field = Field::with_string(name, value, field_type.clone())?;
         Ok(Self {
@@ -123,7 +124,8 @@ impl TextField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::with_token_stream(name, stream, text::TYPE_NOT_STORED.clone())?;
+        let parent_field =
+            Field::with_token_stream(name, stream, text_field_type::TYPE_NOT_STORED.clone())?;
         Ok(Self {
             parent_field,
             has_stored_value: false,

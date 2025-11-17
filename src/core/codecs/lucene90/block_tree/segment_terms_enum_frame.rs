@@ -793,7 +793,7 @@ impl SegmentTermsEnumFrame {
                 Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::Found);
             }
-            if frame.next_ent < frame.ent_count {
+            if frame.next_ent >= frame.ent_count {
                 break;
             }
         }
@@ -1093,7 +1093,7 @@ impl SegmentTermsEnumFrame {
         let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
         let src = &frame.suffixes_reader.bytes;
         let start = frame.start_byte_pos as usize;
-        let len = start + frame.suffix_length as usize;
-        dest.copy_from(&src[start..start + len], frame.prefix_length as usize);
+        let end = start + frame.suffix_length as usize;
+        dest.copy_from(&src[start..end], frame.prefix_length as usize);
     }
 }

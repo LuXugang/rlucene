@@ -773,30 +773,30 @@ where
 
         for i in start..end {
             let (suffix_lead_label, is_term) = {
-                let ent = &self.pending[i];
-                (
-                    match ent {
-                        PendingEntryEnum::Term(term) => {
-                            if term.term_bytes.len() == prefix_length {
-                                // Suffix is 0, i.e. prefix 'foo' and term is
-                                // 'foo' so the term has empty string suffix
-                                // in this block
-                                debug_assert_eq!(
-                                    last_suffix_lead_label, -1,
-                                    "i={i} last_suffix_lead_label={last_suffix_lead_label}"
-                                );
-                                -1
-                            } else {
-                                term.term_bytes[prefix_length] as i32
-                            }
-                        },
-                        PendingEntryEnum::Block(block) => {
-                            debug_assert!(block.prefix.length > prefix_length);
-                            block.prefix.bytes[block.prefix.offset + prefix_length] as i32
-                        },
+                match &self.pending[i] {
+                    PendingEntryEnum::Term(term) => {
+                        let v = if term.term_bytes.len() == prefix_length {
+                            // Suffix is 0, i.e. prefix 'foo' and term is
+                            // 'foo' so the term has empty string suffix
+                            // in this block
+                            debug_assert_eq!(
+                                last_suffix_lead_label, -1,
+                                "i={i} last_suffix_lead_label={last_suffix_lead_label}"
+                            );
+                            -1
+                        } else {
+                            term.term_bytes[prefix_length] as i32
+                        };
+                        (v, true)
                     },
-                    true,
-                )
+                    PendingEntryEnum::Block(block) => {
+                        debug_assert!(block.prefix.length > prefix_length);
+                        (
+                            block.prefix.bytes[block.prefix.offset + prefix_length] as i32,
+                            false,
+                        )
+                    },
+                }
             };
 
             if suffix_lead_label != last_suffix_lead_label {
@@ -1003,7 +1003,8 @@ where
                         debug_assert!(suffix > 0);
 
                         // write block suffix
-                        self.terms_out.write_vint(((suffix << 1) | 1) as i32)?;
+                        self.suffix_lengths_writer
+                            .write_vint(((suffix << 1) | 1) as i32)?;
                         self.suffix_writer.append_with_range(
                             &block.prefix.bytes,
                             prefix_length,
@@ -1016,7 +1017,8 @@ where
                         );
                         debug_assert!(block.fp < start_fp);
 
-                        self.terms_out.write_vlong(start_fp - block.fp)?;
+                        self.suffix_lengths_writer
+                            .write_vlong(start_fp - block.fp)?;
                         sub_indices.push(block.index.take().unwrap());
                     },
                 }

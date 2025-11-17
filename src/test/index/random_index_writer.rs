@@ -42,6 +42,14 @@ where
             w: IndexWriter::new(dir, IndexWriterConfig::new()).expect("should not fail"),
         }
     }
+    pub fn with_config<R: Rng + ?Sized>(_r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
+    where
+        D: Directory,
+    {
+        Self {
+            w: IndexWriter::new(dir, config).expect("should not fail"),
+        }
+    }
     pub fn get_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
         self.w.get_reader(true, false)
     }

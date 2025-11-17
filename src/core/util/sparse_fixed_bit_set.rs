@@ -553,7 +553,6 @@ impl BitSet for SparseFixedBitSet {
             debug_assert!(bit_array.is_some());
             let bits = bit_array.unwrap()[o] & ((1_u64 << (i % 64) << 1) - 1);
             if bits != 0 {
-                //TODO: 正数跟负数的是否一样？？
                 return (i64 << 6) | (63 - bits.leading_zeros() as i32);
             }
         }
@@ -567,7 +566,6 @@ impl BitSet for SparseFixedBitSet {
         i64 = 63 - index_bits.leading_zeros() as i32;
         debug_assert!(bit_array.is_some());
         let bits = bit_array.unwrap()[o - 1];
-        //TODO: 正数跟负数的是否一样？？
         (i4096 << 12) | (i64 << 6) | (63 - bits.leading_zeros() as i32)
     }
 

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::{TextField, text};
+use crate::core::document::text_field::{TextField, text_field_type};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_reader::IndexReader;
@@ -43,8 +43,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 use std::vec;
 
-static STORED_TEXT_TYPE: Lazy<FieldType> =
-    Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
+static STORED_TEXT_TYPE: Lazy<FieldType> = Lazy::new(|| {
+    FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone()).expect("should not fail")
+});
 pub(crate) struct TestIndexWriter;
 #[test]
 fn test_doc_count() -> Result<()> {
@@ -91,7 +92,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
 
     let mut doc = Document::new();
 
-    let mut custom_type = FieldType::from_ref(&*text::TYPE_STORED)?;
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
     custom_type.set_store_term_vectors(true)?;
     custom_type.set_store_term_vector_positions(true)?;
     custom_type.set_store_term_vector_offsets(true)?;
@@ -118,7 +119,7 @@ fn test_bad_segment() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
-    let mut custom_type = FieldType::from_ref(&*text::TYPE_NOT_STORED)?;
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     custom_type.set_store_term_vectors(true)?;
     doc.add(new_field("tvtest", "", &custom_type)?);
 
@@ -214,7 +215,7 @@ fn test_do_before_after_flush() -> Result<()> {
     )?;
 
     let mut doc = Document::new();
-    let custom_type = FieldType::from_ref(&*text::TYPE_STORED)?;
+    let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
     doc.add(new_field("field", "a field", &custom_type)?);
     writer.add_document(doc)?;
     writer.commit()?;
@@ -541,7 +542,7 @@ where
     B: IndexWriterBase,
 {
     let mut doc = Document::new();
-    let stored_text_type = FieldType::from_ref(&*text::TYPE_STORED)?;
+    let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
     doc.add(new_field(field, "value", &stored_text_type)?);
     let _ = writer.add_document(doc)?;
     Ok(())

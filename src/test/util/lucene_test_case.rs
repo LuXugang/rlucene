@@ -48,7 +48,7 @@ pub mod lucene_test_case_util {
     use crate::core::document::field::{Field, FieldDataEnum, Store};
     use crate::core::document::field_type::FieldType;
     use crate::core::document::string_field::string;
-    use crate::core::document::text_field::text;
+    use crate::core::document::text_field::text_field_type;
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
 
@@ -190,8 +190,8 @@ pub mod lucene_test_case_util {
     {
         let mut random = random();
         let field_type = match stored {
-            Store::Yes => text::TYPE_STORED.clone(),
-            Store::No => text::TYPE_NOT_STORED.clone(),
+            Store::Yes => text_field_type::TYPE_STORED.clone(),
+            Store::No => text_field_type::TYPE_NOT_STORED.clone(),
         };
 
         new_field_with_random(
@@ -250,8 +250,8 @@ pub mod lucene_test_case_util {
         S2: Into<String>,
     {
         let field_type = match stored {
-            Store::Yes => text::TYPE_STORED.clone(),
-            Store::No => text::TYPE_NOT_STORED.clone(),
+            Store::Yes => text_field_type::TYPE_STORED.clone(),
+            Store::No => text_field_type::TYPE_NOT_STORED.clone(),
         };
         new_field_with_random(
             random,

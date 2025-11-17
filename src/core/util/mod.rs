@@ -109,6 +109,7 @@ pub mod tim_sorter;
 pub mod to_string_utils;
 pub mod unicode_util;
 pub mod vec_copy_ops;
+pub mod vector_util;
 pub mod version;
 
 pub use bytes_ref_array::*;

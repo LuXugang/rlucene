@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -63,6 +64,8 @@ where
     pub ids: Vec<i32>,
     pub(crate) bytes_start_array: BSA,
     bytes_used: C,
+    #[cfg(debug_assertions)]
+    strings: HashSet<String>,
 }
 
 impl MTBytesRefHash {
@@ -111,6 +114,8 @@ where
             ids: vec![-1; capacity as usize],
             bytes_start_array,
             bytes_used,
+            #[cfg(debug_assertions)]
+            strings: HashSet::new(),
         }
     }
     /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
@@ -178,6 +183,10 @@ where
     pub fn sort(&mut self) -> Result<()> {
         let compact = self.compact();
         let mut length = compact.len();
+        debug_assert!(
+            (self.count * 2) as usize <= length,
+            "We need load factor <= 0.5f to speed up this sort"
+        );
         let tmp_offset = self.count;
         let sub_sorter = StringSorterImpl::new(
             tmp_offset,
@@ -187,10 +196,7 @@ where
         );
         let mut sorter = StringSorter::new(sub_sorter, Natural::default());
         sorter.sort(0, self.count)?;
-        debug_assert!(
-            (self.count * 2) as usize <= length,
-            "We need load factor <= 0.5f to speed up this sort"
-        );
+
         length = self.ids.len();
         for i in tmp_offset as usize..length {
             self.ids[i] = -1;
@@ -273,6 +279,15 @@ where
         let mut e = self.ids[hash_pos as usize];
         if e == -1 {
             {
+                // #[cfg(debug_assertions)]
+                // {
+                //     let v = bytes.utf8_to_string()?;
+                //     if self.strings.contains(&v){
+                //         return Err(LuceneError::illegal_state("Hash bug!, same value produces different hash value"))
+                //     }
+                //     self.strings.insert(v);
+                // }
+
                 let length = self.bytes_start_array.len();
                 // new entry
                 if self.count as usize >= length {
@@ -285,9 +300,8 @@ where
                     );
                 }
 
-                let byte_ref = self.pool.add_bytes_ref(bytes)?;
-                self.bytes_start_array
-                    .set_value(self.count as usize, byte_ref);
+                let v = self.pool.add_bytes_ref(bytes)?;
+                self.bytes_start_array.set_value(self.count as usize, v);
                 e = self.count;
                 self.count += 1;
                 assert_eq!(self.ids[hash_pos as usize], -1);
@@ -311,8 +325,7 @@ where
     /// The id of the given bytes, or `-1` if there is no mapping for the given
     /// bytes.
     pub fn find(&self, bytes: &BytesRef<Vec<u8>>) -> i32 {
-        let hash_pos = self.find_hash(bytes);
-        self.ids[hash_pos as usize]
+        self.ids[self.find_hash(bytes) as usize]
     }
     fn find_hash(&self, bytes: &BytesRef<Vec<u8>>) -> i32 {
         debug_assert!(
@@ -325,14 +338,11 @@ where
         // final position
         let mut hash_pos = code & self.hash_mask;
         let mut e = self.ids[hash_pos as usize];
-
         if e != -1
             && !self
                 .pool
                 .equals(self.bytes_start_array.get_value(e as usize), bytes)
         {
-            // Conflict; use linear probe to find an open slot
-            // (see LUCENE-5604):
             loop {
                 code += 1;
                 hash_pos = code & self.hash_mask;
@@ -346,6 +356,7 @@ where
                 }
             }
         }
+
         hash_pos
     }
     /// Adds an "arbitrary" integer offset instead of a `BytesRef` term.
@@ -412,7 +423,7 @@ where
         for i in 0..self.hash_size {
             let e0 = self.ids[i as usize];
             if e0 != -1 {
-                let code = if hash_on_data {
+                let mut code = if hash_on_data {
                     self.pool
                         .hash(self.bytes_start_array.get_value(e0 as usize))
                 } else {
@@ -422,9 +433,6 @@ where
                 let mut hash_pos = code & new_mask;
                 debug_assert!(hash_pos >= 0);
                 if new_hash[hash_pos as usize] != -1 {
-                    // Conflict; use linear probe to find an open slot
-                    // (see LUCENE-5604):
-                    let mut code = code;
                     loop {
                         code += 1;
                         hash_pos = code & new_mask;
@@ -581,11 +589,18 @@ where
         debug_assert_eq!(self.k, k);
         for i in 0..HISTOGRAM_SIZE {
             let limit = end_offsets[i];
-            while start_offsets[i] < limit {
+            loop {
                 let h1 = start_offsets[i];
-                let b = self.compact[(self.tmp_offset + from + h1) as usize] as usize;
+                if h1 >= limit {
+                    break;
+                }
+
+                let idx = (self.tmp_offset + from + h1) as usize;
+                let b = self.compact[idx] as usize;
+
                 let h2 = start_offsets[b];
                 start_offsets[b] += 1;
+
                 self.swap_bucket_cache(from + h1, from + h2)?;
             }
         }

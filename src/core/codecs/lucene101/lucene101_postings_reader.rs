@@ -46,6 +46,7 @@ use crate::core::util::access::BorrowExt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::vector_util::VECTOR_UTIL;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToUsizeExact};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
@@ -1010,7 +1011,6 @@ where
     fn skip_level0_to(&mut self, target: i32) -> Result<()> {
         let (mut pos_fp, mut pos_upto, mut pay_fp, mut pay_upto): (i64, i32, i64, i32);
         {
-            let mut doc_in = self.doc_in.access_mut();
             loop {
                 self.prev_doc_id = self.level0_last_doc_id;
 
@@ -1020,6 +1020,7 @@ where
                 pay_upto = self.level0_block_pay_upto;
 
                 if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
+                    let mut doc_in = self.doc_in.access_mut();
                     let num_skip_bytes = doc_in.read_vlong()?;
                     let skip0_end = doc_in.get_file_pointer() + num_skip_bytes;
                     let doc_delta = read_vint15(&mut *doc_in)?;
@@ -1393,14 +1394,12 @@ where
             self.refill_docs()?;
             self.needs_refilling = false;
         }
-        let next = 0;
-        // TODO:没有完成
-        // let next = vector_util::find_next_geq(
-        //     &self.doc_buffer,
-        //     target,
-        //     self.doc_buffer_upto as usize,
-        //     self.doc_buffer_size as usize,
-        // );
+        let next = VECTOR_UTIL.find_next_geq(
+            &self.doc_buffer,
+            target,
+            self.doc_buffer_upto as usize,
+            self.doc_buffer_size as usize,
+        );
         self.doc = self.doc_buffer[next];
         self.doc_buffer_upto = (next + 1) as i32;
         Ok(self.doc)

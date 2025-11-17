@@ -138,7 +138,8 @@ where
                 if len2 > BYTE_BLOCK_SIZE {
                     return Err(LuceneError::max_bytes_length_exceeded(format!(
                         "bytes can be at most {} in length; got {}",
-                        BYTE_BLOCK_SIZE, bytes.length
+                        BYTE_BLOCK_SIZE - 2,
+                        bytes.length
                     )));
                 }
                 pool.next_buffer()?;
