@@ -22,7 +22,10 @@ use rand::prelude::IndexedRandom;
 use rand::{Rng, random_range};
 
 use crate::core::index::BytesRef;
+use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::access::SharedAccessVec;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -485,6 +488,33 @@ impl TestUtil {
         } else {
             s
         }
+    }
+
+    pub fn docs<TE, R>(
+        random: &mut R,
+        terms_enum: &mut TE,
+        reuse: Option<TE::PostingsEnum>,
+        mut flags: i32,
+    ) -> Result<TE::PostingsEnum>
+    where
+        TE: TermsEnum,
+        R: Rng + ?Sized,
+    {
+        if random.random_bool(0.5) {
+            if random.random_bool(0.5) {
+                let pos_flags = match random.random_range(0..4) {
+                    0 => POSITIONS,
+                    1 => OFFSETS,
+                    2 => PAYLOADS,
+                    _ => ALL,
+                };
+                return terms_enum.postings_with_flags(None, pos_flags as i32);
+            }
+
+            flags |= FREQS as i32;
+        }
+
+        terms_enum.postings_with_flags(reuse, flags)
     }
 }
 static OPS: Lazy<Vec<String>> = Lazy::new(|| {
