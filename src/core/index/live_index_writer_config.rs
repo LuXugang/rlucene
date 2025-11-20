@@ -45,6 +45,12 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 pub trait LiveIndexWriterConfig: Display {
+    fn set_open_mode(&mut self, open_mode: OpenMode) -> &mut Self {
+        let base = self.get_base_mut();
+        base.open_mode = open_mode;
+        self
+    }
+
     type Analyzer: Analyzer;
     fn get_analyzer(&self) -> &Self::Analyzer;
 
