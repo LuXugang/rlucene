@@ -1058,7 +1058,7 @@ mod tests {
         writer.close()?;
         Ok(())
     }
-    // TODO: 测试未通过
+    #[test]
     fn test_tons_of_updates() -> Result<()> {
         // LUCENE-5248: make sure that when there are many updates, we don't use too much RAM
         let mut random = random();

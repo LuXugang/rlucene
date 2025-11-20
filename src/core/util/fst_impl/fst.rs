@@ -1977,7 +1977,7 @@ mod tests {
         // TODO : IndexWriter not implemented
         Ok(())
     }
-    // TODO 测试未通过 `expected PendingTerm`错误
+    #[test]
     fn test_random_term_lookup() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
