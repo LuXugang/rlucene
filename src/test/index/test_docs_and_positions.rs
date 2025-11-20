@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
@@ -117,14 +116,12 @@ fn test_positions_simple() -> Result<()> {
     }
     Ok(())
 }
-
 /// this test indexes random numbers within a range into a field and checks their occurrences by
 /// searching for a number from that range selected at random. All positions for that number are
 /// saved up front and compared to the enums positions.
+#[test]
 fn test_random_positions() -> Result<()> {
     let mut random = random();
-
-    // directory + writer (Arc + your config style)
     let directory = Arc::new(new_directory(&mut random)?);
     // TODO: 未实现MockAnalyzer
     // TODO: newLogMergePolicy未实现
@@ -133,11 +130,9 @@ fn test_random_positions() -> Result<()> {
 
     let field_name = field_name(&mut random);
 
-    // let num_docs = at_least(&mut random, 47);
-    let num_docs = 62;
+    let num_docs = at_least(&mut random, 47);
     let max = 1051;
-    // let term: i32 = random.random_range(0..max);
-    let term: i32 = 500;
+    let term: i32 = random.random_range(0..max);
 
     let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
 
@@ -148,13 +143,11 @@ fn test_random_positions() -> Result<()> {
         let mut doc = Document::new();
         let mut positions = Vec::new();
 
-        // let num = at_least(&mut random, 131);
-        let num = 189;
+        let num = at_least(&mut random, 131);
 
         let mut builder = String::new();
         for j in 0..num {
-            // let next_int: i32 = random.random_range(0..max);
-            let next_int: i32 = j + 100;
+            let next_int: i32 = random.random_range(0..max);
             builder.push_str(&format!("{} ", next_int));
             if next_int == term {
                 positions.push(j);
@@ -163,11 +156,10 @@ fn test_random_positions() -> Result<()> {
 
         if positions.is_empty() {
             builder.push_str(&format!("{}", term));
-            positions.push(num);
+            positions.push(num as i32);
         }
 
-        // doc.add(new_field(&field_name, builder, &custom_type)?);
-        doc.add(Field::new(&field_name, custom_type.clone(), builder));
+        doc.add(new_field(&field_name, builder, &custom_type)?);
         positions_in_doc[i as usize] = positions;
 
         writer.add_document(doc)?;
@@ -177,7 +169,6 @@ fn test_random_positions() -> Result<()> {
     writer.close()?;
 
     let num_outer = at_least(&mut random, 13);
-    // let num_outer = 1;
 
     for i in 0..num_outer {
         let bytes = new_bytes_ref_from_string(&mut random, &format!("{}", term))?;
@@ -213,7 +204,6 @@ fn test_random_positions() -> Result<()> {
                 let read_all = random.random_range(0..20) != 0;
                 // number of positions read should be random - don't read all of them
                 // allways
-                // let how_many = pos.len();
                 let how_many = if read_all {
                     pos.len()
                 } else {

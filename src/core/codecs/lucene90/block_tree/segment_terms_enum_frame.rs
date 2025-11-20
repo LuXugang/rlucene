@@ -551,7 +551,7 @@ impl SegmentTermsEnumFrame {
             new_fp = frame.fp_orig + ((code as u64) >> 1) as i64;
             frame.has_terms = (code & 1) != 0;
 
-            frame.is_last_in_floor = frame.num_follow_floor_blocks == 0;
+            frame.is_last_in_floor = frame.num_follow_floor_blocks == 1;
             frame.num_follow_floor_blocks -= 1;
 
             if frame.is_last_in_floor {

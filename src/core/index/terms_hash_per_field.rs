@@ -180,27 +180,21 @@ impl TermsHashPerField {
             int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         let mut byte_pool = self.byte_pool.lock();
-        let block_index = upto >> BYTE_BLOCK_SHIFT;
+        let mut block_index = upto >> BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
-        let bytes = byte_pool.get_buffer(block_index);
-        let offset = upto & BYTE_BLOCK_MASK;
-        let value = bytes[offset as usize];
-        drop(byte_pool);
-        let mut byte_pool;
-        let new_offset = if value != 0 {
+        let mut bytes = byte_pool.get_buffer_mut(block_index);
+        let mut offset = upto & BYTE_BLOCK_MASK;
+        if bytes[offset as usize] != 0 {
             // End of slice; allocate a new one
-            let allocated_offset =
-                self.slice_pool
-                    .alloc_slice(block_index, offset, &mut self.byte_pool.lock())?;
-            byte_pool = self.byte_pool.lock();
-            term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
-            allocated_offset
-        } else {
-            byte_pool = self.byte_pool.lock();
-            offset
-        };
-        let bytes = byte_pool.get_buffer_mut(block_index);
-        bytes[new_offset as usize] = b;
+            offset = self
+                .slice_pool
+                .alloc_slice(block_index, offset, &mut byte_pool)?;
+            term_stream_address_buffer[stream_address] = offset + byte_pool.byte_offset;
+            // try update bytes
+            block_index = byte_pool.buffer_upto;
+            bytes = byte_pool.get_buffer_mut(block_index);
+        }
+        bytes[offset as usize] = b;
         term_stream_address_buffer[stream_address] += 1;
         Ok(())
     }

@@ -136,7 +136,11 @@ impl FreqProxTermsWriterPerField {
             PostingsArrayEnum::FreqProx(f) => {
                 f.last_positions.as_mut().unwrap()[term_id] = field_state.position();
             },
-            _ => unreachable!("should not be here"),
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "expected FreqProx posting array",
+                ));
+            },
         }
 
         Ok(())
@@ -377,7 +381,11 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                 }
                 field_state.unique_term_count += 1;
             },
-            _ => unreachable!("expected FreqProx posting array"),
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "expected FreqProx posting array",
+                ));
+            },
         }
 
         Ok(())
@@ -427,6 +435,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         postings.last_doc_ids[term_id] = doc_id;
                         field_state.unique_term_count += 1;
                     }
+                    // Due to borrow conflict, we add later before handle prox/offset
+                    for x in v {
+                        self.base.write_vint(0, x)?
+                    }
                 } else if doc_id != postings.last_doc_ids[term_id] {
                     debug_assert!(
                         doc_id > postings.last_doc_ids[term_id],
@@ -448,6 +460,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         v.push(postings.last_doc_codes[term_id]);
                         v.push(freq);
                     }
+
                     // Init freq for the current document
                     postings.term_freqs.as_mut().unwrap()[term_id] = tf;
 
@@ -459,6 +472,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
                     if self.has_prox && self.has_offsets {
                         postings.last_offsets.as_mut().unwrap()[term_id] = 0;
+                    }
+                    // Due to borrow conflict, we add later before handle prox/offset
+                    for x in v {
+                        self.base.write_vint(0, x)?
                     }
                     if self.has_prox {
                         self.write_prox(
@@ -493,10 +510,11 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     }
                 }
             },
-            _ => unreachable!("expected FreqProx posting array"),
-        }
-        for x in v {
-            self.base.write_vint(0, x)?
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "expected FreqProx posting array",
+                ));
+            },
         }
         Ok(())
     }
