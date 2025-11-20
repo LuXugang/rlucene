@@ -461,7 +461,7 @@ where
         ArrayUtil::grow_i32(&mut self.delete_doc_ids, new_len as usize)?;
 
         for doc_id in from..to {
-            self.delete_doc_ids[self.state.num_docs_in_ram.load(SeqCst) as usize] = doc_id;
+            self.delete_doc_ids[self.num_deleted_doc_ids as usize] = doc_id;
             self.num_deleted_doc_ids += 1;
         }
         // NOTE: we do not trigger flush here.  This is
@@ -546,7 +546,7 @@ where
                     let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst));
                     live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst));
 
-                    for &doc_id in &self.delete_doc_ids {
+                    for doc_id in 0..self.num_deleted_doc_ids {
                         live_docs.clear_with_index(doc_id);
                     }
 
