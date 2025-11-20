@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -28,7 +27,7 @@ use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
     CounterEnum, CounterEnumBorrow, CounterEnumLock, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
@@ -64,8 +63,6 @@ where
     pub ids: Vec<i32>,
     pub(crate) bytes_start_array: BSA,
     bytes_used: C,
-    #[cfg(debug_assertions)]
-    strings: HashSet<String>,
 }
 
 impl MTBytesRefHash {
@@ -114,8 +111,6 @@ where
             ids: vec![-1; capacity as usize],
             bytes_start_array,
             bytes_used,
-            #[cfg(debug_assertions)]
-            strings: HashSet::new(),
         }
     }
     /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
@@ -279,17 +274,6 @@ where
         let mut e = self.ids[hash_pos as usize];
         if e == -1 {
             {
-                #[cfg(debug_assertions)]
-                {
-                    let v = bytes.utf8_to_string()?;
-                    if self.strings.contains(&v) {
-                        return Err(LuceneError::illegal_state(
-                            "Hash bug!, same value produces different hash value",
-                        ));
-                    }
-                    self.strings.insert(v);
-                }
-
                 let length = self.bytes_start_array.len();
                 // new entry
                 if self.count as usize >= length {
