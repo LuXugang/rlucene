@@ -164,7 +164,10 @@ impl Lucene94FieldInfosFormat {
 
     fn get_vector_encoding<I: IndexInput>(input: &I, b: u8) -> Result<VectorEncoding> {
         match VectorEncoding::from_repr(b) {
-            Some(ve) => Ok(ve),
+            Some(ve) => match ve {
+                VectorEncoding::BYTE(_) => Ok(VectorEncoding::BYTE(1)),
+                VectorEncoding::FLOAT32(_) => Ok(VectorEncoding::FLOAT32(4)),
+            },
             None => Err(LuceneError::corrupt_index(format!(
                 "invalid vector encoding: {b} (resource={input})"
             ))),

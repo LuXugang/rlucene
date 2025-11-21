@@ -116,7 +116,11 @@ pub trait DirectoryReader: BaseCompositeReader {
     /// # Errors
     ///
     /// Returns an error if there is a low-level I/O error.
-    fn is_current(&self) -> Result<bool>;
+    fn is_current<D, L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase;
     type IndexCommit: IndexCommit;
     /// Expert: return the IndexCommit that this reader has opened.
     fn get_index_commit(&self) -> Result<Self::IndexCommit>;

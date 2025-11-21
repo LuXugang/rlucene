@@ -58,7 +58,7 @@ where
     segments_to_merge: HashMap<SegmentCommitInfo<D>, bool>,
     merge_max_num_segments: i32,
 
-    closed: AtomicBool,
+    pub(crate) closed: Arc<AtomicBool>,
     closing: AtomicBool,
 
     maybe_merge: AtomicBool,
@@ -364,7 +364,7 @@ where
                 write_doc_values_lock: ReentrantMutex::new(()),
                 segments_to_merge: HashMap::new(),
                 merge_max_num_segments: 0,
-                closed: AtomicBool::new(false),
+                closed: Arc::new(AtomicBool::new(false)),
                 closing: AtomicBool::new(false),
                 maybe_merge: AtomicBool::new(false),
                 commit_user_data: Some(commit_user_data),
@@ -2394,11 +2394,11 @@ where
             self.info_stream.message("TP", message);
         }
     }
-    pub(crate) fn nrt_is_current(&self, infos: &SegmentInfos<D>) -> Result<bool> {
+    pub(crate) fn nrt_is_current(&self, version: i64) -> Result<bool> {
         let inner = self.inner.lock();
         self.do_ensure_open(true)?;
 
-        let is_current = infos.get_version() == inner.segment_infos.get_version()
+        let is_current = version == inner.segment_infos.get_version()
             && !self.doc_writer.any_changes(None)
             && !self.buffered_updates_stream.any()
             && !self.reader_pool.any_doc_values_changes();
@@ -2408,7 +2408,7 @@ where
                 "IW",
                 &format!(
                     "nrtIsCurrent: infoVersion matches: {}; DW changes: {}; BD changes: {}",
-                    infos.get_version() == inner.segment_infos.get_version(),
+                    version == inner.segment_infos.get_version(),
                     self.doc_writer.any_changes(None),
                     self.buffered_updates_stream.any(),
                 ),
@@ -3251,6 +3251,10 @@ where
                 Err(e)
             },
         }
+    }
+    pub(crate) fn get_segment_infos_version(&self) -> i64 {
+        let inner = self.inner.lock();
+        inner.segment_infos.get_version()
     }
 }
 pub(crate) struct IOConsumerImpl<'a, D, L, B>

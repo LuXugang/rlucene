@@ -157,7 +157,12 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn is_current(&self) -> Result<bool> {
+    fn is_current<D1, L, B>(&self, index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
+    where
+        D1: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -24,4 +24,5 @@ pub mod random_index_writer;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
 mod test_index_many_documents;
-mod test_index_writer;
+pub(crate) mod test_index_writer;
+mod test_index_writer_commit;

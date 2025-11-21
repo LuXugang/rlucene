@@ -39,6 +39,8 @@ use crate::core::util::io_function::IOFunction;
 use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 
 pub struct StandardDirectoryReader<LR, C, D>
 where
@@ -58,6 +60,7 @@ where
     segment_infos: Option<SegmentInfos<D>>,
     sub_reader_sorter: Option<Arc<C>>,
     base: IndexReaderBase,
+    closed: Option<Arc<AtomicBool>>,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
@@ -72,6 +75,7 @@ where
         leaf_sorter: Option<Arc<C>>,
         apply_all_deletes: bool,
         write_all_deletes: bool,
+        closed: Option<Arc<AtomicBool>>,
     ) -> Result<Self> {
         let base_composite_reader_base =
             BaseCompositeReaderBase::new_with_leaf_readers::<C>(readers, &leaf_sorter)?;
@@ -84,8 +88,10 @@ where
             segment_infos: Some(segment_infos),
             sub_reader_sorter: leaf_sorter,
             base: IndexReaderBase::new(),
+            closed,
         })
     }
+
     pub(crate) fn open<IC>(
         directory: Arc<D>,
         commit: Option<&IC>,
@@ -197,6 +203,7 @@ where
             None::<Arc<DummyComparator<Arc<SegmentReader<D>>>>>,
             apply_all_deletes,
             write_all_deletes,
+            Some(writer.closed.clone()),
         )
     })();
     match result {
@@ -344,9 +351,40 @@ where
         todo!()
     }
 
-    fn is_current(&self) -> Result<bool> {
+    fn is_current<D1, L, B>(&self, index_writer: &IndexWriter<D1, L, B>) -> Result<bool>
+    where
+        D1: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
         self.ensure_open()?;
-        todo!()
+
+        let reader_from_dir = match self.closed {
+            Some(ref closed) => {
+                if closed.load(SeqCst) {
+                    true;
+                }
+                false
+            },
+            None => true,
+        };
+        if reader_from_dir {
+            let latest = SegmentInfos::read_latest_commit(self.directory().directory.clone())?;
+            let version = match self.segment_infos {
+                // writer is null
+                Some(ref sis) => sis.get_version(),
+                // writer != null and writer.isClosed is true
+                None => index_writer.get_segment_infos_version(),
+            };
+            Ok(latest.get_version() == version)
+        } else {
+            match self.segment_infos {
+                Some(ref sis) => index_writer.nrt_is_current(sis.get_version()),
+                None => Err(LuceneError::illegal_state(
+                    "StandardDirectoryReader should own segment_infos ",
+                )),
+            }
+        }
     }
 
     type IndexCommit = DummyIndexCommit<D>;
@@ -438,6 +476,7 @@ where
             self.leaf_sorter.clone(),
             false,
             false,
+            None,
         )?;
 
         Ok(reader)
