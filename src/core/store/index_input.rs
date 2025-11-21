@@ -502,7 +502,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::fmt::{Display, Formatter};
-    use std::io::Seek;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -742,7 +741,7 @@ mod tests {
             Err(LuceneError::unsupported_operation(""))
         }
 
-        fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+        fn read_bytes(&mut self, b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
         }
 
