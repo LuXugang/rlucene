@@ -62,7 +62,6 @@ where
     closing: AtomicBool,
 
     maybe_merge: AtomicBool,
-    commit_user_data: Option<HashMap<String, String>>,
     merging_segments: HashSet<String>,
 
     merge_gen: i64,
@@ -96,6 +95,7 @@ where
     rollback_segments: Vec<SegmentCommitInfo<D>>,
     // increments every time a change is completed
     change_count: i64,
+    commit_user_data: Option<HashMap<String, String>>,
 }
 
 pub struct CommitInner<D>
@@ -355,7 +355,7 @@ where
                 tragedy: Arc::new(Mutex::new(None)),
                 directory_orig,
                 directory,
-                last_commit_change_count: AtomicI64::new(change_count),
+                last_commit_change_count: AtomicI64::new(0),
                 pending_seq_no: AtomicI64::new(0),
                 pending_commit_change_count: AtomicI64::new(0),
                 global_field_number_map,
@@ -367,7 +367,6 @@ where
                 closed: Arc::new(AtomicBool::new(false)),
                 closing: AtomicBool::new(false),
                 maybe_merge: AtomicBool::new(false),
-                commit_user_data: Some(commit_user_data),
                 merging_segments: HashSet::new(),
                 merge_gen: 0,
                 did_message_state,
@@ -386,6 +385,7 @@ where
                     deleter,
                     rollback_segments,
                     change_count,
+                    commit_user_data: Some(commit_user_data),
                 }),
                 pausing: Condvar::new(),
                 sub,
@@ -1514,10 +1514,9 @@ where
                         inner.change_count += 1;
                         inner.segment_infos.changed();
                     }
-                    if let Some(commit_ud) = &self.commit_user_data {
-                        inner
-                            .segment_infos
-                            .set_user_data(Some(commit_ud.clone()), false);
+                    if let Some(commit_ud) = &inner.commit_user_data {
+                        let v = commit_ud.clone();
+                        inner.segment_infos.set_user_data(Some(v), false);
                     }
                     // Must clone the segmentInfos while we still
                     // hold fullFlushLock and while sync'd so that
@@ -1653,8 +1652,41 @@ where
 
         Ok(())
     }
-    pub fn set_live_commit_data(&self) {}
+    /// Sets the iterator that provides the commit user data map at commit time.
+    ///
+    /// Calling this method is considered a **committable change** and will be
+    /// [`commit`](Self::commit) committed even if there are no other changes in this writer.
+    /// Note that you must call this method **before** [`prepare_commit`](Self::prepare_commit).
+    /// Otherwise it will not be included in the subsequent [`commit`](Self::commit).
+    ///
+    ///
+    /// **NOTE:**
+    /// The iterator is *late-binding*: it is only consumed **after** all documents for the
+    /// commit have been written to their segments, and **before** the next `segments_N` file
+    /// is written.
+    pub fn set_live_commit_data<I>(&self, commit_user_data: I)
+    where
+        I: IntoIterator<Item = (String, String)>,
+    {
+        self.set_live_commit_data_with_version(commit_user_data, true);
+    }
+    /// Sets the commit user data iterator, controlling whether to advance the
+    /// [`SegmentInfos::get_version`].
+    pub fn set_live_commit_data_with_version<I>(
+        &self,
+        commit_user_data: I,
+        do_increment_version: bool,
+    ) where
+        I: IntoIterator<Item = (String, String)>,
+    {
+        let mut inner = self.inner.lock();
 
+        inner.commit_user_data = Some(commit_user_data.into_iter().collect());
+        if do_increment_version {
+            inner.segment_infos.changed();
+        }
+        inner.change_count += 1;
+    }
     pub(crate) fn write_some_doc_values_updates(&self) -> Result<()> {
         if let Some(_guard) = self.write_doc_values_lock.try_lock() {
             let ram_buffer_size_mb = self.config.get_ram_buffer_size_mb();

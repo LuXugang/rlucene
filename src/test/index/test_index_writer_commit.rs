@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::directory_reader::{DirectoryReader, directory_reader_util};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
@@ -100,6 +101,70 @@ fn test_commit_on_close() -> Result<()> {
             "reader did not see changes after writer was closed"
         );
     }
+
+    Ok(())
+}
+#[test]
+fn test_commit_on_close_abort() -> Result<()> {
+    // TODO: roll_back未实现
+    Ok(())
+}
+
+#[test]
+fn test_commit_on_close_disk_usage() -> Result<()> {
+    Ok(())
+}
+#[test]
+fn test_commit_on_close_force_merge() -> Result<()> {
+    // TODO: force_merge未实现
+    Ok(())
+}
+#[test]
+fn test_commit_thread_safety() -> Result<()> {
+    // TODO: 多线程未实现
+    Ok(())
+}
+#[test]
+fn test_force_commit() -> Result<()> {
+    // TODO: open_if_change 未实现
+    Ok(())
+}
+#[test]
+fn test_future_commit() -> Result<()> {
+    // TODO: ReaderCommit未实现
+    Ok(())
+}
+
+#[test]
+fn test_zero_commits() -> Result<()> {
+    // TODO: ReaderCommit未实现
+    Ok(())
+}
+#[test]
+fn test_prepare_commit() -> Result<()> {
+    // TODO: open_if_changed 未实现
+    Ok(())
+}
+
+#[test]
+fn test_prepare_commit_rollback() -> Result<()> {
+    // TODO: open_if_changed 未实现
+    Ok(())
+}
+#[test]
+fn test_prepare_commit_no_changes() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现 MockAnalyzer
+    let iwc = new_index_writer_config(&mut random);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    writer.prepare_commit()?;
+    writer.commit()?;
+    writer.close()?;
+
+    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+    assert_eq!(0, reader.num_docs()?);
 
     Ok(())
 }
