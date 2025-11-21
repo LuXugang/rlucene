@@ -27,3 +27,4 @@ mod test_index_many_documents;
 pub(crate) mod test_index_writer;
 mod test_index_writer_commit;
 mod test_index_writer_delete;
+mod test_many_fields;
