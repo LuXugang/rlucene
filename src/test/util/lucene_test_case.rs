@@ -143,6 +143,16 @@ pub mod lucene_test_case_util {
         let sub_directory = NIOFSDirectory::new();
         FSDirectory::new(temp_dir.keep(), sub_directory)
     }
+
+    pub(crate) fn new_fs_directory<R: Rng + ?Sized>(
+        _random: &mut R,
+        temp_dir: TempDir,
+    ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
+        // TODO 这里简单返回FSDirectory
+        let sub_directory = NIOFSDirectory::new();
+        FSDirectory::new(temp_dir.keep(), sub_directory)
+    }
+
     pub(crate) fn new_string_field<S1, S2>(name: S1, value: S2, stored: Store) -> Result<Field>
     where
         S1: Into<String>,
@@ -615,5 +625,9 @@ pub mod lucene_test_case_util {
 
     pub fn is_night_mode() -> bool {
         std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+    }
+    pub fn create_temp_dir() -> Result<TempDir> {
+        let temp_dir = TempDir::new()?;
+        Ok(temp_dir)
     }
 }
