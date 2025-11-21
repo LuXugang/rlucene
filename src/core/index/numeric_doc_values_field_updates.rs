@@ -364,12 +364,12 @@ mod tests {
                 expected.insert(id, val);
                 if op <= upd_cutoff {
                     writer.update_documents_with_term(
-                        Term::from_text("id", &format!("doc-{id}")),
+                        Term::from_text("id", format!("doc-{id}")),
                         doc_with_val(id, val)?,
                     )?;
                 } else {
                     writer.update_numeric_doc_value(
-                        Term::from_text("id", &format!("doc-{id}")),
+                        Term::from_text("id", format!("doc-{id}")),
                         "val",
                         val,
                     )?;
@@ -385,7 +385,7 @@ mod tests {
 
         for (id, expected_val) in expected {
             let td = searcher.search_with_sort(
-                TermQuery::new(Term::from_text("id", &format!("doc-{}", id))),
+                TermQuery::new(Term::from_text("id", format!("doc-{}", id))),
                 1,
                 Sort::with_fields(vec![SortField::new(Some("val"), SortFieldType::Long)?])?,
             )?;
@@ -496,7 +496,7 @@ mod tests {
             if random.random_range(0.0..1.0) < 0.4 {
                 let value = ((i + 1) * 2) as i64;
                 writer.update_numeric_doc_value(
-                    Term::from_text("id", &format!("doc-{}", i)),
+                    Term::from_text("id", format!("doc-{}", i)),
                     "val",
                     value,
                 )?;
@@ -964,7 +964,7 @@ mod tests {
         let num_gens = at_least(&mut random, 5);
         for _ in 0..num_gens {
             let doc_id = random.random_range(0..num_docs);
-            let t = Term::from_text("id", &format!("doc{}", doc_id));
+            let t = Term::from_text("id", format!("doc{}", doc_id));
             let value = random.random();
             writer.update_doc_values(
                 t,

@@ -880,7 +880,7 @@ mod tests {
         let mut last2 = 0;
         let mut unique_values = HashSet::new();
         for (j, &id) in ids.iter().enumerate() {
-            let term = Term::from_text("id", &id.to_string());
+            let term = Term::from_text("id", id.to_string());
             unique_values.insert(term.clone());
             queue.add_delete_term(Vec::from([term.clone()]))?;
             if random.random_range(0..20) == 0 || j == (size - 1) as usize {
@@ -937,7 +937,7 @@ mod tests {
         ids: &[i32],
     ) -> Result<()> {
         for i in start..=end {
-            let term = Term::from_text("id", &ids[i as usize].to_string());
+            let term = Term::from_text("id", ids[i as usize].to_string());
             assert_eq!(end, deletes.delete_terms.get(&term));
         }
         Ok(())
@@ -951,7 +951,7 @@ mod tests {
         assert!(!queue.any_changes(None));
         let size = 200 + random.random_range(0..500) * random_multiplier();
         for i in 0..size {
-            let term = Term::from_text("id", &i.to_string());
+            let term = Term::from_text("id", i.to_string());
             if random.random_range(0..10) == 0 {
                 queue
                     .add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()).into())]))?;
@@ -978,7 +978,7 @@ mod tests {
         let mut queries_since_freeze = 0;
 
         for i in 0..size {
-            let term = Term::from_text("id", &i.to_string());
+            let term = Term::from_text("id", i.to_string());
             if random.random_range(0..10) == 0 {
                 queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()).into())])?;
                 queries_since_freeze += 1;
@@ -1035,7 +1035,7 @@ mod tests {
         let size = 10000 + random.random_range(0..500) * random_multiplier();
         let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
         for id in &ids {
-            unique_values.insert(Term::from_text("id", &id.to_string()));
+            unique_values.insert(Term::from_text("id", id.to_string()));
         }
 
         let barrier = Arc::new(Barrier::new(1));
@@ -1171,7 +1171,7 @@ mod tests {
             self.barrier.wait();
             let mut i = 0;
             while i < self.ids.len() {
-                let term = Term::from_text("id", &self.ids[i].to_string());
+                let term = Term::from_text("id", self.ids[i].to_string());
                 let term_node = Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(term));
                 self.queue
                     .add_with_slice(term_node.clone(), &mut self.slice)?;

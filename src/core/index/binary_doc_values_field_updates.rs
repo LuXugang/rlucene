@@ -386,7 +386,7 @@ mod tests {
             if random.random_range(0.0..1.0) < 0.4 {
                 let value = ((i + 1) * 2) as i64;
                 writer.update_binary_doc_value(
-                    Term::from_text("id", &format!("doc-{i}")),
+                    Term::from_text("id", format!("doc-{i}")),
                     "val",
                     to_bytes(value)?,
                 )?;
@@ -892,7 +892,7 @@ mod tests {
         let num_gens = at_least(&mut random, 5);
         for _ in 0..num_gens {
             let doc_idx = random.random_range(0..num_docs);
-            let t = Term::from_text("id", &format!("doc{doc_idx}"));
+            let t = Term::from_text("id", format!("doc{doc_idx}"));
             let value = random.random();
             writer.update_doc_values(
                 t,

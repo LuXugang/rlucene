@@ -57,11 +57,13 @@ impl Term {
 
     /// Constructs a Term with the given field and text.
     /// That accepts a Term parameter.
-    pub fn from_text<T>(fld: T, text: &str) -> Self
+    pub fn from_text<T, S>(fld: T, text: S) -> Self
     where
         T: Into<String>,
+        S: AsRef<str>,
     {
-        Self::new(fld, BytesRef::from_string(text))
+        let v = text.as_ref();
+        Self::new(fld, BytesRef::from_string(v))
     }
 
     /// Constructs a Term with the given field and empty text. This serves two

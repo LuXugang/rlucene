@@ -701,30 +701,14 @@ mod tests {
         );
         let mut buffer =
             FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, i32::MAX)?;
-        buffer.add_update_with_long(
-            &Term::from_text("id".to_string(), "1"),
-            int_value as i64,
-            i32::MAX,
-        )?;
-        buffer.add_update_with_long(
-            &Term::from_text("id".to_string(), "2"),
-            int_value as i64,
-            i32::MAX,
-        )?;
+        buffer.add_update_with_long(&Term::from_text("id", "1"), int_value as i64, i32::MAX)?;
+        buffer.add_update_with_long(&Term::from_text("id", "2"), int_value as i64, i32::MAX)?;
         if value_for_three {
-            buffer.add_update_with_long(
-                &Term::from_text("id".to_string(), "3"),
-                int_value as i64,
-                i32::MAX,
-            )?;
+            buffer.add_update_with_long(&Term::from_text("id", "3"), int_value as i64, i32::MAX)?;
         } else {
-            buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
+            buffer.add_no_value(&Term::from_text("id", "3"), i32::MAX)?;
         }
-        buffer.add_update_with_long(
-            &Term::from_text("id".to_string(), "4"),
-            int_value as i64,
-            i32::MAX,
-        )?;
+        buffer.add_update_with_long(&Term::from_text("id", "4"), int_value as i64, i32::MAX)?;
         buffer.finish()?;
 
         let mut iterator = buffer.iterator()?;
@@ -758,7 +742,7 @@ mod tests {
         )));
         let update = DocValuesUpdate::new(
             DocValuesType::Binary,
-            Term::from_text("id".to_string(), "0"),
+            Term::from_text("id", "0"),
             "enabled",
             MAX_INT,
             sub_update,
@@ -766,27 +750,27 @@ mod tests {
         let mut buffer =
             FieldUpdatesBuffer::from_binary_update(counter.clone(), &update, i32::MAX)?;
         buffer.add_update_with_bytes_ref(
-            &Term::from_text("id".to_string(), "1"),
+            &Term::from_text("id", "1"),
             &BytesRef::from_string(""),
             i32::MAX,
         )?;
         buffer.add_update_with_bytes_ref(
-            &Term::from_text("id".to_string(), "2"),
+            &Term::from_text("id", "2"),
             &BytesRef::from_string(""),
             i32::MAX,
         )?;
         if value_for_three {
             buffer.add_update_with_bytes_ref(
-                &Term::from_text("id".to_string(), "3"),
+                &Term::from_text("id", "3"),
                 &BytesRef::from_string(""),
                 i32::MAX,
             )?;
         } else {
-            buffer.add_no_value(&Term::from_text("id".to_string(), "3"), i32::MAX)?;
+            buffer.add_no_value(&Term::from_text("id", "3"), i32::MAX)?;
         }
 
         buffer.add_update_with_bytes_ref(
-            &Term::from_text("id".to_string(), "4"),
+            &Term::from_text("id", "4"),
             &BytesRef::from_string(""),
             i32::MAX,
         )?;
@@ -989,7 +973,7 @@ mod tests {
     pub fn test_no_numeric_value() -> Result<()> {
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
-            Term::from_text("id".to_string(), "1"),
+            Term::from_text("id", "1"),
             "age".to_string(),
             MAX_INT,
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
@@ -1019,7 +1003,7 @@ mod tests {
             DocValuesType::Numeric,
             Term::from_text(
                 term_field.to_string(),
-                &random.random_range(0..1000).to_string(),
+                random.random_range(0..1000).to_string(),
             ),
             "numeric".to_string(),
             MAX_INT,
@@ -1037,7 +1021,7 @@ mod tests {
                 DocValuesType::Numeric,
                 Term::from_text(
                     term_field.to_string(),
-                    &random.random_range(0..1000).to_string(),
+                    random.random_range(0..1000).to_string(),
                 ),
                 "numeric".to_string(),
                 MAX_INT,
