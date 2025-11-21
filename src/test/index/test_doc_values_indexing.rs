@@ -14,30 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
+use crate::core::document::field_type::FieldType;
+use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
-use crate::core::document::string_field::StringField;
+use crate::core::document::string_field::{StringField, string_field_type};
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::OpenMode::Create;
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
+use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::number::Number;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
     new_index_writer_config, random,
 };
 use rand::RngCore;
+use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -494,6 +506,7 @@ fn test_mixed_types_different_segments() -> Result<()> {
 
 #[test]
 fn test_mixed_types_after_delete_all() -> Result<()> {
+    // TODO writer.delete_all未实现
     // let mut random = random();
     //
     // let dir = Arc::new(new_directory(&mut random)?);
@@ -583,7 +596,7 @@ fn test_mixed_types_after_reopen_append1() -> Result<()> {
 #[test]
 fn test_mixed_types_after_reopen_append2() -> Result<()> {
     let mut random = random();
-
+    // TODO: 未实现MockAnalyzer
     let dir = Arc::new(new_directory(&mut random)?);
 
     let iwc1 = new_index_writer_config(&mut random);
@@ -629,7 +642,7 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
-
+    // TODO: 未实现MockAnalyzer
     let iwc1 = new_index_writer_config(&mut random);
     {
         let w = IndexWriter::new(dir.clone(), iwc1)?;
@@ -680,7 +693,7 @@ fn test_mixed_types_via_add_indexes() -> Result<()> {
 #[test]
 fn test_illegal_type_change() -> Result<()> {
     let mut random = random();
-
+    // TODO: 未实现MockAnalyzer
     let dir = Arc::new(new_directory(&mut random)?);
     let conf = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), conf)?;
@@ -712,7 +725,7 @@ fn test_illegal_type_change() -> Result<()> {
 #[test]
 fn test_illegal_type_change_across_segments() -> Result<()> {
     let mut random = random();
-
+    // TODO: 未实现MockAnalyzer
     let dir = Arc::new(new_directory(&mut random)?);
     let conf1 = new_index_writer_config(&mut random);
     {
@@ -747,7 +760,7 @@ fn test_illegal_type_change_across_segments() -> Result<()> {
 #[test]
 fn test_type_change_after_close_and_delete_all() -> Result<()> {
     let mut random = random();
-
+    // TODO: 未实现MockAnalyzer
     let dir = Arc::new(new_directory(&mut random)?);
 
     let conf1 = new_index_writer_config(&mut random);
@@ -777,10 +790,11 @@ fn test_type_change_after_close_and_delete_all() -> Result<()> {
 
 #[test]
 fn test_type_change_after_delete_all() -> Result<()> {
+    // TODO writer.delete_all未实现
     // let mut random = random();
     //
     // let dir = Arc::new(new_directory(&mut random)?);
-    //
+    // TODO: 未实现MockAnalyzer
     // let conf = new_index_writer_config(&mut random);
     // let writer = IndexWriter::new(dir.clone(), conf)?;
     // let mut doc = Document::new();
@@ -799,4 +813,208 @@ fn test_type_change_after_delete_all() -> Result<()> {
     // writer.close()?;
 
     Ok(())
+}
+#[test]
+fn test_type_change_after_commit_and_delete_all() -> Result<()> {
+    // TODO writer.delete_all未实现
+    Ok(())
+}
+#[test]
+fn test_type_change_after_open_create() -> Result<()> {
+    let mut random = random();
+
+    let dir = Arc::new(new_directory(&mut random)?);
+    // TODO: 未实现MockAnalyzer
+    let conf1 = new_index_writer_config(&mut random);
+    {
+        let writer = IndexWriter::new(dir.clone(), conf1)?;
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("dv", 0));
+        writer.add_document(doc)?;
+        writer.close()?;
+    }
+
+    let mut conf2 = new_index_writer_config(&mut random);
+    conf2.set_open_mode(Create);
+    let writer2 = IndexWriter::new(dir.clone(), conf2)?;
+
+    let mut doc2 = Document::new();
+    doc2.add(SortedDocValuesField::new(
+        "dv",
+        new_bytes_ref_from_string(&mut random, "foo")?,
+    ));
+    writer2.add_document(doc2)?;
+
+    writer2.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn test_type_change_via_add_indexes() -> Result<()> {
+    // TODO add_indexes未实现
+    Ok(())
+}
+#[test]
+fn test_type_change_via_add_indexes_ir() -> Result<()> {
+    // TODO add_indexes未实现
+    Ok(())
+}
+#[test]
+fn test_type_change_via_add_indexes_2() -> Result<()> {
+    // TODO add_indexes未实现
+    Ok(())
+}
+#[test]
+fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
+    // TODO add_indexes未实现
+    Ok(())
+}
+#[test]
+fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
+    let mut random = random();
+    // TODO: 未实现MockAnalyzer
+    let dir = Arc::new(new_directory(&mut random)?);
+    let conf = new_index_writer_config(&mut random);
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::with_string("f", "mock-value", No)?);
+    doc.add(NumericDocValuesField::new("f", 5));
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut doc2 = Document::new();
+    doc2.add(BinaryDocValuesField::new(
+        "f",
+        new_bytes_ref_from_string(&mut random, "mock")?,
+    ));
+    let res = writer.add_document(doc2);
+    assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+
+    // TODO: rollback未实现
+    // writer.rollback()?;
+    // TODO: 这里不需要close
+    writer.close()?;
+    Ok(())
+}
+
+#[test]
+fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
+    let mut random = random();
+    // TODO: 未实现MockAnalyzer
+    let dir = Arc::new(new_directory(&mut random)?);
+    let iwc = new_index_writer_config(&mut random);
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut ft = FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+    ft.set_doc_values_type(DocValuesType::Sorted)?;
+    ft.freeze();
+
+    let bytes = BytesRef::from_string("value");
+    let field = FieldImpl::new("test", bytes, ft);
+
+    let mut doc = Document::new();
+    doc.add(field);
+
+    let res = w.add_document(doc);
+    assert!(matches!(res, Err(LuceneError::UnsupportedOperation(_))));
+
+    w.add_document(Document::new())?;
+    w.close()?;
+    Ok(())
+}
+
+pub struct FieldImpl {
+    parent_field: Field,
+}
+impl FieldImpl {
+    fn new(name: &str, value: BytesRef<Vec<u8>>, field_type: FieldType) -> Self {
+        let parent_field = Field::new(name, field_type, value);
+        FieldImpl { parent_field }
+    }
+}
+impl FieldBase for FieldImpl {}
+
+impl Display for FieldImpl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.parent_field)
+    }
+}
+
+impl IndexableField for FieldImpl {
+    fn name(&self) -> &str {
+        self.parent_field.name()
+    }
+
+    type FieldType = FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.parent_field.field_type()
+    }
+
+    type TokenStream = <Field as IndexableField>::TokenStream;
+
+    fn token_stream<'a>(
+        &'a mut self,
+        _token_stream: Option<&'a mut InnerTokenStreams>,
+    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.parent_field.binary_value()
+    }
+
+    fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+        self.parent_field.take_binary_value()
+    }
+
+    fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+        self.parent_field.string_value()
+    }
+
+    fn take_string_value(&mut self) -> Result<Option<String>> {
+        self.parent_field.take_string_value()
+    }
+
+    fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
+        self.parent_field.get_char_sequence_value()
+    }
+
+    fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+        self.parent_field.take_reader_value()
+    }
+
+    fn numeric_value(&self) -> Result<Option<Number>> {
+        self.parent_field.numeric_value()
+    }
+
+    fn stored_value(&self) -> Option<&FieldDataEnum> {
+        self.parent_field.stored_value()
+    }
+
+    fn take_stored_value(&mut self) -> Option<FieldDataEnum> {
+        self.parent_field.take_stored_value()
+    }
+
+    fn invertable_type(&self) -> &InvertableType {
+        self.parent_field.invertable_type()
+    }
+
+    fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+    where
+        A: Analyzer,
+    {
+        self.parent_field.init_token_stream(analyzer)
+    }
+}
+#[cfg(test)]
+impl Clone for FieldImpl {
+    fn clone(&self) -> Self {
+        Self {
+            parent_field: self.parent_field.clone(),
+        }
+    }
 }

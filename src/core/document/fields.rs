@@ -47,6 +47,8 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexing_chain::ReservedField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
+#[cfg(test)]
+use crate::test::index::test_doc_values_indexing::FieldImpl;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -75,6 +77,8 @@ pub enum Fields {
     Keyword(KeywordField),
     Int(IntRange),
     Binary(BinaryPoint),
+    #[cfg(test)]
+    FieldImpl(FieldImpl),
 }
 
 impl From<Field> for Fields {
@@ -213,6 +217,12 @@ impl From<BinaryPoint> for Fields {
         Fields::Binary(b)
     }
 }
+#[cfg(test)]
+impl From<FieldImpl> for Fields {
+    fn from(f: FieldImpl) -> Self {
+        Fields::FieldImpl(f)
+    }
+}
 
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -240,6 +250,8 @@ impl Display for Fields {
             Fields::Keyword(f1) => f1.fmt(f),
             Fields::Int(f1) => f1.fmt(f),
             Fields::Binary(f1) => f1.fmt(f),
+            #[cfg(test)]
+            Fields::FieldImpl(f1) => f1.fmt(f),
         }
     }
 }
@@ -270,6 +282,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.name(),
             Fields::Int(f) => f.name(),
             Fields::Binary(f) => f.name(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.name(),
         }
     }
 
@@ -300,6 +314,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.field_type(),
             Fields::Int(f) => f.field_type(),
             Fields::Binary(f) => f.field_type(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.field_type(),
         }
     }
 
@@ -334,6 +350,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.token_stream(token_stream),
             Fields::Int(f) => f.token_stream(token_stream),
             Fields::Binary(f) => f.token_stream(token_stream),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.token_stream(token_stream),
         }
     }
 
@@ -362,6 +380,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.binary_value(),
             Fields::Int(f) => f.binary_value(),
             Fields::Binary(f) => f.binary_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.binary_value(),
         }
     }
 
@@ -390,6 +410,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.take_binary_value(),
             Fields::Int(f) => f.take_binary_value(),
             Fields::Binary(f) => f.take_binary_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.take_binary_value(),
         }
     }
 
@@ -418,6 +440,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.string_value(),
             Fields::Int(f) => f.string_value(),
             Fields::Binary(f) => f.string_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.string_value(),
         }
     }
 
@@ -446,6 +470,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.take_string_value(),
             Fields::Int(f) => f.take_string_value(),
             Fields::Binary(f) => f.take_string_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.take_string_value(),
         }
     }
 
@@ -474,6 +500,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.get_char_sequence_value(),
             Fields::Int(f) => f.get_char_sequence_value(),
             Fields::Binary(f) => f.get_char_sequence_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.get_char_sequence_value(),
         }
     }
 
@@ -502,6 +530,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.take_reader_value(),
             Fields::Int(f) => f.take_reader_value(),
             Fields::Binary(f) => f.take_reader_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.take_reader_value(),
         }
     }
 
@@ -530,6 +560,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.numeric_value(),
             Fields::Int(f) => f.numeric_value(),
             Fields::Binary(f) => f.numeric_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.numeric_value(),
         }
     }
 
@@ -558,6 +590,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.stored_value(),
             Fields::Int(f) => f.stored_value(),
             Fields::Binary(f) => f.stored_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.stored_value(),
         }
     }
 
@@ -586,6 +620,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.take_stored_value(),
             Fields::Int(f) => f.take_stored_value(),
             Fields::Binary(f) => f.take_stored_value(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.take_stored_value(),
         }
     }
 
@@ -614,6 +650,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.invertable_type(),
             Fields::Int(f) => f.invertable_type(),
             Fields::Binary(f) => f.invertable_type(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.invertable_type(),
         }
     }
 
@@ -645,6 +683,8 @@ impl IndexableField for Fields {
             Fields::Keyword(f) => f.init_token_stream(analyzer),
             Fields::Int(f) => f.init_token_stream(analyzer),
             Fields::Binary(f) => f.init_token_stream(analyzer),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.init_token_stream(analyzer),
         }
     }
 }
@@ -676,6 +716,8 @@ impl Clone for Fields {
             Fields::Keyword(f) => f.clone().into(),
             Fields::Int(f) => f.clone().into(),
             Fields::Binary(f) => f.clone().into(),
+            #[cfg(test)]
+            Fields::FieldImpl(f) => f.clone().into(),
         }
     }
 }

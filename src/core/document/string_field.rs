@@ -28,7 +28,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
-pub mod string {
+pub mod string_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::index_options::IndexOptions;
     use once_cell::sync::Lazy;
@@ -86,9 +86,9 @@ impl StringField {
     {
         let store = store.into();
         let (field_type, has_stored_value) = if store {
-            (string::TYPE_STORED.clone(), true)
+            (string_field_type::TYPE_STORED.clone(), true)
         } else {
-            (string::TYPE_NOT_STORED.clone(), false)
+            (string_field_type::TYPE_NOT_STORED.clone(), false)
         };
         let value_str = value.into();
         let binary_value = Some(BytesRef::from_string(&value_str));
@@ -115,9 +115,9 @@ impl StringField {
     {
         let store = store.into();
         let (field_type, has_stored_value) = if store {
-            (string::TYPE_STORED.clone(), true)
+            (string_field_type::TYPE_STORED.clone(), true)
         } else {
-            (string::TYPE_NOT_STORED.clone(), false)
+            (string_field_type::TYPE_NOT_STORED.clone(), false)
         };
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(Self {
