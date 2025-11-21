@@ -71,6 +71,9 @@ where
     pub fn get_position(&self) -> usize {
         self.pos
     }
+    pub fn take_bytes(&mut self) -> AV {
+        std::mem::take(&mut self.bytes)
+    }
 }
 
 impl<AV> DataOutput for ByteArrayDataOutput<AV>
