@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use strum::EnumCount;
 use strum_macros::{Display, EnumCount, FromRepr};
 
 /// Controls how much information is stored in the postings lists.
@@ -43,9 +44,119 @@ pub enum IndexOptions {
     /// Character offsets are encoded alongside the positions.
     DocsAndFreqsAndPositionsAndOffsets,
 }
+impl IndexOptions {
+    pub fn values() -> impl Iterator<Item = Self> {
+        (0..Self::COUNT).filter_map(|v| Self::from_repr(v as u8))
+    }
+}
 /// Use Default for padding
 impl Default for IndexOptions {
     fn default() -> Self {
         IndexOptions::None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Field;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::text_field::text_field_type;
+    use std::sync::Arc;
+
+    use crate::core::index::index_options::IndexOptions;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
+
+    #[allow(dead_code)]
+    struct TestIndexOptions;
+    #[test]
+    fn test_change_index_options_via_add_document() -> Result<()> {
+        for from in IndexOptions::values() {
+            for to in IndexOptions::values() {
+                do_test_change_index_options_via_add_document(from, to)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn do_test_change_index_options_via_add_document(
+        from: IndexOptions,
+        to: IndexOptions,
+    ) -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut ft1 = FieldType::from_ref(&text_field_type::TYPE_STORED.clone())?;
+        ft1.set_index_options(from)?;
+        let mut doc1 = Document::new();
+        doc1.add(Field::new("foo", ft1, "bar"));
+        w.add_document(doc1)?;
+
+        let mut ft2 = FieldType::from_ref(&text_field_type::TYPE_STORED.clone())?;
+        ft2.set_index_options(to)?;
+        let mut doc2 = Document::new();
+        doc2.add(Field::new("foo", ft2, "bar"));
+
+        if from == to {
+            w.add_document(doc2)?;
+        } else {
+            let res = w.add_document(doc2);
+            let expected = format!(
+                "Inconsistency of field data structures across documents for field [foo] of doc [1].\
+             index options: expected '{}', but it has '{}'.",
+                from, to
+            );
+
+            match res {
+                Err(LuceneError::IllegalArgument(msg)) => {
+                    assert_eq!(expected, msg.message);
+                },
+                other => {
+                    debug_assert!(false, "Unexpected error type: {:?}", other);
+                },
+            }
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_change_index_options_via_add_indexes_codec_reader() -> Result<()> {
+        for from in IndexOptions::values() {
+            for to in IndexOptions::values() {
+                do_test_change_index_options_add_indexes_codec_reader(from, to)?;
+            }
+        }
+        Ok(())
+    }
+    fn do_test_change_index_options_add_indexes_codec_reader(
+        _from: IndexOptions,
+        _to: IndexOptions,
+    ) -> Result<()> {
+        // TODO add_indexes 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_change_index_options_via_add_indexes_directory() -> Result<()> {
+        for from in IndexOptions::values() {
+            for to in IndexOptions::values() {
+                do_test_change_index_options_add_indexes_codec_reader(from, to)?;
+            }
+        }
+        Ok(())
+    }
+    fn do_test_change_index_options_add_indexes_directory(
+        _from: IndexOptions,
+        _to: IndexOptions,
+    ) -> Result<()> {
+        // TODO add_indexes 未实现
+        Ok(())
     }
 }

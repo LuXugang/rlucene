@@ -1798,7 +1798,7 @@ impl FieldSchema {
     {
         if expected != given {
             return Err(LuceneError::illegal_argument(format!(
-                "{}[{}] of doc [{}]. {}: expected '{}', but it has '{}'.",
+                "{}[{}] of doc [{}].{}: expected '{}', but it has '{}'.",
                 Self::ERR_MSG,
                 self.name,
                 self.doc_id,
