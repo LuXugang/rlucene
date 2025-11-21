@@ -18,7 +18,6 @@ use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
@@ -83,8 +82,8 @@ where
 
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        _compiled: &mut CompiledAutomaton,
+        _start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         todo!()
     }
@@ -139,17 +138,11 @@ where
         self.has_payloads
     }
 
-    fn get_min<'a, TE>(&'a self, iterator: &'a mut TE) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        TE: TermsEnum,
-    {
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         todo!()
     }
 
-    fn get_max<'a, TE>(&'a self, iterator: &'a mut TE) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        TE: TermsEnum,
-    {
+    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         todo!()
     }
 }

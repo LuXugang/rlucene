@@ -26,7 +26,6 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -204,18 +203,12 @@ where
         self.field_info.has_payloads()
     }
 
-    fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
-        Ok(Option::from(Cow::Borrowed(self.min_term.as_ref())))
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        Ok(Some(Cow::Borrowed(self.min_term.as_ref())))
     }
 
-    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
-        Ok(Option::from(Cow::Borrowed(self.max_term.as_ref())))
+    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        Ok(Some(Cow::Borrowed(self.max_term.as_ref())))
     }
 }
 impl<I, PR> fmt::Display for FieldReader<I, PR>

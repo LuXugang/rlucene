@@ -19,7 +19,6 @@ use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
@@ -85,17 +84,11 @@ impl Terms for DummyTerms {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
+    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

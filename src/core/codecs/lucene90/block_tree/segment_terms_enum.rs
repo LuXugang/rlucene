@@ -222,20 +222,12 @@ where
         if self.fr.index.is_none() {
             return Err(LuceneError::illegal_state("terms index was not loaded"));
         }
-        if self.fr.size()? > 0 {
-            let mut iter = self.fr.iterator()?;
-            if target
-                .cmp(self.fr.get_min(&mut iter)?.as_ref().unwrap())
-                .to_int()
-                < 0
-                || target
-                    .cmp(self.fr.get_max(&mut iter)?.as_ref().unwrap())
-                    .to_int()
-                    > 0
-            {
-                self.prepare_seek_status = PrepareSeekStatus::NotFound;
-                return Ok(None);
-            }
+        if self.fr.size()? > 0
+            && (target.cmp(self.fr.get_min()?.as_ref().unwrap()).to_int() < 0
+                || target.cmp(self.fr.get_max()?.as_ref().unwrap()).to_int() > 0)
+        {
+            self.prepare_seek_status = PrepareSeekStatus::NotFound;
+            return Ok(None);
         }
         self.term.grow(1 + target.length);
         debug_assert!(self.clear_eof());

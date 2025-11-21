@@ -111,26 +111,25 @@ pub trait Terms {
     /// Returns the smallest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_min<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
-        iterator.next()
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        let mut iterator = self.iterator()?;
+        match iterator.next()? {
+            Some(term) => Ok(Some(Cow::Owned(term.into_owned()))),
+            None => Ok(None),
+        }
     }
 
     /// Returns the largest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T: TermsEnum,
-    {
+    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         let size = self.size()?;
         match size.cmp(&0) {
             std::cmp::Ordering::Equal => return Ok(None),
             std::cmp::Ordering::Greater => {
+                let mut iterator = self.iterator()?;
                 iterator.seek_exact_with_ord(size - 1)?;
-                return Ok(Some(iterator.term()?));
+                return Ok(Some(Cow::Owned(iterator.term()?.into_owned())));
             },
             std::cmp::Ordering::Less => {},
         }

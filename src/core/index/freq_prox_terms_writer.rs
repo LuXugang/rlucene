@@ -366,18 +366,12 @@ where
         self.base.has_payloads()
     }
 
-    fn get_min<'a, T1>(&'a self, iterator: &'a mut T1) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T1: TermsEnum,
-    {
-        self.base.get_min(iterator)
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.base.get_min()
     }
 
-    fn get_max<'a, T1>(&'a self, iterator: &'a mut T1) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
-    where
-        T1: TermsEnum,
-    {
-        self.base.get_max(iterator)
+    fn get_max(&'_ self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.base.get_max()
     }
 
     fn get_stats(&self) -> Result<String> {
