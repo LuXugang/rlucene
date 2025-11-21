@@ -48,7 +48,7 @@ fn test_simple_case() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     // TODO: MockAnalyzer 未实现
     let iwc = new_index_writer_config(&mut random);
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut custom1 = FieldType::new();
     custom1.set_stored(true)?;
@@ -60,24 +60,24 @@ fn test_simple_case() -> Result<()> {
         doc.add(Field::new("country", custom1.clone(), unindexed[i]));
         doc.add(TextField::with_string("contents", unstored[i], Store::No)?);
         doc.add(TextField::with_string("city", text[i], Store::Yes)?);
-        writer.add_document(doc)?;
+        modifier.add_document(doc)?;
     }
 
     // TODO: force_merge 未实现
     // writer.force_merge(1)?;
-    writer.commit()?;
+    modifier.commit()?;
 
     let term = Term::from_text("city", "Amsterdam");
     let mut hit_count = get_hit_count(dir.clone(), term.clone())?;
     assert_eq!(1, hit_count);
 
-    writer.delete_documents_with_terms(vec![term.clone()])?;
-    writer.commit()?;
+    modifier.delete_documents_with_terms(vec![term.clone()])?;
+    modifier.commit()?;
 
     hit_count = get_hit_count(dir.clone(), term)?;
     assert_eq!(0, hit_count);
 
-    writer.close()?;
+    modifier.close()?;
     Ok(())
 }
 #[test]
@@ -124,7 +124,139 @@ fn test_non_ram_delete() -> Result<()> {
     modifier.close()?;
     Ok(())
 }
+#[test]
+fn test_ram_deletes() -> Result<()> {
+    // TODO: FrozenBufferedUpdates#apply_query_deletes未实现
+    Ok(())
+}
+#[test]
+fn test_both_deletes() -> Result<()> {
+    let mut random = random();
 
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    // TODO: MockAnalyzer 未实现
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(100);
+
+    let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut id = 0;
+    let mut value = 100;
+
+    // First 5 docs, value=100
+    for _ in 0..5 {
+        id += 1;
+        add_doc(&mut writer, id, value)?;
+    }
+
+    value = 200;
+    for _ in 0..5 {
+        id += 1;
+        add_doc(&mut writer, id, value)?;
+    }
+
+    writer.commit()?;
+
+    for _ in 0..5 {
+        id += 1;
+        add_doc(&mut writer, id, value)?;
+    }
+
+    writer.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
+    writer.commit()?;
+
+    {
+        let reader = directory_reader_util::open(dir.clone())?;
+        assert_eq!(5, reader.num_docs()?);
+    }
+
+    writer.close()?;
+    Ok(())
+}
+#[test]
+fn test_batch_deletes() -> Result<()> {
+    let mut random = random();
+
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    // TODO: MockAnalyzer 未实现
+    let mut iwc = new_index_writer_config(&mut random);
+    iwc.set_max_buffered_docs(2);
+
+    let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+
+    let mut id = 0;
+    let value = 100;
+
+    for _ in 0..7 {
+        id += 1;
+        add_doc(&mut modifier, id, value)?;
+    }
+
+    modifier.commit()?;
+
+    {
+        let reader = directory_reader_util::open(dir.clone())?;
+        assert_eq!(7, reader.num_docs()?);
+    }
+
+    id = 0;
+
+    modifier.delete_documents_with_terms(vec![
+        Term::from_text("id", (id + 1).to_string()),
+        Term::from_text("id", (id + 2).to_string()),
+    ])?;
+    id += 2;
+
+    modifier.commit()?;
+
+    {
+        let reader = directory_reader_util::open(dir.clone())?;
+        assert_eq!(5, reader.num_docs()?);
+    }
+
+    let mut terms = Vec::new();
+    for _ in 0..3 {
+        id += 1;
+        terms.push(Term::from_text("id", id.to_string()));
+    }
+
+    modifier.delete_documents_with_terms(terms)?;
+    modifier.commit()?;
+
+    {
+        let reader = directory_reader_util::open(dir.clone())?;
+        assert_eq!(2, reader.num_docs()?);
+    }
+    modifier.close()?;
+    Ok(())
+}
+#[test]
+fn test_delete_all_simple() -> Result<()> {
+    // TODO delete_all未实现
+    Ok(())
+}
+#[test]
+fn test_delete_all_no_dead_lock() -> Result<()> {
+    // TODO 多线程未实现
+    Ok(())
+}
+#[test]
+fn test_delete_all_rollback() -> Result<()> {
+    // TODO delete_all未实现
+    Ok(())
+}
+#[test]
+fn test_delete_all_nrt() -> Result<()> {
+    // TODO delete_all未实现
+    Ok(())
+}
+#[test]
+fn test_delete_all_repeated() -> Result<()> {
+    // TODO delete_all未实现
+    Ok(())
+}
 fn update_doc<D, L, B>(modifier: &mut IndexWriter<D, L, B>, id: i32, value: i32) -> Result<()>
 where
     D: Directory,
@@ -165,3 +297,4 @@ fn get_hit_count<D: Directory>(dir: Arc<D>, term: Term) -> Result<i64> {
     let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
     Ok(top_docs.total_hits.value() as i64)
 }
+// TODO 还有很多tests 未完成
