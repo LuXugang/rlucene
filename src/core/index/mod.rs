@@ -114,6 +114,7 @@ pub mod prefix_coded_terms;
 pub mod query_timeout;
 mod query_timeout_impl;
 pub(crate) mod reader_pool;
+pub mod reader_slice;
 pub mod reader_util;
 mod readers_and_updates;
 pub mod segment_commit_info;
