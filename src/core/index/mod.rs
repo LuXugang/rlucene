@@ -155,6 +155,7 @@ pub(crate) mod term_vectors_consumer;
 pub(crate) mod term_vectors_consumer_per_field;
 pub mod terms;
 pub mod terms_enum;
+pub(crate) mod terms_enum_index;
 pub mod terms_hash;
 pub(crate) mod terms_hash_per_field;
 pub mod tracking_tmp_output_directory_wrapper;
