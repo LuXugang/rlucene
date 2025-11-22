@@ -99,6 +99,7 @@ pub mod merge_state;
 pub mod merge_trigger;
 pub mod multi_bits;
 pub mod multi_terms;
+mod multi_terms_enum;
 pub mod no_deletion_policy;
 pub(crate) mod norm_values_writer;
 pub mod numeric_doc_values;

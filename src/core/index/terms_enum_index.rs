@@ -30,7 +30,7 @@ where
     TE: TermsEnum,
 {
     sub_index: i32,
-    terms_enum: TE,
+    terms_enum: Option<TE>,
     current_term: Option<BytesRef<Vec<u8>>>,
     current_term_prefix8: i64,
 }
@@ -38,7 +38,7 @@ impl<TE> TermsEnumIndex<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(terms_enum: TE, sub_index: i32) -> Self {
+    pub fn new(terms_enum: Option<TE>, sub_index: i32) -> Self {
         Self {
             sub_index,
             terms_enum,
@@ -61,27 +61,38 @@ where
     }
 
     pub(crate) fn next(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
-        let term = self.terms_enum.next()?;
+        let Some(terms_enum) = &mut self.terms_enum else {
+            return Err(LuceneError::illegal_state("terms_enum is None"));
+        };
+        let term = terms_enum.next()?;
         let v = term.map(|t| t.into_owned());
         self.set_term(v);
         Ok(self.current_term.as_ref())
     }
     pub(crate) fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        let status = self.terms_enum.seek_ceil(term)?;
+        let Some(terms_enum) = &mut self.terms_enum else {
+            return Err(LuceneError::illegal_state("terms_enum is None"));
+        };
+        let status = terms_enum.seek_ceil(term)?;
 
         if status == SeekStatus::End {
             self.set_term(None);
         } else {
-            self.set_term(Some(self.terms_enum.term()?.into_owned()));
+            let v = Some(terms_enum.term()?.into_owned());
+            self.set_term(v);
         }
 
         Ok(status)
     }
     pub(crate) fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        let found = self.terms_enum.seek_exact(term)?;
+        let Some(terms_enum) = &mut self.terms_enum else {
+            return Err(LuceneError::illegal_state("terms_enum is None"));
+        };
+        let found = terms_enum.seek_exact(term)?;
 
         if found {
-            self.set_term(Some(self.terms_enum.term()?.into_owned()));
+            let v = Some(terms_enum.term()?.into_owned());
+            self.set_term(v);
         } else {
             self.set_term(None);
         }
