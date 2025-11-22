@@ -32,7 +32,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 pub struct IndexWriterConfig {
-    base: LiveIndexWriterConfigBase,
+    pub(crate) base: LiveIndexWriterConfigBase,
 }
 impl Default for IndexWriterConfig {
     fn default() -> Self {
@@ -58,7 +58,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
     type Analyzer = WhitespaceAnalyzer;
 
     fn get_analyzer(&self) -> &Self::Analyzer {
-        self.base.analyzer.as_ref()
+        &self.base.analyzer
     }
 
     type Similarity = DummySimilarity;

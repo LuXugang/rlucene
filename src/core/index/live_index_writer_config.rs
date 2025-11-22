@@ -147,7 +147,7 @@ pub trait LiveIndexWriterConfig: Display {
 }
 
 pub struct LiveIndexWriterConfigBase {
-    pub analyzer: Arc<WhitespaceAnalyzer>,
+    pub analyzer: WhitespaceAnalyzer,
     pub ram_buffer_size_mb: f64,
     pub max_buffered_docs: i32,
     pub index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
@@ -178,7 +178,7 @@ impl Default for LiveIndexWriterConfigBase {
 impl LiveIndexWriterConfigBase {
     pub fn new() -> Self {
         Self {
-            analyzer: Arc::new(WhitespaceAnalyzer::new()),
+            analyzer: WhitespaceAnalyzer::new(),
             ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
             max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
             index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,

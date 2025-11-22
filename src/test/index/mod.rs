@@ -23,6 +23,7 @@ pub(crate) mod base_segment_info_format_test_case;
 pub mod random_index_writer;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
+mod test_exceed_max_term_length;
 mod test_index_many_documents;
 pub(crate) mod test_index_writer;
 mod test_index_writer_commit;

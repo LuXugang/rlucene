@@ -133,12 +133,11 @@ pub mod lucene_test_case_util {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
         IndexWriterConfig::new()
     }
+    pub(crate) type DirType = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 
     // TODO: When we have implemented multiple directories, we need to select one
     // randomly. Currently, we choose NIOFSDirectory.
-    pub(crate) fn new_directory<R: Rng + ?Sized>(
-        _random: &mut R,
-    ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
+    pub(crate) fn new_directory<R: Rng + ?Sized>(_random: &mut R) -> Result<DirType> {
         let temp_dir = TempDir::new()?;
         let sub_directory = NIOFSDirectory::new();
         FSDirectory::new(temp_dir.keep(), sub_directory)
@@ -147,7 +146,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_fs_directory<R: Rng + ?Sized>(
         _random: &mut R,
         temp_dir: TempDir,
-    ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
+    ) -> Result<DirType> {
         // TODO 这里简单返回FSDirectory
         let sub_directory = NIOFSDirectory::new();
         FSDirectory::new(temp_dir.keep(), sub_directory)
