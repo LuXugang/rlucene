@@ -51,14 +51,13 @@ pub type MultiSortedNumericDocValues<LR> =
     Either2SortedNumericDocValues<LRSortedNumericDocValues<LR>, SortedNumericDocValuesImpl<LR>>;
 
 impl MultiDocValues {
-    pub fn get_norm_values<CR, LR>(
+    pub fn get_norm_values<CR>(
         reader: CR,
         field: &str,
     ) -> Result<Option<MultiNormNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
-        LR: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -91,14 +90,13 @@ impl MultiDocValues {
         )))
     }
 
-    pub fn get_numeric_values<CR, LR>(
+    pub fn get_numeric_values<CR>(
         reader: CR,
         field: &str,
     ) -> Result<Option<MultiNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
-        LR: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -133,14 +131,13 @@ impl MultiDocValues {
         ))))
     }
 
-    pub fn get_binary_values<CR, LR>(
+    pub fn get_binary_values<CR>(
         reader: CR,
         field: &str,
     ) -> Result<Option<MultiBinaryDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
-        LR: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -825,4 +822,150 @@ where
     }
 
     type NumericDocValues = DummyNumericDocValues;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::FieldBase;
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::index::doc_values_iterator::DocValuesIterator;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::multi_doc_values::MultiDocValues;
+    use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, get_only_leaf_reader, is_night_mode, new_directory, new_index_writer_config,
+        random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestMultiDocValues;
+
+    #[test]
+    fn test_numerics() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut doc = Document::new();
+
+        let mut field = NumericDocValuesField::new("numbers", 0i64);
+        doc.add(field.clone());
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let value = random.random();
+            field.set_long_value(value)?;
+            iw.add_document(doc.clone())?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现force_merge 所以 我们只生成一个段
+                // iw.commit()?;
+            }
+        }
+        // TODO 由于没有实现force_merge 所以 我们只生成一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi =
+            MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.expect("multi should exist");
+        let mut single = merged
+            .get_numeric_doc_values("numbers")?
+            .expect("single dv should exist");
+
+        for i in 0..num_docs {
+            assert_eq!(i, multi.next_doc()?);
+            assert_eq!(i, single.next_doc()?);
+            assert_eq!(single.long_value()?, multi.long_value()?);
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_numeric_doc_values("numbers")?.unwrap(),
+            &mut MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_numeric_doc_values("numbers")?.unwrap(),
+            &mut MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+        Ok(())
+    }
+
+    fn test_random_advance<I1, I2, R: Rng + ?Sized>(
+        random: &mut R,
+        iter1: &mut I1,
+        iter2: &mut I2,
+    ) -> Result<()>
+    where
+        I1: DocIdSetIterator,
+        I2: DocIdSetIterator,
+    {
+        assert_eq!(iter1.doc_id(), -1);
+        assert_eq!(iter2.doc_id(), -1);
+
+        while iter1.doc_id() != NO_MORE_DOCS {
+            if random.random_bool(0.5) {
+                let v1 = iter1.next_doc()?;
+                let v2 = iter2.next_doc()?;
+                assert_eq!(v1, v2);
+            } else {
+                let target = iter1.doc_id() + TestUtil::next_int(random, 1, 100);
+                let v1 = iter1.advance(target)?;
+                let v2 = iter2.advance(target)?;
+                assert_eq!(v1, v2);
+            }
+        }
+
+        Ok(())
+    }
+    fn test_random_advance_exact<I1, I2, R>(
+        random: &mut R,
+        iter1: &mut I1,
+        iter2: &mut I2,
+        max_doc: i32,
+    ) -> Result<()>
+    where
+        R: Rng + ?Sized,
+        I1: DocValuesIterator,
+        I2: DocValuesIterator,
+    {
+        let mut target = TestUtil::next_int(random, 0, max_doc.min(10));
+
+        while target < max_doc {
+            let exists1 = iter1.advance_exact(target)?;
+            let exists2 = iter2.advance_exact(target)?;
+            assert_eq!(exists1, exists2);
+
+            target += TestUtil::next_int(random, 0, 10);
+        }
+
+        Ok(())
+    }
+    // TODO 还有其他test未完成
 }

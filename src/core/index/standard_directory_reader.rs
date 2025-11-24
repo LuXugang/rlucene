@@ -308,8 +308,9 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // TODO
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 
