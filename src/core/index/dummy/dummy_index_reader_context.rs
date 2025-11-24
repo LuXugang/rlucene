@@ -37,7 +37,7 @@ impl IndexReaderContext for DummyIndexReaderContext {
 
     fn leaves(
         &self,
-    ) -> crate::core::util::error::lucene_error::Result<&[Arc<LeafReaderContext<Self::LeafReader>>]>
+    ) -> crate::core::util::error::lucene_error::Result<Vec<Arc<LeafReaderContext<Self::LeafReader>>>>
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

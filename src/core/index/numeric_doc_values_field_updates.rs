@@ -465,7 +465,8 @@ mod tests {
 
         let reader = get_context(Arc::new(reader))?;
         assert_eq!(reader.leaves()?.len(), 1);
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
         let mut ndv = r.get_numeric_doc_values("val")?.unwrap();
         assert_eq!(ndv.next_doc()?, 0);
         assert_eq!(ndv.long_value()?, 2);
@@ -616,7 +617,8 @@ mod tests {
 
         let reader = directory_reader_util::open(dir.clone())?;
         let leaf = get_context(Arc::new(reader))?;
-        let r = leaf.leaves()?[0].reader();
+        let r = leaf.leaves()?;
+        let r = r[0].reader();
 
         let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
         let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
@@ -680,7 +682,8 @@ mod tests {
 
         let reader = directory_reader_util::open(dir.clone())?;
         let reader = get_context(Arc::new(reader))?;
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
 
         let mut ndv1 = r.get_numeric_doc_values("ndv1")?.unwrap();
         let mut ndv2 = r.get_numeric_doc_values("ndv2")?.unwrap();
@@ -719,7 +722,8 @@ mod tests {
 
         let reader = directory_reader_util::open(dir.clone())?;
         let reader = get_context(Arc::new(reader))?;
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
 
         let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
         for i in 0..r.max_doc()? {
@@ -1177,7 +1181,8 @@ mod tests {
         // verify the latest values
         let reader = directory_reader_util::open(dir.clone())?;
         let reader = get_context(Arc::new(reader))?;
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
 
         let mut f1 = r.get_numeric_doc_values("f1")?.unwrap();
         assert_eq!(f1.next_doc()?, 0);
@@ -1222,7 +1227,8 @@ mod tests {
         let reader = get_context(Arc::new(reader))?;
         assert_eq!(reader.leaves()?.len(), 1);
 
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
         let mut dvs = r.get_numeric_doc_values("f1")?.unwrap();
         assert_eq!(dvs.next_doc()?, 0);
         assert_eq!(dvs.long_value()?, 2);
@@ -1253,7 +1259,8 @@ mod tests {
         let reader = get_context(Arc::new(reader))?;
         assert_eq!(reader.leaves()?.len(), 1);
 
-        let r = reader.leaves()?[0].reader();
+        let r = reader.leaves()?;
+        let r = r[0].reader();
         let mut dvs = r.get_numeric_doc_values("f1")?.unwrap();
         assert_eq!(dvs.next_doc()?, 0);
         assert_eq!(dvs.long_value()?, 1);

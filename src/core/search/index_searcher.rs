@@ -187,7 +187,7 @@ where
     fn compute_and_cache_slices(&mut self) -> Result<()> {
         let _guard = self.leaf_slices_init_lock.lock();
         if self.leaf_slices.is_none() {
-            let res = slices(self.reader_context.leaves()?)?;
+            let res = slices(self.reader_context.leaves()?.as_slice())?;
             // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
             // same leaf context. It is a requirement that [`Collector::get_leaf_collector(LeafReaderContext)`]
             // gets called once per leaf context.

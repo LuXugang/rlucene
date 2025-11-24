@@ -402,7 +402,8 @@ fn test_segment_info_is_snapshot() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     let context = get_context(reader)?;
-    let segment_reader = context.leaves()?.first().unwrap().reader();
+    let r = context.leaves()?;
+    let segment_reader = r.first().unwrap().reader();
     let segment_info = segment_reader.get_segment_info();
     let original_info_id = segment_reader.get_original_segment_info_id();
     let clone_segment_infos = writer.clone_segment_infos()?;
