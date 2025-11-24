@@ -29,6 +29,7 @@ impl ReaderUtil {
     {
         leaf_reader.top_parent()
     }
+    /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
     pub fn sub_index(n: i32, doc_starts: &[i32]) -> usize {
         debug_assert!(doc_starts.len() <= i32::MAX as usize);
         // find searcher/reader for doc n:
@@ -52,6 +53,35 @@ impl ReaderUtil {
                 return mid as usize;
             }
         }
+        hi.max(0) as usize
+    }
+    /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
+    pub fn sub_index_with_leaves<LR>(n: i32, leaves: &[Arc<LeafReaderContext<LR>>]) -> usize
+    where
+        LR: LeafReader,
+    {
+        // find searcher/reader for doc n:
+        let size = leaves.len();
+        let mut lo: i32 = 0; // search starts array
+        let mut hi: i32 = size as i32 - 1; // for first element less than n, return its index
+
+        while hi >= lo {
+            let mid = (lo + hi) >> 1;
+            let mid_value = leaves[mid as usize].doc_base;
+
+            if n < mid_value {
+                hi = mid - 1;
+            } else if n > mid_value {
+                lo = mid + 1;
+            } else {
+                let mut mid = mid;
+                while (mid + 1) < size as i32 && leaves[(mid + 1) as usize].doc_base == mid_value {
+                    mid += 1;
+                }
+                return mid as usize;
+            }
+        }
+
         hi.max(0) as usize
     }
 }

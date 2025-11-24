@@ -741,7 +741,7 @@ mod tests {
             Err(LuceneError::unsupported_operation(""))
         }
 
-        fn read_bytes(&mut self, b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
         }
 

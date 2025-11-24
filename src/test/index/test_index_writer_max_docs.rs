@@ -23,7 +23,6 @@ use crate::core::index::index_writer::{IndexWriter, MAX_DOCS};
 use crate::core::index::sort::Sort;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field::SortFieldType::Doc;
 use crate::core::search::term_query::TermQuery;

@@ -62,7 +62,7 @@ where
         })
     }
     /// Add the top() slice as well as all slices that are positionned on the same term to tops and return how many of them there are.
-    pub(crate) fn fill_top(&mut self, tops: &mut Vec<TermsEnumWithSlice<TE>>) -> Result<i32> {
+    pub(crate) fn fill_top(&mut self, _tops: &mut Vec<TermsEnumWithSlice<TE>>) -> Result<i32> {
         todo!()
     }
 }

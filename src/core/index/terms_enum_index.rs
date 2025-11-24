@@ -126,14 +126,10 @@ where
             return Ok(cmp);
         }
         match (self.current_term.as_ref(), that.current_term.as_ref()) {
-            (Some(a), Some(b)) => {
-                let current_term = self.current_term.as_ref().unwrap();
-                let that = that.current_term.as_ref().unwrap();
-                Ok(current_term.bytes
-                    [current_term.offset..current_term.offset + current_term.length]
-                    .cmp(&that.bytes[that.offset..that.offset + that.length])
-                    .to_int())
-            },
+            (Some(current_term), Some(that_term)) => Ok(current_term.bytes
+                [current_term.offset..current_term.offset + current_term.length]
+                .cmp(&that_term.bytes[that_term.offset..that_term.offset + that_term.length])
+                .to_int()),
             _ => Err(LuceneError::illegal_state("Both terms must be non-null")),
         }
     }

@@ -200,6 +200,12 @@ pub type LRTermState<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
 // NumericDocValues
 pub type LRNumericDocValues<LR> = <LR as LeafReader>::NumericDocValues;
+// BinaryDocValues
+pub type LRBinaryDocValues<LR> = <LR as LeafReader>::BinaryDocValues;
+// SortedNumericDocValues
+pub type LRSortedNumericDocValues<LR> = <LR as LeafReader>::SortedNumericDocValues;
+// SortedDocValues
+pub type LRSortedDocValues<LR> = <LR as LeafReader>::SortedDocValues;
 // ImpactsEnum
 pub type LRImpactsEnum<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;
