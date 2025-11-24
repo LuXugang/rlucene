@@ -605,7 +605,6 @@ where
     pub(crate) fn abort(&mut self) -> Result<()> {
         self.terms_hash.abort()?;
         self.stored_fields_consumer.abort()?;
-        // TODO
         Ok(())
     }
 
