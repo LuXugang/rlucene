@@ -180,7 +180,7 @@ impl IndexableField for DoublePoint {
 
     fn numeric_value(&self) -> Result<Option<Number>> {
         if self.parent_field.field_type().point_dimension_count() != 1 {
-            return Err(LuceneError::illegal_argument(format!(
+            return Err(LuceneError::illegal_state(format!(
                 "this field (name={}) uses {} dimensions; cannot convert to a single numeric value",
                 self.parent_field.name(),
                 self.parent_field.field_type().point_dimension_count()

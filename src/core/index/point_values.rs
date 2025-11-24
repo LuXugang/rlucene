@@ -15,8 +15,13 @@
  * limitations under the License.
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
+use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::SliceCopyOps;
+use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
@@ -103,6 +108,147 @@ pub trait PointValues: Clone {
         }
     }
 }
+/// Return the cumulated number of points across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Leaves that do not have points for the given field are ignored.
+///
+/// See [`PointValues::size`].
+pub fn size<CR>(reader: CR, field: &str) -> Result<i64>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    let leaves = get_context(reader)?;
+    let leaves = leaves.leaves()?;
+    let mut size = 0_i64;
+
+    for leaf in leaves.iter() {
+        if let Some(values) = leaf.reader().get_point_values(field)? {
+            size += values.size()?;
+        }
+    }
+
+    Ok(size)
+}
+
+/// Return the cumulated number of docs that have points across all leaves of the given
+/// [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Leaves that do not have points for the given field are ignored.
+///
+/// See [`PointValues::get_doc_count`].
+pub fn get_doc_count<CR>(reader: CR, field: &str) -> Result<i32>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    let leaves = get_context(reader)?;
+    let leaves = leaves.leaves()?;
+    let mut count = 0;
+
+    for leaf in leaves.iter() {
+        if let Some(values) = leaf.reader().get_point_values(field)? {
+            count += values.get_doc_count()?;
+        }
+    }
+
+    Ok(count)
+}
+
+/// Return the minimum packed values across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Leaves that do not have points for the given field are ignored.
+///
+/// See [`PointValues::get_min_packed_value`].
+pub fn get_min_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    let leaves = get_context(reader)?;
+    let leaves = leaves.leaves()?;
+    let mut min_value = None;
+
+    for leaf in leaves.iter() {
+        let values = match leaf.reader().get_point_values(field)? {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let leaf_min_value = match values.get_min_packed_value()? {
+            Some(v) => v,
+            None => continue,
+        };
+
+        if min_value.is_none() {
+            min_value = Some(leaf_min_value.into_owned());
+            continue;
+        }
+
+        let min_value_ref = min_value.as_mut().unwrap();
+
+        let num_dimensions = values.get_num_index_dimensions()?;
+        let num_bytes_per_dimension = values.get_bytes_per_dimension()?;
+        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension as usize);
+        for i in 0..num_dimensions {
+            let offset = (i * num_bytes_per_dimension) as usize;
+            if comparator.compare(&leaf_min_value, offset, min_value_ref, offset) < 0 {
+                min_value_ref.copy_from(
+                    &leaf_min_value[offset..offset + num_bytes_per_dimension as usize],
+                    offset,
+                );
+            }
+        }
+    }
+
+    Ok(min_value)
+}
+/// Return the maximum packed values across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Leaves that do not have points for the given field are ignored.
+///
+/// See [`PointValues::get_max_packed_value`].
+pub fn get_max_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    let ctx = get_context(reader)?;
+    let leaves = ctx.leaves()?;
+    let mut max_value: Option<Vec<u8>> = None;
+
+    for leaf in leaves.iter() {
+        let values = match leaf.reader().get_point_values(field)? {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let leaf_max_value = match values.get_max_packed_value()? {
+            Some(v) => v,
+            None => continue,
+        };
+
+        if max_value.is_none() {
+            max_value = Some(leaf_max_value.into_owned());
+            continue;
+        }
+
+        let max_value_ref = max_value.as_mut().unwrap();
+
+        let num_dimensions = values.get_num_index_dimensions()?;
+        let num_bytes_per_dimension = values.get_bytes_per_dimension()?;
+        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension as usize);
+
+        for dim in 0..num_dimensions {
+            let offset = (dim * num_bytes_per_dimension) as usize;
+            if comparator.compare(&leaf_max_value, offset, max_value_ref, offset) > 0 {
+                max_value_ref.copy_from(
+                    &leaf_max_value[offset..offset + num_bytes_per_dimension as usize],
+                    offset,
+                );
+            }
+        }
+    }
+
+    Ok(max_value)
+}
+
 /// Estimate if the point count that would be matched by `intersect`
 /// with the given `IntersectVisitor` is greater than or equal to the
 /// `upper_bound`.
@@ -492,5 +638,878 @@ where
 
     fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
         (**self).estimate_doc_count(visitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::binary_point::BinaryPoint;
+    use crate::core::document::document::Document;
+    use crate::core::document::double_point::DoublePoint;
+    use crate::core::document::field::{FieldBase, Store};
+    use crate::core::document::float_point::FloatPoint;
+    use crate::core::document::int_point::IntPoint;
+    use crate::core::document::long_point::LongPoint;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::indexable_field::IndexableField;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::point_values::{
+        IntersectVisitor, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointValues, Relation,
+        get_doc_count, get_max_packed_value, get_min_packed_value, size,
+    };
+    use crate::core::index::term::Term;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory,
+        new_fs_directory, new_index_writer_config, new_string_field, random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use std::sync::Arc;
+    use std::vec;
+
+    #[allow(dead_code)] // for quick search
+    struct TestPointValues;
+    // Suddenly add points to an existing field:
+    #[test]
+    fn test_upgrade_field_to_points() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        {
+            let w = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut doc = Document::new();
+            doc.add(new_string_field("dim", "foo", Store::No)?);
+            w.add_document(doc)?;
+            w.close()?;
+        }
+
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        let v = BinaryPoint::new("dim", vec![vec![0u8; 4]])?;
+        doc.add(v);
+        w.close()?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_one_doc() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "Inconsistency of field data structures across documents for field [dim] of doc [0].\
+ point dimension: expected '1', but it has '2'."
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_two_docs() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+        w.add_document(doc)?;
+
+        let mut doc2 = Document::new();
+        doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+
+        let err = w.add_document(doc2).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "Inconsistency of field data structures across documents for field [dim] of doc [1].\
+ point dimension: expected '1', but it has '2'."
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_two_segments() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        {
+            let mut doc = Document::new();
+            doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+            w.add_document(doc)?;
+            w.commit()?;
+        }
+
+        let mut doc2 = Document::new();
+        doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+
+        let err = w.add_document(doc2).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
+to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_two_writers() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        {
+            // TODO: 这里应该使用了带有分词器的构造方法
+            let iwc = new_index_writer_config(&mut random);
+            let w = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut doc = Document::new();
+            doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+            w.add_document(doc)?;
+            w.close()?;
+        }
+
+        {
+            // TODO: 这里应该使用了带有分词器的构造方法
+
+            let iwc = new_index_writer_config(&mut random);
+            let w2 = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut doc2 = Document::new();
+            doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+
+            let err = w2.add_document(doc2).unwrap_err();
+            match err {
+                LuceneError::IllegalArgument(msg) => {
+                    assert_eq!(
+                        msg.to_string(),
+                        "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
+to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
+                    );
+                },
+                _ => unreachable!("{:?}", err),
+            }
+
+            w2.close()?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
+        // TODO add_indexes未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
+        // TODO add_indexes未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
+        // TODO add_indexes_slowly未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "Inconsistency of field data structures across documents for field [dim] of doc [0].\
+ point num bytes: expected '4', but it has '6'."
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+        w.add_document(doc)?;
+
+        let mut doc2 = Document::new();
+        doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+
+        let err = w.add_document(doc2).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "Inconsistency of field data structures across documents for field [dim] of doc [1].\
+ point num bytes: expected '4', but it has '6'."
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_num_bytes_change_two_segments() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        {
+            let mut doc = Document::new();
+            doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+            w.add_document(doc)?;
+            w.commit()?;
+        }
+
+        let mut doc2 = Document::new();
+        doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+
+        let err = w.add_document(doc2).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
+to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        {
+            let iwc = new_index_writer_config(&mut random);
+            // TODO: 这里应该使用了带有分词器的构造方法
+            let w = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut doc = Document::new();
+            doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+            w.add_document(doc)?;
+            w.close()?;
+        }
+
+        {
+            let iwc = new_index_writer_config(&mut random);
+            let w2 = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut doc2 = Document::new();
+            doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+
+            let err = w2.add_document(doc2).unwrap_err();
+            match err {
+                LuceneError::IllegalArgument(msg) => {
+                    assert_eq!(
+                        msg.to_string(),
+                        "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
+to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
+                    );
+                },
+                _ => unreachable!("{:?}", err),
+            }
+
+            w2.close()?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
+        // TODO add_indexes未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
+        // TODO add_indexes未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<()> {
+        // TODO add_indexes_slowly未实现
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_too_many_bytes() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let err = BinaryPoint::new("dim", vec![vec![0u8; (MAX_NUM_BYTES + 1) as usize]]);
+        match err {
+            Err(LuceneError::IllegalArgument(_)) => {},
+            _ => unreachable!(""),
+        }
+
+        let mut doc2 = Document::new();
+        doc2.add(IntPoint::new("dim", vec![17])?);
+        w.add_document(doc2)?;
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_too_many_dimensions() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用了带有分词器的构造方法
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut values: Vec<Vec<u8>> = Vec::with_capacity((MAX_INDEX_DIMENSIONS + 1) as usize);
+        for _ in 0..(MAX_INDEX_DIMENSIONS + 1) {
+            values.push(vec![0u8; 4]);
+        }
+
+        let bp = BinaryPoint::new("dim", values);
+        match bp {
+            Err(LuceneError::IllegalArgument(_)) => {},
+            _ => unreachable!(""),
+        }
+
+        let mut doc2 = Document::new();
+        doc2.add(IntPoint::new("dim", vec![17])?);
+        w.add_document(doc2)?;
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_different_codecs_1() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+
+    #[test]
+    fn test_different_codecs_2() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+    #[test]
+    fn test_invalid_int_point_usage() -> Result<()> {
+        let mut field = IntPoint::new("field", vec![17, 42])?;
+
+        let err = field.set_int_value(14).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        let err = field.numeric_value().unwrap_err();
+        match err {
+            LuceneError::IllegalState(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_invalid_long_point_usage() -> Result<()> {
+        let mut field = LongPoint::new("field", vec![17, 42])?;
+
+        let err = field.set_long_value(14).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        let err = field.numeric_value().unwrap_err();
+        match err {
+            LuceneError::IllegalState(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_float_point_usage() -> Result<()> {
+        let mut field = FloatPoint::new("field", vec![17.0_f32, 42.0_f32])?;
+
+        let err = field.set_float_value(14.0).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        let err = field.numeric_value().unwrap_err();
+        match err {
+            LuceneError::IllegalState(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_double_point_usage() -> Result<()> {
+        let mut field = DoublePoint::new("field", vec![17.0_f64, 42.0_f64])?;
+
+        let err = field.set_double_value(14.0).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        let err = field.numeric_value().unwrap_err();
+        match err {
+            LuceneError::IllegalState(_) => {},
+            _ => unreachable!("{:?}", err),
+        }
+
+        Ok(())
+    }
+    struct IntersectVisitorImpl {
+        last_doc_id: i32,
+    }
+    impl IntersectVisitorImpl {
+        fn new() -> Self {
+            Self { last_doc_id: -1 }
+        }
+    }
+    impl IntersectVisitor for IntersectVisitorImpl {
+        fn visit(&mut self, doc_id: i32) -> Result<()> {
+            if doc_id < self.last_doc_id {
+                return Err(LuceneError::illegal_state(format!(
+                    "docs out of order: docID={} but lastDocID={}",
+                    doc_id, self.last_doc_id
+                )));
+            }
+            self.last_doc_id = doc_id;
+            Ok(())
+        }
+
+        fn visit_with_packed_value(&mut self, doc_id: i32, _packed_value: &[u8]) -> Result<()> {
+            self.visit(doc_id)
+        }
+
+        fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
+            if random().random_bool(0.5) {
+                Ok(Relation::CellCrossesQuery)
+            } else {
+                Ok(Relation::CellInsideQuery)
+            }
+        }
+    }
+    #[test]
+    fn test_tie_break_by_doc_id() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(IntPoint::new("int", vec![17])?);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 300_000)
+        } else {
+            at_least(&mut random, 3_000)
+        };
+
+        for _ in 0..num_docs {
+            w.add_document(doc.clone())?;
+            if random.random_range(0..1000) == 17 {
+                w.commit()?;
+            }
+        }
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+        let reader = get_context(reader.clone())?;
+
+        for leaf in reader.leaves()? {
+            let points = leaf.reader().get_point_values("int")?;
+            if let Some(points) = points {
+                let mut visitor = IntersectVisitorImpl { last_doc_id: -1 };
+                points.intersect(&mut visitor)?;
+            }
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    // TODO force_merge未实现 测试未通过
+    fn test_delete_all_point_docs() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("id", "0", Store::No)?);
+        doc.add(IntPoint::new("int", vec![17])?);
+        w.add_document(doc)?;
+
+        w.add_document(Document::new())?;
+        w.commit()?;
+
+        w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+
+        let ctx = get_context(reader.clone())?;
+        let leaves = ctx.leaves()?;
+        let leaf = &leaves[0];
+
+        assert!(leaf.reader().get_point_values("int")?.is_none());
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_points_field_missing_from_one_segment() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("id", "0", Store::No)?);
+        doc.add(IntPoint::new("int0", vec![0])?);
+        w.add_document(doc)?;
+        w.commit()?;
+
+        let mut doc2 = Document::new();
+        doc2.add(IntPoint::new("int1", vec![17])?);
+        w.add_document(doc2)?;
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_sparse_points() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let num_docs = at_least(&mut random, 1000);
+        let num_fields = TestUtil::next_int(&mut random, 1, 10);
+
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut field_doc_counts = vec![0i32; num_fields as usize];
+        let mut field_sizes = vec![0i32; num_fields as usize];
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+
+            for field in 0..num_fields {
+                let field_name = format!("int{}", field);
+
+                if random.random_range(0..100) == 17 {
+                    let v = random.random();
+                    doc.add(IntPoint::new(&field_name, vec![v])?);
+                    field_doc_counts[field as usize] += 1;
+                    field_sizes[field as usize] += 1;
+
+                    if random.random_range(0..10) == 5 {
+                        let v2 = random.random();
+                        doc.add(IntPoint::new(&field_name, vec![v2])?);
+                        field_sizes[field as usize] += 1;
+                    }
+                }
+            }
+
+            w.add_document(doc)?;
+        }
+
+        let reader = Arc::new(w.get_reader()?);
+        let ctx = get_context(reader.clone())?;
+        let leaves = ctx.leaves()?;
+
+        for field in 0..num_fields {
+            let mut doc_count = 0i32;
+            let mut size = 0i32;
+            let field_name = format!("int{}", field);
+
+            for leaf in leaves.as_slice() {
+                if let Some(points) = leaf.reader().get_point_values(&field_name)? {
+                    doc_count += points.get_doc_count()?;
+                    size += points.size()? as i32;
+                }
+            }
+
+            assert_eq!(field_doc_counts[field as usize], doc_count);
+            assert_eq!(field_sizes[field as usize], size);
+        }
+
+        w.close()?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_check_index_includes_points() -> Result<()> {
+        // TODO check_index未实现
+        Ok(())
+    }
+    #[test]
+    fn test_merged_stats_empty_reader() -> Result<()> {
+        // TODO MultiReader未实现
+        Ok(())
+    }
+    #[test]
+    fn test_merged_stats_one_segment_without_points() -> Result<()> {
+        let mut random = random();
+        // TODO ByteBuffersDirectory未实现
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO NoMergePolicy未实现
+        let iwc = IndexWriterConfig::new();
+
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        w.add_document(Document::new())?;
+
+        {
+            directory_reader_util::open_with_writer(&w)?;
+        }
+
+        let mut doc = Document::new();
+        doc.add(IntPoint::new("field", vec![i32::MIN])?);
+        w.add_document(doc)?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+
+        assert_eq!(
+            get_min_packed_value(reader.clone(), "field")?,
+            Some(vec![0u8; 4])
+        );
+
+        assert_eq!(
+            get_max_packed_value(reader.clone(), "field")?,
+            Some(vec![0u8; 4])
+        );
+
+        assert_eq!(get_doc_count(reader.clone(), "field")?, 1);
+
+        assert_eq!(size(reader.clone(), "field")?, 1);
+
+        assert_eq!(get_min_packed_value(reader.clone(), "field2")?, None);
+        assert_eq!(get_max_packed_value(reader.clone(), "field2")?, None);
+        assert_eq!(get_doc_count(reader.clone(), "field2")?, 0);
+        assert_eq!(size(reader.clone(), "field2")?, 0);
+
+        Ok(())
+    }
+    // TODO force_merge未实现 测试未通过
+    fn test_merged_stats_all_points_deleted() -> Result<()> {
+        let mut random = random();
+
+        // TODO ByteBuffersDirectory 未实现
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let iwc = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        w.add_document(Document::new())?;
+
+        {
+            let mut doc = Document::new();
+            doc.add(IntPoint::new("field", vec![i32::MIN])?);
+            doc.add(new_string_field("delete", "yes", Store::No)?);
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+
+        w.delete_documents_with_terms(vec![Term::from_text("delete", "yes")])?;
+
+        w.add_document(Document::new())?;
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+
+        assert_eq!(get_min_packed_value(reader.clone(), "field")?, None);
+        assert_eq!(get_max_packed_value(reader.clone(), "field")?, None);
+        assert_eq!(get_doc_count(reader.clone(), "field")?, 0);
+        assert_eq!(size(reader.clone(), "field")?, 0);
+
+        Ok(())
+    }
+    // TODO force_merge未实现 测试未通过
+    fn test_merged_stats() -> Result<()> {
+        let mut random = random();
+
+        let iters = at_least(&mut random, 3);
+
+        for _ in 0..iters {
+            do_test_merged_stats(&mut random)?;
+        }
+
+        Ok(())
+    }
+
+    fn random_binary_value<R: Rng + ?Sized>(
+        random: &mut R,
+        num_dims: usize,
+        num_bytes_per_dim: usize,
+    ) -> Vec<Vec<u8>> {
+        let mut values = Vec::with_capacity(num_dims);
+        for _ in 0..num_dims {
+            let mut bytes = vec![0u8; num_bytes_per_dim];
+            random.fill(bytes.as_mut_slice());
+            values.push(bytes);
+        }
+        values
+    }
+    fn do_test_merged_stats<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
+        let num_dims = TestUtil::next_int(random, 1, 8);
+        let num_bytes_per_dim = TestUtil::next_int(random, 1, 16);
+
+        // TODO ByteBuffersDirectory 未实现
+        let dir = Arc::new(new_directory(random)?);
+
+        let iwc = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let num_docs = TestUtil::next_int(random, 10, 20);
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let num_points = random.random_range(0..3);
+
+            for _ in 0..num_points {
+                let v = random_binary_value(random, num_dims as usize, num_bytes_per_dim as usize);
+                doc.add(BinaryPoint::new("field", v)?);
+            }
+
+            w.add_document(doc)?;
+
+            if random.random_bool(0.5) {
+                directory_reader_util::open_with_writer(&w)?;
+            }
+        }
+
+        let reader1 = Arc::new(directory_reader_util::open_with_writer(&w)?);
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+
+        let reader2 = Arc::new(directory_reader_util::open_with_writer(&w)?);
+        let leaf = get_only_leaf_reader(reader2.clone())?;
+        let expected = leaf.get_point_values("field")?;
+
+        if expected.is_none() {
+            assert_eq!(get_min_packed_value(reader1.clone(), "field")?, None);
+            assert_eq!(get_max_packed_value(reader1.clone(), "field")?, None);
+            assert_eq!(get_doc_count(reader1.clone(), "field")?, 0);
+            assert_eq!(size(reader1.clone(), "field")?, 0);
+        } else {
+            let expected = expected.unwrap();
+
+            assert_eq!(
+                Some(expected.get_min_packed_value()?.unwrap().into_owned()),
+                get_min_packed_value(reader1.clone(), "field")?
+            );
+
+            assert_eq!(
+                Some(expected.get_max_packed_value()?.unwrap().into_owned()),
+                get_max_packed_value(reader1.clone(), "field")?
+            );
+
+            assert_eq!(
+                expected.get_doc_count()?,
+                get_doc_count(reader1.clone(), "field")?
+            );
+
+            assert_eq!(expected.size()?, size(reader1.clone(), "field")?);
+        }
+
+        Ok(())
     }
 }
