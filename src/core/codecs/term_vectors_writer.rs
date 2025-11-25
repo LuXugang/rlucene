@@ -237,9 +237,9 @@ where
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
-    use std::sync::Arc;
-
+    use crate::core::document::field::{Field, Store};
     use crate::core::document::field_type::FieldType;
+    use crate::core::document::stored_field::stored_field_type;
     use crate::core::document::string_field::string_field_type;
     use crate::core::document::text_field::text_field_type;
     use crate::core::index::BytesRef;
@@ -247,17 +247,23 @@ mod tests {
     use crate::core::index::fields::Fields;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::postings_enum::{ALL, PostingsEnum};
+    use crate::core::index::stored_fields::StoredFields;
     use crate::core::index::term_vectors::TermVectors;
     use crate::core::index::terms::Terms;
     use crate::core::index::terms_enum::TermsEnum;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_field, new_index_writer_config, random,
+        new_directory, new_field, new_index_writer_config, new_string_field, new_text_field, random,
     };
+    use rand::Rng;
+    use std::sync::Arc;
 
     #[allow(dead_code)]
     struct TestTermVectorsWriter;
@@ -298,7 +304,6 @@ mod tests {
         let terms = terms.as_ref().unwrap();
         let mut terms_enum = terms.iterator()?;
 
-        // First token = ""
         assert!(terms_enum.next()?.is_some());
         assert_eq!("", terms_enum.term()?.utf8_to_string()?);
 
@@ -444,6 +449,513 @@ mod tests {
 
         assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
 
+        Ok(())
+    }
+    #[test]
+    fn test_end_offset_position_with_caching_token_filter() -> Result<()> {
+        // TODO CachingTokenFilter未实现
+        Ok(())
+    }
+    #[test]
+    fn test_end_offset_position_stop_filter() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd the", &custom_type)?;
+        doc.add(f.clone());
+        doc.add(f);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_eq!(2, terms_enum.total_term_freq()?);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        dp_enum.next_position()?;
+        assert_eq!(9, dp_enum.start_offset()?);
+        assert_eq!(13, dp_enum.end_offset()?);
+
+        assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_end_offset_position_standard() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: MockAnalyzer 尚未实现
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd the  ", &custom_type)?;
+        let f2 = new_field("field", "crunch man", &custom_type)?;
+        doc.add(f);
+        doc.add(f2);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        assert!(terms_enum.next()?.is_some());
+        dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+        dp_enum.next_position()?;
+        assert_eq!(11, dp_enum.start_offset()?);
+        assert_eq!(17, dp_enum.end_offset()?);
+
+        assert!(terms_enum.next()?.is_some());
+        dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+        dp_enum.next_position()?;
+        assert_eq!(18, dp_enum.start_offset()?);
+        assert_eq!(21, dp_enum.end_offset()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_end_offset_position_standard_empty_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO MockAnalyzer 尚未实现
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "", &custom_type)?;
+        let f2 = new_field("field", "crunch man", &custom_type)?;
+        doc.add(f);
+        doc.add(f2);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_eq!(1, terms_enum.total_term_freq()? as i32);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+        dp_enum.next_position()?;
+        assert_eq!(1, dp_enum.start_offset()?);
+        assert_eq!(7, dp_enum.end_offset()?);
+
+        assert!(terms_enum.next()?.is_some());
+        dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+        dp_enum.next_position()?;
+        assert_eq!(8, dp_enum.start_offset()?);
+        assert_eq!(11, dp_enum.end_offset()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_end_offset_position_standard_empty_field2() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 未实现 MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd", &custom_type)?;
+        doc.add(f);
+
+        doc.add(new_field("field", "", &custom_type)?);
+
+        let f2 = new_field("field", "crunch", &custom_type)?;
+        doc.add(f2);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_eq!(1, terms_enum.total_term_freq()? as i32);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        assert!(terms_enum.next()?.is_some());
+
+        dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(6, dp_enum.start_offset()?);
+        assert_eq!(12, dp_enum.end_offset()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_term_vector_corruption() -> Result<()> {
+        // TODO add_indexes未实现
+        Ok(())
+    }
+    #[test]
+    fn test_term_vector_corruption2() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        for _ in 0..2 {
+            // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+            let mut iwc = new_index_writer_config(&mut random);
+            iwc.set_max_buffered_docs(2);
+            iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+
+            let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+            let mut document = Document::new();
+
+            let mut custom_type = FieldType::new();
+            custom_type.set_stored(true)?;
+
+            let stored_field = new_field("stored", "stored", &custom_type)?;
+            document.add(stored_field.clone());
+
+            writer.add_document(document.clone())?;
+            writer.add_document(document)?;
+
+            let mut document = Document::new();
+            document.add(stored_field);
+
+            let mut custom_type2 =
+                FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+            custom_type2.set_store_term_vectors(true)?;
+            custom_type2.set_store_term_vector_positions(true)?;
+            custom_type2.set_store_term_vector_offsets(true)?;
+
+            let term_vector_field = new_field("termVector", "termVector", &custom_type2)?;
+            document.add(term_vector_field);
+
+            writer.add_document(document)?;
+            // TODO force_merge未实现
+            // writer.force_merge(1)?;
+            writer.close()?;
+
+            let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+            let mut tv_reader = reader.term_vectors()?;
+
+            assert!(tv_reader.get(0)?.is_none());
+            assert!(tv_reader.get(1)?.is_none());
+            assert!(tv_reader.get(2)?.is_some());
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_term_vector_corruption3() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+        let mut iwc1 = new_index_writer_config(&mut random);
+        iwc1.set_max_buffered_docs(2);
+        iwc1.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+        let mut document = Document::new();
+        {
+            let writer = IndexWriter::new(dir.clone(), iwc1)?;
+
+            let mut custom_type = FieldType::new();
+            custom_type.set_stored(true)?;
+            let stored_field = new_field("stored", "stored", &custom_type)?;
+            document.add(stored_field.clone());
+
+            let mut custom_type2 =
+                FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+            custom_type2.set_store_term_vectors(true)?;
+            custom_type2.set_store_term_vector_positions(true)?;
+            custom_type2.set_store_term_vector_offsets(true)?;
+            let term_vector_field = new_field("termVector", "termVector", &custom_type2)?;
+            document.add(term_vector_field.clone());
+
+            for _ in 0..10 {
+                writer.add_document(document.clone())?;
+            }
+            writer.close()?;
+        }
+
+        // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
+        let mut iwc2 = new_index_writer_config(&mut random);
+        iwc2.set_max_buffered_docs(2);
+        iwc2.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+
+        let writer = IndexWriter::new(dir.clone(), iwc2)?;
+
+        for _ in 0..6 {
+            writer.add_document(document.clone())?;
+        }
+        // TODO force_merge未实现
+        // writer.force_merge(1)?;
+        writer.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut stored_fields = reader.stored_fields()?;
+        let mut term_vectors = reader.term_vectors()?;
+
+        for i in 0..10 {
+            term_vectors.get(i)?;
+            stored_fields.document(i)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_no_term_vector_after_term_vector() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let iwc = new_index_writer_config(&mut random);
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut custom_type2 = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type2.set_store_term_vectors(true)?;
+        custom_type2.set_store_term_vector_positions(true)?;
+        custom_type2.set_store_term_vector_offsets(true)?;
+
+        let mut document = Document::new();
+        document.add(new_field("tvtest", "a b c", &custom_type2)?);
+        iw.add_document(document)?;
+
+        let mut document = Document::new();
+        document.add(new_text_field("tvtest", "x y z", Store::No)?);
+        iw.add_document(document)?;
+
+        iw.commit()?;
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+
+        let mut document = Document::new();
+        document.add(new_field("tvtest", "a b c", &custom_type)?);
+        iw.add_document(document)?;
+
+        iw.commit()?;
+
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        iw.close()?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
+        // TODO force_merge未实现
+        Ok(())
+    }
+    #[test]
+    fn test_inconsistent_term_vector_options() -> Result<()> {
+        let mut random = random();
+        let mut a;
+        let mut b;
+
+        // no vectors + vectors
+        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b.set_store_term_vectors(true)?;
+        do_test_mixup(&mut random, a, b)?;
+
+        // vectors + vectors with pos
+        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a.set_store_term_vectors(true)?;
+        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b.set_store_term_vectors(true)?;
+        b.set_store_term_vector_positions(true)?;
+        do_test_mixup(&mut random, a, b)?;
+
+        // vectors + vectors with off
+        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a.set_store_term_vectors(true)?;
+        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b.set_store_term_vectors(true)?;
+        b.set_store_term_vector_offsets(true)?;
+        do_test_mixup(&mut random, a, b)?;
+
+        // vectors with pos + vectors with pos + off
+        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a.set_store_term_vectors(true)?;
+        a.set_store_term_vector_positions(true)?;
+        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b.set_store_term_vectors(true)?;
+        b.set_store_term_vector_positions(true)?;
+        b.set_store_term_vector_offsets(true)?;
+        do_test_mixup(&mut random, a, b)?;
+
+        // vectors with pos + vectors with pos + pay
+        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a.set_store_term_vectors(true)?;
+        a.set_store_term_vector_positions(true)?;
+        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b.set_store_term_vectors(true)?;
+        b.set_store_term_vector_positions(true)?;
+        b.set_store_term_vector_payloads(true)?;
+        do_test_mixup(&mut random, a, b)?;
+        Ok(())
+    }
+
+    fn do_test_mixup<R: Rng + ?Sized>(
+        random: &mut R,
+        ft1: FieldType,
+        ft2: FieldType,
+    ) -> Result<()> {
+        let dir = Arc::new(new_directory(random)?);
+        let iw = RandomIndexWriter::new(random, dir.clone());
+
+        for i in 0..3 {
+            let mut doc = Document::new();
+            doc.add(new_string_field("id", i.to_string(), Store::No)?);
+            iw.add_document(doc)?;
+        }
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft1.clone(), "value1"));
+        doc.add(Field::new("field", ft2.clone(), "value1"));
+
+        // ensure broken doc hits exception
+        let err = iw.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert!(
+                    msg.to_string().starts_with("all instances of a given field name must have the same term vectors settings")
+                        || msg.to_string().starts_with("Inconsistency of field data structures across documents for field [field]")
+                );
+            },
+            _ => unreachable!("unexpected error type: {:?}", err),
+        }
+        let ir = iw.get_reader()?;
+        assert_eq!(3, ir.num_docs()?);
+        iw.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_no_abort_on_bad_tv_settings() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // Don't use RandomIndexWriter because we want to be sure both docs go to 1 seg:
+        let iwc = new_index_writer_config(&mut random);
+        let iw = IndexWriter::new(dir.clone(), iwc)?;
+        let mut doc = Document::new();
+        iw.add_document(doc.clone())?;
+
+        let mut ft = FieldType::from_ref(&stored_field_type::TYPE.clone())?;
+        ft.set_store_term_vectors(true)?;
+        ft.freeze();
+
+        doc.add(Field::with_string("field", "value", ft)?);
+
+        let err = iw.add_document(doc.clone()).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(_) => {},
+            _ => unreachable!("unexpected error: {:?}", err),
+        }
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&iw)?);
+        // Make sure the exc didn't lose our first document:
+        assert_eq!(1, reader.num_docs()?);
+
+        iw.close()?;
         Ok(())
     }
 }

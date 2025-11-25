@@ -27,16 +27,20 @@ use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
 
 /// Type for a stored-only field.
-static TYPE: Lazy<FieldType> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_stored(true)
-        .expect("set_stored(true) should never fail in this context");
-    ft.freeze();
-    ft
-});
+pub mod stored_field_type {
+    use crate::core::document::field_type::FieldType;
+    use once_cell::sync::Lazy;
+    pub static TYPE: Lazy<FieldType> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_stored(true)
+            .expect("set_stored(true) should never fail in this context");
+        ft.freeze();
+        ft
+    });
+}
+
 /// A field whose value is stored so that
 /// [`IndexSearcher::stored_fields`](crate::core::search::index_searcher::IndexSearcher::stored_fields)
 /// and [`IndexReader::stored_fields`](crate::core::search::index_searcher::IndexSearcher::stored_fields)
@@ -83,7 +87,7 @@ impl StoredField {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
         let bytes_ref = BytesRef::from_slice(value, 0, len);
-        let parent_field = Field::with_bytes_ref(name, bytes_ref, TYPE.clone())?;
+        let parent_field = Field::with_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -102,7 +106,7 @@ impl StoredField {
         T: Into<String>,
     {
         let bytes_ref = BytesRef::from_slice(value, offset as usize, length as usize);
-        let parent_field = Field::with_bytes_ref(name, bytes_ref, TYPE.clone())?;
+        let parent_field = Field::with_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -118,7 +122,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::with_bytes_ref(name, value, TYPE.clone())?;
+        let parent_field = Field::with_bytes_ref(name, value, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given string value.
@@ -131,7 +135,7 @@ impl StoredField {
         T1: Into<String>,
         T2: Into<String>,
     {
-        let parent_field = Field::with_string(name, value, TYPE.clone())?;
+        let parent_field = Field::with_string(name, value, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Expert: allows customization of the [`FieldType`].
@@ -157,7 +161,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, TYPE.clone(), value);
+        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given long value.
@@ -169,7 +173,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, TYPE.clone(), value);
+        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f32 value.
@@ -181,7 +185,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, TYPE.clone(), value);
+        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f64 value.
@@ -193,7 +197,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, TYPE.clone(), value);
+        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
         Ok(Self { parent_field })
     }
 }
