@@ -281,7 +281,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -360,7 +360,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -415,7 +415,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -474,7 +474,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -528,7 +528,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -588,7 +588,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -644,7 +644,7 @@ mod tests {
         let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
@@ -728,8 +728,7 @@ mod tests {
             let mut document = Document::new();
             document.add(stored_field);
 
-            let mut custom_type2 =
-                FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+            let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
             custom_type2.set_store_term_vectors(true)?;
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
@@ -772,8 +771,7 @@ mod tests {
             let stored_field = new_field("stored", "stored", &custom_type, &mut field_types)?;
             document.add(stored_field.clone());
 
-            let mut custom_type2 =
-                FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+            let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
             custom_type2.set_store_term_vectors(true)?;
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
@@ -823,7 +821,7 @@ mod tests {
         let iw = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut field_types = HashMap::new();
-        let mut custom_type2 = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type2.set_store_term_vectors(true)?;
         custom_type2.set_store_term_vector_positions(true)?;
         custom_type2.set_store_term_vector_offsets(true)?;
@@ -848,7 +846,7 @@ mod tests {
 
         iw.commit()?;
 
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_store_term_vectors(true)?;
 
         let mut document = Document::new();
@@ -880,42 +878,42 @@ mod tests {
         let mut b;
 
         // no vectors + vectors
-        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
-        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+        b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         b.set_store_term_vectors(true)?;
         do_test_mixup(&mut random, a, b)?;
 
         // vectors + vectors with pos
-        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         a.set_store_term_vectors(true)?;
-        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         b.set_store_term_vectors(true)?;
         b.set_store_term_vector_positions(true)?;
         do_test_mixup(&mut random, a, b)?;
 
         // vectors + vectors with off
-        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         a.set_store_term_vectors(true)?;
-        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         b.set_store_term_vectors(true)?;
         b.set_store_term_vector_offsets(true)?;
         do_test_mixup(&mut random, a, b)?;
 
         // vectors with pos + vectors with pos + off
-        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         a.set_store_term_vectors(true)?;
         a.set_store_term_vector_positions(true)?;
-        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         b.set_store_term_vectors(true)?;
         b.set_store_term_vector_positions(true)?;
         b.set_store_term_vector_offsets(true)?;
         do_test_mixup(&mut random, a, b)?;
 
         // vectors with pos + vectors with pos + pay
-        a = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         a.set_store_term_vectors(true)?;
         a.set_store_term_vector_positions(true)?;
-        b = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         b.set_store_term_vectors(true)?;
         b.set_store_term_vector_positions(true)?;
         b.set_store_term_vector_payloads(true)?;
@@ -974,7 +972,7 @@ mod tests {
         let mut doc = Document::new();
         iw.add_document(doc.clone())?;
 
-        let mut ft = FieldType::from_ref(&stored_field_type::TYPE.clone())?;
+        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
         ft.set_store_term_vectors(true)?;
         ft.freeze();
 

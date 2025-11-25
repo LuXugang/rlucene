@@ -46,7 +46,7 @@ pub mod int_field_type {
 
     /// Indexed as SortedNumeric DocValue, and stored.
     pub static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::from_ref(&FIELD_TYPE.clone()).expect("should not fail");
+        let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
         ft.set_stored(true)
             .expect("set_stored(true) should not fail");
         ft.freeze();

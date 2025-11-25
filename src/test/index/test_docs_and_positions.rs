@@ -59,7 +59,7 @@ fn test_positions_simple() -> Result<()> {
 
     for _ in 0..39 {
         let mut doc = Document::new();
-        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         custom_type.set_omit_norms(true)?;
 
         let text = concat!(
@@ -171,7 +171,7 @@ fn test_random_positions() -> Result<()> {
 
     let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
 
-    let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     custom_type.set_omit_norms(true)?;
 
     for i in 0..num_docs {
@@ -299,7 +299,7 @@ fn test_large_number_of_positions() -> Result<()> {
 
     let how_many = 1000;
 
-    let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     custom_type.set_omit_norms(true)?;
 
     for _i in 0..39 {

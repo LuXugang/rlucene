@@ -46,7 +46,7 @@ pub mod keyword {
     });
 
     pub(crate) static FIELD_TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-        let mut ft = FieldType::from_ref(&FIELD_TYPE.clone()).expect("Invalid field type");
+        let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("Invalid field type");
         ft.set_stored(true).expect("set_stored");
         ft.freeze();
         ft

@@ -907,7 +907,7 @@ fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
     let iwc = new_index_writer_config(&mut random);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
-    let mut ft = FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+    let mut ft = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
     ft.set_doc_values_type(DocValuesType::Sorted)?;
     ft.freeze();
 

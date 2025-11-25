@@ -87,7 +87,7 @@ mod tests {
         // TODO c需要使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_payloads(true)?;
 
@@ -117,7 +117,7 @@ mod tests {
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         ft.set_store_term_vectors(false)?;
         ft.set_store_term_vector_offsets(true)?;
 
@@ -147,7 +147,7 @@ mod tests {
         // TODO: 需要使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
         ft.set_store_term_vectors(false)?;
         ft.set_store_term_vector_positions(true)?;
 

@@ -93,13 +93,13 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
-        let mut ft1 = FieldType::from_ref(&text_field_type::TYPE_STORED.clone())?;
+        let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
         ft1.set_index_options(from)?;
         let mut doc1 = Document::new();
         doc1.add(Field::new("foo", "bar", ft1));
         w.add_document(doc1)?;
 
-        let mut ft2 = FieldType::from_ref(&text_field_type::TYPE_STORED.clone())?;
+        let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
         ft2.set_index_options(to)?;
         let mut doc2 = Document::new();
         doc2.add(Field::new("foo", "bar", ft2));
