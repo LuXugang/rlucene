@@ -20,18 +20,18 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 pub(crate) trait FieldsIndex: TryClone {
     /// Get the ID of the block that contains the given docID.
-    fn get_block_id(&self, doc_id: i32) -> Result<i64>;
+    fn get_block_id(&mut self, doc_id: i32) -> Result<i64>;
 
     /// Get the start pointer of the block with the given ID.
-    fn get_block_start_pointer(&self, block_id: i64) -> Result<i64>;
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64>;
 
     /// Get the number of bytes of the block with the given ID.
-    fn get_block_length(&self, block_id: i64) -> Result<i64>;
+    fn get_block_length(&mut self, block_id: i64) -> Result<i64>;
 
     /// Get the start pointer of the block that contains the given docID.
     /// This is a final method in the original struct, so it's implemented
     /// directly here.
-    fn get_start_pointer(&self, doc_id: i32) -> Result<i64> {
+    fn get_start_pointer(&mut self, doc_id: i32) -> Result<i64> {
         let block_id = self.get_block_id(doc_id)?;
         self.get_block_start_pointer(block_id)
     }
@@ -68,25 +68,25 @@ impl<I> FieldsIndex for FieldsIndexEnum<I>
 where
     I: IndexInput,
 {
-    fn get_block_id(&self, doc_id: i32) -> Result<i64> {
+    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
         match self {
             FieldsIndexEnum::Lucene90(reader) => reader.get_block_id(doc_id),
         }
     }
 
-    fn get_block_start_pointer(&self, block_id: i64) -> Result<i64> {
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
         match self {
             FieldsIndexEnum::Lucene90(reader) => reader.get_block_start_pointer(block_id),
         }
     }
 
-    fn get_block_length(&self, block_id: i64) -> Result<i64> {
+    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
         match self {
             FieldsIndexEnum::Lucene90(reader) => reader.get_block_length(block_id),
         }
     }
 
-    fn get_start_pointer(&self, doc_id: i32) -> Result<i64> {
+    fn get_start_pointer(&mut self, doc_id: i32) -> Result<i64> {
         match self {
             FieldsIndexEnum::Lucene90(reader) => reader.get_start_pointer(doc_id),
         }

@@ -25,8 +25,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -98,12 +96,9 @@ where
             start_pointers_start_pointer,
             start_pointers_end_pointer - start_pointers_start_pointer,
         )?;
-        let docs =
-            DirectMonotonicReader::get_instance(&docs_meta, Arc::new(Mutex::new(docs_slice)))?;
-        let start_pointers = DirectMonotonicReader::get_instance(
-            &start_pointers_meta,
-            Arc::new(Mutex::new(start_pointers_slice)),
-        )?;
+        let docs = DirectMonotonicReader::get_instance(&docs_meta, docs_slice)?;
+        let start_pointers =
+            DirectMonotonicReader::get_instance(&start_pointers_meta, start_pointers_slice)?;
 
         Ok(FieldsIndexReader {
             max_doc,
@@ -124,14 +119,14 @@ where
     fn with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
         let docs_meta = other.docs_meta.clone();
         let start_pointers_meta = other.start_pointers_meta.clone();
-        let docs_slice = Arc::new(Mutex::new(other.index_input.random_access_slice(
+        let docs_slice = other.index_input.random_access_slice(
             other.docs_start_pointer,
             other.docs_end_pointer - other.docs_start_pointer,
-        )?));
-        let start_pointers_slice = Arc::new(Mutex::new(other.index_input.random_access_slice(
+        )?;
+        let start_pointers_slice = other.index_input.random_access_slice(
             other.start_pointers_start_pointer,
             other.start_pointers_end_pointer - other.start_pointers_start_pointer,
-        )?));
+        )?;
         let docs = DirectMonotonicReader::get_instance(&docs_meta, docs_slice)?;
         let start_pointers =
             DirectMonotonicReader::get_instance(&start_pointers_meta, start_pointers_slice)?;
@@ -172,7 +167,7 @@ impl<I> FieldsIndex for FieldsIndexReader<I>
 where
     I: IndexInput,
 {
-    fn get_block_id(&self, doc_id: i32) -> Result<i64> {
+    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
         assert!(doc_id >= 0 && doc_id < self.max_doc);
         let block_index = self
             .docs
@@ -185,15 +180,15 @@ where
         Ok(block_index)
     }
 
-    fn get_block_start_pointer(&self, block_id: i64) -> Result<i64> {
-        self.start_pointers.get(block_id)
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
+        self.start_pointers.get_mut(block_id)
     }
 
-    fn get_block_length(&self, block_id: i64) -> Result<i64> {
+    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
         let end_pointer = if block_id == (self.num_chunks - 1) as i64 {
             self.max_pointer
         } else {
-            self.start_pointers.get(block_id + 1)?
+            self.start_pointers.get_mut(block_id + 1)?
         };
         Ok(end_pointer - self.get_block_start_pointer(block_id)?)
     }

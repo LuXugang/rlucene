@@ -69,7 +69,6 @@ use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::core::util::{SliceCopyOps, ToInt};
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -519,7 +518,7 @@ where
                 } else {
                     let values = get_direct_reader_instance(
                         self.merging,
-                        Arc::new(Mutex::new(slice)),
+                        slice,
                         entry.bits_per_value as i32,
                         0,
                         entry.num_values,
@@ -587,7 +586,7 @@ where
                 } else {
                     let values = get_direct_reader_instance(
                         self.merging,
-                        Arc::new(Mutex::new(slice)),
+                        slice,
                         entry.bits_per_value as i32,
                         0,
                         entry.num_values,
@@ -652,7 +651,7 @@ where
             } else {
                 let values = get_direct_reader_instance(
                     self.merging,
-                    Arc::new(Mutex::new(slice)),
+                    slice,
                     entry.bits_per_value as i32,
                     0,
                     entry.num_values,
@@ -701,7 +700,7 @@ where
 
             let values = get_direct_reader_instance(
                 self.merging,
-                Arc::new(Mutex::new(slice)),
+                slice,
                 ords_entry.bits_per_value as i32,
                 0,
                 ords_entry.num_values,
@@ -754,7 +753,7 @@ where
         let addresses = match entry.addresses_meta {
             Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                 meta,
-                Arc::new(Mutex::new(addresses_input)),
+                addresses_input,
                 self.merging,
             )?,
             None => {
@@ -857,7 +856,7 @@ where
                             Some(ref meta) => {
                                 let addresses = DirectMonotonicReader::get_instance_with_merging(
                                     meta,
-                                    Arc::new(Mutex::new(addresses_data)),
+                                    addresses_data,
                                     self.merging,
                                 )?;
                                 let vec = vec![0u8; entry.max_length as usize];
@@ -910,7 +909,7 @@ where
                         let addresses = match entry.addresses_meta {
                             Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                                 meta,
-                                Arc::new(Mutex::new(addresses_data)),
+                                addresses_data,
                                 self.merging,
                             )?,
                             None => {
@@ -1003,7 +1002,7 @@ where
                             let addresses = match ords_entry.addresses_meta {
                                 Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                                     meta,
-                                    Arc::new(Mutex::new(addresses_input)),
+                                    addresses_input,
                                     self.merging,
                                 )?,
                                 None => {
@@ -1021,7 +1020,7 @@ where
                                 slice.prefetch(0, 1)?;
                             }
                             let values = DirectReader::get_instance(
-                                Arc::new(Mutex::new(slice)),
+                                slice,
                                 ords_entry.base.bits_per_value as i32,
                             )?;
 
@@ -1451,7 +1450,8 @@ where
     R: RandomAccessInput,
 {
     // 2 slices to avoid cache thrashing when using rank
-    slice: Arc<Mutex<R>>,
+    // wrap with Option for easy taken
+    slice: R,
     rank_slice: Option<R>,
     entry: Arc<NumericEntry>,
 
@@ -1463,8 +1463,6 @@ where
     delta: i64,
     offset: i64,
     block_end_offset: i64,
-
-    values: Option<DirectPackedEnum<R>>,
     merging: bool,
 }
 
@@ -1499,7 +1497,7 @@ where
         let mask = (1 << shift) - 1;
 
         Ok(Self {
-            slice: Arc::new(Mutex::new(slice)),
+            slice,
             rank_slice,
             entry,
             shift,
@@ -1509,7 +1507,6 @@ where
             delta: 0,
             offset: 0,
             block_end_offset: 0,
-            values: None,
             merging,
         })
     }
@@ -1517,6 +1514,7 @@ where
     fn get_long_value(&mut self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.shift) as i64;
 
+        let mut result = 0;
         if self.block != block {
             loop {
                 let bits_per_value;
@@ -1530,18 +1528,17 @@ where
                 }
 
                 {
-                    let mut slice = self.slice.lock();
                     self.offset = self.block_end_offset;
-                    bits_per_value = slice.read_byte(self.offset)? as i32;
+                    bits_per_value = self.slice.read_byte(self.offset)? as i32;
                     self.offset += 1;
 
-                    self.delta = slice.read_long(self.offset)?;
+                    self.delta = self.slice.read_long(self.offset)?;
                     self.offset += BitUtil::LONG_BYTES as i64;
 
                     if bits_per_value == 0 {
                         self.block_end_offset = self.offset;
                     } else {
-                        let length = slice.read_int(self.offset)? as i64;
+                        let length = self.slice.read_int(self.offset)? as i64;
                         self.offset += BitUtil::INT_BYTES as i64;
                         self.block_end_offset = self.offset + length;
                     }
@@ -1556,26 +1553,23 @@ where
                     )
                     .try_into()?;
 
-                    self.values = if bits_per_value == 0 {
-                        Some(DirectPackedEnum::P(Zeroes))
+                    let mut values = if bits_per_value == 0 {
+                        DirectPackedEnum::P(Zeroes)
                     } else {
-                        Some(get_direct_reader_instance(
+                        get_direct_reader_instance(
                             self.merging,
-                            Arc::clone(&self.slice),
+                            &mut self.slice,
                             bits_per_value,
                             self.offset,
                             num_values as i64,
-                        )?)
+                        )?
                     };
-
+                    result = self.mul * values.get_mut(index & self.mask)? + self.delta;
                     break;
                 }
             }
         }
-        match self.values {
-            Some(ref values) => Ok(self.mul * values.get(index & self.mask)? + self.delta),
-            None => Err(LuceneError::illegal_state("values should not be None")),
-        }
+        Ok(result)
     }
 }
 
@@ -1746,7 +1740,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.table[self.values.get(doc as i64)? as usize])
+        Ok(self.table[self.values.get_mut(doc as i64)? as usize])
     }
 }
 pub struct DenseNumericDocValuesBaseImpl3<R>
@@ -1760,7 +1754,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.values.get(doc as i64)
+        self.values.get_mut(doc as i64)
     }
 }
 pub struct DenseNumericDocValuesBaseImpl4<R>
@@ -1776,7 +1770,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.mul * self.values.get(doc as i64)? + self.delta)
+        Ok(self.mul * self.values.get_mut(doc as i64)? + self.delta)
     }
 }
 
@@ -1832,7 +1826,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.table[self.values.get(disi.index() as i64)? as usize])
+        Ok(self.table[self.values.get_mut(disi.index() as i64)? as usize])
     }
 }
 pub struct SparseNumericDocValuesBaseImpl3<R>
@@ -1849,7 +1843,7 @@ where
     where
         I: IndexInput,
     {
-        self.values.get(disi.index() as i64)
+        self.values.get_mut(disi.index() as i64)
     }
 }
 pub struct SparseNumericDocValuesBaseImpl4<R>
@@ -1868,7 +1862,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
+        Ok(self.mul * self.values.get_mut(disi.index() as i64)? + self.delta)
     }
 }
 
@@ -1906,11 +1900,7 @@ where
     R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
-        self.get(index)
-    }
-
-    fn get(&self, index: i64) -> Result<i64> {
-        Ok(self.table[self.values.get(index)? as usize])
+        Ok(self.table[self.values.get_mut(index)? as usize])
     }
 }
 pub struct LongValuesImpl3<R>
@@ -1926,11 +1916,7 @@ where
     R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
-        self.get(index)
-    }
-
-    fn get(&self, index: i64) -> Result<i64> {
-        Ok(self.gcd * self.values.get(index)? + self.min_value)
+        Ok(self.gcd * self.values.get_mut(index)? + self.min_value)
     }
 }
 pub struct LongValuesImpl4<R>
@@ -1945,11 +1931,7 @@ where
     R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
-        self.get(index)
-    }
-
-    fn get(&self, index: i64) -> Result<i64> {
-        Ok(self.values.get(index)? + self.min_value)
+        Ok(self.values.get_mut(index)? + self.min_value)
     }
 }
 
@@ -1992,8 +1974,8 @@ where
     R: RandomAccessInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let start_offset = self.addresses.get(doc as i64)?;
-        self.bytes.length = (self.addresses.get((doc + 1) as i64)? - start_offset) as usize;
+        let start_offset = self.addresses.get_mut(doc as i64)?;
+        self.bytes.length = (self.addresses.get_mut((doc + 1) as i64)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
             start_offset,
             &mut self.bytes.bytes,
@@ -2043,8 +2025,8 @@ where
 {
     fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let index = disi.index() as i64;
-        let start_offset = self.addresses.get(index)?;
-        self.bytes.length = (self.addresses.get(index + 1)? - start_offset) as usize;
+        let start_offset = self.addresses.get_mut(index)?;
+        self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
             start_offset,
             &mut self.bytes.bytes,
@@ -2117,7 +2099,7 @@ where
     R: RandomAccessInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get(self.doc as i64)? as i32)
+        Ok(self.value.get_mut(self.doc as i64)? as i32)
     }
 
     type TermsEnum<'a>
@@ -2394,8 +2376,8 @@ where
     R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.curr = self.addresses.get(target as i64)?;
-        let end = self.addresses.get((target as i64) + 1)?;
+        self.curr = self.addresses.get_mut(target as i64)?;
+        let end = self.addresses.get_mut((target as i64) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
         Ok(true)
@@ -2420,8 +2402,8 @@ where
             return Ok(NO_MORE_DOCS);
         }
 
-        self.curr = self.addresses.get(target as i64)?;
-        let end = self.addresses.get((target as i64) + 1)?;
+        self.curr = self.addresses.get_mut(target as i64)?;
+        let end = self.addresses.get_mut((target as i64) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
 
@@ -2438,7 +2420,7 @@ where
     R: RandomAccessInput,
 {
     fn next_ord(&mut self) -> Result<i64> {
-        let ord = self.value.get(self.curr)?;
+        let ord = self.value.get_mut(self.curr)?;
         self.count += 1;
         Ok(ord)
     }
@@ -2493,8 +2475,8 @@ where
     fn set(&mut self) -> Result<()> {
         if !self.set {
             let index = self.disi.index();
-            self.curr = self.addresses.get(index as i64)?;
-            let end = self.addresses.get((index as i64) + 1)?;
+            self.curr = self.addresses.get_mut(index as i64)?;
+            let end = self.addresses.get_mut((index as i64) + 1)?;
             self.count = (end - self.curr) as i32;
             self.set = true;
         }
@@ -2541,7 +2523,7 @@ where
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.set()?;
-        let ord = self.value.get(self.curr)?;
+        let ord = self.value.get_mut(self.curr)?;
         self.curr += 1;
         Ok(ord)
     }
@@ -2778,15 +2760,13 @@ where
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
     pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
-        let addresses_slice = Arc::new(Mutex::new(
-            data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
-        ));
+        let addresses_slice =
+            data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
+
         let block_addresses = match entry.terms_addresses_meta {
-            Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
-                meta,
-                addresses_slice.clone(),
-                merging,
-            )?,
+            Some(ref meta) => {
+                DirectMonotonicReader::get_instance_with_merging(meta, addresses_slice, merging)?
+            },
             None => {
                 return Err(LuceneError::illegal_state(
                     "TermsDictEntry's terms_addresses_meta is None",
@@ -2798,15 +2778,15 @@ where
 
         let block_mask = (1u64 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
 
-        let index_addresses_slice = Arc::new(Mutex::new(data.random_access_slice(
+        let index_addresses_slice = data.random_access_slice(
             entry.terms_index_addresses_offset,
             entry.terms_index_addresses_length,
-        )?));
+        )?;
 
         let index_addresses = match entry.terms_index_addresses_meta {
             Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                 meta,
-                index_addresses_slice.clone(),
+                index_addresses_slice,
                 merging,
             )?,
             None => {
@@ -2855,8 +2835,8 @@ where
             "index {index} out of range"
         );
 
-        let start = self.index_addresses.get(index)?;
-        let end = self.index_addresses.get(index + 1)?;
+        let start = self.index_addresses.get_mut(index)?;
+        let end = self.index_addresses.get_mut(index + 1)?;
         let len = (end - start) as i32;
         self.term.length = len as usize;
 
@@ -2913,7 +2893,7 @@ where
                         as i64
         );
 
-        let block_address = self.block_addresses.get(block)?;
+        let block_address = self.block_addresses.get_mut(block)?;
         self.bytes.seek(block_address)?;
 
         let len = self.bytes.read_vint()?;
@@ -2983,7 +2963,7 @@ where
         // reset ord and bytes to the ceiling block even if
         // text is before the first term (blockHi == -1)
         let block = std::cmp::max(block_hi, 0);
-        let block_address = self.block_addresses.get(block)?;
+        let block_address = self.block_addresses.get_mut(block)?;
         self.ord = block << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
         self.bytes.seek(block_address)?;
         self.decompress_block()?;
@@ -3136,7 +3116,7 @@ where
         if ord < self.ord || block_index != current_block_index {
             // The looked up ord is before the current ord or belongs to a
             // different block, seek again
-            let block_address = self.block_addresses.get(block_index)?;
+            let block_address = self.block_addresses.get_mut(block_index)?;
             self.bytes.seek(block_address)?;
             self.ord = (block_index << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
         }
@@ -3226,8 +3206,8 @@ where
     R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.start = self.addresses.get(target as i64)?;
-        self.end = self.addresses.get((target as i64) + 1)?;
+        self.start = self.addresses.get_mut(target as i64)?;
+        self.end = self.addresses.get_mut((target as i64) + 1)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
         Ok(true)
@@ -3252,8 +3232,8 @@ where
             return Ok(NO_MORE_DOCS);
         }
 
-        self.start = self.addresses.get(target as i64)?;
-        self.end = self.addresses.get((target + 1) as i64)?;
+        self.start = self.addresses.get_mut(target as i64)?;
+        self.end = self.addresses.get_mut((target + 1) as i64)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
 
@@ -3315,8 +3295,8 @@ where
     fn set(&mut self) -> Result<()> {
         if !self.set {
             let index = self.disi.index();
-            self.start = self.addresses.get(index as i64)?;
-            self.end = self.addresses.get((index as i64) + 1)?;
+            self.start = self.addresses.get_mut(index as i64)?;
+            self.end = self.addresses.get_mut((index as i64) + 1)?;
             self.count = (self.end - self.start) as i32;
             self.set = true;
         }
@@ -3402,7 +3382,7 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
 
 fn get_direct_reader_instance<R>(
     merging: bool,
-    slice: Arc<Mutex<R>>,
+    slice: R,
     bits_per_value: i32,
     offset: i64,
     num_values: i64,

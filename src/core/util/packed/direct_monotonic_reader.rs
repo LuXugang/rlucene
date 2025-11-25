@@ -34,7 +34,8 @@ where
 {
     block_shift: i32,
     block_mask: i64,
-    readers: Vec<DirectPackedEnum<R>>,
+    // TODO IMPORTANT 这里可以不使用Arc<Mutex>>吗
+    readers: Vec<DirectPackedEnum<Arc<Mutex<R>>>>,
     mins: Vec<i64>,
     avgs: Vec<f32>,
     bpvs: Vec<u8>,
@@ -46,7 +47,7 @@ where
 {
     pub(crate) fn new(
         block_shift: i32,
-        readers: Vec<DirectPackedEnum<R>>,
+        readers: Vec<DirectPackedEnum<Arc<Mutex<R>>>>,
         mins: Vec<i64>,
         avgs: Vec<f32>,
         bpvs: Vec<u8>,
@@ -83,7 +84,7 @@ where
         }
     }
 
-    pub fn binary_search(&self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
+    pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
                 "fromIndex={from_index}, toIndex={to_index}"
@@ -102,7 +103,7 @@ where
             } else if bounds[0] > key {
                 hi = mid - 1;
             } else {
-                let mid_val = self.get(mid)?;
+                let mid_val = self.get_mut(mid)?;
                 match mid_val.cmp(&key) {
                     std::cmp::Ordering::Less => lo = mid + 1,
                     std::cmp::Ordering::Greater => hi = mid - 1,
@@ -113,17 +114,14 @@ where
         Ok(-1 - lo)
     }
     /// Retrieves a non-merging instance from the specified slice.
-    pub fn get_instance(meta: &Meta, data: Arc<Mutex<R>>) -> Result<Self> {
+    pub fn get_instance(meta: &Meta, data: R) -> Result<Self> {
         Self::get_instance_with_merging(meta, data, false)
     }
 
     /// Retrieves an instance from the specified slice.
-    pub fn get_instance_with_merging(
-        meta: &Meta,
-        data: Arc<Mutex<R>>,
-        merging: bool,
-    ) -> Result<Self> {
+    pub fn get_instance_with_merging(meta: &Meta, data: R, merging: bool) -> Result<Self> {
         let mut readers = Vec::with_capacity(meta.num_blocks);
+        let data = Arc::new(Mutex::new(data));
         for i in 0..meta.num_blocks {
             let bpv = meta.bpvs[i];
             if bpv == 0 {
@@ -159,10 +157,10 @@ impl<R> LongValues for DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
-        let delta = self.readers[block].get(block_index)?;
+        let delta = self.readers[block].get_mut(block_index)?;
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }

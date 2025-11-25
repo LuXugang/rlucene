@@ -51,13 +51,13 @@ fn test_simple() -> Result<()> {
     }
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
-    let reader =
-        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0)?;
-    assert_eq!(1, reader.get(0)?);
-    assert_eq!(0, reader.get(1)?);
-    assert_eq!(2, reader.get(2)?);
-    assert_eq!(1, reader.get(3)?);
-    assert_eq!(2, reader.get(4)?);
+    let mut reader =
+        DirectReader::get_instance_with_offset(slice, bits_per_value, 0)?;
+    assert_eq!(1, reader.get_mut(0)?);
+    assert_eq!(0, reader.get_mut(1)?);
+    assert_eq!(2, reader.get_mut(2)?);
+    assert_eq!(1, reader.get_mut(3)?);
+    assert_eq!(2, reader.get_mut(4)?);
     Ok(())
 }
 /// test exception is delivered if you add the wrong number of values.
@@ -151,19 +151,19 @@ fn do_test_bpv<R: Rng + ?Sized>(
         }
 
         let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let slice = Arc::new(Mutex::new(input.random_access_slice(0, input.length())?));
-        let reader = if merge {
+        let slice =input.random_access_slice(0, input.length())?;
+        let mut reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
-                slice.clone(),
+                slice,
                 bits_required,
                 offset,
                 original.len() as i64,
             )
         } else {
-            DirectReader::get_instance_with_offset(slice.clone(), bits_required, offset)?
+            DirectReader::get_instance_with_offset(slice, bits_required, offset)?
         };
         for (j, &expected) in original.iter().enumerate() {
-            assert_eq!(expected, reader.get(j as i64)?, "bpv={}", bpv);
+            assert_eq!(expected, reader.get_mut(j as i64)?, "bpv={}", bpv);
         }
     }
     Ok(())

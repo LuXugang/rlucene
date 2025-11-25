@@ -18,8 +18,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
-        self.get(index)
+    fn get_mut(&mut self, _index: i64) -> Result<i64> {
+        Err(LuceneError::not_implemented(
+            "mutable get method not implemented",
+        ))
     }
 
     /// Add an extra, immutable version of the method.
@@ -33,9 +35,14 @@ pub trait LongValues {
 
 pub struct Zeroes;
 impl LongValues for Zeroes {
+    fn get_mut(&mut self, _index: i64) -> Result<i64> {
+        Ok(0)
+    }
+
     fn get(&self, _index: i64) -> Result<i64> {
         Ok(0)
     }
+
 }
 
 macro_rules! either_long_values {
