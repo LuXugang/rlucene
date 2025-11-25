@@ -38,6 +38,7 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
+use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::Either5LongValues;
 use std::borrow::Cow;
@@ -46,7 +47,7 @@ pub enum BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
 {
-    Dense(DenseBaseSortedDocValues<I>),
+    Dense(DenseBaseSortedDocValues<I::RandomAccessSlice>),
     Sparse(SparseBaseSortedDocValues<I>),
     Impl(BaseSortedDocValuesImpl<I>),
 }
@@ -137,7 +138,7 @@ pub enum BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
 {
-    Dense(DenseBaseSortedSetDocValues<I>),
+    Dense(DenseBaseSortedSetDocValues<I::RandomAccessSlice>),
     Sparse(SparseBaseSortedSetDocValues<I>),
     Impl(BaseSortedSetDocValuesImpl<I>),
 }
@@ -225,15 +226,15 @@ where
     type SortedDocValues = DummySortedDocValues;
 }
 
-pub enum SparseBinaryDocValuesBaseEnum<I>
+pub enum SparseBinaryDocValuesBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    Sparse(SparseBinaryDocValuesBaseImpl<I>),
-    Sparse1(SparseBinaryDocValuesBaseImpl1<I>),
+    Sparse(SparseBinaryDocValuesBaseImpl<R>),
+    Sparse1(SparseBinaryDocValuesBaseImpl1<R>),
 }
 
-impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -245,17 +246,17 @@ where
     }
 }
 
-pub enum DenseBinaryDocValuesBaseEnum<I>
+pub enum DenseBinaryDocValuesBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    Dense(DenseBinaryDocValuesBaseImpl<I>),
-    Dense1(DenseBinaryDocValuesBaseImpl1<I>),
+    Dense(DenseBinaryDocValuesBaseImpl<R>),
+    Dense1(DenseBinaryDocValuesBaseImpl1<R>),
 }
 
-impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<I>
+impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
@@ -264,26 +265,26 @@ where
         }
     }
 }
-pub type LongValuesEnums<I> = Either5LongValues<
+pub type LongValuesEnums<R> = Either5LongValues<
     LongValuesImpl,
-    LongValuesImpl1<I>,
-    LongValuesImpl2<I>,
-    LongValuesImpl3<I>,
-    LongValuesImpl4<I>,
+    LongValuesImpl1<R>,
+    LongValuesImpl2<R>,
+    LongValuesImpl3<R>,
+    LongValuesImpl4<R>,
 >;
 
-pub enum SparseNumericDocValuesSubEnum<I>
+pub enum SparseNumericDocValuesSubEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     Sparse(SparseNumericDocValuesBaseImpl),
-    Sparse1(SparseNumericDocValuesBaseImpl1<I>),
-    Sparse2(SparseNumericDocValuesBaseImpl2<I>),
-    Sparse3(SparseNumericDocValuesBaseImpl3<I>),
-    Sparse4(SparseNumericDocValuesBaseImpl4<I>),
+    Sparse1(SparseNumericDocValuesBaseImpl1<R>),
+    Sparse2(SparseNumericDocValuesBaseImpl2<R>),
+    Sparse3(SparseNumericDocValuesBaseImpl3<R>),
+    Sparse4(SparseNumericDocValuesBaseImpl4<R>),
 }
 
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -301,20 +302,20 @@ where
     }
 }
 
-pub enum DenseNumericDocValuesSubEnum<I>
+pub enum DenseNumericDocValuesSubEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     Dense(DenseNumericDocValuesBaseImpl),
-    Dense1(DenseNumericDocValuesBaseImpl1<I>),
-    Dense2(DenseNumericDocValuesBaseImpl2<I>),
-    Dense3(DenseNumericDocValuesBaseImpl3<I>),
-    Dense4(DenseNumericDocValuesBaseImpl4<I>),
+    Dense1(DenseNumericDocValuesBaseImpl1<R>),
+    Dense2(DenseNumericDocValuesBaseImpl2<R>),
+    Dense3(DenseNumericDocValuesBaseImpl3<R>),
+    Dense4(DenseNumericDocValuesBaseImpl4<R>),
 }
 
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<I>
+impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesSubEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self {

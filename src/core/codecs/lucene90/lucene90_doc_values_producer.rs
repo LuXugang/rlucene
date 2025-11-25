@@ -517,7 +517,7 @@ where
                         vbpv_reader,
                     })
                 } else {
-                    let values = get_direct_reader_instance::<I>(
+                    let values = get_direct_reader_instance(
                         self.merging,
                         Arc::new(Mutex::new(slice)),
                         entry.bits_per_value as i32,
@@ -585,7 +585,7 @@ where
                         )?,
                     })
                 } else {
-                    let values = get_direct_reader_instance::<I>(
+                    let values = get_direct_reader_instance(
                         self.merging,
                         Arc::new(Mutex::new(slice)),
                         entry.bits_per_value as i32,
@@ -622,7 +622,10 @@ where
             ))
         }
     }
-    fn get_numeric_values(&self, entry: &Arc<NumericEntry>) -> Result<LongValuesEnums<I>>
+    fn get_numeric_values(
+        &self,
+        entry: &Arc<NumericEntry>,
+    ) -> Result<LongValuesEnums<I::RandomAccessSlice>>
     where
         I: IndexInput,
     {
@@ -647,7 +650,7 @@ where
                     )?,
                 })
             } else {
-                let values = get_direct_reader_instance::<I>(
+                let values = get_direct_reader_instance(
                     self.merging,
                     Arc::new(Mutex::new(slice)),
                     entry.bits_per_value as i32,
@@ -696,7 +699,7 @@ where
                 slice.prefetch(0, 1)?;
             }
 
-            let values = get_direct_reader_instance::<I>(
+            let values = get_direct_reader_instance(
                 self.merging,
                 Arc::new(Mutex::new(slice)),
                 ords_entry.bits_per_value as i32,
@@ -1192,19 +1195,19 @@ pub struct SortedNumericEntry {
     pub addresses_offset: i64,
     pub addresses_length: i64,
 }
-pub struct DenseNumericDocValues<I>
+pub struct DenseNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    sub: DenseNumericDocValuesSubEnum<I>,
+    sub: DenseNumericDocValuesSubEnum<R>,
     max_doc: i32,
     doc: i32,
 }
-impl<I> DenseNumericDocValues<I>
+impl<R> DenseNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(base: DenseNumericDocValuesSubEnum<I>, max_doc: i32) -> Self {
+    fn new(base: DenseNumericDocValuesSubEnum<R>, max_doc: i32) -> Self {
         Self {
             sub: base,
             max_doc,
@@ -1213,9 +1216,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseNumericDocValues<I>
+impl<R> DocValuesIterator for DenseNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.doc = target;
@@ -1223,9 +1226,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseNumericDocValues<I>
+impl<R> DocIdSetIterator for DenseNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -1249,9 +1252,9 @@ where
     }
 }
 
-impl<I> NumericDocValues for DenseNumericDocValues<I>
+impl<R> NumericDocValues for DenseNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self) -> Result<i64> {
         self.sub.long_value(self.doc)
@@ -1262,14 +1265,14 @@ pub struct SparseNumericDocValues<I>
 where
     I: IndexInput,
 {
-    sub: SparseNumericDocValuesSubEnum<I>,
+    sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>,
     disi: IndexedDISI<I>,
 }
 impl<I> SparseNumericDocValues<I>
 where
     I: IndexInput,
 {
-    fn new(sub: SparseNumericDocValuesSubEnum<I>, disi: IndexedDISI<I>) -> Self {
+    fn new(sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>, disi: IndexedDISI<I>) -> Self {
         Self { sub, disi }
     }
 }
@@ -1313,19 +1316,19 @@ where
     }
 }
 
-pub struct DenseBinaryDocValues<I>
+pub struct DenseBinaryDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    sub: DenseBinaryDocValuesBaseEnum<I>,
+    sub: DenseBinaryDocValuesBaseEnum<R>,
     max_doc: i32,
     doc: i32,
 }
-impl<I> DenseBinaryDocValues<I>
+impl<R> DenseBinaryDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(sub: DenseBinaryDocValuesBaseEnum<I>, max_doc: i32) -> Self {
+    fn new(sub: DenseBinaryDocValuesBaseEnum<R>, max_doc: i32) -> Self {
         Self {
             sub,
             max_doc,
@@ -1334,9 +1337,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseBinaryDocValues<I>
+impl<R> DocValuesIterator for DenseBinaryDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.doc = target;
@@ -1344,9 +1347,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseBinaryDocValues<I>
+impl<R> DocIdSetIterator for DenseBinaryDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -1370,9 +1373,9 @@ where
     }
 }
 
-impl<I> BinaryDocValues for DenseBinaryDocValues<I>
+impl<R> BinaryDocValues for DenseBinaryDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.sub.binary_value(self.doc)
@@ -1383,14 +1386,14 @@ pub struct SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    sub: SparseBinaryDocValuesBaseEnum<I>,
+    sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>,
     disi: IndexedDISI<I>,
 }
 impl<I> SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn new(sub: SparseBinaryDocValuesBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
+    fn new(sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>, disi: IndexedDISI<I>) -> Self {
         Self { sub, disi }
     }
 }
@@ -1443,13 +1446,13 @@ where
 ///
 /// Note 2: The `rank_slice` is only used if an advance of more than one block
 /// is called. Its construction could be lazy.
-struct VaryingBPVReader<I>
+struct VaryingBPVReader<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     // 2 slices to avoid cache thrashing when using rank
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
-    rank_slice: Option<I::RandomAccessSlice>,
+    slice: Arc<Mutex<R>>,
+    rank_slice: Option<R>,
     entry: Arc<NumericEntry>,
 
     shift: i32,
@@ -1461,20 +1464,23 @@ where
     offset: i64,
     block_end_offset: i64,
 
-    values: Option<DirectPackedEnum<I::RandomAccessSlice>>,
+    values: Option<DirectPackedEnum<R>>,
     merging: bool,
 }
 
-impl<I> VaryingBPVReader<I>
+impl<R> VaryingBPVReader<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(
+    fn new<I>(
         entry: Arc<NumericEntry>,
         slice: I::RandomAccessSlice,
         data: &I,
         merging: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        I: IndexInput<RandomAccessSlice = R>,
+    {
         let rank_slice = if entry.value_jump_table_offset == -1 {
             None
         } else {
@@ -1553,7 +1559,7 @@ where
                     self.values = if bits_per_value == 0 {
                         Some(DirectPackedEnum::P(Zeroes))
                     } else {
-                        Some(get_direct_reader_instance::<I>(
+                        Some(get_direct_reader_instance(
                             self.merging,
                             Arc::clone(&self.slice),
                             bits_per_value,
@@ -1714,60 +1720,60 @@ impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
         Ok(self.min_values)
     }
 }
-pub struct DenseNumericDocValuesBaseImpl1<I>
+pub struct DenseNumericDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    vbpv_reader: VaryingBPVReader<I>,
+    vbpv_reader: VaryingBPVReader<R>,
 }
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<I>
+impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         self.vbpv_reader.get_long_value(doc as i64)
     }
 }
-pub struct DenseNumericDocValuesBaseImpl2<I>
+pub struct DenseNumericDocValuesBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     table: Arc<Vec<i64>>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
 }
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<I>
+impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         Ok(self.table[self.values.get(doc as i64)? as usize])
     }
 }
-pub struct DenseNumericDocValuesBaseImpl3<I>
+pub struct DenseNumericDocValuesBaseImpl3<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
 }
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<I>
+impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         self.values.get(doc as i64)
     }
 }
-pub struct DenseNumericDocValuesBaseImpl4<I>
+pub struct DenseNumericDocValuesBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
     mul: i64,
     delta: i64,
 }
-impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl4<I>
+impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         Ok(self.mul * self.values.get(doc as i64)? + self.delta)
@@ -1793,13 +1799,13 @@ where
         Ok(self.min_values)
     }
 }
-pub struct SparseNumericDocValuesBaseImpl1<I>
+pub struct SparseNumericDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    vbpv_reader: VaryingBPVReader<I>,
+    vbpv_reader: VaryingBPVReader<R>,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -1811,14 +1817,14 @@ where
         self.vbpv_reader.get_long_value(index as i64)
     }
 }
-pub struct SparseNumericDocValuesBaseImpl2<I>
+pub struct SparseNumericDocValuesBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     table: Arc<Vec<i64>>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -1829,13 +1835,13 @@ where
         Ok(self.table[self.values.get(disi.index() as i64)? as usize])
     }
 }
-pub struct SparseNumericDocValuesBaseImpl3<I>
+pub struct SparseNumericDocValuesBaseImpl3<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -1846,15 +1852,15 @@ where
         self.values.get(disi.index() as i64)
     }
 }
-pub struct SparseNumericDocValuesBaseImpl4<I>
+pub struct SparseNumericDocValuesBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
     mul: i64,
     delta: i64,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -1874,30 +1880,30 @@ impl LongValues for LongValuesImpl {
         Ok(self.min_values)
     }
 }
-pub struct LongValuesImpl1<I>
+pub struct LongValuesImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    vbpv_reader: VaryingBPVReader<I>,
+    vbpv_reader: VaryingBPVReader<R>,
 }
-impl<I> LongValues for LongValuesImpl1<I>
+impl<R> LongValues for LongValuesImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
         self.vbpv_reader.get_long_value(index)
     }
 }
-pub struct LongValuesImpl2<I>
+pub struct LongValuesImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     table: Arc<Vec<i64>>,
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
 }
-impl<I> LongValues for LongValuesImpl2<I>
+impl<R> LongValues for LongValuesImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
         self.get(index)
@@ -1907,17 +1913,17 @@ where
         Ok(self.table[self.values.get(index)? as usize])
     }
 }
-pub struct LongValuesImpl3<I>
+pub struct LongValuesImpl3<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
     gcd: i64,
     min_value: i64,
 }
-impl<I> LongValues for LongValuesImpl3<I>
+impl<R> LongValues for LongValuesImpl3<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
         self.get(index)
@@ -1927,16 +1933,16 @@ where
         Ok(self.gcd * self.values.get(index)? + self.min_value)
     }
 }
-pub struct LongValuesImpl4<I>
+pub struct LongValuesImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    values: DirectPackedEnum<I::RandomAccessSlice>,
+    values: DirectPackedEnum<R>,
     min_value: i64,
 }
-impl<I> LongValues for LongValuesImpl4<I>
+impl<R> LongValues for LongValuesImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: i64) -> Result<i64> {
         self.get(index)
@@ -1951,17 +1957,17 @@ pub trait DenseBinaryDocValuesBase {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
 
-pub struct DenseBinaryDocValuesBaseImpl<I>
+pub struct DenseBinaryDocValuesBaseImpl<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    bytes_slice: I::RandomAccessSlice,
+    bytes_slice: R,
     length: i32,
     bytes: BytesRef<Vec<u8>>,
 }
-impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<I>
+impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.bytes_slice.read_bytes(
@@ -1973,17 +1979,17 @@ where
         Ok(Cow::Borrowed(&self.bytes))
     }
 }
-pub struct DenseBinaryDocValuesBaseImpl1<I>
+pub struct DenseBinaryDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    bytes_slice: I::RandomAccessSlice,
+    bytes_slice: R,
     bytes: BytesRef<Vec<u8>>,
-    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<R>,
 }
-impl<I> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<I>
+impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let start_offset = self.addresses.get(doc as i64)?;
@@ -2004,15 +2010,15 @@ where
 {
     fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
-pub struct SparseBinaryDocValuesBaseImpl<I>
+pub struct SparseBinaryDocValuesBaseImpl<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    bytes_slice: I::RandomAccessSlice,
+    bytes_slice: R,
     bytes: BytesRef<Vec<u8>>,
     length: i32,
 }
-impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -2023,15 +2029,15 @@ where
         Ok(Cow::Borrowed(&self.bytes))
     }
 }
-pub struct SparseBinaryDocValuesBaseImpl1<I>
+pub struct SparseBinaryDocValuesBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    bytes_slice: I::RandomAccessSlice,
+    bytes_slice: R,
     bytes: BytesRef<Vec<u8>>,
-    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<R>,
 }
-impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -2049,19 +2055,19 @@ where
     }
 }
 
-pub struct DenseBaseSortedDocValues<I>
+pub struct DenseBaseSortedDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     doc: i32,
     max_doc: i32,
-    value: DirectPackedEnum<I::RandomAccessSlice>,
+    value: DirectPackedEnum<R>,
 }
-impl<I> DenseBaseSortedDocValues<I>
+impl<R> DenseBaseSortedDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(max_doc: i32, value: DirectPackedEnum<I::RandomAccessSlice>) -> Self {
+    fn new(max_doc: i32, value: DirectPackedEnum<R>) -> Self {
         Self {
             doc: -1,
             max_doc,
@@ -2070,9 +2076,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseBaseSortedDocValues<I>
+impl<R> DocValuesIterator for DenseBaseSortedDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.doc = target;
@@ -2080,9 +2086,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseBaseSortedDocValues<I>
+impl<R> DocIdSetIterator for DenseBaseSortedDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -2106,9 +2112,9 @@ where
     }
 }
 
-impl<I> SortedDocValues for DenseBaseSortedDocValues<I>
+impl<R> SortedDocValues for DenseBaseSortedDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.value.get(self.doc as i64)? as i32)
@@ -2117,7 +2123,7 @@ where
     type TermsEnum<'a>
         = DummyTermsEnum
     where
-        I: 'a;
+        R: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
@@ -2356,26 +2362,22 @@ where
         ))
     }
 }
-pub struct DenseBaseSortedSetDocValues<I>
+pub struct DenseBaseSortedSetDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     max_doc: i32,
     doc: i32,
     curr: i64,
     count: i32,
-    value: DirectPackedEnum<I::RandomAccessSlice>,
-    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    value: DirectPackedEnum<R>,
+    addresses: DirectMonotonicReader<R>,
 }
-impl<I> DenseBaseSortedSetDocValues<I>
+impl<R> DenseBaseSortedSetDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(
-        max_doc: i32,
-        value: DirectPackedEnum<I::RandomAccessSlice>,
-        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
-    ) -> Self {
+    fn new(max_doc: i32, value: DirectPackedEnum<R>, addresses: DirectMonotonicReader<R>) -> Self {
         Self {
             max_doc,
             doc: -1,
@@ -2387,9 +2389,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseBaseSortedSetDocValues<I>
+impl<R> DocValuesIterator for DenseBaseSortedSetDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.curr = self.addresses.get(target as i64)?;
@@ -2400,9 +2402,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseBaseSortedSetDocValues<I>
+impl<R> DocIdSetIterator for DenseBaseSortedSetDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -2431,9 +2433,9 @@ where
     }
 }
 
-impl<I> SortedSetDocValues for DenseBaseSortedSetDocValues<I>
+impl<R> SortedSetDocValues for DenseBaseSortedSetDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn next_ord(&mut self) -> Result<i64> {
         let ord = self.value.get(self.curr)?;
@@ -2448,7 +2450,7 @@ where
     type TermsEnum<'a>
         = DummyTermsEnum
     where
-        I: 'a;
+        R: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
@@ -3184,28 +3186,28 @@ where
     type TermState = DummyTermState;
 }
 
-pub struct DenseSortedNumericDocValues<I>
+pub struct DenseSortedNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     max_doc: i32,
     start: i64,
     end: i64,
     doc: i32,
     count: i32,
-    values: LongValuesEnums<I>,
-    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+    values: LongValuesEnums<R>,
+    addresses: DirectMonotonicReader<R>,
 }
-impl<I> DenseSortedNumericDocValues<I>
+impl<R> DenseSortedNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn new(
         max_doc: i32,
         start: i64,
         end: i64,
-        values: LongValuesEnums<I>,
-        addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+        values: LongValuesEnums<R>,
+        addresses: DirectMonotonicReader<R>,
     ) -> Self {
         Self {
             max_doc,
@@ -3219,9 +3221,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseSortedNumericDocValues<I>
+impl<R> DocValuesIterator for DenseSortedNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.start = self.addresses.get(target as i64)?;
@@ -3232,9 +3234,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseSortedNumericDocValues<I>
+impl<R> DocIdSetIterator for DenseSortedNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -3263,9 +3265,9 @@ where
     }
 }
 
-impl<I> SortedNumericDocValues for DenseSortedNumericDocValues<I>
+impl<R> SortedNumericDocValues for DenseSortedNumericDocValues<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn next_value(&mut self) -> Result<i64> {
         let value = self.values.get_mut(self.start)?;
@@ -3283,7 +3285,7 @@ where
     I: IndexInput,
 {
     disi: IndexedDISI<I>,
-    values: LongValuesEnums<I>,
+    values: LongValuesEnums<I::RandomAccessSlice>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     set: bool,
     start: i64,
@@ -3296,7 +3298,7 @@ where
 {
     pub fn new(
         disi: IndexedDISI<I>,
-        values: LongValuesEnums<I>,
+        values: LongValuesEnums<I::RandomAccessSlice>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
         Self {
@@ -3373,18 +3375,24 @@ where
 }
 
 // 1. NumericDocValues
-pub type Lucene90NumericDocValuesEnum<I> =
-    Either3NumericDocValues<DenseNumericDocValues<I>, SparseNumericDocValues<I>, EmptyNumeric>;
+pub type Lucene90NumericDocValuesEnum<I> = Either3NumericDocValues<
+    DenseNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
+    SparseNumericDocValues<I>,
+    EmptyNumeric,
+>;
 // 2.SortedNumericDocValues
 pub type Lucene90SortedNumericDocValuesEnum<I> = Either4SortedNumericDocValues<
-    DenseSortedNumericDocValues<I>,
+    DenseSortedNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
     SpareSortedNumericDocValues<I>,
     SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
     SingletonSortedNumericDocValues<EmptyNumeric>,
 >;
 // 3. BinaryDocValues
-pub type Lucene90BinaryDocValuesEnum<I> =
-    Either3BinaryDocValues<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;
+pub type Lucene90BinaryDocValuesEnum<I> = Either3BinaryDocValues<
+    DenseBinaryDocValues<<I as IndexInput>::RandomAccessSlice>,
+    SparseBinaryDocValues<I>,
+    EmptyBinary,
+>;
 
 // 4. SortedSetDocValues
 pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
@@ -3392,15 +3400,15 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
     BaseSortedSetDocValues<I>,
 >;
 
-fn get_direct_reader_instance<I>(
+fn get_direct_reader_instance<R>(
     merging: bool,
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
     bits_per_value: i32,
     offset: i64,
     num_values: i64,
-) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
+) -> Result<DirectPackedEnum<R>>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     if merging {
         Ok(DirectReader::get_merge_instance_with_base_offset(
