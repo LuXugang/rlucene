@@ -240,7 +240,9 @@ mod tests {
     use std::sync::Arc;
 
     use crate::core::document::field_type::FieldType;
+    use crate::core::document::string_field::string_field_type;
     use crate::core::document::text_field::text_field_type;
+    use crate::core::index::BytesRef;
     use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::fields::Fields;
     use crate::core::index::index_reader::IndexReader;
@@ -259,6 +261,137 @@ mod tests {
 
     #[allow(dead_code)]
     struct TestTermVectorsWriter;
+    #[test]
+    fn test_double_offset_counting() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd", &custom_type)?;
+        doc.add(f.clone());
+        doc.add(f.clone());
+
+        let f2 = new_field("field", "", &custom_type)?;
+        doc.add(f2);
+
+        doc.add(f);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field0 = tv_reader.get(0)?;
+        let tv = field0.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+        let mut terms_enum = terms.iterator()?;
+
+        // First token = ""
+        assert!(terms_enum.next()?.is_some());
+        assert_eq!("", terms_enum.term()?.utf8_to_string()?);
+
+        assert_eq!(1, terms_enum.total_term_freq()?);
+
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(8, dp_enum.start_offset()?);
+        assert_eq!(8, dp_enum.end_offset()?);
+
+        assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
+
+        let next = terms_enum.next()?;
+        assert!(next.is_some());
+        assert_eq!(&BytesRef::from_string("abcd"), next.unwrap().as_ref());
+
+        let mut dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+        assert_eq!(3, terms_enum.total_term_freq()?);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        dp_enum.next_position()?;
+        assert_eq!(4, dp_enum.start_offset()?);
+        assert_eq!(8, dp_enum.end_offset()?);
+
+        dp_enum.next_position()?;
+        assert_eq!(8, dp_enum.start_offset()?);
+        assert_eq!(12, dp_enum.end_offset()?);
+
+        assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
+
+        assert!(terms_enum.next()?.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_double_offset_counting2() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd", &custom_type)?;
+        doc.add(f.clone());
+        doc.add(f);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_eq!(2, terms_enum.total_term_freq()?);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        dp_enum.next_position()?;
+        assert_eq!(5, dp_enum.start_offset()?);
+        assert_eq!(9, dp_enum.end_offset()?);
+
+        assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
+
+        Ok(())
+    }
 
     #[test]
     fn test_end_offset_position_char_analyzer() -> Result<()> {

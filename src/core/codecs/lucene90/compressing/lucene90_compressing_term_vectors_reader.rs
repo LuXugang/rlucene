@@ -1411,21 +1411,19 @@ impl TermsEnum for TVTermsEnum {
         reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        let docs_enum = match reuse {
-            Some(mut postings_enum) => {
-                postings_enum.reset();
-                postings_enum
-            },
-            None => TVPostingsEnum::new(
-                self.term_freqs[self.ord as usize],
-                self.position_index[self.ord as usize],
-                self.positions.clone(),
-                self.start_offsets.clone(),
-                self.lengths.clone(),
-                self.payloads.clone(),
-                self.payload_index.clone(),
-            ),
+        let mut docs_enum = match reuse {
+            Some(postings_enum) => postings_enum,
+            None => TVPostingsEnum::new(),
         };
+        docs_enum.reset(
+            self.term_freqs[self.ord as usize],
+            self.position_index[self.ord as usize],
+            self.positions.clone(),
+            self.start_offsets.clone(),
+            self.lengths.clone(),
+            self.payloads.clone(),
+            self.payload_index.clone(),
+        );
         Ok(docs_enum)
     }
 
@@ -1455,39 +1453,60 @@ pub struct TVPostingsEnum {
     payload_length: usize,
     payload_offset: usize,
 }
+impl Default for TVPostingsEnum {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TVPostingsEnum {
-    fn new(
-        freq: i32,
-        position_index: i32,
-        positions: Rc<Vec<i32>>,
-        start_offsets: Rc<Vec<i32>>,
-        lengths: Rc<Vec<i32>>,
-        payload: BytesRef<Rc<Vec<u8>>>,
-        payload_index: Rc<Vec<i32>>,
-    ) -> Self {
-        let base_payload_offset = payload.offset;
+    pub fn new() -> Self {
         TVPostingsEnum {
             doc: -1,
-            term_freq: freq,
-            position_index,
-            positions,
-            start_offsets,
-            lengths,
-            payload,
-            payload_index,
-            base_payload_offset,
+            term_freq: 0,
+            position_index: 0,
+            positions: Rc::new(Vec::new()),
+            start_offsets: Rc::new(Vec::new()),
+            lengths: Rc::new(Vec::new()),
+            payload: BytesRef {
+                bytes: Rc::new(Vec::new()),
+                offset: 0,
+                length: 0,
+            },
+            payload_index: Rc::new(Vec::new()),
+            base_payload_offset: 0,
             i: -1,
             payload_length: 0,
             payload_offset: 0,
         }
     }
-    fn reset(&mut self) {
-        self.base_payload_offset = self.payload_offset;
-        self.payload_length = 0;
 
-        self.payload_offset = 0;
-        self.i = -1;
+    pub fn reset(
+        &mut self,
+        freq: i32,
+        position_index: i32,
+        positions: Rc<Vec<i32>>,
+        start_offsets: Rc<Vec<i32>>,
+        lengths: Rc<Vec<i32>>,
+        payloads: BytesRef<Rc<Vec<u8>>>,
+        payload_index: Rc<Vec<i32>>,
+    ) {
+        self.term_freq = freq;
+        self.position_index = position_index;
+        self.positions = positions;
+        self.start_offsets = start_offsets;
+        self.lengths = lengths;
+
+        self.base_payload_offset = payloads.offset;
+
+        self.payload.bytes = payloads.bytes.clone();
+        self.payload.offset = 0;
+        self.payload.length = 0;
+
+        self.payload_index = payload_index;
+
         self.doc = -1;
+        self.i = -1;
     }
 
     fn check_doc(&self) -> Result<()> {
