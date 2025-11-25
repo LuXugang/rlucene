@@ -21,7 +21,7 @@ use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct ByteRunAutomaton {
     pub base: RunAutomaton,
@@ -58,7 +58,9 @@ impl ByteRunAutomaton {
 
     fn convert(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         if !a.is_deterministic() {
-            panic!("Automaton must be deterministic");
+            return Err(LuceneError::illegal_argument(
+                "Automaton must be deterministic",
+            ));
         }
         let converted = UTF32ToUTF8::default().convert(a)?;
         match Operations::determinize(&converted, i32::MAX as usize)? {

@@ -371,7 +371,8 @@ mod tests {
                 let b1 = orig_float_to_byte(f);
                 let b2 = SmallFloat::float_to_byte_3_15(f);
                 if b1 != b2 || (b2 == 0 && f > 0.0) {
-                    panic!(
+                    assert!(
+                        false,
                         "Failed float_to_byte_3_15 for float = {:e}, source_bits = {:#x}, raw_bits = {:#x}",
                         f,
                         i,

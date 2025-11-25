@@ -277,13 +277,13 @@ where
             Some(FSTEnums::FST1(reuse)) => {
                 self.run_steps(seed, reuse, |e| match e {
                     FSTEnums::FST1(fst) => fst,
-                    _ => panic!("Expected FST1"),
+                    _ => unreachable!("Expected FST1"),
                 })?;
             },
             Some(FSTEnums::FST2(reuse)) => {
                 self.run_steps(seed, reuse, |e| match e {
                     FSTEnums::FST2(fst) => fst,
-                    _ => panic!("Expected FST2"),
+                    _ => unreachable!("Expected FST2"),
                 })?;
             },
             None => {},

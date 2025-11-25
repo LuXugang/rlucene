@@ -245,7 +245,9 @@ where
         let unrefed = index_file_deleter.file_deleter.get_unrefed_files();
         for file in &unrefed {
             if file.starts_with(IndexFileNames::SEGMENTS) {
-                panic!("file \"{file}\" has refCount=0, which should never happen on init");
+                return Err(LuceneError::illegal_state(
+                    "file \"{file}\" has refCount=0, which should never happen on init",
+                ));
             }
             if index_file_deleter.info_stream.enabled("IFD") {
                 index_file_deleter.info_stream.message(

@@ -200,7 +200,7 @@ fn test_binary_value() -> Result<()> {
             );
         },
         other => {
-            panic!("expected IllegalArgument but got {:?}", other);
+            unreachable!("expected IllegalArgument but got {:?}", other);
         },
     }
 

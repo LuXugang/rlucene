@@ -260,11 +260,13 @@ where
         Ok(total)
     }
     /// Helper method for subclasses to get the docBase of the given sub-reader index.
-    pub fn reader_base(&self, reader_index: usize) -> i32 {
+    pub fn reader_base(&self, reader_index: usize) -> Result<i32> {
         if reader_index >= self.sub_reader.len() {
-            panic!("readerIndex must be >= 0 and < getSequentialSubReaders().size()");
+            return Err(LuceneError::illegal_argument(
+                "readerIndex must be >= 0 and < getSequentialSubReaders().size()",
+            ));
         }
-        self.starts[reader_index]
+        Ok(self.starts[reader_index])
     }
     pub fn get_sequential_sub_readers(&self) -> Vec<IndexReaderEnum<IR, CR>> {
         self.sub_reader.clone()
@@ -317,7 +319,7 @@ where
     CR: CompositeReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, self.starts.as_slice());
+        let i = reader_index(doc_id, self.max_doc, self.starts.as_slice())?;
         match self.sub_term_vectors[i] {
             Some(ref mut tv) => tv.prefetch(doc_id - self.starts[i])?,
             None => {
@@ -332,7 +334,7 @@ where
     type Fields = <IRTermVectors<IR, CR> as TermVectors>::Fields;
 
     fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts);
+        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
 
         if self.sub_term_vectors[i].is_none() {
             let tv = self.sub_reader[i].term_vectors()?;
@@ -382,7 +384,7 @@ where
     CR: CompositeReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts);
+        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
 
         match self.sub_stored_fields[i] {
             Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i])?,
@@ -402,7 +404,7 @@ where
         visitor: &mut impl StoredFieldVisitor,
         writer: Option<&mut S>,
     ) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts);
+        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
 
         if self.sub_stored_fields[i].is_none() {
             let sf = self.sub_reader[i].stored_fields()?;
@@ -414,12 +416,12 @@ where
     }
 }
 /// Helper method for subclasses to get the corresponding reader for a doc ID
-pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[i32]) -> usize {
+pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[i32]) -> Result<usize> {
     if doc_id < 0 || doc_id >= max_doc {
-        panic!(
+        return Err(LuceneError::illegal_argument(format!(
             "docID must be >= 0 and < maxDoc={} (got docID={})",
             max_doc, doc_id
-        );
+        )));
     }
-    ReaderUtil::sub_index(doc_id, starts)
+    Ok(ReaderUtil::sub_index(doc_id, starts))
 }

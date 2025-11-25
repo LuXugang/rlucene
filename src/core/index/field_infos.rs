@@ -264,10 +264,6 @@ impl FieldInfos {
     /// Return the FieldInfo object referenced by the field number.
     ///
     /// Returns None if the given field number doesn't exist.
-    ///
-    /// # Panics
-    ///
-    /// Panics if field_number is negative.
     pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
         if field_number < 0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -778,7 +774,7 @@ impl FieldNumbers {
 pub mod build {
     use crate::core::index::field_info::FieldInfo;
     use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
     use parking_lot::Mutex;
     use std::collections::HashMap;
 
@@ -839,7 +835,7 @@ pub mod build {
                 return Ok(cur_fi.clone());
             }
 
-            self.assert_not_finished();
+            self.assert_not_finished()?;
 
             let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
             let attributes = fi.inner.lock().attributes.clone();
@@ -870,10 +866,13 @@ pub mod build {
         pub fn field_info(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
             self.by_name.get(field_name).cloned()
         }
-        fn assert_not_finished(&self) {
+        fn assert_not_finished(&self) -> Result<()> {
             if self.finished {
-                panic!("FieldInfos.Builder was already finished; cannot add new fields");
+                return Err(LuceneError::illegal_state(
+                    "FieldInfos.Builder was already finished; cannot add new fields",
+                ));
             }
+            Ok(())
         }
         pub fn finish(&mut self) -> Result<FieldInfos> {
             self.finished = true;

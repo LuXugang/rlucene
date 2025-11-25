@@ -558,11 +558,11 @@ where
             recomputed_cache_size += leaf_cache.cache.len() as i64;
         }
         if recomputed_cache_size != self.get_cache_size() {
-            panic!(
+            return Err(LuceneError::illegal_state(format!(
                 "cacheSize mismatch : {} != {}",
                 self.get_cache_size(),
                 recomputed_cache_size
-            );
+            )));
         }
         Ok(())
     }
