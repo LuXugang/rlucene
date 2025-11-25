@@ -68,7 +68,7 @@ impl NumericDocValuesField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, file_type, value);
+        let parent_field = Field::new(name, value, file_type);
         Self { parent_field }
     }
 }

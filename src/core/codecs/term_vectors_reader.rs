@@ -92,7 +92,7 @@ mod tests {
         ft.set_store_term_vector_payloads(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -122,7 +122,7 @@ mod tests {
         ft.set_store_term_vector_offsets(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -152,7 +152,7 @@ mod tests {
         ft.set_store_term_vector_positions(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -180,7 +180,7 @@ mod tests {
         ft.set_store_term_vector_payloads(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -208,7 +208,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -236,7 +236,7 @@ mod tests {
         ft.set_store_term_vector_positions(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -264,7 +264,7 @@ mod tests {
         ft.set_store_term_vector_offsets(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {
@@ -292,7 +292,7 @@ mod tests {
         ft.set_store_term_vector_payloads(true)?;
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft, "value"));
+        doc.add(Field::new("field", "value", ft));
 
         let err = w.add_document(doc).unwrap_err();
         match err {

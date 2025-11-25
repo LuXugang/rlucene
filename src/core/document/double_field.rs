@@ -74,7 +74,7 @@ impl DoubleField {
             (double_field::FIELD_TYPE.clone(), None)
         };
         let sortable_long = NumericUtils::double_to_sortable_long(value);
-        let parent_field = Field::new(name, field_type, sortable_long);
+        let parent_field = Field::new(name, sortable_long, field_type);
         Ok(DoubleField {
             parent_field,
             stored_value,

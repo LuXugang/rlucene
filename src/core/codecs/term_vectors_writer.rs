@@ -944,8 +944,8 @@ mod tests {
         }
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", ft1.clone(), "value1"));
-        doc.add(Field::new("field", ft2.clone(), "value1"));
+        doc.add(Field::new("field", "value1", ft1.clone()));
+        doc.add(Field::new("field", "value1", ft2.clone()));
 
         // ensure broken doc hits exception
         let err = iw.add_document(doc).unwrap_err();

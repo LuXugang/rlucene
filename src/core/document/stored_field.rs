@@ -161,7 +161,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
+        let parent_field = Field::new(name, value, stored_field_type::TYPE.clone());
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given long value.
@@ -173,7 +173,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
+        let parent_field = Field::new(name, value, stored_field_type::TYPE.clone());
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f32 value.
@@ -185,7 +185,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
+        let parent_field = Field::new(name, value, stored_field_type::TYPE.clone());
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f64 value.
@@ -197,7 +197,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, stored_field_type::TYPE.clone(), value);
+        let parent_field = Field::new(name, value, stored_field_type::TYPE.clone());
         Ok(Self { parent_field })
     }
 }

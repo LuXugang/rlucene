@@ -51,7 +51,7 @@ impl BinaryDocValuesField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, TYPE.clone(), value);
+        let parent_field = Field::new(name, value, TYPE.clone());
         Self { parent_field }
     }
 }

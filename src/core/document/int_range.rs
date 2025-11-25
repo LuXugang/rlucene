@@ -44,7 +44,7 @@ impl IntRange {
     {
         let min = min.as_ref();
         let field_type = Self::get_type(min.len() as i32)?;
-        let mut parent_field = Field::new(name, field_type, Dummy(()));
+        let mut parent_field = Field::new(name, Dummy(()), field_type);
         Self::set_range_values_internal(&mut parent_field, min, max.as_ref())?;
         Ok(IntRange { parent_field })
     }

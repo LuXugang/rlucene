@@ -55,8 +55,8 @@ fn test_token_stream() -> Result<()> {
     if random.random_bool(0.5) {
         doc.add(Field::new(
             TestUtil::random_simple_string_range(&mut random, 1, 10),
-            ft.clone(),
             TestUtil::random_simple_string_range(&mut random, 1, 10),
+            ft.clone(),
         ));
     }
 
@@ -66,13 +66,13 @@ fn test_token_stream() -> Result<()> {
         MIN_TEST_TERM_LENGTH as usize,
         MAX_TEST_TERM_LENGTH as usize,
     );
-    let f = Field::new(name.clone(), ft.clone(), value);
+    let f = Field::new(name.clone(), value, ft.clone());
 
     if random.random_bool(0.5) {
         doc.add(Field::new(
             TestUtil::random_simple_string_range(&mut random, 1, 10),
-            ft.clone(),
             TestUtil::random_simple_string_range(&mut random, 1, 10),
+            ft.clone(),
         ));
     }
 

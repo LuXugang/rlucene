@@ -368,8 +368,8 @@ pub mod lucene_test_case_util {
         field_type: FieldType,
     ) -> Result<Field> {
         match value {
-            FieldDataEnum::String(_) => Ok(Field::new(name, field_type, value)),
-            FieldDataEnum::Binary(_) => Ok(Field::new(name, field_type, value)),
+            FieldDataEnum::String(_) => Ok(Field::new(name, value, field_type)),
+            FieldDataEnum::Binary(_) => Ok(Field::new(name, value, field_type)),
             _ => Err(LuceneError::illegal_argument(
                 "Unsupported FieldDataEnum variant",
             )),

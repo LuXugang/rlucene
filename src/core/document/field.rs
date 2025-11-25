@@ -102,15 +102,15 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if either the `name` or `field_type` is `None`.
-    pub fn new<T, FD>(name: T, indexable_field_type: FieldType, fields_data: FD) -> Self
+    pub fn new<T, FD>(name: T, fields_data: FD, indexable_field_type: FieldType) -> Self
     where
         T: Into<String>,
         FD: Into<FieldDataEnum>,
     {
         Self {
-            indexable_field_type,
             name: name.into(),
             fields_data: fields_data.into(),
+            indexable_field_type,
             ts: None,
         }
     }

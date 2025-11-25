@@ -72,7 +72,7 @@ impl SortedDocValuesField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, field_type, bytes);
+        let parent_field = Field::new(name, bytes, field_type);
         Self { parent_field }
     }
 }

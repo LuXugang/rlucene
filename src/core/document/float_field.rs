@@ -77,7 +77,7 @@ impl FloatField {
             (float_field_type::FIELD_TYPE.clone(), None)
         };
         let sortable_long = NumericUtils::float_to_sortable_int(value) as i64;
-        let parent_field = Field::new(name, field_type, sortable_long);
+        let parent_field = Field::new(name, sortable_long, field_type);
         Ok(FloatField {
             parent_field,
             stored_value,

@@ -75,7 +75,7 @@ impl SortedNumericDocValuesField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, field_type, value);
+        let parent_field = Field::new(name, value, field_type);
         Self { parent_field }
     }
 }

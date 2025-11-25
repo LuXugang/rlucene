@@ -89,7 +89,7 @@ impl LongField {
         } else {
             (FIELD_TYPE.clone(), None)
         };
-        let parent_field = Field::new(name, field_type, value);
+        let parent_field = Field::new(name, value, field_type);
         Ok(LongField {
             parent_field,
             stored_value,

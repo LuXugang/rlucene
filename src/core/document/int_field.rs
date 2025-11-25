@@ -74,7 +74,7 @@ impl IntField {
         } else {
             (int_field_type::FIELD_TYPE.clone(), None)
         };
-        let parent_field = Field::new(name, field_type, value);
+        let parent_field = Field::new(name, value, field_type);
         Ok(IntField {
             parent_field,
             stored_value,
