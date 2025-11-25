@@ -263,6 +263,7 @@ mod tests {
         new_directory, new_field, new_index_writer_config, new_string_field, new_text_field, random,
     };
     use rand::Rng;
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     #[allow(dead_code)]
@@ -277,6 +278,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&string_field_type::TYPE_NOT_STORED.clone())?;
@@ -284,11 +286,11 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type)?;
+        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f.clone());
 
-        let f2 = new_field("field", "", &custom_type)?;
+        let f2 = new_field("field", "", &custom_type, &mut field_types)?;
         doc.add(f2);
 
         doc.add(f);
@@ -355,6 +357,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -362,7 +365,7 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type)?;
+        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -409,6 +412,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -416,7 +420,7 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd   ", &custom_type)?;
+        let f = new_field("field", "abcd   ", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -467,6 +471,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -474,7 +479,7 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd the", &custom_type)?;
+        let f = new_field("field", "abcd the", &custom_type, &mut field_types)?;
         doc.add(f.clone());
         doc.add(f);
 
@@ -520,6 +525,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -527,8 +533,8 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd the  ", &custom_type)?;
-        let f2 = new_field("field", "crunch man", &custom_type)?;
+        let f = new_field("field", "abcd the  ", &custom_type, &mut field_types)?;
+        let f2 = new_field("field", "crunch man", &custom_type, &mut field_types)?;
         doc.add(f);
         doc.add(f2);
 
@@ -579,6 +585,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -586,8 +593,8 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "", &custom_type)?;
-        let f2 = new_field("field", "crunch man", &custom_type)?;
+        let f = new_field("field", "", &custom_type, &mut field_types)?;
+        let f2 = new_field("field", "crunch man", &custom_type, &mut field_types)?;
         doc.add(f);
         doc.add(f2);
 
@@ -634,6 +641,7 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
 
         let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
@@ -641,12 +649,12 @@ mod tests {
         custom_type.set_store_term_vector_positions(true)?;
         custom_type.set_store_term_vector_offsets(true)?;
 
-        let f = new_field("field", "abcd", &custom_type)?;
+        let f = new_field("field", "abcd", &custom_type, &mut field_types)?;
         doc.add(f);
 
-        doc.add(new_field("field", "", &custom_type)?);
+        doc.add(new_field("field", "", &custom_type, &mut field_types)?);
 
-        let f2 = new_field("field", "crunch", &custom_type)?;
+        let f2 = new_field("field", "crunch", &custom_type, &mut field_types)?;
         doc.add(f2);
 
         w.add_document(doc)?;
@@ -696,6 +704,7 @@ mod tests {
         let mut random = random();
 
         let dir = Arc::new(new_directory(&mut random)?);
+        let mut field_types = HashMap::new();
 
         for _ in 0..2 {
             // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
@@ -710,7 +719,7 @@ mod tests {
             let mut custom_type = FieldType::new();
             custom_type.set_stored(true)?;
 
-            let stored_field = new_field("stored", "stored", &custom_type)?;
+            let stored_field = new_field("stored", "stored", &custom_type, &mut field_types)?;
             document.add(stored_field.clone());
 
             writer.add_document(document.clone())?;
@@ -725,7 +734,8 @@ mod tests {
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
 
-            let term_vector_field = new_field("termVector", "termVector", &custom_type2)?;
+            let term_vector_field =
+                new_field("termVector", "termVector", &custom_type2, &mut field_types)?;
             document.add(term_vector_field);
 
             writer.add_document(document)?;
@@ -753,12 +763,13 @@ mod tests {
         iwc1.set_max_buffered_docs(2);
         iwc1.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
         let mut document = Document::new();
+        let mut field_types = HashMap::new();
         {
             let writer = IndexWriter::new(dir.clone(), iwc1)?;
 
             let mut custom_type = FieldType::new();
             custom_type.set_stored(true)?;
-            let stored_field = new_field("stored", "stored", &custom_type)?;
+            let stored_field = new_field("stored", "stored", &custom_type, &mut field_types)?;
             document.add(stored_field.clone());
 
             let mut custom_type2 =
@@ -766,7 +777,8 @@ mod tests {
             custom_type2.set_store_term_vectors(true)?;
             custom_type2.set_store_term_vector_positions(true)?;
             custom_type2.set_store_term_vector_offsets(true)?;
-            let term_vector_field = new_field("termVector", "termVector", &custom_type2)?;
+            let term_vector_field =
+                new_field("termVector", "termVector", &custom_type2, &mut field_types)?;
             document.add(term_vector_field.clone());
 
             for _ in 0..10 {
@@ -810,17 +822,28 @@ mod tests {
         let iwc = new_index_writer_config(&mut random);
         let iw = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut custom_type2 = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
         custom_type2.set_store_term_vectors(true)?;
         custom_type2.set_store_term_vector_positions(true)?;
         custom_type2.set_store_term_vector_offsets(true)?;
 
         let mut document = Document::new();
-        document.add(new_field("tvtest", "a b c", &custom_type2)?);
+        document.add(new_field(
+            "tvtest",
+            "a b c",
+            &custom_type2,
+            &mut field_types,
+        )?);
         iw.add_document(document)?;
 
         let mut document = Document::new();
-        document.add(new_text_field("tvtest", "x y z", Store::No)?);
+        document.add(new_text_field(
+            "tvtest",
+            "x y z",
+            Store::No,
+            &mut field_types,
+        )?);
         iw.add_document(document)?;
 
         iw.commit()?;
@@ -829,7 +852,12 @@ mod tests {
         custom_type.set_store_term_vectors(true)?;
 
         let mut document = Document::new();
-        document.add(new_field("tvtest", "a b c", &custom_type)?);
+        document.add(new_field(
+            "tvtest",
+            "a b c",
+            &custom_type,
+            &mut field_types,
+        )?);
         iw.add_document(document)?;
 
         iw.commit()?;
@@ -903,9 +931,15 @@ mod tests {
         let dir = Arc::new(new_directory(random)?);
         let iw = RandomIndexWriter::new(random, dir.clone());
 
+        let mut field_types = HashMap::new();
         for i in 0..3 {
             let mut doc = Document::new();
-            doc.add(new_string_field("id", i.to_string(), Store::No)?);
+            doc.add(new_string_field(
+                "id",
+                i.to_string(),
+                Store::No,
+                &mut field_types,
+            )?);
             iw.add_document(doc)?;
         }
 

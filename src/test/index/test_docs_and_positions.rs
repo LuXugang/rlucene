@@ -36,6 +36,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_index_writer_config, new_text_field, random,
 };
 use rand::Rng;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -54,6 +55,7 @@ fn test_positions_simple() -> Result<()> {
     let config = new_index_writer_config(&mut random);
     let writer = RandomIndexWriter::with_config(&mut random, directory, config);
     let field_name = field_name(&mut random);
+    let mut field_types = HashMap::new();
 
     for _ in 0..39 {
         let mut doc = Document::new();
@@ -67,7 +69,12 @@ fn test_positions_simple() -> Result<()> {
             "1 2 3 4 5 6 7 8 9 10"
         );
 
-        doc.add(new_field(&field_name, text, &custom_type)?);
+        doc.add(new_field(
+            &field_name,
+            text,
+            &custom_type,
+            &mut field_types,
+        )?);
         writer.add_document(doc)?;
     }
 
@@ -156,6 +163,7 @@ fn test_random_positions() -> Result<()> {
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
     let field_name = field_name(&mut random);
+    let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
     let num_docs = at_least(&mut random, 47);
     let max = 1051;
@@ -186,7 +194,12 @@ fn test_random_positions() -> Result<()> {
             positions.push(num as i32);
         }
 
-        doc.add(new_field(&field_name, builder, &custom_type)?);
+        doc.add(new_field(
+            &field_name,
+            builder,
+            &custom_type,
+            &mut field_types,
+        )?);
         positions_in_doc[i as usize] = positions;
 
         writer.add_document(doc)?;
@@ -282,6 +295,7 @@ fn test_large_number_of_positions() -> Result<()> {
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
     let field_name = field_name(&mut random);
+    let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
     let how_many = 1000;
 
@@ -300,7 +314,12 @@ fn test_large_number_of_positions() -> Result<()> {
             }
         }
 
-        doc.add(new_field(&field_name, builder, &custom_type)?);
+        doc.add(new_field(
+            &field_name,
+            builder,
+            &custom_type,
+            &mut field_types,
+        )?);
         writer.add_document(doc)?;
     }
     // now do searches
@@ -364,7 +383,8 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
     let mut doc = Document::new();
-    doc.add(new_text_field("foo", "bar", No)?);
+    let mut field_types = HashMap::new();
+    doc.add(new_text_field("foo", "bar", No, &mut field_types)?);
     writer.add_document(doc)?;
 
     let reader = Arc::new(writer.get_reader()?);

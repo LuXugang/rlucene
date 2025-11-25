@@ -37,7 +37,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use once_cell::sync::Lazy;
 use rand::Rng;
 use std::clone::Clone;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
@@ -90,6 +90,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
 
     let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
@@ -97,7 +98,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     custom_type.set_store_term_vector_positions(true)?;
     custom_type.set_store_term_vector_offsets(true)?;
 
-    doc.add(new_field("field", "aaa", &custom_type)?);
+    doc.add(new_field("field", "aaa", &custom_type, &mut field_types)?);
     writer.add_document(doc)?;
     writer.commit()?;
     if cfg!(feature = "test_log_verbose") {
@@ -118,10 +119,11 @@ fn test_bad_segment() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
     let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
     custom_type.set_store_term_vectors(true)?;
-    doc.add(new_field("tvtest", "", &custom_type)?);
+    doc.add(new_field("tvtest", "", &custom_type, &mut field_types)?);
 
     writer.add_document(doc)?;
     writer.close()?;
@@ -144,9 +146,10 @@ fn test_unlimited_max_field_length() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
     let text = " a".repeat(10_000) + " x";
-    doc.add(new_text_field("field", &text, Store::No)?);
+    doc.add(new_text_field("field", &text, Store::No, &mut field_types)?);
     writer.add_document(doc)?;
     writer.close()?;
 
@@ -162,8 +165,9 @@ fn test_empty_field_name() -> Result<()> {
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
-    doc.add(new_text_field("", "a b c", Store::No)?);
+    doc.add(new_text_field("", "a b c", Store::No, &mut field_types)?);
     writer.add_document(doc)?;
     writer.close()?;
 
@@ -214,9 +218,15 @@ fn test_do_before_after_flush() -> Result<()> {
         Some(mock_index_writer),
     )?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
     let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-    doc.add(new_field("field", "a field", &custom_type)?);
+    doc.add(new_field(
+        "field",
+        "a field",
+        &custom_type,
+        &mut field_types,
+    )?);
     writer.add_document(doc)?;
     writer.commit()?;
 
@@ -459,15 +469,16 @@ fn test_get_field_names() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     {
         let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mut field_types = HashMap::new();
 
         assert_eq!(HashSet::<String>::new(), writer.get_field_names());
 
-        add_doc_with_field(&mut writer, "f1")?;
+        add_doc_with_field(&mut writer, "f1", &mut field_types)?;
         assert_eq!(HashSet::from(["f1".to_string()]), writer.get_field_names());
 
         let field_set = writer.get_field_names();
 
-        add_doc_with_field(&mut writer, "f2")?;
+        add_doc_with_field(&mut writer, "f2", &mut field_types)?;
         assert_eq!(
             HashSet::from(["f1".to_string(), "f2".to_string()]),
             writer.get_field_names()
@@ -506,18 +517,25 @@ fn test_get_field_names() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn add_doc<D, L, B>(writer: &IndexWriter<D, L, B>) -> Result<()>
+pub(crate) fn add_doc<D, L, B>(
+    writer: &IndexWriter<D, L, B>,
+    field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
     let mut doc = Document::new();
-    doc.add(new_text_field("content", "aaa", Store::No)?);
+    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
     let _ = writer.add_document(doc)?;
     Ok(())
 }
-pub(crate) fn add_doc_with_index<D, L, B>(writer: &IndexWriter<D, L, B>, index: i32) -> Result<()>
+pub(crate) fn add_doc_with_index<D, L, B>(
+    writer: &IndexWriter<D, L, B>,
+    index: i32,
+    field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -528,6 +546,7 @@ where
         "content",
         format!("aaa {}", index),
         &STORED_TEXT_TYPE,
+        field_types,
     )?);
     // doc.add(new_field("id", index.to_string(), &STORED_TEXT_TYPE)?);
 
@@ -536,7 +555,11 @@ where
         Err(e) => Err(e),
     }
 }
-fn add_doc_with_field<D, L, B>(writer: &mut IndexWriter<D, L, B>, field: &str) -> Result<()>
+fn add_doc_with_field<D, L, B>(
+    writer: &mut IndexWriter<D, L, B>,
+    field: &str,
+    field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -544,7 +567,7 @@ where
 {
     let mut doc = Document::new();
     let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
-    doc.add(new_field(field, "value", &stored_text_type)?);
+    doc.add(new_field(field, "value", &stored_text_type, field_types)?);
     let _ = writer.add_document(doc)?;
     Ok(())
 }

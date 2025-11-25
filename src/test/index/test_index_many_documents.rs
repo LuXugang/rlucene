@@ -26,6 +26,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir, new_fs_directory, new_text_field, random,
 };
 use crate::test::util::test_util::TestUtil;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
@@ -55,6 +56,7 @@ fn test_threaded_indexing() -> Result<()> {
         let counter_cloned = counter.clone();
 
         threads.push(thread::spawn(move || {
+            let mut field_types = HashMap::new();
             loop {
                 let curr = counter_cloned.fetch_add(1, Ordering::SeqCst);
                 if curr >= num_docs {
@@ -62,7 +64,7 @@ fn test_threaded_indexing() -> Result<()> {
                 }
 
                 let mut doc = Document::new();
-                doc.add(new_text_field("field", "text", No).unwrap());
+                doc.add(new_text_field("field", "text", No, &mut field_types).unwrap());
 
                 if let Err(e) = writer.add_document(doc) {
                     panic!("thread indexing failed: {:?}", e);

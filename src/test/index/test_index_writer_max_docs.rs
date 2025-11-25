@@ -33,6 +33,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config, new_string_field,
     random,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -50,8 +51,9 @@ fn test_exactly_at_true_limit() -> Result<()> {
     let iwc = new_index_writer_config(&mut random);
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
+    let mut field_types = HashMap::new();
     let mut doc = Document::new();
-    doc.add(new_string_field("field", "text", No)?);
+    doc.add(new_string_field("field", "text", No, &mut field_types)?);
 
     for _i in 0..MAX_DOCS {
         iw.add_document(doc.clone())?;

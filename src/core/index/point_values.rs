@@ -670,6 +670,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::vec;
 
@@ -687,8 +688,9 @@ mod tests {
         {
             let w = IndexWriter::new(dir.clone(), iwc)?;
 
+            let mut field_types = HashMap::new();
             let mut doc = Document::new();
-            doc.add(new_string_field("dim", "foo", Store::No)?);
+            doc.add(new_string_field("dim", "foo", Store::No, &mut field_types)?);
             w.add_document(doc)?;
             w.close()?;
         }
@@ -1222,8 +1224,9 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("id", "0", Store::No)?);
+        doc.add(new_string_field("id", "0", Store::No, &mut field_types)?);
         doc.add(IntPoint::new("int", vec![17])?);
         w.add_document(doc)?;
 
@@ -1255,8 +1258,9 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
+        let mut field_types = HashMap::new();
         let mut doc = Document::new();
-        doc.add(new_string_field("id", "0", Store::No)?);
+        doc.add(new_string_field("id", "0", Store::No, &mut field_types)?);
         doc.add(IntPoint::new("int0", vec![0])?);
         w.add_document(doc)?;
         w.commit()?;
@@ -1397,9 +1401,15 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         w.add_document(Document::new())?;
 
         {
+            let mut field_types = HashMap::new();
             let mut doc = Document::new();
             doc.add(IntPoint::new("field", vec![i32::MIN])?);
-            doc.add(new_string_field("delete", "yes", Store::No)?);
+            doc.add(new_string_field(
+                "delete",
+                "yes",
+                Store::No,
+                &mut field_types,
+            )?);
             w.add_document(doc)?;
         }
 

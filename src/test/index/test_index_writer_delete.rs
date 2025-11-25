@@ -32,6 +32,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_index_writer_config, new_searcher_with_reader, new_string_field,
     new_text_field, random,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -85,6 +86,7 @@ fn test_non_ram_delete() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
+    let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现
     let mut iwc = new_index_writer_config(&mut random);
@@ -97,7 +99,7 @@ fn test_non_ram_delete() -> Result<()> {
 
     for _ in 0..7 {
         id += 1;
-        add_doc(&mut modifier, id, value)?;
+        add_doc(&mut modifier, id, value, &mut field_types)?;
     }
 
     modifier.commit()?;
@@ -134,6 +136,7 @@ fn test_both_deletes() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
+    let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现
     let mut iwc = new_index_writer_config(&mut random);
@@ -147,20 +150,20 @@ fn test_both_deletes() -> Result<()> {
     // First 5 docs, value=100
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value)?;
+        add_doc(&mut writer, id, value, &mut field_types)?;
     }
 
     value = 200;
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value)?;
+        add_doc(&mut writer, id, value, &mut field_types)?;
     }
 
     writer.commit()?;
 
     for _ in 0..5 {
         id += 1;
-        add_doc(&mut writer, id, value)?;
+        add_doc(&mut writer, id, value, &mut field_types)?;
     }
 
     writer.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
@@ -179,6 +182,7 @@ fn test_batch_deletes() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
+    let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现
     let mut iwc = new_index_writer_config(&mut random);
@@ -191,7 +195,7 @@ fn test_batch_deletes() -> Result<()> {
 
     for _ in 0..7 {
         id += 1;
-        add_doc(&mut modifier, id, value)?;
+        add_doc(&mut modifier, id, value, &mut field_types)?;
     }
 
     modifier.commit()?;
@@ -257,7 +261,12 @@ fn test_delete_all_repeated() -> Result<()> {
     // TODO delete_all未实现
     Ok(())
 }
-fn update_doc<D, L, B>(modifier: &mut IndexWriter<D, L, B>, id: i32, value: i32) -> Result<()>
+fn update_doc<D, L, B>(
+    modifier: &mut IndexWriter<D, L, B>,
+    id: i32,
+    value: i32,
+    field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -265,16 +274,31 @@ where
 {
     let mut doc = Document::new();
 
-    doc.add(new_text_field("content", "aaa", Store::No)?);
-    doc.add(new_string_field("id", id.to_string(), Store::Yes)?);
-    doc.add(new_string_field("value", value.to_string(), Store::No)?);
+    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
+    doc.add(new_string_field(
+        "id",
+        id.to_string(),
+        Store::Yes,
+        field_types,
+    )?);
+    doc.add(new_string_field(
+        "value",
+        value.to_string(),
+        Store::No,
+        field_types,
+    )?);
     doc.add(NumericDocValuesField::new("dv", value as i64));
 
     modifier.update_documents_with_term(Term::from_text("id", id.to_string()), doc)?;
     Ok(())
 }
 
-fn add_doc<D, L, B>(modifier: &mut IndexWriter<D, L, B>, id: i32, value: i32) -> Result<()>
+fn add_doc<D, L, B>(
+    modifier: &mut IndexWriter<D, L, B>,
+    id: i32,
+    value: i32,
+    field_types: &mut HashMap<String, FieldType>,
+) -> Result<()>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
@@ -282,9 +306,19 @@ where
 {
     let mut doc = Document::new();
 
-    doc.add(new_text_field("content", "aaa", Store::No)?);
-    doc.add(new_string_field("id", id.to_string(), Store::Yes)?);
-    doc.add(new_string_field("value", value.to_string(), Store::No)?);
+    doc.add(new_text_field("content", "aaa", Store::No, field_types)?);
+    doc.add(new_string_field(
+        "id",
+        id.to_string(),
+        Store::Yes,
+        field_types,
+    )?);
+    doc.add(new_string_field(
+        "value",
+        value.to_string(),
+        Store::No,
+        field_types,
+    )?);
     doc.add(NumericDocValuesField::new("dv", value as i64));
 
     modifier.add_document(doc)?;

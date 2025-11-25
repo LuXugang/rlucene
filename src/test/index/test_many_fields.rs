@@ -28,6 +28,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_searcher_with_reader, random,
 };
 use rand::Rng;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -42,6 +43,7 @@ fn test_many_fields() -> Result<()> {
     iwc.set_max_buffered_docs(10);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
 
     let mut stored_text_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
     stored_text_type.freeze();
@@ -52,20 +54,38 @@ fn test_many_fields() -> Result<()> {
             format!("a{}", j),
             format!("aaa{}", j),
             &stored_text_type,
+            &mut field_types,
         )?);
         doc.add(new_field(
             format!("b{}", j),
             format!("aaa{}", j),
             &stored_text_type,
+            &mut field_types,
         )?);
         doc.add(new_field(
             format!("c{}", j),
             format!("aaa{}", j),
             &stored_text_type,
+            &mut field_types,
         )?);
-        doc.add(new_field(format!("d{}", j), "aaa", &stored_text_type)?);
-        doc.add(new_field(format!("e{}", j), "aaa", &stored_text_type)?);
-        doc.add(new_field(format!("f{}", j), "aaa", &stored_text_type)?);
+        doc.add(new_field(
+            format!("d{}", j),
+            "aaa",
+            &stored_text_type,
+            &mut field_types,
+        )?);
+        doc.add(new_field(
+            format!("e{}", j),
+            "aaa",
+            &stored_text_type,
+            &mut field_types,
+        )?);
+        doc.add(new_field(
+            format!("f{}", j),
+            "aaa",
+            &stored_text_type,
+            &mut field_types,
+        )?);
         writer.add_document(doc)?;
     }
 
@@ -113,6 +133,7 @@ fn test_diverse_docs() -> Result<()> {
     iwc.set_ram_buffer_size_mb(0.5);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
+    let mut field_types = HashMap::new();
     let mut stored_text_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
     stored_text_type.freeze();
 
@@ -128,6 +149,7 @@ fn test_diverse_docs() -> Result<()> {
                     "field",
                     random.random::<i32>().to_string(),
                     &stored_text_type,
+                    &mut field_types,
                 )?);
             }
             writer.add_document(doc)?;
@@ -140,6 +162,7 @@ fn test_diverse_docs() -> Result<()> {
                 "field",
                 "aaa aaa aaa aaa aaa aaa aaa aaa aaa aaa",
                 &stored_text_type,
+                &mut field_types,
             )?);
             writer.add_document(doc)?;
         }
@@ -150,7 +173,12 @@ fn test_diverse_docs() -> Result<()> {
             let x = format!("{}.", j);
             let long_term = x.repeat(1000);
             let mut doc = Document::new();
-            doc.add(new_field("field", long_term, &stored_text_type)?);
+            doc.add(new_field(
+                "field",
+                long_term,
+                &stored_text_type,
+                &mut field_types,
+            )?);
             writer.add_document(doc)?;
         }
     }
@@ -175,6 +203,7 @@ fn test_rotating_field_names() -> Result<()> {
     iwc.set_max_buffered_docs(-1);
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
 
     let mut upto: i32 = 0;
 
@@ -193,7 +222,7 @@ fn test_rotating_field_names() -> Result<()> {
             for _ in 0..10 {
                 let field_name = format!("field{}", upto);
                 upto += 1;
-                doc.add(new_field(field_name, "content", &ft)?);
+                doc.add(new_field(field_name, "content", &ft, &mut field_types)?);
             }
 
             writer.add_document(doc)?;

@@ -24,6 +24,7 @@ use crate::test::index::test_index_writer::add_doc;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_index_writer_config, new_searcher_with_reader, random,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -38,13 +39,14 @@ fn test_commit_on_close() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
+    let mut field_types = HashMap::new();
 
     let iwc1 = new_index_writer_config(&mut random);
     {
         let mut writer = IndexWriter::new(dir.clone(), iwc1)?;
 
         for _ in 0..14 {
-            add_doc(&mut writer)?;
+            add_doc(&mut writer, &mut field_types)?;
         }
 
         writer.close()?;
@@ -66,7 +68,7 @@ fn test_commit_on_close() -> Result<()> {
 
     for _ in 0..3 {
         for _ in 0..11 {
-            add_doc(&mut writer)?;
+            add_doc(&mut writer, &mut field_types)?;
         }
 
         let r = Arc::new(directory_reader_util::open(dir.clone())?);

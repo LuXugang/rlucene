@@ -344,6 +344,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
 mod tests {
     use crate::core::document::document::Document;
     use crate::core::document::field::Store;
+    use crate::core::document::field_type::FieldType;
     use crate::core::document::keyword_field::KeywordField;
     use crate::core::document::string_field::StringField;
     use crate::core::index::sort::Sort;
@@ -361,6 +362,7 @@ mod tests {
         new_bytes_ref_from_string, new_directory, new_searcher_with_reader, new_string_field,
         random,
     };
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     /// Simple tests for SortedSetSortField, indexing the sortedset up front
@@ -496,13 +498,15 @@ mod tests {
         let dir = Arc::new(new_directory(&mut random)?);
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
+        let mut field_types: HashMap<String, FieldType> = HashMap::new();
+
         let mut doc = Document::new();
         doc.add(KeywordField::with_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
             Store::No,
         )?);
-        doc.add(new_string_field("id", "2", Store::Yes)?);
+        doc.add(new_string_field("id", "2", Store::Yes, &mut field_types)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
@@ -516,12 +520,12 @@ mod tests {
             new_bytes_ref_from_string(&mut random, "bar")?,
             Store::No,
         )?);
-        doc.add(new_string_field("id", "1", Store::Yes)?);
+        doc.add(new_string_field("id", "1", Store::Yes, &mut field_types)?);
         writer.add_document(doc)?;
 
         // doc3: missing 'value'
         let mut doc = Document::new();
-        doc.add(new_string_field("id", "3", Store::Yes)?);
+        doc.add(new_string_field("id", "3", Store::Yes, &mut field_types)?);
         writer.add_document(doc)?;
 
         let reader = Arc::new(writer.get_reader()?);

@@ -71,8 +71,6 @@ pub mod lucene_test_case_util {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
-    use once_cell::sync::Lazy;
-    use parking_lot::Mutex;
     use rand::prelude::StdRng;
     use rand::{Rng, RngCore, SeedableRng};
     use std::cell::RefCell;
@@ -81,8 +79,6 @@ pub mod lucene_test_case_util {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    static FIELD_TO_TYPE: Lazy<Mutex<HashMap<String, FieldType>>> =
-        Lazy::new(|| Mutex::new(HashMap::new()));
     pub(crate) fn random_multiplier() -> i32 {
         let multiplier = std::env::var(Multiplier.to_string()).ok();
 
@@ -152,7 +148,12 @@ pub mod lucene_test_case_util {
         FSDirectory::new(temp_dir.keep(), sub_directory)
     }
 
-    pub(crate) fn new_string_field<S1, S2>(name: S1, value: S2, stored: Store) -> Result<Field>
+    pub(crate) fn new_string_field<S1, S2>(
+        name: S1,
+        value: S2,
+        stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<Field>
     where
         S1: Into<String>,
         S2: Into<String>,
@@ -168,6 +169,7 @@ pub mod lucene_test_case_util {
             name.into(),
             FieldDataEnum::String(value.into()),
             &field_type,
+            field_to_type,
         )
     }
 
@@ -175,6 +177,7 @@ pub mod lucene_test_case_util {
         name: S,
         value: BytesRef<Vec<u8>>,
         stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<Field>
     where
         S: Into<String>,
@@ -190,9 +193,15 @@ pub mod lucene_test_case_util {
             name.into(),
             FieldDataEnum::Binary(value),
             &field_type,
+            field_to_type,
         )
     }
-    pub(crate) fn new_text_field<S1, S2>(name: S1, value: S2, stored: Store) -> Result<Field>
+    pub(crate) fn new_text_field<S1, S2>(
+        name: S1,
+        value: S2,
+        stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<Field>
     where
         S1: Into<String>,
         S2: Into<String>,
@@ -208,6 +217,7 @@ pub mod lucene_test_case_util {
             name,
             FieldDataEnum::String(value.into()),
             &field_type,
+            field_to_type,
         )
     }
     pub(crate) fn new_string_field_string_with_random<S1, S2, R: Rng + ?Sized>(
@@ -215,6 +225,7 @@ pub mod lucene_test_case_util {
         name: S1,
         value: S2,
         stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<Field>
     where
         S1: Into<String>,
@@ -230,6 +241,7 @@ pub mod lucene_test_case_util {
             name,
             FieldDataEnum::String(value.into()),
             &field_type,
+            field_to_type,
         )
     }
     pub(crate) fn new_string_field_binary_with_random<S, R: Rng + ?Sized>(
@@ -237,6 +249,7 @@ pub mod lucene_test_case_util {
         name: S,
         value: BytesRef<Vec<u8>>,
         stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<Field>
     where
         S: Into<String>,
@@ -245,7 +258,13 @@ pub mod lucene_test_case_util {
             Store::Yes => string_field_type::TYPE_STORED.clone(),
             Store::No => string_field_type::TYPE_NOT_STORED.clone(),
         };
-        new_field_with_random(random, name, FieldDataEnum::Binary(value), &field_type)
+        new_field_with_random(
+            random,
+            name,
+            FieldDataEnum::Binary(value),
+            &field_type,
+            field_to_type,
+        )
     }
 
     pub(crate) fn new_text_field_with_random<S1, S2, R: Rng + ?Sized>(
@@ -253,6 +272,7 @@ pub mod lucene_test_case_util {
         name: S1,
         value: S2,
         stored: Store,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<Field>
     where
         S1: Into<String>,
@@ -267,15 +287,21 @@ pub mod lucene_test_case_util {
             name,
             FieldDataEnum::String(value.into()),
             &field_type,
+            field_to_type,
         )
     }
-    pub(crate) fn new_field<S, V>(name: S, value: V, field_type: &FieldType) -> Result<Field>
+    pub(crate) fn new_field<S, V>(
+        name: S,
+        value: V,
+        field_type: &FieldType,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<Field>
     where
         S: Into<String>,
         V: Into<FieldDataEnum>,
     {
         let mut random = random();
-        new_field_with_random(&mut random, name, value.into(), field_type)
+        new_field_with_random(&mut random, name, value.into(), field_type, field_to_type)
     }
     // TODO: if we can pull out the "make term vector options
     // consistent across all instances of the same field name"
@@ -287,13 +313,14 @@ pub mod lucene_test_case_util {
         name: S,
         value: FieldDataEnum,
         field_type: &FieldType,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<Field>
     where
         S: Into<String>,
     {
         let name = name.into();
 
-        let mut map = FIELD_TO_TYPE.lock();
+        let map = field_to_type;
         if let Some(prev_type) = map.get(&name) {
             return create_field(&name, value, prev_type.clone());
         }
