@@ -52,7 +52,7 @@ fn test_simple() -> Result<()> {
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
     let reader =
-        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
+        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0)?;
     assert_eq!(1, reader.get(0)?);
     assert_eq!(0, reader.get(1)?);
     assert_eq!(2, reader.get(2)?);
@@ -160,7 +160,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
                 original.len() as i64,
             )
         } else {
-            DirectReader::get_instance_with_offset(slice.clone(), bits_required, offset)
+            DirectReader::get_instance_with_offset(slice.clone(), bits_required, offset)?
         };
         for (j, &expected) in original.iter().enumerate() {
             assert_eq!(expected, reader.get(j as i64)?, "bpv={}", bpv);

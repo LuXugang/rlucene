@@ -16,7 +16,7 @@
  */
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{Either16LongValues, LongValues, Zeroes};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -37,7 +37,7 @@ impl DirectReader {
     /// `bits_per_value` for each value.
     // TODO: 参数slice应该实现编译多态 能接受 R或者Arc<Mutex<R>>类型
     // TODO: 另外我们并需要一定要传递slice,而是通过参数传递,那么可能需要不实现LongValues
-    pub(crate) fn get_instance<R>(slice: Arc<Mutex<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
+    pub fn get_instance<R>(slice: Arc<Mutex<R>>, bits_per_value: i32) -> Result<DirectPackedEnum<R>>
     where
         R: RandomAccessInput,
     {
@@ -45,15 +45,15 @@ impl DirectReader {
     }
     /// Retrieves an instance from the specified `offset` of the given slice,
     /// decoding `bits_per_value` for each value.
-    pub(crate) fn get_instance_with_offset<R>(
+    pub fn get_instance_with_offset<R>(
         slice: Arc<Mutex<R>>,
         bits_per_value: i32,
         offset: i64,
-    ) -> DirectPackedEnum<R>
+    ) -> Result<DirectPackedEnum<R>>
     where
         R: RandomAccessInput,
     {
-        match bits_per_value {
+        let v = match bits_per_value {
             1 => DirectPackedEnum::A(DirectPackedReader1::new(slice, offset)),
             2 => DirectPackedEnum::B(DirectPackedReader2::new(slice, offset)),
             4 => DirectPackedEnum::C(DirectPackedReader4::new(slice, offset)),
@@ -68,8 +68,14 @@ impl DirectReader {
             48 => DirectPackedEnum::L(DirectPackedReader48::new(slice, offset)),
             56 => DirectPackedEnum::M(DirectPackedReader56::new(slice, offset)),
             64 => DirectPackedEnum::N(DirectPackedReader64::new(slice, offset)),
-            _ => unreachable!(),
-        }
+            _ => {
+                return Err(LuceneError::illegal_state(format!(
+                    "unsupported bits_per_value: {}",
+                    bits_per_value
+                )));
+            },
+        };
+        Ok(v)
     }
     /// Retrieves an instance specialized for merges, typically faster for
     /// sequential access but slower for random access.
@@ -104,7 +110,7 @@ impl DirectReader {
     }
 }
 
-pub(crate) struct LongValuesImpl<R>
+pub struct LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
@@ -148,7 +154,7 @@ where
                 self.slice.clone(),
                 self.bits_per_value,
                 self.base_offset,
-            );
+            )?;
             drop(slice);
             let num_values_last_block = (self.num_values - index) as usize;
             for i in 0..num_values_last_block {
@@ -227,7 +233,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader1<R>
+pub struct DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
@@ -255,7 +261,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader2<R>
+pub struct DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
@@ -286,7 +292,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader4<R>
+pub struct DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
@@ -318,7 +324,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader8<R>
+pub struct DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
@@ -349,7 +355,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader12<R>
+pub struct DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
@@ -382,7 +388,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader16<R>
+pub struct DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
@@ -411,7 +417,7 @@ where
         Ok(result as i64)
     }
 }
-pub(crate) struct DirectPackedReader20<R>
+pub struct DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
@@ -444,7 +450,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader24<R>
+pub struct DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
@@ -475,7 +481,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader28<R>
+pub struct DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
@@ -508,7 +514,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader32<R>
+pub struct DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
@@ -539,7 +545,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader40<R>
+pub struct DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
@@ -570,7 +576,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader48<R>
+pub struct DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
@@ -601,7 +607,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader56<R>
+pub struct DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
@@ -632,7 +638,7 @@ where
     }
 }
 
-pub(crate) struct DirectPackedReader64<R>
+pub struct DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {

@@ -143,7 +143,7 @@ where
                     data.clone(),
                     bpv as i32,
                     meta.offsets[i],
-                ));
+                )?);
             }
         }
         DirectMonotonicReader::new(

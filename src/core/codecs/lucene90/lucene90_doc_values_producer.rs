@@ -1020,7 +1020,7 @@ where
                             let values = DirectReader::get_instance(
                                 Arc::new(Mutex::new(slice)),
                                 ords_entry.base.bits_per_value as i32,
-                            );
+                            )?;
 
                             let sub = if ords_entry.base.docs_with_field_offset == -1 {
                                 BaseSortedSetDocValuesEnum::Dense(DenseBaseSortedSetDocValues::new(
@@ -3410,10 +3410,6 @@ where
             num_values,
         ))
     } else {
-        Ok(DirectReader::get_instance_with_offset(
-            slice,
-            bits_per_value,
-            offset,
-        ))
+        DirectReader::get_instance_with_offset(slice, bits_per_value, offset)
     }
 }

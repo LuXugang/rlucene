@@ -534,14 +534,14 @@ where
             let all_field_num_offs = DirectReader::get_instance(
                 Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                 bits_per_off,
-            );
+            )?;
             let v = self.vectors_stream.read_vint()?;
             let flags = match v {
                 0 => {
                     let field_flags = DirectReader::get_instance(
                         Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                         *FLAGS_BITS,
-                    );
+                    )?;
                     let mut out = ByteBuffersDataOutput::new();
                     let mut writer =
                         DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
@@ -556,12 +556,12 @@ where
                     DirectReader::get_instance(
                         Arc::new(Mutex::new(out.get_data_input_owner())),
                         *FLAGS_BITS,
-                    )
+                    )?
                 },
                 1 => DirectReader::get_instance(
                     Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                     *FLAGS_BITS,
-                ),
+                )?,
                 _ => {
                     return Err(LuceneError::illegal_state(format!(
                         "invalid flag selector: {v}"
@@ -580,7 +580,7 @@ where
             let num_terms = DirectReader::get_instance(
                 Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                 bits_required,
-            );
+            )?;
             let mut sum = 0;
             for i in 0..total_fields {
                 sum += num_terms.get(i as i64)?;
