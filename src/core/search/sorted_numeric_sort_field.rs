@@ -296,7 +296,7 @@ impl SortFiledBase for SortedNumericSortField {
                 )));
             },
         };
-
+        #[allow(deprecated)]
         if !self.base.optimize_sort_with_indexed_data {
             field_comparator.disable_skipping()
         }
