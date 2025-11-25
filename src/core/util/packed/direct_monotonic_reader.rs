@@ -18,9 +18,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
-use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
-use parking_lot::Mutex;
-use std::sync::Arc;
+use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
 
 /// Retrieves an instance previously written by
 /// [`DirectMonotonicWriter`](crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
@@ -34,11 +32,11 @@ where
 {
     block_shift: i32,
     block_mask: i64,
-    // TODO IMPORTANT 这里可以不使用Arc<Mutex>>吗
-    readers: Vec<DirectPackedEnum<Arc<Mutex<R>>>>,
+    readers: Vec<DirectPackedEnum<R>>,
     mins: Vec<i64>,
     avgs: Vec<f32>,
     bpvs: Vec<u8>,
+    slice: R,
 }
 
 impl<R> DirectMonotonicReader<R>
@@ -47,10 +45,11 @@ where
 {
     pub(crate) fn new(
         block_shift: i32,
-        readers: Vec<DirectPackedEnum<Arc<Mutex<R>>>>,
+        readers: Vec<DirectPackedEnum<R>>,
         mins: Vec<i64>,
         avgs: Vec<f32>,
         bpvs: Vec<u8>,
+        slice: R,
     ) -> Result<Self> {
         let readers_len = readers.len();
         if readers_len != mins.len() || readers_len != avgs.len() || readers_len != bpvs.len() {
@@ -66,6 +65,7 @@ where
             mins,
             avgs,
             bpvs,
+            slice,
         })
     }
 
@@ -121,7 +121,6 @@ where
     /// Retrieves an instance from the specified slice.
     pub fn get_instance_with_merging(meta: &Meta, data: R, merging: bool) -> Result<Self> {
         let mut readers = Vec::with_capacity(meta.num_blocks);
-        let data = Arc::new(Mutex::new(data));
         for i in 0..meta.num_blocks {
             let bpv = meta.bpvs[i];
             if bpv == 0 {
@@ -131,14 +130,14 @@ where
                 && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT
             {
                 readers.push(DirectReader::get_merge_instance_with_base_offset(
-                    Some(data.clone()),
+                    None,
                     bpv as i32,
                     meta.offsets[i],
                     1i64 << meta.block_shift,
                 ));
             } else {
                 readers.push(DirectReader::get_instance_with_offset(
-                    Some(data.clone()),
+                    None,
                     bpv as i32,
                     meta.offsets[i],
                 )?);
@@ -150,6 +149,7 @@ where
             meta.mins.clone(),
             meta.avgs.clone(),
             meta.bpvs.clone(),
+            data,
         )
     }
 }
@@ -160,7 +160,7 @@ where
     fn get_mut(&mut self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
-        let delta = self.readers[block].get_mut(block_index)?;
+        let delta = self.readers[block].read_from_slice(block_index, Some(&mut self.slice))?;
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }
