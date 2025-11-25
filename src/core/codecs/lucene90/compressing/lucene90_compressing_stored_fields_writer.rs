@@ -301,50 +301,57 @@ where
             self.copy_one_doc(reader, doc_id)?;
             doc_id += 1;
         }
-        let stream = reader.get_fields_stream();
-        let mut raw_docs = stream.lock();
-        let index = reader.get_index_reader();
 
         if doc_id >= to_doc_id {
             return Ok(());
         }
 
-        let mut from_pointer = index.get_start_pointer(doc_id)?;
-        let to_pointer = if to_doc_id == sub.max_doc {
-            max_pointer
-        } else {
-            index.get_start_pointer(to_doc_id)?
+        let (mut from_pointer, to_pointer) = {
+            let index = reader.get_index_reader();
+            let from_pointer = index.get_start_pointer(doc_id)?;
+            let to_pointer = if to_doc_id == sub.max_doc {
+                max_pointer
+            } else {
+                index.get_start_pointer(to_doc_id)?
+            };
+            (from_pointer, to_pointer)
         };
 
         if from_pointer < to_pointer {
             if self.num_buffered_docs > 0 {
                 self.flush(true)?;
             }
-
-            raw_docs.seek(from_pointer)?;
+            {
+                let raw_docs = reader.get_fields_stream();
+                raw_docs.seek(from_pointer)?;
+            }
 
             while from_pointer < to_pointer {
-                let base = raw_docs.read_vint()?;
-                let code = raw_docs.read_vint()?;
-                let buffered_docs = ((code as u32) >> 2) as i32;
+                let (code, buffered_docs) = {
+                    let raw_docs = reader.get_fields_stream();
+                    let base = raw_docs.read_vint()?;
+                    let code = raw_docs.read_vint()?;
+                    let buffered_docs = ((code as u32) >> 2) as i32;
 
-                if base != doc_id {
-                    return Err(LuceneError::corrupt_index(format!(
-                        "invalid state: base={base} != docID={doc_id} (resource {raw_docs})"
-                    )));
-                }
-                // write a new index entry and new header for this chunk.
-                self.index_writer
-                    .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
-                self.fields_stream.write_vint(self.doc_base)?;
-                self.fields_stream.write_vint(code)?;
-                doc_id += buffered_docs;
-                self.doc_base += buffered_docs;
-                if doc_id > to_doc_id {
-                    return Err(LuceneError::corrupt_index(format!(
-                        "invalid state: base={base}, count={buffered_docs}, toDocID={to_doc_id} (resource {raw_docs})"
-                    )));
-                }
+                    if base != doc_id {
+                        return Err(LuceneError::corrupt_index(format!(
+                            "invalid state: base={base} != docID={doc_id} (resource {raw_docs})"
+                        )));
+                    }
+                    // write a new index entry and new header for this chunk.
+                    self.index_writer
+                        .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
+                    self.fields_stream.write_vint(self.doc_base)?;
+                    self.fields_stream.write_vint(code)?;
+                    doc_id += buffered_docs;
+                    self.doc_base += buffered_docs;
+                    if doc_id > to_doc_id {
+                        return Err(LuceneError::corrupt_index(format!(
+                            "invalid state: base={base}, count={buffered_docs}, toDocID={to_doc_id} (resource {raw_docs})"
+                        )));
+                    }
+                    (code, buffered_docs)
+                };
                 // copy bytes until the next chunk boundary (or end of chunk
                 // data). using the stored fields index for this
                 // isn't the most efficient, but fast enough and
@@ -352,9 +359,10 @@ where
                 let end_chunk_pointer = if doc_id == sub.max_doc {
                     max_pointer
                 } else {
-                    index.get_start_pointer(doc_id)?
+                    reader.get_index_reader().get_start_pointer(doc_id)?
                 };
 
+                let raw_docs = reader.get_fields_stream();
                 let num_bytes = end_chunk_pointer - raw_docs.get_file_pointer();
                 self.fields_stream.copy_bytes(&mut *raw_docs, num_bytes)?;
 
