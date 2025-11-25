@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::packed::direct_reader::FromSlice;
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
@@ -42,7 +44,14 @@ impl LongValues for Zeroes {
     fn get(&self, _index: i64) -> Result<i64> {
         Ok(0)
     }
-
+}
+impl<R> FromSlice<R> for Zeroes
+where
+    R: RandomAccessInput,
+{
+    fn read_from_slice(&mut self, _index: i64, _slice: Option<&mut R>) -> Result<i64> {
+        Ok(0)
+    }
 }
 
 macro_rules! either_long_values {

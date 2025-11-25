@@ -83,38 +83,6 @@ where
     }
 }
 
-impl<R> RandomAccessInput for &mut R
-where
-    R: RandomAccessInput,
-{
-    fn length(&self) -> i64 {
-        (**self).length()
-    }
-
-    fn read_byte(&mut self, pos: i64) -> Result<u8> {
-        (**self).read_byte(pos)
-    }
-
-    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        (**self).read_bytes(pos, buf, offset, len)
-    }
-
-    fn read_short(&mut self, pos: i64) -> Result<i16> {
-        (**self).read_short(pos)
-    }
-
-    fn read_int(&mut self, pos: i64) -> Result<i32> {
-        (**self).read_int(pos)
-    }
-
-    fn read_long(&mut self, pos: i64) -> Result<i64> {
-        (**self).read_long(pos)
-    }
-
-    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
-        (**self).prefetch(pos, len)
-    }
-}
 pub enum Either2RandomAccessInput<A, B> {
     A(A),
     B(B),

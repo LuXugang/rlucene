@@ -131,14 +131,14 @@ where
                 && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT
             {
                 readers.push(DirectReader::get_merge_instance_with_base_offset(
-                    data.clone(),
+                    Some(data.clone()),
                     bpv as i32,
                     meta.offsets[i],
                     1i64 << meta.block_shift,
                 ));
             } else {
                 readers.push(DirectReader::get_instance_with_offset(
-                    data.clone(),
+                    Some(data.clone()),
                     bpv as i32,
                     meta.offsets[i],
                 )?);

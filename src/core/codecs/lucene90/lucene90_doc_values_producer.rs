@@ -67,7 +67,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
-use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
 use crate::core::util::{SliceCopyOps, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -518,7 +518,7 @@ where
                 } else {
                     let values = get_direct_reader_instance(
                         self.merging,
-                        slice,
+                        Some(slice),
                         entry.bits_per_value as i32,
                         0,
                         entry.num_values,
@@ -586,7 +586,7 @@ where
                 } else {
                     let values = get_direct_reader_instance(
                         self.merging,
-                        slice,
+                        Some(slice),
                         entry.bits_per_value as i32,
                         0,
                         entry.num_values,
@@ -651,7 +651,7 @@ where
             } else {
                 let values = get_direct_reader_instance(
                     self.merging,
-                    slice,
+                    Some(slice),
                     entry.bits_per_value as i32,
                     0,
                     entry.num_values,
@@ -700,7 +700,7 @@ where
 
             let values = get_direct_reader_instance(
                 self.merging,
-                slice,
+                Some(slice),
                 ords_entry.bits_per_value as i32,
                 0,
                 ords_entry.num_values,
@@ -1558,13 +1558,15 @@ where
                     } else {
                         get_direct_reader_instance(
                             self.merging,
-                            &mut self.slice,
+                            None,
                             bits_per_value,
                             self.offset,
                             num_values as i64,
                         )?
                     };
-                    result = self.mul * values.get_mut(index & self.mask)? + self.delta;
+                    result = self.mul
+                        * values.read_from_slice(index & self.mask, Some(&mut self.slice))?
+                        + self.delta;
                     break;
                 }
             }
@@ -3382,7 +3384,7 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
 
 fn get_direct_reader_instance<R>(
     merging: bool,
-    slice: R,
+    slice: Option<R>,
     bits_per_value: i32,
     offset: i64,
     num_values: i64,
