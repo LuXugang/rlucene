@@ -36,3 +36,276 @@ pub trait TermVectorsReader: TermVectors + Clone {
     }
 }
 pub type TermVectorsReaderType<I> = Lucene90CompressingTermVectorsReader<I>;
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Field;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::stored_field::stored_field_type;
+    use crate::core::document::text_field::text_field_type;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTermVectorsReader;
+
+    #[test]
+    fn test() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_reader() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_docs_enum() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+
+    #[test]
+    fn test_position_reader() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_offset_reader() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_payloads_without_positions() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO c需要使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        ft.set_store_term_vectors(true)?;
+        ft.set_store_term_vector_payloads(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot index term vector payloads without term vector positions (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_offsets_without_vectors() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        ft.set_store_term_vectors(false)?;
+        ft.set_store_term_vector_offsets(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot index term vector offsets when term vectors are not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_positions_without_vectors() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 需要使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        ft.set_store_term_vectors(false)?;
+        ft.set_store_term_vector_positions(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot index term vector positions when term vectors are not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{:?}", err),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+        ft.set_store_term_vectors(false)?;
+        ft.set_store_term_vector_payloads(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot index term vector payloads when term vectors are not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{err:?}"),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_vectors_without_indexed() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+        ft.set_store_term_vectors(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot store term vectors for a field that is not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{err:?}"),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_vector_positions_without_indexed() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+        ft.set_store_term_vector_positions(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot store term vector positions for a field that is not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{err:?}"),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+        ft.set_store_term_vector_offsets(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot store term vector offsets for a field that is not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{err:?}"),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 这里应该使用带分词器的构造方法
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
+        ft.set_store_term_vector_payloads(true)?;
+
+        let mut doc = Document::new();
+        doc.add(Field::new("field", ft, "value"));
+
+        let err = w.add_document(doc).unwrap_err();
+        match err {
+            LuceneError::IllegalArgument(msg) => {
+                assert_eq!(
+                    msg.to_string(),
+                    "cannot store term vector payloads for a field that is not indexed (field=\"field\")"
+                );
+            },
+            _ => unreachable!("{err:?}"),
+        }
+
+        w.close()?;
+        Ok(())
+    }
+}
