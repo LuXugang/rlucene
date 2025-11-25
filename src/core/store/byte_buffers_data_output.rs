@@ -297,10 +297,17 @@ impl ByteBuffersDataOutput {
     pub fn get_buffer_list_owner(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
         let size = self.size();
         let old_blocks = std::mem::take(&mut self.blocks);
-        let data = old_blocks.into_iter().collect();
+
+        let data = old_blocks
+            .into_iter()
+            .map(|mut cursor| {
+                cursor.set_position(0);
+                cursor
+            })
+            .collect();
+
         (size, data)
     }
-
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         todo!()
     }

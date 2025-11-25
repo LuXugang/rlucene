@@ -233,3 +233,84 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use std::sync::Arc;
+
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::text_field::text_field_type;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::fields::Fields;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::postings_enum::{ALL, PostingsEnum};
+    use crate::core::index::term_vectors::TermVectors;
+    use crate::core::index::terms::Terms;
+    use crate::core::index::terms_enum::TermsEnum;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_field, new_index_writer_config, random,
+    };
+
+    #[allow(dead_code)]
+    struct TestTermVectorsWriter;
+
+    #[test]
+    fn test_end_offset_position_char_analyzer() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // TODO: 未实现MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc = Document::new();
+
+        let mut custom_type = FieldType::from_ref(&text_field_type::TYPE_NOT_STORED.clone())?;
+        custom_type.set_store_term_vectors(true)?;
+        custom_type.set_store_term_vector_positions(true)?;
+        custom_type.set_store_term_vector_offsets(true)?;
+
+        let f = new_field("field", "abcd   ", &custom_type)?;
+        doc.add(f.clone());
+        doc.add(f);
+
+        w.add_document(doc)?;
+        w.close()?;
+
+        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+
+        let mut tv_reader = reader.term_vectors()?;
+        let field = tv_reader.get(0)?;
+        let tv = field.as_ref().unwrap();
+        let terms = tv.terms("field")?;
+        let terms = terms.as_ref().unwrap();
+        let mut terms_enum = terms.iterator()?;
+
+        assert!(terms_enum.next()?.is_some());
+
+        let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+
+        assert_eq!(2, terms_enum.total_term_freq()?);
+
+        assert_ne!(dp_enum.next_doc()?, NO_MORE_DOCS);
+
+        dp_enum.next_position()?;
+        assert_eq!(0, dp_enum.start_offset()?);
+        assert_eq!(4, dp_enum.end_offset()?);
+
+        dp_enum.next_position()?;
+        assert_eq!(8, dp_enum.start_offset()?);
+        assert_eq!(12, dp_enum.end_offset()?);
+
+        assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
+
+        Ok(())
+    }
+}

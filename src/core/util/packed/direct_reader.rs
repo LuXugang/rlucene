@@ -231,6 +231,7 @@ pub(crate) struct DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
+    // TODO IMPORTANT 需要支持input为None 并且通过参数获取 比如Lucene90CompressingTermVectorsReader的get方法调用get_instance时
     input: Arc<Mutex<R>>,
     offset: i64,
 }

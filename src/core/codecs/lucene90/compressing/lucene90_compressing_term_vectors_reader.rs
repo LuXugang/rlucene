@@ -409,24 +409,25 @@ where
         for i in 0..num_fields {
             let f = flags.get(skip as i64 + i as i64)? as i32;
             let term_count = num_terms.get(skip as i64 + i as i64)? as usize;
+
             if (f & flag) != 0 {
                 let total_freq = position_index[i][term_count];
-                let mut field_positions = Vec::with_capacity(total_freq as usize);
-                for j in 0..total_freq {
+                let mut field_positions = vec![0i32; total_freq as usize];
+                let mut j: i32 = 0;
+                while j < total_freq {
                     let next_positions =
                         reader.next_batch(total_freq - j, &mut self.vectors_stream)?;
-                    for (dst, &src) in field_positions.iter_mut().zip(
-                        &next_positions.longs[next_positions.offset as usize..]
-                            [..next_positions.length as usize],
-                    ) {
-                        *dst = src as i32;
+                    let slice = &next_positions.longs[next_positions.offset as usize
+                        ..next_positions.offset as usize + next_positions.length as usize];
+                    for &val in slice {
+                        field_positions[j as usize] = val as i32;
+                        j += 1;
                     }
                 }
                 positions[i] = field_positions;
             }
             term_index += term_count;
         }
-
         let read = reader.ord();
         reader.skip(total_positions as i64 - read, &mut self.vectors_stream)?;
         Ok(positions)
@@ -1092,7 +1093,7 @@ impl Fields for TVFields {
                 break;
             }
         }
-        if idx == -1 || self.num_terms[idx as usize] != 0 {
+        if idx == -1 || self.num_terms[idx as usize] == 0 {
             // no term
             return Ok(None);
         }
@@ -1546,7 +1547,7 @@ impl PostingsEnum for TVPostingsEnum {
             return Err(LuceneError::illegal_state("Read past last position"));
         }
         self.i += 1;
-        if self.payload_index.is_empty() {
+        if !self.payload_index.is_empty() {
             let index = (self.position_index + self.i) as usize;
             self.payload_offset = self.base_payload_offset + self.payload_index[index] as usize;
             self.payload_length =
