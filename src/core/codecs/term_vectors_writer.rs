@@ -267,6 +267,7 @@ mod tests {
 
     #[allow(dead_code)]
     struct TestTermVectorsWriter;
+
     #[test]
     fn test_double_offset_counting() -> Result<()> {
         let mut random = random();

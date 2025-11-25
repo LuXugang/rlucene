@@ -83,7 +83,6 @@ pub mod lucene_test_case_util {
 
     static FIELD_TO_TYPE: Lazy<Mutex<HashMap<String, FieldType>>> =
         Lazy::new(|| Mutex::new(HashMap::new()));
-    static FIELD_CREATION_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     pub(crate) fn random_multiplier() -> i32 {
         let multiplier = std::env::var(Multiplier.to_string()).ok();
 
@@ -270,7 +269,6 @@ pub mod lucene_test_case_util {
             &field_type,
         )
     }
-    // TODO IMPORTANT 这里需要线程同步吗
     pub(crate) fn new_field<S, V>(name: S, value: V, field_type: &FieldType) -> Result<Field>
     where
         S: Into<String>,
@@ -293,7 +291,6 @@ pub mod lucene_test_case_util {
     where
         S: Into<String>,
     {
-        let _guard = FIELD_CREATION_LOCK.lock();
         let name = name.into();
 
         let mut map = FIELD_TO_TYPE.lock();
