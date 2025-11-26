@@ -19,7 +19,7 @@ use crate::core::index::numeric_doc_values::{
     Either2NumericDocValues, Either4NumericDocValues, NumericDocValues,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A list of per-document numeric values, sorted according to i64's cmp.
 pub trait SortedNumericDocValues: DocValuesIterator {
     /// Iterates to the next value in the current document. Do not call this
@@ -38,8 +38,8 @@ pub trait SortedNumericDocValues: DocValuesIterator {
         false
     }
     type NumericDocValues: NumericDocValues;
-    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
-        Ok(None)
+    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }
 
@@ -106,14 +106,14 @@ macro_rules! either_sorted_numeric_docvalues {
             type NumericDocValues = $numdv<$( $T::NumericDocValues ),+>;
 
 
-            fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+            fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
                 match self {
-                    $( Self::$Variant(inner) => {
-                        let ndv = inner.get_numeric_doc_values()?;
-                        Ok(ndv.map($numdv::$Variant))
-                    } ),+
-                }
-            }
+                   $( Self::$Variant(inner) => {
+                   let ndv = inner.get_numeric_doc_values()?;
+                   Ok($numdv::$Variant(ndv))
+            } ),+
+    }
+}
         }
     };
 }

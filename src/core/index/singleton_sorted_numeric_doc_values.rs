@@ -95,13 +95,18 @@ where
 
     type NumericDocValues = N;
 
-    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
-        if self.inner.as_ref().unwrap().doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "iterator has already been used: docID={}",
-                self.inner.as_ref().unwrap().doc_id()
-            )));
+    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+        match self.inner.take() {
+            Some(inner) => {
+                if inner.doc_id() != -1 {
+                    return Err(LuceneError::illegal_state(format!(
+                        "iterator has already been used: docID={}",
+                        inner.doc_id()
+                    )));
+                }
+                Ok(inner)
+            },
+            None => Err(LuceneError::illegal_state("inner is None")),
         }
-        Ok(self.inner.take())
     }
 }

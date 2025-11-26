@@ -64,7 +64,7 @@ impl SortedNumericDocValues for DummySortedNumericDocValues {
 
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

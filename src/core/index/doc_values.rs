@@ -88,15 +88,11 @@ impl DocValues {
     /// Returns a single-valued view of the SortedNumericDocValues, if it was
     /// previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
-    pub fn unwrap_singleton_numeric<SN>(dv: &mut SN) -> Result<Option<SN::NumericDocValues>>
+    pub fn unwrap_singleton_numeric<SN>(dv: &mut SN) -> Result<SN::NumericDocValues>
     where
         SN: SortedNumericDocValues,
     {
-        if dv.is_single_valued() {
-            Ok(dv.get_numeric_doc_values()?)
-        } else {
-            Ok(None)
-        }
+        dv.get_numeric_doc_values()
     }
     /// Returns a multi-valued view over the provided NumericDocValues.
     pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>

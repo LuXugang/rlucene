@@ -592,7 +592,7 @@ where
 
     type NumericDocValues = S::NumericDocValues;
 
-    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
         self.input.get_numeric_doc_values()
     }
 }

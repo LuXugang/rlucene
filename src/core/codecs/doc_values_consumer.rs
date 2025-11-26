@@ -683,7 +683,7 @@ where
                 let mut sub = sub.borrow_mut();
                 let single_valued_values = match &mut sub.sub.values {
                     Lucene90SortedNumericDocValuesEnum::C(inner) => {
-                        inner.get_numeric_doc_values()?.unwrap()
+                        inner.get_numeric_doc_values()?
                     },
                     _ => return Err(LuceneError::unreachable("")),
                 };

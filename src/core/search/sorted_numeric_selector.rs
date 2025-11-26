@@ -54,17 +54,17 @@ impl SortedNumericSelector {
                 ));
             },
         }
-
-        let view = match DocValues::unwrap_singleton_numeric(&mut sorted_numeric)? {
-            Some(single) => Either3NumericDocValues::A(single),
-            _ => match selector {
+        let view = if sorted_numeric.is_single_valued() {
+            Either3NumericDocValues::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
+        } else {
+            match selector {
                 SortedNumericSelectorType::Min => {
                     Either3NumericDocValues::B(MinValue::new(sorted_numeric))
                 },
                 SortedNumericSelectorType::Max => {
                     Either3NumericDocValues::C(MaxValue::new(sorted_numeric))
                 },
-            },
+            }
         };
 
         match numeric_type {
