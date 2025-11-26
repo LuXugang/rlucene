@@ -50,7 +50,7 @@ where
     D: Directory,
 {
     directory: Arc<D>,
-    pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
+    pub(crate) writer: Option<TermVectorsWriterEnum<D::IndexOutput>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
     // Used by TermVectorsConsumerPerField when serializing the term vectors.

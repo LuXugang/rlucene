@@ -45,7 +45,7 @@ pub trait StoredFieldsFormat {
         directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1>>
+    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory;
@@ -78,7 +78,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1>>
+    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,

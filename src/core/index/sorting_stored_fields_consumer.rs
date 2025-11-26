@@ -48,7 +48,9 @@ pub(crate) struct SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) writer: Option<StoredFieldsWriterEnum<TrackingTmpOutputDirectoryWrapper<D>>>,
+    pub(crate) writer: Option<
+        StoredFieldsWriterEnum<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
+    >,
     tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
     stored_fields_format: Option<Lucene90CompressingStoredFieldsFormat>,
 }

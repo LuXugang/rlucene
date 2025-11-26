@@ -55,14 +55,14 @@ pub(crate) static TYPE_BITS: Lazy<i32> =
     Lazy::new(|| PackedInts::bits_required(NUMERIC_DOUBLE as i64).unwrap());
 
 pub(crate) static TYPE_MASK: Lazy<i64> = Lazy::new(|| PackedInts::max_value(*TYPE_BITS));
-pub struct Lucene90CompressingStoredFieldsWriter<D>
+pub struct Lucene90CompressingStoredFieldsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     segment: String,
-    index_writer: FieldsIndexWriter<D>,
-    meta_stream: D::IndexOutput,
-    fields_stream: D::IndexOutput,
+    index_writer: FieldsIndexWriter<O>,
+    meta_stream: O,
+    fields_stream: O,
     compressor: CompressorEnum,
     compression_mode: CompressionModeEnum,
     chunk_size: i32,
@@ -77,14 +77,14 @@ where
     num_dirty_docs: i64,
     num_stored_fields_in_doc: i32,
 }
-impl<D> Lucene90CompressingStoredFieldsWriter<D>
+impl<O> Lucene90CompressingStoredFieldsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<D1>(
-        directory: &D,
-        si: &SegmentInfo<D1>,
+    pub fn new<D1, D2>(
+        directory: &D1,
+        si: &SegmentInfo<D2>,
         segment_suffix: &str,
         context: &IOContext,
         format_name: &str,
@@ -94,7 +94,8 @@ where
         block_shift: i32,
     ) -> Result<Self>
     where
-        D1: Directory,
+        D1: Directory<IndexOutput = O>,
+        D2: Directory,
     {
         let segment = si.name.clone();
         let compressor = compression_mode.new_compressor();
@@ -444,9 +445,9 @@ pub static BULK_MERGE_ENABLED: Lazy<bool> = Lazy::new(|| {
         .map(|v| v.parse::<bool>().unwrap_or(true))
         .unwrap_or(true)
 });
-impl<D> StoredFieldsWriter for Lucene90CompressingStoredFieldsWriter<D>
+impl<O> StoredFieldsWriter for Lucene90CompressingStoredFieldsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn start_document(&mut self) -> Result<()> {
         Ok(())
@@ -646,9 +647,9 @@ where
     }
 }
 
-impl<D> Accountable for Lucene90CompressingStoredFieldsWriter<D>
+impl<O> Accountable for Lucene90CompressingStoredFieldsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO

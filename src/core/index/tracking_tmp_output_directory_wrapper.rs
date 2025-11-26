@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::{IOContext, IndexOutput};
@@ -133,13 +132,6 @@ where
             .map(|s| s.as_str())
             .unwrap_or(name);
         self.base.open_input(tmp_name, context)
-    }
-
-    fn open_checksum_input(
-        &self,
-        name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        self.base.open_checksum_input(name)
     }
 
     type Lock = D::Lock;

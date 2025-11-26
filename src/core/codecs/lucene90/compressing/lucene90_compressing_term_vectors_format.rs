@@ -123,7 +123,7 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<TermVectorsWriterEnum<D1>>
+    ) -> Result<TermVectorsWriterEnum<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,

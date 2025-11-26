@@ -17,8 +17,8 @@
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -117,16 +117,16 @@ pub trait TermVectorsWriter: Accountable {
     }
 }
 
-pub enum TermVectorsWriterEnum<D>
+pub enum TermVectorsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
-    Lucene90(Lucene90CompressingTermVectorsWriter<D>),
+    Lucene90(Lucene90CompressingTermVectorsWriter<O>),
 }
 
-impl<D> Accountable for TermVectorsWriterEnum<D>
+impl<O> Accountable for TermVectorsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         match self {
@@ -135,9 +135,9 @@ where
     }
 }
 
-impl<D> TermVectorsWriter for TermVectorsWriterEnum<D>
+impl<O> TermVectorsWriter for TermVectorsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
         match self {

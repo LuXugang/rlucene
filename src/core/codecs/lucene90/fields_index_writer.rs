@@ -19,14 +19,14 @@ use std::fs;
 use crate::core::codecs::CodecUtil;
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, DataOutput, IOContext, IndexOutput};
+use crate::core::store::{DataInput, IOContext, IndexOutput};
 use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 
-pub struct FieldsIndexWriter<D>
+pub struct FieldsIndexWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     name: String,
     suffix: String,
@@ -38,8 +38,8 @@ where
     // Using Option to wrap the IndexOutput makes it easier to release the
     // resource, which avoids the need to implement the IndexOutput's
     // Default trait.
-    docs_out: Option<D::IndexOutput>,
-    file_pointers_out: Option<D::IndexOutput>,
+    docs_out: Option<O>,
+    file_pointers_out: Option<O>,
     total_docs: i32,
     total_chunks: i32,
     previous_fp: i64,
@@ -49,12 +49,12 @@ pub(crate) mod fields_index_writer_const {
     pub(crate) const VERSION_CURRENT: i32 = 0;
 }
 
-impl<D> FieldsIndexWriter<D>
+impl<O> FieldsIndexWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub(crate) fn new<D>(
         dir: &D,
         name: &str,
         suffix: &str,
@@ -63,7 +63,10 @@ where
         id: [u8; StringHelper::ID_LENGTH],
         block_shift: i32,
         io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        D: Directory<IndexOutput = O>,
+    {
         let mut docs_out =
             dir.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
         CodecUtil::write_header(
@@ -110,15 +113,15 @@ where
         Ok(())
     }
 
-    pub(crate) fn finish<D1>(
+    pub(crate) fn finish<D>(
         &mut self,
         num_docs: i32,
         max_pointer: i64,
-        meta_out: &mut D::IndexOutput,
-        dir: &D1,
+        meta_out: &mut O,
+        dir: &D,
     ) -> Result<()>
     where
-        D1: Directory,
+        D: Directory,
     {
         if num_docs != self.total_docs {
             return Err(LuceneError::illegal_state(format!(
@@ -247,9 +250,9 @@ where
         Ok(())
     }
 }
-impl<D> Drop for FieldsIndexWriter<D>
+impl<O> Drop for FieldsIndexWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn drop(&mut self) {
         if self.docs_out.is_some() {

@@ -24,7 +24,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IndexInput};
+use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -332,15 +332,15 @@ impl StoredFieldVisitor for MergeVisitor {
     }
 }
 
-pub enum StoredFieldsWriterEnum<D>
+pub enum StoredFieldsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
-    Lucene90(Lucene90CompressingStoredFieldsWriter<D>),
+    Lucene90(Lucene90CompressingStoredFieldsWriter<O>),
 }
-impl<D> StoredFieldsWriter for StoredFieldsWriterEnum<D>
+impl<O> StoredFieldsWriter for StoredFieldsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn start_document(&mut self) -> Result<()> {
         match self {
@@ -427,9 +427,9 @@ where
         }
     }
 }
-impl<D> Accountable for StoredFieldsWriterEnum<D>
+impl<O> Accountable for StoredFieldsWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         match self {

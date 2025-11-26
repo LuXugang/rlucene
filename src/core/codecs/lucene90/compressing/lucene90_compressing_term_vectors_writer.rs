@@ -42,14 +42,14 @@ use std::ops::DerefMut;
 pub(crate) static FLAGS_BITS: Lazy<i32> =
     Lazy::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
-pub struct Lucene90CompressingTermVectorsWriter<D>
+pub struct Lucene90CompressingTermVectorsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     segment: String,
-    index_writer: FieldsIndexWriter<D>,
-    meta_stream: D::IndexOutput,
-    vectors_stream: D::IndexOutput,
+    index_writer: FieldsIndexWriter<O>,
+    meta_stream: O,
+    vectors_stream: O,
     compression_mode: CompressionModeEnum,
     compressor: CompressorEnum,
     chunk_size: i32,
@@ -82,14 +82,14 @@ where
     max_docs_per_chunk: i32,
     scratch_buffer: ByteBuffersDataOutput,
 }
-impl<D> Lucene90CompressingTermVectorsWriter<D>
+impl<O> Lucene90CompressingTermVectorsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<D1>(
-        directory: &D,
-        si: &SegmentInfo<D1>,
+    pub fn new<D1, D2>(
+        directory: &D1,
+        si: &SegmentInfo<D2>,
         segment_suffix: &str,
         context: &IOContext,
         format_name: &str,
@@ -99,7 +99,8 @@ where
         block_shift: i32,
     ) -> Result<Self>
     where
-        D1: Directory,
+        D1: Directory<IndexOutput = O>,
+        D2: Directory,
     {
         debug_assert!(chunk_size > 0);
         debug_assert!(max_docs_per_chunk > 0);
@@ -679,9 +680,9 @@ where
     }
 }
 
-impl<D> Accountable for Lucene90CompressingTermVectorsWriter<D>
+impl<O> Accountable for Lucene90CompressingTermVectorsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -689,9 +690,9 @@ where
     }
 }
 
-impl<D> TermVectorsWriter for Lucene90CompressingTermVectorsWriter<D>
+impl<O> TermVectorsWriter for Lucene90CompressingTermVectorsWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
         self.cur_doc = self.add_doc_data(num_vector_fields);

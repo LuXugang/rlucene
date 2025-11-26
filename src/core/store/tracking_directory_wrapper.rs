@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::store::IOContext;
-use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::util::access::SharedReadOnly;
@@ -146,13 +145,6 @@ where
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
-    }
-
-    fn open_checksum_input(
-        &self,
-        name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        self.base.open_checksum_input(name)
     }
 
     type Lock = <FilterDirectory<D, A> as Directory>::Lock;
