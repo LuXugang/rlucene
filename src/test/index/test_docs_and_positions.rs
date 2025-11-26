@@ -415,7 +415,7 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
             assert_ne!(next2, NO_MORE_DOCS);
         },
         Either2PostingsEnum::B(_v) => {
-            assert!(false, "should not happen");
+            unreachable!("should not happen");
         },
     }
 

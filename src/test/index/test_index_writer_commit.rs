@@ -43,10 +43,10 @@ fn test_commit_on_close() -> Result<()> {
 
     let iwc1 = new_index_writer_config(&mut random);
     {
-        let mut writer = IndexWriter::new(dir.clone(), iwc1)?;
+        let writer = IndexWriter::new(dir.clone(), iwc1)?;
 
         for _ in 0..14 {
-            add_doc(&mut writer, &mut field_types)?;
+            add_doc(&writer, &mut field_types)?;
         }
 
         writer.close()?;
@@ -64,11 +64,11 @@ fn test_commit_on_close() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open(dir.clone())?);
     // TODO: 未实现MockAnalyzer
     let iwc2 = new_index_writer_config(&mut random);
-    let mut writer = IndexWriter::new(dir.clone(), iwc2)?;
+    let writer = IndexWriter::new(dir.clone(), iwc2)?;
 
     for _ in 0..3 {
         for _ in 0..11 {
-            add_doc(&mut writer, &mut field_types)?;
+            add_doc(&writer, &mut field_types)?;
         }
 
         let r = Arc::new(directory_reader_util::open(dir.clone())?);

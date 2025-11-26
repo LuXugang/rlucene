@@ -275,7 +275,7 @@ mod tests {
                     FieldDataEnum::Binary(v) => {
                         assert_eq!(new_bytes_ref_from_string(&mut random, "value")?, *v);
                     },
-                    _ => assert!(false),
+                    _ => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -295,7 +295,7 @@ mod tests {
                     FieldDataEnum::Binary(v) => {
                         assert_eq!(new_bytes_ref_from_string(&mut random, "value2")?, *v);
                     },
-                    _ => assert!(false),
+                    _ => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -325,7 +325,7 @@ mod tests {
                     FieldDataEnum::String(v) => {
                         assert_eq!("value", v);
                     },
-                    _ => assert!(false),
+                    _ => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -348,7 +348,7 @@ mod tests {
                     FieldDataEnum::String(v) => {
                         assert_eq!("value2", v);
                     },
-                    _ => assert!(false),
+                    _ => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -361,7 +361,7 @@ mod tests {
     fn test_index_bytes_value() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        let mut w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![
             KeywordField::with_bytes_ref(
@@ -372,7 +372,7 @@ mod tests {
             .into(),
         ])?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&mut w)?);
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
         w.close()?;
         let leaf = get_only_leaf_reader(reader.clone())?;
         let mut terms = leaf.terms("field")?.unwrap().iterator()?;
@@ -405,13 +405,13 @@ mod tests {
     fn test_index_string_value() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        let mut w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![
             KeywordField::with_string("field", "value", Store::Yes)?.into(),
         ])?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&mut w)?);
+        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
         w.close()?;
         let leaf = get_only_leaf_reader(reader.clone())?;
         let mut terms = leaf.terms("field")?.unwrap().iterator()?;

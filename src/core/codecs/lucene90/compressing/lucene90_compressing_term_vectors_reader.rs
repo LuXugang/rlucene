@@ -1471,7 +1471,7 @@ impl TVPostingsEnum {
             payload_offset: 0,
         }
     }
-
+    #[allow(clippy::too_many_arguments)]
     pub fn reset(
         &mut self,
         freq: i32,

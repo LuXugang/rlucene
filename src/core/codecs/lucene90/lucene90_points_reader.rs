@@ -184,8 +184,8 @@ where
     I: IndexInput,
 {
     fn check_integrity(&self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&mut *self.index_in.lock())?;
-        CodecUtil::checksum_entire_file(&mut *self.data_in.lock())?;
+        CodecUtil::checksum_entire_file(&*self.index_in.lock())?;
+        CodecUtil::checksum_entire_file(&*self.data_in.lock())?;
         Ok(())
     }
 

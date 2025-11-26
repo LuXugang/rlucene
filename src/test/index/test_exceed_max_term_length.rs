@@ -113,7 +113,7 @@ fn test_token_stream() -> Result<()> {
             );
         },
         other => {
-            assert!(false, "expected IllegalArgument but got {:?}", other);
+            unreachable!("expected IllegalArgument but got {:?}", other);
         },
     }
 

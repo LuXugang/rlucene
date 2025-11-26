@@ -1021,7 +1021,7 @@ pub(crate) mod tests {
             let mut field_info = FieldInfo::default();
             field_info.index_options = IndexOptions::DocsAndFreqs;
 
-            let base = FreqProxTermsWriterPerField::new(&mut writer, Arc::new(field_info), None);
+            let base = FreqProxTermsWriterPerField::new(&writer, Arc::new(field_info), None);
 
             TermsHashPerFieldMock {
                 field_state,

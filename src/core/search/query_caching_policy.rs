@@ -22,7 +22,6 @@ use crate::core::util::error::lucene_error::Result;
 /// Implementations of this trait must be thread-safe.
 ///
 /// See also: [`UsageTrackingQueryCachingPolicy`](crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy), [`LRUQueryCache`](crate::core::search::lru_query_cache::LRUQueryCache).
-
 // TODO: add APIs for integration with `IndexWriter::IndexReaderWarmer`
 pub trait QueryCachingPolicy {
     /// Callback that is called every time that a cached filter is used.

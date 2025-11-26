@@ -303,8 +303,7 @@ mod tests {
             let tid = tt.thread_id();
             let _ = tt.handle.join();
             if ctrl.is_thread_queued(&tid) {
-                assert!(
-                    false,
+                unreachable!(
                     "waiter is not released – any_stalled_threads: {}",
                     ctrl.any_stalled_threads()
                 );
@@ -331,8 +330,7 @@ mod tests {
                         millis_to_sleep *= 2;
                         break;
                     } else {
-                        assert!(
-                            false,
+                        unreachable!(
                             "control claims no stalled threads but waiter seems to be blocked"
                         );
                     }

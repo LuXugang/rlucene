@@ -1585,11 +1585,9 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::Number(v) => assert_eq!(v.to_i32().unwrap(), 6),
-                        _ => assert!(false),
-                    },
-                    None => assert!(false),
+                    Some(FieldDataEnum::Number(v)) => assert_eq!(v.to_i32().unwrap(), 6),
+                    Some(_) => unreachable!(""),
+                    None => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -1667,11 +1665,8 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::Number(v) => assert_eq!(v.to_i64().unwrap(), 6),
-                        _ => assert!(false),
-                    },
-                    None => assert!(false),
+                    Some(FieldDataEnum::Number(v)) => assert_eq!(v.to_i64().unwrap(), 6),
+                    _ => unreachable!(),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -1769,13 +1764,10 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::Number(v) => {
-                            assert!((v.to_f32().unwrap() + 28.8).abs() < f32::EPSILON)
-                        },
-                        _ => assert!(false),
+                    Some(FieldDataEnum::Number(v)) => {
+                        assert!((v.to_f32().unwrap() + 28.8).abs() < f32::EPSILON);
                     },
-                    None => assert!(false),
+                    _ => unreachable!(),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -1873,13 +1865,11 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::Number(v) => {
-                            assert!((v.to_f64().unwrap() + 28.8).abs() < f64::EPSILON)
-                        },
-                        _ => assert!(false),
+                    Some(FieldDataEnum::Number(v)) => {
+                        assert!((v.to_f64().unwrap() + 28.8).abs() < f64::EPSILON);
                     },
-                    None => assert!(false),
+                    Some(_) => unreachable!(""),
+                    None => unreachable!(""),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -2217,11 +2207,8 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::String(v) => assert_eq!(v, "baz"),
-                        _ => assert!(false),
-                    },
-                    None => assert!(false),
+                    Some(FieldDataEnum::String(v)) => assert_eq!(v, "baz"),
+                    _ => unreachable!(),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -2289,11 +2276,8 @@ mod tests {
 
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::Binary(v) => assert_eq!(v, &BytesRef::from_string("baz")),
-                        _ => assert!(false),
-                    },
-                    None => assert!(false),
+                    Some(FieldDataEnum::Binary(v)) => assert_eq!(v, &BytesRef::from_string("baz")),
+                    _ => unreachable!(),
                 }
             } else {
                 assert!(field.stored_value().is_none());
@@ -2356,14 +2340,10 @@ mod tests {
             let string_value = field.string_value()?;
             let v = string_value.as_ref().unwrap();
             assert_eq!(v.as_ref(), "baz");
-
             if field.field_type().stored() {
                 match field.stored_value() {
-                    Some(value) => match value {
-                        FieldDataEnum::String(v) => assert_eq!(v.as_str(), "baz"),
-                        _ => assert!(false),
-                    },
-                    None => assert!(false),
+                    Some(FieldDataEnum::String(v)) => assert_eq!(v.as_str(), "baz"),
+                    _ => unreachable!(),
                 }
             } else {
                 assert!(field.stored_value().is_none());
