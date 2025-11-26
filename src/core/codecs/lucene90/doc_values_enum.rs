@@ -26,7 +26,7 @@ pub mod norms {
     where
         I: IndexInput,
     {
-        Dense(DenseNormsIterator<I>),
+        Dense(DenseNormsIterator<I::RandomAccessSlice>),
         Sparse(SparseNormsIterator<I>),
         Empty(EmptyNumeric),
     }

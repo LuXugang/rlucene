@@ -463,7 +463,7 @@ where
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
             // empty
-            return Ok(Lucene90NormNumericDocValuesEnum::<I>::Empty(
+            return Ok(Lucene90NormNumericDocValuesEnum::Empty(
                 DocValues::empty_numeric(),
             ));
         }
@@ -614,19 +614,19 @@ struct NormsEntry {
     pub num_docs_with_field: i32,
     pub norms_offset: i64,
 }
-pub struct DenseNormsIterator<I>
+pub struct DenseNormsIterator<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     max_doc: i32,
     doc: i32,
-    sub_dense_norms: DenseNormsIteratorBaseEnum<I>,
+    sub_dense_norms: DenseNormsIteratorBaseEnum<R>,
 }
-impl<I> DenseNormsIterator<I>
+impl<R> DenseNormsIterator<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<I>) -> Self {
+    fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<R>) -> Self {
         Self {
             max_doc,
             doc: -1,
@@ -635,9 +635,9 @@ where
     }
 }
 
-impl<I> DocValuesIterator for DenseNormsIterator<I>
+impl<R> DocValuesIterator for DenseNormsIterator<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.doc = target;
@@ -645,9 +645,9 @@ where
     }
 }
 
-impl<I> DocIdSetIterator for DenseNormsIterator<I>
+impl<R> DocIdSetIterator for DenseNormsIterator<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -671,9 +671,9 @@ where
     }
 }
 
-impl<I> NumericDocValues for DenseNormsIterator<I>
+impl<R> NumericDocValues for DenseNormsIterator<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self) -> Result<i64> {
         self.sub_dense_norms.long_value(self.doc)
@@ -691,78 +691,78 @@ impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
     }
 }
 // case 1
-struct DenseNormsIteratorBaseImpl1<I>
+struct DenseNormsIteratorBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<I>
+impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         Ok(self.slice.lock().read_byte(doc as i64)? as i64)
     }
 }
 // case 2
-struct DenseNormsIteratorBaseImpl2<I>
+struct DenseNormsIteratorBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<I>
+impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         Ok(self.slice.lock().read_short((doc as i64) << 1)? as i64)
     }
 }
 // case 4
-struct DenseNormsIteratorBaseImpl4<I>
+struct DenseNormsIteratorBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<I>
+impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         Ok(self.slice.lock().read_int((doc as i64) << 2)? as i64)
     }
 }
 // case 8
-struct DenseNormsIteratorBaseImpl8<I>
+struct DenseNormsIteratorBaseImpl8<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<I>
+impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         self.slice.lock().read_long((doc as i64) << 3)
     }
 }
-enum DenseNormsIteratorBaseEnum<I>
+enum DenseNormsIteratorBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     Dense(DenseNormsIteratorBaseImpl),
-    Dense1(DenseNormsIteratorBaseImpl1<I>),
-    Dense2(DenseNormsIteratorBaseImpl2<I>),
-    Dense3(DenseNormsIteratorBaseImpl4<I>),
-    Dense4(DenseNormsIteratorBaseImpl8<I>),
+    Dense1(DenseNormsIteratorBaseImpl1<R>),
+    Dense2(DenseNormsIteratorBaseImpl2<R>),
+    Dense3(DenseNormsIteratorBaseImpl4<R>),
+    Dense4(DenseNormsIteratorBaseImpl8<R>),
 }
-impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseEnum<I>
+impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self {
@@ -779,14 +779,17 @@ pub struct SparseNormsIterator<I>
 where
     I: IndexInput,
 {
-    sub_sparse_norms: SparseNormsIteratorBaseEnum<I>,
+    sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
     disi: IndexedDISI<I>,
 }
 impl<I> SparseNormsIterator<I>
 where
     I: IndexInput,
 {
-    fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<I>, disi: IndexedDISI<I>) -> Self {
+    fn new(
+        sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
+        disi: IndexedDISI<I>,
+    ) -> Self {
         Self {
             sub_sparse_norms,
             disi,
@@ -856,13 +859,13 @@ where
     }
 }
 // case 1
-struct SparseNormsIteratorBaseImpl1<I>
+struct SparseNormsIteratorBaseImpl1<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl1<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl1<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -871,13 +874,13 @@ where
     }
 }
 // case 2
-struct SparseNormsIteratorBaseImpl2<I>
+struct SparseNormsIteratorBaseImpl2<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl2<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl2<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -886,13 +889,13 @@ where
     }
 }
 // case 4
-struct SparseNormsIteratorBaseImpl4<I>
+struct SparseNormsIteratorBaseImpl4<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl4<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl4<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -901,13 +904,13 @@ where
     }
 }
 // case 8
-struct SparseNormsIteratorBaseImpl8<I>
+struct SparseNormsIteratorBaseImpl8<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
-    slice: Arc<Mutex<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<R>>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl8<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl8<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
@@ -915,17 +918,17 @@ where
         self.slice.lock().read_long((disi.index() as i64) << 3)
     }
 }
-enum SparseNormsIteratorBaseEnum<I>
+enum SparseNormsIteratorBaseEnum<R>
 where
-    I: IndexInput,
+    R: RandomAccessInput,
 {
     Sparse(SparseNormsIteratorBaseImpl),
-    Sparse1(SparseNormsIteratorBaseImpl1<I>),
-    Sparse2(SparseNormsIteratorBaseImpl2<I>),
-    Sparse3(SparseNormsIteratorBaseImpl4<I>),
-    Sparse4(SparseNormsIteratorBaseImpl8<I>),
+    Sparse1(SparseNormsIteratorBaseImpl1<R>),
+    Sparse2(SparseNormsIteratorBaseImpl2<R>),
+    Sparse3(SparseNormsIteratorBaseImpl4<R>),
+    Sparse4(SparseNormsIteratorBaseImpl8<R>),
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseEnum<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseEnum<I::RandomAccessSlice>
 where
     I: IndexInput,
 {
