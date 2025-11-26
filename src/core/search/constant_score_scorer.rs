@@ -112,7 +112,7 @@ where
                         return Err(LuceneError::illegal_state("not DocIdSetIteratorWrapper"));
                     },
                 },
-                ConstantDISI_::B(ref mut v) => v.two_phase_iterator.set_empty(),
+                ConstantDISI_::B(ref mut v) => v.two_phase_iterator.set_empty()?,
             }
         }
         Ok(())
@@ -246,11 +246,7 @@ where
         self.two_phase_iterator.approximation()
     }
 
-    fn take_approximation(&mut self) -> Self::DocIdSetIterator {
-        self.two_phase_iterator.take_approximation()
-    }
-
-    fn set_empty(&mut self) {
+    fn set_empty(&mut self) -> Result<()> {
         self.two_phase_iterator.set_empty()
     }
 

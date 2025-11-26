@@ -40,6 +40,7 @@ pub mod long_point;
 pub mod numeric_doc_values_field;
 pub mod sorted_doc_values_field;
 pub mod sorted_numeric_doc_values_field;
+pub(crate) mod sorted_numeric_doc_values_set_query;
 pub mod sorted_set_doc_values_field;
 pub mod stored_field;
 pub mod string_field;

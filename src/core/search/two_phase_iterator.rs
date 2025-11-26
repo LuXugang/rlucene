@@ -19,7 +19,7 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, Either4DocIdSetIterator,
     Either5DocIdSetIterator,
 };
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait TwoPhaseIterator {
     type DocIdSetIterator: DocIdSetIterator;
@@ -36,10 +36,11 @@ pub trait TwoPhaseIterator {
     /// `TwoPhaseIterator`.
     fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
     fn approximation(&self) -> Self::DocIdSetIteratorRef<'_>;
-    fn take_approximation(&mut self) -> Self::DocIdSetIterator;
 
     /// Set the approximation to an empty iterator
-    fn set_empty(&mut self);
+    fn set_empty(&mut self) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
 
     /// Return whether the current doc ID that `approximation()` is on matches.
     ///
@@ -86,12 +87,7 @@ where
     }
 
     #[inline]
-    fn take_approximation(&mut self) -> Self::DocIdSetIterator {
-        (**self).take_approximation()
-    }
-
-    #[inline]
-    fn set_empty(&mut self) {
+    fn set_empty(&mut self) -> Result<()> {
         (**self).set_empty()
     }
 
@@ -212,14 +208,7 @@ macro_rules! either_two_phase_iterator_gat {
             }
 
             #[inline]
-            fn take_approximation(&mut self) -> Self::DocIdSetIterator {
-                match self {
-                    $( Self::$Variant(inner) => $disi::$Variant(inner.take_approximation()), )+
-                }
-            }
-
-            #[inline]
-            fn set_empty(&mut self) {
+            fn set_empty(&mut self) -> Result<()>{
                 match self {
                     $( Self::$Variant(inner) => inner.set_empty(), )+
                 }

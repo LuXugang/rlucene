@@ -24,7 +24,7 @@ use std::fmt;
 
 const MISSING: i64 = i64::MIN;
 /// Set of longs, optimized for docvalues usage
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub(crate) struct DocValuesLongHashSet {
     pub(crate) table: Vec<i64>,
     pub(crate) mask: i32,
