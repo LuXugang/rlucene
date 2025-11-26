@@ -1502,7 +1502,7 @@ mod tests {
         doc.add(NumericDocValuesField::new("foo", 3));
         doc
     }
-    // TODO 索引排序有bug 这个测试未通过
+    #[test]
     fn test_total_hits() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);

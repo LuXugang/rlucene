@@ -191,7 +191,10 @@ where
         match self.sub {
             // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
             Some(ref mut sub) => {
-                sub.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
+                sub.writer
+                    .as_mut()
+                    .unwrap()
+                    .finish(info.max_doc()?, &sub.tmp_directory)?;
                 {
                     let _ = sub.writer.take();
                 }

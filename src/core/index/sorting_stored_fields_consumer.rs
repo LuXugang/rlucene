@@ -51,7 +51,7 @@ where
     pub(crate) writer: Option<
         StoredFieldsWriterEnum<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
     >,
-    tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
+    pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
     stored_fields_format: Option<Lucene90CompressingStoredFieldsFormat>,
 }
 impl<D> SortingStoredFieldsConsumer<D>
