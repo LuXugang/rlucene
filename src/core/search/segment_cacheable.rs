@@ -16,11 +16,12 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::util::error::lucene_error::Result;
 
 /// Interface defining whether or not an object can be cached against a [`LeafReader`](crate::core::index::leaf_reader::LeafReader)
 ///
 /// Objects that depend only on segment-immutable structures such as Points or postings lists can
-/// just return `true` from [`SegmentCacheable::is_cacheable`].
+/// just return `Ok(true)` from [`SegmentCacheable::is_cacheable`].
 ///
 /// Objects that depend on doc values should return
 /// [`DocValues::is_cacheable`](crate::core::index::doc_values::DocValues::is_cacheable), which will check to see if the doc values
@@ -32,6 +33,6 @@ pub trait SegmentCacheable<LR>
 where
     LR: LeafReader,
 {
-    /// Returns `true` if the object can be cached against a given leaf.
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool;
+    /// Returns `Ok(true)` if the object can be cached against a given leaf.
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool>;
 }

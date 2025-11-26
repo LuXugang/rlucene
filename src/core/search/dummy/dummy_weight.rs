@@ -53,7 +53,7 @@ impl<LR> SegmentCacheable<LR> for DummyWeight<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

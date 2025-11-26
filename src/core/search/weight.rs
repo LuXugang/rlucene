@@ -497,7 +497,7 @@ macro_rules! either_weight {
             $( $T: SegmentCacheable<LR> ),+
         {
 
-            fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
+            fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
                 match self {
                     $( Self::$Variant(inner) => inner.is_cacheable(ctx), )+
                 }

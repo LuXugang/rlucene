@@ -746,7 +746,7 @@ where
     P: Predicate<LeafReaderContext<LR>>,
     LR: LeafReader,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> bool {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
@@ -787,7 +787,7 @@ where
             self.policy.on_use(self.get_query().as_ref());
         }
 
-        if !self.in_.is_cacheable(context) {
+        if !self.in_.is_cacheable(context)? {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
@@ -877,7 +877,7 @@ where
             self.policy.on_use(self.get_query().as_ref());
         }
 
-        if !self.in_.is_cacheable(context) {
+        if !self.in_.is_cacheable(context)? {
             return self.in_.count(context);
         }
 

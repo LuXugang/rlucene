@@ -291,8 +291,8 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRC::LeafReader>) -> bool {
-        true
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
+        Ok(true)
     }
 }
 

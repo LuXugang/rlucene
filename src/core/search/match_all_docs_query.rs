@@ -129,8 +129,8 @@ impl<LR> SegmentCacheable<LR> for MatchAllWeight<LR>
 where
     LR: LeafReader,
 {
-    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> bool {
-        true
+    fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+        Ok(true)
     }
 }
 

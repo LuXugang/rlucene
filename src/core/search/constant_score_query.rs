@@ -186,7 +186,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache<IRC::LeafReader>,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> bool {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
     }
 }
