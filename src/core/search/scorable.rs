@@ -171,3 +171,6 @@ either_scorable!(
 either_scorable!(
     pub Either6Scorable { A: A, B: B , C: C, D: D, E: E, F: F }
 );
+either_scorable!(
+    pub Either7Scorable { A: A, B: B , C: C, D: D, E: E, F: F, G: G }
+);

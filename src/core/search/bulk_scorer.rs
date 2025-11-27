@@ -114,3 +114,12 @@ either_bulk_scorer!(pub Either6BulkScorer {
     E: E1,
     F: F1
 });
+either_bulk_scorer!(pub Either7BulkScorer {
+    A: A1,
+    B: B1,
+    C: C1,
+    D: D1,
+    E: E1,
+    F: F1,
+    G: G1
+});
