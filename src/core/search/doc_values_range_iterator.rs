@@ -158,12 +158,12 @@ where
                 self.skipper.advance(target)?;
                 // If target doesn't have a value and is between two blocks, advance()
                 // might have moved to a block that doesn't contain `target`.
-                target = target.max(self.skipper.min_doc_id(0));
+                target = target.max(self.skipper.min_doc_id_with_level(0));
                 if target == NO_MORE_DOCS {
                     self.doc = NO_MORE_DOCS;
                     return Ok(self.doc);
                 }
-                self.upto = self.skipper.max_doc_id(0);
+                self.upto = self.skipper.max_doc_id_with_level(0);
                 self.match_ = self.sub.match_(0, self)?;
 
                 // If we have a YES or NO decision, see if we still have the same decision on a higher
@@ -173,7 +173,7 @@ where
                     && next_level < self.skipper.num_levels()
                     && self.match_ == self.sub.match_(next_level, self)?
                 {
-                    self.upto = self.skipper.max_doc_id(next_level);
+                    self.upto = self.skipper.max_doc_id_with_level(next_level);
                     next_level += 1;
                 }
             }
@@ -218,15 +218,15 @@ impl ApproximationBase for RangeNoGapsApproximation {
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper,
     {
-        let min_value = base.skipper.min_value(level);
-        let max_value = base.skipper.max_value(level);
+        let min_value = base.skipper.min_value_with_level(level);
+        let max_value = base.skipper.max_value_with_level(level);
 
         if min_value > base.upper_value || max_value < base.lower_value {
             Ok(Match::NO)
         } else if min_value >= base.lower_value && max_value <= base.upper_value {
             let doc_count = base.skipper.doc_count_with_level(level);
-            let max_doc_id = base.skipper.max_doc_id(level);
-            let min_doc_id = base.skipper.min_doc_id(level);
+            let max_doc_id = base.skipper.max_doc_id_with_level(level);
+            let min_doc_id = base.skipper.min_doc_id_with_level(level);
 
             if doc_count == max_doc_id - min_doc_id + 1 {
                 Ok(Match::YES)
@@ -245,8 +245,8 @@ impl ApproximationBase for RangeWithGapsApproximation {
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper,
     {
-        let min_value = base.skipper.min_value(level);
-        let max_value = base.skipper.max_value(level);
+        let min_value = base.skipper.min_value_with_level(level);
+        let max_value = base.skipper.max_value_with_level(level);
 
         if min_value > base.upper_value || max_value < base.lower_value {
             Ok(Match::NO)
@@ -692,7 +692,7 @@ mod tests {
             if self.do_levels { 3 } else { 1 }
         }
 
-        fn min_doc_id(&self, level: i32) -> i32 {
+        fn min_doc_id_with_level(&self, level: i32) -> i32 {
             let range_log = self.range_log(level);
 
             if self.doc < 0 {
@@ -705,9 +705,9 @@ mod tests {
             }
         }
 
-        fn max_doc_id(&self, level: i32) -> i32 {
+        fn max_doc_id_with_level(&self, level: i32) -> i32 {
             let range_log = self.range_log(level);
-            let min_doc_id = self.min_doc_id(level);
+            let min_doc_id = self.min_doc_id_with_level(level);
 
             match min_doc_id {
                 -1 => -1,
@@ -716,7 +716,7 @@ mod tests {
             }
         }
 
-        fn min_value(&self, _level: i32) -> i64 {
+        fn min_value_with_level(&self, _level: i32) -> i64 {
             let d = self.doc % 1024;
             if d < 128 {
                 self.query_min
@@ -729,7 +729,7 @@ mod tests {
             }
         }
 
-        fn max_value(&self, _level: i32) -> i64 {
+        fn max_value_with_level(&self, _level: i32) -> i64 {
             let d = self.doc % 1024;
             if d < 128 {
                 self.query_max
@@ -752,15 +752,15 @@ mod tests {
             }
         }
 
-        fn global_min_value(&self) -> i64 {
+        fn min_value(&self) -> i64 {
             i64::MIN
         }
 
-        fn global_max_value(&self) -> i64 {
+        fn max_value(&self) -> i64 {
             i64::MAX
         }
 
-        fn global_doc_count(&self) -> i32 {
+        fn doc_count(&self) -> i32 {
             1024 + 1024 / 2
         }
     }

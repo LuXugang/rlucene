@@ -27,19 +27,19 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn min_doc_id(&self, _level: i32) -> i32 {
+    fn min_doc_id_with_level(&self, _level: i32) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn max_doc_id(&self, _level: i32) -> i32 {
+    fn max_doc_id_with_level(&self, _level: i32) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn min_value(&self, _level: i32) -> i64 {
+    fn min_value_with_level(&self, _level: i32) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn max_value(&self, _level: i32) -> i64 {
+    fn max_value_with_level(&self, _level: i32) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -47,19 +47,19 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn global_min_value(&self) -> i64 {
+    fn min_value(&self) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn global_max_value(&self) -> i64 {
+    fn max_value(&self) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn global_doc_count(&self) -> i32 {
+    fn doc_count(&self) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn advance_by_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
+    fn advance_with_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
