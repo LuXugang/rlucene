@@ -206,18 +206,15 @@ pub struct TwoPhaseIterator1<N>
 where
     N: NumericDocValues,
 {
-    approximation: N,
+    singleton: N,
     query: SortedNumericDocValuesSetQuery,
 }
 impl<N> TwoPhaseIterator1<N>
 where
     N: NumericDocValues,
 {
-    pub fn new(approximation: N, query: SortedNumericDocValuesSetQuery) -> Self {
-        TwoPhaseIterator1 {
-            approximation,
-            query,
-        }
+    pub fn new(singleton: N, query: SortedNumericDocValuesSetQuery) -> Self {
+        TwoPhaseIterator1 { singleton, query }
     }
 }
 impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
@@ -235,15 +232,15 @@ where
         Self: 'a;
 
     fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.approximation
+        &mut self.singleton
     }
 
     fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.approximation
+        &self.singleton
     }
 
     fn matches(&mut self) -> Result<bool> {
-        let value = self.approximation.long_value()?;
+        let value = self.singleton.long_value()?;
         let numbers = &self.query.numbers;
         Ok(value >= numbers.min_value && value <= numbers.max_value && numbers.contains(value))
     }
@@ -256,7 +253,7 @@ pub struct TwoPhaseIterator2<S>
 where
     S: SortedNumericDocValues,
 {
-    approximation: S,
+    value: S,
     query: SortedNumericDocValuesSetQuery,
 }
 
@@ -264,11 +261,8 @@ impl<S> TwoPhaseIterator2<S>
 where
     S: SortedNumericDocValues,
 {
-    pub fn new(approximation: S, query: SortedNumericDocValuesSetQuery) -> Self {
-        TwoPhaseIterator2 {
-            approximation,
-            query,
-        }
+    pub fn new(value: S, query: SortedNumericDocValuesSetQuery) -> Self {
+        TwoPhaseIterator2 { value, query }
     }
 }
 
@@ -289,19 +283,19 @@ where
         Self: 'a;
 
     fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.approximation
+        &mut self.value
     }
 
     fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.approximation
+        &self.value
     }
 
     fn matches(&mut self) -> Result<bool> {
         let numbers = &self.query.numbers;
-        let count = self.approximation.doc_value_count()?;
+        let count = self.value.doc_value_count()?;
 
         for _ in 0..count {
-            let value = self.approximation.next_value()?;
+            let value = self.value.next_value()?;
 
             if value < numbers.min_value {
                 continue;
