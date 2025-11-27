@@ -148,3 +148,19 @@ impl IndexableField for NumericDocValuesField {
         self.parent_field.init_token_stream(analyzer)
     }
 }
+pub mod numeric_doc_values_field_util {
+    use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
+
+    use crate::core::util::error::lucene_error::Result;
+
+    pub fn new_slow_set_query<T>(
+        field: T,
+        values: Vec<i64>,
+    ) -> Result<SortedNumericDocValuesSetQuery>
+    where
+        T: Into<String>,
+    {
+        let field = field.into();
+        SortedNumericDocValuesSetQuery::new(field, values)
+    }
+}

@@ -29,7 +29,8 @@ use crate::core::util::number::Number;
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-/// Field that stores per-document `long` values for scoring, sorting, or value retrieval.  
+
+/// Field that stores per-document `long` values for scoring, sorting, or value retrieval.
 /// Note that if you want to encode `f64` or `f32` values with proper sort order,  
 /// you should encode them using [`NumericUtils`](crate::core::util::numeric_utils::NumericUtils):
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
@@ -157,5 +158,21 @@ impl Clone for SortedNumericDocValuesField {
         Self {
             parent_field: self.parent_field.clone(),
         }
+    }
+}
+pub mod sorted_numeric_doc_values_field_util {
+    use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
+
+    use crate::core::util::error::lucene_error::Result;
+
+    pub fn new_slow_set_query<T, V>(
+        field: T,
+        values: Vec<i64>,
+    ) -> Result<SortedNumericDocValuesSetQuery>
+    where
+        T: Into<String>,
+    {
+        let field = field.into();
+        SortedNumericDocValuesSetQuery::new(field, values)
     }
 }

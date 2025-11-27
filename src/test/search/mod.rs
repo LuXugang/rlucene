@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 pub mod check_hits;
+mod test_doc_values_queries;
 mod test_sort_optimization;

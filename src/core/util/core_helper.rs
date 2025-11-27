@@ -299,3 +299,28 @@ impl<T> Hash for IdentityArc<T> {
         Arc::as_ptr(&self.object).hash(state)
     }
 }
+/// A helper trait that abstracts over different input types which can be
+/// viewed as a slice of `i64` values.
+pub trait AsI64Slice {
+    fn as_i64_slice(&self) -> &[i64];
+}
+impl AsI64Slice for [i64] {
+    fn as_i64_slice(&self) -> &[i64] {
+        self
+    }
+}
+impl AsI64Slice for &[i64] {
+    fn as_i64_slice(&self) -> &[i64] {
+        self
+    }
+}
+impl AsI64Slice for Vec<i64> {
+    fn as_i64_slice(&self) -> &[i64] {
+        self.as_slice()
+    }
+}
+impl AsI64Slice for i64 {
+    fn as_i64_slice(&self) -> &[i64] {
+        std::slice::from_ref(self)
+    }
+}

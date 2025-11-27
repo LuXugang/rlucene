@@ -52,10 +52,11 @@ pub struct SortedNumericDocValuesSetQuery {
     numbers: Arc<DocValuesLongHashSet>,
 }
 impl SortedNumericDocValuesSetQuery {
-    pub fn new(field: String, numbers: &[i64]) -> Result<Self> {
+    pub fn new(field: String, mut numbers: Vec<i64>) -> Result<Self> {
+        numbers.sort_unstable();
         Ok(SortedNumericDocValuesSetQuery {
             field,
-            numbers: Arc::new(DocValuesLongHashSet::new(numbers)?),
+            numbers: Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?),
         })
     }
 }
