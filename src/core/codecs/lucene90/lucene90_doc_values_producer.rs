@@ -2167,7 +2167,7 @@ where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get(self.disi.index() as i64)? as i32)
+        Ok(self.value.get_mut(self.disi.index() as i64)? as i32)
     }
 
     type TermsEnum<'a>
@@ -3139,6 +3139,10 @@ where
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Ok(Cow::Borrowed(&self.term))
+    }
+
+    fn ord(&self) -> Result<i64> {
+        Ok(self.ord)
     }
 
     fn doc_freq(&mut self) -> Result<i32> {

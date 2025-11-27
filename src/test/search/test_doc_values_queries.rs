@@ -19,8 +19,14 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::{
     NumericDocValuesField, numeric_doc_values_field_util,
 };
+use crate::core::document::sorted_doc_values_field::{
+    SortedDocValuesField, sorted_doc_values_field_util,
+};
 use crate::core::document::sorted_numeric_doc_values_field::{
     SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
+};
+use crate::core::document::sorted_set_doc_values_field::{
+    SortedSetDocValuesField, sorted_set_doc_values_field_util,
 };
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -39,13 +45,14 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::search::query_utils::QueryUtils;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, new_searcher_with_reader, new_searcher_with_wrap, random,
+    at_least, new_bytes_ref_from_bytes, new_directory, new_searcher_with_reader,
+    new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
 use std::sync::Arc;
 
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestDocValuesQueries;
 
 #[test]
@@ -127,22 +134,252 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
 
     Ok(())
 }
+// TODO 添加了索引排序后 测试未通过
 fn do_test_duel_point_range_numeric_range_query(
-    _sorted_numeric: bool,
-    _max_values_per_doc: i32,
-    _skypper: bool,
+    sorted_numeric: bool,
+    max_values_per_doc: i32,
+    skipper: bool,
 ) -> Result<()> {
-    // TODO SortedSetDocValuesRangeQuery未实现
+    let mut random = random();
+    let iters = at_least(&mut random, 10);
+
+    for _ in 0..iters {
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let iw = if sorted_numeric || random.random_bool(0.5) {
+            RandomIndexWriter::new(&mut random, dir.clone())
+        } else {
+            let config = IndexWriterConfig::new();
+            let reverse = random.random_bool(0.5);
+            // config.set_index_sort(
+            //     Sort::with_fields(vec![SortField::with_reverse(
+            //         Some("dv"),
+            //         SortFieldType::Long,
+            //         reverse,
+            //     )?])?,
+            // )?;
+            RandomIndexWriter::with_config(&mut random, dir.clone(), config)
+        };
+
+        let num_docs = at_least(&mut random, 100);
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let num_values = TestUtil::next_int(&mut random, 0, max_values_per_doc);
+
+            for _ in 0..num_values {
+                let value = TestUtil::next_long(&mut random, -100, 10000);
+
+                if sorted_numeric {
+                    if skipper {
+                        doc.add(SortedNumericDocValuesField::indexed_field("dv", value));
+                    } else {
+                        doc.add(SortedNumericDocValuesField::new("dv", value));
+                    }
+                } else if skipper {
+                    doc.add(NumericDocValuesField::indexed_field("dv", value));
+                } else {
+                    doc.add(NumericDocValuesField::new("dv", value));
+                }
+
+                doc.add(LongPoint::new("idx", vec![value])?);
+            }
+
+            iw.add_document(doc)?;
+        }
+
+        // TODO delete by query 未实现
+        // if random.random_bool(0.5) {
+        //     let del_query = LongPoint::new_range_query("idx", vec![0], vec![10])?;
+        //     iw.delete_documents(del_query)?;
+        // }
+
+        let reader = Arc::new(iw.get_reader()?);
+        let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        iw.close()?;
+
+        for _ in 0..100 {
+            let min = if random.random_bool(0.5) {
+                i64::MIN
+            } else {
+                TestUtil::next_long(&mut random, -100, 10000)
+            };
+
+            let max = if random.random_bool(0.5) {
+                i64::MAX
+            } else {
+                TestUtil::next_long(&mut random, -100, 10000)
+            };
+
+            let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+
+            let q2 = if sorted_numeric {
+                sorted_numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
+            } else {
+                numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
+            };
+
+            assert_same_matches(&mut searcher, q1, q2, false)?;
+        }
+    }
+
     Ok(())
 }
+// TODO 添加了索引排序后 测试未通过
 fn do_test_duel_point_range_sorted_range_query(
-    _sorted_set: bool,
-    _max_values_per_doc: i32,
-    _skypper: bool,
+    sorted_set: bool,
+    max_values_per_doc: i32,
+    skipper: bool,
 ) -> Result<()> {
-    // TODO SortedSetDocValuesRangeQuery未实现
+    let mut random = random();
+    let iters = at_least(&mut random, 10);
+
+    for _ in 0..iters {
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        // ----- IndexWriter -----
+        let iw = if sorted_set || random.random_bool(0.5) {
+            RandomIndexWriter::new(&mut random, dir.clone())
+        } else {
+            let config = IndexWriterConfig::new();
+            let reverse = random.random_bool(0.5);
+            // config.set_index_sort(
+            //     Sort::with_fields(vec![SortField::with_reverse(
+            //         Some("dv"),
+            //         SortFieldType::String,
+            //         reverse,
+            //     )?])?,
+            // )?;
+            RandomIndexWriter::with_config(&mut random, dir.clone(), config)
+        };
+
+        let num_docs = at_least(&mut random, 100);
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let num_values = TestUtil::next_int(&mut random, 0, max_values_per_doc);
+
+            for _ in 0..num_values {
+                let value = TestUtil::next_long(&mut random, -100, 10000);
+
+                let mut encoded = vec![0u8; 8];
+                LongPoint::encode_dimension(value, &mut encoded, 0);
+
+                if sorted_set {
+                    if skipper {
+                        doc.add(SortedSetDocValuesField::indexed_field(
+                            "dv",
+                            new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
+                        ));
+                    } else {
+                        doc.add(SortedSetDocValuesField::new(
+                            "dv",
+                            new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
+                        ));
+                    }
+                } else if skipper {
+                    doc.add(SortedDocValuesField::indexed_field(
+                        "dv",
+                        new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
+                    ));
+                } else {
+                    doc.add(SortedDocValuesField::new(
+                        "dv",
+                        new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
+                    ));
+                }
+
+                doc.add(LongPoint::new("idx", vec![value])?);
+            }
+
+            iw.add_document(doc)?;
+        }
+
+        // TODO delete by query 未实现
+        // if random.random_bool(0.5) {
+        //     let del_query = LongPoint::new_range_query("idx", vec![0], vec![10])?;
+        //     iw.ded(del_query)?;
+        // }
+
+        let reader = Arc::new(iw.get_reader()?);
+        let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        iw.close()?;
+
+        for _ in 0..100 {
+            let mut min = if random.random_bool(0.5) {
+                i64::MIN
+            } else {
+                TestUtil::next_long(&mut random, -100, 10000)
+            };
+            let mut max = if random.random_bool(0.5) {
+                i64::MAX
+            } else {
+                TestUtil::next_long(&mut random, -100, 10000)
+            };
+
+            // encoded boundaries
+            let mut encoded_min = vec![0u8; 8];
+            let mut encoded_max = vec![0u8; 8];
+            LongPoint::encode_dimension(min, encoded_min.as_mut(), 0);
+            LongPoint::encode_dimension(max, encoded_max.as_mut(), 0);
+
+            let mut include_min = true;
+            let mut include_max = true;
+
+            if random.random_bool(0.5) {
+                include_min = false;
+                min += 1;
+            }
+
+            if random.random_bool(0.5) {
+                include_max = false;
+                max -= 1;
+            }
+
+            let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+
+            // slow range query
+            let q2 = if sorted_set {
+                sorted_set_doc_values_field_util::new_slow_range_query(
+                    "dv",
+                    if min == i64::MIN && random.random_bool(0.5) {
+                        None
+                    } else {
+                        Some(new_bytes_ref_from_bytes(&mut random, encoded_min.as_ref())?)
+                    },
+                    if max == i64::MAX && random.random_bool(0.5) {
+                        None
+                    } else {
+                        Some(new_bytes_ref_from_bytes(&mut random, encoded_max.as_ref())?)
+                    },
+                    include_min,
+                    include_max,
+                )
+            } else {
+                sorted_doc_values_field_util::new_slow_range_query(
+                    "dv",
+                    if min == i64::MIN && random.random_bool(0.5) {
+                        None
+                    } else {
+                        Some(new_bytes_ref_from_bytes(&mut random, encoded_min.as_ref())?)
+                    },
+                    if max == i64::MAX && random.random_bool(0.5) {
+                        None
+                    } else {
+                        Some(new_bytes_ref_from_bytes(&mut random, encoded_max.as_ref())?)
+                    },
+                    include_min,
+                    include_max,
+                )
+            };
+
+            assert_same_matches(&mut searcher, q1, q2, false)?;
+        }
+    }
+
     Ok(())
 }
+
 #[test]
 fn test_duel_point_range_sorted_set_range_query() -> Result<()> {
     do_test_duel_point_range_sorted_range_query(true, 1, false)
