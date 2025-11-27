@@ -178,13 +178,13 @@ impl DocIdSetIterator for AllDISI {
 ///
 /// # See Also
 /// - [`DocIdSetIterator`]
-pub struct Range {
+pub struct RangeDISI {
     doc: i32,
     min_doc: i32,
     max_doc: i32,
 }
-impl Range {
-    pub fn new(min_doc: i32, max_doc: i32) -> Result<Range> {
+impl RangeDISI {
+    pub fn new(min_doc: i32, max_doc: i32) -> Result<RangeDISI> {
         if min_doc >= max_doc {
             return Err(LuceneError::illegal_argument(format!(
                 "minDoc must be < maxDoc but got minDoc= {min_doc} maxDoc= {max_doc}"
@@ -195,14 +195,14 @@ impl Range {
                 "minDoc must be >= 0 but got minDoc= {min_doc}"
             )));
         }
-        Ok(Range {
+        Ok(RangeDISI {
             doc: -1,
             min_doc,
             max_doc,
         })
     }
 }
-impl DocIdSetIterator for Range {
+impl DocIdSetIterator for RangeDISI {
     fn doc_id(&self) -> i32 {
         self.doc
     }
@@ -340,14 +340,14 @@ pub type EitherEmpty<DISI> = Either2DocIdSetIterator<DISI, EmptyDISI>;
 #[cfg(test)]
 mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Range};
+    use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
     use crate::core::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetIterator {}
     #[test]
     fn test_range_basic() -> Result<()> {
-        let result = Range::new(5, 8);
+        let result = RangeDISI::new(5, 8);
         assert!(result.is_ok());
         let mut disi = result?;
         assert_eq!(-1, disi.doc_id());
@@ -360,25 +360,25 @@ mod tests {
 
     #[test]
     fn test_invalid_range() {
-        let disi_result = Range::new(5, 4);
+        let disi_result = RangeDISI::new(5, 4);
         assert!(disi_result.is_err());
     }
 
     #[test]
     fn test_invalid_min() {
-        let disi_result = Range::new(-1, 4);
+        let disi_result = RangeDISI::new(-1, 4);
         assert!(disi_result.is_err());
     }
 
     #[test]
     fn test_empty() {
-        let disi_result = Range::new(7, 7);
+        let disi_result = RangeDISI::new(7, 7);
         assert!(disi_result.is_err());
     }
 
     #[test]
     fn test_advance() -> Result<()> {
-        let disi_result = Range::new(5, 20);
+        let disi_result = RangeDISI::new(5, 20);
         assert!(disi_result.is_ok());
         let mut disi = disi_result?;
         assert_eq!(-1, disi.doc_id());

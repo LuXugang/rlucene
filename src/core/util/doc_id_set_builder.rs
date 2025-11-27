@@ -246,7 +246,7 @@ impl DocIdSetIterator for DocIdSetBuilderIterator {
 mod tests {
     use crate::core::search::doc_id_set::DocIdSet;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Range};
+    use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
     use crate::core::util::bit_doc_id_set::BitDocIdSet;
     use crate::core::util::bit_set::BitSet;
     use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -547,7 +547,7 @@ mod tests {
         let max_doc = 1000000;
         let mut builder = DocIdSetBuilder::new(max_doc);
         for i in 0..1000000 >> 6 {
-            builder.add_disi(&mut Range::new(i, i + 1)?)?;
+            builder.add_disi(&mut RangeDISI::new(i, i + 1)?)?;
         }
         let set = builder.build()?;
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
