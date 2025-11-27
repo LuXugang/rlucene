@@ -138,7 +138,7 @@ pub trait LiveIndexWriterConfig: Display {
             .get_sort()
             .iter()
             .filter_map(|f| f.get_field())
-            .cloned()
+            .map(str::to_string)
             .collect();
         base.index_sort_fields = index_sort_fields;
         base.index_sort = Some(sort);

@@ -194,7 +194,7 @@ impl SortFiledBase for SortedSetSortField {
             .base
             .get_field()
             .expect("field must not be None")
-            .clone();
+            .to_string();
         let base = TermOrdValComparator::new(
             field,
             num_hits,

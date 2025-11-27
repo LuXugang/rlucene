@@ -228,8 +228,8 @@ impl SortField {
     ///
     /// # Returns
     /// The name of the field, or `None` if the sort is by `SCORE` or `DOC`.
-    pub fn get_field(&self) -> Option<&String> {
-        self.field.as_ref()
+    pub fn get_field(&self) -> Option<&str> {
+        self.field.as_deref()
     }
     /// Returns the type of contents in the field.
     ///
@@ -506,7 +506,7 @@ impl SortFiledBase for SortField {
             SortFieldType::Float => {
                 let missing = self.missing_value.as_ref().map(|v| v.as_f32());
                 FloatComparator::new(
-                    self.field.as_ref().unwrap().clone(),
+                    self.field.as_deref().unwrap().to_string(),
                     num_hits,
                     missing,
                     self.reverse,
@@ -518,7 +518,7 @@ impl SortFiledBase for SortField {
             SortFieldType::Long => {
                 let missing = self.missing_value.as_ref().map(|v| v.as_i64());
                 LongComparator::new(
-                    self.field.as_ref().unwrap().clone(),
+                    self.field.as_deref().unwrap().to_string(),
                     num_hits,
                     missing,
                     self.reverse,
@@ -530,7 +530,7 @@ impl SortFiledBase for SortField {
             SortFieldType::Double => {
                 let missing = self.missing_value.as_ref().map(|v| v.as_f64());
                 DoubleComparator::new(
-                    self.field.as_ref().unwrap().clone(),
+                    self.field.as_deref().unwrap().to_string(),
                     num_hits,
                     missing,
                     self.reverse,
@@ -540,7 +540,7 @@ impl SortFiledBase for SortField {
             },
 
             SortFieldType::String => TermOrdValComparator::new(
-                self.field.as_ref().unwrap().clone(),
+                self.field.as_deref().unwrap().to_string(),
                 num_hits,
                 matches!(self.missing_value, Some(MissingValueEnum::StringLast)),
                 self.reverse,
@@ -549,7 +549,7 @@ impl SortFiledBase for SortField {
             .into(),
 
             SortFieldType::StringVal => TermValComparator::new(
-                self.field.as_ref().unwrap().clone(),
+                self.field.as_deref().unwrap().to_string(),
                 num_hits,
                 matches!(self.missing_value, Some(MissingValueEnum::StringLast)),
             )

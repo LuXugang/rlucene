@@ -263,7 +263,7 @@ impl SortFiledBase for SortedNumericSortField {
             .base
             .get_field()
             .expect("field must not be None")
-            .clone();
+            .to_string();
         let reverse = self.base.reverse;
         let mut field_comparator: FieldComparatorEnum = match self.base.type_ {
             SortFieldType::Int => {
