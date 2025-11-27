@@ -146,14 +146,13 @@ where
         }
     }
 
-    fn get_doc_id_set_iterator_or_null_for_primary_sort<R, NDV, SK>(
+    fn get_doc_id_set_iterator_or_null_for_primary_sort<NDV, SK>(
         &self,
-        reader: &R,
+        reader: &LR,
         numeric_doc_values: &mut NDV,
         skipper: &mut SK,
     ) -> Result<Option<DISI>>
     where
-        R: LeafReader,
         NDV: NumericDocValues,
         SK: DocValuesSkipper,
     {
