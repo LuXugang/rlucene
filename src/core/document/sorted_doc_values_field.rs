@@ -160,3 +160,35 @@ impl Clone for SortedDocValuesField {
         }
     }
 }
+pub mod sorted_doc_values_field_util {
+    use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
+    use crate::core::index::BytesRef;
+
+    pub fn new_slow_range_query<T>(
+        field: T,
+        lower_value: Option<BytesRef<Vec<u8>>>,
+        upper_value: Option<BytesRef<Vec<u8>>>,
+        lower_inclusive: bool,
+        upper_inclusive: bool,
+    ) -> SortedSetDocValuesRangeQuery
+    where
+        T: Into<String>,
+    {
+        SortedSetDocValuesRangeQuery::new(
+            field.into(),
+            lower_value,
+            upper_value,
+            lower_inclusive,
+            upper_inclusive,
+        )
+    }
+    pub fn new_slow_exact_query<T>(
+        field: T,
+        value: Option<BytesRef<Vec<u8>>>,
+    ) -> SortedSetDocValuesRangeQuery
+    where
+        T: Into<String>,
+    {
+        SortedSetDocValuesRangeQuery::new(field.into(), value.clone(), value, true, true)
+    }
+}
