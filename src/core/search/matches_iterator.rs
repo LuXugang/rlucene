@@ -159,3 +159,8 @@ either_matches_iterator!(
     => { sub: Either5MatchesIterator }
     { A: A, B: B,C:C,D:D,E:E }
 );
+either_matches_iterator!(
+    pub Either6MatchesIterator
+    => { sub: Either6MatchesIterator }
+    { A: A, B: B,C:C,D:D,E:E,F:F }
+);

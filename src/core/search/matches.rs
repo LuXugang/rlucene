@@ -16,7 +16,7 @@
  */
 use crate::core::search::matches_iterator::{
     Either2MatchesIterator, Either3MatchesIterator, Either4MatchesIterator, Either5MatchesIterator,
-    MatchesIterator,
+    Either6MatchesIterator, MatchesIterator,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -112,4 +112,9 @@ either_matches!(
     pub Either5Matches
     => { mi: Either5MatchesIterator }
     { A: A, B: B, C: C, D: D, E: E }
+);
+either_matches!(
+    pub Either6Matches
+    => { mi: Either6MatchesIterator }
+    { A: A, B: B, C: C, D: D, E: E, F: F }
 );

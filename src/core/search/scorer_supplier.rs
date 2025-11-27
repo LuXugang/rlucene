@@ -18,9 +18,10 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
     BulkScorer, Either2BulkScorer, Either3BulkScorer, Either4BulkScorer, Either5BulkScorer,
+    Either6BulkScorer,
 };
 use crate::core::search::scorer::{
-    Either2Scorer, Either3Scorer, Either4Scorer, Either5Scorer, Scorer,
+    Either2Scorer, Either3Scorer, Either4Scorer, Either5Scorer, Either6Scorer, Scorer,
 };
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -185,4 +186,9 @@ either_scorer_supplier!(
     pub Either5ScorerSupplier
     => { bulk: Either5BulkScorer, scorer: Either5Scorer }
     { A: A, B: B ,C:C, D:D,E:E }
+);
+either_scorer_supplier!(
+    pub Either6ScorerSupplier
+    => { bulk: Either6BulkScorer, scorer: Either6Scorer }
+    { A: A, B: B ,C:C, D:D,E:E,F:F }
 );

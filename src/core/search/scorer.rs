@@ -17,14 +17,15 @@
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, Either4DocIdSetIterator,
-    Either5DocIdSetIterator,
+    Either5DocIdSetIterator, Either6DocIdSetIterator,
 };
 use crate::core::search::scorable::{
-    ChildScorable, Either2Scorable, Either3Scorable, Either4Scorable, Either5Scorable, Scorable,
+    ChildScorable, Either2Scorable, Either3Scorable, Either4Scorable, Either5Scorable,
+    Either6Scorable, Scorable,
 };
 use crate::core::search::two_phase_iterator::{
     Either2TwoPhaseIterator, Either3TwoPhaseIterator, Either4TwoPhaseIterator,
-    Either5TwoPhaseIterator, TwoPhaseIterator,
+    Either5TwoPhaseIterator, Either6TwoPhaseIterator, TwoPhaseIterator,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -278,5 +279,13 @@ either_scorer!(
         two_phase = Either5TwoPhaseIterator,
         scorable = Either5Scorable;
         A: A, B: B,C: C, D: D,E: E,
+    }
+);
+either_scorer!(
+    pub Either6Scorer {
+        iter = Either6DocIdSetIterator,
+        two_phase = Either6TwoPhaseIterator,
+        scorable = Either6Scorable;
+        A: A, B: B,C: C, D: D,E: E,F: F,
     }
 );
