@@ -16,11 +16,13 @@
  */
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRDocValuesSkipper, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -32,8 +34,8 @@ use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -80,12 +82,35 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = SortedNumericDocValuesRangeQueryWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache<IRC::LeafReader>;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache<IRC::LeafReader>,
+        Self: Sized,
+    {
+        Ok(SortedNumericDocValuesRangeQueryWeight::new(
+            self,
+            *score_mode,
+            boost,
+        ))
+    }
+
     type RewriteQuery = DummyQuery;
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -105,11 +130,22 @@ where
     score_mode: ScoreMode,
     _leaf_reader: PhantomData<LR>,
 }
-pub type DISI = Either2DocIdSetIterator<EmptyDISI, RangeDISI>;
 impl<LR> SortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
 {
+    fn new(query: SortedNumericDocValuesRangeQuery, score_mode: ScoreMode, boost: f32) -> Self {
+        let query_clone = query.clone();
+        let parent_query = Arc::new(query.into());
+        Self {
+            query: query_clone,
+            base: ConstantScoreWeight::new(boost),
+            parent_query,
+            score_mode,
+            _leaf_reader: PhantomData,
+        }
+    }
+
     fn get_doc_id_set_iterator_or_null_for_primary_sort<R, NDV, SK>(
         &self,
         reader: &R,
@@ -331,6 +367,7 @@ where
         }
     }
 }
+pub type DISI = Either2DocIdSetIterator<EmptyDISI, RangeDISI>;
 pub type TPI<LR> = Either2TwoPhaseIterator<
     TwoPhaseIterator3<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
     TwoPhaseIterator4<SortedNumeric<LR>>,

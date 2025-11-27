@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::sorted_numeric_doc_values_range_query::{
+    SortedNumericDocValuesRangeQuery, SortedNumericDocValuesRangeQueryWeight,
+};
 use crate::core::document::sorted_numeric_doc_values_set_query::{
     SortedNumericDocValuesSetQuery, SortedNumericDocValuesSetQueryWeight,
 };
@@ -33,7 +36,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Either5Weight, Weight};
+use crate::core::search::weight::{Either6Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -96,6 +99,7 @@ pub enum Query {
     ConstantScore(ConstantScoreQuery),
     PointRange(PointRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
+    SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
 }
 impl Default for Query {
     fn default() -> Self {
@@ -116,6 +120,9 @@ impl PartialEq for Query {
             (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
             (Query::PointRange(c1), Query::PointRange(c2)) => c1 == c2,
             (Query::SortedNumericDocValuesSet(c1), Query::SortedNumericDocValuesSet(c2)) => {
+                c1 == c2
+            },
+            (Query::SortedNumericDocValuesRange(c1), Query::SortedNumericDocValuesRange(c2)) => {
                 c1 == c2
             },
             _ => false,
@@ -150,6 +157,9 @@ impl Hash for Query {
             Query::SortedNumericDocValuesSet(c) => {
                 c.hash(state);
             },
+            Query::SortedNumericDocValuesRange(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -178,7 +188,10 @@ impl Debug for Query {
                 write!(f, "Query::PointRange({:?})", c)
             },
             Query::SortedNumericDocValuesSet(c) => {
-                write!(f, "Query::PointRange({:?})", c)
+                write!(f, "Query::SortedNumericDocValuesSet({:?})", c)
+            },
+            Query::SortedNumericDocValuesRange(c) => {
+                write!(f, "Query::SortedNumericDocValuesRange({:?})", c)
             },
         }
     }
@@ -195,6 +208,7 @@ impl QueryBase for Query {
             Query::ConstantScore(c) => c.as_string(field),
             Query::PointRange(c) => c.as_string(field),
             Query::SortedNumericDocValuesSet(c) => c.as_string(field),
+            Query::SortedNumericDocValuesRange(c) => c.as_string(field),
         }
     }
 
@@ -252,6 +266,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
+            Query::SortedNumericDocValuesRange(p) => Ok(QueryWeight::F(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -279,12 +299,13 @@ impl QueryBase for Query {
         todo!()
     }
 }
-pub type QueryWeight<S, IRC> = Either5Weight<
+pub type QueryWeight<S, IRC> = Either6Weight<
     TermWeight<S, IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
     MatchNoDocsWeight<<IRC as IndexReaderContext>::LeafReader>,
     SortedNumericDocValuesSetQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
+    SortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
 >;
 
 impl From<TermQuery> for Query {
@@ -325,6 +346,11 @@ impl From<PointRangeQuery> for Query {
 impl From<SortedNumericDocValuesSetQuery> for Query {
     fn from(value: SortedNumericDocValuesSetQuery) -> Self {
         Query::SortedNumericDocValuesSet(value)
+    }
+}
+impl From<SortedNumericDocValuesRangeQuery> for Query {
+    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
+        Query::SortedNumericDocValuesRange(value)
     }
 }
 #[derive(Clone, Debug)]
