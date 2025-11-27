@@ -137,7 +137,7 @@ pub trait LiveIndexWriterConfig: Display {
         let index_sort_fields: HashSet<String> = sort
             .get_sort()
             .iter()
-            .filter_map(|f| f.get_field_name())
+            .filter_map(|f| f.get_field())
             .cloned()
             .collect();
         base.index_sort_fields = index_sort_fields;

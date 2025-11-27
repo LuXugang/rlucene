@@ -213,6 +213,8 @@ pub type LRImpactsEnum<LR> =
 pub type LRPosting<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
 pub type LRNormNumericDocValues<LR> = <LR as LeafReader>::NormNumericDocValues;
+// DocValuesSkipper
+pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
 
 impl<LR> LeafReader for Arc<LR>
 where

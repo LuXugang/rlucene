@@ -43,7 +43,7 @@ impl SortFieldEnum {
             SortFieldEnum::Sorter(sort_field) => sort_field.get_reverse(),
         }
     }
-    pub fn get_field_name(&self) -> Option<&String> {
+    pub fn get_field(&self) -> Option<&String> {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_field(),
             SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_field(),
