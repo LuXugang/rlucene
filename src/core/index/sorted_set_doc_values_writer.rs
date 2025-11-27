@@ -730,7 +730,7 @@ where
 
     type SortedDocValues = S::SortedDocValues;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
         self.input.get_sorted_doc_values()
     }
 }
@@ -919,15 +919,13 @@ where
 
     type SortedDocValues = Either2SortedDocValues<A::SortedDocValues, B::SortedDocValues>;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
         match self {
             Either2SortedSetDocValues::A(t) => {
-                let sorted_doc_values = t.get_sorted_doc_values()?;
-                Ok(sorted_doc_values.map(Either2SortedDocValues::A))
+                Ok(Either2SortedDocValues::A(t.get_sorted_doc_values()?))
             },
             Either2SortedSetDocValues::B(s) => {
-                let sorted_doc_values = s.get_sorted_doc_values()?;
-                Ok(sorted_doc_values.map(Either2SortedDocValues::B))
+                Ok(Either2SortedDocValues::B(s.get_sorted_doc_values()?))
             },
         }
     }

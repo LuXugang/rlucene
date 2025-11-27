@@ -147,7 +147,7 @@ where
 
     type SortedDocValues = S;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
-        Ok(Some(self.get_sorted_doc_values()?))
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+        self.get_sorted_doc_values()
     }
 }

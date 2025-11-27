@@ -44,26 +44,21 @@ impl SortedSetSelector {
                 i32::MAX - 1
             )));
         }
-        let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
-        match singleton {
-            Some(single) => Ok(SortedDocValuesWrap::Singleton(single)),
-            None => {
-                let v = match selector {
-                    SortedSetSelectorType::Min => {
-                        SortedDocValuesWrap::Min(MinValue::new(sorted_set))
-                    },
-                    SortedSetSelectorType::Max => {
-                        SortedDocValuesWrap::Max(MaxValue::new(sorted_set))
-                    },
-                    SortedSetSelectorType::MiddleMin => {
-                        SortedDocValuesWrap::MiddleMin(MiddleMinValue::new(sorted_set))
-                    },
-                    SortedSetSelectorType::MiddleMax => {
-                        SortedDocValuesWrap::MiddleMax(MiddleMaxValue::new(sorted_set))
-                    },
-                };
-                Ok(v)
-            },
+        if sorted_set.is_single_valued() {
+            let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
+            Ok(SortedDocValuesWrap::Singleton(singleton))
+        } else {
+            let v = match selector {
+                SortedSetSelectorType::Min => SortedDocValuesWrap::Min(MinValue::new(sorted_set)),
+                SortedSetSelectorType::Max => SortedDocValuesWrap::Max(MaxValue::new(sorted_set)),
+                SortedSetSelectorType::MiddleMin => {
+                    SortedDocValuesWrap::MiddleMin(MiddleMinValue::new(sorted_set))
+                },
+                SortedSetSelectorType::MiddleMax => {
+                    SortedDocValuesWrap::MiddleMax(MiddleMaxValue::new(sorted_set))
+                },
+            };
+            Ok(v)
         }
     }
 }

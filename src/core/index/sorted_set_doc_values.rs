@@ -123,7 +123,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
         false
     }
     type SortedDocValues: SortedDocValues;
-    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
-        Ok(None)
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

@@ -86,7 +86,7 @@ impl SortedSetDocValues for DummySortedSetDocValues {
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

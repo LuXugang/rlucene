@@ -74,15 +74,11 @@ impl DocValues {
     /// Returns a single-valued view of the SortedSetDocValues, if it was
     /// previously wrapped with
     /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
-    pub fn unwrap_singleton_sorted<S>(dv: &mut S) -> Result<Option<S::SortedDocValues>>
+    pub fn unwrap_singleton_sorted<S>(dv: &mut S) -> Result<S::SortedDocValues>
     where
         S: SortedSetDocValues,
     {
-        if dv.is_single_valued() {
-            Ok(dv.get_sorted_doc_values()?)
-        } else {
-            Ok(None)
-        }
+        dv.get_sorted_doc_values()
     }
 
     /// Returns a single-valued view of the SortedNumericDocValues, if it was
