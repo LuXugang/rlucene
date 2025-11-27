@@ -1688,7 +1688,7 @@ where
         self.max_value[level as usize]
     }
 
-    fn doc_count_level(&self, level: i32) -> i32 {
+    fn doc_count_with_level(&self, level: i32) -> i32 {
         self.doc_count[level as usize]
     }
 

@@ -71,7 +71,7 @@ pub trait DocValuesSkipper {
 
     /// Return the number of documents that have a value in the interval
     /// associated with the given level.
-    fn doc_count_level(&self, level: i32) -> i32;
+    fn doc_count_with_level(&self, level: i32) -> i32;
 
     /// Return the global minimum value.
     ///
@@ -160,8 +160,8 @@ macro_rules! either_docvalues_skipper {
             }
 
 
-            fn doc_count_level(&self, level: i32) -> i32 {
-                match self { $( Self::$Variant(inner) => inner.doc_count_level(level), )+ }
+            fn doc_count_with_level(&self, level: i32) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.doc_count_with_level(level), )+ }
             }
 
 

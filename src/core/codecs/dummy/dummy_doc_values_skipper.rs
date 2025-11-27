@@ -43,7 +43,7 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn doc_count_level(&self, _level: i32) -> i32 {
+    fn doc_count_with_level(&self, _level: i32) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
