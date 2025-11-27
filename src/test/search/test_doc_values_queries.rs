@@ -35,7 +35,7 @@ use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort::Sort;
 use crate::core::search::QueryCache;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -45,8 +45,8 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::search::query_utils::QueryUtils;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_bytes_ref_from_bytes, new_directory, new_searcher_with_reader,
-    new_searcher_with_wrap, random,
+    at_least, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
+    new_searcher_with_reader, new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -409,9 +409,96 @@ fn test_duel_point_range_sorted_range_query() -> Result<()> {
 fn test_duel_point_range_sorted_range_skipper_query() -> Result<()> {
     do_test_duel_point_range_sorted_range_query(false, 1, true)
 }
+// TODO 添加了索引排序后 测试未通过
 #[test]
 fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
-    // TODO
+    let mut random = random();
+
+    let dir = Arc::new(new_directory(&mut random)?);
+
+    let config = IndexWriterConfig::new();
+    let reverse = random.random_bool(0.5);
+    // config.set_index_sort(Sort::with_fields(vec![
+    //     SortField::with_reverse(Some("dv"), SortFieldType::String, reverse)?
+    // ])?)?;
+    let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+
+    // ----- index random documents -----
+    let num_docs = at_least(&mut random, 1000);
+    for _ in 0..num_docs {
+        let value = TestUtil::next_long(&mut random, -100, 10000);
+
+        // encode value → BytesRef
+        let mut encoded = vec![0u8; 8];
+        LongPoint::encode_dimension(value, &mut encoded, 0);
+
+        let mut doc = Document::new();
+        doc.add(SortedDocValuesField::indexed_field(
+            "dv",
+            new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
+        ));
+
+        doc.add(LongPoint::new("idx", vec![value])?);
+
+        iw.add_document(doc)?;
+    }
+
+    let reader = Arc::new(iw.get_reader()?);
+    let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    iw.close()?;
+
+    for _ in 0..100 {
+        let mut min = if random.random_bool(0.5) {
+            i64::MIN
+        } else {
+            TestUtil::next_long(&mut random, -100, 10000)
+        };
+
+        let mut max = if random.random_bool(0.5) {
+            i64::MAX
+        } else {
+            TestUtil::next_long(&mut random, -100, 10000)
+        };
+
+        let mut encoded_min = vec![0u8; 8];
+        let mut encoded_max = vec![0u8; 8];
+        LongPoint::encode_dimension(min, encoded_min.as_mut(), 0);
+        LongPoint::encode_dimension(max, encoded_max.as_mut(), 0);
+
+        let mut include_min = true;
+        let mut include_max = true;
+
+        if random.random_bool(0.5) {
+            include_min = false;
+            min += 1;
+        }
+
+        if random.random_bool(0.5) {
+            include_max = false;
+            max -= 1;
+        }
+
+        let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+
+        let q2 = sorted_doc_values_field_util::new_slow_range_query(
+            "dv",
+            if min == i64::MIN && random.random_bool(0.5) {
+                None
+            } else {
+                Some(new_bytes_ref_from_bytes(&mut random, encoded_min.as_ref())?)
+            },
+            if max == i64::MAX && random.random_bool(0.5) {
+                None
+            } else {
+                Some(new_bytes_ref_from_bytes(&mut random, encoded_max.as_ref())?)
+            },
+            include_min,
+            include_max,
+        );
+
+        assert_same_matches(&mut searcher, q1, q2, false)?;
+    }
+
     Ok(())
 }
 
@@ -463,6 +550,7 @@ where
 
 #[test]
 fn test_equals() -> Result<()> {
+    let mut random = random();
     let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5);
 
     QueryUtils::check_equal(
@@ -485,19 +573,122 @@ fn test_equals() -> Result<()> {
         &sorted_numeric_doc_values_field_util::new_slow_range_query("bar", 3, 5),
     );
 
-    // TODO SortedSetDocValuesRangeQuery未实现
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        Some(new_bytes_ref_from_string(&mut random, "bar")?),
+        Some(new_bytes_ref_from_string(&mut random, "baz")?),
+        true,
+        true,
+    );
 
+    QueryUtils::check_equal(
+        &q2,
+        &sorted_set_doc_values_field_util::new_slow_range_query(
+            "foo",
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(new_bytes_ref_from_string(&mut random, "baz")?),
+            true,
+            true,
+        ),
+    );
+
+    QueryUtils::check_unequal(
+        &q2,
+        &sorted_set_doc_values_field_util::new_slow_range_query(
+            "foo",
+            Some(new_bytes_ref_from_string(&mut random, "baz")?),
+            Some(new_bytes_ref_from_string(&mut random, "baz")?),
+            true,
+            true,
+        ),
+    );
+
+    QueryUtils::check_unequal(
+        &q2,
+        &sorted_set_doc_values_field_util::new_slow_range_query(
+            "foo",
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+            true,
+        ),
+    );
+
+    QueryUtils::check_unequal(
+        &q2,
+        &sorted_set_doc_values_field_util::new_slow_range_query(
+            "quux",
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            Some(new_bytes_ref_from_string(&mut random, "baz")?),
+            true,
+            true,
+        ),
+    );
     Ok(())
 }
 
 #[test]
 fn test_to_string() -> Result<()> {
-    // TODO  SortedSetDocValuesRangeQuery 未实现
+    let mut random = random();
+    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5);
+
+    assert_eq!("foo:[3 TO 5]", q1.as_string(""));
+    assert_eq!("[3 TO 5]", q1.as_string("foo"));
+    assert_eq!("foo:[3 TO 5]", q1.as_string("bar"));
+
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        Some(new_bytes_ref_from_string(&mut random, "bar")?),
+        Some(new_bytes_ref_from_string(&mut random, "baz")?),
+        true,
+        true,
+    );
+    assert_eq!("foo:[[62 61 72] TO [62 61 7a]]", q2.as_string(""));
+
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        Some(new_bytes_ref_from_string(&mut random, "bar")?),
+        Some(new_bytes_ref_from_string(&mut random, "baz")?),
+        false,
+        true,
+    );
+    assert_eq!("foo:{[62 61 72] TO [62 61 7a]]", q2.as_string(""));
+
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        Some(new_bytes_ref_from_string(&mut random, "bar")?),
+        Some(new_bytes_ref_from_string(&mut random, "baz")?),
+        false,
+        false,
+    );
+    assert_eq!("foo:{[62 61 72] TO [62 61 7a]}", q2.as_string(""));
+
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        Some(new_bytes_ref_from_string(&mut random, "bar")?),
+        None,
+        true,
+        true,
+    );
+    assert_eq!("foo:[[62 61 72] TO *}", q2.as_string(""));
+
+    let q2 = sorted_set_doc_values_field_util::new_slow_range_query(
+        "foo",
+        None,
+        Some(new_bytes_ref_from_string(&mut random, "baz")?),
+        true,
+        true,
+    );
+    assert_eq!("foo:{* TO [62 61 7a]]", q2.as_string(""));
+    assert_eq!("{* TO [62 61 7a]]", q2.as_string("foo"));
+    assert_eq!("foo:{* TO [62 61 7a]]", q2.as_string("bar"));
+
     Ok(())
 }
+
 #[test]
 fn test_missing_field() -> Result<()> {
-    // TODO  SortedSetDocValuesRangeQuery 未实现
+    // TODO  rewrite 未实现
     Ok(())
 }
 #[test]

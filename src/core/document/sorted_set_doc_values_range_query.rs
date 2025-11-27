@@ -89,12 +89,12 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         b.push(if self.lower_inclusive { '[' } else { '{' });
         match &self.lower_value {
             None => b.push('*'),
-            Some(v) => b.push_str(&format!("{:?}", v)),
+            Some(v) => b.push_str(&format!("{}", v)),
         }
         b.push_str(" TO ");
         match &self.upper_value {
             None => b.push('*'),
-            Some(v) => b.push_str(&format!("{:?}", v)),
+            Some(v) => b.push_str(&format!("{}", v)),
         }
         b.push(if self.upper_inclusive { ']' } else { '}' });
         b
