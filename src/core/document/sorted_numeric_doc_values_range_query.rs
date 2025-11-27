@@ -46,7 +46,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -310,8 +310,7 @@ where
             }
         }
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
-        let mut iterator_opt = None;
-        if values.is_single_valued() {
+        let iterator = if values.is_single_valued() {
             let mut singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
             if skipper_opt.is_some() {
                 let skipper = skipper_opt.as_mut().unwrap();
@@ -328,42 +327,38 @@ where
                         ps_iterator,
                     ));
                     return Ok(Some(Either4ScorerSupplier::B(v)));
+                } else {
+                    Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
+                        singleton,
+                        self.query.clone(),
+                    ))
                 }
             } else {
-                iterator_opt = Some(Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
-                    singleton,
-                    self.query.clone(),
-                )))
+                Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
             }
         } else {
-            iterator_opt = Some(Either2TwoPhaseIterator::B(TwoPhaseIterator4::new(
-                values,
-                self.query.clone(),
-            )))
+            Either2TwoPhaseIterator::B(TwoPhaseIterator4::new(values, self.query.clone()))
         };
-        match iterator_opt {
-            Some(iterator) => match skipper_opt {
-                Some(skipper) => {
-                    let v = DocValuesRangeIterator::new(
-                        iterator,
-                        skipper,
-                        self.query.lower_value,
-                        self.query.upper_value,
-                        false,
-                    );
-                    let scorer: ConstantScoreScorer<DummyDISI, _> =
-                        ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
-                    let v = DefaultScorerSupplier::new(scorer);
-                    Ok(Some(Either4ScorerSupplier::C(v)))
-                },
-                None => {
-                    let scorer: ConstantScoreScorer<DummyDISI, _> =
-                        ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
-                    let v = DefaultScorerSupplier::new(scorer);
-                    Ok(Some(Either4ScorerSupplier::D(v)))
-                },
+        match skipper_opt {
+            Some(skipper) => {
+                let v = DocValuesRangeIterator::new(
+                    iterator,
+                    skipper,
+                    self.query.lower_value,
+                    self.query.upper_value,
+                    false,
+                );
+                let scorer: ConstantScoreScorer<DummyDISI, _> =
+                    ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
+                let v = DefaultScorerSupplier::new(scorer);
+                Ok(Some(Either4ScorerSupplier::C(v)))
             },
-            None => Err(LuceneError::illegal_state("iterator is None")),
+            None => {
+                let scorer: ConstantScoreScorer<DummyDISI, _> =
+                    ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
+                let v = DefaultScorerSupplier::new(scorer);
+                Ok(Some(Either4ScorerSupplier::D(v)))
+            },
         }
     }
 }

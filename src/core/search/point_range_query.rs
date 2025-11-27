@@ -795,7 +795,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        if matches(self.query, self.comparator, packed_value)? {
+        if !matches(self.query, self.comparator, packed_value)? {
             self.visit(doc_id)?;
         }
         Ok(())
@@ -806,7 +806,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
         iterator: &mut impl DocIdSetIterator,
         packed_value: &[u8],
     ) -> Result<()> {
-        if matches(self.query, self.comparator, packed_value)? {
+        if !matches(self.query, self.comparator, packed_value)? {
             self.visit_with_iterator(iterator)?;
         }
         Ok(())

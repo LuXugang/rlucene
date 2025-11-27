@@ -165,7 +165,7 @@ pub mod sorted_numeric_doc_values_field_util {
     use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 
     use crate::core::util::error::lucene_error::Result;
-    pub fn new_slow_range_query<T, V>(
+    pub fn new_slow_range_query<T>(
         field: T,
         lower_value: i64,
         upper_value: i64,
@@ -176,7 +176,7 @@ pub mod sorted_numeric_doc_values_field_util {
         let field = field.into();
         SortedNumericDocValuesRangeQuery::new(field, lower_value, upper_value)
     }
-    pub fn new_slow_set_query<T, V>(
+    pub fn new_slow_set_query<T>(
         field: T,
         values: Vec<i64>,
     ) -> Result<SortedNumericDocValuesSetQuery>

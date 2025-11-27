@@ -106,22 +106,23 @@ impl IntPoint {
 
     pub fn new_point_range_query<T, V>(
         field: T,
-        lower_point: V,
-        upper_point: V,
+        lower_value: V,
+        upper_value: V,
     ) -> Result<PointRangeQuery>
     where
         T: Into<String>,
         V: AsRef<[i32]>,
     {
         let field = field.into();
-        let mut lower_point = IntPoint::pack(lower_point.as_ref())?;
-        let mut upper_point = IntPoint::pack(upper_point.as_ref())?;
+        let len = lower_value.as_ref().len();
+        let mut lower_point = IntPoint::pack(lower_value.as_ref())?;
+        let mut upper_point = IntPoint::pack(upper_value.as_ref())?;
         check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
         PointRangeQuery::new(
             field,
             lower_point.take_bytes(),
             upper_point.take_bytes(),
-            lower_point.length.try_into()?,
+            len.try_into()?,
             IntPointRangeQuery,
         )
     }

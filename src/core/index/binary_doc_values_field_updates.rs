@@ -1069,7 +1069,6 @@ mod tests {
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
-        // --- document setup ---
         let mut doc = Document::new();
         doc.add(StringField::with_string("upd", "t1", Store::No)?);
         doc.add(StringField::with_string("upd", "t2", Store::No)?);

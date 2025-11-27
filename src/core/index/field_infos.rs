@@ -937,7 +937,6 @@ mod tests {
         writer.add_document(d3)?;
         writer.close()?;
 
-        // --- verify segment infos ---
         let sis = SegmentInfos::read_latest_commit(dir.clone())?;
         assert_eq!(3, sis.size());
 
@@ -945,7 +944,6 @@ mod tests {
         let fis2 = read_field_infos(sis.info_idx(1).unwrap())?;
         let fis3 = read_field_infos(sis.info_idx(2).unwrap())?;
 
-        // --- dense FieldInfos ---
         let iter = fis1.iter();
         let mut i = 0;
         for fi in iter {

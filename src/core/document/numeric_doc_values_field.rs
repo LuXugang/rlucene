@@ -58,12 +58,20 @@ impl Clone for NumericDocValuesField {
 }
 
 impl NumericDocValuesField {
+    pub fn indexed_field<T>(name: T, value: i64) -> Self
+    where
+        T: Into<String>,
+    {
+        Self::with_type(name, value, INDEXED_TYPE.clone())
+    }
+
     pub fn new<T>(name: T, value: i64) -> Self
     where
         T: Into<String>,
     {
         Self::with_type(name, value, TYPE.clone())
     }
+
     pub fn with_type<T>(name: T, value: i64, file_type: FieldType) -> Self
     where
         T: Into<String>,

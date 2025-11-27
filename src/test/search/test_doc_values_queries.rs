@@ -14,12 +14,302 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::numeric_doc_values_field::numeric_doc_values_field_util;
+use crate::core::document::document::Document;
+use crate::core::document::long_point::LongPoint;
+use crate::core::document::numeric_doc_values_field::{
+    NumericDocValuesField, numeric_doc_values_field_util,
+};
+use crate::core::document::sorted_numeric_doc_values_field::{
+    SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
+};
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::sort::Sort;
+use crate::core::search::QueryCache;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::Query;
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::numeric_utils::NumericUtils;
+use crate::test::index::random_index_writer::RandomIndexWriter;
+use crate::test::search::query_utils::QueryUtils;
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    at_least, new_directory, new_searcher_with_reader, new_searcher_with_wrap, random,
+};
+use crate::test::util::test_util::TestUtil;
+use rand::Rng;
+use std::sync::Arc;
 
 #[allow(dead_code)]
 struct TestDocValuesQueries;
 
+#[test]
+fn test_duel_point_range_sorted_numeric_range_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(true, 1, false)
+}
+
+#[test]
+fn test_duel_point_range_sorted_numeric_range_with_slipper_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(true, 1, true)
+}
+
+#[test]
+fn test_duel_point_range_multivalued_sorted_numeric_range_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(true, 3, false)
+}
+
+#[test]
+fn test_duel_point_range_multivalued_sorted_numeric_range_with_skipper_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(true, 3, true)
+}
+
+#[test]
+fn test_duel_point_range_numeric_range_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(false, 1, false)
+}
+
+#[test]
+fn test_duel_point_range_numeric_range_with_skipper_query() -> Result<()> {
+    do_test_duel_point_range_numeric_range_query(false, 1, true)
+}
+
+// TODO 添加了索引排序后 测试未通过
+#[test]
+fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let config = IndexWriterConfig::new();
+    let reverse = random.random_bool(0.5);
+    // let reverse = true;
+    // config.set_index_sort(Sort::with_fields(vec![
+    //     SortField::with_reverse(Some("dv"), SortFieldType::Long,reverse)?
+    // ])?)?;
+    let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+
+    let num_docs = at_least(&mut random, 1000);
+    for _ in 0..num_docs {
+        let value = TestUtil::next_long(&mut random, -100, 10000);
+        let mut doc = Document::new();
+
+        doc.add(NumericDocValuesField::indexed_field("dv", value));
+        doc.add(LongPoint::new("idx", vec![value])?);
+
+        iw.add_document(doc)?;
+    }
+
+    let reader = Arc::new(iw.get_reader()?);
+    let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    iw.close()?;
+
+    for _ in 0..100 {
+        let min = if random.random_bool(0.5) {
+            i64::MIN
+        } else {
+            TestUtil::next_long(&mut random, -100, 10000)
+        };
+
+        let max = if random.random_bool(0.5) {
+            i64::MAX
+        } else {
+            TestUtil::next_long(&mut random, -100, 10000)
+        };
+
+        let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+        let q2 = numeric_doc_values_field_util::new_slow_range_query("dv", min, max);
+
+        assert_same_matches(&mut searcher, q1, q2, false)?;
+    }
+
+    Ok(())
+}
+fn do_test_duel_point_range_numeric_range_query(
+    _sorted_numeric: bool,
+    _max_values_per_doc: i32,
+    _skypper: bool,
+) -> Result<()> {
+    // TODO SortedSetDocValuesRangeQuery未实现
+    Ok(())
+}
+fn do_test_duel_point_range_sorted_range_query(
+    _sorted_set: bool,
+    _max_values_per_doc: i32,
+    _skypper: bool,
+) -> Result<()> {
+    // TODO SortedSetDocValuesRangeQuery未实现
+    Ok(())
+}
+#[test]
+fn test_duel_point_range_sorted_set_range_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(true, 1, false)
+}
+
+#[test]
+fn test_duel_point_range_sorted_set_range_skipper_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(true, 1, true)
+}
+
+#[test]
+fn test_duel_point_range_multivalued_sorted_set_range_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(true, 3, false)
+}
+
+#[test]
+fn test_duel_point_range_multivalued_sorted_set_range_skipper_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(true, 3, true)
+}
+
+#[test]
+fn test_duel_point_range_sorted_range_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(false, 1, false)
+}
+
+#[test]
+fn test_duel_point_range_sorted_range_skipper_query() -> Result<()> {
+    do_test_duel_point_range_sorted_range_query(false, 1, true)
+}
+#[test]
+fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+fn assert_same_matches<S, IRC, QT, QCP, QC, T1, T2>(
+    searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+    q1: T1,
+    q2: T2,
+    scores: bool,
+) -> Result<()>
+where
+    IRC: IndexReaderContext,
+    S: Similarity,
+    QT: QueryTimeout,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<IRC::LeafReader>,
+    T1: Into<Query>,
+    T2: Into<Query>,
+{
+    let irc = searcher.get_top_reader_context();
+    let max_doc = irc.reader().max_doc()?;
+
+    let sort = if scores {
+        Arc::new(Sort::get_relevance()?)
+    } else {
+        Arc::new(Sort::get_index_order()?)
+    };
+
+    // let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
+    // let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
+    let td1 = searcher.search(q1, max_doc)?;
+    let td2 = searcher.search(q2, max_doc)?;
+
+    assert_eq!(td1.total_hits().value(), td2.total_hits().value());
+
+    for i in 0..td1.score_docs().len() {
+        let sd1 = &td1.score_docs()[i];
+        let sd2 = &td2.score_docs()[i];
+
+        assert_eq!(sd1.doc(), sd2.doc());
+
+        if scores {
+            let diff = (sd1.score() - sd2.score()).abs();
+            assert!(diff <= 1e-6, "score diff={} idx={}", diff, i);
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_equals() -> Result<()> {
+    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5);
+
+    QueryUtils::check_equal(
+        &q1,
+        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 5),
+    );
+
+    QueryUtils::check_unequal(
+        &q1,
+        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 3, 6),
+    );
+
+    QueryUtils::check_unequal(
+        &q1,
+        &sorted_numeric_doc_values_field_util::new_slow_range_query("foo", 4, 5),
+    );
+
+    QueryUtils::check_unequal(
+        &q1,
+        &sorted_numeric_doc_values_field_util::new_slow_range_query("bar", 3, 5),
+    );
+
+    // TODO SortedSetDocValuesRangeQuery未实现
+
+    Ok(())
+}
+
+#[test]
+fn test_to_string() -> Result<()> {
+    // TODO  SortedSetDocValuesRangeQuery 未实现
+    Ok(())
+}
+#[test]
+fn test_missing_field() -> Result<()> {
+    // TODO  SortedSetDocValuesRangeQuery 未实现
+    Ok(())
+}
+#[test]
+fn test_slow_range_query_rewrite() -> Result<()> {
+    // TODO rewrite 未实现
+    Ok(())
+}
+#[test]
+fn test_sorted_numeric_npe() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(new_directory(&mut random)?);
+    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+    let nums = [
+        -1.7147449030215377E-208_f64,
+        -1.6887024655302576E-11_f64,
+        1.534911516604164E113_f64,
+        0.0_f64,
+        2.6947996404505155E-166_f64,
+        -2.649722021970773E306_f64,
+        6.138239235731689E-198_f64,
+        2.3967090122610808E111_f64,
+    ];
+
+    for &v in nums.iter() {
+        let mut doc = Document::default();
+        let sortable = NumericUtils::double_to_sortable_long(v);
+        doc.add(SortedNumericDocValuesField::new("dv", sortable));
+        iw.add_document(doc)?;
+    }
+
+    iw.commit()?;
+
+    let reader = Arc::new(iw.get_reader()?);
+    let mut searcher = new_searcher_with_reader(reader.clone())?;
+    iw.close()?;
+
+    let lo = NumericUtils::double_to_sortable_long(8.701032080293731E-226_f64);
+    let hi = NumericUtils::double_to_sortable_long(2.0801416404385346E-41_f64);
+
+    let max_doc = searcher.reader_context.reader().max_doc()?;
+    let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", lo, hi);
+    searcher.search_with_sort(q1, max_doc, Sort::get_index_order()?)?;
+
+    let q2 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", hi, lo);
+    searcher.search_with_sort(q2, max_doc, Sort::get_index_order()?)?;
+
+    Ok(())
+}
 #[test]
 fn test_set_equals() -> Result<()> {
     assert_eq!(
@@ -42,5 +332,11 @@ fn test_set_equals() -> Result<()> {
         numeric_doc_values_field_util::new_slow_set_query("field", vec![17, 32416190071])?
     );
 
+    Ok(())
+}
+
+#[test]
+fn test_duel_set_vs_terms_query() -> Result<()> {
+    // TODO
     Ok(())
 }

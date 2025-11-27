@@ -107,21 +107,21 @@ impl LongPoint {
         V: AsRef<[i64]>,
     {
         let value = value.as_ref();
-        Self::new_point_range_query(field, value, value)
+        Self::new_range_query(field, value, value)
     }
-    pub fn new_point_range_query<T, V>(
+    pub fn new_range_query<T, V>(
         field: T,
-        lower_point: V,
-        upper_point: V,
+        lower_value: V,
+        upper_value: V,
     ) -> Result<PointRangeQuery>
     where
         T: Into<String>,
         V: AsRef<[i64]>,
     {
         let field = field.into();
-
-        let mut lower_point = LongPoint::pack(lower_point.as_ref())?;
-        let mut upper_point = LongPoint::pack(upper_point.as_ref())?;
+        let len = lower_value.as_ref().len();
+        let mut lower_point = LongPoint::pack(lower_value.as_ref())?;
+        let mut upper_point = LongPoint::pack(upper_value.as_ref())?;
 
         check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
 
@@ -129,7 +129,7 @@ impl LongPoint {
             field,
             lower_point.take_bytes(),
             upper_point.take_bytes(),
-            lower_point.length.try_into()?, // numDims
+            len.try_into()?, // numDims
             LongPointRangeQuery,
         )
     }

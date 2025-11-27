@@ -442,6 +442,32 @@ pub mod lucene_test_case_util {
         let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
+    pub fn new_searcher_with_wrap<CR>(
+        composite_reader: CR,
+        may_be_wrap: bool,
+    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    where
+        CR: CompositeReader + Clone,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        new_searcher_with_wrap_assert(composite_reader, may_be_wrap, true)
+    }
+    pub fn new_searcher_with_wrap_assert<CR>(
+        composite_reader: CR,
+        may_be_wrap: bool,
+        wrap_with_assertions: bool,
+    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    where
+        CR: CompositeReader + Clone,
+        CR::LeafReader: LeafReader<ParentReader = CR>,
+    {
+        new_searcher_with_threads(
+            composite_reader,
+            may_be_wrap,
+            wrap_with_assertions,
+            random().random_bool(0.5),
+        )
+    }
     pub fn new_searcher_with_threads<CR>(
         composite_reader: CR,
         _may_be_wrap: bool,

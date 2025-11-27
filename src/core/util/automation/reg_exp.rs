@@ -101,7 +101,6 @@ use crate::core::util::error::lucene_error::Result;
 /// the conforming strings must have that length (i.e., prefixed by zeroes).
 #[derive(Debug)]
 pub struct RegExp {
-    // ----- Immutable parsed state -----
     /// The type of expression
     pub kind: RegExpKind,
     /// Child expressions held by a container type expression
@@ -117,14 +116,12 @@ pub struct RegExp {
     pub digits: i32,
     pub from: i32,
     pub to: i32,
-    // ----- Parser variables -----
     pub original_string: String,
     pub flags: i32,
     pub pos: usize,
 }
 
 impl RegExp {
-    // ----- Syntax flags (<= 0xff) -----
     pub const INTERSECTION: i32 = 0x0001;
     pub const EMPTY: i32 = 0x0004;
     pub const ANYSTRING: i32 = 0x0008;
@@ -132,9 +129,7 @@ impl RegExp {
     pub const INTERVAL: i32 = 0x0020;
     pub const ALL: i32 = 0xff;
     pub const NONE: i32 = 0x0000;
-    // ----- Matching flags (> 0xff <= 0xffff) -----
     pub const ASCII_CASE_INSENSITIVE: i32 = 0x0100;
-    // ----- Deprecated flags (> 0xffff) -----
     #[deprecated(note = "This flag will be removed in Lucene 11")]
     pub const DEPRECATED_COMPLEMENT: i32 = 0x10000;
     /// Equivalent to `RegExp(s)` → `RegExp::parse(s, ALL, 0)`

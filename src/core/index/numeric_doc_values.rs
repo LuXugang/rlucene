@@ -76,7 +76,6 @@ macro_rules! either_numeric_docvalues {
             }
         }
 
-        // --- NumericDocValues ---
         impl<$( $T ),+> NumericDocValues for $name<$( $T ),+>
         where
             $( $T: NumericDocValues ),+

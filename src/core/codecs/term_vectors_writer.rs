@@ -100,7 +100,6 @@ pub trait TermVectorsWriter: Accountable {
                 None
             };
 
-            // --- offsets ---
             let (start_offset, end_offset) = if let Some(off_input) = offsets.as_mut() {
                 let start = last_offset + off_input.read_vint()?;
                 let end = start + off_input.read_vint()?;

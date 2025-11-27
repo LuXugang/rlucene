@@ -47,7 +47,6 @@ macro_rules! either_sorted_numeric_docvalues {
     ($vis:vis $name:ident => $numdv:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> { $( $Variant($T), )+ }
 
-        // --- DocValuesIterator ---
         impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
         where
             $( $T: SortedNumericDocValues ),+
