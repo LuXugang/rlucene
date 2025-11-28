@@ -155,10 +155,10 @@ impl SortFiledBase for SortedNumericSortField {
         debug_assert!(self.base.get_field().is_some());
         let get_value = NumericDocValuesProviderImpl::new(
             self.selector,
-            self.base.type_,
+            self.type_,
             self.base.get_field().unwrap().to_string(),
         );
-        match self.base.type_ {
+        match self.type_ {
             SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
                 NumericProvider::NAME.to_string(),
                 self.base.missing_value.clone(),
@@ -190,12 +190,12 @@ impl SortFiledBase for SortedNumericSortField {
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.base.get_field().is_some());
         out.write_string(self.base.get_field().unwrap())?;
-        out.write_string(&self.base.type_.to_string())?;
+        out.write_string(&self.type_.to_string())?;
         out.write_int(if self.base.reverse { 1 } else { 0 })?;
         out.write_int(self.selector as i32)?;
         if let Some(missing_value) = &self.base.missing_value {
             out.write_int(1)?;
-            match self.base.type_ {
+            match self.type_ {
                 SortFieldType::Int => {
                     if let MissingValueEnum::Int(value) = missing_value {
                         out.write_int(*value)?;
@@ -240,7 +240,7 @@ impl SortFiledBase for SortedNumericSortField {
                 | SortFieldType::String => {
                     return Err(LuceneError::illegal_state(format!(
                         "Cannot serialize field of type {:?}.",
-                        self.base.type_
+                        self.type_
                     )));
                 },
             }
@@ -271,34 +271,34 @@ impl SortFiledBase for SortedNumericSortField {
             .expect("field must not be None")
             .to_string();
         let reverse = self.base.reverse;
-        let mut field_comparator: FieldComparatorEnum = match self.base.type_ {
+        let mut field_comparator: FieldComparatorEnum = match self.type_ {
             SortFieldType::Int => {
                 let missing = self.base.missing_value.as_ref().map(|v| v.as_i32());
                 let base = IntComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericIntComparator::new(base, self.selector, self.base.type_).into()
+                SortedNumericIntComparator::new(base, self.selector, self.type_).into()
             },
 
             SortFieldType::Float => {
                 let missing = self.base.missing_value.as_ref().map(|v| v.as_f32());
                 let base = FloatComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericFloatComparator::new(base, self.selector, self.base.type_).into()
+                SortedNumericFloatComparator::new(base, self.selector, self.type_).into()
             },
 
             SortFieldType::Long => {
                 let missing = self.base.missing_value.as_ref().map(|v| v.as_i64());
                 let base = LongComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericLongComparator::new(base, self.selector, self.base.type_).into()
+                SortedNumericLongComparator::new(base, self.selector, self.type_).into()
             },
 
             SortFieldType::Double => {
                 let missing = self.base.missing_value.as_ref().map(|v| v.as_f64());
                 let base = DoubleComparator::new(field, num_hits, missing, reverse, pruning);
-                SortedNumericDoubleComparator::new(base, self.selector, self.base.type_).into()
+                SortedNumericDoubleComparator::new(base, self.selector, self.type_).into()
             },
             _ => {
                 return Err(LuceneError::illegal_state(format!(
                     "Cannot create comparator for type {:?}",
-                    self.base.type_
+                    self.type_
                 )));
             },
         };
@@ -324,13 +324,13 @@ impl Display for SortedNumericSortField {
             buffer.push_str(&format!(" missingValue={missing_value}"));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
-        buffer.push_str(&format!(" type={:?}", self.base.type_));
+        buffer.push_str(&format!(" type={:?}", self.type_));
         write!(f, "{buffer}")
     }
 }
 impl Hash for SortedNumericSortField {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base.type_.hash(state);
+        self.type_.hash(state);
         self.selector.hash(state);
         self.base.hash(state);
     }
@@ -395,7 +395,7 @@ impl PartialEq for SortedNumericSortField {
         if self.base != other.base {
             return false;
         }
-        self.selector == other.selector && self.base.type_ == other.base.type_
+        self.selector == other.selector && self.type_ == other.type_
     }
 }
 impl Eq for SortedNumericSortField {}
