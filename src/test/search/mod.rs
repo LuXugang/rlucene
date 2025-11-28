@@ -19,3 +19,4 @@ pub mod query_utils;
 mod test_doc_values_queries;
 mod test_index_sort_sorted_numeric_doc_values_range_query;
 mod test_sort_optimization;
+mod test_top_field_collector_early_termination;
