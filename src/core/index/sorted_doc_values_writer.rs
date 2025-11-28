@@ -168,7 +168,7 @@ impl SortedDocValuesWriter {
             if doc_id == NO_MORE_DOCS {
                 break;
             }
-            let new_doc_id = sort_map.old_to_new(doc_id);
+            let new_doc_id = sort_map.old_to_new(doc_id)?;
             ords[new_doc_id as usize] = old_values.ord_value()?;
         }
         Ok(ords)

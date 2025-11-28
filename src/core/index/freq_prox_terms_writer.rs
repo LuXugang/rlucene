@@ -563,7 +563,7 @@ where
             if self.docs.len() <= i {
                 ArrayUtil::grow(&mut self.docs)?;
             }
-            self.docs[i] = doc_map.old_to_new(doc);
+            self.docs[i] = doc_map.old_to_new(doc)?;
             i += 1;
         }
 
@@ -795,7 +795,7 @@ where
                 ArrayUtil::grow_exact(&mut self.offsets, new_length)?;
             }
 
-            self.docs[i] = doc_map.old_to_new(doc);
+            self.docs[i] = doc_map.old_to_new(doc)?;
             self.offsets[i] = self.buffer.size();
 
             self.add_positions(&mut postings_enum)?;

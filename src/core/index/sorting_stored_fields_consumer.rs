@@ -124,7 +124,7 @@ where
         for doc_id in 0..max_doc {
             visitor.writer.start_document()?;
             let mapped_doc = if let Some(sort_map) = &sort_map {
-                sort_map.new_to_old(doc_id)
+                sort_map.new_to_old(doc_id)?
             } else {
                 doc_id
             };

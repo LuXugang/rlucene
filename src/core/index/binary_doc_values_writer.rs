@@ -440,7 +440,7 @@ impl BinaryDVs {
             if doc_id == NO_MORE_DOCS {
                 break;
             }
-            let new_doc = sort_map.old_to_new(doc_id) as usize;
+            let new_doc = sort_map.old_to_new(doc_id)? as usize;
             let val = old_values.binary_value()?;
             values.append(val.as_ref())?;
             offsets[new_doc] = offset;

@@ -765,7 +765,7 @@ impl DocOrds {
                 break;
             }
 
-            let new_doc_id = sort_map.old_to_new(doc_id);
+            let new_doc_id = sort_map.old_to_new(doc_id)?;
             let start_offset = ord_offset;
             let doc_value_count = old_values.doc_value_count()?;
             ord_offset += doc_value_count as i64;

@@ -404,7 +404,7 @@ where
             break;
         }
 
-        let new_doc_id = sort_map.old_to_new(doc_id);
+        let new_doc_id = sort_map.old_to_new(doc_id)?;
         if let Some(bits) = &mut docs_with_field {
             bits.set(new_doc_id);
         }

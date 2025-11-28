@@ -622,7 +622,7 @@ impl LongValues {
             if doc_id == NO_MORE_DOCS {
                 break;
             }
-            let new_doc_id = sort_map.old_to_new(doc_id);
+            let new_doc_id = sort_map.old_to_new(doc_id)?;
             let num_values = old_values.doc_value_count()?;
             value_builder.add(num_values as i64)?;
             offsets[new_doc_id as usize] = offset_index;

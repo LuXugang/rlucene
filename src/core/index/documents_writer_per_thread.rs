@@ -776,17 +776,17 @@ where
     pub(crate) fn pending_files_to_delete(&self) -> &HashSet<String> {
         &self.files_to_delete
     }
-    fn sort_live_docs(live_docs: &impl Bits, sort_map: &impl DocMap) -> FixedBitSet {
+    fn sort_live_docs(live_docs: &impl Bits, sort_map: &impl DocMap) -> Result<FixedBitSet> {
         let live_docs_len = live_docs.length();
         let mut sorted_live_docs = FixedBitSet::new(live_docs_len);
         sorted_live_docs.set_with_range(0, live_docs_len);
 
         for i in 0..live_docs_len {
             if !live_docs.get(i) {
-                sorted_live_docs.clear_with_index(sort_map.old_to_new(i));
+                sorted_live_docs.clear_with_index(sort_map.old_to_new(i)?);
             }
         }
-        sorted_live_docs
+        Ok(sorted_live_docs)
     }
     /// Seals the `SegmentInfo` for the new flushed segment and persists the deleted documents [`FixedBitSet`].
     pub(crate) fn seal_flushed_segment<FN, DM>(
@@ -880,7 +880,7 @@ where
                     match sort_map {
                         Some(map) => {
                             LATEST_CODEC.live_docs_format().write_live_docs(
-                                &Self::sort_live_docs(live_docs, map.as_ref()),
+                                &Self::sort_live_docs(live_docs, map.as_ref())?,
                                 self.directory.as_ref(),
                                 new_segment,
                                 del_count,

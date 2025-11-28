@@ -333,7 +333,9 @@ where
     }
 
     fn get_doc_id(&self, i: usize) -> i32 {
-        self.doc_map.old_to_new(self.input.get_doc_id(i))
+        self.doc_map
+            .old_to_new(self.input.get_doc_id(i))
+            .expect("doc map should return valid mapping")
     }
 
     fn swap(&mut self, i: usize, j: usize) {
@@ -403,12 +405,12 @@ where
     DM: DocMap,
 {
     fn visit(&mut self, doc_id: i32) -> Result<()> {
-        self.visitor.visit(self.doc_map.old_to_new(doc_id))
+        self.visitor.visit(self.doc_map.old_to_new(doc_id)?)
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.visitor
-            .visit_with_packed_value(self.doc_map.old_to_new(doc_id), packed_value)
+            .visit_with_packed_value(self.doc_map.old_to_new(doc_id)?, packed_value)
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {

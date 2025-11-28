@@ -40,14 +40,14 @@ impl Sorter {
     }
 
     /// Check consistency of a [`DocMap`], useful for assertions.
-    pub(crate) fn is_consistent<DM>(doc_map: &DM) -> bool
+    pub(crate) fn is_consistent<DM>(doc_map: &DM) -> Result<bool>
     where
         DM: DocMap,
     {
         let max_doc = doc_map.size();
         for i in 0..max_doc {
-            let new_id = doc_map.old_to_new(i);
-            let old_id = doc_map.new_to_old(new_id);
+            let new_id = doc_map.old_to_new(i)?;
+            let old_id = doc_map.new_to_old(new_id)?;
             debug_assert!(
                 (0..max_doc).contains(&new_id),
                 "doc IDs must be in [0-{max_doc}), got {new_id}"
@@ -58,10 +58,10 @@ impl Sorter {
                 "mapping is inconsistent: {i} --oldToNew--> {new_id} --newToOld--> {old_id}"
             );
             if old_id != i || new_id < 0 || new_id >= max_doc {
-                return false;
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
 
     /// Returns the identifier of this [`Sorter`].
@@ -150,10 +150,10 @@ impl Display for Sorter {
 pub trait DocMap {
     /// Given a doc ID from the original index, return its ordinal in the sorted
     /// index.
-    fn old_to_new(&self, doc_id: i32) -> i32;
+    fn old_to_new(&self, doc_id: i32) -> Result<i32>;
 
     /// Given the ordinal of a doc ID, return its doc ID in the original index.
-    fn new_to_old(&self, doc_id: i32) -> i32;
+    fn new_to_old(&self, doc_id: i32) -> Result<i32>;
 
     /// Return the number of documents in this map.
     /// This must equal the number of documents in the sorted `LeafReader`.
@@ -246,12 +246,14 @@ impl DocMapImpl {
     }
 }
 impl DocMap for DocMapImpl {
-    fn old_to_new(&self, doc_id: i32) -> i32 {
-        self.old_to_new.get(doc_id as i64).expect("should not fail") as i32
+    fn old_to_new(&self, doc_id: i32) -> Result<i32> {
+        let v = self.old_to_new.get(doc_id as i64)?.try_into()?;
+        Ok(v)
     }
 
-    fn new_to_old(&self, doc_id: i32) -> i32 {
-        self.new_to_old.get(doc_id as i64).expect("should not fail") as i32
+    fn new_to_old(&self, doc_id: i32) -> Result<i32> {
+        let v = self.new_to_old.get(doc_id as i64)?.try_into()?;
+        Ok(v)
     }
 
     fn size(&self) -> i32 {

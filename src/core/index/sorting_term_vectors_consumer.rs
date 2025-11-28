@@ -225,7 +225,7 @@ where
             let max_doc = segment_info.max_doc()?;
             for doc_id in 0..max_doc {
                 let read_id = match sort_map {
-                    Some(sm) => sm.new_to_old(doc_id),
+                    Some(sm) => sm.new_to_old(doc_id)?,
                     None => doc_id,
                 };
                 let vectors = reader.get(read_id)?;

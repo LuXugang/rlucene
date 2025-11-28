@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 use crate::core::index::sorter::DocMap;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyDocMap;
 
 impl DocMap for DummyDocMap {
-    fn old_to_new(&self, _doc_id: i32) -> i32 {
+    fn old_to_new(&self, _doc_id: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn new_to_old(&self, _doc_id: i32) -> i32 {
+    fn new_to_old(&self, _doc_id: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
