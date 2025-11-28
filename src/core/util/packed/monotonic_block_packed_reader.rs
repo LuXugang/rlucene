@@ -124,7 +124,7 @@ impl MonotonicBlockPackedReader {
     }
 }
 pub fn expected(origin: i64, average: f32, index: i32) -> i64 {
-    origin + (average * index as f32).round() as i64
+    origin + ((average as f64) * (index as i64 as f64)) as i64
 }
 
 pub struct MonotonicLongValues {

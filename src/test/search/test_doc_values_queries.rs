@@ -31,6 +31,7 @@ use crate::core::document::sorted_set_doc_values_field::{
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort::Sort;
 use crate::core::search::QueryCache;
@@ -39,6 +40,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -85,17 +87,17 @@ fn test_duel_point_range_numeric_range_with_skipper_query() -> Result<()> {
     do_test_duel_point_range_numeric_range_query(false, 1, true)
 }
 
-// TODO 添加了索引排序后 测试未通过
 #[test]
 fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
-    let config = IndexWriterConfig::new();
+    let mut config = IndexWriterConfig::new();
     let reverse = random.random_bool(0.5);
-    // let reverse = true;
-    // config.set_index_sort(Sort::with_fields(vec![
-    //     SortField::with_reverse(Some("dv"), SortFieldType::Long,reverse)?
-    // ])?)?;
+    config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
+        Some("dv"),
+        SortFieldType::Long,
+        reverse,
+    )?])?)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
     let num_docs = at_least(&mut random, 1000);
@@ -105,7 +107,6 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
 
         doc.add(NumericDocValuesField::indexed_field("dv", value));
         doc.add(LongPoint::new("idx", vec![value])?);
-
         iw.add_document(doc)?;
     }
 
@@ -134,7 +135,6 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
 
     Ok(())
 }
-// TODO 添加了索引排序后 测试未通过
 fn do_test_duel_point_range_numeric_range_query(
     sorted_numeric: bool,
     max_values_per_doc: i32,
@@ -149,15 +149,13 @@ fn do_test_duel_point_range_numeric_range_query(
         let iw = if sorted_numeric || random.random_bool(0.5) {
             RandomIndexWriter::new(&mut random, dir.clone())
         } else {
-            let config = IndexWriterConfig::new();
+            let mut config = IndexWriterConfig::new();
             let reverse = random.random_bool(0.5);
-            // config.set_index_sort(
-            //     Sort::with_fields(vec![SortField::with_reverse(
-            //         Some("dv"),
-            //         SortFieldType::Long,
-            //         reverse,
-            //     )?])?,
-            // )?;
+            config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
+                Some("dv"),
+                SortFieldType::Long,
+                reverse,
+            )?])?)?;
             RandomIndexWriter::with_config(&mut random, dir.clone(), config)
         };
 
@@ -225,7 +223,6 @@ fn do_test_duel_point_range_numeric_range_query(
 
     Ok(())
 }
-// TODO 添加了索引排序后 测试未通过
 fn do_test_duel_point_range_sorted_range_query(
     sorted_set: bool,
     max_values_per_doc: i32,
@@ -237,19 +234,16 @@ fn do_test_duel_point_range_sorted_range_query(
     for _ in 0..iters {
         let dir = Arc::new(new_directory(&mut random)?);
 
-        // ----- IndexWriter -----
         let iw = if sorted_set || random.random_bool(0.5) {
             RandomIndexWriter::new(&mut random, dir.clone())
         } else {
-            let config = IndexWriterConfig::new();
+            let mut config = IndexWriterConfig::new();
             let reverse = random.random_bool(0.5);
-            // config.set_index_sort(
-            //     Sort::with_fields(vec![SortField::with_reverse(
-            //         Some("dv"),
-            //         SortFieldType::String,
-            //         reverse,
-            //     )?])?,
-            // )?;
+            config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
+                Some("dv"),
+                SortFieldType::String,
+                reverse,
+            )?])?)?;
             RandomIndexWriter::with_config(&mut random, dir.clone(), config)
         };
 
@@ -338,7 +332,6 @@ fn do_test_duel_point_range_sorted_range_query(
 
             let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
 
-            // slow range query
             let q2 = if sorted_set {
                 sorted_set_doc_values_field_util::new_slow_range_query(
                     "dv",
@@ -409,21 +402,21 @@ fn test_duel_point_range_sorted_range_query() -> Result<()> {
 fn test_duel_point_range_sorted_range_skipper_query() -> Result<()> {
     do_test_duel_point_range_sorted_range_query(false, 1, true)
 }
-// TODO 添加了索引排序后 测试未通过
 #[test]
 fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     let mut random = random();
 
     let dir = Arc::new(new_directory(&mut random)?);
 
-    let config = IndexWriterConfig::new();
+    let mut config = IndexWriterConfig::new();
     let reverse = random.random_bool(0.5);
-    // config.set_index_sort(Sort::with_fields(vec![
-    //     SortField::with_reverse(Some("dv"), SortFieldType::String, reverse)?
-    // ])?)?;
+    config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
+        Some("dv"),
+        SortFieldType::String,
+        reverse,
+    )?])?)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
-    // ----- index random documents -----
     let num_docs = at_least(&mut random, 1000);
     for _ in 0..num_docs {
         let value = TestUtil::next_long(&mut random, -100, 10000);
@@ -526,11 +519,8 @@ where
         Arc::new(Sort::get_index_order()?)
     };
 
-    // let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
-    // let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
-    let td1 = searcher.search(q1, max_doc)?;
-    let td2 = searcher.search(q2, max_doc)?;
-
+    let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
+    let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
     assert_eq!(td1.total_hits().value(), td2.total_hits().value());
 
     for i in 0..td1.score_docs().len() {

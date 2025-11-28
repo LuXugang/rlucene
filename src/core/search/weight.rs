@@ -279,7 +279,7 @@ where
             && min == 0
             && max == NO_MORE_DOCS
         {
-            score_all(collector, accept_docs, &mut self.scorer)?;
+            score_all(collector, accept_docs, &mut self.scorer, has_two_phase)?;
             Ok(NO_MORE_DOCS)
         } else {
             score_range(
@@ -289,6 +289,7 @@ where
                 max,
                 &mut self.scorer,
                 has_competitive_iterator,
+                has_two_phase,
             )
         }
     }
@@ -339,14 +340,17 @@ where
 }
 /// Specialized method to bulk-score all hits;
 /// we separate this from scoreRange to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_all<C, B, S>(collector: &mut C, accept_docs: Option<&B>, scorer: &mut S) -> Result<()>
+fn score_all<C, B, S>(
+    collector: &mut C,
+    accept_docs: Option<&B>,
+    scorer: &mut S,
+    has_two_phase: bool,
+) -> Result<()>
 where
     C: LeafCollector,
     B: Bits,
     S: Scorer,
 {
-    let has_two_phase = scorer.two_phase_iterator().is_some();
-
     if has_two_phase {
         loop {
             let (doc, matches) = {
@@ -370,9 +374,15 @@ where
         }
     } else {
         loop {
-            let doc = {
-                let mut iter = scorer.iterator();
-                iter.next_doc()?
+            let doc = match has_two_phase {
+                true => {
+                    let mut tpi_opt = scorer.two_phase_iterator();
+                    tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
+                },
+                false => {
+                    let mut iter = scorer.iterator();
+                    iter.next_doc()?
+                },
             };
             if doc == NO_MORE_DOCS {
                 break;
@@ -393,6 +403,7 @@ fn score_range<C, B, S>(
     max: i32,
     scorer: &mut S,
     mut has_competitive: bool,
+    has_two_phase: bool,
 ) -> Result<i32>
 where
     C: LeafCollector,
@@ -409,22 +420,18 @@ where
             has_competitive = false;
         }
     }
-
     let mut doc = {
-        let mut iter = scorer.iterator();
-        let d = iter.doc_id();
-        if d < min {
-            if d == min - 1 {
-                iter.next_doc()?
-            } else {
-                iter.advance(min)?
-            }
-        } else {
-            d
+        match has_two_phase {
+            true => {
+                let mut two_phase = scorer.two_phase_iterator();
+                next_doc(&mut two_phase.as_mut().unwrap().approximation_mut(), min)?
+            },
+            false => {
+                let mut iter = scorer.iterator();
+                next_doc(&mut iter, min)?
+            },
         }
     };
-
-    let has_two_phase = scorer.two_phase_iterator().is_some();
 
     if !has_two_phase && !has_competitive {
         while doc < max {
@@ -432,8 +439,16 @@ where
                 collector.collect(doc, scorer)?;
             }
             doc = {
-                let mut iter = scorer.iterator();
-                iter.next_doc()?
+                match has_two_phase {
+                    true => {
+                        let mut tpi_opt = scorer.two_phase_iterator();
+                        tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
+                    },
+                    false => {
+                        let mut iter = scorer.iterator();
+                        iter.next_doc()?
+                    },
+                }
             };
         }
         return Ok(doc);
@@ -448,7 +463,20 @@ where
                 competitive_doc = competitive_iterator.advance(doc)?;
             }
             if competitive_doc != doc {
-                doc = scorer.iterator().advance(competitive_doc)?;
+                doc = match has_two_phase {
+                    true => {
+                        let mut tpi_opt = scorer.two_phase_iterator();
+                        tpi_opt
+                            .as_mut()
+                            .unwrap()
+                            .approximation()
+                            .advance(competitive_doc)?
+                    },
+                    false => {
+                        let mut iter = scorer.iterator();
+                        iter.advance(competitive_doc)?
+                    },
+                };
                 continue;
             }
         }
@@ -464,12 +492,32 @@ where
                 collector.collect(doc, scorer)?;
             }
         }
-        doc = scorer.iterator().next_doc()?
+        doc = match has_two_phase {
+            true => {
+                let mut tpi_opt = scorer.two_phase_iterator();
+                tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
+            },
+            false => {
+                let mut iter = scorer.iterator();
+                iter.next_doc()?
+            },
+        };
     }
 
     Ok(doc)
 }
-
+fn next_doc(iter: &mut impl DocIdSetIterator, min: i32) -> Result<i32> {
+    let d = iter.doc_id();
+    if d < min {
+        if d == min - 1 {
+            iter.next_doc()
+        } else {
+            iter.advance(min)
+        }
+    } else {
+        Ok(d)
+    }
+}
 #[macro_export]
 macro_rules! either_weight {
     (

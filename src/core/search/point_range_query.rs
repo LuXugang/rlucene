@@ -701,7 +701,7 @@ where
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
         if self.cost == -1 {
             // Computing the cost may be expensive, so only do it if necessary
-            self.cost = self.values.estimate_doc_count(&mut self.visitor)?;
+            self.cost = self.values.estimate_doc_count(&self.visitor)?;
             debug_assert!(self.cost >= 0);
         }
         Ok(self.cost)

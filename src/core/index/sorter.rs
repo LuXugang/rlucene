@@ -115,7 +115,7 @@ impl Sorter {
         }
         let old_to_new = old_to_new_builder.build()?;
 
-        Ok(Some(DocMapImpl::new(new_to_old, old_to_new, max_doc)))
+        Ok(Some(DocMapImpl::new(old_to_new, new_to_old, max_doc)))
     }
     /// Returns a mapping from the old document ID to its new location in the sorted index.
     ///
