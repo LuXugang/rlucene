@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{
-    IndexSorterEnumSorter, MissingValueEnum, SortField, SortFiledBase,
+    IndexSorterEnumSorter, MissingValueEnum, SortField, SortFieldType, SortFiledBase,
 };
 use crate::core::search::sorted_numeric_sort_field::{IndexSorterNumeric, SortedNumericSortField};
 use crate::core::search::sorted_set_sort_field::{SortedDocValuesProviderImpl, SortedSetSortField};
@@ -48,6 +48,13 @@ impl SortFieldEnum {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_field(),
             SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_field(),
             SortFieldEnum::Sorter(sort_field) => sort_field.get_field(),
+        }
+    }
+    pub fn get_type(&self) -> SortFieldType {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_type(),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_type(),
+            SortFieldEnum::Sorter(sort_field) => sort_field.get_type(),
         }
     }
 }

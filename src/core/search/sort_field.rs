@@ -235,8 +235,8 @@ impl SortField {
     ///
     /// # Returns
     /// One of the constants: `SCORE`, `DOC`, `STRING`, `INT`, or `FLOAT`.
-    pub fn get_type(&self) -> &SortFieldType {
-        &self.type_
+    pub fn get_type(&self) -> SortFieldType {
+        self.type_
     }
     /// Returns whether the sort should be reversed.
     ///

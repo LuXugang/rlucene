@@ -56,6 +56,7 @@ use std::hash::{Hash, Hasher};
 pub struct SortedNumericSortField {
     selector: SortedNumericSelectorType,
     pub(crate) base: SortField,
+    pub(crate) type_: SortFieldType,
 }
 impl SortedNumericSortField {
     /// Creates a sort by the minimum value in the set for the document.
@@ -109,10 +110,11 @@ impl SortedNumericSortField {
     where
         T: Into<String>,
     {
-        let sort_field = SortField::with_reverse(Some(field), sort_field_type, reverse)?;
+        let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedNumericSortField {
             selector,
             base: sort_field,
+            type_: sort_field_type,
         })
     }
     pub fn read_selector_type(
@@ -127,6 +129,10 @@ impl SortedNumericSortField {
                 "Cannot deserialize SortedNumericSortField - unknown selector type: {selector_type}"
             ))),
         }
+    }
+
+    pub fn get_numeric_type(&self) -> SortFieldType {
+        self.type_
     }
 }
 
