@@ -73,7 +73,11 @@ impl IntPoint {
     }
 
     /// Pack an int array into bytes
-    pub fn pack(point: &[i32]) -> Result<BytesRef<Vec<u8>>> {
+    pub fn pack<P>(point: P) -> Result<BytesRef<Vec<u8>>>
+    where
+        P: AsRef<[i32]>,
+    {
+        let point = point.as_ref();
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),
@@ -115,8 +119,8 @@ impl IntPoint {
     {
         let field = field.into();
         let len = lower_value.as_ref().len();
-        let mut lower_point = IntPoint::pack(lower_value.as_ref())?;
-        let mut upper_point = IntPoint::pack(upper_value.as_ref())?;
+        let mut lower_point = IntPoint::pack(lower_value)?;
+        let mut upper_point = IntPoint::pack(upper_value)?;
         check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
         PointRangeQuery::new(
             field,

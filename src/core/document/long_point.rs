@@ -72,7 +72,11 @@ impl LongPoint {
     }
 
     /// Pack a long array into bytes
-    pub fn pack(point: &[i64]) -> Result<BytesRef<Vec<u8>>> {
+    pub fn pack<P>(point: P) -> Result<BytesRef<Vec<u8>>>
+    where
+        P: AsRef<[i64]>,
+    {
+        let point = point.as_ref();
         if point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "point must not be 0 dimensions".to_string(),

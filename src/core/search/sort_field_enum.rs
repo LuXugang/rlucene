@@ -57,6 +57,13 @@ impl SortFieldEnum {
             SortFieldEnum::Sorter(sort_field) => sort_field.get_type(),
         }
     }
+    pub fn get_missing_value(&self) -> Option<&MissingValueEnum> {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.base.get_missing_value(),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.base.get_missing_value(),
+            SortFieldEnum::Sorter(sort_field) => sort_field.get_missing_value(),
+        }
+    }
 }
 
 impl SortFiledBase for SortFieldEnum {
