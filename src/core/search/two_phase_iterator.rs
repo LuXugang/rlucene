@@ -18,6 +18,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, Either4DocIdSetIterator,
     Either5DocIdSetIterator, Either6DocIdSetIterator, Either7DocIdSetIterator,
+    Either8DocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -259,4 +260,9 @@ either_two_phase_iterator_gat!(
     pub Either7TwoPhaseIterator
     => { disi: Either7DocIdSetIterator }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
+);
+either_two_phase_iterator_gat!(
+    pub Either8TwoPhaseIterator
+    => { disi: Either8DocIdSetIterator }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
