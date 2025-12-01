@@ -106,7 +106,7 @@ where
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        Ok(self.cmp.byte_at(&self.scratch_bytes1, k))
+        self.cmp.byte_at(&self.scratch_bytes1, k)
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
@@ -152,11 +152,11 @@ where
         self.delegate_sorter
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
         if self.k.is_some() {
-            Ok(self.cmp.compare_with_offset(
+            self.cmp.compare_with_offset(
                 &self.scratch_bytes1,
                 &self.scratch_bytes2,
                 self.k.unwrap(),
-            ))
+            )
         } else {
             self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
         }

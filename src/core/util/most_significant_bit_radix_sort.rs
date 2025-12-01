@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRefBuilder;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::intro_sorter::IntroSorter;
 use crate::core::util::{Sorter, check_range};
 
@@ -404,7 +404,7 @@ pub trait MSBRadixSorterBase: Sorter {
     /// accommodate the `-1` case, which differs from Java's default integer
     /// handling.
     fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32> {
-        unimplemented!("byte_at() must be implemented if it needs to be used")
+        Err(LuceneError::not_implemented(""))
     }
 
     fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter

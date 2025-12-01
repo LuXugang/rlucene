@@ -561,7 +561,7 @@ where
         let mut scratch = BytesRefBuilder::new();
         let mut scratch_bytes = BytesRef::new();
         self.get(&mut scratch, &mut scratch_bytes, i)?;
-        Ok(self.cmp.byte_at(&scratch_bytes, k))
+        self.cmp.byte_at(&scratch_bytes, k)
     }
 
     fn reorder(

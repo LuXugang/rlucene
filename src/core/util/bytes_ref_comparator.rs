@@ -16,7 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::util::comparator::Comparator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Specialized [`BytesRef`] comparator that `StringSorter` has optimizations
 /// for.
@@ -28,20 +28,25 @@ pub trait BytesRefComparator {
     /// all bytes that are useful for comparisons are exhausted. This may
     /// only be called with a value of `i` between `0` (inclusive) and
     /// `compared_bytes_count` (exclusive).
-    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> i32 {
-        unimplemented!("byte_at must be implemented if it needs to be used")
+    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> Result<i32> {
+        Err(LuceneError::not_implemented(""))
     }
-    fn compare_with_offset(&self, o1: &BytesRef<Vec<u8>>, o2: &BytesRef<Vec<u8>>, k: i32) -> i32 {
+    fn compare_with_offset(
+        &self,
+        o1: &BytesRef<Vec<u8>>,
+        o2: &BytesRef<Vec<u8>>,
+        k: i32,
+    ) -> Result<i32> {
         for i in k..self.compared_bytes_count() {
-            let b1 = self.byte_at(o1, i);
-            let b2 = self.byte_at(o2, i);
+            let b1 = self.byte_at(o1, i)?;
+            let b2 = self.byte_at(o2, i)?;
             if b1 != b2 {
-                return b1 - b2;
+                return Ok(b1 - b2);
             } else if b1 == -1 {
                 break;
             }
         }
-        0
+        Ok(0)
     }
     fn compared_bytes_count(&self) -> i32 {
         unimplemented!("compared_bytes_count must be implemented if it needs to be used")
@@ -63,20 +68,25 @@ impl Comparator<BytesRef<Vec<u8>>> for Natural {
     const TYPE: &'static str = BYTES_REF_COMPARATOR_TYPE;
 
     fn compare(&self, a: &BytesRef<Vec<u8>>, b: &BytesRef<Vec<u8>>) -> Result<i32> {
-        Ok(self.compare_with_offset(a, b, 0))
+        self.compare_with_offset(a, b, 0)
     }
 }
 
 impl BytesRefComparator for Natural {
-    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> i32 {
+    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> Result<i32> {
         if bytes_ref.length <= i as usize {
-            -1
+            Ok(-1)
         } else {
-            bytes_ref.bytes[i as usize + bytes_ref.offset] as i32
+            Ok(bytes_ref.bytes[i as usize + bytes_ref.offset] as i32)
         }
     }
 
-    fn compare_with_offset(&self, o1: &BytesRef<Vec<u8>>, o2: &BytesRef<Vec<u8>>, k: i32) -> i32 {
+    fn compare_with_offset(
+        &self,
+        o1: &BytesRef<Vec<u8>>,
+        o2: &BytesRef<Vec<u8>>,
+        k: i32,
+    ) -> Result<i32> {
         let start1 = o1.offset + k as usize;
         let start2 = o2.offset + k as usize;
 
@@ -85,10 +95,10 @@ impl BytesRefComparator for Natural {
 
         for (byte_a, byte_b) in slice1.iter().zip(slice2.iter()) {
             if byte_a != byte_b {
-                return *byte_a as i32 - *byte_b as i32;
+                return Ok(*byte_a as i32 - *byte_b as i32);
             }
         }
-        (slice1.len() as i32) - (slice2.len() as i32)
+        Ok((slice1.len() as i32) - (slice2.len() as i32))
     }
 
     fn compared_bytes_count(&self) -> i32 {

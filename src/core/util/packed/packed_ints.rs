@@ -756,7 +756,7 @@ pub trait ReaderIterator: Display {
     ///
     /// Returns an error if there is an issue decoding the next value.
     fn next(&mut self) -> Result<i64> {
-        unimplemented!("next() must be implemented if it needs to be used")
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns at least 1 and at most `count` next values.
@@ -773,13 +773,13 @@ pub trait ReaderIterator: Display {
     fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef>;
 
     /// Returns the number of bits per value.
-    fn get_bits_per_value(&self) -> i32 {
-        unimplemented!("get_bits_per_value() must be implemented if it needs to be used")
+    fn get_bits_per_value(&self) -> Result<i32> {
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns the total number of values.
-    fn size(&self) -> i32 {
-        unimplemented!("size() must be implemented if it needs to be used")
+    fn size(&self) -> Result<i32> {
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns the current position.
@@ -831,12 +831,12 @@ where
         self.sub_reader.next_batch(count)
     }
 
-    fn get_bits_per_value(&self) -> i32 {
-        self.bits_per_value
+    fn get_bits_per_value(&self) -> Result<i32> {
+        Ok(self.bits_per_value)
     }
 
-    fn size(&self) -> i32 {
-        self.value_count
+    fn size(&self) -> Result<i32> {
+        Ok(self.value_count)
     }
 
     fn ord(&self) -> i32 {
