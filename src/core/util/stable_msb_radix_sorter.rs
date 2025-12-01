@@ -97,7 +97,7 @@ pub trait StableMSBRadixSorterBase: MSBRadixSorterBase {
 
 pub struct MergeSorter<T>
 where
-    T: Sorter + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     pub(crate) delegate_sorter: T,
     pub(crate) pivot_index: i32,
@@ -105,7 +105,7 @@ where
 
 impl<T> MergeSorter<T>
 where
-    T: Sorter + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
         if to - from < BINARY_SORT_THRESHOLD {
@@ -174,7 +174,7 @@ where
 }
 impl<T> Sorter for MergeSorter<T>
 where
-    T: Sorter + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter.compare(i, j)
@@ -202,7 +202,7 @@ where
 
 pub struct MergeSorterImpl<'a, T>
 where
-    T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     k: i32,
     max_length: i32,
@@ -210,11 +210,11 @@ where
 }
 impl<'a, T> MergeSorterImpl<'a, T>
 where
-    T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     pub fn new(k: i32, max_length: i32, delegate_sorter: &'a mut T) -> MergeSorterImpl<'a, T>
     where
-        T: Sorter + StableMSBRadixSorterBase,
+        T: StableMSBRadixSorterBase,
     {
         MergeSorterImpl {
             k,
@@ -225,7 +225,7 @@ where
 }
 impl<T> Sorter for MergeSorterImpl<'_, T>
 where
-    T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
@@ -251,7 +251,7 @@ impl<T> MSBRadixSorterBase for MergeSorterImpl<'_, T> where
 
 impl<T> StableMSBRadixSorterBase for MergeSorterImpl<'_, T>
 where
-    T: Sorter + MSBRadixSorterBase + StableMSBRadixSorterBase,
+    T: StableMSBRadixSorterBase,
 {
     fn save(&mut self, i: i32, j: i32) {
         self.delegate_sorter.save(i, j);

@@ -45,7 +45,7 @@ const MIN_GALLOP: i32 = 7;
 /// This is an internal API.
 pub struct TimSorter<T>
 where
-    T: Sorter + TimSorterBase,
+    T: TimSorterBase,
 {
     max_temp_slots: i32,
     min_run: i32,
@@ -54,7 +54,7 @@ where
     run_ends: Vec<i32>,
     delegate_sorter: T,
 }
-impl<T: Sorter + TimSorterBase> TimSorter<T> {
+impl<T: TimSorterBase> TimSorter<T> {
     pub fn new(max_temp_slots: i32, delegate_sorter: T) -> TimSorter<T> {
         TimSorter {
             max_temp_slots,
@@ -362,7 +362,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
 }
 impl<T> Sorter for TimSorter<T>
 where
-    T: Sorter + TimSorterBase,
+    T: TimSorterBase,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.delegate_sorter.compare(i, j)
@@ -454,7 +454,7 @@ where
     }
 }
 
-pub trait TimSorterBase {
+pub trait TimSorterBase: Sorter {
     ///Copy data from slot `src` to slot `dest`
     fn copy(&mut self, src: i32, dest: i32);
 

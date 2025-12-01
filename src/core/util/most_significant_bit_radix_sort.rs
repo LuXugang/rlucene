@@ -29,7 +29,7 @@ pub(crate) const HISTOGRAM_SIZE: usize = 257;
 pub(crate) const LENGTH_THRESHOLD: usize = 100;
 pub struct MSBRadixSorter<T>
 where
-    T: Sorter + MSBRadixSorterBase,
+    T: MSBRadixSorterBase,
 {
     /// One histogram per recursion level.
     histograms: Vec<Vec<i32>>,
@@ -43,7 +43,7 @@ where
 }
 impl<T> MSBRadixSorter<T>
 where
-    T: Sorter + MSBRadixSorterBase,
+    T: MSBRadixSorterBase,
 {
     /// Sole constructor.
     ///
@@ -294,7 +294,7 @@ where
 
 impl<T> Sorter for MSBRadixSorter<T>
 where
-    T: Sorter + MSBRadixSorterBase,
+    T: MSBRadixSorterBase,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
@@ -316,7 +316,7 @@ where
 
 pub struct MSBRadixIntroSorterImpl<'a, T>
 where
-    T: Sorter + MSBRadixSorterBase,
+    T: MSBRadixSorterBase,
 {
     pivot: BytesRefBuilder<Vec<u8>>,
     max_length: i32,
@@ -326,7 +326,7 @@ where
 
 impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
 where
-    T: Sorter + MSBRadixSorterBase,
+    T: MSBRadixSorterBase,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
@@ -384,7 +384,7 @@ where
     }
 }
 
-impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
+impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: MSBRadixSorterBase {}
 
 pub trait MSBRadixSorterBase: Sorter {
     /// Returns the k-th byte of the entry at the given index `i`, or `-1` if

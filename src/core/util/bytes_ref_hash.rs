@@ -789,7 +789,7 @@ where
 /// limitations, a new MSBStringHashRadixSorter is currently being used.
 pub struct MSBStringHashRadixSorter<'a, T, C>
 where
-    T: Sorter + StringSorterBase,
+    T: StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     cmp: &'a mut C,
@@ -797,7 +797,7 @@ where
 }
 impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
 where
-    T: Sorter + StringSorterBase,
+    T: StringSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
@@ -810,7 +810,7 @@ where
 
 impl<T, C> Sorter for MSBStringHashRadixSorter<'_, T, C>
 where
-    T: Sorter + StringSorterBase + MSBRadixSorterBase,
+    T: StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -820,7 +820,7 @@ where
 
 impl<T, C> MSBRadixSorterBase for MSBStringHashRadixSorter<'_, T, C>
 where
-    T: Sorter + StringSorterBase + MSBRadixSorterBase,
+    T: StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
@@ -828,8 +828,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        self.delegate_sorter
-            .fall_back_sorter::<T, C>(self.cmp, Some(k))
+        self.delegate_sorter.fall_back_sorter(self.cmp, Some(k))
     }
 
     fn reorder(
