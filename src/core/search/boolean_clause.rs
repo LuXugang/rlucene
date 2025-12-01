@@ -42,6 +42,9 @@ impl BooleanClause {
     pub fn is_scoring(&self) -> bool {
         matches!(self.occur, Occur::Must | Occur::Should)
     }
+    pub fn occur(&self) -> &Occur {
+        &self.occur
+    }
 }
 
 /// Specifies how clauses are to occur in matching documents.
