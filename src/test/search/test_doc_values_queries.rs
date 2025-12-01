@@ -719,7 +719,7 @@ fn test_sorted_numeric_npe() -> Result<()> {
     let lo = NumericUtils::double_to_sortable_long(8.701032080293731E-226_f64);
     let hi = NumericUtils::double_to_sortable_long(2.0801416404385346E-41_f64);
 
-    let max_doc = searcher.reader_context.reader().max_doc()?;
+    let max_doc = searcher.get_index_reader().max_doc()?;
     let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", lo, hi);
     searcher.search_with_sort(q1, max_doc, Sort::get_index_order()?)?;
 

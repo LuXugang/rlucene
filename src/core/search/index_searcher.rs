@@ -608,6 +608,12 @@ where
 
         Ok(Some(stats))
     }
+    pub fn get_leaf_contexts(&self) -> Result<Vec<Arc<LeafReaderContext<IRC::LeafReader>>>> {
+        self.reader_context.leaves()
+    }
+    pub fn get_index_reader(&self) -> &IRC::IndexReader {
+        self.reader_context.reader()
+    }
 }
 pub type IndexSearcherWeight<S, IRC, QCP, QC> = Either2Weight<
     <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<QueryWeight<S, IRC>, QCP>,

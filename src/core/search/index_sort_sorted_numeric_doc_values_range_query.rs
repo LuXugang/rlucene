@@ -1698,7 +1698,7 @@ mod tests {
         // let rewritten = searcher.rewrite(&query)?;
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
 
-        let leaves = searcher.reader_context.leaves()?;
+        let leaves = searcher.get_leaf_contexts()?;
         let ctx0 = leaves[0].as_ref();
 
         let scorer_opt = weight.scorer(ctx0)?;
@@ -1798,7 +1798,7 @@ mod tests {
         let searcher = new_searcher_with_reader(reader.clone())?;
         let query = create_query("field", 0, 0);
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
-        for ctx in searcher.reader_context.leaves()? {
+        for ctx in searcher.get_leaf_contexts()? {
             let mut scorer = weight.scorer(ctx.as_ref())?;
             assert!(scorer.as_mut().unwrap().two_phase_iterator().is_some());
         }
@@ -1906,7 +1906,7 @@ mod tests {
         QCP: QueryCachingPolicy,
         QC: QueryCache<IRC::LeafReader>,
     {
-        for ctx in searcher.reader_context.leaves()? {
+        for ctx in searcher.get_leaf_contexts()? {
             let c1 = weight1.count(ctx.as_ref())?;
             let c2 = weight2.count(ctx.as_ref())?;
             assert_eq!(c1, c2);
@@ -1964,7 +1964,7 @@ mod tests {
         let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
         let mut count = 0;
-        for ctx in searcher.reader_context.leaves()? {
+        for ctx in searcher.get_leaf_contexts()? {
             count += weight.count(ctx.as_ref())?;
         }
 
@@ -2056,7 +2056,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![7], vec![9])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 9, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx.as_ref())?);
             }
         }
@@ -2065,7 +2065,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![6], vec![10])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 10, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx.as_ref())?);
             }
         }
@@ -2074,7 +2074,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![7], vec![10])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 10, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx.as_ref())?);
             }
         }
@@ -2083,7 +2083,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![6], vec![9])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 9, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx.as_ref())?);
             }
         }
@@ -2092,7 +2092,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![5], vec![8])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 5, 8, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx.as_ref())?);
             }
         }
@@ -2101,7 +2101,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![4], vec![8])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 4, 8, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx.as_ref())?);
             }
         }
@@ -2111,7 +2111,7 @@ mod tests {
             let query =
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 13, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx.as_ref())?);
             }
         }
@@ -2121,7 +2121,7 @@ mod tests {
             let query =
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 14, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx.as_ref())?);
             }
         }
@@ -2130,7 +2130,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![2], vec![14])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 14, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(3500, weight.count(ctx.as_ref())?);
             }
         }
@@ -2139,7 +2139,7 @@ mod tests {
             let fallback = LongPoint::new_range_query(field_name, vec![2], vec![3])?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 3, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx.as_ref())?);
             }
         }
@@ -2149,7 +2149,7 @@ mod tests {
             let query =
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 14, 15, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx.as_ref())?);
             }
         }
@@ -2214,7 +2214,7 @@ mod tests {
             let range_query_weight =
                 range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
-            for ctx in searcher.reader_context.leaves()? {
+            for ctx in searcher.get_leaf_contexts()? {
                 let expected = range_query_weight.count(ctx.as_ref())?;
                 let actual = index_sort_range_query_weight.count(ctx.as_ref())?;
                 assert_eq!(expected, actual);
