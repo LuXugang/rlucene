@@ -117,7 +117,7 @@ where
 
     /** Return a number for the k-th character between 0 and {@link
      * #HISTOGRAM_SIZE}.  */
-    fn get_bucket(&self, i: i32, k: i32) -> i32 {
+    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
         self.sub_selector.byte_at(i, k) + 1
     }
 
@@ -285,7 +285,7 @@ pub trait RadixSelectorBase: Selector {
     /// Return the k-th byte of the entry at index `i`, or `-1\ if its length is
     /// less than or equal to `k`. This may only be called with a value of
     /// `k` between `0` included and `maxLength` excluded.
-    fn byte_at(&self, i: i32, k: i32) -> i32;
+    fn byte_at(&mut self, i: i32, k: i32) -> i32;
     /// Get a fall-back selector which may assume that the first `d` bytes of
     /// all compared strings are equal. This fallback selector is used when
     /// the range becomes narrow or when the maximum level of recursion has
@@ -500,7 +500,7 @@ mod tests {
     }
 
     impl RadixSelectorBase for RadixSelectorMock {
-        fn byte_at(&self, i: i32, k: i32) -> i32 {
+        fn byte_at(&mut self, i: i32, k: i32) -> i32 {
             assert!(k < self.enforced_max_len);
             let b = self.actual[i as usize].clone();
             if k < b.length as i32 {

@@ -127,7 +127,7 @@ impl BKDRadixSelector {
         };
         if is_heap {
             let partition = self.heap_radix_select(
-                points.writer.clone(),
+                &mut *points.writer.borrow_mut(),
                 dim,
                 from as i32,
                 to as i32,
@@ -529,7 +529,7 @@ impl BKDRadixSelector {
     #[allow(clippy::too_many_arguments)]
     fn heap_partition<O: IndexOutput>(
         &self,
-        points: PointWriterEnum<O>,
+        mut points: PointWriterEnum<O>,
         left: &mut PointWriterEnum<O>,
         right: &mut PointWriterEnum<O>,
         dim: i32,
@@ -538,18 +538,10 @@ impl BKDRadixSelector {
         partition_point: i32,
         common_prefix: i32,
     ) -> Result<Vec<u8>> {
-        let points = Rc::new(RefCell::new(points));
-        let partition = self.heap_radix_select(
-            points.clone(),
-            dim,
-            from,
-            to,
-            partition_point,
-            common_prefix,
-        )?;
-        let mut points = points.borrow_mut();
-        match &mut *points {
-            PointWriterEnum::Heap(heap_writer) => {
+        let partition =
+            self.heap_radix_select(&mut points, dim, from, to, partition_point, common_prefix)?;
+        match points {
+            PointWriterEnum::Heap(ref mut heap_writer) => {
                 for i in from..to {
                     let value = heap_writer.get_packed_value_slice(i);
                     if i < partition_point {
@@ -570,7 +562,7 @@ impl BKDRadixSelector {
     /// of the tree/`.
     pub fn heap_radix_select<O: IndexOutput>(
         &self,
-        points: Rc<RefCell<PointWriterEnum<O>>>,
+        points: &mut PointWriterEnum<O>,
         dim: i32,
         from: i32,
         to: i32,
@@ -582,7 +574,7 @@ impl BKDRadixSelector {
         let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
         let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
         let sub_selector = RadixSelectorImpl {
-            points: points.clone(),
+            points,
             common_prefix_length,
             dim_cmp_bytes,
             dim_offset,
@@ -598,8 +590,7 @@ impl BKDRadixSelector {
 
         let mut partition = vec![0u8; bytes_per_dim as usize];
 
-        let mut points = points.borrow_mut();
-        match &mut *points {
+        match points {
             PointWriterEnum::Heap(heap_writer) => {
                 let point_value = heap_writer.get_packed_value_slice(partition_point);
                 let (bytes, offset, _length) = point_value.packed_value();
@@ -620,7 +611,7 @@ impl BKDRadixSelector {
     /// of the tree.
     pub fn heap_radix_sort<O: IndexOutput>(
         &self,
-        points: Rc<RefCell<PointWriterEnum<O>>>,
+        points: &mut PointWriterEnum<O>,
         from: i32,
         to: i32,
         dim: i32,
@@ -720,6 +711,7 @@ pub struct PathSlice<O>
 where
     O: IndexOutput,
 {
+    // TODO IMPORTANT 这里可以不需要使用Rc<RefCell<>>封装
     pub writer: Rc<RefCell<PointWriterEnum<O>>>,
     pub start: i64,
     pub count: i64,
@@ -737,11 +729,11 @@ where
     }
 }
 
-struct MSBRadixSorterImpl<O>
+struct MSBRadixSorterImpl<'a, O>
 where
     O: IndexOutput,
 {
-    points: Rc<RefCell<PointWriterEnum<O>>>,
+    points: &'a mut PointWriterEnum<O>,
     dim_cmp_bytes: i32,
     dim_offset: i32,
     data_offset: i32,
@@ -751,13 +743,12 @@ where
     bytes_sorted: i32,
 }
 
-impl<O> Sorter for MSBRadixSorterImpl<O>
+impl<O> Sorter for MSBRadixSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 heap_writer.swap(i, j);
                 Ok(())
@@ -770,7 +761,7 @@ where
     }
 }
 
-impl<O> MSBRadixSorterBase for MSBRadixSorterImpl<O>
+impl<O> MSBRadixSorterBase for MSBRadixSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
@@ -781,8 +772,7 @@ where
         } else {
             self.data_offset + k
         };
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => Ok(heap_writer.byte_at(i, pos)),
             _ => {
                 debug_assert!(false, "should not be here");
@@ -798,7 +788,7 @@ where
         let skyped_bytes = k + self.common_prefix_length;
         let dim_start = self.dim * self.bytes_per_dim;
         IntroSorterImpl {
-            points: self.points.clone(),
+            points: self.points,
             skyped_bytes,
             dim_start,
             scratch: vec![0u8; self.bytes_sorted as usize],
@@ -807,24 +797,23 @@ where
     }
 }
 
-struct IntroSorterImpl<O>
+struct IntroSorterImpl<'a, O>
 where
     O: IndexOutput,
 {
-    points: Rc<RefCell<PointWriterEnum<O>>>,
+    points: &'a mut PointWriterEnum<O>,
     skyped_bytes: i32,
     dim_start: i32,
     scratch: Vec<u8>,
     bytes_per_dim: i32,
 }
 
-impl<O> Sorter for IntroSorterImpl<O>
+impl<O> Sorter for IntroSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let points = self.points.borrow();
-        match &*points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     let cmp = heap_writer.compare_dim(i, j, self.dim_start);
@@ -842,8 +831,7 @@ where
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 heap_writer.swap(i, j);
                 Ok(())
@@ -856,8 +844,7 @@ where
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     heap_writer.copy_dim(i, self.dim_start, &mut self.scratch, 0);
@@ -878,8 +865,7 @@ where
 
     //TODO: 回头这里将改成 if match
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let point = self.points.borrow();
-        match &*point {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     let cmp =
@@ -906,13 +892,13 @@ where
     }
 }
 
-impl<O> IntroSorter for IntroSorterImpl<O> where O: IndexOutput {}
+impl<O> IntroSorter for IntroSorterImpl<'_, O> where O: IndexOutput {}
 
-struct RadixSelectorImpl<O>
+struct RadixSelectorImpl<'a, O>
 where
     O: IndexOutput,
 {
-    points: Rc<RefCell<PointWriterEnum<O>>>,
+    points: &'a mut PointWriterEnum<O>,
     common_prefix_length: i32,
     bytes_per_dim: i32,
     dim_cmp_bytes: i32,
@@ -922,13 +908,12 @@ where
     bytes_sorted: i32,
 }
 
-impl<O> Selector for RadixSelectorImpl<O>
+impl<O> Selector for RadixSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 heap_writer.swap(i, j);
                 Ok(())
@@ -941,19 +926,18 @@ where
     }
 }
 
-impl<O> RadixSelectorBase for RadixSelectorImpl<O>
+impl<O> RadixSelectorBase for RadixSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn byte_at(&self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
         debug_assert!(k >= 0, "negative prefix {k}");
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
         } else {
             self.data_offset + k
         };
-        let points = self.points.borrow();
-        match &*points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => heap_writer.byte_at(i, pos),
             _ => {
                 debug_assert!(false, "should not be here");
@@ -969,7 +953,7 @@ where
         let skyped_bytes = d + self.common_prefix_length;
         let dim_start = self.dim * self.bytes_per_dim;
         let sub_selector = IntroSelectorImpl {
-            points: self.points.clone(),
+            points: self.points,
             skyped_bytes,
             bytes_per_dim: self.bytes_per_dim,
             dim_start,
@@ -979,24 +963,23 @@ where
     }
 }
 
-struct IntroSelectorImpl<O>
+struct IntroSelectorImpl<'a, O>
 where
     O: IndexOutput,
 {
-    points: Rc<RefCell<PointWriterEnum<O>>>,
+    points: &'a mut PointWriterEnum<O>,
     skyped_bytes: i32,
     bytes_per_dim: i32,
     dim_start: i32,
     scratch: Vec<u8>,
 }
 
-impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<O>
+impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn set_pivot(&mut self, i: i32) {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     heap_writer.copy_dim(i, self.dim_start, &mut self.scratch, 0);
@@ -1014,8 +997,7 @@ where
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let points = self.points.borrow();
-        match &*points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     let cmp =
@@ -1035,13 +1017,12 @@ where
     }
 }
 
-impl<O> Selector for IntroSelectorImpl<O>
+impl<O> Selector for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let mut points = self.points.borrow_mut();
-        match &mut *points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 heap_writer.swap(i, j);
                 Ok(())
@@ -1054,13 +1035,12 @@ where
     }
 }
 
-impl<O> IntroSelectorBase for IntroSelectorImpl<O>
+impl<O> IntroSelectorBase for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let points = self.points.borrow();
-        match &*points {
+        match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     let cmp = heap_writer.compare_dim(i, j, self.dim_start);
@@ -1778,8 +1758,6 @@ mod tests {
         }
     }
     mod test_bkd_radix_sort {
-        use std::cell::RefCell;
-        use std::rc::Rc;
 
         use rand::Rng;
 
@@ -1809,10 +1787,8 @@ mod tests {
                 heap_points.append_bytes(&value, i)?;
             }
             heap_points.close();
-            let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
-                heap_points,
-            )));
-            verify_sort(&mut random, config, points, 0, num_points)?;
+            let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
+            verify_sort(&mut random, config, &mut points, 0, num_points)?;
             Ok(())
         }
         #[test]
@@ -1829,10 +1805,8 @@ mod tests {
                 heap_points.append_bytes(&value, doc_id)?;
             }
             heap_points.close();
-            let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
-                heap_points,
-            )));
-            verify_sort(&mut random, config, points, 0, num_points)?;
+            let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
+            verify_sort(&mut random, config, &mut points, 0, num_points)?;
             Ok(())
         }
         #[test]
@@ -1852,10 +1826,8 @@ mod tests {
                 }
             }
             heap_points.close();
-            let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
-                heap_points,
-            )));
-            verify_sort(&mut random, config, points, 0, num_points)?;
+            let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
+            verify_sort(&mut random, config, &mut points, 0, num_points)?;
             Ok(())
         }
 
@@ -1878,10 +1850,8 @@ mod tests {
                 heap_points.append_bytes(&different_values[index as usize], i)?;
             }
             heap_points.close();
-            let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
-                heap_points,
-            )));
-            verify_sort(&mut random, config, points, 0, num_points)?;
+            let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
+            verify_sort(&mut random, config, &mut points, 0, num_points)?;
             Ok(())
         }
 
@@ -1905,17 +1875,15 @@ mod tests {
                 heap_points.append_bytes(&value, doc_id)?;
             }
             heap_points.close();
-            let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
-                heap_points,
-            )));
-            verify_sort(&mut random, config, points, 0, num_points)?;
+            let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
+            verify_sort(&mut random, config, &mut points, 0, num_points)?;
             Ok(())
         }
 
         fn verify_sort<O: IndexOutput, R: Rng + ?Sized>(
             random: &mut R,
             config: BKDConfig,
-            points: Rc<RefCell<PointWriterEnum<O>>>,
+            points: &mut PointWriterEnum<O>,
             start: i32,
             end: i32,
         ) -> Result<()> {
@@ -1926,7 +1894,7 @@ mod tests {
                 {
                     common_prefix_length = get_random_common_prefix(
                         config.clone(),
-                        points.clone(),
+                        points,
                         start,
                         end,
                         split_dim,
@@ -1935,7 +1903,7 @@ mod tests {
                 }
 
                 radix_selector.heap_radix_sort(
-                    points.clone(),
+                    points,
                     start,
                     end,
                     split_dim,
@@ -1948,8 +1916,7 @@ mod tests {
 
                 let dim_offset = (split_dim * config.bytes_per_dim) as usize;
 
-                let mut points_ref = points.borrow_mut();
-                match &mut *points_ref {
+                match points {
                     PointWriterEnum::Heap(heap_writer) => {
                         for j in start..end {
                             let point_value = heap_writer.get_packed_value_slice(j);
@@ -2018,14 +1985,13 @@ mod tests {
         }
         fn get_random_common_prefix<O: IndexOutput, R: Rng + ?Sized>(
             config: BKDConfig,
-            points: Rc<RefCell<PointWriterEnum<O>>>,
+            points: &mut PointWriterEnum<O>,
             start: i32,
             end: i32,
             sort_dim: i32,
             random: &mut R,
         ) -> i32 {
-            let mut heap_point = points.borrow_mut();
-            match &mut *heap_point {
+            match points {
                 PointWriterEnum::Heap(heap_writer) => {
                     let mut common_prefix_length = config.bytes_per_dim;
                     let point_value = heap_writer.get_packed_value_slice(start);

@@ -1765,18 +1765,16 @@ where
                 matches!(*writer, PointWriterEnum::Heap(_))
             };
             let heap_source = if is_heap {
-                points.writer.clone()
+                &mut *points.writer.borrow_mut()
             } else {
-                Rc::new(RefCell::new(
-                    self.switch_to_heap(&mut *points.writer.borrow_mut())?,
-                ))
+                &mut self.switch_to_heap(&mut *points.writer.borrow_mut())?
             };
 
             let from = points.start as i32;
             let to = (points.start + points.count) as i32;
 
             let mut sorted_dim = 0;
-            match &mut *heap_source.borrow_mut() {
+            match heap_source {
                 PointWriterEnum::Heap(heap_source) => {
                     self.compute_common_prefix_length(heap_source, from, to);
                     let mut sorted_dim_cardinality = i32::MAX;
@@ -1817,14 +1815,14 @@ where
             }
             let mut leaf_cardinality = 0;
             radix_selector.heap_radix_sort(
-                heap_source.clone(),
+                heap_source,
                 from,
                 to,
                 sorted_dim,
                 self.common_prefix_lengths[sorted_dim as usize],
             )?;
             let count = to - from;
-            match &mut *heap_source.borrow_mut() {
+            match heap_source {
                 PointWriterEnum::Heap(heap_source) => {
                     leaf_cardinality =
                         heap_source.compute_cardinality(from, to, &self.common_prefix_lengths);
@@ -1845,7 +1843,7 @@ where
             self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
 
             let mut packed_values = PackedValuesImpl3 {
-                heap_source: heap_source.clone(),
+                heap_source,
                 bytes: vec![],
                 from,
             };
@@ -2759,20 +2757,20 @@ where
         ))
     }
 }
-struct PackedValuesImpl3<O>
+struct PackedValuesImpl3<'a, O>
 where
     O: IndexOutput,
 {
-    heap_source: Rc<RefCell<PointWriterEnum<O>>>,
+    heap_source: &'a mut PointWriterEnum<O>,
     bytes: Vec<u8>,
     from: i32,
 }
-impl<O> PackedValues for PackedValuesImpl3<O>
+impl<O> PackedValues for PackedValuesImpl3<'_, O>
 where
     O: IndexOutput,
 {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
-        match &mut *self.heap_source.borrow_mut() {
+        match self.heap_source {
             PointWriterEnum::Heap(heap_source) => {
                 let (v, offset, length) = heap_source
                     .get_packed_value_slice(self.from + i)
