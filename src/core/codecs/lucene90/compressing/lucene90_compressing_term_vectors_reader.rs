@@ -1402,10 +1402,7 @@ impl TermsEnum for TVTermsEnum {
         reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        let mut docs_enum = match reuse {
-            Some(postings_enum) => postings_enum,
-            None => TVPostingsEnum::new(),
-        };
+        let mut docs_enum = reuse.unwrap_or_else(TVPostingsEnum::new);
         docs_enum.reset(
             self.term_freqs[self.ord as usize],
             self.position_index[self.ord as usize],

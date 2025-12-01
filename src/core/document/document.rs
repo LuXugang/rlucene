@@ -623,7 +623,7 @@ mod tests {
         let mut stored_fields = searcher.stored_fields()?;
 
         let mut result = 0;
-
+        #[allow(clippy::needless_range_loop)]
         for i in 0..3 {
             let doc2 = stored_fields.document(hits[i].doc())?;
 

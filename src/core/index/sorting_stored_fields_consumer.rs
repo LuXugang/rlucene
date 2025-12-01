@@ -166,7 +166,7 @@ where
         Self { writer }
     }
 }
-impl<'a, S> StoredFieldVisitor for CopyVisitor<'_, S>
+impl<S> StoredFieldVisitor for CopyVisitor<'_, S>
 where
     S: StoredFieldsWriter,
 {

@@ -318,8 +318,7 @@ where
                     &mut singleton,
                     skipper,
                 )?;
-                if ps_iterator_opt.is_some() {
-                    let ps_iterator = ps_iterator_opt.unwrap();
+                if let Some(ps_iterator) = ps_iterator_opt {
                     let v = DefaultScorerSupplier::new(ConstantScoreScorer::with_disi(
                         self.base.score(),
                         self.score_mode,

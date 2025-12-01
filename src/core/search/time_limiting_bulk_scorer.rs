@@ -50,7 +50,7 @@ where
         Self { in_, query_timeout }
     }
 }
-impl<'a, BS, QT> BulkScorer for TimeLimitingBulkScorer<'_, BS, QT>
+impl<BS, QT> BulkScorer for TimeLimitingBulkScorer<'_, BS, QT>
 where
     BS: BulkScorer,
     QT: QueryTimeout,

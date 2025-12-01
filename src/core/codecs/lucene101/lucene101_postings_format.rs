@@ -398,6 +398,7 @@ pub struct IntBlockTermState {
     pub base: BlockTermState,
 }
 impl IntBlockTermState {
+    #[allow(clippy::field_reassign_with_default)]
     pub fn new() -> Self {
         let mut state = IntBlockTermState::default();
         state.last_pos_block_offset = -1;

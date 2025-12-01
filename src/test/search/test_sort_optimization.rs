@@ -690,6 +690,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
 
     loop {
         let mut top_docs_vec = Vec::new();
+        #[allow(clippy::needless_range_loop)]
         for i in 0..num_indices {
             let searcher = new_searcher_with_threads(
                 readers[i].clone(),

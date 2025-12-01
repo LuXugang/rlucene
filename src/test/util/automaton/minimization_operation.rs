@@ -110,7 +110,7 @@ impl MinimizationOperations {
                 }
             }
         }
-
+        #[allow(clippy::needless_range_loop)]
         for x in 0..sigma_len {
             let j = if active[0][x].size <= active[1][x].size {
                 0
@@ -169,7 +169,7 @@ impl MinimizationOperations {
                             }
                         }
                     }
-
+                    #[allow(clippy::needless_range_loop)]
                     for c in 0..sigma_len {
                         let aj = active[j][c].size;
                         let ak = active[k][c].size;

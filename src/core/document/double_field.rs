@@ -30,7 +30,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 
-pub mod double_field {
+pub mod double_field_type {
     use crate::core::document::field_type::FieldType;
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::util::bit_util::BitUtil;
@@ -69,9 +69,12 @@ impl DoubleField {
     {
         let stored = stored.into();
         let (field_type, stored_value) = if stored {
-            (double_field::FIELD_TYPE_STORED.clone(), Some(value.into()))
+            (
+                double_field_type::FIELD_TYPE_STORED.clone(),
+                Some(value.into()),
+            )
         } else {
-            (double_field::FIELD_TYPE.clone(), None)
+            (double_field_type::FIELD_TYPE.clone(), None)
         };
         let sortable_long = NumericUtils::double_to_sortable_long(value);
         let parent_field = Field::new(name, sortable_long, field_type);

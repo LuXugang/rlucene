@@ -45,7 +45,7 @@ impl VectorUtilSupport for DefaultVectorization {
     fn square_distance_u8(&self, _a: &[u8], _b: &[u8]) -> i32 {
         todo!()
     }
-
+    #[allow(clippy::needless_range_loop)]
     fn find_next_geq(&self, buffer: &[i32], target: i32, from: usize, to: usize) -> usize {
         for i in from..to {
             if buffer[i] >= target {

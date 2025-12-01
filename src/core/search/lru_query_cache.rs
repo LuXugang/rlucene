@@ -149,7 +149,7 @@ where
         skip_cache_factor: f32,
         leaves_to_cache: P,
     ) -> Result<Self> {
-        if !(skip_cache_factor >= 1.0) {
+        if skip_cache_factor < 1.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "skipCacheFactor must be no less than 1, get {}",
                 skip_cache_factor
@@ -949,6 +949,7 @@ where
         })
     }
 }
+#[allow(clippy::upper_case_acronyms)]
 pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
 impl<S, C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<S, C, P, LR>
 where

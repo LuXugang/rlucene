@@ -226,7 +226,7 @@ where
         // because once we have added incoming link there will be possibilities
         // of this node being discovered and neighbour array being modified. So
         // using local candidates and mask is a safer option.
-
+        #[allow(clippy::needless_range_loop)]
         for i in 0..candidates.size() {
             if !mask[i] {
                 continue;
@@ -408,7 +408,7 @@ where
             // while linking
             let mut beam = GraphBuilderKnnCollector::new(2)?;
             let mut eps = [c0.start];
-
+            #[allow(clippy::needless_range_loop)]
             for index in 0..components.len() {
                 let c = &components[index];
                 if index == c0_index || c.start == NO_MORE_DOCS {

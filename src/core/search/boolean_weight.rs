@@ -270,22 +270,20 @@ where
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         let num_docs = context.reader().num_docs()?;
 
-        let positive_count: i32;
-
         if self.meta.is_pure_disjunction {
             return self.opt_count(context, Occur::Should);
         }
 
-        if (!self.meta.has_no_filter || !self.meta.has_no_must)
+        let positive_count = if (!self.meta.has_no_filter || !self.meta.has_no_must)
             && self.meta.minimum_number_should_match == 0
         {
-            positive_count = self.req_count(context)?;
+            self.req_count(context)?
         } else {
             // The query has a non-zero min-should match. We could handle some cases, e.g.
             // minShouldMatch=N and we can find N SHOULD clauses that match all docs, but are there
             // real-world queries that would benefit from Lucene handling this case?
-            positive_count = -1;
-        }
+            -1
+        };
 
         if positive_count == 0 {
             return Ok(0);

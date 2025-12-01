@@ -468,6 +468,7 @@ fn test_all_equal() -> Result<()> {
 
     for doc_id in 0..num_docs as usize {
         if doc_id == 0 {
+            #[allow(clippy::needless_range_loop)]
             for dim in 0..num_data_dims as usize {
                 random.fill_bytes(&mut doc_values[doc_id][dim]);
             }
@@ -554,6 +555,7 @@ fn test_one_dim_equal() -> Result<()> {
     ];
 
     for doc_id in 0..num_docs as usize {
+        #[allow(clippy::needless_range_loop)]
         for dim in 0..num_data_dims as usize {
             random.fill_bytes(&mut doc_values[doc_id][dim]);
         }

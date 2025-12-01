@@ -146,6 +146,7 @@ where
             && max_size > 0
         {
             heap[1] = Some(sentinel);
+            #[allow(clippy::needless_range_loop)]
             for i in 2..=max_size as usize {
                 heap[i] = Some(
                     sentinel_object_supplier()

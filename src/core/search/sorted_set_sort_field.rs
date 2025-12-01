@@ -186,10 +186,9 @@ impl SortFiledBase for SortedSetSortField {
         } else {
             Pruning::None
         };
-        let sort_missing_last = match self.base.missing_value {
-            Some(MissingValueEnum::StringLast) => true,
-            _ => false,
-        };
+        let sort_missing_last =
+            matches!(self.base.missing_value, Some(MissingValueEnum::StringLast));
+
         let field = self
             .base
             .get_field()

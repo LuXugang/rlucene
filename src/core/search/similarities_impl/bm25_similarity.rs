@@ -194,6 +194,7 @@ impl Similarity for BM25Similarity {
 
 pub static LENGTH_TABLE: Lazy<[f32; 256]> = Lazy::new(|| {
     let mut table = [0.0; 256];
+    #[allow(clippy::needless_range_loop)]
     for i in 0..256 {
         table[i] = SmallFloat::byte4_to_int(i as u8).expect("should not fail") as f32;
     }

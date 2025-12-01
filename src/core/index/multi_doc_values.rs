@@ -171,14 +171,13 @@ impl MultiDocValues {
             field.to_string(),
         ))))
     }
-    pub fn get_sorted_numeric_values<CR, LR>(
+    pub fn get_sorted_numeric_values<CR>(
         reader: CR,
         field: &str,
     ) -> Result<Option<MultiSortedNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
-        LR: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
