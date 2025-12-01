@@ -29,28 +29,6 @@ pub trait Comparator<T> {
     /// For most simple comparators (e.g., numerical or lexical), this
     /// will always return `Ok(result)`.
     fn compare(&self, a: &T, b: &T) -> Result<i32>;
-
-    /// Unwraps the result of `compare` and panics if an error occurs.
-    ///
-    /// This is a convenience method for use cases where failure is not
-    /// expected, which is the common case for most statically defined
-    /// comparators.
-    ///
-    /// # Panics
-    ///
-    /// Panics if [`compare`](Self::compare) returns `Err`. Only use this when you are sure
-    /// the comparison cannot fail.
-    ///
-    /// # Why this method exists
-    ///
-    /// Most comparator implementations are infallible. However, to support
-    /// advanced use cases (e.g. pluggable or script-based comparators),
-    /// the main [`compare`](Self::compare) method returns a `Result<i32>`.
-    /// This method provides a cleaner, ergonomic way to call the comparator
-    /// in contexts where no error is expected.
-    fn compare_unchecked(&self, a: &T, b: &T) -> i32 {
-        self.compare(a, b).expect("Comparator failed unexpectedly")
-    }
 }
 
 pub struct NaturalOrder<T>
@@ -133,6 +111,13 @@ where
 /// allow it to be passed as the same parameter alongside other types
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE
 /// constant.
-impl BytesRefComparator for NaturalOrder<BytesRef<Vec<u8>>> {}
+impl BytesRefComparator for NaturalOrder<BytesRef<Vec<u8>>> {
+    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> Result<i32> {
+        if bytes_ref.length <= i as usize {
+            return Ok(-1);
+        }
+        Ok(bytes_ref.bytes[bytes_ref.offset + i as usize] as i32)
+    }
+}
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::util::BytesRefComparator;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{BytesRefComparator, Comparator};
 
 pub trait SortableBytesRefArray<'a> {
     /// Append a new value
@@ -28,8 +28,5 @@ pub trait SortableBytesRefArray<'a> {
     /// Sort all values by the provided comparator and return an iterator over
     /// the sorted values  */
     type Iter;
-    fn iterator(
-        &'a self,
-        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::Iter>;
+    fn iterator(&'a self, comp: impl BytesRefComparator) -> Result<Self::Iter>;
 }

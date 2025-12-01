@@ -16,21 +16,19 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::util::comparator::Comparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// Specialized [`BytesRef`] comparator that `StringSorter` has optimizations
 /// for.
 ///
 /// # Note
 /// This is an internal API.
-pub trait BytesRefComparator {
+pub trait BytesRefComparator: Comparator<BytesRef<Vec<u8>>> {
     /// Returns the unsigned byte to use for comparison at index `i`, or `-1` if
     /// all bytes that are useful for comparisons are exhausted. This may
     /// only be called with a value of `i` between `0` (inclusive) and
     /// `compared_bytes_count` (exclusive).
-    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> Result<i32> {
-        Err(LuceneError::not_implemented(""))
-    }
+    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> Result<i32>;
     fn compare_with_offset(
         &self,
         o1: &BytesRef<Vec<u8>>,

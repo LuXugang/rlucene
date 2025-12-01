@@ -148,9 +148,9 @@ where
         self.arr[dest as usize] = self.tmp[src as usize].clone();
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> i32 {
+    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
         self.comp
-            .compare_unchecked(&self.tmp[i as usize], &self.arr[j as usize])
+            .compare(&self.tmp[i as usize], &self.arr[j as usize])
     }
 }
 

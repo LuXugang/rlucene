@@ -26,9 +26,9 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::core::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
-    StableStringSorterBase, StringSorter, StringSorterBase,
+    ByteBlockPool, BytesRefComparator, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock,
+    MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter, StableStringSorterBase,
+    StringSorter, StringSorterBase,
 };
 
 /// A simple append-only random-access array that stores full copies of the
@@ -183,11 +183,7 @@ where
     /// # Returns
     /// A [`SortState`] that can be used in
     /// [`BytesRefArray::iterator_with_state`] with the given sort state.
-    pub fn sort(
-        &self,
-        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
-        stable: bool,
-    ) -> Result<SortState> {
+    pub fn sort(&self, comp: impl BytesRefComparator, stable: bool) -> Result<SortState> {
         let size = self.size();
         let mut ordered_entries: Vec<i32> = (0..size).collect();
         if stable {
@@ -283,10 +279,7 @@ where
     /// - This is a non-destructive operation.
     type Iter = IndexedBytesRefIteratorImpl<'a, A>;
 
-    fn iterator(
-        &'a self,
-        comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::Iter> {
+    fn iterator(&'a self, comp: impl BytesRefComparator) -> Result<Self::Iter> {
         let ords = self.sort(comp, false)?;
         Ok(self.iterator_with_state(Arc::from(ords)))
     }

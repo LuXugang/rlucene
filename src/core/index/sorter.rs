@@ -202,9 +202,10 @@ where
         self.docs[j as usize] = self.tmp[i as usize];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> i32 {
-        self.comparator
-            .compare(self.tmp[i as usize], self.docs[j as usize])
+    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
+        Ok(self
+            .comparator
+            .compare(self.tmp[i as usize], self.docs[j as usize]))
     }
 }
 impl<'a, DC> crate::core::util::Sorter for DocValueSorter<'a, DC>

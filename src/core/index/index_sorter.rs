@@ -544,8 +544,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::core::util::{
-        Comparator, MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter,
-        StringSorterBase,
+        MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter, StringSorterBase,
     };
     use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -565,7 +564,7 @@ mod tests {
     fn test_impl(
         refs: Vec<BytesRef<Vec<u8>>>,
         len: usize,
-        comparator: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+        comparator: impl BytesRefComparator,
     ) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
         expected.sort();
@@ -580,7 +579,7 @@ mod tests {
     fn test_stable(
         refs: Vec<BytesRef<Vec<u8>>>,
         len: usize,
-        comparator: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+        comparator: impl BytesRefComparator,
     ) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         let mut actual = refs[..len].to_vec();

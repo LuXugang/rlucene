@@ -717,8 +717,8 @@ impl TimSorterBase for DocOffsetSorter<'_> {
         self.offsets[j] = self.tmp_offsets[i];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> i32 {
-        self.tmp_docs[i as usize] - self.docs[j as usize]
+    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
+        Ok(self.tmp_docs[i as usize] - self.docs[j as usize])
     }
 }
 pub(crate) struct SortingPostingsEnum<P>

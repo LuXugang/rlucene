@@ -253,22 +253,22 @@ pub(crate) fn tie_break_less_than<C, S>(
     second: &ShardRef,
     second_doc: &S,
     tie_breaker: &C,
-) -> bool
+) -> Result<bool>
 where
     C: Comparator<S>,
     S: ScoreDocLike,
 {
-    let value = tie_breaker.compare_unchecked(first_doc, second_doc);
+    let value = tie_breaker.compare(first_doc, second_doc)?;
 
     if value == 0 {
         // Equal Values
         // Tie break in same shard: resolve however the
         // shard had resolved it:
         debug_assert!(first.hit_index != second.hit_index);
-        return first.hit_index < second.hit_index;
+        return Ok(first.hit_index < second.hit_index);
     }
 
-    value < 0
+    Ok(value < 0)
 }
 /// Auxiliary method used by the `merge` implementations.
 /// A sort value of `null` is used to indicate that docs should be sorted by score.
@@ -389,13 +389,13 @@ where
         } else if first_scorer_doc_score > second_scorer_doc_score {
             Ok(true)
         } else {
-            Ok(tie_break_less_than(
+            tie_break_less_than(
                 first,
                 first_scorer_doc,
                 second,
                 second_scorer_doc,
                 &self.tie_breaker_comparator,
-            ))
+            )
         }
     }
 }
@@ -452,13 +452,7 @@ where
                 return Ok(cmp < 0);
             }
         }
-        Ok(tie_break_less_than(
-            first,
-            first_fd,
-            second,
-            second_fd,
-            &self.tie_breaker,
-        ))
+        tie_break_less_than(first, first_fd, second, second_fd, &self.tie_breaker)
     }
 }
 impl<S> TopDocsLike for TopDocs<S>

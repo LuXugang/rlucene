@@ -328,20 +328,21 @@ where
         }
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
             let b2 = self.delegate_sorter.byte_at(j, self.d + o as i32);
             if b1 != b2 {
-                return b1 - b2;
+                return Ok(b1 - b2);
             }
         }
         if self.d + self.pivot.length() as i32 == self.max_length {
-            0
+            Ok(0)
         } else {
-            -1 - self
-                .delegate_sorter
-                .byte_at(j, self.d + self.pivot.length() as i32)
+            Ok(-1
+                - self
+                    .delegate_sorter
+                    .byte_at(j, self.d + self.pivot.length() as i32))
         }
     }
 }
@@ -350,17 +351,17 @@ impl<T> IntroSelectorBase for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.d..self.max_length {
             let b1 = self.delegate_sorter.byte_at(i, o);
             let b2 = self.delegate_sorter.byte_at(j, o);
             if b1 != b2 {
-                return b1 - b2;
+                return Ok(b1 - b2);
             } else if b1 == -1 {
                 break;
             }
         }
-        0
+        Ok(0)
     }
 }
 impl<T> Selector for IntroSelectorImpl<'_, T>

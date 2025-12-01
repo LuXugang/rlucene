@@ -83,7 +83,7 @@ where
                 // if the order is descending in conjunction with the 3-way
                 // partitioning.
                 let range = size >> 2;
-                pivot = self.median(mid - range, mid, mid + range);
+                pivot = self.median(mid - range, mid, mid + range)?;
             } else {
                 // Select the pivot with a variant of the Tukey's ninther median
                 // of medians. If k is close to the boundaries,
@@ -91,16 +91,16 @@ where
                 // is inspired from the interpolation search).
                 let range = size >> 3;
                 let double_range = range << 1;
-                let median_first = self.median(from, from + range, from + double_range);
-                let median_middle = self.median(mid - range, mid, mid + range);
-                let median_last = self.median(last - double_range, last - range, last);
+                let median_first = self.median(from, from + range, from + double_range)?;
+                let median_middle = self.median(mid - range, mid, mid + range)?;
+                let median_last = self.median(last - double_range, last - range, last)?;
                 if k - from < range {
                     // k is close to 'from': select the lowest median.
-                    pivot = self.min(median_first, median_middle, median_last);
+                    pivot = self.min(median_first, median_middle, median_last)?;
                 } else if to - k <= range {
-                    pivot = self.max(median_first, median_middle, median_last);
+                    pivot = self.max(median_first, median_middle, median_last)?;
                 } else {
-                    pivot = self.median(median_first, median_middle, median_last);
+                    pivot = self.median(median_first, median_middle, median_last)?;
                 }
             }
             // Bentley-McIlroy 3-way partitioning
@@ -117,13 +117,13 @@ where
                 let mut right_cmp;
 
                 while {
-                    left_cmp = self.sub_selector.compare_pivot(i + 1);
+                    left_cmp = self.sub_selector.compare_pivot(i + 1)?;
                     i += 1;
                     left_cmp > 0
                 } {}
 
                 while {
-                    right_cmp = self.sub_selector.compare_pivot(j - 1);
+                    right_cmp = self.sub_selector.compare_pivot(j - 1)?;
                     j -= 1;
                     right_cmp < 0
                 } {}
@@ -168,7 +168,7 @@ where
         // sort.
         match size {
             2 => {
-                if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1) > 0 {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1)? > 0 {
                     self.sub_selector.swap(from, from + 1)?;
                 }
             },
@@ -182,54 +182,54 @@ where
 
     /// Returns the index of the min element among three elements at provided
     /// indices.
-    pub fn min(&mut self, i: i32, j: i32, k: i32) -> i32 {
-        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, i, k) <= 0 {
-                i
+    pub fn min(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, i, k)? <= 0 {
+                Ok(i)
             } else {
-                k
+                Ok(k)
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
-            j
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? <= 0 {
+            Ok(j)
         } else {
-            k
+            Ok(k)
         }
     }
 
     /// Returns the index of the max element among three elements at provided
     /// indices.
-    pub fn max(&mut self, i: i32, j: i32, k: i32) -> i32 {
-        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, j, k) < 0 {
-                k
+    pub fn max(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? < 0 {
+                Ok(k)
             } else {
-                j
+                Ok(j)
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
-            k
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, i, k)? < 0 {
+            Ok(k)
         } else {
-            i
+            Ok(i)
         }
     }
 
-    pub fn median(&mut self, i: i32, j: i32, k: i32) -> i32 {
-        if IntroSelectorBase::compare(&mut self.sub_selector, i, j) < 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
-                return j;
+    pub fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? < 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? <= 0 {
+                return Ok(j);
             }
-            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
-                k
+            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k)? < 0 {
+                Ok(k)
             } else {
-                i
+                Ok(i)
             };
         }
-        if IntroSelectorBase::compare(&mut self.sub_selector, j, k) >= 0 {
-            return j;
+        if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? >= 0 {
+            return Ok(j);
         }
-        if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
-            i
+        if IntroSelectorBase::compare(&mut self.sub_selector, i, k)? < 0 {
+            Ok(i)
         } else {
-            k
+            Ok(k)
         }
     }
     /// Sorts 3 entries starting at from (inclusive). This specialized method is
@@ -238,18 +238,18 @@ where
         let mid = from + 1;
         let last = from + 2;
 
-        if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) <= 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+        if IntroSelectorBase::compare(&mut self.sub_selector, from, mid)? <= 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last)? > 0 {
                 self.sub_selector.swap(mid, last)?;
-                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) > 0 {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid)? > 0 {
                     self.sub_selector.swap(from, mid)?;
                 }
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) >= 0 {
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last)? >= 0 {
             self.sub_selector.swap(from, last)?;
         } else {
             self.sub_selector.swap(from, mid)?;
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last)? > 0 {
                 self.sub_selector.swap(mid, last)?;
             }
         }
@@ -285,7 +285,7 @@ where
 
 pub trait IntroSelectorBase: IntroSelectorBaseDefault + Selector {
     /// Compare entries found in slots `i` and `j`.
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         IntroSelectorBaseDefault::compare(self, i, j)
     }
 }
@@ -293,8 +293,8 @@ pub trait IntroSelectorBaseDefault {
     /// Save the value at slot `i` so that it can later be used as a pivot.
     fn set_pivot(&mut self, i: i32);
     /// Compare the pivot with the slot at `j`, similarly to `compare(i, j)`.
-    fn compare_pivot(&mut self, j: i32) -> i32;
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32>;
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.set_pivot(i);
         self.compare_pivot(j)
     }
@@ -385,8 +385,8 @@ mod tests {
             self.pivot = self.actual[i as usize];
         }
 
-        fn compare_pivot(&mut self, j: i32) -> i32 {
-            self.pivot.cmp(&self.actual[j as usize]).to_int()
+        fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+            Ok(self.pivot.cmp(&self.actual[j as usize]).to_int())
         }
     }
 

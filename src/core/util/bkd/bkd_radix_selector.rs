@@ -1013,7 +1013,7 @@ where
         }
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         let points = self.points.borrow();
         match &*points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -1021,19 +1021,16 @@ where
                     let cmp =
                         heap_writer.compare_dim_with_scratch(j, &self.scratch, 0, self.dim_start);
                     if cmp != 0 {
-                        return cmp;
+                        return Ok(cmp);
                     }
                 }
-                heap_writer.compare_data_dims_and_doc_with(
+                Ok(heap_writer.compare_data_dims_and_doc_with(
                     j,
                     &self.scratch,
                     self.bytes_per_dim as usize,
-                )
+                ))
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                0
-            },
+            _ => Err(LuceneError::illegal_state("should not be here")),
         }
     }
 }
@@ -1061,22 +1058,19 @@ impl<O> IntroSelectorBase for IntroSelectorImpl<O>
 where
     O: IndexOutput,
 {
-    fn compare(&mut self, i: i32, j: i32) -> i32 {
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         let points = self.points.borrow();
         match &*points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
                     let cmp = heap_writer.compare_dim(i, j, self.dim_start);
                     if cmp != 0 {
-                        return cmp;
+                        return Ok(cmp);
                     }
                 }
-                heap_writer.compare_data_dims_and_doc(i, j)
+                Ok(heap_writer.compare_data_dims_and_doc(i, j))
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                0
-            },
+            _ => Err(LuceneError::illegal_state("should not be here")),
         }
     }
 }

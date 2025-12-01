@@ -365,7 +365,7 @@ where
         self.pivot_doc = self.reader.get_doc_id(i as usize);
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         if self.k < self.dim_cmp_bytes {
             self.reader.get_value(j as usize, &mut self.scratch2);
             let cmp = self.dim_comparator.compare(
@@ -375,7 +375,7 @@ where
                 self.scratch2.offset + self.dim_start as usize,
             );
             if cmp != 0 {
-                return cmp;
+                return Ok(cmp);
             }
         }
         if self.k < self.data_cmp_bytes {
@@ -386,10 +386,10 @@ where
                 ..self.scratch2.offset + self.data_end as usize];
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             if cmp != 0 {
-                return cmp;
+                return Ok(cmp);
             }
         }
-        self.pivot_doc - self.reader.get_doc_id(j as usize)
+        Ok(self.pivot_doc - self.reader.get_doc_id(j as usize))
     }
 }
 

@@ -28,6 +28,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::cmp::Ordering::Equal;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 /// Base trait for implementing [`CompositeReader`]s based on an array of sub-readers.
@@ -113,7 +114,19 @@ where
         F: FnMut(R) -> IndexReaderEnum<IR, CR>,
     {
         if let Some(sorter) = &sub_reader_sorter {
-            sub_readers.sort_by(|a, b| sorter.compare_unchecked(a, b).cmp(&0));
+            let mut err: Option<LuceneError> = None;
+            sub_readers.sort_by(|a, b| match sorter.compare(a, b) {
+                Ok(v) => v.cmp(&0),
+                Err(e) => {
+                    if err.is_none() {
+                        err = Some(e);
+                    }
+                    Equal
+                },
+            });
+            if let Some(e) = err {
+                return Err(e);
+            }
         }
 
         let mut starts = vec![0i32; sub_readers.len() + 1];

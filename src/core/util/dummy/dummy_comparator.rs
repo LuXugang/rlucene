@@ -25,8 +25,4 @@ impl<T> Comparator<T> for DummyComparator<T> {
     fn compare(&self, _a: &T, _b: &T) -> crate::core::util::error::lucene_error::Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-
-    fn compare_unchecked(&self, _a: &T, _b: &T) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
 }

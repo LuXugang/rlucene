@@ -790,7 +790,7 @@ where
 pub struct MSBStringHashRadixSorter<'a, T, C>
 where
     T: StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C: BytesRefComparator,
 {
     cmp: &'a mut C,
     delegate_sorter: &'a mut T,
@@ -798,7 +798,7 @@ where
 impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
 where
     T: StringSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C: BytesRefComparator,
 {
     pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
         MSBStringHashRadixSorter {
@@ -811,7 +811,7 @@ where
 impl<T, C> Sorter for MSBStringHashRadixSorter<'_, T, C>
 where
     T: StringSorterBase + MSBRadixSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C: BytesRefComparator,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.delegate_sorter.swap(i, j)
@@ -821,7 +821,7 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringHashRadixSorter<'_, T, C>
 where
     T: StringSorterBase + MSBRadixSorterBase,
-    C: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C: BytesRefComparator,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         self.delegate_sorter.byte_at(i, k)

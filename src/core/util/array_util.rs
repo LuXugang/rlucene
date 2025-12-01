@@ -434,9 +434,9 @@ where
         self.pivot = i;
     }
 
-    fn compare_pivot(&mut self, j: i32) -> i32 {
+    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         self.comparator
-            .compare_unchecked(&self.arr[self.pivot as usize], &self.arr[j as usize])
+            .compare(&self.arr[self.pivot as usize], &self.arr[j as usize])
     }
 }
 

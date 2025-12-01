@@ -212,7 +212,7 @@ impl<T: TimSorterBase> TimSorter<T> {
             while count < MIN_GALLOP {
                 if i >= len1 || j >= hi {
                     break 'outer;
-                } else if self.delegate_sorter.compare_saved(i, j) <= 0 {
+                } else if self.delegate_sorter.compare_saved(i, j)? <= 0 {
                     self.delegate_sorter.restore(i, dest);
                     i += 1;
                     dest += 1;
@@ -226,7 +226,7 @@ impl<T: TimSorterBase> TimSorter<T> {
             }
 
             // Galloping phase
-            let next = self.lower_saved3(j, hi, i);
+            let next = self.lower_saved3(j, hi, i)?;
             while j < next {
                 self.delegate_sorter.copy(j, dest);
                 j += 1;
@@ -263,7 +263,7 @@ impl<T: TimSorterBase> TimSorter<T> {
             while count < MIN_GALLOP {
                 if i < lo || j < 0 {
                     break 'outer;
-                } else if self.delegate_sorter.compare_saved(j, i) >= 0 {
+                } else if self.delegate_sorter.compare_saved(j, i)? >= 0 {
                     self.delegate_sorter.restore(j, dest);
                     j -= 1;
                     dest -= 1;
@@ -277,7 +277,7 @@ impl<T: TimSorterBase> TimSorter<T> {
             }
 
             // Galloping phase
-            let next = self.upper_saved3(lo, i + 1, j);
+            let next = self.upper_saved3(lo, i + 1, j)?;
             while i >= next {
                 self.delegate_sorter.copy(i, dest);
                 i -= 1;
@@ -298,44 +298,44 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> Result<i32> {
         let mut len = to - from;
 
         while len > 0 {
             let half = len >> 1;
             let mid = from + half;
-            if self.delegate_sorter.compare_saved(val, mid) > 0 {
+            if self.delegate_sorter.compare_saved(val, mid)? > 0 {
                 from = mid + 1;
                 len -= half + 1;
             } else {
                 len = half;
             }
         }
-        from
+        Ok(from)
     }
 
-    pub fn upper_saved(&self, mut from: i32, to: i32, val: i32) -> i32 {
+    pub fn upper_saved(&self, mut from: i32, to: i32, val: i32) -> Result<i32> {
         let mut len = to - from;
 
         while len > 0 {
             let half = len >> 1;
             let mid = from + half;
-            if self.delegate_sorter.compare_saved(val, mid) < 0 {
+            if self.delegate_sorter.compare_saved(val, mid)? < 0 {
                 len = half;
             } else {
                 from = mid + 1;
                 len -= half + 1;
             }
         }
-        from
+        Ok(from)
     }
 
-    pub fn lower_saved3(&self, from: i32, to: i32, val: i32) -> i32 {
+    pub fn lower_saved3(&self, from: i32, to: i32, val: i32) -> Result<i32> {
         let mut f = from;
         let mut t = f + 1;
 
         while t < to {
-            if self.delegate_sorter.compare_saved(val, t) <= 0 {
+            if self.delegate_sorter.compare_saved(val, t)? <= 0 {
                 return self.lower_saved(f, t, val);
             }
             let delta = t - f;
@@ -345,12 +345,12 @@ impl<T: TimSorterBase> TimSorter<T> {
         self.lower_saved(f, to, val)
     }
 
-    pub fn upper_saved3(&self, from: i32, to: i32, val: i32) -> i32 {
+    pub fn upper_saved3(&self, from: i32, to: i32, val: i32) -> Result<i32> {
         let mut f = to - 1;
         let mut t = to;
 
         while f > from {
-            if self.delegate_sorter.compare_saved(val, f) >= 0 {
+            if self.delegate_sorter.compare_saved(val, f)? >= 0 {
                 return self.upper_saved(f, t, val);
             }
             let delta = t - f;
@@ -466,7 +466,7 @@ pub trait TimSorterBase: Sorter {
 
     /// Compare element `i` from the temporary storage with element `j` from the
     /// slice to sort, similarly to #compare(i32, i32).
-    fn compare_saved(&self, i: i32, j: i32) -> i32;
+    fn compare_saved(&self, i: i32, j: i32) -> Result<i32>;
 }
 
 #[cfg(test)]
