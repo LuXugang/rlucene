@@ -81,9 +81,8 @@ where
     QC: QueryCache<IRC::LeafReader>,
 {
     pub reader_context: IRC,
-    leaf_slices: Option<Arc<Vec<LeafSlice>>>,
     similarity: Arc<S>,
-    leaf_slices_init_lock: Mutex<()>,
+    inner: Mutex<Inner>,
     query_timeout: Option<QT>,
     query_caching_policy: Arc<QCP>,
     query_cache: QC,
@@ -92,6 +91,9 @@ where
     // that guarantees that writes become visible on the main thread, but making the variable volatile
     // shouldn't hurt either.
     partial_result: AtomicBool,
+}
+pub(crate) struct Inner {
+    leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
 pub type DefaultIndexSearcher<IRC> = IndexSearcher<
     IRC,
@@ -143,11 +145,11 @@ where
             10f32,
             leaves_to_cache,
         )?);
+        let inner = Mutex::new(Inner { leaf_slices });
         Ok(Self {
             reader_context: context,
-            leaf_slices,
             similarity: Arc::new(BM25Similarity::new()?),
-            leaf_slices_init_lock: Mutex::new(()),
+            inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
             query_cache: lru_query_cache,
@@ -168,26 +170,16 @@ where
         self.reader_context.reader().stored_fields()
     }
 
-    /// Returns the leaf slices used for concurrent searching. Override [`slices()`](Self::slices) to customize how slices are created.
-    pub fn get_slices_ref(&mut self) -> Result<&[LeafSlice]> {
-        self.ensure_slices()?;
-        Ok(self.leaf_slices.as_ref().unwrap().as_slice())
-    }
-
-    pub fn get_slices(&mut self) -> Result<Arc<Vec<LeafSlice>>> {
-        self.ensure_slices()?;
-        Ok(self.leaf_slices.as_ref().unwrap().clone())
-    }
-    fn ensure_slices(&mut self) -> Result<()> {
-        if self.leaf_slices.is_none() {
-            self.compute_and_cache_slices()?;
+    pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
+        let mut inner = self.inner.lock();
+        if inner.leaf_slices.is_none() {
+            self.compute_and_cache_slices(&mut inner)?;
         }
-        Ok(())
+        Ok(inner.leaf_slices.as_ref().unwrap().clone())
     }
 
-    fn compute_and_cache_slices(&mut self) -> Result<()> {
-        let _guard = self.leaf_slices_init_lock.lock();
-        if self.leaf_slices.is_none() {
+    fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<()> {
+        if inner.leaf_slices.is_none() {
             let res = slices(self.reader_context.leaves()?.as_slice())?;
             // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
             // same leaf context. It is a requirement that [`Collector::get_leaf_collector(LeafReaderContext)`]
@@ -203,7 +195,7 @@ where
                 enforce_distinct_leaves(leaf_slice)?;
             }
 
-            self.leaf_slices = Some(Arc::new(res));
+            inner.leaf_slices = Some(Arc::new(res));
         }
         Ok(())
     }
