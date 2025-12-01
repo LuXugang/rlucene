@@ -588,6 +588,7 @@ where
                     &mut self.segment_info,
                     Some(&mut self.pending_updates),
                     index_writer_config,
+                    &mut self.field_infos,
                 )?;
 
                 flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs

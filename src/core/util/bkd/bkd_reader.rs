@@ -31,6 +31,7 @@ use crate::core::util::bkd::bkd_writer::{
     VERSION_META_FILE, VERSION_SELECTIVE_INDEXING, VERSION_START,
 };
 use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 use parking_lot::Mutex;
@@ -1057,14 +1058,52 @@ where
         Ok(())
     }
 }
-
-impl<I> Clone for BKDPointTree<I>
+impl<I> TryClone for BKDPointTree<I>
 where
     I: IndexInput,
 {
-    fn clone(&self) -> Self {
-        // TODO: do we need this?
-        unimplemented!()
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let mut index = BKDPointTree::with_scratch_iterator(
+            self.inner_nodes.try_clone()?,
+            self.leaf_nodes.clone(),
+            self.config.clone(),
+            self.leaf_node_offset,
+            self.version,
+            self.point_count,
+            self.node_id,
+            self.level,
+            self.min_packed_value.as_ref(),
+            self.max_packed_value.as_ref(),
+            self.scratch_iterator.clone(),
+            self.scratch_data_packed_value.clone(),
+            self.scratch_min_index_packed_value.clone(),
+            self.scratch_max_index_packed_value.clone(),
+            self.common_prefix_lengths.clone(),
+            self.is_tree_balanced,
+        )?;
+
+        let level = self.level as usize;
+        let dims = self.config.num_dims as usize;
+
+        index.leaf_block_fp_stack[level] = self.leaf_block_fp_stack[level];
+
+        if !self.is_leaf_node() {
+            index.right_node_positions[level] = self.right_node_positions[level];
+            index.read_node_data_positions[level] = self.read_node_data_positions[level];
+            index.split_values_stack[level] = self.split_values_stack[level].clone();
+
+            let src = level * dims;
+            index
+                .negative_deltas
+                .copy_from(&self.negative_deltas[src..src + dims], src);
+
+            index.split_dims_pos[level] = self.split_dims_pos[level];
+        }
+
+        Ok(index)
     }
 }
 
@@ -1174,6 +1213,7 @@ where
     }
 }
 /// Reusable [`DocIdSetIterator`] to handle low cardinality leaves.
+#[derive(Clone)]
 struct BKDReaderDocIDSetIterator {
     idx: i32,
     length: i32,

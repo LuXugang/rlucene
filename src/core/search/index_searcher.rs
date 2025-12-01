@@ -521,13 +521,17 @@ where
         // TODO
         Ok(original)
     }
-    pub(crate) fn create_weight(
+    pub(crate) fn create_weight<T>(
         &self,
-        query: Query,
+        query: T,
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<IndexSearcherWeight<S, IRC, QCP, QC>> {
+    ) -> Result<IndexSearcherWeight<S, IRC, QCP, QC>>
+    where
+        T: Into<Query>,
+    {
+        let query = query.into();
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         if !score_mode.needs_scores() {
             Ok(Either2Weight::A(

@@ -29,6 +29,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_reader::BKDReader;
 use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt};
@@ -1861,6 +1862,14 @@ impl Clone for MutablePointTreeMock1 {
         unreachable!()
     }
 }
+impl TryClone for MutablePointTreeMock1 {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(self.clone())
+    }
+}
 
 impl MutablePointTree for MutablePointTreeMock1 {
     fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
@@ -1947,6 +1956,14 @@ impl PointTree for MutablePointTreeMock2 {
 impl Clone for MutablePointTreeMock2 {
     fn clone(&self) -> Self {
         unreachable!()
+    }
+}
+impl TryClone for MutablePointTreeMock2 {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(self.clone())
     }
 }
 

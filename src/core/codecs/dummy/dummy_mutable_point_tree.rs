@@ -16,14 +16,57 @@
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::index::point_values::PointTree;
+use crate::core::index::point_values::{IntersectVisitor, PointTree};
+use crate::core::util::clone::TryClone;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyMutablePointTree;
 
-impl PointTree for DummyMutablePointTree {}
+impl TryClone for DummyMutablePointTree {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
 
-impl Clone for DummyMutablePointTree {
-    fn clone(&self) -> Self {
+impl PointTree for DummyMutablePointTree {
+    fn move_to_child(&mut self) -> Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn move_to_sibling(&mut self) -> Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn move_to_parent(&mut self) -> Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_min_packed_value(&self) -> Result<&[u8]> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_max_packed_value(&self) -> Result<&[u8]> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn size(&self) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn visit_doc_ids<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn visit_doc_values<IV>(&mut self, _visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

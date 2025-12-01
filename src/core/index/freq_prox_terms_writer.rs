@@ -412,6 +412,9 @@ where
     D: DocMap,
     T: TermsEnum,
 {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.base.next()
+    }
 }
 
 impl<T, D> TermsEnum for SortingTermsEnum<T, D>

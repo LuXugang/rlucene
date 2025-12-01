@@ -220,6 +220,7 @@ where
         &mut self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
+        field_info: &mut Builder,
     ) -> Result<Option<Arc<DocMapImpl>>>
     where
         D: Directory,
@@ -231,7 +232,7 @@ where
             return Ok(None);
         }
 
-        let doc_values_reader = DocValuesLeafReaderImpl1::new(self);
+        let doc_values_reader = DocValuesLeafReaderImpl1::new(self, field_info);
         let max_doc = segment_info.max_doc()?;
         let has_blocks = segment_info.get_has_blocks();
         let parent_field = state.field_infos.get_parent_field();
@@ -288,6 +289,7 @@ where
         segment_info: &mut SegmentInfo<D1>,
         seg_updates: Option<&mut MTBufferedUpdates>,
         index_writer_config: &impl LiveIndexWriterConfig,
+        field_info: &mut Builder,
     ) -> Result<Option<Arc<DocMapImpl>>>
     where
         D1: Directory,
@@ -297,7 +299,7 @@ where
         self.finish_doc_values_writer()?;
         // NOTE: caller (DocumentsWriterPerThread) handles
         // aborting on any exception from this method
-        let sort_map = self.maybe_sort_segment(state, segment_info)?;
+        let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
         let max_doc = segment_info.max_doc()?;
 
         // write norms
@@ -1976,14 +1978,19 @@ where
 {
     index_chain: &'a mut IndexingChain<D>,
     base: DocValuesLeafReader,
+    field_info: &'a mut Builder,
 }
 impl<'a, D> DocValuesLeafReaderImpl1<'a, D>
 where
     D: Directory,
 {
-    fn new(index_chain: &'a mut IndexingChain<D>) -> Self {
+    fn new(index_chain: &'a mut IndexingChain<D>, field_info: &'a mut Builder) -> Self {
         let base = DocValuesLeafReader;
-        DocValuesLeafReaderImpl1 { index_chain, base }
+        DocValuesLeafReaderImpl1 {
+            index_chain,
+            base,
+            field_info,
+        }
     }
 }
 
@@ -2212,7 +2219,7 @@ where
     }
 
     fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-        self.base.get_field_infos()
+        Ok(Arc::new(self.field_info.finish()?))
     }
 
     type Bits = <DocValuesLeafReader as LeafReader>::Bits;

@@ -353,6 +353,11 @@ where
                                 || missing_long_value > self.query.upper_value)
                         {
                             // TODO IMPORTANT numeric_values sometimes called twice we should optimism it
+                            let mut sorted_numeric_values =
+                                DocValues::get_sorted_numeric(reader, &self.query.field)?;
+                            if !sorted_numeric_values.is_single_valued() {
+                                return Err(LuceneError::illegal_argument(""));
+                            }
                             let numeric_values =
                                 DocValues::unwrap_singleton_numeric(&mut sorted_numeric_values)?;
                             let itc = get_doc_id_set_iterator(
@@ -550,27 +555,22 @@ where
     // moving back to previous siblings, this effectively performs a binary search.
     let mut stack: Vec<P> = Vec::new();
 
-    // outer:
-    loop {
+    'outer: loop {
         // Move to the next node
-        loop {
-            if point_tree.move_to_sibling()? {
-                break;
-            }
+        while !point_tree.move_to_sibling()? {
             if !point_tree.move_to_parent()? {
                 // No next node
-                break;
+                break 'outer;
             }
         }
 
         let cmp = comparator.compare(point_tree.get_min_packed_value()?, 0, value, 0);
         if cmp > 0 {
-            // This node doesn't have the value → next nodes also can't
+            // This node doesn't have `value`, so next nodes can't either
             break;
         }
 
-        // Push clone
-        stack.push(point_tree.clone());
+        stack.push(point_tree.try_clone()?);
     }
 
     // Now search stack nodes
@@ -590,7 +590,7 @@ where
                     break;
                 }
 
-                stack.push(next.clone());
+                stack.push(next.try_clone()?);
 
                 if !next.move_to_sibling()? {
                     break;
@@ -1247,3 +1247,749 @@ pub type FallbackQueryWeight<LR> = Either4Weight<
     SortedNumericDocValuesRangeQueryWeight<LR>,
     SortedSetDocValuesRangeQueryWeight<LR>,
 >;
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::long_point::LongPoint;
+    use crate::core::document::sorted_numeric_doc_values_field::{
+        SortedNumericDocValuesField, sorted_numeric_doc_values_field_util,
+    };
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::query_timeout::QueryTimeout;
+    use crate::core::index::sort::Sort;
+    use crate::core::search::QueryCache;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
+    use crate::core::search::query::{Query, QueryBase};
+    use crate::core::search::query_caching_policy::QueryCachingPolicy;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::similarities_impl::similarities::Similarity;
+    use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
+    use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::search::query_utils::QueryUtils;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_directory, new_searcher_with_reader, random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use std::sync::Arc;
+
+    use crate::core::search::scorer::Scorer;
+    use crate::core::search::weight::Weight;
+
+    #[allow(dead_code)] // for quick search
+    struct TestIndexSortSortedNumericDocValuesRangeQuery;
+    #[test]
+    fn test_same_hits_as_point_range_query() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 10);
+
+        for _iter in 0..iters {
+            let dir = Arc::new(new_directory(&mut random)?);
+            // TODO: 未实现MockAnalyzer
+            let mut iwc = IndexWriterConfig::new();
+
+            let reverse = random.random_bool(0.5);
+            let mut sort_field =
+                SortedNumericSortField::with_reverse("dv", SortFieldType::Long, reverse)?;
+
+            let enable_missing_value = random.random_bool(0.5);
+            if enable_missing_value {
+                let missing_value = if random.random_bool(0.5) {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                } else if random.random_bool(0.5) {
+                    i64::MIN
+                } else {
+                    i64::MAX
+                };
+                sort_field.set_missing_value(missing_value)?;
+            }
+
+            let sort = Sort::with_fields(vec![sort_field])?;
+            iwc.set_index_sort(sort)?;
+
+            let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+            let num_docs = at_least(&mut random, 100);
+            for _i in 0..num_docs {
+                let mut doc = Document::new();
+                let num_values = TestUtil::next_int(&mut random, 0, 1);
+
+                for _ in 0..num_values {
+                    let value = TestUtil::next_long(&mut random, -100, 10000);
+                    doc.add(SortedNumericDocValuesField::new("dv", value));
+                    doc.add(LongPoint::new("idx", vec![value])?);
+                }
+
+                iw.add_document(doc)?;
+            }
+
+            // TODO delete by query 未实现
+            // Optional delete
+            // if random.random_bool(0.5) {
+            //     iw.delete_documents_query(LongPoint::new_range_query("idx", vec![0], vec![10])?)?;
+            // }
+
+            let reader = Arc::new(iw.get_reader()?);
+            let mut searcher = new_searcher_with_reader(reader.clone())?;
+            iw.close()?;
+
+            for _i in 0..100 {
+                let min = if random.random_bool(0.5) {
+                    i64::MIN
+                } else {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                };
+                let max = if random.random_bool(0.5) {
+                    i64::MAX
+                } else {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                };
+
+                let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+                let q2 = create_query("dv", min, max);
+
+                assert_same_hits(&mut searcher, q1, q2, false)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn assert_same_hits<S, IRC, QT, QCP, QC, T1, T2>(
+        searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+        q1: T1,
+        q2: T2,
+        scores: bool,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache<IRC::LeafReader>,
+        T1: Into<Query>,
+        T2: Into<Query>,
+    {
+        let irc = searcher.get_top_reader_context();
+        let max_doc = irc.reader().max_doc()?;
+
+        let sort = if scores {
+            Arc::new(Sort::get_relevance()?)
+        } else {
+            Arc::new(Sort::get_index_order()?)
+        };
+
+        let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
+        let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
+        assert_eq!(td1.total_hits().value(), td2.total_hits().value());
+
+        for i in 0..td1.score_docs().len() {
+            let sd1 = &td1.score_docs()[i];
+            let sd2 = &td2.score_docs()[i];
+
+            assert_eq!(sd1.doc(), sd2.doc());
+
+            if scores {
+                let diff = (sd1.score() - sd2.score()).abs();
+                assert!(diff <= 1e-6, "score diff={} idx={}", diff, i);
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_equals() -> Result<()> {
+        let q1 = create_query("foo", 3, 5);
+
+        QueryUtils::check_equal(&q1, &create_query("foo", 3, 5));
+        QueryUtils::check_unequal(&q1, &create_query("foo", 3, 6));
+        QueryUtils::check_unequal(&q1, &create_query("foo", 4, 5));
+        QueryUtils::check_unequal(&q1, &create_query("bar", 3, 5));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_to_string() -> Result<()> {
+        let q1 = create_query("foo", 3, 5);
+
+        assert_eq!("foo:[3 TO 5]", q1.as_string(""));
+        assert_eq!("[3 TO 5]", q1.as_string("foo"));
+        assert_eq!("foo:[3 TO 5]", q1.as_string("bar"));
+
+        Ok(())
+    }
+    #[test]
+    fn test_no_documents() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(Document::new())?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+
+        let query = create_query("foo", 2, 4);
+
+        // TODO query rewrite 未实现
+        // let rewritten = searcher.rewrite(&query)?;
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+
+        let leaves = searcher.reader_context.leaves()?;
+        let ctx0 = leaves[0].as_ref();
+
+        let scorer_opt = weight.scorer(ctx0)?;
+        assert!(scorer_opt.is_none());
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_exhaustive_range() -> Result<()> {
+        // TODO query rewrite 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_rewrite_fallback_query() -> Result<()> {
+        // TODO query rewrite 未实现
+        Ok(())
+    }
+    /// Test that the index sort optimization not activated if there is no index sort.
+    #[test]
+    fn test_no_index_sort() -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(create_document("field", 0))?;
+        test_index_sort_optimization_deactivated(&writer)?;
+        writer.close()?;
+        Ok(())
+    }
+
+    /// Test that the index sort optimization is not activated when the sort is on the wrong field.
+    #[test]
+    fn test_index_sort_on_wrong_field() -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field = SortedNumericSortField::new("other-field", SortFieldType::Long)?;
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+        writer.add_document(create_document("field", 0))?;
+        test_index_sort_optimization_deactivated(&writer)?;
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_other_sort_types() -> Result<()> {
+        use SortFieldType::{Double, Float};
+        let mut random = random();
+        for sort_type in [Float, Double] {
+            // TODO 未实现MockAnalyzer
+            let dir = Arc::new(new_directory(&mut random)?);
+            let mut iwc = IndexWriterConfig::new();
+            let sort_field = SortedNumericSortField::new("field", sort_type)?;
+            let sort = Sort::with_fields(vec![sort_field])?;
+            iwc.set_index_sort(sort)?;
+            let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+            writer.add_document(create_document("field", 0))?;
+            test_index_sort_optimization_deactivated(&writer)?;
+            writer.close()?;
+        }
+
+        Ok(())
+    }
+
+    /// Test that the index sort optimization is not activated when some documents have multiple values.
+    #[test]
+    fn test_multi_doc_values() -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+        let mut doc = Document::new();
+        doc.add(SortedNumericDocValuesField::new("field", 0));
+        doc.add(SortedNumericDocValuesField::new("field", 10));
+        writer.add_document(doc)?;
+
+        test_index_sort_optimization_deactivated(&writer)?;
+
+        writer.close()?;
+        Ok(())
+    }
+
+    fn test_index_sort_optimization_deactivated<D>(writer: &RandomIndexWriter<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        let query = create_query("field", 0, 0);
+        let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
+        for ctx in searcher.reader_context.leaves()? {
+            let mut scorer = weight.scorer(ctx.as_ref())?;
+            assert!(scorer.as_mut().unwrap().two_phase_iterator().is_some());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_fallback_count() -> Result<()> {
+        // this test is not required in Rust Lucene
+        Ok(())
+    }
+
+    #[test]
+    fn test_compare_count() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 10);
+
+        for _iter in 0..iters {
+            let dir = Arc::new(new_directory(&mut random)?);
+            // TODO 未实现MockAnalyzer
+            let mut iwc = IndexWriterConfig::new();
+            let mut sort_field =
+                SortedNumericSortField::with_reverse("field", SortFieldType::Long, false)?;
+            let enable_missing_value = random.random_bool(0.5);
+            if enable_missing_value {
+                let missing_value = if random.random_bool(0.5) {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                } else if random.random_bool(0.5) {
+                    i64::MIN
+                } else {
+                    i64::MAX
+                };
+                sort_field.set_missing_value(missing_value)?;
+            }
+
+            let sort = Sort::with_fields(vec![sort_field])?;
+            iwc.set_index_sort(sort)?;
+
+            let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+            let num_docs = at_least(&mut random, 100);
+            for _i in 0..num_docs {
+                let mut doc = Document::new();
+                let num_values = TestUtil::next_int(&mut random, 0, 1);
+
+                for _ in 0..num_values {
+                    let value = TestUtil::next_long(&mut random, -100, 10000);
+                    doc = create_sndv_and_point_document("field", value)?;
+                }
+
+                writer.add_document(doc)?;
+            }
+
+            // TODO delete by query 未实现
+            // Optional delete
+            // if random.random_bool(0.5) {
+            //     writer.delete_documents_query(
+            //         LongPoint::new_range_query("field", vec![0], vec![10])?
+            //     )?;
+            // }
+
+            // Reader + Searcher
+            let reader = Arc::new(writer.get_reader()?);
+            let searcher = new_searcher_with_reader(reader.clone())?;
+            writer.close()?;
+
+            for _i in 0..100 {
+                let min = if random.random_bool(0.5) {
+                    i64::MIN
+                } else {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                };
+
+                let max = if random.random_bool(0.5) {
+                    i64::MAX
+                } else {
+                    TestUtil::next_long(&mut random, -100, 10000)
+                };
+
+                let q1 = LongPoint::new_range_query("field", vec![min], vec![max])?;
+
+                let fallback = LongPoint::new_range_query("field", vec![min], vec![max])?;
+                let q2 =
+                    IndexSortSortedNumericDocValuesRangeQuery::new("field", min, max, fallback);
+
+                let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+                let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+                assert_same_count(&w1, &w2, &searcher)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn assert_same_count<IRC, S, QT, QCP, QC>(
+        weight1: &impl Weight<IRC::LeafReader>,
+        weight2: &impl Weight<IRC::LeafReader>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache<IRC::LeafReader>,
+    {
+        for ctx in searcher.reader_context.leaves()? {
+            let c1 = weight1.count(ctx.as_ref())?;
+            let c2 = weight2.count(ctx.as_ref())?;
+            assert_eq!(c1, c2);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_count_boundary() -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+
+        let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
+
+        let use_lower = random.random_bool(0.5);
+        let lower_value = 1_i64;
+        let upper_value = 100_i64;
+
+        if use_lower {
+            sort_field.set_missing_value(lower_value)?;
+        } else {
+            sort_field.set_missing_value(upper_value)?;
+        }
+
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        writer.add_document(create_sndv_and_point_document(
+            "field",
+            random.random_range(lower_value..upper_value),
+        )?)?;
+        writer.add_document(create_sndv_and_point_document(
+            "field",
+            random.random_range(lower_value..upper_value),
+        )?)?;
+        writer.add_document(create_missing_value_document()?)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+
+        let fallback_query =
+            LongPoint::new_range_query("field", vec![lower_value], vec![upper_value])?;
+
+        let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+            "field",
+            lower_value,
+            upper_value,
+            fallback_query,
+        );
+
+        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+        let mut count = 0;
+        for ctx in searcher.reader_context.leaves()? {
+            count += weight.count(ctx.as_ref())?;
+        }
+
+        assert_eq!(2, count);
+
+        writer.close()?;
+        Ok(())
+    }
+
+    fn create_missing_value_document() -> Result<Document> {
+        let mut doc = Document::new();
+        doc.add(StringField::with_string("foo", "fox", Store::Yes)?);
+        Ok(doc)
+    }
+
+    fn create_sndv_and_point_document<S: Into<String>>(field: S, value: i64) -> Result<Document> {
+        let field = field.into();
+        let mut doc = Document::new();
+        doc.add(SortedNumericDocValuesField::new(&field, value));
+        doc.add(LongPoint::new(&field, vec![value])?);
+        Ok(doc)
+    }
+
+    fn create_document<S: Into<String>>(field: S, value: i64) -> Document {
+        let field = field.into();
+        let mut doc = Document::new();
+        doc.add(SortedNumericDocValuesField::new(&field, value));
+        doc
+    }
+
+    fn create_query<S: Into<String>>(
+        field: S,
+        lower_value: i64,
+        upper_value: i64,
+    ) -> IndexSortSortedNumericDocValuesRangeQuery {
+        let field_str = field.into();
+
+        let fallback_query = sorted_numeric_doc_values_field_util::new_slow_range_query(
+            field_str.clone(),
+            lower_value,
+            upper_value,
+        );
+
+        IndexSortSortedNumericDocValuesRangeQuery::new(
+            field_str,
+            lower_value,
+            upper_value,
+            fallback_query,
+        )
+    }
+    #[test]
+    fn test_count_with_bkd_asc() -> Result<()> {
+        do_test_count_with_bkd(false)
+    }
+
+    #[test]
+    fn test_count_with_bkd_desc() -> Result<()> {
+        do_test_count_with_bkd(true)
+    }
+
+    fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
+        let mut random = random();
+        let field_name = "field";
+
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+
+        let sort_field =
+            SortedNumericSortField::with_reverse(field_name, SortFieldType::Long, reverse)?;
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        add_doc_with_bkd(&writer, field_name, 7, 500)?;
+        add_doc_with_bkd(&writer, field_name, 5, 600)?;
+        add_doc_with_bkd(&writer, field_name, 11, 700)?;
+        add_doc_with_bkd(&writer, field_name, 13, 800)?;
+        add_doc_with_bkd(&writer, field_name, 9, 900)?;
+
+        writer.flush()?;
+        // writer.force_merge(1)?; // TODO force_merge未实现
+
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        // Both bounds exist in the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![7], vec![9])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 9, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1400, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Both bounds do not exist in the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![6], vec![10])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 10, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1400, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Min bound exists in the dataset, not the max
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![7], vec![10])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 10, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1400, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Min bound doesn't exist in the dataset, max does
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![6], vec![9])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 9, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1400, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Min bound is the min value of the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![5], vec![8])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 5, 8, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1100, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Min bound is less than min value of the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![4], vec![8])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 4, 8, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1100, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Max bound is the max value of the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![10], vec![13])?;
+            let query =
+                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 13, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1500, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Max bound is greater than max value of the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![10], vec![14])?;
+            let query =
+                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 14, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(1500, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Everything matches
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![2], vec![14])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 14, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(3500, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Bounds equal to min/max values of the dataset, everything matches
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![2], vec![3])?;
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 3, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(0, weight.count(ctx.as_ref())?);
+            }
+        }
+        // Bounds are greater than the max value of the dataset
+        {
+            let fallback = LongPoint::new_range_query(field_name, vec![14], vec![15])?;
+            let query =
+                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 14, 15, fallback);
+            let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+            for ctx in searcher.reader_context.leaves()? {
+                assert_eq!(0, weight.count(ctx.as_ref())?);
+            }
+        }
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_count_with_bkd_asc() -> Result<()> {
+        do_test_random_count_with_bkd(false)
+    }
+
+    #[test]
+    fn test_random_count_with_bkd_desc() -> Result<()> {
+        do_test_random_count_with_bkd(true)
+    }
+
+    fn do_test_random_count_with_bkd(reverse: bool) -> Result<()> {
+        let mut random = random();
+        let field_name = "field";
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field =
+            SortedNumericSortField::with_reverse(field_name, SortFieldType::Long, reverse)?;
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        for _i in 0..100 {
+            let value = random.random_range(0..1000) as i64;
+            let repeat = random.random_range(0..1000);
+
+            add_doc_with_bkd(&writer, field_name, value, repeat)?;
+        }
+
+        writer.flush()?;
+        // TODO force_merge未实现
+        // writer.force_merge(1)?;
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+
+        for _k in 0..100 {
+            let random1 = random.random_range(0..1100) as i64;
+            let random2 = random.random_range(0..1100) as i64;
+
+            let low = random1.min(random2);
+            let upper = random1.max(random2);
+
+            let range_query = LongPoint::new_range_query(field_name, vec![low], vec![upper])?;
+            let index_sort_range_query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                low,
+                upper,
+                range_query.clone(),
+            );
+
+            let index_sort_range_query_weight =
+                index_sort_range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+            let range_query_weight =
+                range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+
+            for ctx in searcher.reader_context.leaves()? {
+                let expected = range_query_weight.count(ctx.as_ref())?;
+                let actual = index_sort_range_query_weight.count(ctx.as_ref())?;
+                assert_eq!(expected, actual);
+            }
+        }
+        writer.close()?;
+        Ok(())
+    }
+
+    fn add_doc_with_bkd<D>(
+        index_writer: &RandomIndexWriter<D>,
+        field: &str,
+        value: i64,
+        repeat: i32,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        for _ in 0..repeat {
+            let mut doc = Document::new();
+            doc.add(SortedNumericDocValuesField::new(field, value));
+            doc.add(LongPoint::new(field, vec![value])?);
+            index_writer.add_document(doc)?;
+        }
+        Ok(())
+    }
+}

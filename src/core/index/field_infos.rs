@@ -779,18 +779,20 @@ pub mod build {
     use std::collections::HashMap;
 
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering::SeqCst;
 
     pub struct Builder {
         by_name: HashMap<String, Arc<FieldInfo>>,
         global_field_numbers: Arc<Mutex<FieldNumbers>>,
-        finished: bool,
+        finished: AtomicBool,
     }
     impl Builder {
         pub(crate) fn new(global_field_numbers: Arc<Mutex<FieldNumbers>>) -> Self {
             Self {
                 by_name: HashMap::new(),
                 global_field_numbers,
-                finished: false,
+                finished: AtomicBool::new(false),
             }
         }
 
@@ -867,15 +869,15 @@ pub mod build {
             self.by_name.get(field_name).cloned()
         }
         fn assert_not_finished(&self) -> Result<()> {
-            if self.finished {
+            if self.finished.load(SeqCst) {
                 return Err(LuceneError::illegal_state(
                     "FieldInfos.Builder was already finished; cannot add new fields",
                 ));
             }
             Ok(())
         }
-        pub fn finish(&mut self) -> Result<FieldInfos> {
-            self.finished = true;
+        pub fn finish(&self) -> Result<FieldInfos> {
+            self.finished.store(true, SeqCst);
             FieldInfos::new(self.by_name.values().cloned().collect())
         }
     }

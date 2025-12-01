@@ -123,26 +123,39 @@ where
     }
 
     pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
-        match self.writer {
-            Some(ref mut writer) => match value {
-                FieldDataEnum::Binary(bytes) => {
-                    writer.write_field_bytes(info, bytes)?;
-                },
-                FieldDataEnum::String(s) => {
-                    writer.write_field_str(info, s)?;
-                },
-                FieldDataEnum::Number(num) => {
-                    match num {
-                        Number::I32(n) => writer.write_field_i32(info, *n),
-                        Number::I64(n) => writer.write_field_i64(info, *n),
-                        Number::F32(n) => writer.write_field_f32(info, *n),
-                        Number::F64(n) => writer.write_field_f64(info, *n),
-                        _ => return Err(LuceneError::illegal_argument("unsupported number type")),
-                    }
-                }?,
-                _ => return Err(LuceneError::illegal_argument("unsupported field type")),
+        match self.sub {
+            Some(ref mut sub) => {
+                Self::do_write_field(sub.writer.as_mut().unwrap(), info, value)?;
             },
-            None => return Err(LuceneError::illegal_argument("writer must be initialized")),
+            None => {
+                Self::do_write_field(self.writer.as_mut().unwrap(), info, value)?;
+            },
+        }
+
+        Ok(())
+    }
+    fn do_write_field(
+        writer: &mut impl StoredFieldsWriter,
+        info: &FieldInfo,
+        value: &FieldDataEnum,
+    ) -> Result<()> {
+        match value {
+            FieldDataEnum::Binary(bytes) => {
+                writer.write_field_bytes(info, bytes)?;
+            },
+            FieldDataEnum::String(s) => {
+                writer.write_field_str(info, s)?;
+            },
+            FieldDataEnum::Number(num) => {
+                match num {
+                    Number::I32(n) => writer.write_field_i32(info, *n),
+                    Number::I64(n) => writer.write_field_i64(info, *n),
+                    Number::F32(n) => writer.write_field_f32(info, *n),
+                    Number::F64(n) => writer.write_field_f64(info, *n),
+                    _ => return Err(LuceneError::illegal_argument("unsupported number type")),
+                }
+            }?,
+            _ => return Err(LuceneError::illegal_argument("unsupported field type")),
         }
         Ok(())
     }

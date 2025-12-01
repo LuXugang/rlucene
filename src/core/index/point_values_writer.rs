@@ -32,6 +32,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::paged_bytes::{
     PagedBytes, PagedBytesDataOutput, PagedBytesReader, get_data_output,
@@ -351,16 +352,19 @@ where
     }
 }
 
-impl<M, DM> Clone for MutableSortingPointValues<M, DM>
+impl<M, DM> TryClone for MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
     DM: DocMap,
 {
-    fn clone(&self) -> Self {
-        Self {
-            input: self.input.clone(),
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            input: self.input.try_clone()?,
             doc_map: self.doc_map.clone(),
-        }
+        })
     }
 }
 
@@ -472,6 +476,14 @@ impl PointTree for MutablePointTreeImpl {
             visitor.visit_with_packed_value(doc_id, &packed_value)?;
         }
         Ok(())
+    }
+}
+impl TryClone for MutablePointTreeImpl {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(self.clone())
     }
 }
 

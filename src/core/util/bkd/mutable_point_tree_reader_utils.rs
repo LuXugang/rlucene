@@ -418,6 +418,7 @@ pub(crate) mod tests {
     use crate::core::index::point_values::PointTree;
     use crate::core::util::bkd::bkd_config::BKDConfig;
     use crate::core::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
+    use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{SliceCopyOps, ToInt};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
@@ -765,6 +766,11 @@ pub(crate) mod tests {
     pub struct DummyPointsReader {
         points: Vec<Point>,
         temp: Vec<Point>,
+    }
+    impl TryClone for DummyPointsReader {
+        fn try_clone(&self) -> Result<Self> {
+            Ok(self.clone())
+        }
     }
 
     impl DummyPointsReader {

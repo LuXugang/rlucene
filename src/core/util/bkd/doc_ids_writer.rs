@@ -46,6 +46,12 @@ pub struct DocIdsWriter {
     /// used to init a new scratch
     max_points_in_leaf: usize,
 }
+impl Clone for DocIdsWriter {
+    fn clone(&self) -> Self {
+        let max_points_in_leaf = self.scratch.len();
+        DocIdsWriter::new(max_points_in_leaf as i32)
+    }
+}
 
 impl DocIdsWriter {
     pub const CONTINUOUS_IDS: i8 = -2;
@@ -60,7 +66,7 @@ impl DocIdsWriter {
         let mut scratch_ints_ref = IntsRef::default();
         {
             // This is here to not rely on the default constructor of IntsRef to
-            // set offset to 0
+            // set1 offset to 0
             scratch_ints_ref.offset = 0;
         }
         let max_points_in_leaf = max_points_in_leaf as usize;

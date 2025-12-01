@@ -35,7 +35,7 @@ pub(crate) trait IndexPackageAccess {
 }
 pub(crate) trait FieldInfosBuilder {
     fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self>;
-    fn finish(&mut self) -> Result<FieldInfos>;
+    fn finish(&self) -> Result<FieldInfos>;
 }
 
 pub(crate) struct IndexPackageAccessImpl;
@@ -75,7 +75,7 @@ impl FieldInfosBuilder for FieldInfosBuilderImpl {
         Ok(self)
     }
 
-    fn finish(&mut self) -> Result<FieldInfos> {
+    fn finish(&self) -> Result<FieldInfos> {
         self.builder.finish()
     }
 }

@@ -16,6 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::point_values::{IntersectVisitor, PointTree};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error;
 
 /// One leaf [PointTree] whose order of points can be changed.
@@ -116,15 +117,18 @@ where
     }
 }
 
-impl<A, B> Clone for Either2MutablePointTree<A, B>
+impl<A, B> TryClone for Either2MutablePointTree<A, B>
 where
     A: MutablePointTree,
     B: MutablePointTree,
 {
-    fn clone(&self) -> Self {
+    fn try_clone(&self) -> lucene_error::Result<Self>
+    where
+        Self: Sized,
+    {
         match self {
-            Either2MutablePointTree::A(t) => Either2MutablePointTree::A(t.clone()),
-            Either2MutablePointTree::B(s) => Either2MutablePointTree::B(s.clone()),
+            Either2MutablePointTree::A(t) => Ok(Either2MutablePointTree::A(t.try_clone()?)),
+            Either2MutablePointTree::B(s) => Ok(Either2MutablePointTree::B(s.try_clone()?)),
         }
     }
 }

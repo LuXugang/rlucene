@@ -23,6 +23,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bkd::bkd_config::BKDConfig;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use std::borrow::Cow;
@@ -354,7 +355,7 @@ pub enum Relation {
     CellCrossesQuery,
 }
 /// Basic operations to read the KD-tree.
-pub trait PointTree: Clone {
+pub trait PointTree: TryClone {
     /// Move to the first child node and return `true` upon success.
     /// Returns `false` for leaf nodes and `true` otherwise.
     fn move_to_child(&mut self) -> Result<bool> {
@@ -508,15 +509,18 @@ where
     Other(PT),
 }
 
-impl<MPT, PT> Clone for PointTreeEnum<MPT, PT>
+impl<MPT, PT> TryClone for PointTreeEnum<MPT, PT>
 where
     MPT: MutablePointTree,
     PT: PointTree,
 {
-    fn clone(&self) -> Self {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         match self {
-            PointTreeEnum::Mutable(mpt) => PointTreeEnum::Mutable(mpt.clone()),
-            PointTreeEnum::Other(pt) => PointTreeEnum::Other(pt.clone()),
+            PointTreeEnum::Mutable(mpt) => Ok(PointTreeEnum::Mutable(mpt.try_clone()?)),
+            PointTreeEnum::Other(pt) => Ok(PointTreeEnum::Other(pt.try_clone()?)),
         }
     }
 }

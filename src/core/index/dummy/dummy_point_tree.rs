@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 use crate::core::index::point_values::{IntersectVisitor, PointTree};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyPointTree;
 
-impl Clone for DummyPointTree {
-    fn clone(&self) -> Self {
+impl TryClone for DummyPointTree {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
