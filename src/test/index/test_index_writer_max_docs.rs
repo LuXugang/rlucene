@@ -68,7 +68,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
         assert_eq!(MAX_DOCS, ir.num_docs()?);
         let ir = get_context(ir.clone())?;
 
-        let mut searcher = IndexSearcher::new(ir)?;
+        let searcher = IndexSearcher::new(ir)?;
         let collector_manager = TopScoreDocCollectorManager::with_after(10, None, i32::MAX)?;
 
         let hits = searcher.search_with_collector_manager(

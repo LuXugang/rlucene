@@ -456,7 +456,7 @@ mod tests {
 
         let reader = Arc::new(writer.get_reader()?);
         let reader_ctx = get_context(reader.clone())?;
-        let mut searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::new(reader_ctx)?;
 
         // search for something that does exist
         let query = TermQuery::new(Term::from_text("keyword", "test1"));
@@ -612,7 +612,7 @@ mod tests {
 
         let reader = Arc::new(writer.get_reader()?);
         let reader_ctx = get_context(reader.clone())?;
-        let mut searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::new(reader_ctx)?;
 
         let query = TermQuery::new(Term::from_text("keyword", "test"));
         // ensure that queries return expected results without DateFilter first

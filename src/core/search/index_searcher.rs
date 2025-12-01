@@ -201,7 +201,7 @@ where
     }
 
     pub fn search_after_score(
-        &mut self,
+        &self,
         after: Option<ScoreDoc>,
         query: impl Into<Query>,
         num_hits: i32,
@@ -224,7 +224,7 @@ where
 
         self.search_with_collector_manager_with_state(query, &manager, term_state)
     }
-    pub fn search(&mut self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
+    pub fn search(&self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
         self.search_with_term_state(query, n, None)
     }
     /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -237,7 +237,7 @@ where
     /// Returns a [`LuceneError::TooManyClauses`] if a query would exceed
     /// [`get_max_clause_count()`] clauses.
     pub fn search_with_sort_score<T>(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         n: i32,
         sort: T,
@@ -260,7 +260,7 @@ where
     /// # Errors
     /// Returns an error if a low-level I/O error occurs.
     pub fn search_with_sort<T>(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         n: i32,
         sort: T,
@@ -271,7 +271,7 @@ where
         self.search_after_field_with_score(None, query, n, sort, false, None)
     }
     pub fn search_with_term_state(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         n: i32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -285,14 +285,14 @@ where
         self.similarity.clone()
     }
 
-    pub fn count(&mut self, query: impl Into<Query>) -> Result<i32> {
+    pub fn count(&self, query: impl Into<Query>) -> Result<i32> {
         // TODO IMPORTANT 简单实现 BooleanQuery未实现
         let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
         self.search_with_collector_manager(query, &v)
     }
 
     pub fn search_after_field_with_score<Q, T>(
-        &mut self,
+        &self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
@@ -307,7 +307,7 @@ where
         self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
     }
     pub fn search_after<Q, T>(
-        &mut self,
+        &self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
@@ -321,7 +321,7 @@ where
     }
 
     fn do_search_after_field<Q, T>(
-        &mut self,
+        &self,
         after: Option<FieldDoc>,
         query: Q,
         num_hits: i32,
@@ -364,7 +364,7 @@ where
         Ok(top_field_docs)
     }
     pub fn search_with_collector_manager_states<CM>(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         collector_manager: &CM,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -375,7 +375,7 @@ where
         self.search_with_collector_manager_with_state(query, collector_manager, term_state)
     }
     pub fn search_with_collector_manager<CM>(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         collector_manager: &CM,
     ) -> Result<CM::T>
@@ -386,7 +386,7 @@ where
     }
 
     pub fn search_with_collector_manager_with_state<CM>(
-        &mut self,
+        &self,
         query: impl Into<Query>,
         collector_manager: &CM,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -403,7 +403,7 @@ where
         self.search_with_first_collector(weight, collector_manager, first_collector)
     }
     fn search_with_first_collector<W, CM>(
-        &mut self,
+        &self,
         weight: Arc<W>,
         collector_manager: &CM,
         first_collector: CM::C,

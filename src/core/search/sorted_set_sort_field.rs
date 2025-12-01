@@ -425,7 +425,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -475,7 +475,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -531,7 +531,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
         let mut sort_field = SortedSetSortField::new("value", false)?;
         sort_field.set_missing_value(StringFirst)?;
@@ -584,7 +584,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;

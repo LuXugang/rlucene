@@ -427,7 +427,7 @@ mod tests {
         let query = MatchAllDocsQuery::new();
         let dir = Arc::new(new_directory(random)?);
         let reader = Arc::new(get_reader(dir)?);
-        let mut searcher = new_searcher_with_reader(reader)?;
+        let searcher = new_searcher_with_reader(reader)?;
         let cm = MyTopDocsCollectorMananger::new(num_results);
         searcher.search_with_collector_manager(query, &cm)
     }
@@ -441,7 +441,7 @@ mod tests {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let mut searcher = new_searcher_with_threads(index_reader, true, true, false)?;
+        let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)
@@ -456,7 +456,7 @@ mod tests {
         CR: CompositeReader + Clone + 'static,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let mut searcher = new_searcher_with_threads(index_reader, true, true, true)?;
+        let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
         let collector_manager =
             TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
         searcher.search_with_collector_manager(query, &collector_manager)
@@ -821,7 +821,7 @@ mod tests {
         writer.flush()?;
 
         let reader = writer.get_reader(false, false)?;
-        let mut searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+        let searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
 
         let manager = TopScoreDocCollectorManager::new(2, 10)?;
         let top_docs = searcher

@@ -74,7 +74,7 @@ fn test_long_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher_with_threads(reader, true, true, false)?;
+    let searcher = new_searcher_with_threads(reader, true, true, false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Arc::new(Sort::with_fields(vec![sort_field])?);
     let num_hits = 3;
@@ -211,7 +211,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     writer.close()?;
 
     // single-threaded so totalHits is deterministic
-    let mut searcher =
+    let searcher =
         new_searcher_with_threads(reader, random.random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
     let sort = Sort::with_fields(vec![sort_field])?;
@@ -261,8 +261,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher =
-        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -419,8 +418,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher =
-        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
 
@@ -514,7 +512,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher =
+    let searcher =
         new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 3;
     let total_hits_threshold = 3;
@@ -616,8 +614,7 @@ fn test_float_sort_optimization() -> Result<()> {
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
 
-    let mut searcher =
-        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let num_hits = 3;
@@ -694,7 +691,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     loop {
         let mut top_docs_vec = Vec::new();
         for i in 0..num_indices {
-            let mut searcher = new_searcher_with_threads(
+            let searcher = new_searcher_with_threads(
                 readers[i].clone(),
                 random_bool(0.5),
                 random_bool(0.5),
@@ -757,8 +754,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher =
-        new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+    let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 10;
     let total_hits_threshold = 10;
     let search_afters = [3, 10, num_docs - 10];
@@ -897,7 +893,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
     writer.flush()?;
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-    let mut searcher = new_searcher_with_reader(reader.clone())?;
+    let searcher = new_searcher_with_reader(reader.clone())?;
     writer.close()?;
 
     let mut visited_hits = 0;
@@ -956,7 +952,7 @@ fn test_doc_sort_optimization() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher =
+    let searcher =
         new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let num_hits = 3;
@@ -1011,7 +1007,7 @@ fn test_point_validation() -> Result<()> {
     let reader = Arc::new(writer.get_reader()?);
     writer.close()?;
 
-    let mut searcher = new_searcher(
+    let searcher = new_searcher(
         reader.clone(),
         random.random_bool(0.5),
         random.random_bool(0.5),
@@ -1108,7 +1104,7 @@ fn test_max_doc_visited() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher =
+    let searcher =
         new_searcher_with_threads(reader.clone(), random_bool(0.5), random_bool(0.5), false)?;
 
     let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
@@ -1149,7 +1145,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     writer.close()?;
-    let mut searcher = new_searcher_with_threads(reader.clone(), true, true, false)?;
+    let searcher = new_searcher_with_threads(reader.clone(), true, true, false)?;
 
     let selector_type = if random.random_bool(0.5) {
         SortedNumericSelectorType::Min

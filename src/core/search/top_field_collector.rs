@@ -1387,7 +1387,7 @@ mod tests {
     }
     #[test]
     fn test_sort_without_fill_fields() -> Result<()> {
-        let (_ir, mut is) = setup()?;
+        let (_ir, is) = setup()?;
         let sorts = vec![
             Sort::with_fields(vec![SortField::get_field_doc()?])?,
             Sort::new()?,
@@ -1408,7 +1408,7 @@ mod tests {
     }
     #[test]
     fn test_sort() -> Result<()> {
-        let (_ir, mut is) = setup()?;
+        let (_ir, is) = setup()?;
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
             Sort::with_fields(vec![SortField::get_field_doc()?])?,
@@ -1436,9 +1436,8 @@ mod tests {
     fn test_shared_hitcount_collector() -> Result<()> {
         // 对应 newSearcher(ir, true, true, true)
         let (ir, _) = setup()?;
-        let mut concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
-        let mut single_threaded_searcher =
-            new_searcher_with_threads(ir.clone(), true, true, false)?;
+        let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
+        let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
@@ -1471,7 +1470,7 @@ mod tests {
     }
     #[test]
     fn test_sort_without_total_hit_tracking() -> Result<()> {
-        let (_ir, mut is) = setup()?;
+        let (_ir, is) = setup()?;
         let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?);
 
         for i in 0..2 {
@@ -1941,7 +1940,7 @@ mod tests {
         writer.flush()?;
 
         let reader = writer.get_reader(false, false)?;
-        let mut searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+        let searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
 
         let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
         let top_docs = searcher

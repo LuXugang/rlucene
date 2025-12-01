@@ -327,7 +327,7 @@ where
 
 fn get_hit_count<D: Directory>(dir: Arc<D>, term: Term) -> Result<i64> {
     let reader = Arc::new(directory_reader_util::open(dir)?);
-    let mut searcher = new_searcher_with_reader(reader.clone())?;
+    let searcher = new_searcher_with_reader(reader.clone())?;
     let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
     Ok(top_docs.total_hits.value() as i64)
 }

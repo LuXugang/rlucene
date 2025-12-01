@@ -111,7 +111,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
     }
 
     let reader = Arc::new(iw.get_reader()?);
-    let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    let searcher = new_searcher_with_wrap(reader.clone(), false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -130,7 +130,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
         let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
         let q2 = numeric_doc_values_field_util::new_slow_range_query("dv", min, max);
 
-        assert_same_matches(&mut searcher, q1, q2, false)?;
+        assert_same_matches(&searcher, q1, q2, false)?;
     }
 
     Ok(())
@@ -193,7 +193,7 @@ fn do_test_duel_point_range_numeric_range_query(
         // }
 
         let reader = Arc::new(iw.get_reader()?);
-        let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
         iw.close()?;
 
         for _ in 0..100 {
@@ -217,7 +217,7 @@ fn do_test_duel_point_range_numeric_range_query(
                 numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
             };
 
-            assert_same_matches(&mut searcher, q1, q2, false)?;
+            assert_same_matches(&searcher, q1, q2, false)?;
         }
     }
 
@@ -296,7 +296,7 @@ fn do_test_duel_point_range_sorted_range_query(
         // }
 
         let reader = Arc::new(iw.get_reader()?);
-        let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
         iw.close()?;
 
         for _ in 0..100 {
@@ -366,7 +366,7 @@ fn do_test_duel_point_range_sorted_range_query(
                 )
             };
 
-            assert_same_matches(&mut searcher, q1, q2, false)?;
+            assert_same_matches(&searcher, q1, q2, false)?;
         }
     }
 
@@ -437,7 +437,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     }
 
     let reader = Arc::new(iw.get_reader()?);
-    let mut searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    let searcher = new_searcher_with_wrap(reader.clone(), false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -489,14 +489,14 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
             include_max,
         );
 
-        assert_same_matches(&mut searcher, q1, q2, false)?;
+        assert_same_matches(&searcher, q1, q2, false)?;
     }
 
     Ok(())
 }
 
 fn assert_same_matches<S, IRC, QT, QCP, QC, T1, T2>(
-    searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+    searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
     q1: T1,
     q2: T2,
     scores: bool,
@@ -713,7 +713,7 @@ fn test_sorted_numeric_npe() -> Result<()> {
     iw.commit()?;
 
     let reader = Arc::new(iw.get_reader()?);
-    let mut searcher = new_searcher_with_reader(reader.clone())?;
+    let searcher = new_searcher_with_reader(reader.clone())?;
     iw.close()?;
 
     let lo = NumericUtils::double_to_sortable_long(8.701032080293731E-226_f64);

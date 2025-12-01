@@ -70,7 +70,7 @@ fn test_doc_count() -> Result<()> {
     writer.commit()?;
     let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
     let irc = get_context(reader)?;
-    let mut index_searcher = IndexSearcher::new(irc)?;
+    let index_searcher = IndexSearcher::new(irc)?;
     let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
     let v = index_searcher.search(term_query, 10)?;
     assert_eq!(v.score_docs.len(), 1);

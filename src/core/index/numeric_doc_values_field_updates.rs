@@ -297,7 +297,7 @@ mod tests {
             directory_reader_util::open_with_writer(&writer)?
         };
         let reader = get_context(Arc::new(reader))?;
-        let mut searcher = IndexSearcher::new(reader)?;
+        let searcher = IndexSearcher::new(reader)?;
 
         let td = searcher.search_with_sort(
             TermQuery::new(Term::from_text("id", "doc-1")),
@@ -381,7 +381,7 @@ mod tests {
 
         let reader = directory_reader_util::open(dir.clone())?;
         let reader = get_context(Arc::new(reader))?;
-        let mut searcher = IndexSearcher::new(reader)?;
+        let searcher = IndexSearcher::new(reader)?;
 
         for (id, expected_val) in expected {
             let td = searcher.search_with_sort(

@@ -246,7 +246,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::String)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -292,7 +292,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::String,
@@ -340,7 +340,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(
             Some("value"),
             SortFieldType::StringVal,
@@ -386,7 +386,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::StringVal,
@@ -434,7 +434,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -482,7 +482,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::Int,
@@ -532,7 +532,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -578,7 +578,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
         let mut sort_field = SortField::new("value".into(), SortFieldType::Int)?;
         sort_field.set_missing_value(i32::MAX)?;
@@ -630,7 +630,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -682,7 +682,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::Long,
@@ -733,7 +733,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -780,7 +780,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
         let mut sort_field = SortField::new("value".into(), SortFieldType::Long)?;
         sort_field.set_missing_value(i64::MAX)?;
@@ -834,7 +834,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -886,7 +886,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::Float,
@@ -939,7 +939,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -988,7 +988,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
         let mut sort_field = SortField::new("value".into(), SortFieldType::Float)?;
         sort_field.set_missing_value(f32::MAX)?;
@@ -1057,7 +1057,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1108,7 +1108,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1169,7 +1169,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::with_reverse(
             Some("value"),
             SortFieldType::Double,
@@ -1241,7 +1241,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1310,7 +1310,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
         let mut sort_field = SortField::new("value".into(), SortFieldType::Double)?;
         sort_field.set_missing_value(f64::MAX)?;
@@ -1395,7 +1395,7 @@ mod tests {
         let ir = writer.get_reader()?;
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(Arc::new(ir))?;
+        let searcher = new_searcher_with_reader(Arc::new(ir))?;
         let sort = Arc::new(Sort::with_fields(vec![
             SortField::new(Some("value1"), SortFieldType::String)?,
             SortField::new(Some("value2"), SortFieldType::Long)?,

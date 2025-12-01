@@ -654,7 +654,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Int,
@@ -696,7 +696,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::with_reverse(
             "value",
             SortFieldType::Int,
@@ -743,7 +743,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
         let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
         sort_field.set_missing_value(i32::MIN)?;
@@ -794,7 +794,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
         let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
         sort_field.set_missing_value(i32::MAX)?;
@@ -842,7 +842,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Int,
@@ -883,7 +883,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Float,
@@ -925,7 +925,7 @@ mod tests {
         let reader = Arc::new(writer.get_reader()?);
         writer.close()?;
 
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Double,

@@ -1360,7 +1360,7 @@ mod tests {
             // }
 
             let reader = Arc::new(iw.get_reader()?);
-            let mut searcher = new_searcher_with_reader(reader.clone())?;
+            let searcher = new_searcher_with_reader(reader.clone())?;
             iw.close()?;
 
             for _i in 0..100 {
@@ -1378,7 +1378,7 @@ mod tests {
                 let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
                 let q2 = create_query("dv", min, max);
 
-                assert_same_hits(&mut searcher, q1, q2, false)?;
+                assert_same_hits(&searcher, q1, q2, false)?;
             }
         }
 
@@ -1386,7 +1386,7 @@ mod tests {
     }
 
     fn assert_same_hits<S, IRC, QT, QCP, QC, T1, T2>(
-        searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
@@ -1481,48 +1481,48 @@ mod tests {
         writer.add_document(create_document("field", 35))?;
 
         let reader = Arc::new(writer.get_reader()?);
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
         // Test ranges consisting of one value.
 
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -80), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -5, -5), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 0), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 30, 30), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 35, 35), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -80), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -5, -5), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 0), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 30, 30), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 35, 35), 1)?;
 
-        assert_number_of_hits(&mut searcher, create_query("field", -90, -90), 0)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 5, 5), 0)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 40, 40), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, -90), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 5, 5), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 40, 40), 0)?;
 
         // Test the lower end of the document value range.
-        assert_number_of_hits(&mut searcher, create_query("field", -90, -4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -70, -4), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -5), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, -4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -70, -4), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -5), 2)?;
 
         // Test the upper end of the document value range.
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 34), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 35), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 36), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 30, 35), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 34), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 35), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 36), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 30, 35), 2)?;
 
         // Test multiple occurrences of the same value.
-        assert_number_of_hits(&mut searcher, create_query("field", -4, 4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -4, 0), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 30), 3)?;
+        assert_number_of_hits(&searcher, create_query("field", -4, 4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -4, 0), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 30), 3)?;
 
         // Test ranges that span all documents.
-        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 6)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -90, 40), 6)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, 35), 6)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, 40), 6)?;
 
         writer.close()?;
         Ok(())
     }
 
     fn assert_number_of_hits<IRC, S, QT, QCP, QC>(
-        searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
         query: impl Into<Query>,
         number_of_hits: i32,
     ) -> Result<()>
@@ -1571,41 +1571,41 @@ mod tests {
         writer.add_document(create_document("field", 35))?;
 
         let reader = Arc::new(writer.get_reader()?);
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
         // Test ranges consisting of one value.
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -80), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -5, -5), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 0), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 5, 5), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 30, 30), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 35, 35), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -80), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -5, -5), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 0), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 5, 5), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 30, 30), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 35, 35), 1)?;
 
-        assert_number_of_hits(&mut searcher, create_query("field", -90, -90), 0)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 6, 6), 0)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 40, 40), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, -90), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 6, 6), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 40, 40), 0)?;
 
         // Test the lower end of the document value range.
-        assert_number_of_hits(&mut searcher, create_query("field", -90, -4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -70, -4), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -80, -5), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, -4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -70, -4), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, -5), 2)?;
 
         // Test the upper end of the document value range.
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 34), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 35), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 25, 36), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 30, 35), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 34), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 35), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 25, 36), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 30, 35), 2)?;
 
         // Test multiple occurrences of the same value.
-        assert_number_of_hits(&mut searcher, create_query("field", -4, 4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -4, 0), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 4), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 0, 30), 4)?;
+        assert_number_of_hits(&searcher, create_query("field", -4, 4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -4, 0), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 4), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", 0, 30), 4)?;
 
         // Test ranges that span all documents.
-        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 7)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -90, 40), 7)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, 35), 7)?;
+        assert_number_of_hits(&searcher, create_query("field", -90, 40), 7)?;
 
         writer.close()?;
         Ok(())
@@ -1633,12 +1633,12 @@ mod tests {
         writer.add_document(create_document("field", 42))?;
 
         let reader = Arc::new(writer.get_reader()?);
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
-        assert_number_of_hits(&mut searcher, create_query("field", 42, 43), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 42, 42), 1)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 41, 41), 0)?;
-        assert_number_of_hits(&mut searcher, create_query("field", 43, 43), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 42, 43), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 42, 42), 1)?;
+        assert_number_of_hits(&searcher, create_query("field", 41, 41), 0)?;
+        assert_number_of_hits(&searcher, create_query("field", 43, 43), 0)?;
 
         writer.close()?;
         Ok(())
@@ -1668,13 +1668,13 @@ mod tests {
         writer.add_document(create_document("other-field", 20))?;
 
         let reader = Arc::new(writer.get_reader()?);
-        let mut searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader.clone())?;
 
-        assert_number_of_hits(&mut searcher, create_query("field", -70, 0), 2)?;
-        assert_number_of_hits(&mut searcher, create_query("field", -2, 35), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -70, 0), 2)?;
+        assert_number_of_hits(&searcher, create_query("field", -2, 35), 2)?;
 
-        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 4)?;
-        assert_number_of_hits(&mut searcher, create_query("field", i64::MIN, i64::MAX), 4)?;
+        assert_number_of_hits(&searcher, create_query("field", -80, 35), 4)?;
+        assert_number_of_hits(&searcher, create_query("field", i64::MIN, i64::MAX), 4)?;
 
         writer.close()?;
         Ok(())

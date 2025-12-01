@@ -55,7 +55,7 @@ fn test_basic_ints() -> Result<()> {
     }
 
     let r = Arc::new(crate::core::index::directory_reader::directory_reader_util::open_with_writer(&w)?);
-    let mut searcher = IndexSearcher::new(get_context(r.clone())?)?;
+    let  searcher = IndexSearcher::new(get_context(r.clone())?)?;
 
     assert_eq!(
         2,
