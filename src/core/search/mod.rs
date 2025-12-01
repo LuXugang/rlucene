@@ -82,6 +82,7 @@ pub mod top_docs_collector;
 pub use query_cache::QueryCache;
 pub(crate) mod abstract_multi_term_query_constant_score_wrapper;
 pub mod boolean_clause;
+mod boolean_scorer_supplier;
 pub(crate) mod boolean_weight;
 pub mod boost_query;
 mod constant_score_query;
