@@ -17,12 +17,19 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::lock::Lock;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyLock;
 
 impl Display for DummyLock {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl Closeable for DummyLock {
+    fn close(&mut self) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

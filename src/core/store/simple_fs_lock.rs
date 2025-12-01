@@ -17,12 +17,19 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::lock::Lock;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct SimpleFSLock;
 
 impl Display for SimpleFSLock {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Closeable for SimpleFSLock {
+    fn close(&mut self) -> Result<()> {
         todo!()
     }
 }

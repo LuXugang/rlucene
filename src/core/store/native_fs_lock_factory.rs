@@ -29,6 +29,7 @@ use parking_lot::Mutex;
 use crate::core::store::fs_lock_factory::FSLockFactory;
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Implements [`lock_factory`](crate::core::store::lock_factory) using native OS file
@@ -195,6 +196,12 @@ impl Display for NativeFSLock {
             self.path.display(),
             self.format_metadata()
         )
+    }
+}
+
+impl Closeable for NativeFSLock {
+    fn close(&mut self) -> Result<()> {
+        todo!()
     }
 }
 

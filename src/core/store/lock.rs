@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
-
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
 
 /// An interprocess mutex lock.
 ///
@@ -33,7 +33,7 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// # Note
 /// This is an internal API.
-pub trait Lock: Display {
+pub trait Lock: Display + Closeable {
     /// Best effort check that this lock is still valid. Locks could become
     /// invalidated externally for a number of reasons, such as if a user
     /// deletes the lock file manually or when a network filesystem is in
@@ -58,6 +58,19 @@ where
         match self {
             Either2Lock::A(f_lock) => f_lock.fmt(f),
             Either2Lock::B(s) => s.fmt(f),
+        }
+    }
+}
+
+impl<A, B> Closeable for Either2Lock<A, B>
+where
+    A: Lock,
+    B: Lock,
+{
+    fn close(&mut self) -> Result<()> {
+        match self {
+            Either2Lock::A(f) => f.close(),
+            Either2Lock::B(s) => s.close(),
         }
     }
 }
