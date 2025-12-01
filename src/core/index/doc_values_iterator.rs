@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait DocValuesIterator: DocIdSetIterator {
     /// Advances the iterator to exactly `target` and returns whether `target`
@@ -34,6 +34,6 @@ pub trait DocValuesIterator: DocIdSetIterator {
     /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id)
     /// will return the value of `target`.
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unimplemented!("advance_exact needs to be implemented if you need to use it")
+        Err(LuceneError::not_implemented(""))
     }
 }

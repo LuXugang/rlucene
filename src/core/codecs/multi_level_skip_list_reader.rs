@@ -78,7 +78,6 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
     ) -> Self {
         let mut skip_stream = Vec::with_capacity(max_skip_levels);
         skip_stream.push(Some(first_skip_stream));
-        skip_stream.resize_with(max_skip_levels, || unimplemented!());
         let mut skip_interval = vec![0; max_skip_levels];
         skip_interval[0] = base_skip_interval;
         for i in 1..max_skip_levels {

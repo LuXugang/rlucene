@@ -333,16 +333,16 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum>;
     fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
-        unimplemented!("must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(""))
     }
     fn grow(&mut self, _size: i32) -> Result<()> {
-        unimplemented!("must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(""))
     }
     fn resize(&mut self, _size: i32) -> Result<()> {
         Ok(())
     }
     fn reset(&mut self, _doc: i32) -> Result<()> {
-        unimplemented!("must be implemented if you need to use it")
+        Err(LuceneError::not_implemented(""))
     }
     fn need_reset(&self) -> bool {
         false
