@@ -95,7 +95,6 @@ pub trait QueryBase: Eq + Hash + Debug {
     where
         QV: QueryVisitor;
 }
-
 pub enum Query {
     Term(TermQuery),
     MatchAll(MatchAllDocsQuery),
@@ -108,6 +107,26 @@ pub enum Query {
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
+}
+#[cfg(test)]
+impl Clone for Query {
+    fn clone(&self) -> Self {
+        match self {
+            Query::Term(t) => Query::Term(t.clone()),
+            Query::MatchAll(m) => Query::MatchAll(m.clone()),
+            Query::MatchNoDoc(m) => Query::MatchNoDoc(m.clone()),
+            Query::Dummy(d) => Query::Dummy(d.clone()),
+            Query::Boost(b) => Query::Boost(b.clone()),
+            Query::ConstantScore(c) => Query::ConstantScore(c.clone()),
+            Query::PointRange(c) => Query::PointRange(c.clone()),
+            Query::SortedNumericDocValuesSet(c) => Query::SortedNumericDocValuesSet(c.clone()),
+            Query::SortedNumericDocValuesRange(c) => Query::SortedNumericDocValuesRange(c.clone()),
+            Query::SortedSetDocValuesRange(c) => Query::SortedSetDocValuesRange(c.clone()),
+            Query::IndexSortSortedNumericDocValuesRange(c) => {
+                Query::IndexSortSortedNumericDocValuesRange(c.clone())
+            },
+        }
+    }
 }
 impl Default for Query {
     fn default() -> Self {

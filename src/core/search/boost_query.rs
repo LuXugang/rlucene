@@ -64,6 +64,15 @@ impl BoostQuery {
         self.boost
     }
 }
+#[cfg(test)]
+impl Clone for BoostQuery {
+    fn clone(&self) -> Self {
+        Self {
+            query: Box::new((*self.query).clone()),
+            boost: self.boost,
+        }
+    }
+}
 impl PartialEq for BoostQuery {
     fn eq(&self, other: &Self) -> bool {
         self.boost.to_bits() == other.boost.to_bits() && self.query == other.query

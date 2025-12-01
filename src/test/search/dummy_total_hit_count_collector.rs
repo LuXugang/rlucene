@@ -43,6 +43,9 @@ impl DummyTotalHitCountCollector {
     pub fn get_total_hits(&self) -> i32 {
         self.total_hits
     }
+    pub fn create_manager() -> CollectorManagerImpl {
+        CollectorManagerImpl
+    }
 }
 impl Collector for DummyTotalHitCountCollector {
     type LeafCollector<'a, LR>
@@ -98,7 +101,13 @@ impl<'a> LeafCollector for DummyLeafCollectorImpl<'a> {
 }
 
 /// Create a collector manager.
-struct CollectorManagerImpl;
+pub struct CollectorManagerImpl;
+impl Default for CollectorManagerImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CollectorManagerImpl {
     pub fn new() -> Self {
         Self {}

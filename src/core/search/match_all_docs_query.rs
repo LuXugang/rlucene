@@ -47,7 +47,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that matches all documents.
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub struct MatchAllDocsQuery;
 impl Default for MatchAllDocsQuery {
     fn default() -> Self {

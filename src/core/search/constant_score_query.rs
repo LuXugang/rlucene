@@ -62,6 +62,14 @@ impl ConstantScoreQuery {
         }
     }
 }
+#[cfg(test)]
+impl Clone for ConstantScoreQuery {
+    fn clone(&self) -> Self {
+        Self {
+            query: self.query.clone(),
+        }
+    }
+}
 
 impl Eq for ConstantScoreQuery {}
 

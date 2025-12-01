@@ -46,6 +46,7 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::{Either2Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -292,6 +293,12 @@ where
         self.similarity.clone()
     }
 
+    pub fn count(&mut self, query: impl Into<Query>) -> Result<i32> {
+        // TODO IMPORTANT 简单实现 BooleanQuery未实现
+        let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
+        self.search_with_collector_manager(query, &v)
+    }
+
     pub fn search_after_field_with_score<Q, T>(
         &mut self,
         after: Option<FieldDoc>,
@@ -363,6 +370,17 @@ where
         }
 
         Ok(top_field_docs)
+    }
+    pub fn search_with_collector_manager_states<CM>(
+        &mut self,
+        query: impl Into<Query>,
+        collector_manager: &CM,
+        term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<CM::T>
+    where
+        CM: CollectorManager,
+    {
+        self.search_with_collector_manager_with_state(query, collector_manager, term_state)
     }
     pub fn search_with_collector_manager<CM>(
         &mut self,

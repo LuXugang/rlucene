@@ -57,6 +57,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
+#[derive(Clone)]
 pub struct TermQuery {
     term: Arc<Term>,
 }

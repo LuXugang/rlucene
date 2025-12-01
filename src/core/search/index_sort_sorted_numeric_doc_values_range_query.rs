@@ -1150,8 +1150,25 @@ where
     LR: LeafReader,
 {
     let mut field_comparator = sort_field.get_comparator(1, Pruning::None)?;
-
-    field_comparator.set_top_value(top_value.into());
+    match field_comparator {
+        FieldComparatorEnum::Long(ref mut fc) => {
+            fc.set_top_value(top_value);
+        },
+        FieldComparatorEnum::SortedNumericLong(ref mut fc) => {
+            fc.set_top_value(top_value);
+        },
+        FieldComparatorEnum::Int(ref mut fc) => {
+            fc.set_top_value(top_value as i32);
+        },
+        FieldComparatorEnum::SortedNumericInt(ref mut fc) => {
+            fc.set_top_value(top_value as i32);
+        },
+        _ => {
+            return Err(LuceneError::illegal_argument(
+                "Expected Long or Int FieldComparator",
+            ));
+        },
+    }
 
     let direction = if sort_field.get_reverse() { -1 } else { 1 };
 
@@ -1287,6 +1304,7 @@ mod tests {
 
     use crate::core::search::scorer::Scorer;
     use crate::core::search::weight::Weight;
+    use crate::test::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 
     #[allow(dead_code)] // for quick search
     struct TestIndexSortSortedNumericDocValuesRangeQuery;
@@ -1431,6 +1449,237 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn test_index_sort_doc_values_with_even_length() -> Result<()> {
+        use SortFieldType::*;
+
+        for ty in [Int, Long] {
+            test_index_sort_doc_values_with_even_length_inner(true, ty)?;
+            test_index_sort_doc_values_with_even_length_inner(false, ty)?;
+        }
+        Ok(())
+    }
+    fn test_index_sort_doc_values_with_even_length_inner(
+        reverse: bool,
+        field_type: SortFieldType,
+    ) -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field = SortedNumericSortField::with_reverse("field", field_type, reverse)?;
+        iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        // even-length doc list = 6 docs
+        writer.add_document(create_document("field", -80))?;
+        writer.add_document(create_document("field", -5))?;
+        writer.add_document(create_document("field", 0))?;
+        writer.add_document(create_document("field", 0))?;
+        writer.add_document(create_document("field", 30))?;
+        writer.add_document(create_document("field", 35))?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+
+        // Test ranges consisting of one value.
+
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -80), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -5, -5), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 0), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 30, 30), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 35, 35), 1)?;
+
+        assert_number_of_hits(&mut searcher, create_query("field", -90, -90), 0)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 5, 5), 0)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 40, 40), 0)?;
+
+        // Test the lower end of the document value range.
+        assert_number_of_hits(&mut searcher, create_query("field", -90, -4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -70, -4), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -5), 2)?;
+
+        // Test the upper end of the document value range.
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 34), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 35), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 36), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 30, 35), 2)?;
+
+        // Test multiple occurrences of the same value.
+        assert_number_of_hits(&mut searcher, create_query("field", -4, 4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -4, 0), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 30), 3)?;
+
+        // Test ranges that span all documents.
+        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 6)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -90, 40), 6)?;
+
+        writer.close()?;
+        Ok(())
+    }
+
+    fn assert_number_of_hits<IRC, S, QT, QCP, QC>(
+        searcher: &mut IndexSearcher<IRC, S, QT, QCP, QC>,
+        query: impl Into<Query>,
+        number_of_hits: i32,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache<IRC::LeafReader>,
+    {
+        let query = query.into();
+
+        let manager = DummyTotalHitCountCollector::create_manager();
+        let total_hits = searcher.search_with_collector_manager(query.clone(), &manager)?;
+        assert_eq!(number_of_hits, total_hits);
+
+        let count = searcher.count(query)?;
+        assert_eq!(number_of_hits, count);
+
+        Ok(())
+    }
+    #[test]
+    fn test_index_sort_doc_values_with_odd_length() -> Result<()> {
+        test_index_sort_doc_values_with_odd_length_inner(false)?;
+        test_index_sort_doc_values_with_odd_length_inner(true)?;
+        Ok(())
+    }
+    fn test_index_sort_doc_values_with_odd_length_inner(reverse: bool) -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field =
+            SortedNumericSortField::with_reverse("field", SortFieldType::Long, reverse)?;
+        iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        writer.add_document(create_document("field", -80))?;
+        writer.add_document(create_document("field", -5))?;
+        writer.add_document(create_document("field", 0))?;
+        writer.add_document(create_document("field", 0))?;
+        writer.add_document(create_document("field", 5))?;
+        writer.add_document(create_document("field", 30))?;
+        writer.add_document(create_document("field", 35))?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+
+        // Test ranges consisting of one value.
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -80), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -5, -5), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 0), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 5, 5), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 30, 30), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 35, 35), 1)?;
+
+        assert_number_of_hits(&mut searcher, create_query("field", -90, -90), 0)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 6, 6), 0)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 40, 40), 0)?;
+
+        // Test the lower end of the document value range.
+        assert_number_of_hits(&mut searcher, create_query("field", -90, -4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -70, -4), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -80, -5), 2)?;
+
+        // Test the upper end of the document value range.
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 34), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 35), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 25, 36), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 30, 35), 2)?;
+
+        // Test multiple occurrences of the same value.
+        assert_number_of_hits(&mut searcher, create_query("field", -4, 4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -4, 0), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 4), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 0, 30), 4)?;
+
+        // Test ranges that span all documents.
+        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 7)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -90, 40), 7)?;
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_index_sort_doc_values_with_single_value() -> Result<()> {
+        test_index_sort_doc_values_with_single_value_inner(false)?;
+        test_index_sort_doc_values_with_single_value_inner(true)?;
+        Ok(())
+    }
+
+    fn test_index_sort_doc_values_with_single_value_inner(reverse: bool) -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let mut iwc = IndexWriterConfig::new();
+        let sort_field =
+            SortedNumericSortField::with_reverse("field", SortFieldType::Long, reverse)?;
+        iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        writer.add_document(create_document("field", 42))?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+
+        assert_number_of_hits(&mut searcher, create_query("field", 42, 43), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 42, 42), 1)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 41, 41), 0)?;
+        assert_number_of_hits(&mut searcher, create_query("field", 43, 43), 0)?;
+
+        writer.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_index_sort_missing_values() -> Result<()> {
+        let mut random = random();
+        // TODO 未实现MockAnalyzer
+        let dir = Arc::new(new_directory(&mut random)?);
+        let mut iwc = IndexWriterConfig::new();
+        let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
+        let missing_value: i64 = random.random();
+        sort_field.set_missing_value(missing_value)?;
+        let sort = Sort::with_fields(vec![sort_field])?;
+        iwc.set_index_sort(sort)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        writer.add_document(create_document("field", -80))?;
+        writer.add_document(create_document("field", -5))?;
+        writer.add_document(create_document("field", 0))?;
+        writer.add_document(create_document("field", 35))?;
+
+        writer.add_document(create_document("other-field", 0))?;
+        writer.add_document(create_document("other-field", 10))?;
+        writer.add_document(create_document("other-field", 20))?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let mut searcher = new_searcher_with_reader(reader.clone())?;
+
+        assert_number_of_hits(&mut searcher, create_query("field", -70, 0), 2)?;
+        assert_number_of_hits(&mut searcher, create_query("field", -2, 35), 2)?;
+
+        assert_number_of_hits(&mut searcher, create_query("field", -80, 35), 4)?;
+        assert_number_of_hits(&mut searcher, create_query("field", i64::MIN, i64::MAX), 4)?;
+
+        writer.close()?;
+        Ok(())
+    }
+
     #[test]
     fn test_no_documents() -> Result<()> {
         let mut random = random();
