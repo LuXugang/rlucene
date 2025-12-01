@@ -70,7 +70,7 @@ where
         self.histogram.fill(0);
 
         let common_prefix_length =
-            self.compute_common_prefix_length_and_build_histogram(from, to, d);
+            self.compute_common_prefix_length_and_build_histogram(from, to, d)?;
         if common_prefix_length > 0 {
             // if there are no more chars to compare or if all entries fell into
             // the first bucket (which means strings are shorter
@@ -117,8 +117,8 @@ where
 
     /** Return a number for the k-th character between 0 and {@link
      * #HISTOGRAM_SIZE}.  */
-    fn get_bucket(&mut self, i: i32, k: i32) -> i32 {
-        self.sub_selector.byte_at(i, k) + 1
+    fn get_bucket(&mut self, i: i32, k: i32) -> Result<i32> {
+        Ok(self.sub_selector.byte_at(i, k)? + 1)
     }
 
     /// Build a histogram of the number of values per `get_bucket(int, int)` and
@@ -128,8 +128,8 @@ where
         from: i32,
         to: i32,
         k: i32,
-    ) -> i32 {
-        let common_prefix_length = self.compute_initial_common_prefix_length(from, k);
+    ) -> Result<i32> {
+        let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
             to,
@@ -138,19 +138,19 @@ where
         )
     }
 
-    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> i32 {
+    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> Result<i32> {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length =
             std::cmp::min(common_prefix.len() as i32, self.max_length - k);
         for j in 0..common_prefix_length {
-            let b = self.sub_selector.byte_at(from, k + j);
+            let b = self.sub_selector.byte_at(from, k + j)?;
             common_prefix[j as usize] = b;
             if b == -1 {
                 common_prefix_length = j + 1;
                 break;
             }
         }
-        common_prefix_length
+        Ok(common_prefix_length)
     }
 
     #[allow(clippy::mut_range_bound)]
@@ -160,7 +160,7 @@ where
         to: i32,
         k: i32,
         mut common_prefix_length: i32,
-    ) -> i32 {
+    ) -> Result<i32> {
         let common_prefix = &mut self.common_prefix;
         let mut i = from + 1;
         'outer: for current in (from + 1)..=to {
@@ -169,7 +169,7 @@ where
                 break;
             }
             for j in 0..common_prefix_length {
-                let b = self.sub_selector.byte_at(current, k + j);
+                let b = self.sub_selector.byte_at(current, k + j)?;
                 if b != common_prefix[j as usize] {
                     common_prefix_length = j;
                     if common_prefix_length == 0 {
@@ -197,25 +197,26 @@ where
         k: i32,
         common_prefix_length: i32,
         i: i32,
-    ) -> i32 {
+    ) -> Result<i32> {
         if i < to {
             // the loop got broken because there is no common prefix
             debug_assert!(common_prefix_length == 0);
-            self.build_histogram(i + 1, to, k);
+            self.build_histogram(i + 1, to, k)?;
         } else {
             debug_assert!(common_prefix_length > 0);
             self.histogram[(self.common_prefix[0] + 1) as usize] = to - from;
         }
-        common_prefix_length
+        Ok(common_prefix_length)
     }
 
     /// Build an histogram of the k-th characters of values occurring between
     /// offsets `from` and `to`, using `get_bucket`.
-    fn build_histogram(&mut self, from: i32, to: i32, k: i32) {
+    fn build_histogram(&mut self, from: i32, to: i32, k: i32) -> Result<()> {
         for i in from..to {
-            let index = self.get_bucket(i, k) as usize;
+            let index = self.get_bucket(i, k)? as usize;
             self.histogram[index] += 1;
         }
+        Ok(())
     }
 
     /// Reorder elements so that all of them that fall into `bucket` are
@@ -233,8 +234,8 @@ where
         let mut right = to - 1;
         let mut slot = bucket_from;
         loop {
-            let mut left_bucket = self.get_bucket(left, d);
-            let mut right_bucket = self.get_bucket(right, d);
+            let mut left_bucket = self.get_bucket(left, d)?;
+            let mut right_bucket = self.get_bucket(right, d)?;
             while left_bucket <= bucket && left < bucket_from {
                 if left_bucket == bucket {
                     self.swap(left, slot)?;
@@ -242,7 +243,7 @@ where
                 } else {
                     left += 1;
                 }
-                left_bucket = self.get_bucket(left, d);
+                left_bucket = self.get_bucket(left, d)?;
             }
             while right_bucket >= bucket && right >= bucket_to {
                 if right_bucket == bucket {
@@ -251,7 +252,7 @@ where
                 } else {
                     right -= 1;
                 }
-                right_bucket = self.get_bucket(right, d);
+                right_bucket = self.get_bucket(right, d)?;
             }
             if left < bucket_from && right >= bucket_to {
                 self.swap(left, right)?;
@@ -285,7 +286,7 @@ pub trait RadixSelectorBase: Selector {
     /// Return the k-th byte of the entry at index `i`, or `-1\ if its length is
     /// less than or equal to `k`. This may only be called with a value of
     /// `k` between `0` included and `maxLength` excluded.
-    fn byte_at(&mut self, i: i32, k: i32) -> i32;
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32>;
     /// Get a fall-back selector which may assume that the first `d` bytes of
     /// all compared strings are equal. This fallback selector is used when
     /// the range becomes narrow or when the maximum level of recursion has
@@ -317,21 +318,22 @@ impl<T> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T>
 where
     T: RadixSelectorBase,
 {
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot.set_length(0);
         for o in self.d..self.max_length {
-            let b = self.delegate_sorter.byte_at(i, o);
+            let b = self.delegate_sorter.byte_at(i, o)?;
             if b == -1 {
                 break;
             }
             self.pivot.append_byte(b as u8);
         }
+        Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.d + o as i32);
+            let b2 = self.delegate_sorter.byte_at(j, self.d + o as i32)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             }
@@ -342,7 +344,7 @@ where
             Ok(-1
                 - self
                     .delegate_sorter
-                    .byte_at(j, self.d + self.pivot.length() as i32))
+                    .byte_at(j, self.d + self.pivot.length() as i32)?)
         }
     }
 }
@@ -353,8 +355,8 @@ where
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.d..self.max_length {
-            let b1 = self.delegate_sorter.byte_at(i, o);
-            let b2 = self.delegate_sorter.byte_at(j, o);
+            let b1 = self.delegate_sorter.byte_at(i, o)?;
+            let b2 = self.delegate_sorter.byte_at(j, o)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             } else if b1 == -1 {
@@ -500,13 +502,13 @@ mod tests {
     }
 
     impl RadixSelectorBase for RadixSelectorMock {
-        fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
             assert!(k < self.enforced_max_len);
             let b = self.actual[i as usize].clone();
             if k < b.length as i32 {
-                b.bytes[k as usize] as i32
+                Ok(b.bytes[k as usize] as i32)
             } else {
-                -1
+                Ok(-1)
             }
         }
     }

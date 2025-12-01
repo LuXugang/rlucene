@@ -104,7 +104,7 @@ where
                 }
             }
             // Bentley-McIlroy 3-way partitioning
-            self.sub_selector.set_pivot(pivot);
+            self.sub_selector.set_pivot(pivot)?;
             self.sub_selector.swap(from, pivot)?;
 
             let mut i = from;
@@ -291,11 +291,11 @@ pub trait IntroSelectorBase: IntroSelectorBaseDefault + Selector {
 }
 pub trait IntroSelectorBaseDefault {
     /// Save the value at slot `i` so that it can later be used as a pivot.
-    fn set_pivot(&mut self, i: i32);
+    fn set_pivot(&mut self, i: i32) -> Result<()>;
     /// Compare the pivot with the slot at `j`, similarly to `compare(i, j)`.
     fn compare_pivot(&mut self, j: i32) -> Result<i32>;
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.set_pivot(i);
+        self.set_pivot(i)?;
         self.compare_pivot(j)
     }
 }
@@ -381,8 +381,9 @@ mod tests {
     }
 
     impl IntroSelectorBaseDefault for IntroSelectorMock<'_> {
-        fn set_pivot(&mut self, i: i32) {
+        fn set_pivot(&mut self, i: i32) -> Result<()> {
             self.pivot = self.actual[i as usize];
+            Ok(())
         }
 
         fn compare_pivot(&mut self, j: i32) -> Result<i32> {

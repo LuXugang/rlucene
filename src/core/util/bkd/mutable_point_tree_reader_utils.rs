@@ -293,19 +293,21 @@ impl<M> RadixSelectorBase for RadixSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         if k < self.dim_cmp_bytes {
-            self.reader
-                .get_byte_at(i as usize, self.dim_offset as usize + k as usize) as i32
+            Ok(self
+                .reader
+                .get_byte_at(i as usize, self.dim_offset as usize + k as usize)
+                as i32)
         } else if k < self.data_cmp_bytes {
-            self.reader.get_byte_at(
+            Ok(self.reader.get_byte_at(
                 i as usize,
                 (self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes) as usize,
-            ) as i32
+            ) as i32)
         } else {
             let shift = self.bits_per_doc_id - ((k - self.data_cmp_bytes + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
-            ((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32
+            Ok(((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32)
         }
     }
 
@@ -360,9 +362,10 @@ impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.reader.get_value(i as usize, &mut self.pivot);
         self.pivot_doc = self.reader.get_doc_id(i as usize);
+        Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {

@@ -178,7 +178,7 @@ impl BKDRadixSelector {
                 ));
                 Ok(partition)
             } else {
-                Err(LuceneError::unreachable("should not be here"))
+                Err(LuceneError::illegal_state("writer is not Offline"))
             }
         }
     }
@@ -753,10 +753,7 @@ where
                 heap_writer.swap(i, j);
                 Ok(())
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(())
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 }
@@ -774,10 +771,7 @@ where
         };
         match self.points {
             PointWriterEnum::Heap(heap_writer) => Ok(heap_writer.byte_at(i, pos)),
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(0)
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 
@@ -823,10 +817,7 @@ where
                 }
                 Ok(heap_writer.compare_data_dims_and_doc(i, j))
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(0)
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 
@@ -836,10 +827,7 @@ where
                 heap_writer.swap(i, j);
                 Ok(())
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(())
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 
@@ -856,14 +844,10 @@ where
                 );
                 Ok(())
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(())
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 
-    //TODO: 回头这里将改成 if match
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
@@ -880,10 +864,7 @@ where
                     self.bytes_per_dim as usize,
                 ))
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(0)
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
     fn sort(&mut self, from: i32, to: i32) -> Result<()> {
@@ -918,10 +899,7 @@ where
                 heap_writer.swap(i, j);
                 Ok(())
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(())
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 }
@@ -930,7 +908,7 @@ impl<O> RadixSelectorBase for RadixSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> i32 {
+    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         debug_assert!(k >= 0, "negative prefix {k}");
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
@@ -938,11 +916,8 @@ where
             self.data_offset + k
         };
         match self.points {
-            PointWriterEnum::Heap(heap_writer) => heap_writer.byte_at(i, pos),
-            _ => {
-                debug_assert!(false, "should not be here");
-                0
-            },
+            PointWriterEnum::Heap(heap_writer) => Ok(heap_writer.byte_at(i, pos)),
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 
@@ -978,7 +953,7 @@ impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -990,10 +965,9 @@ where
                     self.bytes_per_dim as usize,
                 );
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-            },
+            _ => return Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
+        Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
@@ -1012,7 +986,7 @@ where
                     self.bytes_per_dim as usize,
                 ))
             },
-            _ => Err(LuceneError::illegal_state("should not be here")),
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 }
@@ -1027,10 +1001,7 @@ where
                 heap_writer.swap(i, j);
                 Ok(())
             },
-            _ => {
-                debug_assert!(false, "should not be here");
-                Ok(())
-            },
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 }
@@ -1050,7 +1021,7 @@ where
                 }
                 Ok(heap_writer.compare_data_dims_and_doc(i, j))
             },
-            _ => Err(LuceneError::illegal_state("should not be here")),
+            _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
 }
@@ -2030,8 +2001,7 @@ mod tests {
                     }
                 },
                 _ => {
-                    debug_assert!(false, "should not be here");
-                    0
+                    unreachable!("should not be here");
                 },
             }
         }

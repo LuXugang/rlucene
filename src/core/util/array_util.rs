@@ -430,8 +430,9 @@ where
     C: Comparator<T>,
     T: Default + Ord + PartialEq,
 {
-    fn set_pivot(&mut self, i: i32) {
+    fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot = i;
+        Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
