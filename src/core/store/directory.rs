@@ -236,6 +236,9 @@ pub trait Directory: Display + Closeable + Sized {
     fn is_fs_directory(&self) -> bool {
         false
     }
+    fn ensure_open(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// Creates a file name for a temporary file. The name will start with `prefix`,
@@ -402,6 +405,13 @@ where
             Either2Directory::B(s) => s.is_fs_directory(),
         }
     }
+
+    fn ensure_open(&self) -> Result<()> {
+        match self {
+            Either2Directory::A(f) => f.ensure_open(),
+            Either2Directory::B(s) => s.ensure_open(),
+        }
+    }
 }
 
 impl<A, B> Closeable for Either2Directory<A, B>
@@ -472,6 +482,10 @@ impl<D: Directory> Directory for &D {
     #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         (**self).is_fs_directory()
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        (**self).ensure_open()
     }
 }
 

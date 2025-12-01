@@ -25,10 +25,9 @@ use std::{fs, io};
 
 use parking_lot::Mutex;
 
-use crate::core::store::base_directory::BaseDirectory;
+use crate::core::store::base_directory::{BaseDirectory, BaseDirectoryBase};
 use crate::core::store::directory::{Directory, get_temp_file_name};
 use crate::core::store::fs_directory_base::FSDirectoryBase;
-use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
 use crate::core::util::IOUtils;
@@ -78,8 +77,8 @@ where
     /// Used to generate temp file names in
     /// [`createTempOutput`](Directory::create_temp_output).
     next_temp_file_counter: AtomicU64,
-    lock_factory: D,
     sub_fs_directory: T,
+    base: BaseDirectoryBase<D>,
 }
 impl<D, T> FSDirectory<D, T>
 where
@@ -94,13 +93,14 @@ where
         if !directory.is_dir() {
             fs::create_dir(&directory)?;
         }
+        let base = BaseDirectoryBase::new(lock_factory);
         Ok(FSDirectory {
             directory,
             pending_deletes: Arc::new(Mutex::new(HashSet::new())),
             ops_since_last_delete: AtomicU32::new(0),
             next_temp_file_counter: AtomicU64::new(0),
             sub_fs_directory,
-            lock_factory,
+            base,
         })
     }
 
@@ -436,7 +436,7 @@ where
     type Lock = D::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.lock_factory.obtain_lock(&self.directory, name)
+        self.base.obtain_lock(&self.directory, name)
     }
 
     fn get_pending_deletions(&self) -> Result<HashSet<String>> {
@@ -452,6 +452,10 @@ where
     #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         true
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        self.base.ensure_open()
     }
 }
 
@@ -477,7 +481,7 @@ where
             "{}@{} lockFactory={}",
             self.sub_fs_directory,
             self.directory.display(),
-            self.lock_factory
+            self.base.lock_factory,
         )
     }
 }
@@ -487,8 +491,10 @@ where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn obtain_lock(&self, name: &str) -> Result<impl Lock> {
-        Directory::obtain_lock(self, name)
+    type LockFactory = D;
+
+    fn get_lock_factory(&self) -> &BaseDirectoryBase<Self::LockFactory> {
+        &self.base
     }
 }
 impl<D, T> Drop for FSDirectory<D, T>
