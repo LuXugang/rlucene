@@ -339,6 +339,29 @@ either_docidsetiterator_named!(pub Either7DocIdSetIterator { A: A, B: B, C: C, D
 either_docidsetiterator_named!(
     pub Either8DocIdSetIterator { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
+either_docidsetiterator_named!(pub Either9DocIdSetIterator {
+    A: A,
+    B: B,
+    C: C,
+    D: D,
+    E: E,
+    F: F,
+    G: G,
+    H: H,
+    I: I
+});
+either_docidsetiterator_named!(pub Either10DocIdSetIterator {
+    A: A,
+    B: B,
+    C: C,
+    D: D,
+    E: E,
+    F: F,
+    G: G,
+    H: H,
+    I: I,
+    J: J
+});
 pub type EitherEmpty<DISI> = Either2DocIdSetIterator<DISI, EmptyDISI>;
 
 #[cfg(test)]

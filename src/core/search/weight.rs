@@ -18,23 +18,25 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
     BulkScorer, Either2BulkScorer, Either3BulkScorer, Either4BulkScorer, Either7BulkScorer,
-    Either8BulkScorer,
+    Either8BulkScorer, Either9BulkScorer, Either10BulkScorer,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
-    Either2Matches, Either3Matches, Either4Matches, Either7Matches, Either8Matches, Matches,
+    Either2Matches, Either3Matches, Either4Matches, Either7Matches, Either8Matches, Either9Matches,
+    Either10Matches, Matches,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::{
-    Either2Scorer, Either3Scorer, Either4Scorer, Either7Scorer, Either8Scorer, Scorer,
+    Either2Scorer, Either3Scorer, Either4Scorer, Either7Scorer, Either8Scorer, Either9Scorer,
+    Either10Scorer, Scorer,
 };
 use crate::core::search::scorer_supplier::{
     Either2ScorerSupplier, Either3ScorerSupplier, Either4ScorerSupplier, Either7ScorerSupplier,
-    Either8ScorerSupplier, ScorerSupplier,
+    Either8ScorerSupplier, Either9ScorerSupplier, Either10ScorerSupplier, ScorerSupplier,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -713,4 +715,24 @@ either_weight!(
         bulk: Either8BulkScorer
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
+);
+either_weight!(
+    pub Either9Weight
+    => {
+        matches: Either9Matches,
+        supplier: Either9ScorerSupplier,
+        scorer: Either9Scorer,
+        bulk: Either9BulkScorer
+    }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
+);
+either_weight!(
+    pub Either10Weight
+    => {
+        matches: Either10Matches,
+        supplier: Either10ScorerSupplier,
+        scorer: Either10Scorer,
+        bulk: Either10BulkScorer
+    }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

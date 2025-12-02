@@ -16,7 +16,8 @@
  */
 use crate::core::search::matches_iterator::{
     Either2MatchesIterator, Either3MatchesIterator, Either4MatchesIterator, Either5MatchesIterator,
-    Either6MatchesIterator, Either7MatchesIterator, Either8MatchesIterator, MatchesIterator,
+    Either6MatchesIterator, Either7MatchesIterator, Either8MatchesIterator, Either9MatchesIterator,
+    Either10MatchesIterator, MatchesIterator,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -127,4 +128,14 @@ either_matches!(
     pub Either8Matches
     => { mi: Either8MatchesIterator }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
+);
+either_matches!(
+    pub Either9Matches
+    => { mi: Either9MatchesIterator }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
+);
+either_matches!(
+    pub Either10Matches
+    => { mi: Either10MatchesIterator }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

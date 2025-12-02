@@ -18,11 +18,11 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
     BulkScorer, Either2BulkScorer, Either3BulkScorer, Either4BulkScorer, Either5BulkScorer,
-    Either6BulkScorer, Either7BulkScorer, Either8BulkScorer,
+    Either6BulkScorer, Either7BulkScorer, Either8BulkScorer, Either9BulkScorer, Either10BulkScorer,
 };
 use crate::core::search::scorer::{
     Either2Scorer, Either3Scorer, Either4Scorer, Either5Scorer, Either6Scorer, Either7Scorer,
-    Either8Scorer, Scorer,
+    Either8Scorer, Either9Scorer, Either10Scorer, Scorer,
 };
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -202,4 +202,14 @@ either_scorer_supplier!(
     pub Either8ScorerSupplier
     => { bulk: Either8BulkScorer, scorer: Either8Scorer }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H }
+);
+either_scorer_supplier!(
+    pub Either9ScorerSupplier
+    => { bulk: Either9BulkScorer, scorer: Either9Scorer }
+    { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I }
+);
+either_scorer_supplier!(
+    pub Either10ScorerSupplier
+    => { bulk: Either10BulkScorer, scorer: Either10Scorer }
+    { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I,J:J }
 );
