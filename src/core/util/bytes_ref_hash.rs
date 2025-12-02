@@ -657,8 +657,8 @@ where
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();
-        let delegate_sorter = MSBStringHashRadixSorter::new(cmp, self);
-        MSBRadixSorter::new(length, delegate_sorter)
+        let delegate = MSBStringHashRadixSorter::new(cmp, self);
+        MSBRadixSorter::new(length, delegate)
     }
 }
 
@@ -793,18 +793,15 @@ where
     C: BytesRefComparator,
 {
     cmp: &'a mut C,
-    delegate_sorter: &'a mut T,
+    delegate: &'a mut T,
 }
 impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
 where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
-        MSBStringHashRadixSorter {
-            cmp,
-            delegate_sorter,
-        }
+    pub fn new(cmp: &'a mut C, delegate: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
+        MSBStringHashRadixSorter { cmp, delegate }
     }
 }
 
@@ -814,7 +811,7 @@ where
     C: BytesRefComparator,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 }
 
@@ -824,11 +821,11 @@ where
     C: BytesRefComparator,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        self.delegate_sorter.byte_at(i, k)
+        self.delegate.byte_at(i, k)
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        self.delegate_sorter.fall_back_sorter(self.cmp, Some(k))
+        self.delegate.fall_back_sorter(self.cmp, Some(k))
     }
 
     fn reorder(
@@ -839,7 +836,7 @@ where
         end_offsets: &mut [i32],
         k: i32,
     ) -> Result<()> {
-        self.delegate_sorter
+        self.delegate
             .reorder(from, to, start_offsets, end_offsets, k)
     }
 
@@ -852,7 +849,7 @@ where
         k: i32,
         histogram: &mut [i32],
     ) -> Result<()> {
-        self.delegate_sorter.build_histogram(
+        self.delegate.build_histogram(
             prefix_common_bucket,
             prefix_common_len,
             from,
@@ -863,7 +860,7 @@ where
     }
 
     fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        self.delegate_sorter.should_fallback(from, to, l)
+        self.delegate.should_fallback(from, to, l)
     }
 }
 

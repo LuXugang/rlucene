@@ -622,7 +622,7 @@ impl BKDRadixSelector {
         let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
         let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
         let max_length = self.bytes_sorted - common_prefix_length;
-        let delegate_sorter = MSBRadixSorterImpl {
+        let delegate = MSBRadixSorterImpl {
             points,
             dim_cmp_bytes,
             dim_offset,
@@ -632,7 +632,7 @@ impl BKDRadixSelector {
             bytes_per_dim,
             bytes_sorted: self.bytes_sorted,
         };
-        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate_sorter);
+        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
         msb_radix_sorter.sort(from, to)
     }
 

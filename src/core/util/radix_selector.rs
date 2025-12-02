@@ -295,13 +295,13 @@ pub trait RadixSelectorBase: Selector {
     where
         Self: Sized,
     {
-        let delegate_sorter = IntroSelectorImpl {
+        let delegate = IntroSelectorImpl {
             d,
             max_length,
             pivot: BytesRefBuilder::new(),
-            delegate_sorter: self,
+            delegate: self,
         };
-        IntroSelector::new(delegate_sorter)
+        IntroSelector::new(delegate)
     }
 }
 
@@ -312,7 +312,7 @@ where
     d: i32,
     max_length: i32,
     pivot: BytesRefBuilder<Vec<u8>>,
-    delegate_sorter: &'a mut T,
+    delegate: &'a mut T,
 }
 impl<T> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T>
 where
@@ -321,7 +321,7 @@ where
     fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot.set_length(0);
         for o in self.d..self.max_length {
-            let b = self.delegate_sorter.byte_at(i, o)?;
+            let b = self.delegate.byte_at(i, o)?;
             if b == -1 {
                 break;
             }
@@ -333,7 +333,7 @@ where
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.d + o as i32)?;
+            let b2 = self.delegate.byte_at(j, self.d + o as i32)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             }
@@ -343,7 +343,7 @@ where
         } else {
             Ok(-1
                 - self
-                    .delegate_sorter
+                    .delegate
                     .byte_at(j, self.d + self.pivot.length() as i32)?)
         }
     }
@@ -355,8 +355,8 @@ where
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.d..self.max_length {
-            let b1 = self.delegate_sorter.byte_at(i, o)?;
-            let b2 = self.delegate_sorter.byte_at(j, o)?;
+            let b1 = self.delegate.byte_at(i, o)?;
+            let b2 = self.delegate.byte_at(j, o)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             } else if b1 == -1 {
@@ -371,7 +371,7 @@ where
     T: RadixSelectorBase,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 }
 

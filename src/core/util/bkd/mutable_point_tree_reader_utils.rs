@@ -65,12 +65,12 @@ impl MutablePointTreeReaderUtils {
             PackedInts::bits_required((max_doc - 1) as i64)?
         };
         let max_length = config.packed_bytes_length() + (bits_per_doc_id + 7) / 8;
-        let delegate_sorter = StableMSBRadixSorterImpl {
+        let delegate = StableMSBRadixSorterImpl {
             reader,
             config,
             bits_per_doc_id,
         };
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, max_length);
+        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, max_length);
         let mut sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
         sorter.sort(from, to)
     }

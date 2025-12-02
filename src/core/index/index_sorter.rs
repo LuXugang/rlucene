@@ -568,11 +568,11 @@ mod tests {
     ) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
         expected.sort();
-        let delegate_sorter = StringSorterTestImpl::new(refs.clone());
-        let mut string_sorter = StringSorter::new(delegate_sorter, comparator);
+        let delegate = StringSorterTestImpl::new(refs.clone());
+        let mut string_sorter = StringSorter::new(delegate, comparator);
         string_sorter.sort(0, len as i32)?;
 
-        assert_vecs_equal(&expected, &string_sorter.get_delegate_sorter().refs);
+        assert_vecs_equal(&expected, &string_sorter.get_delegate().refs);
         Ok(())
     }
 
@@ -588,12 +588,12 @@ mod tests {
         let actual_before_sorted = actual.clone();
         let mut ord: Vec<i32> = (0..len).map(|i| i as i32).collect();
         let ord_len = ord.len();
-        let delegate_sorter = StableStringSorterTestImpl {
+        let delegate = StableStringSorterTestImpl {
             tmp: vec![0; ord_len],
             ord: &mut ord,
             refs: &mut actual,
         };
-        let string_sorter = StableStringSorter::new(delegate_sorter);
+        let string_sorter = StableStringSorter::new(delegate);
         let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
         stable_string_sorter.sort(0, len as i32)?;
         // `actual` is not sorted, but `ord` is sorted

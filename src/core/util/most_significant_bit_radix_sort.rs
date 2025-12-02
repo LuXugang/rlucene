@@ -39,7 +39,7 @@ where
     common_prefix: Vec<i32>,
     /// Maximum length of strings to sort.
     max_length: i32,
-    delegate_sorter: T,
+    delegate: T,
 }
 impl<T> MSBRadixSorter<T>
 where
@@ -49,14 +49,14 @@ where
     ///
     /// # Parameters
     /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.
-    pub fn new(max_length: i32, delegate_sorter: T) -> Self {
+    pub fn new(max_length: i32, delegate: T) -> Self {
         let histograms: Vec<Vec<i32>> = (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
         Self {
             histograms,
             end_offsets: vec![0; HISTOGRAM_SIZE],
             max_length,
             common_prefix: vec![0; 24.min(max_length as usize)],
-            delegate_sorter,
+            delegate,
         }
     }
     pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<()> {
@@ -67,7 +67,7 @@ where
         }
     }
     fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
-        self.delegate_sorter.should_fallback(from, to, l)
+        self.delegate.should_fallback(from, to, l)
     }
     /// Computes the initial common prefix length for the given range.
     ///
@@ -82,7 +82,7 @@ where
             .enumerate()
             .take(common_prefix_length)
         {
-            let b = self.delegate_sorter.byte_at(from, k + j as i32)?;
+            let b = self.delegate.byte_at(from, k + j as i32)?;
             *slot = b;
             if b == -1 {
                 common_prefix_length = j + 1;
@@ -121,7 +121,7 @@ where
         k: i32,
         l: i32,
     ) -> Result<()> {
-        self.delegate_sorter.build_histogram(
+        self.delegate.build_histogram(
             prefix_common_bucket,
             prefix_common_len,
             from,
@@ -143,7 +143,7 @@ where
         'outer: for idx in from + 1..to {
             let mut j = 0;
             while j < common_prefix_length {
-                let b = self.delegate_sorter.byte_at(idx, k + j)?;
+                let b = self.delegate.byte_at(idx, k + j)?;
                 if b != self.common_prefix[j as usize] {
                     common_prefix_length = j;
                     if common_prefix_length == 0 {
@@ -200,7 +200,7 @@ where
     /// - `end_offsets`: End offsets per bucket.
     /// - `k`: The current position offset.
     fn reorder(&mut self, from: i32, to: i32, l: i32, k: i32) -> Result<()> {
-        self.delegate_sorter.reorder(
+        self.delegate.reorder(
             from,
             to,
             &mut self.histograms[l as usize],
@@ -269,7 +269,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32) -> impl Sorter + use<'_, T> {
-        self.delegate_sorter.get_fallback_sorter(k, self.max_length)
+        self.delegate.get_fallback_sorter(k, self.max_length)
     }
 
     /// Always returns `true` if the assertions pass.
@@ -287,8 +287,8 @@ where
         true
     }
     #[cfg(debug_assertions)]
-    pub fn get_delegate_sorter(&self) -> &T {
-        &self.delegate_sorter
+    pub fn get_delegate(&self) -> &T {
+        &self.delegate
     }
 }
 
@@ -297,15 +297,15 @@ where
     T: MSBRadixSorterBase,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.delegate_sorter.set_pivot(i)
+        self.delegate.set_pivot(i)
     }
 
     fn compare_pivot(&mut self, i: i32) -> Result<i32> {
-        self.delegate_sorter.compare_pivot(i)
+        self.delegate.compare_pivot(i)
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<()> {
@@ -321,7 +321,7 @@ where
     pivot: BytesRefBuilder<Vec<u8>>,
     max_length: i32,
     k: i32,
-    delegate_sorter: &'a mut T,
+    delegate: &'a mut T,
 }
 
 impl<T> Sorter for MSBRadixIntroSorterImpl<'_, T>
@@ -330,8 +330,8 @@ where
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
-            let b1 = self.delegate_sorter.byte_at(i, o)?;
-            let b2 = self.delegate_sorter.byte_at(j, o)?;
+            let b1 = self.delegate.byte_at(i, o)?;
+            let b2 = self.delegate.byte_at(j, o)?;
 
             if b1 != b2 {
                 return Ok(b1 - b2);
@@ -343,14 +343,14 @@ where
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot.set_length(0);
 
         for o in self.k..self.max_length {
-            let b = self.delegate_sorter.byte_at(i, o)?;
+            let b = self.delegate.byte_at(i, o)?;
             if b == -1 {
                 break;
             }
@@ -362,7 +362,7 @@ where
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         for o in 0..self.pivot.length() {
             let b1 = self.pivot.byte_at(o) as i32;
-            let b2 = self.delegate_sorter.byte_at(j, self.k + o as i32)?;
+            let b2 = self.delegate.byte_at(j, self.k + o as i32)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             }
@@ -373,7 +373,7 @@ where
         } else {
             Ok(-1
                 - self
-                    .delegate_sorter
+                    .delegate
                     .byte_at(j, self.k + self.pivot.length() as i32)?)
         }
     }
@@ -415,7 +415,7 @@ pub trait MSBRadixSorterBase: Sorter {
             pivot: BytesRefBuilder::new(),
             max_length: length,
             k,
-            delegate_sorter: self,
+            delegate: self,
         }
     }
 
@@ -512,11 +512,11 @@ mod tests {
         }
 
         let final_max_length = max_length;
-        let delegate_sorter = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
-        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate_sorter);
+        let delegate = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
         msb_radix_sorter.sort(0, len as i32)?;
 
-        assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate_sorter().refs);
+        assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate().refs);
         Ok(())
     }
     #[test]

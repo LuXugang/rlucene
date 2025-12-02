@@ -187,20 +187,20 @@ where
         let size = self.size();
         let mut ordered_entries: Vec<i32> = (0..size).collect();
         if stable {
-            let delegate_sorter = StableStringSorterImpl {
+            let delegate = StableStringSorterImpl {
                 tmp: vec![0; size as usize],
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
-            let stable_string_sorter = StableStringSorter::new(delegate_sorter);
+            let stable_string_sorter = StableStringSorter::new(delegate);
             let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
             string_sorter.sort(0, size)?;
         } else {
-            let delegate_sorter = StringSorterImpl {
+            let delegate = StringSorterImpl {
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
-            let mut string_sorter = StringSorter::new(delegate_sorter, comp);
+            let mut string_sorter = StringSorter::new(delegate, comp);
             string_sorter.sort(0, size)?;
         }
         Ok(SortState::new(Some(ordered_entries)))

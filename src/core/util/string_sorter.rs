@@ -31,7 +31,7 @@ where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    delegate_sorter: T,
+    delegate: T,
     scratch1: BytesRefBuilder<Vec<u8>>,
     scratch2: BytesRefBuilder<Vec<u8>>,
     scratch_bytes1: BytesRef<Vec<u8>>,
@@ -44,9 +44,9 @@ where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    pub(crate) fn new(delegate_sorter: T, cmp: C) -> StringSorter<T, C> {
+    pub(crate) fn new(delegate: T, cmp: C) -> StringSorter<T, C> {
         StringSorter {
-            delegate_sorter,
+            delegate,
             scratch1: BytesRefBuilder::default(),
             scratch2: BytesRefBuilder::default(),
             scratch_bytes1: BytesRef::default(),
@@ -55,8 +55,8 @@ where
         }
     }
     #[cfg(debug_assertions)]
-    pub(crate) fn get_delegate_sorter(&self) -> &T {
-        &self.delegate_sorter
+    pub(crate) fn get_delegate(&self) -> &T {
+        &self.delegate
     }
 }
 
@@ -66,15 +66,15 @@ where
     C: BytesRefComparator,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
         self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 
     fn sort(&mut self, from: i32, to: i32) -> Result<()> {
@@ -82,11 +82,9 @@ where
         // BytesRefComparator to simplify the code. However, the TYPE of
         // this instance cannot be specified as "BytesRefComparator".
         if C::TYPE.eq(BYTES_REF_COMPARATOR_TYPE) {
-            self.delegate_sorter
-                .radix_sorter(&mut self.cmp)
-                .sort(from, to)
+            self.delegate.radix_sorter(&mut self.cmp).sort(from, to)
         } else {
-            self.delegate_sorter
+            self.delegate
                 .fall_back_sorter(&mut self.cmp, None)
                 .sort(from, to)
         }
@@ -101,19 +99,19 @@ where
     scratch1: BytesRefBuilder<Vec<u8>>,
     scratch_bytes1: BytesRef<Vec<u8>>,
     cmp: &'a mut C,
-    delegate_sorter: &'a mut T,
+    delegate: &'a mut T,
 }
 impl<'a, T, C> MSBStringRadixSorter<'a, T, C>
 where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    pub fn new(cmp: &'a mut C, delegate_sorter: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
+    pub fn new(cmp: &'a mut C, delegate: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
         MSBStringRadixSorter {
             scratch1: BytesRefBuilder::default(),
             scratch_bytes1: BytesRef::default(),
             cmp,
-            delegate_sorter,
+            delegate,
         }
     }
 }
@@ -124,7 +122,7 @@ where
     C: BytesRefComparator,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 }
 
@@ -134,13 +132,13 @@ where
     C: BytesRefComparator,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.cmp.byte_at(&self.scratch_bytes1, k)
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        self.delegate_sorter.fall_back_sorter(self.cmp, Some(k))
+        self.delegate.fall_back_sorter(self.cmp, Some(k))
     }
 }
 
@@ -156,7 +154,7 @@ where
     scratch_bytes1: BytesRef<Vec<u8>>,
     scratch_bytes2: BytesRef<Vec<u8>>,
     cmp: &'a mut C,
-    delegate_sorter: &'a mut T,
+    delegate: &'a mut T,
     k: Option<i32>,
 }
 impl<'a, T, C> IntroSorterImpl<'a, T, C>
@@ -164,11 +162,7 @@ where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    pub fn new(
-        cmp: &'a mut C,
-        delegate_sorter: &'a mut T,
-        k: Option<i32>,
-    ) -> IntroSorterImpl<'a, T, C> {
+    pub fn new(cmp: &'a mut C, delegate: &'a mut T, k: Option<i32>) -> IntroSorterImpl<'a, T, C> {
         IntroSorterImpl {
             pivot: BytesRef::default(),
             pivot_builder: BytesRefBuilder::default(),
@@ -177,7 +171,7 @@ where
             scratch_bytes1: BytesRef::default(),
             scratch_bytes2: BytesRef::default(),
             cmp,
-            delegate_sorter,
+            delegate,
             k,
         }
     }
@@ -188,9 +182,9 @@ where
     C: BytesRefComparator,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
         if self.k.is_some() {
             self.cmp.compare_with_offset(
@@ -204,17 +198,17 @@ where
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.delegate_sorter.swap(i, j)
+        self.delegate.swap(i, j)
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.pivot_builder, &mut self.pivot, i)?;
         Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        self.delegate_sorter
+        self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, j)?;
         if self.k.is_some() {
             self.cmp
@@ -257,7 +251,7 @@ pub trait StringSorterBase: Sorter {
         Self: Sorter + Sized,
     {
         let length = cmp.compared_bytes_count();
-        let msb_radix_sorter_delegate_sorter = MSBStringRadixSorter::new(cmp, self);
-        MSBRadixSorter::new(length, msb_radix_sorter_delegate_sorter)
+        let delegate = MSBStringRadixSorter::new(cmp, self);
+        MSBRadixSorter::new(length, delegate)
     }
 }
