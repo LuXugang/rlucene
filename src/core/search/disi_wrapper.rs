@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
@@ -25,13 +25,24 @@ where
 {
     scorer: S,
     next: Option<usize>,
+    doc: i32,
+    // for MaxScoreBulkScorer
+    scaled_max_score: i64,
+    // for MaxScoreBulkScorer
+    max_window_score: f32,
 }
 impl<S> DisiWrapper<S>
 where
     S: Scorer,
 {
     pub fn new(scorer: S) -> Self {
-        Self { scorer, next: None }
+        Self {
+            scorer,
+            next: None,
+            doc: -1,
+            scaled_max_score: 0,
+            max_window_score: 0.0,
+        }
     }
 }
 
@@ -43,7 +54,23 @@ where
         self.scorer.score()
     }
 
+    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+        self.scorer.smoothing_score(doc_id)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        self.scorer.set_min_competitive_score(min_score)
+    }
+
     type Scorable = S::Scorable;
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+        self.scorer.get_children()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        self.scorer.cost()
+    }
 }
 
 impl<S> Scorer for DisiWrapper<S>

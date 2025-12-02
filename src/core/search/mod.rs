@@ -106,4 +106,5 @@ pub mod two_phase_iterator;
 pub mod usage_tracking_query_caching_policy;
 mod vector_scorer;
 mod vector_similarity_collector;
+pub(crate) mod wand_scorer;
 pub mod weight;
