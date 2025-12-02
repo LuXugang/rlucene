@@ -93,7 +93,6 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
     ) -> Result<()>
     where
         C: Fn(&[u8]) -> T,
-        T: Copy,
     {
         let mut bytes_read = len * type_size;
         // TODO: use This bytes would made additional data copy
@@ -173,8 +172,11 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
         self.pos - self.offset
     }
 }
-impl<'a> ByteBuffersDataInput<'a, &'a [u8]> {
-    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a, &'a [u8]>> {
+impl<'a, B> ByteBuffersDataInput<'a, B>
+where
+    B: AsRef<[u8]> + Clone,
+{
+    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a, B>> {
         if offset < 0 || length < 0 || offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
@@ -184,17 +186,13 @@ impl<'a> ByteBuffersDataInput<'a, &'a [u8]> {
         let blocks = Self::slice_buffer_list(&self.blocks, offset, length);
         Ok(Self::new(blocks, length))
     }
-    pub fn slice_buffer_list(
-        blocks: &[Cursor<&'a [u8]>],
-        offset: i64,
-        length: i64,
-    ) -> Vec<Cursor<&'a [u8]>> {
+    pub fn slice_buffer_list(blocks: &[Cursor<B>], offset: i64, length: i64) -> Vec<Cursor<B>> {
         debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
 
         let abs_start = blocks[0].position() + offset as u64;
         let abs_end = abs_start + length as u64;
 
-        let block_bytes = blocks[0].get_ref().len() as u64;
+        let block_bytes = blocks[0].get_ref().as_ref().len() as u64;
         debug_assert!(block_bytes.is_power_of_two());
         let block_bits = block_bytes.trailing_zeros() as u64;
         let block_mask = (1u64 << block_bits) - 1;
@@ -208,7 +206,7 @@ impl<'a> ByteBuffersDataInput<'a, &'a [u8]> {
             .iter()
             .enumerate()
             .map(|(i, block)| {
-                let vec_data = *block.get_ref();
+                let vec_data = block.get_ref().clone();
 
                 let mut new_cursor = Cursor::new(vec_data);
                 if i == 0 {
@@ -402,7 +400,7 @@ mod tests {
     #[test]
     fn test_sanity() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
-        let mut o1 = out.get_data_input();
+        let mut o1 = out.get_data_input_ref();
         assert_eq!(0, o1.length());
         let mut result = DataInput::read_byte(&mut o1);
         assert!(result.is_err());
@@ -410,7 +408,7 @@ mod tests {
         out.write_byte(1)?;
         // TODO: how to assert o1's length not modified?
         // assert_eq!(0, o1.length());
-        let mut o2 = out.get_data_input();
+        let mut o2 = out.get_data_input_ref();
         assert_eq!(1, o2.length());
         assert_eq!(0, o2.position());
 
@@ -434,7 +432,7 @@ mod tests {
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
         let max = if is_night_mode() { 1000000 } else { 100000 };
         let reply = add_random_data(&mut dst, &mut random1, max);
-        let mut src = dst.get_data_input();
+        let mut src = dst.get_data_input_ref();
         for action in reply {
             action.verify(&mut src);
         }
@@ -461,7 +459,7 @@ mod tests {
             dst.write_bytes(suffix.as_slice())?;
             let size = dst.size();
             let mut src = dst
-                .get_data_input()
+                .get_data_input_ref()
                 .slice(prefix_len, size - suffix_len - prefix_len)?;
             assert_eq!(0, src.position());
             assert_eq!(size - prefix_len - suffix_len, src.length());
@@ -476,7 +474,7 @@ mod tests {
     #[test]
     fn test_seek_empty() -> Result<()> {
         let mut dst = ByteBuffersDataOutput::new();
-        let mut data_input = dst.get_data_input();
+        let mut data_input = dst.get_data_input_ref();
         let mut result = data_input.seek(0);
         assert!(result.is_ok());
         result = data_input.seek(1);
@@ -509,7 +507,9 @@ mod tests {
             let size = dst.size();
             let mut array = dst.get_array_copy();
             array = Vec::from(&array[prefix_len as usize..array.len()]);
-            let mut data_input = dst.get_data_input().slice(prefix_len, size - prefix_len)?;
+            let mut data_input = dst
+                .get_data_input_ref()
+                .slice(prefix_len, size - prefix_len)?;
             data_input.seek(0)?;
             for action in &reply {
                 action.verify(&mut data_input);
@@ -548,11 +548,11 @@ mod tests {
     fn test_slicing_window() -> Result<()> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::new();
-        assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
+        assert_eq!(0, dst.get_data_input_ref().slice(0, 0)?.length());
         let random_bytes = vec![0; random.random_range(0..=1024 * 8)];
         dst.write_bytes(random_bytes.as_slice())?;
         let max = dst.size();
-        let data_input = dst.get_data_input();
+        let data_input = dst.get_data_input_ref();
         let mut offset = 0;
         while offset < max {
             assert_eq!(0, data_input.slice(offset, 0)?.length());
@@ -571,7 +571,7 @@ mod tests {
         let mut dst = ByteBuffersDataOutput::new();
         let bytes = vec![0; 10];
         dst.write_bytes(bytes.as_slice())?;
-        let mut data_input = dst.get_data_input();
+        let mut data_input = dst.get_data_input_ref();
         let mut output: Vec<u8> = vec![0; 100];
         let result = DataInput::read_bytes(&mut data_input, &mut output, 0, 100);
         assert!(result.is_err());
@@ -597,7 +597,7 @@ mod tests {
             dst.write_bytes(block.as_slice())?;
             remaining -= len as i64;
         }
-        let data_input = dst.get_data_input();
+        let data_input = dst.get_data_input_ref();
         assert_eq!(simulated_length, data_input.length());
         let max = data_input.length();
         let mut offset = 0;
