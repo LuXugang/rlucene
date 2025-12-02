@@ -796,6 +796,7 @@ mod tests {
         DataOutput, IndexOutput,
     };
     use crate::core::util::StringHelper;
+    use crate::core::util::close::Closeable;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
 
     #[allow(dead_code)] // for quick search
@@ -1162,6 +1163,12 @@ mod tests {
     impl Display for FakeOutput<'_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(f, "FakeOutput({})", self.output)
+        }
+    }
+
+    impl Closeable for FakeOutput<'_> {
+        fn close(&mut self) -> Result<()> {
+            todo!()
         }
     }
 

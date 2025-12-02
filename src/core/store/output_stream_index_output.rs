@@ -23,6 +23,7 @@ use crc32fast::Hasher;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Implementation struct for buffered [`IndexOutput`] that writes to an
@@ -109,6 +110,15 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_description)
+    }
+}
+
+impl<W: Write> Closeable for OutputStreamIndexOutput<W>
+where
+    W: Write,
+{
+    fn close(&mut self) -> Result<()> {
+        todo!()
     }
 }
 

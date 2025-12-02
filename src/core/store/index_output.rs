@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
 use crate::core::store::data_output::DataOutput;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// A `DataOutput` for appending data to a file in a `Directory`.
@@ -30,7 +31,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// [`Directory`](crate::core::store::directory::Directory)
 ///
 /// [`IndexInput`](crate::core::store::index_input::IndexInput)
-pub trait IndexOutput: DataOutput + Display {
+pub trait IndexOutput: DataOutput + Display + Closeable {
     /// Returns the current position in this file, where the next write will
     /// occur.
     fn get_file_pointer(&self) -> i64;
@@ -219,6 +220,19 @@ where
         match self {
             Either2IndexOutput::A(t) => t.fmt(f),
             Either2IndexOutput::B(s) => s.fmt(f),
+        }
+    }
+}
+
+impl<A, B> Closeable for Either2IndexOutput<A, B>
+where
+    A: IndexOutput,
+    B: IndexOutput,
+{
+    fn close(&mut self) -> Result<()> {
+        match self {
+            Either2IndexOutput::A(t) => t.close(),
+            Either2IndexOutput::B(s) => s.close(),
         }
     }
 }

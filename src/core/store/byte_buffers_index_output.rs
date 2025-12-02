@@ -21,6 +21,7 @@ use crc32fast::Hasher;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 /// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
@@ -101,6 +102,12 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
 impl Display for ByteBuffersIndexOutput<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.resource_description)
+    }
+}
+
+impl Closeable for ByteBuffersIndexOutput<'_> {
+    fn close(&mut self) -> Result<()> {
+        todo!()
     }
 }
 
