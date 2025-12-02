@@ -88,6 +88,7 @@ pub mod boost_query;
 mod constant_score_query;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
+pub mod filter_doc_id_set_iterator;
 pub mod filter_scorable;
 pub mod index_sort_sorted_numeric_doc_values_range_query;
 pub mod point_range_query;
