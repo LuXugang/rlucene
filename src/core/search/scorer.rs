@@ -58,7 +58,7 @@ pub trait Scorer: Scorable {
     /// The returned iterator will either be positioned on `-1` if no documents
     /// have been scored yet, `NO_MORE_DOCS` if all documents have been scored already,
     /// or the last document id that has been scored otherwise.
-    ///
+    /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_>;
@@ -81,6 +81,9 @@ pub trait Scorer: Scorable {
     /// the iterator and vice-versa.
     ///
     /// The default implementation returns `None`.
+    /// # Warning
+    /// The returned iterator is a *view*: calling this method several times must
+    /// return iterators that share the same state.
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         None
     }
