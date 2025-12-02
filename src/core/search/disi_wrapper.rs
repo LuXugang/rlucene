@@ -24,8 +24,8 @@ where
     S: Scorer,
 {
     scorer: S,
-    next: Option<usize>,
-    doc: i32,
+    pub(crate) next: Option<usize>,
+    pub(crate) doc: i32,
     // for MaxScoreBulkScorer
     scaled_max_score: i64,
     // for MaxScoreBulkScorer

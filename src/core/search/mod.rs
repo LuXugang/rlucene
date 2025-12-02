@@ -86,6 +86,7 @@ mod boolean_scorer_supplier;
 pub(crate) mod boolean_weight;
 pub mod boost_query;
 mod constant_score_query;
+pub mod disi_priority_queue;
 pub mod disi_wrapper;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
