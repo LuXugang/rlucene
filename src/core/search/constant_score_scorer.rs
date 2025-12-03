@@ -146,13 +146,8 @@ where
         EitherEmpty::A(&mut self.disi)
     }
 
-    fn take_iterator(mut self) -> Self::DocIdSetIterator {
-        std::mem::replace(
-            &mut self.disi,
-            ConstantDISI_::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
-                EitherEmpty::B(EmptyDISI::new()),
-            ))),
-        )
+    fn take_iterator(self) -> Self::DocIdSetIterator {
+        self.disi
     }
 
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
