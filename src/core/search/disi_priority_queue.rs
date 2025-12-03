@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A priority queue of `DocIdSetIterator`s that orders by the current doc ID.
 pub struct DisiPriorityQueue {
     size: usize,
-    heap: Vec<usize>,
+    pub(crate) heap: Vec<usize>,
 }
 impl DisiPriorityQueue {
     pub fn new(max_size: i32) -> Self {

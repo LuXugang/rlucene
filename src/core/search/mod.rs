@@ -88,6 +88,8 @@ pub mod boost_query;
 mod constant_score_query;
 pub mod disi_priority_queue;
 pub mod disi_wrapper;
+pub mod disjunction_disi_approximation;
+pub(crate) mod disjunction_scorer;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
 pub mod filter_doc_id_set_iterator;
