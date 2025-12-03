@@ -233,7 +233,9 @@ impl DisiPriorityQueue {
     }
     /// Clear the heap.
     pub fn clear(&mut self) {
-        self.heap.clear();
+        for v in self.heap.iter_mut() {
+            *v = 0;
+        }
         self.size = 0;
     }
     pub(crate) fn up_heap<S>(&mut self, mut i: usize, wrappers: &[DisiWrapper<S>])

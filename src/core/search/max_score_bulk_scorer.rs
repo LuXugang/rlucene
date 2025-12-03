@@ -605,7 +605,7 @@ where
         let n = self.all_scorers_idx.len();
 
         for idx in 0..n {
-            let index = self.all_scorers_idx[self.scratch[idx]];
+            let index = self.scratch[idx];
             let w = &self.all_scorers[index];
             let new_max_score_sum = max_score_sum + w.max_window_score as f64;
             let v: i32 = self.first_essential_scorer.try_into()?;
@@ -811,4 +811,264 @@ impl Scorable for Score {
     }
 
     type Scorable = DummyScorable;
+}
+#[cfg(test)]
+mod test {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::search::doc_id_set_iterator::AllDISI;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::dummy::dummy_scorable::DummyScorable;
+    use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
+    use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
+    use crate::core::search::scorable::Scorable;
+    use crate::core::search::scorer::Scorer;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use rand::prelude::SliceRandom;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestMaxScoreBulkScorer;
+
+    fn write_documents<D>(dir: Arc<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        let iwc = IndexWriterConfig::new();
+        // TODO newLogMergePolicy 未实现
+        // iwc.set_merge_policy(new_log_merge_policy());
+
+        let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+
+        let docs: Vec<Vec<&str>> = vec![
+            vec!["A", "B"],      // 0
+            vec!["A"],           // 1
+            vec![],              // 2
+            vec!["A", "B", "C"], // 3
+            vec!["B"],           // 4
+            vec!["B", "C"],      // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in values {
+                doc.add(StringField::with_string("foo", value, Store::No)?);
+            }
+            writer.add_document(doc)?;
+
+            for _i in 1..INNER_WINDOW_SIZE {
+                writer.add_document(Document::new())?;
+            }
+        }
+        // TODO force_merge 未实现
+        // writer.force_merge(1)?;
+        writer.close()?;
+        Ok(())
+    }
+    // TODO BoostQuery跟ConstantScoreQuery未实现
+    #[test]
+    fn test_partition() -> Result<()> {
+        let mut random = random();
+        let mut the = FakeScorer::new("the".to_string());
+        the.cost = 9000;
+        the.max_score = 0.1;
+        the.doc_id = 4;
+        the.max_score_up_to = 130;
+
+        let mut quick = FakeScorer::new("quick".to_string());
+        quick.cost = 1000;
+        quick.max_score = 1.0;
+        quick.doc_id = 4;
+        quick.max_score_up_to = 999;
+
+        let mut fox = FakeScorer::new("fox".to_string());
+        fox.cost = 900;
+        fox.max_score = 1.1;
+        fox.doc_id = 10;
+        fox.max_score_up_to = 1200;
+
+        let scorers = vec![the, quick, fox];
+        let mut scorer = MaxScoreBulkScorer::new(10_000, scorers, None)?;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(0, scorer.first_essential_scorer);
+        assert_eq!(3, scorer.first_required_scorer);
+
+        // less than the minimum score of every clause
+        scorer.scorable.min_competitive_score = 0.09;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(0, scorer.first_essential_scorer);
+        assert_eq!(3, scorer.first_required_scorer);
+
+        // equal to the maximum score of `the`
+        scorer.scorable.min_competitive_score = 0.1;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(0, scorer.first_essential_scorer);
+        assert_eq!(3, scorer.first_required_scorer);
+
+        // gt than the minimum score of `the`
+        scorer.scorable.min_competitive_score = 0.11;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(1, scorer.first_essential_scorer);
+        assert_eq!(3, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]); // the
+
+        // equal to the sum of the max scores of the and quick
+        scorer.scorable.min_competitive_score = 1.1;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(1, scorer.first_essential_scorer);
+        assert_eq!(3, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]); // the
+
+        // greater than the sum of the max scores of the and quick
+        scorer.scorable.min_competitive_score = 1.11;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(2, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]); // the
+        assert_eq!(1, scorer.all_scorers_idx[1]); // quick
+        assert_eq!(2, scorer.all_scorers_idx[2]); // fox
+
+        // equal to the sum of the max scores of the and fox
+        scorer.scorable.min_competitive_score = 1.2;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(2, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]);
+        assert_eq!(1, scorer.all_scorers_idx[1]);
+        assert_eq!(2, scorer.all_scorers_idx[2]);
+
+        // greater than the sum of the max scores of the and fox
+        scorer.scorable.min_competitive_score = 1.21;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(1, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]);
+        assert_eq!(1, scorer.all_scorers_idx[1]);
+        assert_eq!(2, scorer.all_scorers_idx[2]);
+
+        // equal to the sum of the max scores of quick and fox
+        scorer.scorable.min_competitive_score = 2.1;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(1, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]);
+        assert_eq!(1, scorer.all_scorers_idx[1]);
+        assert_eq!(2, scorer.all_scorers_idx[2]);
+
+        // greater than the sum of the max scores of quick and fox
+        scorer.scorable.min_competitive_score = 2.11;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(0, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]);
+        assert_eq!(1, scorer.all_scorers_idx[1]);
+        assert_eq!(2, scorer.all_scorers_idx[2]);
+
+        // equal to the sum of the max scores of all terms
+        scorer.scorable.min_competitive_score = 2.2;
+        scorer.all_scorers_idx.shuffle(&mut random);
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(scorer.partition_scorers()?);
+        assert_eq!(2, scorer.first_essential_scorer);
+        assert_eq!(0, scorer.first_required_scorer);
+        assert_eq!(0, scorer.all_scorers_idx[0]);
+        assert_eq!(1, scorer.all_scorers_idx[1]);
+        assert_eq!(2, scorer.all_scorers_idx[2]);
+
+        // greater than the sum of the max scores of all terms
+        scorer.scorable.min_competitive_score = 2.21;
+        scorer.update_max_window_scores(4, 100)?;
+        assert!(!scorer.partition_scorers()?);
+
+        Ok(())
+    }
+
+    struct FakeScorer {
+        to_string: String,
+        doc_id: i32,
+        max_score_up_to: i32,
+        max_score: f32,
+        cost: i32,
+        disi: AllDISI,
+    }
+    impl FakeScorer {
+        fn new(to_string: String) -> Self {
+            let cost = 10;
+            let disi = AllDISI::new(cost);
+            Self {
+                to_string,
+                doc_id: -1,
+                max_score_up_to: NO_MORE_DOCS,
+                max_score: 1.0,
+                cost: 10,
+                disi,
+            }
+        }
+    }
+
+    impl Scorable for FakeScorer {
+        fn score(&mut self) -> Result<f32> {
+            Err(LuceneError::unsupported_operation(""))
+        }
+
+        type Scorable = DummyScorable;
+    }
+
+    impl Scorer for FakeScorer {
+        type DocIdSetIterator = AllDISI;
+        type DocIdSetIteratorRef<'a>
+            = &'a mut AllDISI
+        where
+            Self: 'a;
+        type TwoPhaseIter = DummyTwoPhaseIterator;
+        type TwoPhaseIterRef<'a>
+            = DummyTwoPhaseIterator
+        where
+            Self: 'a;
+
+        fn doc_id(&mut self) -> Result<i32> {
+            Ok(self.doc_id)
+        }
+
+        fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+            &mut self.disi
+        }
+
+        fn take_iterator(&mut self) -> Self::DocIdSetIterator {
+            unreachable!("")
+        }
+
+        fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
+            Ok(self.max_score_up_to)
+        }
+
+        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+            Ok(self.max_score)
+        }
+    }
 }
