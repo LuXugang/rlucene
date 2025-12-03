@@ -17,7 +17,7 @@
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::doc_id_set_iterator::{Either3DocIdSetIterator, EmptyDISI};
+use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -28,10 +28,9 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
-pub type Disi<S> = Either3DocIdSetIterator<
+pub type Disi<S> = Either2DocIdSetIterator<
     DisjunctionDISIApproximation<S>,
     TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
-    EmptyDISI,
 >;
 pub struct DisjunctionScorer<S, T>
 where
@@ -96,7 +95,6 @@ where
                 let two_phase = &mut v.two_phase_iterator;
                 two_phase.get_sub_matches()
             },
-            Disi::C(_) => Err(LuceneError::illegal_state("shoud not be empty")),
         }
     }
 }
