@@ -210,7 +210,7 @@ where
                         None => true,
                         Some(bits) => bits.get(doc),
                     };
-                    accepted && filter.matches()?
+                    accepted && filter.matches_may_none()?
                 };
 
                 let mut score = 0f64;

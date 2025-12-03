@@ -147,6 +147,13 @@ where
     }
 
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+        #[cfg(test)]
+        {
+            if self.disi_taken {
+                debug_assert!(false, "should only be called once");
+            }
+            self.disi_taken = true;
+        }
         EitherEmpty::A(&mut self.disi)
     }
 
@@ -167,6 +174,13 @@ where
     }
 
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        #[cfg(test)]
+        {
+            if self.disi_taken {
+                debug_assert!(false, "should only be called once");
+            }
+            self.disi_taken = true;
+        }
         match self.disi {
             ConstantDISI_::A(_) => None,
             ConstantDISI_::B(ref mut v) => Some(&mut v.two_phase_iterator),

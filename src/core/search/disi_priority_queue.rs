@@ -19,6 +19,7 @@ use crate::core::search::scorer::Scorer;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 /// A priority queue of `DocIdSetIterator`s that orders by the current doc ID.
+#[derive(Default)] // for std::mem::take
 pub struct DisiPriorityQueue {
     size: usize,
     pub(crate) heap: Vec<usize>,

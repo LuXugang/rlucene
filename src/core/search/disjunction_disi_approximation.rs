@@ -20,13 +20,14 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
+#[derive(Default)]
 pub struct DisjunctionDISIApproximation<S>
 where
     S: Scorer,
 {
-    all_scores: Vec<DisiWrapper<S>>,
-    sub_iterators: DisiPriorityQueue,
-    cost: i64,
+    pub(crate) all_scores: Vec<DisiWrapper<S>>,
+    pub(crate) sub_iterators: DisiPriorityQueue,
+    pub(crate) cost: i64,
 }
 impl<S> DisjunctionDISIApproximation<S>
 where

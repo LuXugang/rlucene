@@ -18,9 +18,10 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
 /// or `likelyImpactsEnum`.
+#[derive(Default)]
 pub struct DisiWrapper<S>
 where
     S: Scorer,
@@ -58,6 +59,14 @@ where
     }
 
     pub fn matches(&mut self) -> Result<bool> {
+        match self.scorer.two_phase_iterator() {
+            Some(mut tpi) => tpi.matches(),
+            None => Err(LuceneError::illegal_state(
+                "this scorer does not support two-phase iteration",
+            )),
+        }
+    }
+    pub fn matches_may_none(&mut self) -> Result<bool> {
         match self.scorer.two_phase_iterator() {
             Some(mut tpi) => tpi.matches(),
             None => Ok(true),
