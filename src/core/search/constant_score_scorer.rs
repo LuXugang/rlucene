@@ -166,10 +166,6 @@ where
         )
     }
 
-    fn freq(&mut self) -> Result<i32> {
-        Ok(1)
-    }
-
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         match self.disi {
             ConstantDISI_::A(_) => None,

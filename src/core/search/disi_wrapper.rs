@@ -133,10 +133,6 @@ where
         self.scorer.take_iterator()
     }
 
-    fn freq(&mut self) -> Result<i32> {
-        self.scorer.freq()
-    }
-
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
         self.scorer.two_phase_iterator()
     }

@@ -69,9 +69,6 @@ pub trait Scorer: Scorable {
     /// underlying iterator rather than returning a view.
     fn take_iterator(&mut self) -> Self::DocIdSetIterator;
 
-    /// Returns term frequency in the current document.
-    fn freq(&mut self) -> Result<i32>;
-
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
     /// A return value of `None` indicates that two-phase iteration is not supported.
@@ -214,11 +211,6 @@ macro_rules! either_scorer {
                 match self {
                     $( Self::$Variant(inner) => $iter_ty::$Variant(inner.take_iterator()), )+
                 }
-            }
-
-            #[inline]
-            fn freq(&mut self) -> Result<i32> {
-                match self { $( Self::$Variant(inner) => inner.freq(), )+ }
             }
 
             #[inline]

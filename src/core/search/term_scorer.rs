@@ -288,10 +288,6 @@ where
         }
     }
 
-    fn freq(&mut self) -> Result<i32> {
-        TermScorer::freq(self)
-    }
-
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         match self.max_score_cache {
             Some(ref mut max_score_cache) => max_score_cache.advance_shallow(target, &mut None),

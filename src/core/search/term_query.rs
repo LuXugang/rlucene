@@ -321,7 +321,12 @@ where
         if let Some(scorer) = scorer_opt.as_mut() {
             let new_doc = scorer.iterator().advance(doc)?;
             if new_doc == doc {
-                let freq = scorer.freq()?;
+                let freq = match scorer {
+                    Either2Scorer::A(s) => s.freq()?,
+                    Either2Scorer::B(_) => {
+                        return Err(LuceneError::illegal_state("should TermScorer here"));
+                    },
+                };
 
                 let mut norm: i64 = 1;
                 let Query::Term(parent_query) = self.parent_query.as_ref() else {
