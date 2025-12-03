@@ -59,7 +59,8 @@ where
 
         loop {
             let top = &mut self.all_scores[top_idx];
-            top.doc = top.next_doc()?;
+            let v = top.iterator().next_doc()?;
+            top.doc = v;
             top_idx = self.sub_iterators.update_top(&self.all_scores);
             if self.all_scores[top_idx].doc != old_doc {
                 break;
@@ -72,7 +73,8 @@ where
         let mut top_idx = self.sub_iterators.top();
         loop {
             let top = &mut self.all_scores[top_idx];
-            top.doc = top.advance(target)?;
+            let v = top.iterator().advance(target)?;
+            top.doc = v;
             top_idx = self.sub_iterators.update_top(&self.all_scores);
             if self.all_scores[top_idx].doc >= target {
                 break;

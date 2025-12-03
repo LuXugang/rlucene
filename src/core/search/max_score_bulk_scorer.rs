@@ -174,20 +174,19 @@ where
         {
             let top = &mut self.all_scorers[top_index];
             if top.doc < filter_doc {
-                let v = top.advance(filter_doc)?;
+                let v = top.iterator().advance(filter_doc)?;
                 top.doc = v;
             }
         }
 
         let inner_window_min = self.all_scorers[top_index].doc;
         let inner_window_max = std::cmp::min(max, inner_window_min + INNER_WINDOW_SIZE);
-
         while self.all_scorers[top_index].doc < inner_window_max {
             let top_doc = self.all_scorers[top_index].doc;
             debug_assert!(filter.doc <= top_doc);
 
             if filter.doc < top_doc {
-                let v = filter.advance(top_doc)?;
+                let v = filter.iterator().advance(top_doc)?;
                 filter.doc = v;
             }
 
