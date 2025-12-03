@@ -56,6 +56,27 @@ where
             max_window_score: 0.0,
         })
     }
+
+    pub fn advance(&mut self, doc: i32) -> Result<i32> {
+        let has_two_phase_iterator = self.scorer.two_phase_iterator().is_some();
+        match has_two_phase_iterator {
+            true => {
+                let mut tpi = self.scorer.two_phase_iterator();
+                let mut v = tpi.as_mut().unwrap().approximation_mut();
+                v.advance(doc)
+            },
+            false => {
+                let mut v = self.scorer.iterator();
+                v.advance(doc)
+            },
+        }
+    }
+    pub fn matches(&mut self) -> Result<bool> {
+        match self.scorer.two_phase_iterator() {
+            Some(mut tpi) => tpi.matches(),
+            None => Ok(true),
+        }
+    }
 }
 
 impl<S> Scorable for DisiWrapper<S>

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -22,7 +23,6 @@ use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
-use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -48,7 +48,6 @@ where
     // The minimum value of minCompetitiveScore that would produce a more favorable partitioning.
     pub(crate) next_min_competitive_score: f32,
     cost: i64,
-    pub(crate) min_competitive_score: f32,
     pub(crate) scorable: Score,
     pub(crate) max_score_sums: Vec<f64>,
     filter: Option<DisiWrapper<S>>,
@@ -98,7 +97,6 @@ where
             first_required_scorer: 0,
             next_min_competitive_score: 0.0,
             cost,
-            min_competitive_score: 0.0,
             scorable: Score::new(),
             max_score_sums,
             filter,
@@ -110,6 +108,190 @@ where
             min_window_size: 1,
         })
     }
+    fn score_inner_window<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        max: i32,
+    ) -> Result<()>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        if self.filter.is_some() {
+            let mut filter = self.filter.take().unwrap();
+            self.score_inner_window_with_filter(collector, accept_docs, max, &mut filter)?;
+            self.filter = Some(filter);
+        } else if self.all_scorers_idx.len() - self.first_required_scorer >= 2 {
+            self.score_inner_window_as_conjunction(collector, accept_docs, max)?;
+        } else {
+            let top_index = self.essential_queue.top();
+            let top2_index = self.essential_queue.top2(&self.all_scorers);
+
+            if top2_index.is_none() {
+                self.score_inner_window_single_essential_clause(collector, accept_docs, max)?;
+            } else {
+                let top = &self.all_scorers[top_index];
+                let top2 = &self.all_scorers[top2_index.unwrap()];
+
+                if top2.doc - (INNER_WINDOW_SIZE / 2) >= top.doc {
+                    self.score_inner_window_single_essential_clause(
+                        collector,
+                        accept_docs,
+                        max.min(top2.doc),
+                    )?;
+                } else {
+                    self.score_inner_window_multiple_essential_clauses(
+                        collector,
+                        accept_docs,
+                        max,
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn score_inner_window_with_filter<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        max: i32,
+        filter: &mut DisiWrapper<S>,
+    ) -> Result<()>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        let mut top_index = self.essential_queue.top();
+        {
+            let top = &self.all_scorers[top_index];
+            debug_assert!(top.doc < max);
+        }
+
+        let filter_doc = filter.doc;
+        {
+            let top = &mut self.all_scorers[top_index];
+            if top.doc < filter_doc {
+                let v = top.advance(filter_doc)?;
+                top.doc = v;
+            }
+        }
+
+        let inner_window_min = self.all_scorers[top_index].doc;
+        let inner_window_max = std::cmp::min(max, inner_window_min + INNER_WINDOW_SIZE);
+
+        while self.all_scorers[top_index].doc < inner_window_max {
+            let top_doc = self.all_scorers[top_index].doc;
+            debug_assert!(filter.doc <= top_doc);
+
+            if filter.doc < top_doc {
+                let v = filter.advance(top_doc)?;
+                filter.doc = v;
+            }
+
+            if filter.doc != self.all_scorers[top_index].doc {
+                loop {
+                    let fdoc = filter.doc;
+                    {
+                        let top = &mut self.all_scorers[top_index];
+                        let v = top.iterator().advance(fdoc)?;
+                        top.doc = v;
+                    }
+                    top_index = self.essential_queue.update_top(&self.all_scorers);
+                    if self.all_scorers[top_index].doc >= filter.doc {
+                        break;
+                    }
+                }
+            } else {
+                let doc = self.all_scorers[top_index].doc;
+                let m = {
+                    let accepted = match accept_docs {
+                        None => true,
+                        Some(bits) => bits.get(doc),
+                    };
+                    accepted && filter.matches()?
+                };
+
+                let mut score = 0f64;
+                loop {
+                    if m {
+                        let s = {
+                            let top = &mut self.all_scorers[top_index];
+                            top.score()? as f64
+                        };
+                        score += s;
+                    }
+
+                    {
+                        let top = &mut self.all_scorers[top_index];
+                        let v = top.iterator().next_doc()?;
+                        top.doc = v;
+                    }
+                    top_index = self.essential_queue.update_top(&self.all_scorers);
+
+                    if self.all_scorers[top_index].doc != doc {
+                        break;
+                    }
+                }
+
+                if m {
+                    self.score_non_essential_clauses(
+                        collector,
+                        doc,
+                        score,
+                        self.first_essential_scorer,
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+    fn score_inner_window_single_essential_clause<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        up_to: i32,
+    ) -> Result<()>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        let top_index = self.essential_queue.top();
+        let (mut doc, mut score) = {
+            let top = &mut self.all_scorers[top_index];
+            // single essential clause in this window, we can iterate it directly and skip the bitset.
+            // this is a common case for 2-clauses queries
+            (top.doc, top.score()? as f64)
+        };
+
+        while doc < up_to {
+            let accepted = match accept_docs {
+                None => true,
+                Some(bits) => bits.get(doc),
+            };
+            if accepted {
+                self.score_non_essential_clauses(
+                    collector,
+                    doc,
+                    score,
+                    self.first_essential_scorer,
+                )?;
+            }
+            let top = &mut self.all_scorers[top_index];
+            doc = top.iterator().next_doc()?;
+            score = top.score()? as f64;
+        }
+        let top = &mut self.all_scorers[top_index];
+        let v = top.iterator().doc_id();
+        top.doc = v;
+        self.essential_queue.update_top(&self.all_scorers);
+
+        Ok(())
+    }
+
     /// allScorers = [ w0, w1, w2, ..., w(n-3), w(n-2), w(n-1) ]
     ///                                   ^       ^       ^
     ///                                   |       |       |
@@ -129,101 +311,104 @@ where
         debug_assert!(self.first_required_scorer <= self.all_scorers_idx.len() - 2);
 
         let n = self.all_scorers.len();
-        let i1 = self.all_scorers_idx[n - 1];
-        let i2 = self.all_scorers_idx[n - 2];
 
         let last = n - 1;
         let second_last = n - 2;
+        let (mut doc, max_score_sum_at_lead2) = {
+            let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
+            let lead1 = &mut lead1_slice[0];
 
-        let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
-        let lead1 = &mut lead1_slice[0];
+            let (_, lead2_slice) = other_and_lead2.split_at_mut(second_last);
+            let lead2 = &mut lead2_slice[0];
 
-        let (other, lead2_slice) = other_and_lead2.split_at_mut(second_last);
-        let lead2 = &mut lead2_slice[0];
+            debug_assert!(self.essential_queue.size() == 1);
+            debug_assert!(self.essential_queue.top() == last);
 
-        debug_assert!(self.essential_queue.size() == 1);
-        debug_assert!(self.essential_queue.top() == i1);
-
-        if lead1.doc < lead2.doc {
-            let v = lead1.iterator().advance(lead2.doc.min(max))?;
-            lead1.doc = v;
-        }
-
-        let max_score_sum_at_lead2 = self.max_score_sums[n - 2];
-
-        'outer: while lead1.doc < max {
-            let accepted = match accept_docs {
-                None => true,
-                Some(bits) => bits.get(lead1.doc),
-            };
-
-            if !accepted {
-                let v = lead1.iterator().next_doc()?;
-                lead1.doc = v;
-                continue;
-            }
-
-            let mut score = lead1.score()? as f64;
-
-            if (MathUtil::sum_upper_bound(score + max_score_sum_at_lead2, n as i32) as f32)
-                < self.min_competitive_score
-            {
-                let v = lead1.iterator().next_doc()?;
-                lead1.doc = v;
-                continue;
-            }
-
-            if lead2.doc < lead1.doc {
-                let v = lead2.iterator().advance(lead1.doc)?;;
-                lead2.doc = v;
-            }
-            if lead2.doc != lead1.doc {
+            if lead1.doc < lead2.doc {
                 let v = lead1.iterator().advance(lead2.doc.min(max))?;
                 lead1.doc = v;
-                continue;
             }
+            (lead1.doc, self.max_score_sums[n - 2])
+        };
 
-            score += lead2.score()? as f64;
+        'outer: while doc < max {
+            let (v, score) = {
+                let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
+                let lead1 = &mut lead1_slice[0];
 
-            for j in (self.all_scorers_idx.len() - 3..=self.first_required_scorer).rev() {
+                let (other, lead2_slice) = other_and_lead2.split_at_mut(second_last);
+                let lead2 = &mut lead2_slice[0];
 
-                if (MathUtil::sum_upper_bound(score + self.max_score_sums[j], n as i32) as f32)
-                    < self.min_competitive_score
+                let accepted = match accept_docs {
+                    None => true,
+                    Some(bits) => bits.get(lead1.doc),
+                };
+
+                if !accepted {
+                    let v = lead1.iterator().next_doc()?;
+                    lead1.doc = v;
+                    continue;
+                }
+
+                let mut score = lead1.score()? as f64;
+
+                if (MathUtil::sum_upper_bound(score + max_score_sum_at_lead2, n as i32) as f32)
+                    < self.scorable.min_competitive_score
                 {
                     let v = lead1.iterator().next_doc()?;
                     lead1.doc = v;
-                    continue 'outer;
+                    continue;
                 }
 
-                let w_index = self.all_scorers_idx[j];
-                let w = &mut other[w_index];
-
-                if w.doc < lead1.doc {
-                    let v =  w.iterator().advance(lead1.doc)?;
-                    w.doc = v;
+                if lead2.doc < lead1.doc {
+                    let v = lead2.iterator().advance(lead1.doc)?;
+                    lead2.doc = v;
                 }
-                if w.doc != lead1.doc {
-                    let v = lead1.iterator().advance(w.doc.min(max))?;
+                if lead2.doc != lead1.doc {
+                    let v = lead1.iterator().advance(lead2.doc.min(max))?;
                     lead1.doc = v;
-                    continue 'outer;
+                    continue;
                 }
 
-                score += w.score()? as f64;
-            }
-            let v = lead1.doc;
-            self.score_non_essential_clauses(
-                collector,
-                v,
-                score,
-                self.first_required_scorer,
-            )?;
-            let v =  lead1.iterator().next_doc()?;
+                score += lead2.score()? as f64;
+
+                for j in (self.all_scorers_idx.len() - 3..=self.first_required_scorer).rev() {
+                    if (MathUtil::sum_upper_bound(score + self.max_score_sums[j], n as i32) as f32)
+                        < self.scorable.min_competitive_score
+                    {
+                        let v = lead1.iterator().next_doc()?;
+                        lead1.doc = v;
+                        continue 'outer;
+                    }
+
+                    let w_index = self.all_scorers_idx[j];
+                    debug_assert!(w_index < second_last);
+                    let w = &mut other[w_index];
+
+                    if w.doc < lead1.doc {
+                        let v = w.iterator().advance(lead1.doc)?;
+                        w.doc = v;
+                    }
+                    if w.doc != lead1.doc {
+                        let v = lead1.iterator().advance(w.doc.min(max))?;
+                        lead1.doc = v;
+                        continue 'outer;
+                    }
+
+                    score += w.score()? as f64;
+                }
+                (lead1.doc, score)
+            };
+
+            self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
+            let lead1 = &mut self.all_scorers[last];
+            let v = lead1.iterator().next_doc()?;
+            doc = v;
             lead1.doc = v;
         }
 
         Ok(())
     }
-
 
     fn score_inner_window_multiple_essential_clauses<LC, B>(
         &mut self,
@@ -276,8 +461,8 @@ where
                 bits ^= 1u64 << ntz;
 
                 let index = (word_index << 6) | ntz;
-                let v:i32 = index.try_into()?;
-                let doc = inner_window_min +v ;
+                let v: i32 = index.try_into()?;
+                let doc = inner_window_min + v;
 
                 let score = self.window_scores[index];
                 self.window_scores[index] = 0.0;
@@ -325,7 +510,7 @@ where
                 self.min_window_size = 1;
             }
             let v: i32 = self.min_window_size.try_into()?;
-            let min_window_max = (window_min + v).min(i32::MAX);
+            let min_window_max = window_min + v;
             window_max = window_max.max(min_window_max);
         }
         Ok(window_max)
@@ -367,7 +552,7 @@ where
                 self.all_scorers_idx.len() as i32,
             ) as f32;
 
-            if max_possible_score < self.min_competitive_score {
+            if max_possible_score < self.scorable.min_competitive_score {
                 // Hit is not competitive.
                 return Ok(());
             }
@@ -426,7 +611,7 @@ where
             let v: i32 = self.first_essential_scorer.try_into()?;
             let max_score_sum_float = MathUtil::sum_upper_bound(new_max_score_sum, v + 1) as f32;
 
-            if max_score_sum_float < self.min_competitive_score {
+            if max_score_sum_float < self.scorable.min_competitive_score {
                 max_score_sum = new_max_score_sum;
                 self.all_scorers_idx[self.first_essential_scorer] = index;
                 self.max_score_sums[self.first_essential_scorer] = max_score_sum;
@@ -473,7 +658,9 @@ where
                         self.max_score_sums[self.first_required_scorer - 2];
                 }
 
-                if (max_possible_score_without_previous as f32) >= self.min_competitive_score {
+                if (max_possible_score_without_previous as f32)
+                    >= self.scorable.min_competitive_score
+                {
                     break;
                 }
                 // The sum of maximum scores ignoring the previous clause is less than the minimum
@@ -506,18 +693,121 @@ where
         next
     }
 }
+impl<S> BulkScorer for MaxScoreBulkScorer<S>
+where
+    S: Scorer,
+{
+    fn score<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        min: i32,
+        max: i32,
+    ) -> Result<i32>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        collector.set_scorer(&mut self.scorable)?;
+
+        // This scorer computes outer windows based on impacts that are stored in the index. These outer
+        // windows should be small enough to provide good upper bounds of scores, and big enough to make
+        // sure we spend more time collecting docs than recomputing windows.
+        // Then within these outer windows, it creates inner windows of size WINDOW_SIZE that help
+        // collect matches into a bitset and save the overhead of rebalancing the priority queue on
+        // every match.
+
+        let mut outer_window_min = min;
+
+        'outer: while outer_window_min < max {
+            let mut outer_window_max = self.compute_outer_window_max(outer_window_min)?;
+            outer_window_max = outer_window_max.min(max);
+
+            loop {
+                self.update_max_window_scores(outer_window_min, outer_window_max)?;
+
+                if !self.partition_scorers()? {
+                    // No matches in this window
+                    outer_window_min = outer_window_max;
+                    continue 'outer;
+                }
+
+                // There is a dependency between windows and maximum scores, as we compute windows based on
+                // maximum scores and maximum scores based on windows.
+                // So the approach consists of starting by computing a window based on the set of essential
+                // scorers from the _previous_ window and then iteratively recompute maximum scores and
+                // windows as long as the window size decreases.
+                // In general the set of essential scorers is rather stable over time so this would exit
+                // after a single iteration, but there is a change that some scorers got swapped between the
+                // set of essential and non-essential scorers, in which case there may be multiple
+                // iterations of this loop.
+
+                let new_outer_window_max = self.compute_outer_window_max(outer_window_min)?;
+                if new_outer_window_max >= outer_window_max {
+                    break;
+                }
+                outer_window_max = new_outer_window_max;
+            }
+
+            let mut top_index = self.essential_queue.top();
+            {
+                let mut doc = self.all_scorers[top_index].doc;
+                while doc < outer_window_min {
+                    {
+                        let top = &mut self.all_scorers[top_index];
+                        let v = top.iterator().advance(outer_window_min)?;
+                        top.doc = v;
+                        doc = v;
+                    }
+                    top_index = self.essential_queue.update_top(&self.all_scorers);
+                }
+            }
+
+            let mut top_doc = self.all_scorers[top_index].doc;
+
+            while top_doc < outer_window_max {
+                self.score_inner_window(collector, accept_docs, outer_window_max)?;
+                top_index = self.essential_queue.top();
+                top_doc = self.all_scorers[top_index].doc;
+
+                if self.scorable.min_competitive_score >= self.next_min_competitive_score {
+                    // The minimum competitive score increased substantially, so we can now partition scorers
+                    // in a more favorable way.
+                    break;
+                }
+            }
+            outer_window_min = std::cmp::min(top_doc, outer_window_max);
+            self.num_outer_windows += 1;
+        }
+
+        Ok(self.next_candidate(max))
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        Ok(self.cost)
+    }
+}
 
 pub struct Score {
     score: f32,
+    min_competitive_score: f32,
 }
 impl Score {
     fn new() -> Self {
-        Self { score: 0.0 }
+        Self {
+            score: 0.0,
+            min_competitive_score: 0.0,
+        }
     }
 }
 impl Scorable for Score {
     fn score(&mut self) -> Result<f32> {
-        todo!()
+        Ok(self.score)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        self.min_competitive_score = min_score;
+        Ok(())
     }
 
     type Scorable = DummyScorable;

@@ -378,7 +378,7 @@ where {
         let reader = DummyLeafReader;
         let lrc = LeafReaderContext::new(reader, 0, 0, 0, 0, None);
         let s = weight.scorer(&lrc)?.unwrap();
-        Ok(DisiWrapper::new(s)?)
+        DisiWrapper::new(s)
     }
     fn random_disi<R: Rng + ?Sized>(random: &mut R) -> DocIdSetIteratorImpl {
         let max_size = random.random_range(0..50);
