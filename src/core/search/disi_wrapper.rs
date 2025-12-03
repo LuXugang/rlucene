@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
 /// or `likelyImpactsEnum`.
@@ -26,23 +28,33 @@ where
     scorer: S,
     pub(crate) next: Option<usize>,
     pub(crate) doc: i32,
+    pub(crate) cost: i64,
+    // the match cost for two-phase iterators, 0 otherwise
+    pub(crate) match_cost: f32,
     // for MaxScoreBulkScorer
     scaled_max_score: i64,
     // for MaxScoreBulkScorer
-    max_window_score: f32,
+    pub(crate) max_window_score: f32,
 }
 impl<S> DisiWrapper<S>
 where
     S: Scorer,
 {
-    pub fn new(scorer: S) -> Self {
-        Self {
+    pub fn new(mut scorer: S) -> Result<Self> {
+        let cost = scorer.iterator().cost()?;
+        let match_cost = match scorer.two_phase_iterator() {
+            Some(tpi) => tpi.match_cost(),
+            None => 0.0,
+        };
+        Ok(Self {
             scorer,
             next: None,
             doc: -1,
+            cost,
+            match_cost,
             scaled_max_score: 0,
             max_window_score: 0.0,
-        }
+        })
     }
 }
 

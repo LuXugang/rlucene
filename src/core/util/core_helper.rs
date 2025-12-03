@@ -85,6 +85,16 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
         value.hash(&mut hasher);
         hasher.finish()
     }
+    pub fn get_two_mut<T>(slice: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
+        debug_assert!(i != j);
+        if i < j {
+            let (a, b) = slice.split_at_mut(j);
+            (&mut a[i], &mut b[0])
+        } else {
+            let (a, b) = slice.split_at_mut(i);
+            (&mut b[0], &mut a[j])
+        }
+    }
 }
 
 pub trait ToInt {
