@@ -315,6 +315,7 @@ fn of_with_max_count<S: SubBase>(
 }
 /// Construct this from the provided subs.
 pub(crate) fn of<S: SubBase>(
+    // TODO IMPORTANT 这里可以不使用Rc RefCell封装吗
     subs: Vec<Rc<RefCell<Sub<S>>>>,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
