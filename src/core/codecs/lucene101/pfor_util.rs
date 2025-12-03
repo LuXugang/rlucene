@@ -109,17 +109,17 @@ impl PForUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        let token = pdu.input.borrow_mut().read_byte()?;
+        let token = pdu.input.read_byte()?;
         let bits_per_value = token & 0x1f;
 
         if bits_per_value == 0 {
-            let value = pdu.input.borrow_mut().read_vint()?;
+            let value = pdu.input.read_vint()?;
             ints[..ForUtil::BLOCK_SIZE].fill(value);
         } else {
             self.for_util.decode(bits_per_value as i32, pdu, ints)?;
         }
         let num_exceptions = (token >> 5) as usize;
-        let mut input = pdu.input.borrow_mut();
+        let input = &mut pdu.input;
         for _ in 0..num_exceptions {
             let index = input.read_byte()? as usize;
             let patch = input.read_byte()? as i32;
@@ -176,17 +176,14 @@ mod tests {
         let dir = new_directory(&mut random)?;
         let end_pointer = encode_test_data(iterations, &values, &dir)?;
 
-        let input = Rc::new(RefCell::new(
-            dir.open_input("test.bin", &IOContext::read_once_io_context()?)?,
-        ));
-        let mut pdu = PostingDecodingUtil::new(input.clone());
+        let input = dir.open_input("test.bin", &IOContext::read_once_io_context()?)?;
+        let mut pdu = PostingDecodingUtil::new(input);
         let mut pfor_util = PForUtil::new();
 
         for i in 0..iterations {
             {
-                let input = &mut *input.borrow_mut();
                 if random.random_range(0..5) == 0 {
-                    PForUtil::skip(input)?;
+                    PForUtil::skip(&mut pdu.input)?;
                     continue;
                 }
             }
@@ -197,7 +194,7 @@ mod tests {
             assert_eq!(restored, expected, "Mismatch at iteration {}", i);
         }
 
-        assert_eq!(end_pointer, input.borrow().get_file_pointer());
+        assert_eq!(end_pointer, pdu.input.get_file_pointer());
         Ok(())
     }
     fn create_test_data<R: Rng + ?Sized>(

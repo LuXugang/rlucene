@@ -239,7 +239,7 @@ impl ForDeltaUtil {
         base: i32,
         ints: &mut [i32],
     ) -> Result<()> {
-        let bits_per_value = pdu.input.borrow_mut().read_byte()? as i32;
+        let bits_per_value = pdu.input.read_byte()? as i32;
         if bits_per_value == 0 {
             Self::prefix_sum_of_ones(ints, base);
         } else {
@@ -713,11 +713,9 @@ mod tests {
 
         // decode
         {
-            let input = Rc::new(RefCell::new(
-                d.open_input("test.bin", &IOContext::read_once_io_context()?)?,
-            ));
+            let input = d.open_input("test.bin", &IOContext::read_once_io_context()?)?;
             // TODO: VECTORIZATION_PROVIDER not Implemented
-            let mut pdu = PostingDecodingUtil::new(input.clone());
+            let mut pdu = PostingDecodingUtil::new(input);
             let mut for_delta_util = ForDeltaUtil::new();
 
             for i in 0..iterations {
@@ -742,7 +740,7 @@ mod tests {
                 );
             }
 
-            assert_eq!(end_pointer, input.borrow().get_file_pointer());
+            assert_eq!(end_pointer, pdu.input.get_file_pointer());
         }
         Ok(())
     }

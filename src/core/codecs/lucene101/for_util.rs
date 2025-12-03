@@ -492,7 +492,7 @@ impl ForUtil {
         Ok(())
     }
     fn decode8<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
-        pdu.input.borrow_mut().read_ints(ints, 0, 32)
+        pdu.input.read_ints(ints, 0, 32)
     }
 
     pub(crate) fn decode9<I: IndexInput>(
@@ -714,7 +714,7 @@ impl ForUtil {
     }
 
     fn decode16<I: IndexInput>(pdu: &mut PostingDecodingUtil<I>, ints: &mut [i32]) -> Result<()> {
-        pdu.input.borrow_mut().read_ints(ints, 0, 64)
+        pdu.input.read_ints(ints, 0, 64)
     }
 }
 #[cfg(test)]
@@ -777,15 +777,13 @@ mod tests {
 
         {
             // decode
-            let input = Rc::new(RefCell::new(
-                dir.open_input("test.bin", &IOContext::read_once_io_context()?)?,
-            ));
-            let mut pdu = PostingDecodingUtil::new(input.clone());
+            let input = dir.open_input("test.bin", &IOContext::read_once_io_context()?)?;
+            let mut pdu = PostingDecodingUtil::new(input);
             let mut for_util = ForUtil::new();
 
             for i in 0..iterations {
-                let bits_per_value = input.borrow_mut().read_byte()? as i32;
-                let current_fp = input.borrow().get_file_pointer();
+                let bits_per_value = pdu.input.read_byte()? as i32;
+                let current_fp = pdu.input.get_file_pointer();
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
 
                 for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
@@ -794,7 +792,7 @@ mod tests {
                 assert_eq!(restored, expected, "Mismatch at iteration {}", i);
 
                 let expected_bytes = ForUtil::num_bytes(bits_per_value) as i64;
-                let actual_bytes = input.borrow().get_file_pointer() - current_fp;
+                let actual_bytes = pdu.input.get_file_pointer() - current_fp;
                 assert_eq!(
                     expected_bytes, actual_bytes,
                     "Unexpected byte count at iteration {}",
@@ -802,7 +800,7 @@ mod tests {
                 );
             }
 
-            assert_eq!(end_pointer, input.borrow().get_file_pointer());
+            assert_eq!(end_pointer, pdu.input.get_file_pointer());
         }
 
         Ok(())

@@ -42,7 +42,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
-use crate::core::util::access::BorrowExt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -50,9 +49,7 @@ use crate::core::util::vector_util::VECTOR_UTIL;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToUsizeExact};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::{fmt, ptr};
 
@@ -396,7 +393,6 @@ where
     doc_buffer_size: i32,
     doc_buffer_upto: i32,
 
-    doc_in: Option<Rc<RefCell<I>>>,
     doc_in_util: Option<PostingDecodingUtil<I>>,
 
     freq_buffer: [i32; ForUtil::BLOCK_SIZE],
@@ -416,9 +412,7 @@ where
 
     pos_buffer_upto: i32,
 
-    pub(crate) pos_in: Option<Rc<RefCell<I>>>,
     pub(crate) pos_in_util: Option<PostingDecodingUtil<I>>,
-    pub(crate) pay_in: Option<Rc<RefCell<I>>>,
     pub(crate) pay_in_util: Option<PostingDecodingUtil<I>>,
     pub(crate) payload: Option<BytesRef<Vec<u8>>>,
 
@@ -531,20 +525,20 @@ where
                 )
             };
 
-        let (pos_in, pos_in_util, pos_delta_buffer) = if needs_pos {
-            let pi = Rc::new(RefCell::new(reader.pos_in.as_ref().unwrap().try_clone()?));
-            let util = new_posting_decoding_util(pi.clone());
-            (Some(pi), Some(util), vec![0; ForUtil::BLOCK_SIZE])
+        let (pos_in_util, pos_delta_buffer) = if needs_pos {
+            let pi = reader.pos_in.as_ref().unwrap().try_clone()?;
+            let util = new_posting_decoding_util(pi);
+            (Some(util), vec![0; ForUtil::BLOCK_SIZE])
         } else {
-            (None, None, vec![])
+            (None, vec![])
         };
 
-        let (pay_in, pay_in_util) = if needs_offsets_or_payloads {
-            let pi = Rc::new(RefCell::new(reader.pay_in.as_ref().unwrap().try_clone()?));
-            let util = new_posting_decoding_util(pi.clone());
-            (Some(pi), Some(util))
+        let pay_in_util = if needs_offsets_or_payloads {
+            let pi = reader.pay_in.as_ref().unwrap().try_clone()?;
+            let util = new_posting_decoding_util(pi);
+            Some(util)
         } else {
-            (None, None)
+            None
         };
 
         let (offset_start_delta_buffer, offset_length_buffer, start_offset, end_offset) =
@@ -586,7 +580,6 @@ where
             prev_doc_id: 0,
             doc_buffer_size: 0,
             doc_buffer_upto: 0,
-            doc_in: None,
             doc_in_util: None,
             freq_buffer,
             pos_delta_buffer,
@@ -603,9 +596,7 @@ where
 
             pos_buffer_upto: 0,
 
-            pos_in,
             pos_in_util,
-            pay_in,
             pay_in_util,
             payload,
 
@@ -685,12 +676,11 @@ where
         self.doc_freq = term_state.base.doc_freq;
         self.singleton_doc_id = term_state.singleton_doc_id;
         if self.doc_freq > 1 {
-            if self.doc_in.is_none() {
-                let doc_in = Rc::new(RefCell::new(reader.doc_in.try_clone()?));
-                self.doc_in_util = Some(new_posting_decoding_util(doc_in.clone()));
-                self.doc_in = Some(doc_in);
+            if self.doc_in_util.is_none() {
+                let doc_in = reader.doc_in.try_clone()?;
+                self.doc_in_util = Some(new_posting_decoding_util(doc_in));
             }
-            prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
+            prefetch_postings(&mut self.doc_in_util.as_mut().unwrap().input, term_state)?;
         }
 
         if self.for_delta_util.is_none() && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE {
@@ -711,10 +701,10 @@ where
         let pos_term_start_fp = term_state.pos_start_fp;
         // Where this term's payloads/offsets start in the .pay
         let pay_term_start_fp = term_state.pay_start_fp;
-        if let Some(ref pos_in) = self.pos_in {
-            pos_in.borrow_mut().seek(pos_term_start_fp)?;
-            if let Some(ref pay_in) = self.pay_in {
-                pay_in.borrow_mut().seek(pay_term_start_fp)?;
+        if let Some(ref mut pos_in) = self.pos_in_util {
+            pos_in.input.seek(pos_term_start_fp)?;
+            if let Some(ref mut pay_in) = self.pay_in_util {
+                pay_in.input.seek(pay_term_start_fp)?;
             }
         }
         self.level1_pos_end_fp = pos_term_start_fp;
@@ -748,10 +738,10 @@ where
         if (self.doc_freq) < Lucene101PostingsFormat::LEVEL1_NUM_DOCS {
             self.level1_last_doc_id = NO_MORE_DOCS;
             if self.doc_freq > 1 {
-                self.doc_in
+                self.doc_in_util
                     .as_mut()
                     .unwrap()
-                    .borrow_mut()
+                    .input
                     .seek(term_state.doc_start_fp)?;
             }
         } else {
@@ -773,11 +763,11 @@ where
             &mut self.doc_buffer,
         )?;
         if self.index_has_freq {
-            let mut doc_in = self.doc_in.access_mut();
+            let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
             if self.needs_freq {
                 self.freq_fp = doc_in.get_file_pointer();
             }
-            PForUtil::skip(&mut *doc_in)?;
+            PForUtil::skip(doc_in)?;
         }
 
         self.doc_count_left -= ForUtil::BLOCK_SIZE as i32;
@@ -800,9 +790,9 @@ where
             self.doc_count_left = 0;
             self.doc_buffer_size = 1;
         } else {
-            let mut doc_in = self.doc_in.access_mut();
+            let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
             PostingsUtil::read_vint_block(
-                &mut *doc_in,
+                doc_in,
                 &mut self.doc_buffer,
                 &mut self.freq_buffer,
                 self.doc_count_left,
@@ -836,7 +826,7 @@ where
         Ok(())
     }
     fn skip_level1_to(&mut self, target: i32) -> Result<()> {
-        let mut doc_in = self.doc_in.access_mut();
+        let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
         loop {
             self.prev_doc_id = self.level1_last_doc_id;
             self.level0_last_doc_id = self.level1_last_doc_id;
@@ -889,15 +879,13 @@ where
     }
     fn do_move_to_next_level0_block(&mut self) -> Result<()> {
         debug_assert!(self.doc_buffer_upto as usize == ForUtil::BLOCK_SIZE);
-        if let Some(ref pos_in) = self.pos_in {
-            let mut pos_in = pos_in.borrow_mut();
-            if self.level0_pos_end_fp >= pos_in.get_file_pointer() {
-                pos_in.seek(self.level0_pos_end_fp)?;
+        if let Some(ref mut pos_in) = self.pos_in_util {
+            if self.level0_pos_end_fp >= pos_in.input.get_file_pointer() {
+                pos_in.input.seek(self.level0_pos_end_fp)?;
                 self.pos_pending_count = self.level0_block_pos_upto;
-                if let Some(ref pay_in) = self.pay_in {
-                    let mut pay_in = pay_in.borrow_mut();
-                    debug_assert!(self.level0_pay_end_fp >= pay_in.get_file_pointer());
-                    pay_in.seek(self.level0_pay_end_fp)?;
+                if let Some(ref mut pay_in) = self.pay_in_util {
+                    debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer());
+                    pay_in.input.seek(self.level0_pay_end_fp)?;
                     self.payload_byte_upto = self.level0_block_pay_upto;
                 }
                 self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
@@ -913,12 +901,12 @@ where
 
         if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
             {
-                let mut doc_in = self.doc_in.access_mut();
+                let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
                 doc_in.read_vlong()?;
-                let doc_delta = read_vint15(&mut *doc_in)?;
+                let doc_delta = read_vint15(doc_in)?;
                 self.level0_last_doc_id += doc_delta;
 
-                let block_length = read_vlong15(&mut *doc_in)?;
+                let block_length = read_vlong15(doc_in)?;
                 self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
                 if self.index_has_freq {
                     let num_impact_bytes = doc_in.read_vint()?;
@@ -927,7 +915,7 @@ where
                         doc_in.read_bytes(&mut bi.bytes, 0, num_impact_bytes)?;
                         bi.length = num_impact_bytes as usize;
                     } else {
-                        IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
+                        IndexInput::skip_bytes(doc_in, num_impact_bytes as i64)?;
                     }
 
                     if self.index_has_pos {
@@ -958,9 +946,9 @@ where
         if self.needs_docs_and_freqs_only && (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
             // Optimize the common path for exhaustive evaluation
             {
-                let mut doc_in = self.doc_in.access_mut();
+                let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
                 let level0_num_bytes = doc_in.read_vlong()?;
-                IndexInput::skip_bytes(&mut *doc_in, level0_num_bytes)?;
+                IndexInput::skip_bytes(doc_in, level0_num_bytes)?;
             }
             self.refill_full_block()?;
             self.level0_last_doc_id = self.doc_buffer[ForUtil::BLOCK_SIZE - 1];
@@ -987,15 +975,14 @@ where
         // already decoded. In this case we just accumulate frequencies
         // into posPendingCount instead of seeking backwards and decoding the
         // same pos block again.
-        let mut pos_in = self.pos_in.access_mut();
+        let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
         if pos_fp >= pos_in.get_file_pointer() {
             pos_in.seek(pos_fp)?;
             self.pos_pending_count = pos_upto;
             // needs payloads or offsets
-            if let Some(ref pay_rc) = self.pay_in {
-                let mut pay_in = pay_rc.borrow_mut();
-                debug_assert!(self.level0_pay_end_fp >= pay_in.get_file_pointer());
-                pay_in.seek(pay_fp)?;
+            if let Some(ref mut pay_in) = self.pay_in_util {
+                debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer());
+                pay_in.input.seek(pay_fp)?;
                 self.payload_byte_upto = pay_upto;
             }
             self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
@@ -1020,13 +1007,13 @@ where
                 pay_upto = self.level0_block_pay_upto;
 
                 if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
-                    let mut doc_in = self.doc_in.access_mut();
+                    let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
                     let num_skip_bytes = doc_in.read_vlong()?;
                     let skip0_end = doc_in.get_file_pointer() + num_skip_bytes;
-                    let doc_delta = read_vint15(&mut *doc_in)?;
+                    let doc_delta = read_vint15(doc_in)?;
                     self.level0_last_doc_id += doc_delta;
                     let found = target <= self.level0_last_doc_id;
-                    let block_length = read_vlong15(&mut *doc_in)?;
+                    let block_length = read_vlong15(doc_in)?;
                     self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
 
                     if self.index_has_freq {
@@ -1065,7 +1052,7 @@ where
                 }
             }
         }
-        if self.pos_in.is_some() {
+        if self.pos_in_util.is_some() {
             self.seek_pos_data(pos_fp, pos_upto, pay_fp, pay_upto)?;
         }
 
@@ -1076,8 +1063,7 @@ where
             // advance skip data on level 1
             self.skip_level1_to(target)?;
         } else if self.needs_refilling {
-            let doc_in_rc = self.doc_in.as_ref().unwrap();
-            let mut doc_in = doc_in_rc.borrow_mut();
+            let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
             doc_in.seek(self.level0_doc_end_fp)?;
             self.doc_count_left -= ForUtil::BLOCK_SIZE as i32;
         }
@@ -1102,16 +1088,15 @@ where
         } else {
             to_skip -= left_in_block;
             {
-                let mut pos_in = self.pos_in.access_mut();
+                let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
                 while to_skip >= ForUtil::BLOCK_SIZE as i32 {
                     debug_assert!(pos_in.get_file_pointer() != self.last_pos_block_fp);
-                    PForUtil::skip(&mut *pos_in)?;
+                    PForUtil::skip(pos_in)?;
 
-                    if let Some(ref pay_rc) = self.pay_in {
-                        let mut pay_in = pay_rc.borrow_mut();
-
+                    if let Some(ref mut pay_in) = self.pay_in_util {
+                        let pay_in = &mut pay_in.input;
                         if self.index_has_payloads {
-                            PForUtil::skip(&mut *pay_in)?;
+                            PForUtil::skip(pay_in)?;
                             let num_bytes = pay_in.read_vint()?;
                             let pos = pay_in.get_file_pointer();
                             pay_in.seek(pos + num_bytes as i64)?;
@@ -1144,7 +1129,7 @@ where
         let mut offset_length = 0;
         self.payload_byte_upto = 0;
 
-        let mut pos_in = self.pos_in.access_mut();
+        let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
 
         for i in 0..count {
             let code = pos_in.read_vint()?;
@@ -1201,19 +1186,21 @@ where
                     .unwrap()
                     .decode(pay_in_util, &mut self.payload_length_buffer)?;
 
-                let num_bytes = self.pay_in.access_mut().read_vint()?;
+                let num_bytes = self.pay_in_util.as_mut().unwrap().input.read_vint()?;
                 if num_bytes as usize > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes as usize);
                 }
 
-                self.pay_in
-                    .access_mut()
-                    .read_bytes(&mut self.payload_bytes, 0, num_bytes)?;
-            } else if let Some(ref pay_in_rc) = self.pay_in {
+                self.pay_in_util.as_mut().unwrap().input.read_bytes(
+                    &mut self.payload_bytes,
+                    0,
+                    num_bytes,
+                )?;
+            } else if let Some(ref mut pay_in) = self.pay_in_util {
                 // this works, because when writing a vint block we always force
                 // the first length to be written
-                let mut pay_in = pay_in_rc.borrow_mut();
-                PForUtil::skip(&mut *pay_in)?;
+                let pay_in = &mut pay_in.input;
+                PForUtil::skip(pay_in)?;
                 let num_bytes = pay_in.read_vint()?;
                 let pos = pay_in.get_file_pointer();
                 pay_in.seek(pos + num_bytes as i64)?;
@@ -1227,19 +1214,19 @@ where
                 let pfor_util = self.pfor_util.as_mut().unwrap();
                 pfor_util.decode(pay_in_util, &mut self.offset_start_delta_buffer)?;
                 pfor_util.decode(pay_in_util, &mut self.offset_length_buffer)?;
-            } else if let Some(ref pay_in_rc) = self.pay_in {
+            } else if let Some(ref mut pay_in) = self.pay_in_util {
                 // this works, because when writing a vint block we always force
                 // the first length to be written
-                let mut pay_in = pay_in_rc.borrow_mut();
-                PForUtil::skip(&mut *pay_in)?;
-                PForUtil::skip(&mut *pay_in)?;
+                let input = &mut pay_in.input;
+                PForUtil::skip(input)?;
+                PForUtil::skip(input)?;
             }
         }
         Ok(())
     }
     fn refill_positions(&mut self) -> Result<()> {
         let pos = {
-            let pos_in = self.pos_in.access_mut();
+            let pos_in = &self.pos_in_util.as_mut().unwrap().input;
             pos_in.get_file_pointer()
         };
         if pos == self.last_pos_block_fp {
@@ -1302,7 +1289,7 @@ where
 {
     fn freq(&mut self) -> Result<i32> {
         if self.freq_fp != -1 {
-            let mut doc_in = self.doc_in.access_mut();
+            let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
             doc_in.seek(self.freq_fp)?;
             self.pfor_util
                 .as_mut()

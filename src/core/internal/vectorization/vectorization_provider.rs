@@ -16,12 +16,9 @@
  */
 pub struct VectorizationProvider;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::IndexInput;
 
-pub fn new_posting_decoding_util<I: IndexInput>(input: Rc<RefCell<I>>) -> PostingDecodingUtil<I> {
+pub fn new_posting_decoding_util<I: IndexInput>(input: I) -> PostingDecodingUtil<I> {
     PostingDecodingUtil::new(input)
 }

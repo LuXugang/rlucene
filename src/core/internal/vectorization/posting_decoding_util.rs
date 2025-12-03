@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 /// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I: IndexInput> {
     /// The wrapper {@link IndexInput}.
-    pub input: Rc<RefCell<I>>,
+    pub input: I,
 }
 
 impl<I: IndexInput> PostingDecodingUtil<I> {
     /// Sole constructor, called by sub-classes.
-    pub fn new(input: Rc<RefCell<I>>) -> Self {
+    pub fn new(input: I) -> Self {
         PostingDecodingUtil { input }
     }
 
@@ -49,7 +47,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         c_index: i32,
         c_mask: i32,
     ) -> Result<()> {
-        self.input.borrow_mut().read_ints(b_and_c, c_index, count)?;
+        self.input.read_ints(b_and_c, c_index, count)?;
 
         let count = count as usize;
         let c_index = c_index as usize;
@@ -80,7 +78,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         c_index: i32,
         c_mask: i32,
     ) -> Result<()> {
-        self.input.borrow_mut().read_ints(c, c_index, count)?;
+        self.input.read_ints(c, c_index, count)?;
         let count = count as usize;
         let c_index = c_index as usize;
         let max_iter = (b_shift - 1) / dec;
