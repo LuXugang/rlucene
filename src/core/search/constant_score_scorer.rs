@@ -35,8 +35,6 @@ where
     score: f32,
     score_mode: ScoreMode,
     disi: ConstantDISI_<DISI, TPI>,
-    #[allow(dead_code)]
-    disi_taken: bool,
 }
 impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
@@ -60,7 +58,6 @@ where
             score,
             score_mode,
             disi: Either2DocIdSetIterator::A(approximation),
-            disi_taken: false,
         }
     }
 }
@@ -87,7 +84,6 @@ where
             disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                 two_phase_iterator,
             )),
-            disi_taken: false,
         }
     }
 }
@@ -150,14 +146,7 @@ where
         EitherEmpty::A(&mut self.disi)
     }
 
-    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
-        #[cfg(test)]
-        {
-            if self.disi_taken {
-                debug_assert!(false, "should only be called once");
-            }
-            self.disi_taken = true;
-        }
+    fn take_iterator(mut self) -> Self::DocIdSetIterator {
         std::mem::replace(
             &mut self.disi,
             ConstantDISI_::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
@@ -173,27 +162,12 @@ where
         }
     }
 
-    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
         if matches!(self.disi, ConstantDISI_::A(_)) {
             return None;
         }
 
-        #[cfg(test)]
-        {
-            if self.disi_taken {
-                debug_assert!(false, "should only be called once");
-            }
-            self.disi_taken = true;
-        }
-
-        let disi = std::mem::replace(
-            &mut self.disi,
-            ConstantDISI_::A(ConstantDISI::A(DocIdSetIteratorWrapper::new(
-                EitherEmpty::B(EmptyDISI::new()),
-            ))),
-        );
-
-        match disi {
+        match self.disi {
             ConstantDISI_::A(_) => None,
             ConstantDISI_::B(wrapper) => Some(wrapper.two_phase_iterator),
         }

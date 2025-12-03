@@ -67,7 +67,7 @@ pub trait Scorer: Scorable {
     ///
     /// Unlike [`iterator`](Self::iterator), this method takes ownership of the
     /// underlying iterator rather than returning a view.
-    fn take_iterator(&mut self) -> Self::DocIdSetIterator;
+    fn take_iterator(self) -> Self::DocIdSetIterator;
 
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
@@ -88,7 +88,10 @@ pub trait Scorer: Scorable {
     /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
     ///
     /// By default, this returns `None`.
-    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter>
+    where
+        Self: Sized,
+    {
         None
     }
 
@@ -207,7 +210,7 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn take_iterator(&mut self) -> Self::DocIdSetIterator {
+            fn take_iterator(self) -> Self::DocIdSetIterator {
                 match self {
                     $( Self::$Variant(inner) => $iter_ty::$Variant(inner.take_iterator()), )+
                 }
@@ -222,7 +225,7 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
+            fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
                 match self {
                     $( Self::$Variant(inner) =>
                         inner.take_two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+

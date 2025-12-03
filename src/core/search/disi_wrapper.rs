@@ -124,7 +124,7 @@ where
         self.scorer.iterator()
     }
 
-    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(self) -> Self::DocIdSetIterator {
         self.scorer.take_iterator()
     }
 
@@ -132,7 +132,7 @@ where
         self.scorer.two_phase_iterator()
     }
 
-    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
         self.scorer.take_two_phase_iterator()
     }
 

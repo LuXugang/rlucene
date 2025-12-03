@@ -325,17 +325,21 @@ where
     ) -> Result<Option<Self::Scorer>> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
         match inner_scorer {
-            Some(mut inner_scorer) => match inner_scorer.take_two_phase_iterator() {
-                Some(tpi) => {
-                    let v: ConstantScoreScorer<DummyDocIdSetIterator, _> =
-                        ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
-                    Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::B(v)))
-                },
-                None => {
-                    let disi = inner_scorer.take_iterator();
-                    let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
-                    Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::A(v)))
-                },
+            Some(mut inner_scorer) => {
+                let has_tpi = inner_scorer.two_phase_iterator().is_some();
+                match has_tpi {
+                    true => {
+                        let tpi = inner_scorer.take_two_phase_iterator().unwrap();
+                        let v: ConstantScoreScorer<DummyDocIdSetIterator, _> =
+                            ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
+                        Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::B(v)))
+                    },
+                    false => {
+                        let disi = inner_scorer.take_iterator();
+                        let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
+                        Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::A(v)))
+                    },
+                }
             },
             None => Err(LuceneError::illegal_state("should not be None")),
         }

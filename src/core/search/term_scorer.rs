@@ -263,7 +263,7 @@ where
         }
     }
 
-    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(mut self) -> Self::DocIdSetIterator {
         #[allow(clippy::redundant_pattern_matching)]
         if let Some(_) = self.impacts_disi {
             debug_assert!(self.max_score_cache.is_none());

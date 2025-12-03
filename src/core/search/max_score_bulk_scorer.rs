@@ -1058,7 +1058,7 @@ mod test {
             &mut self.disi
         }
 
-        fn take_iterator(&mut self) -> Self::DocIdSetIterator {
+        fn take_iterator(self) -> Self::DocIdSetIterator {
             unreachable!("")
         }
 

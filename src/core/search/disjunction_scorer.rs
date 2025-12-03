@@ -17,12 +17,8 @@
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::doc_id_set_iterator::{
-    Either2DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
-};
+use crate::core::search::doc_id_set_iterator::{Either3DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -31,7 +27,6 @@ use crate::core::search::two_phase_iterator::{
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use std::marker::PhantomData;
 
 pub type Disi<S> = Either3DocIdSetIterator<
     DisjunctionDISIApproximation<S>,
@@ -44,8 +39,6 @@ where
     T: DisjunctionScorerBase,
 {
     disi: Disi<S>,
-    #[allow(dead_code)]
-    disi_taken: bool,
     sub: T,
 }
 
@@ -93,11 +86,7 @@ where
             let v = as_doc_id_set_iterator(two_phase);
             Disi::B(v)
         };
-        Ok(Self {
-            disi,
-            disi_taken: false,
-            sub,
-        })
+        Ok(Self { disi, sub })
     }
 
     fn get_sub_matched(&mut self) -> Result<Option<usize>> {
@@ -153,16 +142,8 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(&mut self) -> Self::DocIdSetIterator {
-        #[cfg(test)]
-        {
-            if self.disi_taken {
-                debug_assert!(false, "should only be called once");
-            }
-            self.disi_taken = true;
-        }
-        let v = Disi::<S>::C(EmptyDISI::new());
-        std::mem::replace(&mut self.disi, v)
+    fn take_iterator(self) -> Self::DocIdSetIterator {
+        self.disi
     }
 
     fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
@@ -172,23 +153,14 @@ where
         }
     }
 
-    fn take_two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIter> {
-        #[cfg(test)]
-        {
-            if self.disi_taken {
-                debug_assert!(false, "should only be called once");
-            }
-            self.disi_taken = true;
-        }
-        let v = Disi::<S>::C(EmptyDISI::new());
-        let v = std::mem::replace(&mut self.disi, v);
-        match v {
+    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
+        match self.disi {
             Disi::B(v) => Some(v.two_phase_iterator),
             _ => None,
         }
     }
 
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+    fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         todo!()
     }
 }
@@ -282,7 +254,7 @@ where
         let mut w_idx_opt = Some(root_idx);
         while w_idx_opt.is_some() {
             let w_idx = w_idx_opt.unwrap();
-            let mut w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
+            let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
             let has_no_two_phase_view = w.two_phase_iterator().is_none();
             if has_no_two_phase_view {
