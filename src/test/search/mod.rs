@@ -17,6 +17,7 @@
 pub mod check_hits;
 pub mod dummy_total_hit_count_collector;
 pub mod query_utils;
+mod test_boolean_or;
 mod test_doc_values_queries;
 mod test_sort_optimization;
 mod test_top_field_collector_early_termination;
