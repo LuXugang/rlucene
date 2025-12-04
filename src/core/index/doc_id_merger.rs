@@ -425,7 +425,6 @@ pub mod tests {
         let mut subs = vec![];
         let mut value_start = 0;
 
-        let v = vec![2, 3];
         for i in 0..sub_count {
             let max_doc = TestUtil::next_int(&mut random, 1, 1000);
             let doc_base = value_start;

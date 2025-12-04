@@ -638,10 +638,6 @@ where
     /// Note that each term in the document can be no longer than [`MAX_TERM_LENGTH`] in bytes; otherwise
     /// an `IllegalArgumentException` will be thrown.
     ///
-    /// Note that it’s possible to create an invalid Unicode string in Java if a UTF-16 surrogate pair is
-    /// malformed. In this case, the invalid characters are silently replaced with the Unicode
-    /// replacement character U+FFFD.
-    ///
     /// # Returns
     /// The `sequence number` for this operation.
     ///

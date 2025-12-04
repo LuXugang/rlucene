@@ -70,7 +70,7 @@ use crate::core::util::{StringHelper, Version};
 /// - **Diagnostics Map**: Privately written by
 ///   [`IndexWriter`](crate::core::index::index_writer::IndexWriter), as debugging
 ///   aid, for each segment it creates. It includes metadata like the current
-///   Lucene version, OS, Java version, why the segment was created (merge,
+///   Lucene version, OS,  why the segment was created (merge,
 ///   flush, addIndexes), etc.
 /// - **Files**: A list of files referred to by this segment.
 ///

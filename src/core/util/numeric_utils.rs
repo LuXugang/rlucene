@@ -67,12 +67,6 @@ impl NumericUtils {
     /// The sort order (including [`f32::NAN`]) is defined by
     /// [`f32::total_cmp`].
     ///
-    /// # WARN
-    /// This implementation normalizes all `NaN` values to a canonical
-    /// representation (`0x7fc00000`) to ensure consistent sorting and
-    /// behavior. similar to Java's `Float.floatToIntBits`. Non-standard
-    /// `NaN` representations are not preserved.
-    ///
     /// # See Also
     /// [`sortable_int_to_float`](NumericUtils::sortable_int_to_float)
     pub fn float_to_sortable_int(value: f32) -> i32 {

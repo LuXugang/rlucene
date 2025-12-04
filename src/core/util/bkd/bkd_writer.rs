@@ -2715,7 +2715,6 @@ where
         Ok(Relation::CellCrossesQuery)
     }
 }
-type PackedValueResult = Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>;
 
 trait PackedValues {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)>;

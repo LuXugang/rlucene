@@ -512,12 +512,10 @@ where {
             Self { data, index: 0 }
         }
 
-        /// Java: hasNext()
         pub fn has_next(&self) -> bool {
             self.index < self.data.len()
         }
 
-        /// Java: nextInt()
         pub fn next_int(&mut self) -> Option<i32> {
             if self.has_next() {
                 let v = self.data[self.index];
