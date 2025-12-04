@@ -255,6 +255,9 @@ where
     pub fn top(&self) -> Option<&T> {
         self.heap[1].as_ref()
     }
+    pub fn take_top(&mut self) -> Option<T> {
+        self.heap[1].take()
+    }
 
     /// Removes and returns the least element of the PriorityQueue in log(size)
     /// time.

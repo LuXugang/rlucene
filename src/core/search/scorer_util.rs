@@ -14,24 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
-use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
-/// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a
-/// [`Scorable`] to
-/// [`LeafCollector::collect`](crate::core::search::leaf_collector::LeafCollector::collect).
-pub struct Score {
-    pub(crate) score: f32,
-}
-impl Score {
-    pub fn new(score: f32) -> Self {
-        Self { score }
-    }
-}
-impl Scorable for Score {
-    fn score(&mut self) -> Result<f32> {
-        Ok(self.score)
-    }
+use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
-    type Scorable = DummyScorable;
+pub(crate) struct ScorerUtil;
+impl ScorerUtil {
+    pub fn cost_with_min_should_match<I>(
+        costs: I,
+        num_scorers: usize,
+        min_should_match: usize,
+    ) -> Result<i64>
+    where
+        I: IntoIterator<Item = i64>,
+    {
+        let k = num_scorers - min_should_match + 1;
+        let mut pq = PriorityQueue::new(k as i32, MaxCostCmp)?;
+        for c in costs {
+            let _ = pq.insert_with_overflow(c)?;
+        }
+        let mut sum = 0;
+        for v in pq.iter() {
+            sum += v;
+        }
+        Ok(sum)
+    }
+}
+struct MaxCostCmp;
+impl Compare<i64> for MaxCostCmp {
+    fn less_than(&self, a: &i64, b: &i64) -> Result<bool> {
+        Ok(a > b)
+    }
 }

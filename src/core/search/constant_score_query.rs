@@ -477,12 +477,11 @@ where
         self.base.collect(doc, scorer)
     }
 
-    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
-        S: Scorable,
     {
-        self.base.collect_stream(stream, scorer)
+        self.base.collect_stream(stream)
     }
 
     type DocIdSetIteratorRef<'b>

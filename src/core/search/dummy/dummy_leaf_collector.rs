@@ -44,10 +44,9 @@ impl LeafCollector for DummyLeafCollector {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn collect_stream<DS, S>(&mut self, _stream: &mut DS, _scorer: &mut S) -> Result<()>
+    fn collect_stream<DS>(&mut self, _stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
-        S: Scorable,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

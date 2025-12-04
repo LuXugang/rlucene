@@ -69,12 +69,11 @@ pub trait LeafCollector: Display {
     /// # Default
     ///
     /// The default implementation calls `stream.for_each(|doc| self.collect(doc))`.
-    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
-        S: Scorable,
     {
-        stream.for_each(|doc| self.collect(doc, scorer))
+        stream.for_each(|doc, scorer| self.collect(doc, scorer))
     }
 
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
@@ -155,13 +154,12 @@ macro_rules! either_leaf_collector {
                 }
             }
 
-            fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+            fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
             where
                 DS: DocIdStream,
-                S: Scorable,
             {
                 match self {
-                    $( Self::$Variant(inner) => inner.collect_stream(stream, scorer), )+
+                    $( Self::$Variant(inner) => inner.collect_stream(stream), )+
                 }
             }
 

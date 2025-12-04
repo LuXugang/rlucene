@@ -26,7 +26,7 @@ pub struct DisiWrapper<S>
 where
     S: Scorer,
 {
-    scorer: S,
+    pub(crate) scorer: S,
     pub(crate) next: Option<usize>,
     pub(crate) doc: i32,
     pub(crate) cost: i64,

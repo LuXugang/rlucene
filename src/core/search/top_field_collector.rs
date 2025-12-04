@@ -714,12 +714,11 @@ where
         Ok(())
     }
 
-    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
-        S: Scorable,
     {
-        self.base.collect_stream(stream, scorer)
+        self.base.collect_stream(stream)
     }
 
     type DocIdSetIteratorRef<'b>
@@ -1054,14 +1053,13 @@ where
         }
     }
 
-    fn collect_stream<DS, S>(&mut self, stream: &mut DS, scorer: &mut S) -> Result<()>
+    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
-        S: Scorable,
     {
         match self {
-            Self::Simple(inner) => inner.collect_stream(stream, scorer),
-            Self::Paging(inner) => inner.collect_stream(stream, scorer),
+            Self::Simple(inner) => inner.collect_stream(stream),
+            Self::Paging(inner) => inner.collect_stream(stream),
         }
     }
 
