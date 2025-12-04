@@ -270,14 +270,8 @@ where
             TermScorerDisi::C(self.impacts_disi.take().unwrap())
         } else {
             debug_assert!(self.impacts_disi.is_none());
-            let max_score_cache = self
-                .max_score_cache
-                .as_mut()
-                .expect("when impacts_disi is None, max_score_cache must be Some");
-            let impacts_source = max_score_cache
-                .impacts_source
-                .take()
-                .expect("take_iterator called multiple times");
+            let mut max_score_cache = self.max_score_cache.take().unwrap();
+            let impacts_source = max_score_cache.impacts_source.take().unwrap();
             match impacts_source {
                 Either2ImpactsEnum::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
                 Either2ImpactsEnum::B(slow_impacts) => {
