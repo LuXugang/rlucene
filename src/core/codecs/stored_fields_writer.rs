@@ -27,7 +27,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -118,19 +117,19 @@ pub trait StoredFieldsWriter {
             }
             let visitor = MergeVisitor::new(merge_state, i)?;
 
-            subs.push(Rc::new(RefCell::new(Sub::new(StoredFieldsMergeSub::new(
+            subs.push(Sub::new(StoredFieldsMergeSub::new(
                 visitor,
                 Rc::clone(&merge_state.doc_maps[i]),
                 i,
                 merge_state.max_docs[i],
-            )))));
+            )));
         }
 
         let mut doc_count = 0;
         let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
 
-        while let Some(sub_rc) = doc_id_merger.next()? {
-            let mut sub = sub_rc.borrow_mut();
+        while let Some(sub_idx) = doc_id_merger.next()? {
+            let sub = &mut doc_id_merger.get_subs_mut()[sub_idx];
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
 
             self.start_document()?;

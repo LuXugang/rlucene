@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::env;
 use std::mem::discriminant;
 use std::rc::Rc;
@@ -589,16 +588,18 @@ where
             if strategy == MergeStrategy::Visitor {
                 visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
             }
-            subs.push(Rc::new(RefCell::new(Sub::new(
-                CompressingStoredFieldsMergeSub::new(merge_state, strategy, i),
-            ))));
+            subs.push(Sub::new(CompressingStoredFieldsMergeSub::new(
+                merge_state,
+                strategy,
+                i,
+            )));
         }
 
         let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
         let mut doc_count = 0;
 
-        while let Some(sub_rc) = doc_id_merger.next()? {
-            let sub = sub_rc.borrow_mut();
+        while let Some(sub_idx) = doc_id_merger.next()? {
+            let sub = &doc_id_merger.get_subs()[sub_idx];
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
             let reader = &mut merge_state.stored_fields_readers[sub.sub.reader_index];
 
@@ -606,17 +607,22 @@ where
                 MergeStrategy::Bulk => {
                     let from_doc = sub.sub.doc_id;
                     let mut to_doc_id = from_doc;
-                    let current = sub_rc.clone();
+                    let current = sub_idx;
 
-                    while let Some(next_sub_rc) = doc_id_merger.next()? {
-                        if !Rc::ptr_eq(&current, &next_sub_rc) {
+                    while let Some(next_sub) = doc_id_merger.next()? {
+                        if next_sub == current {
                             break;
                         }
                         to_doc_id += 1;
-                        debug_assert!(next_sub_rc.borrow().sub.doc_id == to_doc_id)
+                        debug_assert!(doc_id_merger.get_subs()[next_sub].sub.doc_id == to_doc_id)
                     }
                     to_doc_id += 1; // exclusive bound
-                    self.copy_chunks(merge_state, &current.borrow().sub, from_doc, to_doc_id)?;
+                    self.copy_chunks(
+                        merge_state,
+                        &doc_id_merger.get_subs()[current].sub,
+                        from_doc,
+                        to_doc_id,
+                    )?;
                     doc_count += to_doc_id - from_doc;
                 },
                 MergeStrategy::Doc => {

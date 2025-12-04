@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
@@ -34,14 +33,14 @@ where
     /// # NOTE:
     /// after the iterator has exhausted you should not call this method,
     /// as it may result in unpredicted behavior.
-    fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
+    fn next(&mut self) -> Result<Option<usize>>;
 }
 
 pub(crate) struct SequentialDocIDMerger<S>
 where
     S: SubBase,
 {
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
+    subs: Vec<Sub<S>>,
     current: Option<usize>,
     next_index: usize,
 }
@@ -49,7 +48,7 @@ impl<S> SequentialDocIDMerger<S>
 where
     S: SubBase,
 {
-    pub fn new(subs: Vec<Rc<RefCell<Sub<S>>>>) -> Result<Self> {
+    pub fn new(subs: Vec<Sub<S>>) -> Result<Self> {
         let mut doc_id_merger = Self {
             subs,
             current: None,
@@ -75,21 +74,27 @@ where
         Ok(())
     }
 
-    fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>> {
+    fn next(&mut self) -> Result<Option<usize>> {
         loop {
-            if let Some(ref current_sub) = self.current {
-                let current = &self.subs[*current_sub];
-                if current.borrow_mut().next_mapped_doc()? != NO_MORE_DOCS {
-                    return Ok(Some(Rc::clone(current)));
-                }
-            }
-            if self.next_index == self.subs.len() {
-                self.current = None;
-                return Ok(None);
-            }
+            match self.current {
+                Some(current) => {
+                    let next_mapped_doc = {
+                        let current = &mut self.subs[current];
+                        current.next_mapped_doc()?
+                    };
+                    if next_mapped_doc != NO_MORE_DOCS {
+                        return Ok(Some(current));
+                    }
+                    if self.next_index == self.subs.len() {
+                        self.current = None;
+                        return Ok(None);
+                    }
 
-            self.current = Some(self.next_index);
-            self.next_index += 1;
+                    self.current = Some(self.next_index);
+                    self.next_index += 1;
+                },
+                None => return Err(LuceneError::illegal_state("current is None")),
+            }
         }
     }
 }
@@ -98,22 +103,21 @@ pub(crate) struct SortedDocIDMerger<S>
 where
     S: SubBase,
 {
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
-    current: Option<Rc<RefCell<Sub<S>>>>,
-    queue: PriorityQueue<Rc<RefCell<Sub<S>>>, SubCompare>,
+    current: Option<usize>,
+    queue: PriorityQueue<usize, SubCompare<S>>,
     queue_min_doc_id: i32,
 }
 impl<S> SortedDocIDMerger<S>
 where
     S: SubBase,
 {
-    fn new(subs: Vec<Rc<RefCell<Sub<S>>>>, max_count: i32) -> Result<Self> {
+    fn new(subs: Vec<Sub<S>>, max_count: i32) -> Result<Self> {
         if max_count <= 1 {
             return Err(LuceneError::illegal_argument(""));
         }
-        let queue = PriorityQueue::new(max_count, SubCompare)?;
+        let sub_compare = SubCompare::new(subs);
+        let queue = PriorityQueue::new(max_count, sub_compare)?;
         let mut merger = Self {
-            subs,
             current: None,
             queue,
             queue_min_doc_id: 0,
@@ -123,12 +127,12 @@ where
     }
     fn set_queue_min_doc_id(&mut self) {
         if self.queue.size() > 0 {
-            self.queue_min_doc_id = self
+            let idx = self
                 .queue
                 .top()
-                .expect("priority queue top element should exist")
-                .borrow()
-                .mapped_doc_id;
+                .expect("priority queue top element should exist");
+            let v = self.queue.compare.subs[*idx].mapped_doc_id;
+            self.queue_min_doc_id = v;
         } else {
             self.queue_min_doc_id = NO_MORE_DOCS;
         }
@@ -143,46 +147,44 @@ where
         self.queue.clear();
         self.current = None;
         let mut first = true;
-        for sub in &self.subs {
+        let mut to_add = Vec::new();
+        for (i, sub) in self.queue.compare.subs.iter_mut().enumerate() {
             if first {
-                let mut sub_mut = sub.borrow_mut();
                 // by setting mappedDocID = -1, this entry is guaranteed to be
                 // the top of the queue so the first call to
                 // next() will advance it
-                sub_mut.mapped_doc_id = -1;
-                self.current = Some(Rc::clone(sub));
+                sub.mapped_doc_id = -1;
+                self.current = Some(i);
                 first = false;
             } else {
-                let next_mapped_doc;
-                {
-                    let mut sub_mut = sub.borrow_mut();
-                    next_mapped_doc = sub_mut.next_mapped_doc()?;
-                }
+                let next_mapped_doc = sub.next_mapped_doc()?;
                 if next_mapped_doc != NO_MORE_DOCS {
-                    self.queue.add(sub.clone())?;
+                    to_add.push(i);
                 } // else all docs in this sub were deleted; do not add it to the
                 // queue!
             }
+        }
+        for i in to_add {
+            self.queue.add(i)?;
         }
 
         self.set_queue_min_doc_id();
         Ok(())
     }
 
-    fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>> {
-        let next_doc = {
-            if let Some(ref current) = self.current {
-                current.borrow_mut().next_mapped_doc()?
-            } else {
-                return Err(LuceneError::unreachable("should not be here"))?;
-            }
+    fn next(&mut self) -> Result<Option<usize>> {
+        let (next_doc, current) = match self.current {
+            Some(current) => (self.queue.compare.subs[current].next_mapped_doc()?, current),
+            None => {
+                return Err(LuceneError::illegal_state("current is None"))?;
+            },
         };
 
         if next_doc < self.queue_min_doc_id {
             // This should be the common case when index sorting is either
             // disabled, or enabled on a low-cardinality field, or
             // enabled on a field that correlates with index order.
-            return Ok(self.current.clone());
+            return Ok(Some(current));
         }
 
         if next_doc == NO_MORE_DOCS {
@@ -192,28 +194,26 @@ where
                 self.current = self.queue.pop()?;
             }
         } else if self.queue.size() > 0 {
-            debug_assert!(
-                self.queue_min_doc_id
-                    == self
-                        .queue
-                        .top()
-                        .expect("priority queue top element should exist")
-                        .borrow()
-                        .mapped_doc_id
-            );
+            debug_assert!({
+                let top_idx = **self.queue.top().as_ref().unwrap();
+                let top = self.queue.compare.subs[top_idx].mapped_doc_id;
+                self.queue_min_doc_id == top
+            });
             debug_assert!(next_doc > self.queue_min_doc_id);
-            let new_current = self
+            let new_current_idx = *self
                 .queue
                 .top()
-                .expect("priority queue top element should exist")
-                .clone();
+                .expect("priority queue top element should exist");
             self.queue
                 .update_top_with_new_top(self.current.take().unwrap())?;
-            self.current = Some(new_current);
+            self.current = Some(new_current_idx);
         }
 
         self.set_queue_min_doc_id();
-        Ok(self.current.clone())
+        match self.current {
+            Some(current) => Ok(Some(current)),
+            None => Ok(None),
+        }
     }
 }
 pub(crate) enum DocIDMergerEnum<S>
@@ -223,6 +223,24 @@ where
     Sequential(SequentialDocIDMerger<S>),
     Sorted(SortedDocIDMerger<S>),
 }
+impl<S> DocIDMergerEnum<S>
+where
+    S: SubBase,
+{
+    pub(crate) fn get_subs_mut(&mut self) -> &mut [Sub<S>] {
+        match self {
+            DocIDMergerEnum::Sequential(merger) => &mut merger.subs,
+            DocIDMergerEnum::Sorted(merger) => &mut merger.queue.compare.subs,
+        }
+    }
+    pub(crate) fn get_subs(&self) -> &[Sub<S>] {
+        match self {
+            DocIDMergerEnum::Sequential(merger) => &merger.subs,
+            DocIDMergerEnum::Sorted(merger) => &merger.queue.compare.subs,
+        }
+    }
+}
+
 impl<S> DocIDMerger<S> for DocIDMergerEnum<S>
 where
     S: SubBase,
@@ -234,7 +252,7 @@ where
         }
     }
 
-    fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>> {
+    fn next(&mut self) -> Result<Option<usize>> {
         match self {
             DocIDMergerEnum::Sequential(merger) => merger.next(),
             DocIDMergerEnum::Sorted(merger) => merger.next(),
@@ -286,20 +304,33 @@ pub trait SubBase {
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>>;
 }
 
-struct SubCompare;
-impl<S> Compare<Rc<RefCell<Sub<S>>>> for SubCompare
+struct SubCompare<S>
 where
     S: SubBase,
 {
-    fn less_than(&self, a: &Rc<RefCell<Sub<S>>>, b: &Rc<RefCell<Sub<S>>>) -> Result<bool> {
-        debug_assert!(a.borrow().mapped_doc_id != b.borrow().mapped_doc_id);
-        Ok(a.borrow().mapped_doc_id < b.borrow().mapped_doc_id)
+    subs: Vec<Sub<S>>,
+}
+impl<S> SubCompare<S>
+where
+    S: SubBase,
+{
+    fn new(subs: Vec<Sub<S>>) -> Self {
+        Self { subs }
+    }
+}
+impl<S> Compare<usize> for SubCompare<S>
+where
+    S: SubBase,
+{
+    fn less_than(&self, a: &usize, b: &usize) -> Result<bool> {
+        debug_assert!(self.subs[*a].mapped_doc_id != self.subs[*b].mapped_doc_id);
+        Ok(self.subs[*a].mapped_doc_id < self.subs[*b].mapped_doc_id)
     }
 }
 
 /// Construct this from the provided subs, specifying the maximum sub count.
 fn of_with_max_count<S: SubBase>(
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
+    subs: Vec<Sub<S>>,
     max_count: i32,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
@@ -315,8 +346,7 @@ fn of_with_max_count<S: SubBase>(
 }
 /// Construct this from the provided subs.
 pub(crate) fn of<S: SubBase>(
-    // TODO IMPORTANT 这里可以不使用Rc RefCell封装吗
-    subs: Vec<Rc<RefCell<Sub<S>>>>,
+    subs: Vec<Sub<S>>,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
     let max_count = subs.len() as i32;
@@ -395,15 +425,12 @@ pub mod tests {
         let mut subs = vec![];
         let mut value_start = 0;
 
-        for _ in 0..sub_count {
+        let v = vec![2, 3];
+        for i in 0..sub_count {
             let max_doc = TestUtil::next_int(&mut random, 1, 1000);
             let doc_base = value_start;
             let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 { doc_base }));
-            let sub = Rc::new(RefCell::new(Sub::new(TestSubUnsorted::new(
-                doc_map.clone(),
-                max_doc,
-                value_start,
-            ))));
+            let sub = Sub::new(TestSubUnsorted::new(doc_map.clone(), max_doc, value_start));
             subs.push(sub);
             value_start += max_doc;
         }
@@ -411,10 +438,10 @@ pub mod tests {
         let mut merger = of(subs, false)?;
 
         let mut count = 0;
-        while let Some(sub_rc) = merger.next()? {
-            let sub = sub_rc.borrow();
-            assert_eq!(count, sub.mapped_doc_id);
-            assert_eq!(count, sub.sub.get_value());
+
+        while let Some(sub) = merger.next()? {
+            assert_eq!(count, merger.get_subs()[sub].mapped_doc_id);
+            assert_eq!(count, merger.get_subs()[sub].sub.get_value());
             count += 1;
         }
 
@@ -527,7 +554,7 @@ pub mod tests {
             live_docs = Some(Rc::new(bitset));
         }
 
-        let mut subs: Vec<Rc<RefCell<Sub<TestSubSorted>>>> = Vec::new();
+        let mut subs: Vec<Sub<TestSubSorted>> = Vec::new();
 
         for (i, doc_map) in completed_subs.iter().enumerate() {
             let len = doc_map.len();
@@ -536,11 +563,7 @@ pub mod tests {
                 &live_docs,
             )));
 
-            let sub = Rc::new(RefCell::new(Sub::new(TestSubSorted::new(
-                doc_map_enum,
-                len as i32,
-                i as i32,
-            ))));
+            let sub = Sub::new(TestSubSorted::new(doc_map_enum, len as i32, i as i32));
 
             subs.push(sub);
         }
@@ -548,12 +571,16 @@ pub mod tests {
         let mut merger = of(subs, true)?;
 
         let mut count = 0;
-        while let Some(sub_rc) = merger.next()? {
-            let sub = sub_rc.borrow();
+        while let Some(sub) = merger.next()? {
             if let Some(ref live) = live_docs {
                 count = live.next_set_bit(count);
             }
-            assert_eq!(count, sub.mapped_doc_id, "doc mismatch at count {}", count);
+            assert_eq!(
+                count,
+                merger.get_subs()[sub].mapped_doc_id,
+                "doc mismatch at count {}",
+                count
+            );
             count += 1;
         }
 

@@ -27,7 +27,6 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -158,9 +157,7 @@ where
 
             if let Some(norms) = norms {
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
-                    doc_map, norms,
-                )))));
+                subs.push(Sub::new(NumericDocValuesSub::new(doc_map, norms)));
             }
         }
 
@@ -182,7 +179,7 @@ where
     I: IndexInput,
 {
     doc_id: i32,
-    current: Option<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
+    current: Option<usize>,
     doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<I>>,
 }
 
@@ -205,9 +202,10 @@ where
 
     fn next_doc(&mut self) -> Result<i32> {
         self.current = self.doc_id_merger.next()?;
-        match &self.current {
-            Some(current) => {
-                self.doc_id = current.borrow_mut().mapped_doc_id;
+        match self.current {
+            Some(ref current) => {
+                let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+                self.doc_id = v;
                 Ok(self.doc_id)
             },
             None => {
@@ -233,8 +231,8 @@ where
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                current.sub.values.long_value()
+                let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
+                v.values.long_value()
             },
             None => Err(LuceneError::unreachable("should not be here")),
         }

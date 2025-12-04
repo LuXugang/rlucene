@@ -41,7 +41,6 @@ use crate::core::store::IndexInput;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -170,7 +169,7 @@ where
     I: IndexInput,
 {
     doc_id: i32,
-    current: Option<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
+    current: Option<usize>,
     doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<I>>,
     final_cost: i64,
 }
@@ -196,7 +195,8 @@ where
         self.current = self.doc_id_merger.next()?;
         match &self.current {
             Some(current) => {
-                self.doc_id = current.borrow_mut().mapped_doc_id;
+                let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+                self.doc_id = v;
                 Ok(self.doc_id)
             },
             None => {
@@ -222,8 +222,8 @@ where
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                current.sub.values.long_value()
+                let v = &mut self.doc_id_merger.get_subs_mut()[*current];
+                v.sub.values.long_value()
             },
             None => Err(LuceneError::unreachable("should not be here")),
         }
@@ -280,9 +280,7 @@ where
 
             if let Some(values) = values {
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
-                    doc_map, values,
-                )))));
+                subs.push(Sub::new(NumericDocValuesSub::new(doc_map, values)));
             }
         }
         merge_numeric_values(subs, self.merge_state.needs_index_sort)
@@ -344,7 +342,7 @@ where
     I: IndexInput,
 {
     doc_id: i32,
-    current: Option<Rc<RefCell<Sub<BinaryDocValuesSub<I>>>>>,
+    current: Option<usize>,
     doc_id_merger: DocIDMergerEnum<BinaryDocValuesSub<I>>,
     final_cost: i64,
 }
@@ -370,7 +368,8 @@ where
         self.current = self.doc_id_merger.next()?;
         match &self.current {
             Some(current) => {
-                self.doc_id = current.borrow_mut().mapped_doc_id;
+                let mapped_doc_id = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+                self.doc_id = mapped_doc_id;
                 Ok(self.doc_id)
             },
             None => {
@@ -396,13 +395,8 @@ where
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self.current {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                // TODO IMPORTANT Since we need to return a reference, but cannot return a
-                // temporary value created by borrowing,
-                // we are forced to make a copy.Is there any way to avoid the
-                // copy?
-                let v = current.sub.values.binary_value()?.into_owned();
-                Ok(Cow::Owned(v))
+                let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
+                v.values.binary_value()
             },
             None => Err(LuceneError::unreachable("should not be here")),
         }
@@ -464,9 +458,7 @@ where
             if let Some(values) = values {
                 cost += values.cost()?;
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(BinaryDocValuesSub::new(
-                    doc_map, values,
-                )))));
+                subs.push(Sub::new(BinaryDocValuesSub::new(doc_map, values)));
             }
         }
         let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
@@ -523,7 +515,7 @@ where
     I: IndexInput,
 {
     doc_id: i32,
-    current_sub: Option<Rc<RefCell<Sub<SortedNumericDocValuesSub<I>>>>>,
+    current_sub: Option<usize>,
     doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<I>>,
     final_cost: i64,
 }
@@ -547,9 +539,10 @@ where
 
     fn next_doc(&mut self) -> Result<i32> {
         self.current_sub = self.doc_id_merger.next()?;
-        match &self.current_sub {
-            Some(current) => {
-                self.doc_id = current.borrow_mut().mapped_doc_id;
+        match self.current_sub {
+            Some(ref current) => {
+                let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+                self.doc_id = v;
                 Ok(self.doc_id)
             },
             None => {
@@ -575,8 +568,8 @@ where
     fn next_value(&mut self) -> Result<i64> {
         match self.current_sub {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                current.sub.values.next_value()
+                let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
+                v.values.next_value()
             },
             None => Err(LuceneError::unreachable("should not be here")),
         }
@@ -585,8 +578,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         match self.current_sub {
             Some(ref current) => {
-                let mut current = current.borrow_mut();
-                current.sub.values.doc_value_count()
+                let v = &mut self.doc_id_merger.get_subs_mut()[*current];
+                v.sub.values.doc_value_count()
             },
             None => Err(LuceneError::unreachable("should not be here")),
         }
@@ -668,9 +661,7 @@ where
             }
             if let Some(values) = values {
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(
-                    SortedNumericDocValuesSub::new(doc_map, values),
-                ))));
+                subs.push(Sub::new(SortedNumericDocValuesSub::new(doc_map, values)));
             }
         }
 
@@ -679,18 +670,17 @@ where
             // We specialize for that case since it makes it easier for codecs
             // to optimize for single-valued fields.
             let mut single_valued_subs = vec![];
-            for sub in &subs {
-                let mut sub = sub.borrow_mut();
+            for sub in &mut subs {
                 let single_valued_values = match &mut sub.sub.values {
                     Lucene90SortedNumericDocValuesEnum::C(inner) => {
                         inner.get_numeric_doc_values()?
                     },
                     _ => return Err(LuceneError::unreachable("")),
                 };
-                single_valued_subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
+                single_valued_subs.push(Sub::new(NumericDocValuesSub::new(
                     sub.sub.doc_map.clone(),
                     single_valued_values,
-                )))));
+                )));
             }
             let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort)?;
             return Ok(Either2SortedNumericDocValues::A(
@@ -713,7 +703,7 @@ where
 }
 
 pub(crate) fn merge_numeric_values<I>(
-    mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
+    mut subs: Vec<Sub<NumericDocValuesSub<I>>>,
     index_is_sorted: bool,
 ) -> Result<NumericDocValuesMerge<I>>
 where
@@ -721,7 +711,7 @@ where
 {
     let mut cost = 0;
     for sub in &mut subs {
-        cost = sub.borrow().sub.values.cost()?;
+        cost = sub.sub.values.cost()?;
     }
     let doc_id_merger = of(subs, index_is_sorted)?;
     Ok(NumericDocValuesMerge {
