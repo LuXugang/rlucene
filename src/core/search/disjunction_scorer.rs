@@ -32,6 +32,7 @@ pub type Disi<S> = Either2DocIdSetIterator<
     DisjunctionDISIApproximation<S>,
     TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
 >;
+/// Base class for Scorers that score disjunctions.
 pub struct DisjunctionScorer<S, T>
 where
     S: Scorer,
@@ -133,7 +134,21 @@ where
         Self: 'a;
 
     fn doc_id(&mut self) -> Result<i32> {
-        todo!()
+        match self.disi {
+            Disi::A(ref v) => {
+                let queue = v.sub_iterators.top();
+                Ok(v.all_scores[queue].doc)
+            },
+            Disi::B(ref v) => {
+                let approximation = &v
+                    .two_phase_iterator
+                    .unverified_matches
+                    .compare
+                    .approximation;
+                let queue = approximation.sub_iterators.top();
+                Ok(approximation.all_scores[queue].doc)
+            },
+        }
     }
 
     fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
@@ -158,8 +173,8 @@ where
         }
     }
 
-    fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
-        todo!()
+    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        self.sub.get_max_score(up_to)
     }
 }
 
