@@ -410,7 +410,7 @@ fn score_range<C, B, S>(
     mut min: i32,
     max: i32,
     scorer: &mut S,
-    mut has_competitive: bool,
+    has_competitive: bool,
     has_two_phase: bool,
 ) -> Result<i32>
 where
@@ -425,7 +425,9 @@ where
                 min = iterator.doc_id().min(max);
             }
         } else {
-            has_competitive = false;
+            return Err(LuceneError::illegal_state(
+                "has_competitive is true but competitive_iterator is None",
+            ));
         }
     }
     let mut doc = {
