@@ -36,6 +36,7 @@ where
     score: f32,
     score_mode: ScoreMode,
     disi: ConstantDISI_<DISI, TPI>,
+    has_two_phase_iterator: bool,
 }
 impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
@@ -59,6 +60,7 @@ where
             score,
             score_mode,
             disi: Either2DocIdSetIterator::A(approximation),
+            has_two_phase_iterator: false,
         }
     }
 }
@@ -84,6 +86,7 @@ where
             disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                 two_phase_iterator,
             )),
+            has_two_phase_iterator: true,
         }
     }
 }
@@ -170,6 +173,10 @@ where
 
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         Ok(self.score)
+    }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        self.has_two_phase_iterator
     }
 }
 

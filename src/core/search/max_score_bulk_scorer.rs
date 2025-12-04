@@ -1069,5 +1069,9 @@ mod test {
         fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
             Ok(self.max_score)
         }
+
+        fn has_two_phase_iterator(&self) -> bool {
+            false
+        }
     }
 }

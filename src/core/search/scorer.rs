@@ -117,6 +117,7 @@ pub trait Scorer: Scorable {
     fn default_cost(&mut self) -> Result<i64> {
         self.iterator().cost()
     }
+    fn has_two_phase_iterator(&self) -> bool;
 }
 
 macro_rules! either_scorer {
@@ -245,6 +246,10 @@ macro_rules! either_scorer {
             #[inline]
             fn default_cost(&mut self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.default_cost(), )+ }
+            }
+             #[inline]
+            fn has_two_phase_iterator(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.has_two_phase_iterator(), )+ }
             }
         }
     };

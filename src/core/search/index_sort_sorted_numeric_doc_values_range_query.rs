@@ -1800,7 +1800,7 @@ mod tests {
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
         for ctx in searcher.get_leaf_contexts()? {
             let mut scorer = weight.scorer(ctx.as_ref())?;
-            assert!(scorer.as_mut().unwrap().two_phase_iterator().is_some());
+            assert!(scorer.as_mut().unwrap().has_two_phase_iterator());
         }
         Ok(())
     }

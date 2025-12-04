@@ -327,8 +327,8 @@ where
     ) -> Result<Option<Self::Scorer>> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
         match inner_scorer {
-            Some(mut inner_scorer) => {
-                let has_tpi = inner_scorer.two_phase_iterator().is_some();
+            Some(inner_scorer) => {
+                let has_tpi = inner_scorer.has_two_phase_iterator();
                 match has_tpi {
                     true => {
                         let tpi = inner_scorer.take_two_phase_iterator().unwrap();

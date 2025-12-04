@@ -335,6 +335,10 @@ where
             },
         }
     }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        false
+    }
 }
 pub type ImpactsEnums<IE, PE> = Either2ImpactsEnum<IE, SlowImpactsEnum<PE>>;
 

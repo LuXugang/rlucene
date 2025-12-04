@@ -147,4 +147,8 @@ where
     fn default_cost(&mut self) -> Result<i64> {
         self.scorer.default_cost()
     }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        self.scorer.has_two_phase_iterator()
+    }
 }

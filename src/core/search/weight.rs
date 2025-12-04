@@ -268,7 +268,7 @@ where
         B: Bits,
     {
         collector.set_scorer(&mut self.scorer)?;
-        let has_two_phase = self.scorer.two_phase_iterator().is_some();
+        let has_two_phase = self.scorer.has_two_phase_iterator();
         let doc_id = if has_two_phase {
             let two_phase = self.scorer.two_phase_iterator().unwrap();
             two_phase.approximation().doc_id()

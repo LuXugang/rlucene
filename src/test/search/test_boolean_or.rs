@@ -144,4 +144,8 @@ impl Scorer for ScorerImpl {
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         Ok(f32::MAX)
     }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        false
+    }
 }

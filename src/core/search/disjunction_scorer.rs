@@ -40,6 +40,7 @@ where
 {
     disi: Disi<S>,
     sub: T,
+    has_two_phase_iterator: bool,
 }
 
 impl<S, T> DisjunctionScorer<S, T>
@@ -72,21 +73,25 @@ where
             let w = &mut approximation.all_scores[idx];
             let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
             sum_approx_cost += cost_weight;
-            let has_two_phase_view = w.two_phase_iterator().is_some();
+            let has_two_phase_view = w.has_two_phase_iterator();
             if has_two_phase_view {
                 has_approximation = true;
                 sum_match_cost += w.match_cost * cost_weight as f32;
             }
         }
-        let disi = if !has_approximation {
-            Disi::A(approximation)
+        let (disi, has_two_phase_iterator) = if !has_approximation {
+            (Disi::A(approximation), false)
         } else {
             let match_cost = sum_match_cost / sum_approx_cost as f32;
             let two_phase = TwoPhase::new(approximation, match_cost, needs_scores)?;
             let v = as_doc_id_set_iterator(two_phase);
-            Disi::B(v)
+            (Disi::B(v), true)
         };
-        Ok(Self { disi, sub })
+        Ok(Self {
+            disi,
+            sub,
+            has_two_phase_iterator,
+        })
     }
 
     fn get_sub_matched(&mut self) -> Result<Option<usize>> {
@@ -175,6 +180,10 @@ where
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
         self.sub.get_max_score(up_to)
+    }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        self.has_two_phase_iterator
     }
 }
 
@@ -269,7 +278,7 @@ where
             let w_idx = w_idx_opt.unwrap();
             let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
-            let has_no_two_phase_view = w.two_phase_iterator().is_none();
+            let has_no_two_phase_view = !w.has_two_phase_iterator();
             if has_no_two_phase_view {
                 // implicitly verified, move it to verifiedMatches
                 w.next = self.verified_matches;

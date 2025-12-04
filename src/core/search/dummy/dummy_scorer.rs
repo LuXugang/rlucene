@@ -86,4 +86,8 @@ impl Scorer for DummyScorer {
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

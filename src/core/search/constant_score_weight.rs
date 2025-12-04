@@ -42,7 +42,7 @@ impl ConstantScoreWeight {
         let exists = match scorer {
             None => false,
             Some(mut s) => {
-                let has_two_phase = s.two_phase_iterator().is_some();
+                let has_two_phase = s.has_two_phase_iterator();
                 if has_two_phase {
                     let mut two_phase = s.two_phase_iterator().unwrap();
                     two_phase.approximation().advance(doc)? == doc && two_phase.matches()?
