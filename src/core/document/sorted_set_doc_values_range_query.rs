@@ -453,13 +453,11 @@ where
         match skipper_opt {
             Some(skipper) => {
                 let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, false);
-                let scorer: ConstantScoreScorer<DummyDISI, _> =
-                    ConstantScoreScorer::with_tpi(self.score, self.score_mode, v);
+                let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, v);
                 Ok(Some(ScorerType::<LR>::E(scorer)))
             },
             None => {
-                let scorer: ConstantScoreScorer<DummyDISI, _> =
-                    ConstantScoreScorer::with_tpi(self.score, self.score_mode, iterator);
+                let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, iterator);
                 Ok(Some(ScorerType::<LR>::D(scorer)))
             },
         }

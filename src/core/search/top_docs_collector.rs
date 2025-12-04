@@ -225,7 +225,7 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
-    use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+    use crate::core::search::dummy::dummy_disi::DummyDISI;
     use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
     use crate::core::search::index_searcher::IndexSearcher;
@@ -336,7 +336,7 @@ mod tests {
         }
 
         type DocIdSetIteratorRef<'b>
-            = DummyDocIdSetIterator
+            = DummyDISI
         where
             Self: 'b;
     }

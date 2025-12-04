@@ -24,7 +24,8 @@ use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
@@ -48,6 +49,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
+
 /// A query that wraps another query and simply returns a constant score equal to 1 for every document that matches the query.
 /// It therefore simply strips of all scores and always returns 1.
 #[derive(Debug)]
@@ -265,7 +267,7 @@ pub type BS<S, IRC, QCP, QC> = <ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSu
 >>::BulkScorer;
 pub type ConstantScoreScorerEnum<S, IRC, QCP, QC> = Either2Scorer<
     ConstantScoreScorer<Disi<S, IRC, QCP, QC>, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DummyDocIdSetIterator, TPI<S, IRC, QCP, QC>>,
+    ConstantScoreScorer<DummyDISI, TPI<S, IRC, QCP, QC>>,
 >;
 pub type BulkScorerEnum<S, IRC, QCP, QC> = Either2BulkScorer<
     DefaultBulkScorer<ConstantScoreScorerEnum<S, IRC, QCP, QC>>,
@@ -330,8 +332,7 @@ where
                 match has_tpi {
                     true => {
                         let tpi = inner_scorer.take_two_phase_iterator().unwrap();
-                        let v: ConstantScoreScorer<DummyDocIdSetIterator, _> =
-                            ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
+                        let v = ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
                         Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::B(v)))
                     },
                     false => {

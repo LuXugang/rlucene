@@ -27,7 +27,7 @@ use crate::core::search::comparators::float_comparator::FloatComparator;
 use crate::core::search::comparators::int_comparator::IntComparator;
 use crate::core::search::comparators::long_comparator::LongComparator;
 use crate::core::search::comparators::term_ord_val_comparator::TermOrdValComparator;
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_field_comparator::DummyFieldComparator;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::scorable::Scorable;
@@ -313,7 +313,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         Ok(())
     }
 
-    type DocIdSetIteratorRef<'a> = &'a mut DummyDocIdSetIterator;
+    type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -1091,7 +1091,7 @@ where
     }
 
     type DocIdSetIteratorRef<'a>
-        = &'a mut DummyDocIdSetIterator
+        = &'a mut DummyDISI
     where
         LR: 'a;
 }

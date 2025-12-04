@@ -14,22 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-    type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIterator = DummyDISI;
 
     type DocIdSetIteratorRef<'a>
-        = &'a DummyDocIdSetIterator
+        = &'a DummyDISI
     where
         Self: 'a;
 
     type DocIdSetIteratorMut<'a>
-        = &'a mut DummyDocIdSetIterator
+        = &'a mut DummyDISI
     where
         Self: 'a;
 

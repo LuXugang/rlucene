@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
@@ -47,9 +47,9 @@ impl Scorable for DummyScorer {
 }
 
 impl Scorer for DummyScorer {
-    type DocIdSetIterator = DummyDocIdSetIterator;
+    type DocIdSetIterator = DummyDISI;
     type DocIdSetIteratorRef<'a>
-        = DummyDocIdSetIterator
+        = DummyDISI
     where
         Self: 'a;
 

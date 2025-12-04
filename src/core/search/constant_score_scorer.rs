@@ -17,6 +17,7 @@
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, EitherEmpty, EmptyDISI,
 };
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
@@ -61,9 +62,8 @@ where
         }
     }
 }
-impl<DISI, TPI> ConstantScoreScorer<DISI, TPI>
+impl<TPI> ConstantScoreScorer<DummyDISI, TPI>
 where
-    DISI: DocIdSetIterator,
     TPI: TwoPhaseIterator,
 {
     /// Constructor based on a [`TwoPhaseIterator`]. In this case the [`Scorer`] will

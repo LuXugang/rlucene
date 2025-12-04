@@ -25,7 +25,7 @@ use crate::core::search::comparators::term_ord_val_comparator::{
     TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
 };
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either4DocIdSetIterator};
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::field_comparator::{
     FieldComparator, FieldComparatorEnum, RelevanceLeafComparator, TermValLeafComparator,
 };
@@ -211,13 +211,13 @@ pub trait LeafFieldComparator {
 pub type LeafFieldComparatorDocIdSetIterator<LR> = Either4DocIdSetIterator<
     DocComparatorIterator,
     NumericCompetitiveIterator<LR>,
-    DummyDocIdSetIterator,
+    DummyDISI,
     TermOrdValCompetitiveIterator<LR>,
 >;
 pub type LeafFieldComparatorDocIdSetIteratorRef<'a, LR> = Either4DocIdSetIterator<
     <DocLeafComparator as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
     <DoubleLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
-    &'a mut DummyDocIdSetIterator,
+    &'a mut DummyDISI,
     <TermOrdValLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;
 

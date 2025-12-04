@@ -27,7 +27,8 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
 };
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -1129,7 +1130,7 @@ impl LeafCollector for LeafCollectorImpl {
     }
 
     type DocIdSetIteratorRef<'a>
-        = DummyDocIdSetIterator
+        = DummyDISI
     where
         Self: 'a;
 }
@@ -1176,7 +1177,7 @@ impl LeafCollector for RoaringCollectorImpl {
     }
 
     type DocIdSetIteratorRef<'a>
-        = DummyDocIdSetIterator
+        = DummyDISI
     where
         Self: 'a;
 }

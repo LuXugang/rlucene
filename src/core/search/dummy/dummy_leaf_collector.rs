@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_stream::DocIdStream;
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -52,7 +53,7 @@ impl LeafCollector for DummyLeafCollector {
     }
 
     type DocIdSetIteratorRef<'a>
-        = DummyDocIdSetIterator
+        = DummyDISI
     where
         Self: 'a;
 

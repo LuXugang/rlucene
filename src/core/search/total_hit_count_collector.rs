@@ -18,13 +18,15 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
-use crate::core::search::dummy::dummy_doc_id_set_iterator::DummyDocIdSetIterator;
+
+use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
+
 /// Just counts the total number of hits. This is the collector behind [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count).
 /// When the [`Weight`] implements [`Weight::count`], this collector will skip collecting segments.
 pub struct TotalHitCountCollector {
@@ -111,7 +113,7 @@ impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
     }
 
     type DocIdSetIteratorRef<'b>
-        = DummyDocIdSetIterator
+        = DummyDISI
     where
         Self: 'b;
 }

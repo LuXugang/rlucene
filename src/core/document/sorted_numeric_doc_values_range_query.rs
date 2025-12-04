@@ -346,13 +346,12 @@ where
                     self.query.upper_value,
                     false,
                 );
-                let scorer: ConstantScoreScorer<DummyDISI, _> =
-                    ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
+                let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
                 Ok(Some(Either4ScorerSupplier::C(v)))
             },
             None => {
-                let scorer: ConstantScoreScorer<DummyDISI, _> =
+                let scorer =
                     ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
                 Ok(Some(Either4ScorerSupplier::D(v)))

@@ -196,8 +196,7 @@ where
         } else {
             Either2TwoPhaseIterator::B(TwoPhaseIterator2::new(values, self.query.clone()))
         };
-        let scorer: ConstantScoreScorer<DummyDISI, _> =
-            ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
+        let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
         Ok(Some(DefaultScorerSupplier::new(scorer)))
     }
 }
