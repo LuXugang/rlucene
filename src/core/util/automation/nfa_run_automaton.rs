@@ -40,6 +40,7 @@ pub struct NFARunAutomaton {
     points: Vec<i32>,
     alphabet_size: i32,
     classmap: Vec<usize>, // map from char number to class
+    // TODO IMPORTANT 这里需要使用内部可变吗
     // Due to trait `TransitionAccessor`'s method is not mutable,so the methods of NFARunAutomaton
     // needs not mutable too, so using RefCell to make the necessary fields internally mutable.
     dstates: RefCell<Vec<DState>>,
