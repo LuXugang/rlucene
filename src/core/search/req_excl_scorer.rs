@@ -89,6 +89,10 @@ where
     S2: Scorer,
 {
     type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>;
+    type DocIdSetIteratorRef<'a>
+        = &'a TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>
+    where
+        Self: 'a;
     type DocIdSetIteratorMut<'a>
         = &'a mut TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>
     where
@@ -104,6 +108,10 @@ where
             Either2TwoPhaseIterator::A(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
             Either2TwoPhaseIterator::B(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
         }
+    }
+
+    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+        &self.disi
     }
 
     fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {

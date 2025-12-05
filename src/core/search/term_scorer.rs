@@ -220,6 +220,10 @@ where
     IE: ImpactsEnum,
 {
     type DocIdSetIterator = TermScorerDisi<IE, PE, SS>;
+    type DocIdSetIteratorRef<'a>
+        = TermScorerDisiRefConst<'a, IE, PE, SS>
+    where
+        Self: 'a;
     type DocIdSetIteratorMut<'a>
         = TermScorerDisiRef<'a, IE, PE, SS>
     where
@@ -234,6 +238,28 @@ where
     fn doc_id(&mut self) -> Result<i32> {
         let mut postings = self.postings()?;
         postings.doc_id()
+    }
+
+    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+        if let Some(impacts_disi) = &self.impacts_disi {
+            TermScorerDisiRefConst::C(impacts_disi)
+        } else {
+            let cache = self
+                .max_score_cache
+                .as_ref()
+                .expect("max_score_cache should exist when impacts_disi is None");
+            let impacts_source = cache
+                .impacts_source
+                .as_ref()
+                .expect("impacts_source should exist when impacts_disi is None");
+
+            match impacts_source {
+                Either2ImpactsEnum::A(impacts_enum) => TermScorerDisiRefConst::A(impacts_enum),
+                Either2ImpactsEnum::B(slow_impacts_enum) => {
+                    TermScorerDisiRefConst::B(&slow_impacts_enum.delegate)
+                },
+            }
+        }
     }
 
     fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
@@ -339,3 +365,5 @@ pub type ImpactsEnums<IE, PE> = Either2ImpactsEnum<IE, SlowImpactsEnum<PE>>;
 pub type TermScorerDisi<IE, PE, SS> = Either3DocIdSetIterator<IE, PE, ImpactsDISI<IE, IE, SS>>;
 pub type TermScorerDisiRef<'a, IE, PE, SS> =
     Either3DocIdSetIterator<&'a mut IE, &'a mut PE, &'a mut ImpactsDISI<IE, IE, SS>>;
+pub type TermScorerDisiRefConst<'a, IE, PE, SS> =
+    Either3DocIdSetIterator<&'a IE, &'a PE, &'a ImpactsDISI<IE, IE, SS>>;

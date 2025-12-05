@@ -1040,6 +1040,10 @@ mod test {
 
     impl Scorer for FakeScorer {
         type DocIdSetIterator = AllDISI;
+        type DocIdSetIteratorRef<'a>
+            = &'a AllDISI
+        where
+            Self: 'a;
         type DocIdSetIteratorMut<'a>
             = &'a mut AllDISI
         where
@@ -1052,6 +1056,10 @@ mod test {
 
         fn doc_id(&mut self) -> Result<i32> {
             Ok(self.doc_id)
+        }
+
+        fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+            &self.disi
         }
 
         fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {

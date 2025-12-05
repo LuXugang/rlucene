@@ -130,6 +130,10 @@ where
     TPI: TwoPhaseIterator,
 {
     type DocIdSetIterator = ConstantDISI_<DISI, TPI>;
+    type DocIdSetIteratorRef<'a>
+        = &'a ConstantDISI_<DISI, TPI>
+    where
+        Self: 'a;
     type DocIdSetIteratorMut<'a>
         = EitherEmpty<&'a mut ConstantDISI_<DISI, TPI>>
     where
@@ -143,6 +147,10 @@ where
 
     fn doc_id(&mut self) -> Result<i32> {
         Ok(self.disi.doc_id())
+    }
+
+    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+        &self.disi
     }
 
     fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {

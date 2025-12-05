@@ -48,6 +48,10 @@ impl Scorable for DummyScorer {
 
 impl Scorer for DummyScorer {
     type DocIdSetIterator = DummyDISI;
+    type DocIdSetIteratorRef<'a>
+        = DummyDISI
+    where
+        Self: 'a;
     type DocIdSetIteratorMut<'a>
         = DummyDISI
     where
@@ -60,6 +64,10 @@ impl Scorer for DummyScorer {
         Self: 'a;
 
     fn doc_id(&mut self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
