@@ -1167,7 +1167,7 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
 pub struct SingleValueDocValuesFieldUpdatesIterator {
     del_gen: i64,
     has_no_value: Option<Arc<SparseFixedBitSet>>,
-    iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
+    iterator: BitSetIterator<Arc<SparseFixedBitSet>>,
     single: Arc<SingleValueNumericDocValuesFieldUpdates>,
 }
 impl SingleValueDocValuesFieldUpdatesIterator {
@@ -1177,7 +1177,7 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     /// Avoid using the `Default` trait. This constructor should be used
     /// instead.
     pub fn new(
-        iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
+        iterator: BitSetIterator<Arc<SparseFixedBitSet>>,
         del_gen: i64,
         has_no_value: Option<Arc<SparseFixedBitSet>>,
         single: Arc<SingleValueNumericDocValuesFieldUpdates>,

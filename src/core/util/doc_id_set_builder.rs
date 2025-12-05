@@ -209,7 +209,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
     }
 }
 pub enum DocIdSetBuilderIterator {
-    BitSet(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
+    BitSet(BitSetIterator<Arc<FixedBitSet>>),
     IntArray(IntArrayDocIdSetIterator),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator {
@@ -400,10 +400,9 @@ mod tests {
                     c += 1
                 }
             }
-            let docs = Rc::new(docs);
             let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
-            let mut j = {
-                let mut it = BitSetIterator::new(docs.clone(), 0)?;
+            let (mut j, v) = {
+                let mut it = BitSetIterator::new(docs, 0)?;
                 let mut j = 0;
                 let mut doc = it.next_doc()?;
                 while doc != NO_MORE_DOCS {
@@ -411,13 +410,10 @@ mod tests {
                     j += 1;
                     doc = it.next_doc()?;
                 }
-                j
+                (j, it.bits)
             };
 
-            let docs = match Rc::try_unwrap(docs) {
-                Ok(value) => value,
-                Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
-            };
+            let docs = v;
             assert_eq!(num_docs, j as i32);
             // add some duplicates
             while j < array.len() {
@@ -471,7 +467,6 @@ mod tests {
                 docs.set(doc);
             }
             expected.or(&docs);
-            let docs = Rc::new(docs);
             // We provide a cost of 0 here to make sure the builder can deal
             // with wrong costs
             let mut bit_doc_id_set = BitSetIterator::new(docs, 0)?;

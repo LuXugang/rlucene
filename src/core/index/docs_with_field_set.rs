@@ -92,7 +92,7 @@ impl Accountable for DocsWithFieldSet {
 }
 
 pub(crate) type DocsWithFieldSetDISI =
-    Either2DocIdSetIterator<AllDISI, BitSetIterator<FixedBitSet, Arc<FixedBitSet>>>;
+    Either2DocIdSetIterator<AllDISI, BitSetIterator<Arc<FixedBitSet>>>;
 
 impl DocIdSet for DocsWithFieldSet {
     type DocIdSetIterator = DocsWithFieldSetDISI;

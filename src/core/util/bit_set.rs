@@ -20,6 +20,8 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Base implementation for a bit set.
 pub trait BitSet: Bits + Accountable {
@@ -228,6 +230,150 @@ where
     }
 }
 
+impl<T> Accountable for Arc<T>
+where
+    T: BitSet,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        (**self).ram_bytes_used()
+    }
+}
+
+impl<T> BitSet for Arc<T>
+where
+    T: BitSet,
+{
+    fn clear(&mut self) {
+        unreachable!()
+    }
+
+    fn set(&mut self, i: i32) {
+        unreachable!()
+    }
+
+    fn get_and_set(&mut self, i: i32) -> bool {
+        unreachable!()
+    }
+
+    fn clear_with_index(&mut self, i: i32) {
+        unreachable!()
+    }
+
+    fn clear_range(&mut self, _start_index: i32, _end_index: i32) {
+        unreachable!()
+    }
+
+    fn cardinality(&self) -> i32 {
+        (**self).cardinality()
+    }
+
+    fn approximate_cardinality(&self) -> i32 {
+        (**self).approximate_cardinality()
+    }
+
+    fn prev_set_bit(&self, index: i32) -> i32 {
+        (**self).prev_set_bit(index)
+    }
+
+    fn next_set_bit(&self, index: i32) -> i32 {
+        (**self).next_set_bit(index)
+    }
+
+    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+        (**self).next_set_bit_range(start, end)
+    }
+
+    fn or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+        unreachable!()
+    }
+
+    fn default_or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+        unreachable!()
+    }
+
+    fn ensure_capacity(&mut self, _num_bits: i32) {
+        unreachable!()
+    }
+}
+
+impl<T> Bits for Rc<T>
+where
+    T: BitSet,
+{
+    fn get(&self, index: i32) -> bool {
+        todo!()
+    }
+
+    fn length(&self) -> i32 {
+        todo!()
+    }
+}
+
+impl<T> Accountable for Rc<T>
+where
+    T: BitSet,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        (**self).ram_bytes_used()
+    }
+}
+
+impl<T> BitSet for Rc<T>
+where
+    T: BitSet,
+{
+    fn clear(&mut self) {
+        unreachable!()
+    }
+
+    fn set(&mut self, i: i32) {
+        unreachable!()
+    }
+
+    fn get_and_set(&mut self, i: i32) -> bool {
+        unreachable!()
+    }
+
+    fn clear_with_index(&mut self, i: i32) {
+        unreachable!()
+    }
+
+    fn clear_range(&mut self, _start_index: i32, _end_index: i32) {
+        unreachable!()
+    }
+
+    fn cardinality(&self) -> i32 {
+        (**self).cardinality()
+    }
+
+    fn approximate_cardinality(&self) -> i32 {
+        (**self).approximate_cardinality()
+    }
+
+    fn prev_set_bit(&self, index: i32) -> i32 {
+        (**self).prev_set_bit(index)
+    }
+
+    fn next_set_bit(&self, index: i32) -> i32 {
+        (**self).next_set_bit(index)
+    }
+
+    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+        (**self).next_set_bit_range(start, end)
+    }
+
+    fn or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+        unreachable!()
+    }
+
+    fn default_or<T1: DocIdSetIterator>(&mut self, _iter: &mut T1) -> Result<()> {
+        unreachable!()
+    }
+
+    fn ensure_capacity(&mut self, _num_bits: i32) {
+        unreachable!()
+    }
+}
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 

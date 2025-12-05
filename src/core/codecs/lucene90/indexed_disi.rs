@@ -907,7 +907,7 @@ where
             }
         }
     } else {
-        let mut iter = BitSetIterator::new(Rc::new(buffer), cardinality as i64)?;
+        let mut iter = BitSetIterator::new(buffer, cardinality as i64)?;
         let mut doc;
         while {
             doc = iter.next_doc()?;
@@ -915,10 +915,7 @@ where
         } {
             out.write_short(doc as i16)?;
         }
-        buffer = match Rc::try_unwrap(iter.bits) {
-            Ok(value) => value,
-            Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
-        };
+        buffer = iter.bits
     }
 
     Ok(buffer)
@@ -1138,19 +1135,15 @@ mod tests {
     }
 
     fn assert_advance_beyond_end<B: BitSet>(set: B, dir: &impl Directory) -> Result<()> {
-        let set = Rc::new(set);
         let cardinality = set.cardinality();
         let dense_rank_power = 9;
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
-        let jump_count = write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(set.clone(), cardinality as i64)?,
-            &mut out,
-            dense_rank_power,
-        )?;
+        let mut v = BitSetIterator::new(set, cardinality as i64)?;
+        let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut disi2 = BitSetIterator::new(set.clone(), cardinality as i64)?;
+        let mut disi2 = BitSetIterator::new(v.bits, cardinality as i64)?;
         let mut doc = disi2.doc_id();
         let mut index = 0;
         while doc < cardinality {
@@ -1168,7 +1161,7 @@ mod tests {
             cardinality as i64,
         )?;
         assert!(
-            !disi.advance_exact(set.length())?,
+            !disi.advance_exact(disi2.bits.length())?,
             "There should be no set bit beyond the valid docID range"
         );
         disi.advance(doc)?;
@@ -1200,7 +1193,7 @@ mod tests {
         } else {
             (random.random_range(0..7) + 7) as i8
         };
-        let set = Rc::new(create_set_with_random_blocks(&mut random, BLOCKS)?);
+        let set = create_set_with_random_blocks(&mut random, BLOCKS)?;
         let cardinality = set.cardinality();
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let jump_table_entry_count = write_bitset_with_dense_rank_power(
@@ -1282,7 +1275,6 @@ mod tests {
         set: B,
         dir: &impl Directory,
     ) -> Result<B> {
-        let set = Rc::new(set);
         let cardinality = set.cardinality();
         let dense_rank_power = if rarely(random) {
             -1
@@ -1290,19 +1282,15 @@ mod tests {
             (random.random_range(0..7) + 7) as i8
         };
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = {
-            write_bitset_with_dense_rank_power(
-                &mut BitSetIterator::new(set.clone(), cardinality as i64)?,
-                &mut out,
-                dense_rank_power,
-            )? as i32
-        };
+        let mut v = BitSetIterator::new(set, cardinality as i64)?;
+        let jump_table_entry_count =
+            { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
 
         let length = out.get_file_pointer();
         drop(out);
 
         let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-        for i in 0..set.length() {
+        for i in 0..v.bits.length() {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
@@ -1311,7 +1299,7 @@ mod tests {
                 dense_rank_power,
                 cardinality as i64,
             )?;
-            assert_eq!(set.get(i), disi.advance_exact(i)?);
+            assert_eq!(v.bits.get(i), disi.advance_exact(i)?);
 
             let mut disi2 = IndexedDISI::new(
                 &input,
@@ -1323,16 +1311,13 @@ mod tests {
             )?;
             let doc = disi2.advance(i)?;
             assert!(i <= doc);
-            if set.get(i) {
+            if v.bits.get(i) {
                 assert_eq!(i, doc);
             } else {
                 assert_ne!(i, doc);
             }
         }
-        let set = match Rc::try_unwrap(set) {
-            Ok(value) => value,
-            Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
-        };
+        let set = v.bits;
         Ok(set)
     }
     #[test]
@@ -1414,22 +1399,14 @@ mod tests {
         };
 
         set.set_with_range(start, start + MAX_ARRAY_LENGTH);
-        let set = Rc::new(set);
         let mut out = dir.create_output("sparse", &IOContext::default_io_context()?)?;
-        let jump_table_entry_count = {
-            write_bitset_with_dense_rank_power(
-                &mut BitSetIterator::new(set.clone(), MAX_ARRAY_LENGTH as i64)?,
-                &mut out,
-                dense_rank_power,
-            )? as i32
-        };
+        let mut v = BitSetIterator::new(set, MAX_ARRAY_LENGTH as i64)?;
+        let jump_table_entry_count =
+            { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut set = match Rc::try_unwrap(set) {
-            Ok(value) => value,
-            Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
-        };
+        let mut set = v.bits;
 
         {
             let input = dir.open_input("sparse", &IOContext::default_io_context()?)?;
@@ -1448,19 +1425,10 @@ mod tests {
         set = do_test(set, &dir, &mut random)?;
 
         set.set(start + MAX_ARRAY_LENGTH + random.random_range(0..100));
-        let set = Rc::new(set);
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
-        {
-            write_bitset_with_dense_rank_power(
-                &mut BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?,
-                &mut out,
-                dense_rank_power,
-            )?;
-        }
-        let set = match Rc::try_unwrap(set) {
-            Ok(value) => value,
-            Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
-        };
+        let mut v = BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?;
+        write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
+        let set = v.bits;
         let length = out.get_file_pointer();
         drop(out);
 
@@ -1554,12 +1522,8 @@ mod tests {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let set = Rc::new(set);
-        let jump_count = write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(set.clone(), set.cardinality() as i64)?,
-            &mut out,
-            write_power,
-        )? as i32;
+        let mut v = BitSetIterator::new(set.clone(), set.cardinality() as i64)?;
+        let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, write_power)? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
@@ -1592,16 +1556,13 @@ mod tests {
 
         let dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let set = Rc::new(set);
-        let jump_table_entry_count = write_bitset_with_dense_rank_power(
-            &mut BitSetIterator::new(set.clone(), cardinality)?,
-            &mut out,
-            dense_rank_power,
-        )? as i32;
+        let mut v = BitSetIterator::new(set, cardinality)?;
+        let jump_table_entry_count =
+            write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut disi2 = BitSetIterator::new(set.clone(), cardinality)?;
+        let mut disi2 = BitSetIterator::new(v.bits, cardinality)?;
         let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let mut disi = IndexedDISI::new(
             &input,
@@ -1645,7 +1606,7 @@ mod tests {
 
         let max_doc = last_doc + TestUtil::next_int(random, 1, 100);
         let cardinality = docs.approximate_cardinality();
-        let mut bit_set_iterator = BitSetIterator::new(Rc::new(docs), cardinality as i64)?;
+        let mut bit_set_iterator = BitSetIterator::new(docs, cardinality as i64)?;
         let set = of(&mut bit_set_iterator, max_doc)?;
 
         let _ = do_test(set, dir, random)?;
@@ -1658,7 +1619,6 @@ mod tests {
         random: &mut R,
     ) -> Result<B> {
         let cardinality = set.cardinality() as i64;
-        let set = Rc::new(set);
         let dense_rank_power = if rarely(random) {
             -1
         } else {
@@ -1668,17 +1628,16 @@ mod tests {
         let length;
         let jump_table_entry_count;
 
-        {
+        let mut set = {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            jump_table_entry_count = write_bitset_with_dense_rank_power(
-                &mut BitSetIterator::new(set.clone(), cardinality)?,
-                &mut out,
-                dense_rank_power,
-            )? as i32;
+            let mut v = BitSetIterator::new(set, cardinality)?;
+            jump_table_entry_count =
+                write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
             length = out.get_file_pointer();
-        }
+            v.bits
+        };
 
-        {
+        set = {
             let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
                 &input,
@@ -1688,9 +1647,10 @@ mod tests {
                 dense_rank_power,
                 cardinality,
             )?;
-            let mut disi2 = BitSetIterator::new(set.clone(), cardinality)?;
+            let mut disi2 = BitSetIterator::new(set, cardinality)?;
             assert_single_step_equality(&mut disi, &mut disi2)?;
-        }
+            disi2.bits
+        };
 
         for &step in &[1, 10, 100, 1000, 10000, 100000] {
             let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
@@ -1702,8 +1662,9 @@ mod tests {
                 dense_rank_power,
                 cardinality,
             )?;
-            let mut disi2 = BitSetIterator::new(set.clone(), cardinality)?;
+            let mut disi2 = BitSetIterator::new(set, cardinality)?;
             assert_advance_equality(&mut disi, &mut disi2, step)?;
+            set = disi2.bits
         }
 
         for &step in &[10, 100, 1000, 10000, 100000] {
@@ -1717,27 +1678,19 @@ mod tests {
                 cardinality,
             )?;
             let disi2_length = set.length();
-            let mut disi2 = BitSetIterator::new(set.clone(), cardinality)?;
+            let mut disi2 = BitSetIterator::new(set, cardinality)?;
             assert_advance_exact_randomized(random, &mut disi, &mut disi2, disi2_length, step)?;
+            set = disi2.bits
         }
 
         dir.delete_file("foo")?;
-        let set = match Rc::try_unwrap(set) {
-            Ok(value) => value,
-            Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
-        };
         Ok(set)
     }
 
-    fn assert_advance_exact_randomized<
-        I: IndexInput,
-        T: BitSet,
-        R: Rng + ?Sized,
-        B: SharedReadOnly<T>,
-    >(
+    fn assert_advance_exact_randomized<I: IndexInput, T: BitSet, R: Rng + ?Sized>(
         random: &mut R,
         disi: &mut IndexedDISI<I>,
-        disi2: &mut BitSetIterator<T, B>,
+        disi2: &mut BitSetIterator<T>,
         disi2_length: i32,
         step: i32,
     ) -> Result<()> {
@@ -1768,9 +1721,9 @@ mod tests {
 
         Ok(())
     }
-    fn assert_single_step_equality<I: IndexInput, T: BitSet, B: SharedReadOnly<T>>(
+    fn assert_single_step_equality<I: IndexInput, T: BitSet>(
         disi: &mut IndexedDISI<I>,
-        disi2: &mut BitSetIterator<T, B>,
+        disi2: &mut BitSetIterator<T>,
     ) -> Result<()> {
         let mut i = 0;
         let mut doc = disi2.next_doc()?;
@@ -1785,9 +1738,9 @@ mod tests {
         assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
         Ok(())
     }
-    fn assert_advance_equality<I: IndexInput, T: BitSet, B: SharedReadOnly<T>>(
+    fn assert_advance_equality<I: IndexInput, T: BitSet>(
         disi: &mut IndexedDISI<I>,
-        disi2: &mut BitSetIterator<T, B>,
+        disi2: &mut BitSetIterator<T>,
         step: i32,
     ) -> Result<()> {
         let mut index = -1;

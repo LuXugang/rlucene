@@ -647,7 +647,7 @@ where
     }
 }
 pub type PointRangeWeightScorer = Either2Scorer<
-    ConstantScoreScorer<BitSetIterator<FixedBitSet, Rc<FixedBitSet>>, DummyTwoPhaseIterator>,
+    ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
     ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
 >;
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl1<LR::PointValues>
@@ -681,7 +681,7 @@ where
             );
             self.values.intersect(&mut visitor)?;
             let cost = visitor.cost;
-            let iterator = BitSetIterator::new(Rc::new(result), cost)?;
+            let iterator = BitSetIterator::new(result, cost)?;
             return Ok(Some(PointRangeWeightScorer::A(
                 ConstantScoreScorer::with_disi(self.score, self.score_mode, iterator),
             )));

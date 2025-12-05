@@ -25,36 +25,32 @@ use std::marker::PhantomData;
 ///
 /// # Note
 /// This is an internal API.
-pub struct BitSetIterator<T, R>
+pub struct BitSetIterator<T>
 where
     T: BitSet,
-    R: SharedReadOnly<T>,
 {
-    pub(crate) bits: R,
+    pub(crate) bits: T,
     length: i32,
     cost: i64,
     doc: i32,
-    phantom: PhantomData<T>,
 }
 
-impl<T, R> BitSetIterator<T, R>
+impl<T> BitSetIterator<T>
 where
     T: BitSet,
-    R: SharedReadOnly<T>,
 {
-    pub fn new(bits: R, cost: i64) -> Result<BitSetIterator<T, R>> {
+    pub fn new(bits: T, cost: i64) -> Result<Self> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {cost}"
             )));
         }
-        let length = bits.access(|b| b.length());
+        let length = bits.length();
         Ok(BitSetIterator {
             bits,
             length,
             cost,
             doc: -1,
-            phantom: PhantomData,
         })
     }
     // Set the current doc id that this iterator is on.
@@ -62,15 +58,14 @@ where
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
-    pub fn get_bit_set(&self) -> R {
-        self.bits.clone()
+    pub fn get_bit_set(&self) -> &T {
+        &self.bits
     }
 }
 
-impl<T, R> DocIdSetIterator for BitSetIterator<T, R>
+impl<T> DocIdSetIterator for BitSetIterator<T>
 where
     T: BitSet,
-    R: SharedReadOnly<T>,
 {
     fn doc_id(&self) -> i32 {
         self.doc
@@ -85,7 +80,7 @@ where
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        self.doc = self.bits.access(|b| b.next_set_bit(target));
+        self.doc = self.bits.next_set_bit(target);
         Ok(self.doc)
     }
 
@@ -94,6 +89,7 @@ where
     }
 }
 
+use crate::core::util::bits::Bits;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;
