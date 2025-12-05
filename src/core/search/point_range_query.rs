@@ -53,7 +53,6 @@ use crate::core::util::ints_ref::IntsRef;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Struct for range queries over single- or multi-dimensional point fields,

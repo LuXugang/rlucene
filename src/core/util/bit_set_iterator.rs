@@ -16,10 +16,8 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::access::SharedReadOnly;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::marker::PhantomData;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///

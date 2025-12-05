@@ -21,7 +21,6 @@ use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Disk-based implementation of a [`DocIdSetIterator`] which can return the
@@ -1059,7 +1058,7 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::store::directory::Directory;
     use crate::core::store::{IOContext, IndexInput, IndexOutput};
-    use crate::core::util::access::SharedReadOnly;
+
     use crate::core::util::bit_set::{BitSet, of};
     use crate::core::util::bit_set_iterator::BitSetIterator;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1072,7 +1071,6 @@ mod tests {
     use parking_lot::Mutex;
     use rand::Rng;
 
-    use std::rc::Rc;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search

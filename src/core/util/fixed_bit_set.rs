@@ -680,7 +680,7 @@ mod tests {
     use crate::core::util::bit_set_iterator::BitSetIterator;
     use crate::core::util::bits::Bits;
     use crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
     use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;

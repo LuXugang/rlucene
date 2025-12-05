@@ -252,7 +252,7 @@ mod tests {
     use crate::core::util::bit_set_iterator::BitSetIterator;
     use crate::core::util::bits::Bits;
     use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum};
-    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::core::util::roaring_doc_id_set::builder::Builder;
@@ -261,7 +261,6 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
-    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}

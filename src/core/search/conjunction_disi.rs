@@ -16,6 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -295,6 +296,109 @@ where
             .unwrap()
             .cost()?
             .cmp(&self.disi[*b].as_ref().unwrap().cost()?)
+            .to_int())
+    }
+}
+/// [`TwoPhaseIterator`] implementing a conjunction.
+pub struct ConjunctionTwoPhaseIterator<T, D>
+where
+    T: TwoPhaseIterator,
+    D: DocIdSetIterator,
+{
+    two_phase_iterators: Vec<T>,
+    approximation: D,
+    match_cost: f32,
+}
+impl<T, D> ConjunctionTwoPhaseIterator<T, D>
+where
+    T: TwoPhaseIterator,
+    D: DocIdSetIterator,
+{
+    pub fn new(approximation: D, two_phase_iterators: Vec<T>, match_cost: f32) -> Self {
+        debug_assert!(!two_phase_iterators.is_empty());
+        let mut temp_two_phase_iterators = Vec::with_capacity(two_phase_iterators.len());
+        let mut cost = Vec::with_capacity(two_phase_iterators.len());
+        for (idx, v) in two_phase_iterators.into_iter().enumerate() {
+            cost.push(idx);
+            temp_two_phase_iterators.push(Some(v));
+        }
+        let cmp = TwoPhaseIteratorCmp::new(temp_two_phase_iterators.as_ref());
+        ArrayUtil::tim_sort_with_comparator(&mut cost, cmp).unwrap();
+        let two_phase_iterators = cost
+            .into_iter()
+            .map(|idx| temp_two_phase_iterators[idx].take().unwrap())
+            .collect::<Vec<_>>();
+
+        ConjunctionTwoPhaseIterator {
+            two_phase_iterators,
+            approximation,
+            match_cost,
+        }
+    }
+}
+impl<T, D> TwoPhaseIterator for ConjunctionTwoPhaseIterator<T, D>
+where
+    T: TwoPhaseIterator,
+    D: DocIdSetIterator,
+{
+    type DocIdSetIterator = D;
+    type DocIdSetIteratorRef<'a>
+        = &'a D
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>
+        = &'a mut D
+    where
+        Self: 'a;
+
+    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        &mut self.approximation
+    }
+
+    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+        &self.approximation
+    }
+
+    fn matches(&mut self) -> Result<bool> {
+        for x in &mut self.two_phase_iterators {
+            if !x.matches()? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn match_cost(&self) -> f32 {
+        self.match_cost
+    }
+}
+struct TwoPhaseIteratorCmp<'a, T>
+where
+    T: TwoPhaseIterator,
+{
+    tpi: &'a [Option<T>],
+}
+impl<'a, T> TwoPhaseIteratorCmp<'a, T>
+where
+    T: TwoPhaseIterator,
+{
+    fn new(disi: &'a [Option<T>]) -> Self {
+        TwoPhaseIteratorCmp { tpi: disi }
+    }
+}
+impl<T> Comparator<usize> for TwoPhaseIteratorCmp<'_, T>
+where
+    T: TwoPhaseIterator,
+{
+    const TYPE: &'static str = "TwoPhaseIteratorCmp";
+
+    fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
+        Ok(self.tpi[*a]
+            .as_ref()
+            .unwrap()
+            .match_cost()
+            .partial_cmp(&self.tpi[*b].as_ref().unwrap().match_cost())
+            .unwrap()
             .to_int())
     }
 }
