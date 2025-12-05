@@ -50,7 +50,7 @@ impl CollectionUtil {
 
     pub fn tim_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()>
     where
-        T: Default + Clone,
+        T: Copy,
     {
         let size = list.len();
         if size <= 1 {
@@ -61,7 +61,7 @@ impl CollectionUtil {
     }
     pub fn tim_sort<T>(list: &mut [T]) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Copy + Ord,
     {
         let size = list.len();
         if size <= 1 {
@@ -73,16 +73,17 @@ impl CollectionUtil {
 // ListTimSorter
 struct ListTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     arr: &'a mut [T],
     tmp: Vec<T>,
     comp: C,
     pivot: i32,
+    max_temp_slots: i32,
 }
 impl<'a, T, C: Comparator<T>> ListTimSorter<'a, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     pub fn new(
         arr: &'a mut [T],
@@ -90,7 +91,7 @@ where
         max_temp_slots: i32,
     ) -> TimSorter<ListTimSorter<'a, T, C>> {
         let tmp = if max_temp_slots > 0 {
-            vec![T::default(); max_temp_slots as usize]
+            Vec::with_capacity(max_temp_slots as usize)
         } else {
             vec![]
         };
@@ -99,13 +100,14 @@ where
             tmp,
             comp,
             pivot: 0,
+            max_temp_slots,
         };
         TimSorter::new(max_temp_slots, sub)
     }
 }
 impl<T, C: Comparator<T>> Sorter for ListTimSorter<'_, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comp
@@ -128,21 +130,25 @@ where
 }
 impl<T, C: Comparator<T>> TimSorterBase for ListTimSorter<'_, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     fn copy(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.arr[src as usize].clone();
+        self.arr[dest as usize] = self.arr[src as usize];
     }
 
     fn save(&mut self, start: i32, len: i32) {
+        let tmp_len = self.tmp.len();
+        if tmp_len < self.max_temp_slots as usize {
+            for _ in 0..(self.max_temp_slots as usize - tmp_len) {
+                self.tmp.push(self.arr[start as usize]);
+            }
+        }
         self.tmp
             .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
     }
 
     fn restore(&mut self, src: i32, dest: i32) {
-        // TODO: avoid clone, maybe wo could let arr: &'a mut Rc<Vec<T>> using
-        // AccessVec,
-        self.arr[dest as usize] = self.tmp[src as usize].clone();
+        self.arr[dest as usize] = self.tmp[src as usize];
     }
 
     fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
