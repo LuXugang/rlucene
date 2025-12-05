@@ -89,7 +89,7 @@ where
     S2: Scorer,
 {
     type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>;
-    type DocIdSetIteratorRef<'a>
+    type DocIdSetIteratorMut<'a>
         = &'a mut TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>
     where
         Self: 'a;
@@ -106,7 +106,7 @@ where
         }
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         &mut self.disi
     }
 

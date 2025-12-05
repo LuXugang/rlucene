@@ -220,7 +220,7 @@ where
     IE: ImpactsEnum,
 {
     type DocIdSetIterator = TermScorerDisi<IE, PE, SS>;
-    type DocIdSetIteratorRef<'a>
+    type DocIdSetIteratorMut<'a>
         = TermScorerDisiRef<'a, IE, PE, SS>
     where
         Self: 'a;
@@ -236,7 +236,7 @@ where
         postings.doc_id()
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         if self.impacts_disi.is_some() {
             debug_assert!(self.max_score_cache.is_none());
             TermScorerDisiRef::C(self.impacts_disi.as_mut().unwrap())

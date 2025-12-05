@@ -38,7 +38,7 @@ use crate::core::util::error::lucene_error::Result;
 pub trait Scorer: Scorable {
     /// Concrete iterator type over matching documents.
     type DocIdSetIterator: DocIdSetIterator;
-    type DocIdSetIteratorRef<'a>: DocIdSetIterator
+    type DocIdSetIteratorMut<'a>: DocIdSetIterator
     where
         Self: 'a;
 
@@ -61,7 +61,7 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_>;
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_>;
 
     /// Return a [`DocIdSetIterator`] over matching documents, transferring ownership.
     ///
@@ -186,8 +186,8 @@ macro_rules! either_scorer {
             type DocIdSetIterator =
                 $iter_ty<$( < $T as Scorer >::DocIdSetIterator ),+>;
 
-            type DocIdSetIteratorRef<'a> =
-                $iter_ty<$( < $T as Scorer >::DocIdSetIteratorRef<'a> ),+>
+            type DocIdSetIteratorMut<'a> =
+                $iter_ty<$( < $T as Scorer >::DocIdSetIteratorMut<'a> ),+>
             where
                 Self: 'a;
 
@@ -204,7 +204,7 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+            fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
                 match self {
                     $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator()), )+
                 }

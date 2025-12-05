@@ -119,7 +119,7 @@ impl Scorable for ScorerImpl {
 
 impl Scorer for ScorerImpl {
     type DocIdSetIterator = IntArrayDocIdSetIterator;
-    type DocIdSetIteratorRef<'a>
+    type DocIdSetIteratorMut<'a>
         = &'a mut IntArrayDocIdSetIterator
     where
         Self: 'a;
@@ -133,7 +133,7 @@ impl Scorer for ScorerImpl {
         Ok(self.it.doc_id())
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         &mut self.it
     }
 

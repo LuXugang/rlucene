@@ -128,7 +128,7 @@ where
     T: DisjunctionScorerBase,
 {
     type DocIdSetIterator = Disi<S>;
-    type DocIdSetIteratorRef<'a>
+    type DocIdSetIteratorMut<'a>
         = &'a mut Disi<S>
     where
         Self: 'a;
@@ -156,7 +156,7 @@ where
         }
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         &mut self.disi
     }
 

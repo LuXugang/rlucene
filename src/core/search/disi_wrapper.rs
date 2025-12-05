@@ -106,8 +106,8 @@ where
     S: Scorer,
 {
     type DocIdSetIterator = S::DocIdSetIterator;
-    type DocIdSetIteratorRef<'a>
-        = S::DocIdSetIteratorRef<'a>
+    type DocIdSetIteratorMut<'a>
+        = S::DocIdSetIteratorMut<'a>
     where
         Self: 'a;
     type TwoPhaseIter = S::TwoPhaseIter;
@@ -120,7 +120,7 @@ where
         self.scorer.doc_id()
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         self.scorer.iterator()
     }
 
