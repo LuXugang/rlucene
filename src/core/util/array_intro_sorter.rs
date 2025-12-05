@@ -44,7 +44,6 @@ where
 
 impl<T, C> Sorter for ArrayIntroSorter<'_, T, C>
 where
-    T: Ord,
     C: Comparator<T>,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
@@ -80,7 +79,7 @@ where
     }
 }
 
-impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord {}
+impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> {}
 
 #[cfg(test)]
 mod tests {
@@ -93,13 +92,10 @@ mod tests {
 
     const STABLE: bool = false;
 
-    struct TestIntroSorter<T, C: Comparator<T>>
-    where
-        T: Ord,
-    {
+    struct TestIntroSorter<T, C: Comparator<T>> {
         _marker: std::marker::PhantomData<(T, C)>,
     }
-    impl Default for TestIntroSorter<i32, NaturalOrder<i32>> {
+    impl Default for TestIntroSorter<i32, NaturalOrder> {
         fn default() -> Self {
             TestIntroSorter {
                 _marker: std::marker::PhantomData,
@@ -107,10 +103,7 @@ mod tests {
         }
     }
 
-    impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C>
-    where
-        T: Ord,
-    {
+    impl<T, C: Comparator<T>> BaseSortTestCase for TestIntroSorter<T, C> {
         fn new_sorter<R: Rng + ?Sized>(
             &self,
             _random: &mut R,

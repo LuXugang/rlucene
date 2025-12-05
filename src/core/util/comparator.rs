@@ -31,33 +31,19 @@ pub trait Comparator<T> {
     fn compare(&self, a: &T, b: &T) -> Result<i32>;
 }
 
-pub struct NaturalOrder<T>
-where
-    T: Ord,
-{
-    _t: std::marker::PhantomData<T>,
-}
-
-impl<T> Default for NaturalOrder<T>
-where
-    T: Ord,
-{
+pub struct NaturalOrder;
+impl Default for NaturalOrder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> NaturalOrder<T>
-where
-    T: Ord,
-{
-    pub fn new() -> NaturalOrder<T> {
-        NaturalOrder {
-            _t: std::marker::PhantomData,
-        }
+impl NaturalOrder {
+    pub fn new() -> NaturalOrder {
+        NaturalOrder {}
     }
 }
-impl<T> Comparator<T> for NaturalOrder<T>
+impl<T> Comparator<T> for NaturalOrder
 where
     T: Ord,
 {
@@ -68,34 +54,25 @@ where
     }
 }
 
-pub struct ReverseOrder<T>
-where
-    T: Ord,
-{
-    comparator: NaturalOrder<T>,
+pub struct ReverseOrder {
+    comparator: NaturalOrder,
 }
 
-impl<T> Default for ReverseOrder<T>
-where
-    T: Ord,
-{
+impl Default for ReverseOrder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> ReverseOrder<T>
-where
-    T: Ord,
-{
-    pub fn new() -> ReverseOrder<T> {
+impl ReverseOrder {
+    pub fn new() -> ReverseOrder {
         ReverseOrder {
             comparator: NaturalOrder::new(),
         }
     }
 }
 
-impl<T> Comparator<T> for ReverseOrder<T>
+impl<T> Comparator<T> for ReverseOrder
 where
     T: Ord,
 {
@@ -111,7 +88,7 @@ where
 /// allow it to be passed as the same parameter alongside other types
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE
 /// constant.
-impl BytesRefComparator for NaturalOrder<BytesRef<Vec<u8>>> {
+impl BytesRefComparator for NaturalOrder {
     fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> Result<i32> {
         if bytes_ref.length <= i as usize {
             return Ok(-1);

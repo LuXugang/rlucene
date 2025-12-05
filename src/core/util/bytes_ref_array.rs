@@ -576,7 +576,7 @@ mod tests {
                 );
             }
 
-            let mut iter2 = SortableBytesRefArray::iterator(&list, NaturalOrder::default())?;
+            let mut iter2 = SortableBytesRefArray::iterator(&list, NaturalOrder)?;
             let mut i = 0;
             while let Some(next) = iter2.next()? {
                 assert_eq!(
@@ -632,7 +632,7 @@ mod tests {
             string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
 
             let sort_state = if random.random_bool(0.5) {
-                list.sort(NaturalOrder::default(), true)?
+                list.sort(NaturalOrder, true)?
             } else {
                 list.sort(Natural::default(), true)?
             };

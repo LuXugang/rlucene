@@ -309,7 +309,7 @@ impl FieldUpdatesBuffer {
         let sorted_terms =
             self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
         if sorted_terms {
-            self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder::default(), true)?);
+            self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
             // TODO: memory calculation not implemented
             self.bytes_used.lock().add_and_get(0);

@@ -29,10 +29,7 @@ impl CollectionUtil {
         HashMap::with_capacity(capacity)
     }
     /// Sorts the given random access `List` using the `Comparator`.
-    pub fn intro_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()>
-    where
-        T: Ord,
-    {
+    pub fn intro_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()> {
         let size = list.len();
         if size <= 1 {
             return Ok(());
@@ -53,7 +50,7 @@ impl CollectionUtil {
 
     pub fn tim_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Default + Clone,
     {
         let size = list.len();
         if size <= 1 {
@@ -76,7 +73,7 @@ impl CollectionUtil {
 // ListTimSorter
 struct ListTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     arr: &'a mut [T],
     tmp: Vec<T>,
@@ -85,7 +82,7 @@ where
 }
 impl<'a, T, C: Comparator<T>> ListTimSorter<'a, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     pub fn new(
         arr: &'a mut [T],
@@ -108,7 +105,7 @@ where
 }
 impl<T, C: Comparator<T>> Sorter for ListTimSorter<'_, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comp
@@ -131,7 +128,7 @@ where
 }
 impl<T, C: Comparator<T>> TimSorterBase for ListTimSorter<'_, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     fn copy(&mut self, src: i32, dest: i32) {
         self.arr[dest as usize] = self.arr[src as usize].clone();

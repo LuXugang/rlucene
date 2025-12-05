@@ -1408,6 +1408,7 @@ impl PointTransitionSet {
     }
 
     pub fn sort(&mut self) -> Result<()> {
+        // TODO IMPORTANT sort with tim_sort require clone, should we optimize it? See ConjunctionDISI
         if self.count > 1 {
             ArrayUtil::tim_sort_with_range(&mut self.points, 0, self.count as i32)?;
         }

@@ -24,7 +24,7 @@ use crate::core::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBa
 /// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     arr: &'a mut [T],
     tmp: Vec<T>,
@@ -33,7 +33,7 @@ where
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     pub fn new(
         arr: &'a mut [T],
@@ -56,7 +56,7 @@ where
 }
 impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comparator
@@ -79,7 +79,7 @@ where
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone + Ord,
+    T: Default + Clone,
 {
     fn copy(&mut self, src: i32, dest: i32) {
         self.arr[dest as usize] = self.arr[src as usize].clone();

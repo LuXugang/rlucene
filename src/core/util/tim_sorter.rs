@@ -483,7 +483,7 @@ mod tests {
         _marker: std::marker::PhantomData<(T, C)>,
     }
 
-    impl TestTimSorter<Entry, NaturalOrder<Entry>> {
+    impl TestTimSorter<Entry, NaturalOrder> {
         fn default() -> Self {
             TestTimSorter {
                 _marker: std::marker::PhantomData,

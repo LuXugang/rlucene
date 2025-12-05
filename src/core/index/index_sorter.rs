@@ -555,9 +555,9 @@ mod tests {
 
     fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
         test_impl(refs.clone(), len, Natural::default())?;
-        test_impl(refs.clone(), len, NaturalOrder::default())?;
+        test_impl(refs.clone(), len, NaturalOrder)?;
         test_stable(refs.clone(), len, Natural::default())?;
-        test_stable(refs.clone(), len, NaturalOrder::default())?;
+        test_stable(refs.clone(), len, NaturalOrder)?;
         Ok(())
     }
 
