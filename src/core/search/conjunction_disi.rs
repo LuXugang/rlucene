@@ -15,9 +15,14 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::bits::Bits;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{Comparator, ToInt};
+use crate::core::util::{Comparator, ToInt, ToUsizeExact};
 
 pub struct ConjunctionDISI<D>
 where
@@ -147,6 +152,142 @@ where
     D: DocIdSetIterator,
 {
     const TYPE: &'static str = "DisiCmp";
+
+    fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
+        Ok(self.disi[*a]
+            .as_ref()
+            .unwrap()
+            .cost()?
+            .cmp(&self.disi[*b].as_ref().unwrap().cost()?)
+            .to_int())
+    }
+}
+/// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
+pub struct BitSetConjunctionDISI<DISI, T>
+where
+    DISI: DocIdSetIterator,
+    T: BitSet,
+{
+    lead: DISI,
+    bit_set_iterators: Vec<BitSetIterator<T>>,
+    min_length: usize,
+}
+impl<DISI, T> BitSetConjunctionDISI<DISI, T>
+where
+    DISI: DocIdSetIterator,
+    T: BitSet,
+{
+    pub fn new(lead: DISI, bit_set_iterators: Vec<BitSetIterator<T>>) -> Result<Self> {
+        assert!(!bit_set_iterators.is_empty());
+        let mut temp_bit_set_iterators = Vec::with_capacity(bit_set_iterators.len());
+        let mut cost = Vec::with_capacity(bit_set_iterators.len());
+        for (idx, v) in bit_set_iterators.into_iter().enumerate() {
+            cost.push(idx);
+            temp_bit_set_iterators.push(Some(v));
+        }
+        let cmp = BitSetIteratorCmp::new(temp_bit_set_iterators.as_ref());
+        ArrayUtil::tim_sort_with_comparator(&mut cost, cmp)?;
+
+        let bit_set_iterators = cost
+            .into_iter()
+            .map(|idx| temp_bit_set_iterators[idx].take().unwrap())
+            .collect::<Vec<_>>();
+        let mut min_length = i32::MAX;
+        for iter in &bit_set_iterators {
+            let bit_set = iter.get_bit_set();
+            min_length = min_length.min(bit_set.length());
+        }
+
+        Ok(Self {
+            lead,
+            bit_set_iterators,
+            min_length: min_length.to_usize_exact()?,
+        })
+    }
+    fn do_next(&mut self, mut doc: i32) -> Result<i32> {
+        'advance_lead: loop {
+            if doc >= self.min_length as i32 {
+                if doc != NO_MORE_DOCS {
+                    self.lead.advance(NO_MORE_DOCS)?;
+                }
+                return Ok(NO_MORE_DOCS);
+            }
+
+            for bs_iter in &self.bit_set_iterators {
+                let bs = bs_iter.get_bit_set();
+                if !bs.get(doc) {
+                    doc = self.lead.next_doc()?;
+                    continue 'advance_lead;
+                }
+            }
+
+            for iter in &mut self.bit_set_iterators {
+                iter.set_doc_id(doc);
+            }
+
+            return Ok(doc);
+        }
+    }
+    fn assert_iters_on_same_doc(&self) -> bool {
+        let cur_doc = self.lead.doc_id();
+        for iter in &self.bit_set_iterators {
+            if iter.doc_id() != cur_doc {
+                return false;
+            }
+        }
+        true
+    }
+}
+impl<DISI, T> DocIdSetIterator for BitSetConjunctionDISI<DISI, T>
+where
+    DISI: DocIdSetIterator,
+    T: BitSet,
+{
+    fn doc_id(&self) -> i32 {
+        self.lead.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        debug_assert!(
+            self.assert_iters_on_same_doc(),
+            "Sub-iterators of BitSetConjunctionDISI are not on the same document!"
+        );
+        let doc = self.lead.next_doc()?;
+        self.do_next(doc)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        debug_assert!(
+            self.assert_iters_on_same_doc(),
+            "Sub-iterators of BitSetConjunctionDISI are not on the same document!"
+        );
+        let doc = self.lead.advance(target)?;
+        self.do_next(doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.lead.cost()
+    }
+}
+struct BitSetIteratorCmp<'a, B>
+where
+    B: BitSet,
+{
+    disi: &'a [Option<BitSetIterator<B>>],
+}
+impl<'a, B> BitSetIteratorCmp<'a, B>
+where
+    B: BitSet,
+{
+    fn new(disi: &'a [Option<BitSetIterator<B>>]) -> Self {
+        BitSetIteratorCmp { disi }
+    }
+}
+impl<B> Comparator<usize> for BitSetIteratorCmp<'_, B>
+where
+    B: BitSet,
+{
+    const TYPE: &'static str = "BitSetIteratorCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
         Ok(self.disi[*a]

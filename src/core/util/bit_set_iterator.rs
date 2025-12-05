@@ -55,7 +55,7 @@ where
     }
     // Set the current doc id that this iterator is on.
 
-    fn set_doc_id(&mut self, doc_id: i32) {
+    pub fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
     pub fn get_bit_set(&self) -> &T {
