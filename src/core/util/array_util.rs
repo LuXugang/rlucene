@@ -289,7 +289,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn do_tim_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
     where
-        T: Default + Clone,
+        T: Copy,
         C: Comparator<T>,
     {
         if to_index - from_index <= 1 {
@@ -303,7 +303,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn tim_sort_with_comparator<T, C>(a: &mut [T], comp: C) -> Result<()>
     where
-        T: Default + Clone,
+        T: Copy,
         C: Comparator<T>,
     {
         let len = a.len() as i32;
@@ -313,7 +313,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn tim_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Copy + Ord,
     {
         if to_index - from_index <= 1 {
             return Ok(());
@@ -324,7 +324,7 @@ impl ArrayUtil {
     /// falling back to binary sort for small arrays.
     pub fn tim_sort<T>(a: &mut [T]) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Copy + Ord,
     {
         let len = a.len() as i32;
         Self::tim_sort_with_range(a, 0, len)
@@ -348,7 +348,6 @@ impl ArrayUtil {
     /// - `comparator`: A comparator to use for sorting.
     pub fn select<T, C>(arr: &mut [T], from: i32, to: i32, k: i32, comparator: &mut C) -> Result<()>
     where
-        T: Default,
         C: Comparator<T>,
     {
         let sub_selector = IntroSelectorImpl::new(arr, comparator);
@@ -402,7 +401,6 @@ impl ArrayUtil {
 
 struct IntroSelectorImpl<'a, T, C>
 where
-    T: Default,
     C: Comparator<T>,
 {
     pivot: i32,
@@ -411,7 +409,6 @@ where
 }
 impl<'a, T, C> IntroSelectorImpl<'a, T, C>
 where
-    T: Default,
     C: Comparator<T>,
 {
     fn new(arr: &'a mut [T], comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
@@ -426,7 +423,6 @@ where
 impl<T, C> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T, C>
 where
     C: Comparator<T>,
-    T: Default,
 {
     fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot = i;
@@ -439,15 +435,9 @@ where
     }
 }
 
-impl<T, C> IntroSelectorBase for IntroSelectorImpl<'_, T, C>
-where
-    T: Default,
-    C: Comparator<T>,
-{
-}
+impl<T, C> IntroSelectorBase for IntroSelectorImpl<'_, T, C> where C: Comparator<T> {}
 impl<T, C> Selector for IntroSelectorImpl<'_, T, C>
 where
-    T: Default,
     C: Comparator<T>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -756,7 +746,7 @@ mod tests {
         }
         Ok(())
     }
-    #[derive(Debug, Clone, Default)]
+    #[derive(Debug, Clone, Default, Copy)]
     struct Item {
         val: i32,
         order: i32,

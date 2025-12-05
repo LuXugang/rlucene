@@ -1268,7 +1268,7 @@ impl Operations {
         Ok(upto)
     }
 }
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub(crate) struct TransitionList {
     // dest, min, max
     pub(crate) transitions: Vec<i32>,
@@ -1295,7 +1295,7 @@ impl TransitionList {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub(crate) struct PointTransitions {
     pub(crate) point: i32,
     pub(crate) ends: TransitionList,
@@ -1408,9 +1408,21 @@ impl PointTransitionSet {
     }
 
     pub fn sort(&mut self) -> Result<()> {
-        // TODO IMPORTANT sort with tim_sort require clone, should we optimize it? See ConjunctionDISI
         if self.count > 1 {
-            ArrayUtil::tim_sort_with_range(&mut self.points, 0, self.count as i32)?;
+            let mut cost = Vec::with_capacity(self.points.len());
+            for (idx, v) in self.points.iter().enumerate() {
+                cost.push(Cost {
+                    idx,
+                    point: v.point,
+                })
+            }
+
+            ArrayUtil::tim_sort_with_range(&mut cost, 0, self.count as i32)?;
+            let mut new_points = Vec::with_capacity(cost.len());
+            for x in cost {
+                new_points.push(std::mem::take(&mut self.points[x.idx]));
+            }
+            self.points = new_points;
         }
         Ok(())
     }
@@ -1419,7 +1431,27 @@ impl PointTransitionSet {
         self.find(t.max + 1).ends.add(t);
     }
 }
-
+#[derive(Copy, Clone)]
+struct Cost {
+    idx: usize,
+    point: i32,
+}
+impl Eq for Cost {}
+impl PartialEq<Self> for Cost {
+    fn eq(&self, other: &Self) -> bool {
+        self.point == other.point && self.idx == other.idx
+    }
+}
+impl PartialOrd<Self> for Cost {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Option::from(Ord::cmp(&self.point, &other.point))
+    }
+}
+impl Ord for Cost {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.point.cmp(&other.point)
+    }
+}
 impl Display for PointTransitionSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for i in 0..self.count {

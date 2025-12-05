@@ -24,16 +24,17 @@ use crate::core::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBa
 /// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     arr: &'a mut [T],
     tmp: Vec<T>,
     comparator: C,
     pivot_index: i32,
+    max_temp_slots: i32,
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     pub fn new(
         arr: &'a mut [T],
@@ -41,7 +42,7 @@ where
         max_temp_slots: i32,
     ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
         let tmp = if max_temp_slots > 0 {
-            vec![T::default(); max_temp_slots as usize]
+            Vec::with_capacity(max_temp_slots as usize)
         } else {
             vec![]
         };
@@ -50,13 +51,14 @@ where
             tmp,
             comparator,
             pivot_index: 0,
+            max_temp_slots,
         };
         TimSorter::new(max_temp_slots, sub)
     }
 }
 impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comparator
@@ -79,20 +81,25 @@ where
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone,
+    T: Copy,
 {
     fn copy(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.arr[src as usize].clone();
+        self.arr[dest as usize] = self.arr[src as usize];
     }
 
     fn save(&mut self, start: i32, len: i32) {
+        let tmp_len = self.tmp.len();
+        if tmp_len < self.max_temp_slots as usize {
+            for _ in 0..(self.max_temp_slots as usize - tmp_len) {
+                self.tmp.push(self.arr[start as usize]);
+            }
+        }
         self.tmp
             .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
     }
 
     fn restore(&mut self, src: i32, dest: i32) {
-        // TODO: avoid clone
-        self.arr[dest as usize] = self.tmp[src as usize].clone();
+        self.arr[dest as usize] = self.tmp[src as usize];
     }
 
     fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {

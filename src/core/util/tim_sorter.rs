@@ -474,24 +474,20 @@ mod tests {
     use rand::Rng;
 
     use crate::core::util::array_tim_sorter::ArrayTimSorter;
-    use crate::core::util::{Comparator, NaturalOrder, Sorter};
+    use crate::core::util::{NaturalOrder, Sorter};
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
 
-    struct TestTimSorter<T, C> {
-        _marker: std::marker::PhantomData<(T, C)>,
-    }
+    struct TestTimSorter;
 
-    impl TestTimSorter<Entry, NaturalOrder> {
+    impl TestTimSorter {
         fn default() -> Self {
-            TestTimSorter {
-                _marker: std::marker::PhantomData,
-            }
+            TestTimSorter {}
         }
     }
 
-    impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
+    impl BaseSortTestCase for TestTimSorter {
         fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter {
             let arr_len = arr.len();
             let max_temp_slots = TestUtil::next_int(random, 0, arr_len as i32);

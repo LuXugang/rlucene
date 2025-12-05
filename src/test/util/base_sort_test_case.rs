@@ -173,7 +173,7 @@ impl Strategy {
     }
 }
 
-#[derive(Clone, Eq, Debug, Default)]
+#[derive(Copy, Eq, Debug, Default, Clone)]
 pub struct Entry {
     value: i32,
     ord: i32,
