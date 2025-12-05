@@ -329,7 +329,7 @@ where
             }
             (lead1.doc, self.max_score_sums[n - 2])
         };
-
+        // TODO IMPORTANT能否降低iterator()方法的调用次数
         'outer: while doc < max {
             let (v, score) = {
                 let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
@@ -842,7 +842,7 @@ mod test {
         // TODO newLogMergePolicy 未实现
         // iwc.set_merge_policy(new_log_merge_policy());
 
-        let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
 
         let docs: Vec<Vec<&str>> = vec![
             vec!["A", "B"],      // 0
@@ -1066,7 +1066,7 @@ mod test {
             Ok(self.max_score_up_to)
         }
 
-        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
             Ok(self.max_score)
         }
 

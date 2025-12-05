@@ -355,7 +355,6 @@ pub(crate) fn of<S: SubBase>(
 
 #[cfg(test)]
 pub mod tests {
-    use std::cell::RefCell;
     use std::rc::Rc;
 
     use rand::Rng;
@@ -425,7 +424,7 @@ pub mod tests {
         let mut subs = vec![];
         let mut value_start = 0;
 
-        for i in 0..sub_count {
+        for _ in 0..sub_count {
             let max_doc = TestUtil::next_int(&mut random, 1, 1000);
             let doc_base = value_start;
             let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 { doc_base }));

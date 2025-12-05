@@ -166,7 +166,7 @@ mod tests {
     use crate::test::search::random_approximation_query::RandomTwoPhaseView;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use rand::Rng;
-    use std::fmt::{Display, Formatter, write};
+    use std::fmt::{Display, Formatter};
 
     #[allow(dead_code)] // for quick search
     struct TestReqExclBulkScorer;

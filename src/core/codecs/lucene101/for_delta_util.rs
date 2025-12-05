@@ -662,9 +662,6 @@ impl ForDeltaUtil {
 }
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
     use rand::Rng;
 
     use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
