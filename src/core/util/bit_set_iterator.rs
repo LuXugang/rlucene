@@ -87,7 +87,6 @@ where
     }
 }
 
-use crate::core::util::bits::Bits;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::any::TypeId;

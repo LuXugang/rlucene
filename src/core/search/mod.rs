@@ -102,6 +102,7 @@ pub mod index_sort_sorted_numeric_doc_values_range_query;
 mod max_score_bulk_scorer;
 pub mod point_range_query;
 pub(crate) mod req_excl_bulk_scorer;
+pub(crate) mod req_excl_scorer;
 mod scorer_util;
 pub mod top_field_collector;
 pub mod top_field_collector_manager;

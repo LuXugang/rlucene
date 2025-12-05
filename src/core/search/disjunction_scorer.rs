@@ -111,7 +111,7 @@ where
     T: DisjunctionScorerBase,
 {
     fn score(&mut self) -> Result<f32> {
-        let v = self.get_sub_matched()?;
+        let _v = self.get_sub_matched()?;
         todo!()
     }
 

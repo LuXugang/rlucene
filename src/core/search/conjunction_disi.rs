@@ -20,7 +20,6 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::bits::Bits;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{Comparator, ToInt, ToUsizeExact};
