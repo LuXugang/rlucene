@@ -87,6 +87,7 @@ mod boolean_scorer_supplier;
 pub(crate) mod boolean_weight;
 pub mod boost_query;
 pub(crate) mod conjunction_bulk_scorer;
+pub(crate) mod conjunction_disi;
 pub(crate) mod conjunction_scorer;
 mod constant_score_query;
 pub mod disi_priority_queue;
