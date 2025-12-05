@@ -301,11 +301,11 @@ where
     T: BitSet,
 {
     fn get(&self, index: i32) -> bool {
-        todo!()
+        (**self).get(index)
     }
 
     fn length(&self) -> i32 {
-        todo!()
+        (**self).length()
     }
 }
 
@@ -326,15 +326,15 @@ where
         unreachable!()
     }
 
-    fn set(&mut self, i: i32) {
+    fn set(&mut self, _i: i32) {
         unreachable!()
     }
 
-    fn get_and_set(&mut self, i: i32) -> bool {
+    fn get_and_set(&mut self, _i: i32) -> bool {
         unreachable!()
     }
 
-    fn clear_with_index(&mut self, i: i32) {
+    fn clear_with_index(&mut self, _i: i32) {
         unreachable!()
     }
 
