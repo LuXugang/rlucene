@@ -30,6 +30,8 @@ pub type ReqOptSumScorerDisi<S1, S2> = Either2DocIdSetIterator<
     DocIdSetIteratorImpl<S1, S2>,
     TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S1, S2>>,
 >;
+/// A scorer for queries with a required part and an optional part.
+/// Delays advance on the optional part until a score is needed.
 pub struct ReqOptSumScorer<S1, S2>
 where
     S1: Scorer,
@@ -43,7 +45,16 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    pub fn new(mut req_scorer: S1, mut opt_scorer: S2, score_mode: ScoreMode) -> Result<Self> {
+    /// Construct a `ReqOptScorer`.
+    ///
+    /// * `req_scorer` — the required scorer, which must match
+    /// * `opt_scorer` — the optional scorer, used only for scoring
+    /// * `score_mode` — how the produced scorers will be consumed
+    pub(crate) fn new(
+        mut req_scorer: S1,
+        mut opt_scorer: S2,
+        score_mode: ScoreMode,
+    ) -> Result<Self> {
         let req_max_score;
         if score_mode != TopScores {
             req_max_score = f32::MAX;
@@ -52,8 +63,23 @@ where
             opt_scorer.advance_shallow(0)?;
             req_max_score = req_scorer.get_max_score(NO_MORE_DOCS)?;
         }
+        let has_tpi = (req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
+            || req_scorer.two_phase_iterator().is_some())
+            && (opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
+                || opt_scorer.two_phase_iterator().is_some());
         let approximation = DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score)?;
-        todo!()
+        match has_tpi {
+            true => Ok(Self {
+                disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
+                    TwoPhaseIteratorImpl::new(approximation),
+                )),
+                has_tpi,
+            }),
+            false => Ok(Self {
+                disi: Either2DocIdSetIterator::A(approximation),
+                has_tpi,
+            }),
+        }
     }
 }
 
@@ -385,6 +411,15 @@ where
     S2: Scorer,
 {
     disi: DocIdSetIteratorImpl<S1, S2>,
+}
+impl<S1, S2> TwoPhaseIteratorImpl<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    fn new(disi: DocIdSetIteratorImpl<S1, S2>) -> Self {
+        Self { disi }
+    }
 }
 impl<S1, S2> TwoPhaseIterator for TwoPhaseIteratorImpl<S1, S2>
 where

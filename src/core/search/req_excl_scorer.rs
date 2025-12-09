@@ -38,7 +38,7 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    pub fn new(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Self> {
+    pub(crate) fn new(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Self> {
         let match_cost = match_cost(&mut req_scorer, &mut excl_scorer)?;
 
         let check_req = match req_scorer.two_phase_iterator_mut() {

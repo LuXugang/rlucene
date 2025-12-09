@@ -500,7 +500,7 @@ where
     }
 }
 
-struct FilterScorableImpl<'a, S>
+pub struct FilterScorableImpl<'a, S>
 where
     S: Scorable,
 {
@@ -511,7 +511,7 @@ impl<'a, S> FilterScorableImpl<'a, S>
 where
     S: Scorable,
 {
-    pub fn new(the_score: f32, s: &'a mut S) -> Self {
+    pub(crate) fn new(the_score: f32, s: &'a mut S) -> Self {
         let base = FilterScorable::new(s);
         Self { the_score, base }
     }
