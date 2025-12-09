@@ -165,29 +165,37 @@ where
         self.disi
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
-        match self.disi {
-            ConstantDISI_::A(_) => None,
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        Ok(match self.disi {
+            ConstantDISI_::A(_) => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
             ConstantDISI_::B(ref v) => Some(&v.two_phase_iterator),
-        }
+        })
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
-        match self.disi {
-            ConstantDISI_::A(_) => None,
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        Ok(match self.disi {
+            ConstantDISI_::A(_) => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
             ConstantDISI_::B(ref mut v) => Some(&mut v.two_phase_iterator),
-        }
+        })
     }
 
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
-        if matches!(self.disi, ConstantDISI_::A(_)) {
-            return None;
-        }
-
-        match self.disi {
-            ConstantDISI_::A(_) => None,
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
+        Ok(match self.disi {
+            ConstantDISI_::A(_) => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
             ConstantDISI_::B(wrapper) => Some(wrapper.two_phase_iterator),
-        }
+        })
     }
 
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {

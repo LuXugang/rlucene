@@ -86,8 +86,8 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
-        None
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        Ok(None)
     }
 
     /// Optional: Return a two-phase iterator view of this scorer.
@@ -102,18 +102,18 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
-        None
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        Ok(None)
     }
 
     /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
     ///
     /// By default, this returns `None`.
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter>
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
     where
         Self: Sized,
     {
-        None
+        Ok(None)
     }
 
     /// Advance to the block of documents that contains `target` in order to get
@@ -264,26 +264,28 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+            fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
                 match self {
                     $( Self::$Variant(inner) =>
-                        inner.two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
+                        inner.two_phase_iterator().map(|res| res.map(|it| $two_phase_ty::$Variant(it))), )+
                 }
             }
 
             #[inline]
-            fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+            fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
                 match self {
                     $( Self::$Variant(inner) =>
-                        inner.two_phase_iterator_mut().map(|it| $two_phase_ty::$Variant(it)), )+
+                        inner
+                            .two_phase_iterator_mut()
+                            .map(|res| res.map(|it| $two_phase_ty::$Variant(it))), )+
                 }
             }
 
             #[inline]
-            fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
+            fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
                 match self {
                     $( Self::$Variant(inner) =>
-                        inner.take_two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
+                        inner.take_two_phase_iterator().map(|res| res.map(|it| $two_phase_ty::$Variant(it))), )+
                 }
             }
 

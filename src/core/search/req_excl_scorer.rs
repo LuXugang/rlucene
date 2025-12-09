@@ -41,8 +41,8 @@ where
     pub(crate) fn new(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Self> {
         let match_cost = match_cost(&mut req_scorer, &mut excl_scorer)?;
 
-        let check_req = match req_scorer.two_phase_iterator_mut() {
-            Some(ref mut req_scorer_tpi) => match excl_scorer.two_phase_iterator_mut() {
+        let check_req = match req_scorer.two_phase_iterator_mut()? {
+            Some(ref mut req_scorer_tpi) => match excl_scorer.two_phase_iterator_mut()? {
                 Some(excl_scorer_tpi) => {
                     req_scorer_tpi.match_cost() <= excl_scorer_tpi.match_cost()
                 },
@@ -127,19 +127,19 @@ where
         self.disi
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
-        Some(&self.disi.two_phase_iterator)
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        Ok(Some(&self.disi.two_phase_iterator))
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
-        Some(&mut self.disi.two_phase_iterator)
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        Ok(Some(&mut self.disi.two_phase_iterator))
     }
 
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter>
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
     where
         Self: Sized,
     {
-        Some(self.disi.two_phase_iterator)
+        Ok(Some(self.disi.two_phase_iterator))
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -220,19 +220,19 @@ where
                 excl_doc = excl_iter.advance(doc)?;
             }
             if excl_doc != doc {
-                return match self.req_scorer.two_phase_iterator_mut() {
+                return match self.req_scorer.two_phase_iterator_mut()? {
                     Some(mut req_tpi) => req_tpi.matches(),
                     None => Ok(true),
                 };
             }
         }
-        let req_match = match self.req_scorer.two_phase_iterator_mut() {
+        let req_match = match self.req_scorer.two_phase_iterator_mut()? {
             Some(mut req_tpi) => req_tpi.matches()?,
             None => true,
         };
         match req_match {
             true => {
-                let v = match self.excl_scorer.two_phase_iterator_mut() {
+                let v = match self.excl_scorer.two_phase_iterator_mut()? {
                     Some(mut excl_tpi) => excl_tpi.matches()?,
                     None => true,
                 };
@@ -305,14 +305,14 @@ where
             }
 
             if excl_doc != doc {
-                return match self.req_scorer.two_phase_iterator_mut() {
+                return match self.req_scorer.two_phase_iterator_mut()? {
                     Some(mut req_tpi) => req_tpi.matches(),
                     None => Ok(true),
                 };
             }
         }
 
-        let excl_not_match = match self.excl_scorer.two_phase_iterator_mut() {
+        let excl_not_match = match self.excl_scorer.two_phase_iterator_mut()? {
             Some(mut excl_tpi) => !excl_tpi.matches()?,
             None => false,
         };
@@ -321,7 +321,7 @@ where
             return Ok(false);
         }
 
-        let req_match = match self.req_scorer.two_phase_iterator_mut() {
+        let req_match = match self.req_scorer.two_phase_iterator_mut()? {
             Some(mut req_tpi) => req_tpi.matches()?,
             None => true,
         };
@@ -347,14 +347,14 @@ where
 {
     let mut match_cost: f32 = 2.0;
 
-    if let Some(req_tpi) = req_scorer.two_phase_iterator_mut() {
+    if let Some(req_tpi) = req_scorer.two_phase_iterator_mut()? {
         // this two-phase iterator must always be matched
         match_cost += req_tpi.match_cost();
     }
     // match cost of the prohibited clause: we need to advance the approximation
     // and match the two-phased iterator
     let excl_match_cost = {
-        let extra = match excl_scorer.two_phase_iterator_mut() {
+        let extra = match excl_scorer.two_phase_iterator_mut()? {
             Some(excl_tpi) => excl_tpi.match_cost(),
             None => 0.0,
         };

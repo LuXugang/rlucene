@@ -43,7 +43,7 @@ where
 {
     pub fn new(mut scorer: S) -> Result<Self> {
         let cost = scorer.iterator_mut().cost()?;
-        let match_cost = match scorer.two_phase_iterator_mut() {
+        let match_cost = match scorer.two_phase_iterator_mut()? {
             Some(tpi) => tpi.match_cost(),
             None => 0.0,
         };
@@ -59,7 +59,7 @@ where
     }
 
     pub fn matches(&mut self) -> Result<bool> {
-        match self.scorer.two_phase_iterator_mut() {
+        match self.scorer.two_phase_iterator_mut()? {
             Some(mut tpi) => tpi.matches(),
             None => Err(LuceneError::illegal_state(
                 "this scorer does not support two-phase iteration",
@@ -67,7 +67,7 @@ where
         }
     }
     pub fn matches_may_none(&mut self) -> Result<bool> {
-        match self.scorer.two_phase_iterator_mut() {
+        match self.scorer.two_phase_iterator_mut()? {
             Some(mut tpi) => tpi.matches(),
             None => Ok(true),
         }
@@ -140,15 +140,15 @@ where
         self.scorer.take_iterator()
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
         self.scorer.two_phase_iterator()
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
         self.scorer.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
         self.scorer.take_two_phase_iterator()
     }
 

@@ -73,7 +73,7 @@ where
             let w = &mut approximation.all_scores[idx];
             let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
             sum_approx_cost += cost_weight;
-            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator().is_some()
+            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator()?.is_some()
             {
                 has_approximation = true;
                 sum_match_cost += w.match_cost * cost_weight as f32;
@@ -176,25 +176,37 @@ where
         self.disi
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
-        match self.disi {
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        Ok(match self.disi {
             Disi::B(ref v) => Some(&v.two_phase_iterator),
-            _ => None,
-        }
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
+        })
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
-        match self.disi {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        Ok(match self.disi {
             Disi::B(ref mut v) => Some(&mut v.two_phase_iterator),
-            _ => None,
-        }
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
+        })
     }
 
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
-        match self.disi {
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
+        Ok(match self.disi {
             Disi::B(v) => Some(v.two_phase_iterator),
-            _ => None,
-        }
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                ));
+            },
+        })
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
@@ -301,7 +313,7 @@ where
             let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
             let has_no_two_phase_view = (w.has_two_phase_iterator() == TwoPhaseState::No)
-                || w.two_phase_iterator().is_some();
+                || w.two_phase_iterator()?.is_some();
             if has_no_two_phase_view {
                 // implicitly verified, move it to verifiedMatches
                 w.next = self.verified_matches;

@@ -83,15 +83,15 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter> {
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

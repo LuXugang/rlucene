@@ -329,10 +329,10 @@ where
         match inner_scorer {
             Some(inner_scorer) => {
                 let has_tpi = inner_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-                    || inner_scorer.two_phase_iterator().is_some();
+                    || inner_scorer.two_phase_iterator()?.is_some();
                 match has_tpi {
                     true => {
-                        let tpi = inner_scorer.take_two_phase_iterator().unwrap();
+                        let tpi = inner_scorer.take_two_phase_iterator()?.unwrap();
                         let v = ConstantScoreScorer::with_tpi(self.score, self.score_mode, tpi);
                         Ok(Some(ConstantScoreScorerEnum::<S, IRC, QCP, QC>::B(v)))
                     },

@@ -38,24 +38,26 @@ where
     DISI: DocIdSetIterator,
     TPI: TwoPhaseIterator,
 {
-    pub(crate) fn with_scorer<S>(req: BS, excl: S) -> Self
+    pub(crate) fn with_scorer<S>(req: BS, excl: S) -> Result<Self>
     where
         S: Scorer<TwoPhaseIter = TPI, DocIdSetIterator = DISI>,
     {
-        match excl.has_two_phase_iterator() == TwoPhaseState::Yes
-            || excl.two_phase_iterator().is_some()
-        {
-            true => Self {
-                req,
-                excl_two_phase: Some(excl.take_two_phase_iterator().unwrap()),
-                excl_approximation: None,
+        Ok(
+            match excl.has_two_phase_iterator() == TwoPhaseState::Yes
+                || excl.two_phase_iterator()?.is_some()
+            {
+                true => Self {
+                    req,
+                    excl_two_phase: Some(excl.take_two_phase_iterator()?.unwrap()),
+                    excl_approximation: None,
+                },
+                false => Self {
+                    req,
+                    excl_two_phase: None,
+                    excl_approximation: Some(excl.take_iterator()),
+                },
             },
-            false => Self {
-                req,
-                excl_two_phase: None,
-                excl_approximation: Some(excl.take_iterator()),
-            },
-        }
+        )
     }
     pub(crate) fn with_disi(req: BS, disi: DISI) -> Self {
         Self {

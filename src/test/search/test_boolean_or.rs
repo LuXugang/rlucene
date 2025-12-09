@@ -153,7 +153,7 @@ impl Scorer for ScorerImpl {
         unreachable!()
     }
 
-    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
         unreachable!()
     }
 

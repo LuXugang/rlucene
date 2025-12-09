@@ -1075,8 +1075,8 @@ mod test {
             unreachable!("")
         }
 
-        fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
-            None
+        fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+            Ok(None)
         }
 
         fn advance_shallow(&mut self, _target: i32) -> Result<i32> {

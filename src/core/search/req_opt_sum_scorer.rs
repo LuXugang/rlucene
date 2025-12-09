@@ -25,7 +25,6 @@ use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::Result;
-use num_traits::real::Real;
 
 pub type ReqOptSumScorerDisi<S1, S2> = Either2DocIdSetIterator<
     DocIdSetIteratorImpl<S1, S2>,
@@ -65,9 +64,9 @@ where
             req_max_score = req_scorer.get_max_score(NO_MORE_DOCS)?;
         }
         let has_tpi = (req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-            || req_scorer.two_phase_iterator().is_some())
+            || req_scorer.two_phase_iterator()?.is_some())
             && (opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-                || opt_scorer.two_phase_iterator().is_some());
+                || opt_scorer.two_phase_iterator()?.is_some());
         let approximation = DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score)?;
         match has_tpi {
             true => Ok(Self {
@@ -368,7 +367,7 @@ where
         if opt_doc < cur_doc {
             let mut opt_it = self.opt_scorer.iterator();
             opt_doc = opt_it.advance(cur_doc)?;
-            if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()
+            if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()?
                 && opt_doc == cur_doc
                 && !opt_tpi.matches()?
             {
@@ -446,14 +445,14 @@ where
     }
 
     fn matches(&mut self) -> Result<bool> {
-        if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator()
+        if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator()?
             && !req_tpi.matches()?
         {
             return Ok(false);
         }
 
         // optional scorer logic
-        if let Some(mut opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
+        if let Some(mut opt_tpi) = self.disi.opt_scorer.two_phase_iterator()? {
             // The below condition is rare and can only happen if we transitioned to
             // optIsRequired=true
             // after the opt approximation was advanced and before it was confirmed.
@@ -493,11 +492,11 @@ where
     fn match_cost(&self) -> f32 {
         let mut cost = 1.0;
 
-        if let Some(req_tpi) = self.disi.req_scorer.two_phase_iterator() {
+        if let Ok(Some(req_tpi)) = self.disi.req_scorer.two_phase_iterator() {
             cost += req_tpi.match_cost();
         }
 
-        if let Some(opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
+        if let Ok(Some(opt_tpi)) = self.disi.opt_scorer.two_phase_iterator() {
             cost += opt_tpi.match_cost();
         }
 
@@ -588,15 +587,15 @@ mod tests {
             self.base.take_iterator()
         }
 
-        fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
             self.base.two_phase_iterator()
         }
 
-        fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+        fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
             self.base.two_phase_iterator_mut()
         }
 
-        fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter>
+        fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
         where
             Self: Sized,
         {
