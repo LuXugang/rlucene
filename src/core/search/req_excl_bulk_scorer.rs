@@ -95,7 +95,7 @@ where
                 .excl_two_phase
                 .as_mut()
                 .unwrap()
-                .approximation_mut()
+                .approximation_mut()?
                 .doc_id(),
         };
 
@@ -107,7 +107,7 @@ where
                         .excl_two_phase
                         .as_mut()
                         .unwrap()
-                        .approximation_mut()
+                        .approximation_mut()?
                         .advance(upto)?,
                 };
             }
@@ -127,7 +127,7 @@ where
                         .excl_two_phase
                         .as_mut()
                         .unwrap()
-                        .approximation_mut()
+                        .approximation_mut()?
                         .next_doc()?,
                 };
             } else {

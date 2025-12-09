@@ -218,11 +218,11 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
         self.two_phase_iterator.approximation_mut()
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
         self.two_phase_iterator.approximation()
     }
 

@@ -35,8 +35,8 @@ pub trait TwoPhaseIterator {
     ///
     /// The returned iterator must advance synchronously with this
     /// `TwoPhaseIterator`.
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_>;
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>>;
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>>;
 
     /// Set the approximation to an empty iterator
     fn set_empty(&mut self) -> Result<()> {
@@ -78,12 +78,12 @@ where
         Self: 'a;
 
     #[inline]
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
         (**self).approximation_mut()
     }
 
     #[inline]
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
         (**self).approximation()
     }
 
@@ -102,7 +102,47 @@ where
         (**self).match_cost()
     }
 }
+impl<T> TwoPhaseIterator for &T
+where
+    T: TwoPhaseIterator + ?Sized,
+{
+    type DocIdSetIterator = T::DocIdSetIterator;
 
+    type DocIdSetIteratorRef<'a>
+        = T::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+
+    type DocIdSetIteratorMut<'a>
+        = T::DocIdSetIteratorMut<'a>
+    where
+        Self: 'a;
+
+    #[inline]
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    #[inline]
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        (**self).approximation()
+    }
+
+    #[inline]
+    fn set_empty(&mut self) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    #[inline]
+    fn matches(&mut self) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    #[inline]
+    fn match_cost(&self) -> f32 {
+        (**self).match_cost()
+    }
+}
 pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI>
 where
     TPI: TwoPhaseIterator,
@@ -125,7 +165,7 @@ where
             } else if self.two_phase_iterator.matches()? {
                 return Ok(doc);
             }
-            doc = self.two_phase_iterator.approximation_mut().next_doc()?;
+            doc = self.two_phase_iterator.approximation_mut()?.next_doc()?;
         }
     }
 }
@@ -135,24 +175,27 @@ where
     TPI: TwoPhaseIterator,
 {
     fn doc_id(&self) -> i32 {
-        self.two_phase_iterator.approximation().doc_id()
+        self.two_phase_iterator
+            .approximation()
+            .expect("approximation should not fail")
+            .doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let doc = self.two_phase_iterator.approximation_mut().next_doc()?;
+        let doc = self.two_phase_iterator.approximation_mut()?.next_doc()?;
         self.do_next(doc)
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         let doc = self
             .two_phase_iterator
-            .approximation_mut()
+            .approximation_mut()?
             .advance(target)?;
         self.do_next(doc)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.two_phase_iterator.approximation().cost()
+        self.two_phase_iterator.approximation()?.cost()
     }
 }
 /// Return a DocIdSetIterator view of the provided TwoPhaseIterator.
@@ -195,16 +238,16 @@ macro_rules! either_two_phase_iterator_gat {
                 Self: 'a;
 
             #[inline]
-            fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+            fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
                 match self {
-                    $( Self::$Variant(inner) => $disi::$Variant(inner.approximation_mut()), )+
+                    $( Self::$Variant(inner) => Ok($disi::$Variant(inner.approximation_mut()?)), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+            fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
                 match self {
-                    $( Self::$Variant(inner) => $disi::$Variant(inner.approximation()), )+
+                    $( Self::$Variant(inner) => Ok($disi::$Variant(inner.approximation()?)), )+
                 }
             }
 

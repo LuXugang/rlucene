@@ -350,12 +350,12 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.approximation
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Ok(&mut self.approximation)
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.approximation
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        Ok(&self.approximation)
     }
 
     fn matches(&mut self) -> Result<bool> {

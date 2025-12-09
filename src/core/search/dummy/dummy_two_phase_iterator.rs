@@ -33,11 +33,11 @@ impl TwoPhaseIterator for DummyTwoPhaseIterator {
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

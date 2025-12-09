@@ -193,11 +193,11 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
         unreachable!("should not be called");
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
         unreachable!("should not be called");
     }
 
@@ -275,11 +275,11 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
         unreachable!("should not be called");
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
         unreachable!("should not be called");
     }
 

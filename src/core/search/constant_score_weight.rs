@@ -45,7 +45,7 @@ impl ConstantScoreWeight {
                 let has_two_phase = s.has_two_phase_iterator();
                 if has_two_phase {
                     let mut two_phase = s.two_phase_iterator_mut().unwrap();
-                    two_phase.approximation().advance(doc)? == doc && two_phase.matches()?
+                    two_phase.approximation()?.advance(doc)? == doc && two_phase.matches()?
                 } else {
                     s.iterator_mut().advance(doc)? == doc
                 }

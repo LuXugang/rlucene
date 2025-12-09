@@ -520,12 +520,12 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.singleton
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Ok(&mut self.singleton)
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.singleton
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        Ok(&self.singleton)
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -575,12 +575,12 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.values
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Ok(&mut self.values)
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.values
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        Ok(&self.values)
     }
 
     fn matches(&mut self) -> Result<bool> {

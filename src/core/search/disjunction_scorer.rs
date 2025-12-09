@@ -262,12 +262,12 @@ where
     where
         Self: 'a;
 
-    fn approximation_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.unverified_matches.compare.approximation
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Ok(&mut self.unverified_matches.compare.approximation)
     }
 
-    fn approximation(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.unverified_matches.compare.approximation
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        Ok(&self.unverified_matches.compare.approximation)
     }
 
     fn matches(&mut self) -> Result<bool> {
