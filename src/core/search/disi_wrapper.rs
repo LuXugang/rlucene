@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
@@ -164,7 +164,7 @@ where
         self.scorer.default_cost()
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
         self.scorer.has_two_phase_iterator()
     }
 }

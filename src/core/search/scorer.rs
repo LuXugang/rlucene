@@ -138,11 +138,15 @@ pub trait Scorer: Scorable {
     fn default_cost(&mut self) -> Result<i64> {
         self.iterator_mut().cost()
     }
-    fn has_two_phase_iterator(&self) -> bool;
+    fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
-pub enum TPI {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+pub enum TwoPhaseState {
+    /// Has two_phase_iterator
     Yes,
+    /// no two_phase_iterator
     No,
+    /// may or may not present, check with [`Scorer::two_phase_iterator`]
     MayBe,
 }
 
@@ -298,7 +302,7 @@ macro_rules! either_scorer {
                 match self { $( Self::$Variant(inner) => inner.default_cost(), )+ }
             }
              #[inline]
-            fn has_two_phase_iterator(&self) -> bool {
+            fn has_two_phase_iterator(&self) -> TwoPhaseState{
                 match self { $( Self::$Variant(inner) => inner.has_two_phase_iterator(), )+ }
             }
         }

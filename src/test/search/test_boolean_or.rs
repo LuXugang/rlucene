@@ -24,7 +24,7 @@ use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
@@ -161,7 +161,7 @@ impl Scorer for ScorerImpl {
         Ok(f32::MAX)
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
-        false
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        TwoPhaseState::No
     }
 }

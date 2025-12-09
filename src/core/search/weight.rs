@@ -32,7 +32,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::{
     Either2Scorer, Either3Scorer, Either4Scorer, Either7Scorer, Either8Scorer, Either9Scorer,
-    Either10Scorer, Scorer,
+    Either10Scorer, Scorer, TwoPhaseState,
 };
 use crate::core::search::scorer_supplier::{
     Either2ScorerSupplier, Either3ScorerSupplier, Either4ScorerSupplier, Either7ScorerSupplier,
@@ -270,7 +270,8 @@ where
         B: Bits,
     {
         collector.set_scorer(&mut self.scorer)?;
-        let has_two_phase = self.scorer.has_two_phase_iterator();
+        let has_two_phase = self.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
+            || self.scorer.two_phase_iterator().is_some();
         let doc_id = if has_two_phase {
             let two_phase = self.scorer.two_phase_iterator_mut().unwrap();
             two_phase

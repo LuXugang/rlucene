@@ -824,7 +824,8 @@ mod test {
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
     use crate::core::search::scorable::Scorable;
-    use crate::core::search::scorer::Scorer;
+    use crate::core::search::scorer::TwoPhaseState::No;
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
@@ -1086,8 +1087,8 @@ mod test {
             Ok(self.max_score)
         }
 
-        fn has_two_phase_iterator(&self) -> bool {
-            false
+        fn has_two_phase_iterator(&self) -> TwoPhaseState {
+            No
         }
     }
 }

@@ -17,7 +17,7 @@
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyScorer;
@@ -103,7 +103,7 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

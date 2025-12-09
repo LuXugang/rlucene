@@ -22,7 +22,7 @@ use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     Either2TwoPhaseIterator, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
@@ -194,8 +194,11 @@ where
         Ok(self.score)
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
-        self.has_two_phase_iterator
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        match self.has_two_phase_iterator {
+            true => TwoPhaseState::Yes,
+            false => TwoPhaseState::No,
+        }
     }
 }
 

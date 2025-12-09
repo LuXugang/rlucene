@@ -1302,7 +1302,7 @@ mod tests {
     use rand::Rng;
     use std::sync::Arc;
 
-    use crate::core::search::scorer::Scorer;
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::weight::Weight;
     use crate::test::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 
@@ -1800,7 +1800,10 @@ mod tests {
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
         for ctx in searcher.get_leaf_contexts()? {
             let mut scorer = weight.scorer(ctx.as_ref())?;
-            assert!(scorer.as_mut().unwrap().has_two_phase_iterator());
+            assert!(
+                scorer.as_mut().unwrap().has_two_phase_iterator() == TwoPhaseState::Yes
+                    || scorer.as_mut().unwrap().two_phase_iterator().is_some()
+            );
         }
         Ok(())
     }

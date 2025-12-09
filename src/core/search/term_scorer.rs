@@ -27,7 +27,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -360,8 +360,8 @@ where
         }
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
-        false
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        TwoPhaseState::No
     }
 }
 pub type ImpactsEnums<IE, PE> = Either2ImpactsEnum<IE, SlowImpactsEnum<PE>>;

@@ -21,7 +21,7 @@ use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, as_doc_id_set_iterator,
 };
@@ -73,8 +73,8 @@ where
             let w = &mut approximation.all_scores[idx];
             let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
             sum_approx_cost += cost_weight;
-            let has_two_phase_view = w.has_two_phase_iterator();
-            if has_two_phase_view {
+            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator().is_some()
+            {
                 has_approximation = true;
                 sum_match_cost += w.match_cost * cost_weight as f32;
             }
@@ -201,8 +201,11 @@ where
         self.sub.get_max_score(up_to)
     }
 
-    fn has_two_phase_iterator(&self) -> bool {
-        self.has_two_phase_iterator
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        match self.has_two_phase_iterator {
+            true => TwoPhaseState::Yes,
+            false => TwoPhaseState::No,
+        }
     }
 }
 
@@ -297,7 +300,8 @@ where
             let w_idx = w_idx_opt.unwrap();
             let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
-            let has_no_two_phase_view = !w.has_two_phase_iterator();
+            let has_no_two_phase_view = (w.has_two_phase_iterator() == TwoPhaseState::No)
+                || w.two_phase_iterator().is_some();
             if has_no_two_phase_view {
                 // implicitly verified, move it to verifiedMatches
                 w.next = self.verified_matches;

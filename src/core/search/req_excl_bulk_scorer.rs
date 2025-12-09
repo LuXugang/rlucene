@@ -17,7 +17,7 @@
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
@@ -42,7 +42,9 @@ where
     where
         S: Scorer<TwoPhaseIter = TPI, DocIdSetIterator = DISI>,
     {
-        match excl.has_two_phase_iterator() {
+        match excl.has_two_phase_iterator() == TwoPhaseState::Yes
+            || excl.two_phase_iterator().is_some()
+        {
             true => Self {
                 req,
                 excl_two_phase: Some(excl.take_two_phase_iterator().unwrap()),
