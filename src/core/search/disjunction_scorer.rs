@@ -40,7 +40,7 @@ where
 {
     disi: Disi<S>,
     sub: T,
-    has_two_phase_iterator: bool,
+    tpi_state: TwoPhaseState,
 }
 
 impl<S, T> DisjunctionScorer<S, T>
@@ -79,18 +79,18 @@ where
                 sum_match_cost += w.match_cost * cost_weight as f32;
             }
         }
-        let (disi, has_two_phase_iterator) = if !has_approximation {
-            (Disi::A(approximation), false)
+        let (disi, tpi_state) = if !has_approximation {
+            (Disi::A(approximation), TwoPhaseState::No)
         } else {
             let match_cost = sum_match_cost / sum_approx_cost as f32;
             let two_phase = TwoPhase::new(approximation, match_cost, needs_scores)?;
             let v = as_doc_id_set_iterator(two_phase);
-            (Disi::B(v), true)
+            (Disi::B(v), TwoPhaseState::Yes)
         };
         Ok(Self {
             disi,
             sub,
-            has_two_phase_iterator,
+            tpi_state,
         })
     }
 
@@ -214,10 +214,7 @@ where
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        match self.has_two_phase_iterator {
-            true => TwoPhaseState::Yes,
-            false => TwoPhaseState::No,
-        }
+        self.tpi_state
     }
 }
 

@@ -36,7 +36,7 @@ where
     score: f32,
     score_mode: ScoreMode,
     disi: ConstantDISI_<DISI, TPI>,
-    has_two_phase_iterator: bool,
+    tpi_state: TwoPhaseState,
 }
 impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
@@ -60,7 +60,7 @@ where
             score,
             score_mode,
             disi: Either2DocIdSetIterator::A(approximation),
-            has_two_phase_iterator: false,
+            tpi_state: TwoPhaseState::No,
         }
     }
 }
@@ -86,7 +86,7 @@ where
             disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                 two_phase_iterator,
             )),
-            has_two_phase_iterator: true,
+            tpi_state: TwoPhaseState::Yes,
         }
     }
 }
@@ -203,10 +203,7 @@ where
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        match self.has_two_phase_iterator {
-            true => TwoPhaseState::Yes,
-            false => TwoPhaseState::No,
-        }
+        self.tpi_state
     }
 }
 

@@ -38,7 +38,7 @@ where
     S2: Scorer,
 {
     disi: ReqOptSumScorerDisi<S1, S2>,
-    has_tpi: bool,
+    tpi_state: TwoPhaseState,
 }
 impl<S1, S2> ReqOptSumScorer<S1, S2>
 where
@@ -73,11 +73,11 @@ where
                 disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                     TwoPhaseIteratorImpl::new(approximation),
                 )),
-                has_tpi,
+                tpi_state: TwoPhaseState::Yes,
             }),
             false => Ok(Self {
                 disi: Either2DocIdSetIterator::A(approximation),
-                has_tpi,
+                tpi_state: TwoPhaseState::No,
             }),
         }
     }
@@ -172,10 +172,7 @@ where
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        match self.has_tpi {
-            true => TwoPhaseState::Yes,
-            false => TwoPhaseState::No,
-        }
+        self.tpi_state
     }
 }
 
