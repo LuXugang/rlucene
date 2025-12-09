@@ -1409,11 +1409,12 @@ impl PointTransitionSet {
 
     pub fn sort(&mut self) -> Result<()> {
         if self.count > 1 {
-            let mut cost = Vec::with_capacity(self.points.len());
-            for (idx, v) in self.points.iter().enumerate() {
+            // self.points[0..self.count].sort_by_key(|p| p.point);
+            let mut cost = Vec::with_capacity(self.count);
+            for idx in 0..self.count {
                 cost.push(Cost {
                     idx,
-                    point: v.point,
+                    point: self.points[idx].point,
                 })
             }
 
