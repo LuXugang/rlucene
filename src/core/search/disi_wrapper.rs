@@ -42,7 +42,7 @@ where
     S: Scorer,
 {
     pub fn new(mut scorer: S) -> Result<Self> {
-        let cost = scorer.iterator().cost()?;
+        let cost = scorer.iterator_mut().cost()?;
         let match_cost = match scorer.two_phase_iterator() {
             Some(tpi) => tpi.match_cost(),
             None => 0.0,
@@ -124,12 +124,12 @@ where
         self.scorer.doc_id()
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
-        self.scorer.iterator_ref()
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+        self.scorer.iterator()
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        self.scorer.iterator()
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        self.scorer.iterator_mut()
     }
 
     fn take_iterator(self) -> Self::DocIdSetIterator {

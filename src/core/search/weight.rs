@@ -101,7 +101,7 @@ where
                     if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
                         return Ok(None);
                     }
-                } else if scorer.iterator().advance(doc)? != doc {
+                } else if scorer.iterator_mut().advance(doc)? != doc {
                     return Ok(None);
                 }
             },
@@ -273,7 +273,7 @@ where
             let two_phase = self.scorer.two_phase_iterator().unwrap();
             two_phase.approximation().doc_id()
         } else {
-            self.scorer.iterator().doc_id()
+            self.scorer.iterator_mut().doc_id()
         };
 
         let has_competitive_iterator = {
@@ -303,7 +303,7 @@ where
     }
 
     fn cost(&mut self) -> Result<i64> {
-        self.scorer.iterator().cost()
+        self.scorer.iterator_mut().cost()
     }
 }
 pub struct DefaultScorerSupplier<S>
@@ -343,7 +343,7 @@ where
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
-        self.scorer.as_mut().unwrap().iterator().cost()
+        self.scorer.as_mut().unwrap().iterator_mut().cost()
     }
 }
 /// Specialized method to bulk-score all hits;
@@ -388,7 +388,7 @@ where
                     tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
                 },
                 false => {
-                    let mut iter = scorer.iterator();
+                    let mut iter = scorer.iterator_mut();
                     iter.next_doc()?
                 },
             };
@@ -437,7 +437,7 @@ where
                 next_doc(&mut two_phase.as_mut().unwrap().approximation_mut(), min)?
             },
             false => {
-                let mut iter = scorer.iterator();
+                let mut iter = scorer.iterator_mut();
                 next_doc(&mut iter, min)?
             },
         }
@@ -455,7 +455,7 @@ where
                         tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
                     },
                     false => {
-                        let mut iter = scorer.iterator();
+                        let mut iter = scorer.iterator_mut();
                         iter.next_doc()?
                     },
                 }
@@ -483,7 +483,7 @@ where
                             .advance(competitive_doc)?
                     },
                     false => {
-                        let mut iter = scorer.iterator();
+                        let mut iter = scorer.iterator_mut();
                         iter.advance(competitive_doc)?
                     },
                 };
@@ -508,7 +508,7 @@ where
                 tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
             },
             false => {
-                let mut iter = scorer.iterator();
+                let mut iter = scorer.iterator_mut();
                 iter.next_doc()?
             },
         };

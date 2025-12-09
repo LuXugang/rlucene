@@ -319,7 +319,7 @@ where
     ) -> Result<Explanation> {
         let mut scorer_opt = self.scorer(context)?;
         if let Some(scorer) = scorer_opt.as_mut() {
-            let new_doc = scorer.iterator().advance(doc)?;
+            let new_doc = scorer.iterator_mut().advance(doc)?;
             if new_doc == doc {
                 let freq = match scorer {
                     Either2Scorer::A(s) => s.freq()?,

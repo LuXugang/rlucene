@@ -149,11 +149,11 @@ where
         Ok(self.disi.doc_id())
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
         &self.disi
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         EitherEmpty::A(&mut self.disi)
     }
 

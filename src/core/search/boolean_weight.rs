@@ -247,7 +247,7 @@ where
                 .scorer(context)?
                 .ok_or_else(|| LuceneError::illegal_state("no scorer available for explanation"))?;
 
-            let advanced = scorer.iterator().advance(doc)?;
+            let advanced = scorer.iterator_mut().advance(doc)?;
             debug_assert!(advanced == doc);
 
             Ok(Explanation::match_(scorer.score()?, "sum of:", subs))

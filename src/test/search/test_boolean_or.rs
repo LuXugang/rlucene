@@ -137,11 +137,11 @@ impl Scorer for ScorerImpl {
         Ok(self.it.doc_id())
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
         &self.it
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         &mut self.it
     }
 

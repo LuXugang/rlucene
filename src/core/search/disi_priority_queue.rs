@@ -360,7 +360,7 @@ pub mod tests {
             let top = all.get_mut(pq.top()).unwrap();
             assert_eq!(sorted_docs[0], top.doc);
 
-            let next = top.iterator().next_doc()?;
+            let next = top.iterator_mut().next_doc()?;
             top.doc = next;
             if next == NO_MORE_DOCS {
                 pq.pop(&all);

@@ -67,11 +67,11 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

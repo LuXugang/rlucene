@@ -51,13 +51,13 @@ where
         let mut i = 0usize;
         let mut tmp_all_scores = vec![];
         for mut scorer in required_scoring.into_iter() {
-            costs.push((scorer.iterator().cost()?, true, i));
+            costs.push((scorer.iterator_mut().cost()?, true, i));
             tmp_all_scores.push(Some(scorer));
             i += 1;
         }
 
         for mut scorer in required_no_scoring.into_iter() {
-            costs.push((scorer.iterator().cost()?, false, i));
+            costs.push((scorer.iterator_mut().cost()?, false, i));
             tmp_all_scores.push(Some(scorer));
             i += 1;
         }
@@ -132,10 +132,10 @@ where
     {
         let (mut lead1_doc_id, lead2_doc_id) = {
             let (first, rest) = self.all_scores.split_at_mut(1);
-            let lead1 = &mut first[0].iterator();
+            let lead1 = &mut first[0].iterator_mut();
 
             let (second, _) = rest.split_at_mut(1);
-            let lead2 = &mut second[0].iterator();
+            let lead2 = &mut second[0].iterator_mut();
             debug_assert!({ lead1.doc_id() >= lead2.doc_id() });
 
             if lead1.doc_id() < min {
@@ -157,12 +157,12 @@ where
             if accept_docs.is_none_or(|bits| bits.get(doc)) {
                 {
                     let (first, rest) = self.all_scores.split_at_mut(1);
-                    let lead1 = &mut first[0].iterator();
+                    let lead1 = &mut first[0].iterator_mut();
                     let (_, others) = rest.split_at_mut(1);
 
                     for it in &mut others.iter_mut() {
                         let (is_break, is_matched) =
-                            Self::advance1(lead1, &mut it.iterator(), doc)?;
+                            Self::advance1(lead1, &mut it.iterator_mut(), doc)?;
                         matched = is_matched;
                         if is_break {
                             break;
@@ -177,7 +177,7 @@ where
             }
             if matched {
                 let (first, _) = self.all_scores.split_at_mut(1);
-                let lead1 = &mut first[0].iterator();
+                let lead1 = &mut first[0].iterator_mut();
                 lead1.next_doc()?;
                 lead1_doc_id = lead1.doc_id();
             }
@@ -188,9 +188,9 @@ where
         'advance_head: while doc < max {
             {
                 let (first, rest) = self.all_scores.split_at_mut(1);
-                let lead1 = &mut first[0].iterator();
+                let lead1 = &mut first[0].iterator_mut();
                 let (second, others) = rest.split_at_mut(1);
-                let lead2 = &mut second[0].iterator();
+                let lead2 = &mut second[0].iterator_mut();
 
                 debug_assert!(lead2.doc_id() < doc);
 
@@ -215,7 +215,8 @@ where
                 debug_assert!(lead2.doc_id() == doc);
 
                 for it in &mut others.iter_mut() {
-                    let (is_continue, new_doc) = Self::advance2(lead1, &mut it.iterator(), doc)?;
+                    let (is_continue, new_doc) =
+                        Self::advance2(lead1, &mut it.iterator_mut(), doc)?;
                     if is_continue {
                         doc = new_doc;
                         continue 'advance_head;
@@ -227,12 +228,12 @@ where
             collector.collect(doc, &mut ScorableImpl::new(self))?;
         }
         let (first, _) = self.all_scores.split_at_mut(1);
-        let lead1 = &mut first[0].iterator();
+        let lead1 = &mut first[0].iterator_mut();
         Ok(lead1.doc_id())
     }
 
     fn cost(&mut self) -> Result<i64> {
-        self.all_scores[0].iterator().cost()
+        self.all_scores[0].iterator_mut().cost()
     }
 }
 struct ScorableImpl<'a, S>

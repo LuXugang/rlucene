@@ -110,11 +110,11 @@ where
         }
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
         &self.disi
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         &mut self.disi
     }
 
@@ -205,7 +205,7 @@ where
         let doc = self.req_scorer.iterator().doc_id();
         // check if the doc is not excluded
         {
-            let mut excl_iter = self.excl_scorer.iterator();
+            let mut excl_iter = self.excl_scorer.iterator_mut();
             let mut excl_doc = excl_iter.doc_id();
             if excl_doc < doc {
                 excl_doc = excl_iter.advance(doc)?;
@@ -288,7 +288,7 @@ where
 
         // check if doc is excluded
         {
-            let mut excl_iter = self.excl_scorer.iterator();
+            let mut excl_iter = self.excl_scorer.iterator_mut();
             let mut excl_doc = excl_iter.doc_id();
 
             if excl_doc < doc {

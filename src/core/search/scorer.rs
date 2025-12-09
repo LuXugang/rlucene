@@ -33,7 +33,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Expert: Common scoring functionality for different types of queries.
 ///
-/// A `Scorer` exposes an `iterator()` over documents matching a query in
+/// A `Scorer` exposes an `iterator_mut()` over documents matching a query in
 /// increasing order of doc id.
 pub trait Scorer: Scorable {
     /// Concrete iterator type over matching documents.
@@ -64,9 +64,9 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_>;
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_>;
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_>;
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
 
     /// Return a [`DocIdSetIterator`] over matching documents, transferring ownership.
     ///
@@ -120,7 +120,7 @@ pub trait Scorer: Scorable {
     fn get_max_score(&mut self, up_to: i32) -> Result<f32>;
 
     fn default_cost(&mut self) -> Result<i64> {
-        self.iterator().cost()
+        self.iterator_mut().cost()
     }
     fn has_two_phase_iterator(&self) -> bool;
 }
@@ -214,16 +214,16 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+            fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
                 match self {
-                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator_ref()), )+
+                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator()), )+
                 }
             }
 
             #[inline]
-            fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+            fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
                 match self {
-                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator()), )+
+                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.iterator_mut()), )+
                 }
             }
 

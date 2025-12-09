@@ -16,7 +16,6 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 
@@ -99,7 +98,7 @@ where
     }
     fn advance_internal(&mut self, target: i32) -> Result<i32> {
         if target == NO_MORE_DOCS {
-            self.req_scorer.iterator().advance(target)?;
+            self.req_scorer.iterator_mut().advance(target)?;
             return Ok(NO_MORE_DOCS);
         }
 
@@ -111,7 +110,7 @@ where
             }
 
             {
-                let mut req_it = self.req_scorer.iterator();
+                let mut req_it = self.req_scorer.iterator_mut();
                 if req_it.doc_id() < req_doc {
                     req_doc = req_it.advance(req_doc)?;
                 }
@@ -131,8 +130,8 @@ where
                 continue;
             }
             // Find the next common doc within the current block
-            let mut opt_it = self.opt_scorer.iterator();
-            let mut req_it = self.req_scorer.iterator();
+            let mut opt_it = self.opt_scorer.iterator_mut();
+            let mut req_it = self.req_scorer.iterator_mut();
             loop {
                 let mut opt_doc = opt_it.doc_id();
 
@@ -165,7 +164,7 @@ where
     S2: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        self.req_scorer.iterator_ref().doc_id()
+        self.req_scorer.iterator().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
@@ -178,6 +177,6 @@ where
     }
 
     fn cost(&self) -> Result<i64> {
-        self.req_scorer.iterator_ref().cost()
+        self.req_scorer.iterator().cost()
     }
 }

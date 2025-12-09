@@ -174,7 +174,7 @@ where
         {
             let top = &mut self.all_scorers[top_index];
             if top.doc < filter_doc {
-                let v = top.iterator().advance(filter_doc)?;
+                let v = top.iterator_mut().advance(filter_doc)?;
                 top.doc = v;
             }
         }
@@ -186,7 +186,7 @@ where
             debug_assert!(filter.doc <= top_doc);
 
             if filter.doc < top_doc {
-                let v = filter.iterator().advance(top_doc)?;
+                let v = filter.iterator_mut().advance(top_doc)?;
                 filter.doc = v;
             }
 
@@ -195,7 +195,7 @@ where
                     let fdoc = filter.doc;
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator().advance(fdoc)?;
+                        let v = top.iterator_mut().advance(fdoc)?;
                         top.doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -225,7 +225,7 @@ where
 
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator().next_doc()?;
+                        let v = top.iterator_mut().next_doc()?;
                         top.doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -280,11 +280,11 @@ where
                 )?;
             }
             let top = &mut self.all_scorers[top_index];
-            doc = top.iterator().next_doc()?;
+            doc = top.iterator_mut().next_doc()?;
             score = top.score()? as f64;
         }
         let top = &mut self.all_scorers[top_index];
-        let v = top.iterator().doc_id();
+        let v = top.iterator_mut().doc_id();
         top.doc = v;
         self.essential_queue.update_top(&self.all_scorers);
 
@@ -324,7 +324,7 @@ where
             debug_assert!(self.essential_queue.top() == last);
 
             if lead1.doc < lead2.doc {
-                let v = lead1.iterator().advance(lead2.doc.min(max))?;
+                let v = lead1.iterator_mut().advance(lead2.doc.min(max))?;
                 lead1.doc = v;
             }
             (lead1.doc, self.max_score_sums[n - 2])
@@ -344,7 +344,7 @@ where
                 };
 
                 if !accepted {
-                    let v = lead1.iterator().next_doc()?;
+                    let v = lead1.iterator_mut().next_doc()?;
                     lead1.doc = v;
                     continue;
                 }
@@ -354,17 +354,17 @@ where
                 if (MathUtil::sum_upper_bound(score + max_score_sum_at_lead2, n as i32) as f32)
                     < self.scorable.min_competitive_score
                 {
-                    let v = lead1.iterator().next_doc()?;
+                    let v = lead1.iterator_mut().next_doc()?;
                     lead1.doc = v;
                     continue;
                 }
 
                 if lead2.doc < lead1.doc {
-                    let v = lead2.iterator().advance(lead1.doc)?;
+                    let v = lead2.iterator_mut().advance(lead1.doc)?;
                     lead2.doc = v;
                 }
                 if lead2.doc != lead1.doc {
-                    let v = lead1.iterator().advance(lead2.doc.min(max))?;
+                    let v = lead1.iterator_mut().advance(lead2.doc.min(max))?;
                     lead1.doc = v;
                     continue;
                 }
@@ -375,7 +375,7 @@ where
                     if (MathUtil::sum_upper_bound(score + self.max_score_sums[j], n as i32) as f32)
                         < self.scorable.min_competitive_score
                     {
-                        let v = lead1.iterator().next_doc()?;
+                        let v = lead1.iterator_mut().next_doc()?;
                         lead1.doc = v;
                         continue 'outer;
                     }
@@ -385,11 +385,11 @@ where
                     let w = &mut other[w_index];
 
                     if w.doc < lead1.doc {
-                        let v = w.iterator().advance(lead1.doc)?;
+                        let v = w.iterator_mut().advance(lead1.doc)?;
                         w.doc = v;
                     }
                     if w.doc != lead1.doc {
-                        let v = lead1.iterator().advance(w.doc.min(max))?;
+                        let v = lead1.iterator_mut().advance(w.doc.min(max))?;
                         lead1.doc = v;
                         continue 'outer;
                     }
@@ -401,7 +401,7 @@ where
 
             self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
             let lead1 = &mut self.all_scorers[last];
-            let v = lead1.iterator().next_doc()?;
+            let v = lead1.iterator_mut().next_doc()?;
             doc = v;
             lead1.doc = v;
         }
@@ -438,10 +438,10 @@ where
                     self.window_matches[i >> 6] |= 1u64 << i;
                     self.window_scores[i] += top.score()? as f64;
                 }
-                doc = top.iterator().next_doc()?;
+                doc = top.iterator_mut().next_doc()?;
             }
 
-            let doc_id = top.iterator().doc_id();
+            let doc_id = top.iterator_mut().doc_id();
             top.doc = doc_id;
             let next_index = self.essential_queue.update_top(&self.all_scorers);
             top = &mut self.all_scorers[next_index];
@@ -560,7 +560,7 @@ where
             let w = &mut self.all_scorers[index];
 
             if w.doc < doc {
-                let v = w.iterator().advance(doc)?;
+                let v = w.iterator_mut().advance(doc)?;
                 w.doc = v;
             }
             if w.doc == doc {
@@ -754,7 +754,7 @@ where
                 while doc < outer_window_min {
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator().advance(outer_window_min)?;
+                        let v = top.iterator_mut().advance(outer_window_min)?;
                         top.doc = v;
                         doc = v;
                     }
@@ -1058,11 +1058,11 @@ mod test {
             Ok(self.doc_id)
         }
 
-        fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+        fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
             &self.disi
         }
 
-        fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
             &mut self.disi
         }
 

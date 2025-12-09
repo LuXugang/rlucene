@@ -240,7 +240,7 @@ where
         postings.doc_id()
     }
 
-    fn iterator_ref(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
         if let Some(impacts_disi) = &self.impacts_disi {
             TermScorerDisiRefConst::C(impacts_disi)
         } else {
@@ -262,7 +262,7 @@ where
         }
     }
 
-    fn iterator(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
         if self.impacts_disi.is_some() {
             debug_assert!(self.max_score_cache.is_none());
             TermScorerDisiRef::C(self.impacts_disi.as_mut().unwrap())
