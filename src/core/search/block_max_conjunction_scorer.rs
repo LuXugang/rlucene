@@ -158,20 +158,26 @@ where
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
-        match self.disi {
-            Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
-                "No two-phase iterator available",
-            )),
-            Either2DocIdSetIterator::B(ref v) => Ok(Some(&v.two_phase_iterator)),
+        match self.two_phase_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(ref v) => Ok(Some(&v.two_phase_iterator)),
+            },
         }
     }
 
     fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        match self.disi {
-            Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
-                "No two-phase iterator available",
-            )),
-            Either2DocIdSetIterator::B(ref mut v) => Ok(Some(&mut v.two_phase_iterator)),
+        match self.two_phase_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(ref mut v) => Ok(Some(&mut v.two_phase_iterator)),
+            },
         }
     }
 
@@ -179,11 +185,14 @@ where
     where
         Self: Sized,
     {
-        match self.disi {
-            Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
-                "No two-phase iterator available",
-            )),
-            Either2DocIdSetIterator::B(v) => Ok(Some(v.two_phase_iterator)),
+        match self.two_phase_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(v) => Ok(Some(v.two_phase_iterator)),
+            },
         }
     }
 

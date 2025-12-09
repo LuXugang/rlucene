@@ -150,11 +150,22 @@ impl Scorer for ScorerImpl {
     }
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
-        unreachable!()
+        self.it
+    }
+
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        Ok(None)
     }
 
     fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        unreachable!()
+        Ok(None)
+    }
+
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    where
+        Self: Sized,
+    {
+        Ok(None)
     }
 
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {

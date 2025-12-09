@@ -177,36 +177,45 @@ where
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
-        Ok(match self.disi {
-            Disi::B(ref v) => Some(&v.two_phase_iterator),
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                ));
-            },
-        })
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => Ok(match self.disi {
+                Disi::B(ref v) => Some(&v.two_phase_iterator),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "No two-phase iterator available",
+                    ));
+                },
+            }),
+        }
     }
 
     fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        Ok(match self.disi {
-            Disi::B(ref mut v) => Some(&mut v.two_phase_iterator),
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                ));
-            },
-        })
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => Ok(match self.disi {
+                Disi::B(ref mut v) => Some(&mut v.two_phase_iterator),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "No two-phase iterator available",
+                    ));
+                },
+            }),
+        }
     }
 
     fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
-        Ok(match self.disi {
-            Disi::B(v) => Some(v.two_phase_iterator),
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                ));
-            },
-        })
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => Ok(match self.disi {
+                Disi::B(v) => Some(v.two_phase_iterator),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "No two-phase iterator available",
+                    ));
+                },
+            }),
+        }
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {

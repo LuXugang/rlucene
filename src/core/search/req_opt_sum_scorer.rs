@@ -24,7 +24,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub type ReqOptSumScorerDisi<S1, S2> = Either2DocIdSetIterator<
     DocIdSetIteratorImpl<S1, S2>,
@@ -151,6 +151,45 @@ where
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
         self.disi
+    }
+
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match &self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(wrapper) => Ok(Some(&wrapper.two_phase_iterator)),
+            },
+        }
+    }
+
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match &mut self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(wrapper) => Ok(Some(&mut wrapper.two_phase_iterator)),
+            },
+        }
+    }
+
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    where
+        Self: Sized,
+    {
+        match self.tpi_state {
+            TwoPhaseState::No => Ok(None),
+            _ => match self.disi {
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                    "No two-phase iterator available",
+                )),
+                Either2DocIdSetIterator::B(wrapper) => Ok(Some(wrapper.two_phase_iterator)),
+            },
+        }
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
