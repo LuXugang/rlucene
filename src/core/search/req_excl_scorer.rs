@@ -98,6 +98,10 @@ where
     where
         Self: 'a;
     type TwoPhaseIter = TPI<S1, S2>;
+    type TwoPhaseIterRef<'a>
+        = &'a TPI<S1, S2>
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = &'a mut TPI<S1, S2>
     where
@@ -120,6 +124,10 @@ where
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
         self.disi
+    }
+
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        Some(&self.disi.two_phase_iterator)
     }
 
     fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {

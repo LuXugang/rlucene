@@ -58,6 +58,10 @@ impl Scorer for DummyScorer {
         Self: 'a;
 
     type TwoPhaseIter = DummyTwoPhaseIterator;
+    type TwoPhaseIterRef<'a>
+        = DummyTwoPhaseIterator
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = DummyTwoPhaseIterator
     where
@@ -80,6 +84,10 @@ impl Scorer for DummyScorer {
     }
 
     fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

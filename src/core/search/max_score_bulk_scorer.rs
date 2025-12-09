@@ -1049,6 +1049,10 @@ mod test {
         where
             Self: 'a;
         type TwoPhaseIter = DummyTwoPhaseIterator;
+        type TwoPhaseIterRef<'a>
+            = DummyTwoPhaseIterator
+        where
+            Self: 'a;
         type TwoPhaseIterMut<'a>
             = DummyTwoPhaseIterator
         where
@@ -1068,6 +1072,10 @@ mod test {
 
         fn take_iterator(self) -> Self::DocIdSetIterator {
             unreachable!("")
+        }
+
+        fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+            None
         }
 
         fn advance_shallow(&mut self, _target: i32) -> Result<i32> {

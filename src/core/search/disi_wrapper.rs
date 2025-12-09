@@ -115,6 +115,10 @@ where
     where
         Self: 'a;
     type TwoPhaseIter = S::TwoPhaseIter;
+    type TwoPhaseIterRef<'a>
+        = S::TwoPhaseIterRef<'a>
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = S::TwoPhaseIterMut<'a>
     where
@@ -134,6 +138,10 @@ where
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
         self.scorer.take_iterator()
+    }
+
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        self.scorer.two_phase_iterator()
     }
 
     fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {

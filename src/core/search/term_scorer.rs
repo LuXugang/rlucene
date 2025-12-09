@@ -230,6 +230,10 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<DummyTwoPhaseIterator>;
+    type TwoPhaseIterRef<'a>
+        = &'a Self::TwoPhaseIter
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = &'a mut Self::TwoPhaseIter
     where

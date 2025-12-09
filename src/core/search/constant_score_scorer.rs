@@ -140,6 +140,10 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<TPI>;
+    type TwoPhaseIterRef<'a>
+        = &'a Self::TwoPhaseIter
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = &'a mut Self::TwoPhaseIter
     where
@@ -159,6 +163,13 @@ where
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
         self.disi
+    }
+
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        match self.disi {
+            ConstantDISI_::A(_) => None,
+            ConstantDISI_::B(ref v) => Some(&v.two_phase_iterator),
+        }
     }
 
     fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {

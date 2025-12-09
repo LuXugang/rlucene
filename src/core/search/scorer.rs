@@ -47,6 +47,9 @@ pub trait Scorer: Scorable {
 
     /// Optional two-phase iterator type (return `None` if unsupported).
     type TwoPhaseIter: TwoPhaseIterator;
+    type TwoPhaseIterRef<'a>: TwoPhaseIterator
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>: TwoPhaseIterator
     where
         Self: 'a;
@@ -70,6 +73,22 @@ pub trait Scorer: Scorable {
     /// Unlike [`iterator`](Self::iterator), this method takes ownership of the
     /// underlying iterator rather than returning a view.
     fn take_iterator(self) -> Self::DocIdSetIterator;
+
+    /// Optional: Return a two-phase iterator view of this scorer.
+    ///
+    /// A return value of `None` indicates that two-phase iteration is not supported.
+    ///
+    /// Note that the returned [`TwoPhaseIterator`]'s approximation must advance
+    /// synchronously with `iterator()`: advancing the approximation must advance
+    /// the iterator and vice-versa.
+    ///
+    /// The default implementation returns `None`.
+    /// # Warning
+    /// The returned iterator is a *view*: calling this method several times must
+    /// return iterators that share the same state.
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+        None
+    }
 
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
@@ -200,6 +219,10 @@ macro_rules! either_scorer {
 
             type TwoPhaseIter =
                 $two_phase_ty<$( < $T as Scorer >::TwoPhaseIter ),+>;
+            type TwoPhaseIterRef<'a> =
+                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterRef<'a> ),+>
+            where
+                Self: 'a;
             type TwoPhaseIterMut<'a> =
                 $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterMut<'a> ),+>
             where
@@ -228,6 +251,14 @@ macro_rules! either_scorer {
             fn take_iterator(self) -> Self::DocIdSetIterator {
                 match self {
                     $( Self::$Variant(inner) => $iter_ty::$Variant(inner.take_iterator()), )+
+                }
+            }
+
+            #[inline]
+            fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+                match self {
+                    $( Self::$Variant(inner) =>
+                        inner.two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
                 }
             }
 

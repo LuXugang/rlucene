@@ -128,6 +128,10 @@ impl Scorer for ScorerImpl {
     where
         Self: 'a;
     type TwoPhaseIter = DummyTwoPhaseIterator;
+    type TwoPhaseIterRef<'a>
+        = DummyTwoPhaseIterator
+    where
+        Self: 'a;
     type TwoPhaseIterMut<'a>
         = DummyTwoPhaseIterator
     where
@@ -146,6 +150,10 @@ impl Scorer for ScorerImpl {
     }
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
+        unreachable!()
+    }
+
+    fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
         unreachable!()
     }
 
