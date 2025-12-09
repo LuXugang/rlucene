@@ -25,6 +25,7 @@ use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::Result;
+use num_traits::real::Real;
 
 pub type ReqOptSumScorerDisi<S1, S2> = Either2DocIdSetIterator<
     DocIdSetIteratorImpl<S1, S2>,
@@ -501,5 +502,122 @@ where
         }
 
         cost
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::search::dummy::dummy_scorable::DummyScorable;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::query::Query;
+    use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
+    use crate::core::search::scorable::Scorable;
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::util::error::lucene_error::Result;
+
+    #[allow(dead_code)]
+    struct TestReqOptSumScorer;
+
+    // TODO: BooleanQuery未实现
+    // TODO: ConstantScoreQuery有bug
+
+    struct ReqOptSumScorerWrapper<S1, S2>
+    where
+        S1: Scorer,
+        S2: Scorer,
+    {
+        base: ReqOptSumScorer<S1, S2>,
+    }
+    impl<S1, S2> ReqOptSumScorerWrapper<S1, S2>
+    where
+        S1: Scorer,
+        S2: Scorer,
+    {
+        fn new(base: ReqOptSumScorer<S1, S2>) -> Self {
+            Self { base }
+        }
+    }
+
+    impl<S1, S2> Scorable for ReqOptSumScorerWrapper<S1, S2>
+    where
+        S1: Scorer,
+        S2: Scorer,
+    {
+        fn score(&mut self) -> Result<f32> {
+            self.base.score()
+        }
+
+        type Scorable = DummyScorable;
+    }
+
+    impl<S1, S2> Scorer for ReqOptSumScorerWrapper<S1, S2>
+    where
+        S1: Scorer,
+        S2: Scorer,
+    {
+        type DocIdSetIterator = <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIterator;
+        type DocIdSetIteratorRef<'a>
+            = &'a <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIterator
+        where
+            Self: 'a;
+        type DocIdSetIteratorMut<'a>
+            = <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIteratorMut<'a>
+        where
+            Self: 'a;
+        type TwoPhaseIter = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIter;
+        type TwoPhaseIterRef<'a>
+            = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIterRef<'a>
+        where
+            Self: 'a;
+        type TwoPhaseIterMut<'a>
+            = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIterMut<'a>
+        where
+            Self: 'a;
+
+        fn doc_id(&mut self) -> Result<i32> {
+            self.base.doc_id()
+        }
+
+        fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+            self.base.iterator()
+        }
+
+        fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+            self.base.iterator_mut()
+        }
+
+        fn take_iterator(self) -> Self::DocIdSetIterator {
+            self.base.take_iterator()
+        }
+
+        fn two_phase_iterator(&self) -> Option<Self::TwoPhaseIterRef<'_>> {
+            self.base.two_phase_iterator()
+        }
+
+        fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
+            self.base.two_phase_iterator_mut()
+        }
+
+        fn take_two_phase_iterator(self) -> Option<Self::TwoPhaseIter>
+        where
+            Self: Sized,
+        {
+            self.base.take_two_phase_iterator()
+        }
+
+        fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+            self.base.advance_shallow(target)
+        }
+
+        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+            Ok(f32::MAX)
+        }
+
+        fn default_cost(&mut self) -> Result<i64> {
+            self.base.default_cost()
+        }
+
+        fn has_two_phase_iterator(&self) -> TwoPhaseState {
+            self.base.has_two_phase_iterator()
+        }
     }
 }
