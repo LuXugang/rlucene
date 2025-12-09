@@ -14,14 +14,143 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::scorable::Scorable;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::score_mode::ScoreMode::TopScores;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::two_phase_iterator::{
+    TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
 use crate::core::util::error::lucene_error::Result;
 
-pub struct ReqOptSumScorer;
+pub type ReqOptSumScorerDisi<S1, S2> = Either2DocIdSetIterator<
+    DocIdSetIteratorImpl<S1, S2>,
+    TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S1, S2>>,
+>;
+pub struct ReqOptSumScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    disi: ReqOptSumScorerDisi<S1, S2>,
+    has_tpi: bool,
+}
+impl<S1, S2> ReqOptSumScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    pub fn new(mut req_scorer: S1, mut opt_scorer: S2, score_mode: ScoreMode) -> Result<Self> {
+        let req_max_score;
+        if score_mode != TopScores {
+            req_max_score = f32::MAX;
+        } else {
+            req_scorer.advance_shallow(0)?;
+            opt_scorer.advance_shallow(0)?;
+            req_max_score = req_scorer.get_max_score(NO_MORE_DOCS)?;
+        }
+        let approximation = DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score)?;
+        todo!()
+    }
+}
 
-struct DocIdSetIteratorImpl<S1, S2>
+impl<S1, S2> Scorable for ReqOptSumScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    fn score(&mut self) -> Result<f32> {
+        match self.disi {
+            Either2DocIdSetIterator::A(ref mut disi) => disi.score(),
+            Either2DocIdSetIterator::B(ref mut wrapper) => wrapper.two_phase_iterator.disi.score(),
+        }
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        match self.disi {
+            Either2DocIdSetIterator::A(ref mut disi) => disi.set_min_competitive_score(min_score),
+            Either2DocIdSetIterator::B(ref mut wrapper) => wrapper
+                .two_phase_iterator
+                .disi
+                .set_min_competitive_score(min_score),
+        }
+    }
+
+    type Scorable = DummyScorable;
+}
+
+impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    type DocIdSetIterator = ReqOptSumScorerDisi<S1, S2>;
+    type DocIdSetIteratorRef<'a>
+        = &'a ReqOptSumScorerDisi<S1, S2>
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>
+        = &'a mut ReqOptSumScorerDisi<S1, S2>
+    where
+        Self: 'a;
+    type TwoPhaseIter = TwoPhaseIteratorImpl<S1, S2>;
+    type TwoPhaseIterRef<'a>
+        = &'a TwoPhaseIteratorImpl<S1, S2>
+    where
+        Self: 'a;
+    type TwoPhaseIterMut<'a>
+        = &'a mut TwoPhaseIteratorImpl<S1, S2>
+    where
+        Self: 'a;
+
+    fn doc_id(&mut self) -> Result<i32> {
+        match self.disi {
+            Either2DocIdSetIterator::A(ref mut disi) => disi.req_scorer.doc_id(),
+            Either2DocIdSetIterator::B(ref mut wrapper) => {
+                wrapper.two_phase_iterator.disi.req_scorer.doc_id()
+            },
+        }
+    }
+
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+        &self.disi
+    }
+
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        &mut self.disi
+    }
+
+    fn take_iterator(self) -> Self::DocIdSetIterator {
+        self.disi
+    }
+
+    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        match self.disi {
+            Either2DocIdSetIterator::A(ref mut disi) => disi.advance_shallow(target),
+            Either2DocIdSetIterator::B(ref mut wrapper) => {
+                wrapper.two_phase_iterator.disi.advance_shallow(target)
+            },
+        }
+    }
+
+    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        match self.disi {
+            Either2DocIdSetIterator::A(ref mut disi) => disi.get_max_score(up_to),
+            Either2DocIdSetIterator::B(ref mut wrapper) => {
+                wrapper.two_phase_iterator.disi.get_max_score(up_to)
+            },
+        }
+    }
+
+    fn has_two_phase_iterator(&self) -> bool {
+        self.has_tpi
+    }
+}
+
+pub struct DocIdSetIteratorImpl<S1, S2>
 where
     S1: Scorer,
     S2: Scorer,
@@ -39,6 +168,25 @@ where
     S1: Scorer,
     S2: Scorer,
 {
+    fn new(mut req_scorer: S1, mut opt_scorer: S2, req_max_score: f32) -> Result<Self> {
+        req_scorer.advance_shallow(0)?;
+        opt_scorer.advance_shallow(0)?;
+
+        let mut disi = Self {
+            upto: -1,
+            max_score: 0.0,
+            opt_is_required: false,
+            min_score: 0.0,
+            req_scorer,
+            opt_scorer,
+            req_max_score,
+        };
+
+        disi.move_to_next_block(0)?;
+
+        Ok(disi)
+    }
+
     fn move_to_next_block(&mut self, target: i32) -> Result<()> {
         self.upto = self.advance_shallow(target)?;
         let req_max_score_block = self.req_scorer.get_max_score(self.upto)?;
@@ -157,6 +305,53 @@ where
             }
         }
     }
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        self.min_score = min_score;
+        // Potentially move to a conjunction
+        if self.req_max_score < self.min_score {
+            self.opt_is_required = true;
+            if self.req_max_score == 0.0 {
+                // If the required clause doesn't contribute scores, we can propagate the minimum
+                // competitive score to the optional clause. This happens when the required clause is a
+                // FILTER clause.
+                // In theory we could generalize this and set minScore - reqMaxScore as a minimum
+                // competitive score, but it's unlikely to help in practice unless reqMaxScore is much
+                // smaller than typical scores of the optional clause.
+                self.opt_scorer.set_min_competitive_score(self.min_score)?;
+            }
+        }
+        Ok(())
+    }
+    fn score(&mut self) -> Result<f32> {
+        let (mut opt_doc, cur_doc, mut score) = {
+            let cur_doc = {
+                let req_it = self.req_scorer.iterator();
+                req_it.doc_id()
+            };
+            let score = self.req_scorer.score()?;
+
+            let opt_it = self.opt_scorer.iterator();
+            let opt_doc = opt_it.doc_id();
+            (opt_doc, cur_doc, score)
+        };
+
+        if opt_doc < cur_doc {
+            let mut opt_it = self.opt_scorer.iterator();
+            opt_doc = opt_it.advance(cur_doc)?;
+            if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()
+                && opt_doc == cur_doc
+                && !opt_tpi.matches()?
+            {
+                opt_doc = opt_it.next_doc()?;
+            }
+        }
+
+        if opt_doc == cur_doc {
+            score += self.opt_scorer.score()?;
+        }
+
+        Ok(score)
+    }
 }
 impl<S1, S2> DocIdSetIterator for DocIdSetIteratorImpl<S1, S2>
 where
@@ -178,5 +373,95 @@ where
 
     fn cost(&self) -> Result<i64> {
         self.req_scorer.iterator().cost()
+    }
+}
+
+pub struct TwoPhaseIteratorImpl<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    disi: DocIdSetIteratorImpl<S1, S2>,
+}
+impl<S1, S2> TwoPhaseIterator for TwoPhaseIteratorImpl<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    type DocIdSetIterator = DocIdSetIteratorImpl<S1, S2>;
+    type DocIdSetIteratorRef<'a>
+        = &'a DocIdSetIteratorImpl<S1, S2>
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>
+        = &'a mut DocIdSetIteratorImpl<S1, S2>
+    where
+        Self: 'a;
+
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        Ok(&mut self.disi)
+    }
+
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        Ok(&self.disi)
+    }
+
+    fn matches(&mut self) -> Result<bool> {
+        if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator()
+            && !req_tpi.matches()?
+        {
+            return Ok(false);
+        }
+
+        // optional scorer logic
+        if let Some(mut opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
+            // The below condition is rare and can only happen if we transitioned to
+            // optIsRequired=true
+            // after the opt approximation was advanced and before it was confirmed.
+            let (opt_doc, req_doc) = {
+                let opt_disi = opt_tpi.approximation_mut()?;
+                let req_it = self.disi.req_scorer.iterator();
+                (opt_disi.doc_id(), req_it.doc_id())
+            };
+
+            if self.disi.opt_is_required {
+                if req_doc != opt_doc {
+                    let mut d = opt_doc;
+                    if d < req_doc {
+                        let mut opt_disi = opt_tpi.approximation_mut()?;
+                        d = opt_disi.advance(req_doc)?;
+                    }
+                    if d != req_doc {
+                        return Ok(false);
+                    }
+                }
+
+                if !opt_tpi.matches()? {
+                    let mut opt_disi = opt_tpi.approximation_mut()?;
+                    opt_disi.next_doc()?;
+                    return Ok(false);
+                }
+            } else if opt_doc == req_doc && !opt_tpi.matches()? {
+                let mut opt_disi = opt_tpi.approximation_mut()?;
+                // Advance the iterator to make it clear it doesn't match the current doc id
+                opt_disi.next_doc()?;
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn match_cost(&self) -> f32 {
+        let mut cost = 1.0;
+
+        if let Some(req_tpi) = self.disi.req_scorer.two_phase_iterator() {
+            cost += req_tpi.match_cost();
+        }
+
+        if let Some(opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
+            cost += opt_tpi.match_cost();
+        }
+
+        cost
     }
 }

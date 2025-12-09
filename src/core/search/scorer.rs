@@ -140,6 +140,11 @@ pub trait Scorer: Scorable {
     }
     fn has_two_phase_iterator(&self) -> bool;
 }
+pub enum TPI {
+    Yes,
+    No,
+    MayBe,
+}
 
 macro_rules! either_scorer {
     (
