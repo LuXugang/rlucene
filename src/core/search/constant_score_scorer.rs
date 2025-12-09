@@ -140,7 +140,7 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<TPI>;
-    type TwoPhaseIterRef<'a>
+    type TwoPhaseIterMut<'a>
         = &'a mut Self::TwoPhaseIter
     where
         Self: 'a;
@@ -161,7 +161,7 @@ where
         self.disi
     }
 
-    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
         match self.disi {
             ConstantDISI_::A(_) => None,
             ConstantDISI_::B(ref mut v) => Some(&mut v.two_phase_iterator),

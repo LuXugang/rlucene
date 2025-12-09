@@ -137,7 +137,7 @@ where
     where
         Self: 'a;
     type TwoPhaseIter = TwoPhase<S>;
-    type TwoPhaseIterRef<'a>
+    type TwoPhaseIterMut<'a>
         = &'a mut TwoPhase<S>
     where
         Self: 'a;
@@ -172,7 +172,7 @@ where
         self.disi
     }
 
-    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
         match self.disi {
             Disi::B(ref mut v) => Some(&mut v.two_phase_iterator),
             _ => None,

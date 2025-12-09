@@ -128,7 +128,7 @@ impl Scorer for ScorerImpl {
     where
         Self: 'a;
     type TwoPhaseIter = DummyTwoPhaseIterator;
-    type TwoPhaseIterRef<'a>
+    type TwoPhaseIterMut<'a>
         = DummyTwoPhaseIterator
     where
         Self: 'a;

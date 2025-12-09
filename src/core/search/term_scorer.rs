@@ -230,7 +230,7 @@ where
         Self: 'a;
 
     type TwoPhaseIter = ConstantTPI<DummyTwoPhaseIterator>;
-    type TwoPhaseIterRef<'a>
+    type TwoPhaseIterMut<'a>
         = &'a mut Self::TwoPhaseIter
     where
         Self: 'a;

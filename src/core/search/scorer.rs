@@ -47,12 +47,9 @@ pub trait Scorer: Scorable {
 
     /// Optional two-phase iterator type (return `None` if unsupported).
     type TwoPhaseIter: TwoPhaseIterator;
-    type TwoPhaseIterRef<'a>: TwoPhaseIterator<
-        DocIdSetIterator = <Self::TwoPhaseIter as TwoPhaseIterator>::DocIdSetIterator,
-    >
+    type TwoPhaseIterMut<'a>: TwoPhaseIterator
     where
         Self: 'a;
-
     /// Returns the doc ID that is currently being scored.
     fn doc_id(&mut self) -> Result<i32>;
 
@@ -86,7 +83,7 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
         None
     }
 
@@ -203,8 +200,8 @@ macro_rules! either_scorer {
 
             type TwoPhaseIter =
                 $two_phase_ty<$( < $T as Scorer >::TwoPhaseIter ),+>;
-            type TwoPhaseIterRef<'a> =
-                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterRef<'a> ),+>
+            type TwoPhaseIterMut<'a> =
+                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterMut<'a> ),+>
             where
                 Self: 'a;
 
@@ -235,10 +232,10 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn two_phase_iterator(&mut self) -> Option<Self::TwoPhaseIterRef<'_>> {
+            fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseIterMut<'_>> {
                 match self {
                     $( Self::$Variant(inner) =>
-                        inner.two_phase_iterator().map(|it| $two_phase_ty::$Variant(it)), )+
+                        inner.two_phase_iterator_mut().map(|it| $two_phase_ty::$Variant(it)), )+
                 }
             }
 
