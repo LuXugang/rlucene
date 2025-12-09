@@ -239,7 +239,7 @@ where
         true
     }
 }
-
+/// Just wraps a Scorer and performs top scoring using it.
 pub struct DefaultBulkScorer<S>
 where
     S: Scorer,

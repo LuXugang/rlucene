@@ -507,8 +507,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
-    use crate::core::search::index_searcher::IndexSearcher;
-    use crate::core::search::query::Query;
+
     use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -608,7 +607,7 @@ mod tests {
             self.base.advance_shallow(target)
         }
 
-        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
             Ok(f32::MAX)
         }
 
