@@ -52,7 +52,11 @@ impl DisjunctionScoreBlockBoundaryPropagator {
         })
     }
     /// Equivalent to Lucene's `advanceShallow(int target)`.
-    fn advance_shallow<S>(&mut self, target: i32, scorers: &mut [DisiWrapper<S>]) -> Result<i32>
+    pub(crate) fn advance_shallow<S>(
+        &mut self,
+        target: i32,
+        scorers: &mut [DisiWrapper<S>],
+    ) -> Result<i32>
     where
         S: Scorer,
     {
@@ -96,7 +100,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     }
 
     /// Set the minimum competitive score to filter out clauses that score less than this threshold.
-    fn set_min_competitive_score(&mut self, min_score: f32) {
+    pub(crate) fn set_min_competitive_score(&mut self, min_score: f32) {
         // Update the lead index if necessary
         while ((self.lead_index as usize) < self.cost.len() - 1)
             && min_score > self.cost[self.lead_index as usize].max_score

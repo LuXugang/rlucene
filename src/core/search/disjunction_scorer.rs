@@ -215,7 +215,18 @@ where
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        self.sub.get_max_score(up_to)
+        match self.disi {
+            Disi::A(ref mut v) => self.sub.get_max_score(up_to, &mut v.all_scores),
+            Disi::B(ref mut v) => self.sub.get_max_score(
+                up_to,
+                v.two_phase_iterator
+                    .unverified_matches
+                    .compare
+                    .approximation
+                    .all_scores
+                    .as_mut_slice(),
+            ),
+        }
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
@@ -372,9 +383,24 @@ where
 }
 
 pub trait DisjunctionScorerBase {
-    fn score<S>(&self, top_list: DisiWrapper<S>) -> Result<f32>
+    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: usize) -> Result<f32>
     where
         S: Scorer;
-    fn advance_shallow(&mut self, target: i32) -> Result<i32>;
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32>;
+    fn advance_shallow<S>(
+        &mut self,
+        target: i32,
+        disi_wrapper: &mut [DisiWrapper<S>],
+    ) -> Result<i32>
+    where
+        S: Scorer;
+    fn get_max_score<S>(&mut self, up_to: i32, disi_wrapper: &mut [DisiWrapper<S>]) -> Result<f32>
+    where
+        S: Scorer;
+    fn set_min_competitive_score<S>(
+        &mut self,
+        min_score: f32,
+        disi_wrapper: &mut [DisiWrapper<S>],
+    ) -> Result<()>
+    where
+        S: Scorer;
 }
