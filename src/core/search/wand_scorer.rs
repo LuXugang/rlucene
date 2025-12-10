@@ -908,3 +908,69 @@ fn scale_min_score(min_score: f32, scaling_factor: i32) -> i64 {
     let scaled = (min_score as f64) * (2f64.powi(scaling_factor));
     scaled.floor() as i64
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::search::wand_scorer::{FLOAT_MANTISSA_BITS, scale_max_score, scaling_factor};
+    use crate::core::util::error::lucene_error::Result;
+    #[allow(dead_code)] // for quick search
+    struct TestWANDScorer;
+    #[test]
+    fn test_scaling_factor() -> Result<()> {
+        use std::f32;
+
+        fn next_down(x: f32) -> f32 {
+            f32::from_bits(x.to_bits() - 1)
+        }
+        fn next_up(x: f32) -> f32 {
+            f32::from_bits(x.to_bits() + 1)
+        }
+
+        do_test_scaling_factor(1.0)?;
+        do_test_scaling_factor(2.0)?;
+        do_test_scaling_factor(next_down(1.0))?;
+        do_test_scaling_factor(next_up(1.0))?;
+        do_test_scaling_factor(f32::MIN_POSITIVE)?;
+        do_test_scaling_factor(next_up(f32::MIN_POSITIVE))?;
+        do_test_scaling_factor(f32::MAX)?;
+        do_test_scaling_factor(next_down(f32::MAX))?;
+
+        assert_eq!(scaling_factor(f32::MIN_POSITIVE)? + 1, scaling_factor(0.0)?);
+
+        assert_eq!(
+            scaling_factor(f32::MAX)? - 1,
+            scaling_factor(f32::INFINITY)?
+        );
+
+        assert!(scaling_factor(1.0)? > scaling_factor(10.0)?);
+        assert!(scaling_factor(f32::MAX)? > scaling_factor(f32::INFINITY)?);
+        assert!(scaling_factor(0.0)? > scaling_factor(f32::MIN_POSITIVE)?);
+        Ok(())
+    }
+    fn do_test_scaling_factor(v: f32) -> Result<()> {
+        let sf = scaling_factor(v)?;
+        let scaled = (v as f64) * (2f64.powi(sf));
+        assert!(
+            scaled >= (1u64 << 23) as f64 && scaled < (1u64 << 24) as f64,
+            "v={v}, sf={sf}, scaled={scaled}"
+        );
+        Ok(())
+    }
+    #[test]
+    fn test_scale_max_score() -> Result<()> {
+        let expected = 1i64 << (FLOAT_MANTISSA_BITS - 1);
+        let sf = scaling_factor(32.0)?;
+        let scaled = scale_max_score(32.0, sf);
+        assert_eq!(expected, scaled);
+
+        let v = (1.0f32 as f64 * 2f64.powi(60)) as f32;
+        let sf2 = scaling_factor(v)?;
+        let scaled2 = scale_max_score(32.0, sf2);
+        assert_eq!(1, scaled2);
+
+        let sf3 = scaling_factor(f32::INFINITY)?;
+        let scaled3 = scale_max_score(32.0, sf3);
+        assert_eq!(1, scaled3);
+
+        Ok(())
+    }
+}
