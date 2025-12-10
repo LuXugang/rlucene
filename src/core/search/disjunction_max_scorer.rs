@@ -36,7 +36,7 @@ impl DisjunctionMaxScorer {
     /// - `tieBreakerMultiplier`: Multiplier applied to non-maximum-scoring subqueries for a document
     ///   as they are summed into the result.
     /// - `subScorers`: The sub scorers this scorer should iterate on.
-    fn new<S>(
+    pub(crate) fn new<S>(
         tie_breaker_multiplier: f32,
         sub_scorers: &mut [S],
         score_mode: ScoreMode,

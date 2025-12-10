@@ -98,6 +98,7 @@ pub mod disjunction_disi_approximation;
 mod disjunction_max_scorer;
 mod disjunction_score_block_boundary_propagator;
 pub(crate) mod disjunction_scorer;
+pub(crate) mod disjunction_sum_scorer;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
 pub mod filter_doc_id_set_iterator;
