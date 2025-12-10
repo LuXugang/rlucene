@@ -33,7 +33,7 @@ where
     // the match cost for two-phase iterators, 0 otherwise
     pub(crate) match_cost: f32,
     // for MaxScoreBulkScorer
-    scaled_max_score: i64,
+    pub(crate) scaled_max_score: i64,
     // for MaxScoreBulkScorer
     pub(crate) max_window_score: f32,
 }

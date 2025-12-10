@@ -55,14 +55,13 @@ where
         mut opt_scorer: S2,
         score_mode: ScoreMode,
     ) -> Result<Self> {
-        let req_max_score;
-        if score_mode != TopScores {
-            req_max_score = f32::MAX;
+        let req_max_score = if score_mode != TopScores {
+            f32::MAX
         } else {
             req_scorer.advance_shallow(0)?;
             opt_scorer.advance_shallow(0)?;
-            req_max_score = req_scorer.get_max_score(NO_MORE_DOCS)?;
-        }
+            req_scorer.get_max_score(NO_MORE_DOCS)?
+        };
         let has_tpi = (req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
             || req_scorer.two_phase_iterator()?.is_some())
             && (opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes

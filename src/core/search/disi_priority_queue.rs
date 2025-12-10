@@ -208,7 +208,6 @@ impl DisiPriorityQueue {
         self.size -= 1;
         let i = self.size;
         self.heap[0] = self.heap[i];
-        // TODO index i should never be used
         self.heap[i] = None;
         self.down_heap(i, wrappers);
         result
