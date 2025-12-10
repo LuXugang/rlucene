@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::scorer::Scorer;
@@ -24,47 +25,40 @@ use crate::core::util::error::lucene_error::Result;
 /// and low-scoring clauses don't drive iteration anymore. So this class computes block boundaries
 /// only across clauses whose maximum score is greater than or equal to the minimum competitive
 /// score, or the maximum scoring clause if there is no such clause.
-pub struct DisjunctionScoreBlockBoundaryPropagator<S>
-where
-    S: Scorer,
-{
-    scorers: Vec<S>,
-    max_scores: Vec<f32>,
+pub struct DisjunctionScoreBlockBoundaryPropagator {
+    cost: Vec<Cost>,
     lead_index: i32,
 }
-impl<S> DisjunctionScoreBlockBoundaryPropagator<S>
-where
-    S: Scorer,
-{
-    pub(crate) fn new(scorers: Vec<S>) -> Result<Self> {
-        let mut tmp_scorers = Vec::with_capacity(scorers.len());
-        let mut max_scores = Vec::with_capacity(scorers.len());
+impl DisjunctionScoreBlockBoundaryPropagator {
+    pub(crate) fn new<S>(scorers: &mut [S]) -> Result<Self>
+    where
+        S: Scorer,
+    {
         let mut cost = Vec::with_capacity(scorers.len());
-        for (i, mut scorer) in scorers.into_iter().enumerate() {
+        for (i, scorer) in scorers.iter_mut().enumerate() {
             scorer.advance_shallow(0)?;
             let max_score = scorer.get_max_score(NO_MORE_DOCS)?;
             let iter_cost = scorer.iterator_mut().cost()?;
-            cost.push((max_score, i, iter_cost));
-            tmp_scorers.push(Some(scorer));
+            cost.push(Cost::new(max_score, i, iter_cost));
         }
-        cost.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.2.cmp(&b.2)));
-        let mut scorers = Vec::with_capacity(cost.len());
-        for (max_score, idx, _) in cost.into_iter() {
-            let s = tmp_scorers[idx].take().unwrap();
-            max_scores.push(max_score);
-            scorers.push(s);
-        }
+        cost.sort_by(|a, b| {
+            a.max_score
+                .total_cmp(&b.max_score)
+                .then_with(|| a.iter_cost.cmp(&b.iter_cost))
+        });
         Ok(Self {
-            max_scores,
+            cost,
             lead_index: 0,
-            scorers,
         })
     }
     /// Equivalent to Lucene's `advanceShallow(int target)`.
-    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    fn advance_shallow<S>(&mut self, target: i32, scorers: &mut [DisiWrapper<S>]) -> Result<i32>
+    where
+        S: Scorer,
+    {
         // For scorers that are below the lead index, just propagate.
         for i in 0..self.lead_index {
-            let s = &mut self.scorers[i as usize];
+            let s = &mut scorers[self.cost[i as usize].idx].scorer;
             if s.doc_id()? < target {
                 s.advance_shallow(target)?;
             }
@@ -72,12 +66,12 @@ where
 
         // For scorers above the lead index, we take the minimum boundary.
         let lead_idx = self.lead_index as usize;
-        let lead_scorer = &mut self.scorers[lead_idx];
+        let lead_scorer = &mut scorers[self.cost[lead_idx].idx];
         let doc_id = lead_scorer.doc_id()?;
         let mut up_to = lead_scorer.advance_shallow(std::cmp::max(doc_id, target))?;
 
-        for i in (lead_idx + 1)..self.scorers.len() {
-            let scorer = &mut self.scorers[i];
+        for i in (lead_idx + 1)..self.cost.len() {
+            let scorer = &mut scorers[self.cost[i].idx];
             if scorer.doc_id()? <= target {
                 let v = scorer.advance_shallow(target)?;
                 up_to = std::cmp::min(v, up_to);
@@ -86,9 +80,9 @@ where
 
         // If the maximum scoring clauses are beyond `target`,
         // use their docID as a boundary.
-        let mut i = self.scorers.len() as i32 - 1;
-        while i > self.lead_index {
-            let scorer = &mut self.scorers[i as usize];
+        let mut i = self.cost.len() - 1;
+        while i > self.lead_index as usize {
+            let scorer = &mut scorers[self.cost[i].idx];
             let doc = scorer.doc_id()?;
             if doc > target {
                 up_to = std::cmp::min(up_to, doc - 1);
@@ -104,10 +98,24 @@ where
     /// Set the minimum competitive score to filter out clauses that score less than this threshold.
     fn set_min_competitive_score(&mut self, min_score: f32) {
         // Update the lead index if necessary
-        while (self.lead_index as usize) < self.max_scores.len().saturating_sub(1)
-            && min_score > self.max_scores[self.lead_index as usize]
+        while ((self.lead_index as usize) < self.cost.len() - 1)
+            && min_score > self.cost[self.lead_index as usize].max_score
         {
             self.lead_index += 1;
+        }
+    }
+}
+struct Cost {
+    max_score: f32,
+    idx: usize,
+    iter_cost: i64,
+}
+impl Cost {
+    fn new(max_score: f32, idx: usize, iter_cost: i64) -> Self {
+        Self {
+            max_score,
+            idx,
+            iter_cost,
         }
     }
 }
@@ -115,6 +123,7 @@ where
 mod tests {
     use crate::core::search::disjunction_score_block_boundary_propagator::DisjunctionScoreBlockBoundaryPropagator;
 
+    use crate::core::search::disi_wrapper::DisiWrapper;
     use crate::core::search::doc_id_set_iterator::EmptyDISI;
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -136,27 +145,31 @@ mod tests {
         let mut scorers = vec![scorer1, scorer2, scorer3, scorer4];
         scorers.shuffle(&mut random);
 
-        let mut propagator = DisjunctionScoreBlockBoundaryPropagator::new(scorers)?;
+        let mut propagator = DisjunctionScoreBlockBoundaryPropagator::new(scorers.as_mut_slice())?;
+        let mut disi_wrapper = Vec::new();
+        for s in scorers.into_iter() {
+            disi_wrapper.push(DisiWrapper::new(s)?);
+        }
 
-        assert_eq!(20, propagator.advance_shallow(0)?);
+        assert_eq!(20, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(0.2);
-        assert_eq!(20, propagator.advance_shallow(0)?);
+        assert_eq!(20, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(0.7);
-        assert_eq!(30, propagator.advance_shallow(0)?);
+        assert_eq!(30, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(1.2);
-        assert_eq!(30, propagator.advance_shallow(0)?);
+        assert_eq!(30, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(1.7);
-        assert_eq!(30, propagator.advance_shallow(0)?);
+        assert_eq!(30, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(2.2);
-        assert_eq!(80, propagator.advance_shallow(0)?);
+        assert_eq!(80, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         propagator.set_min_competitive_score(5.0);
-        assert_eq!(80, propagator.advance_shallow(0)?);
+        assert_eq!(80, propagator.advance_shallow(0, &mut disi_wrapper)?);
 
         Ok(())
     }
