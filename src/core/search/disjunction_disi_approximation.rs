@@ -50,12 +50,12 @@ where
     S: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        let top_idx = self.sub_iterators.top();
+        let top_idx = self.sub_iterators.top().expect("top ie empty");
         self.all_scores[top_idx].doc
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let mut top_idx = self.sub_iterators.top();
+        let mut top_idx = self.sub_iterators.top().expect("top ie empty");
         let old_doc = self.all_scores[top_idx].doc;
 
         loop {
@@ -71,7 +71,7 @@ where
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        let mut top_idx = self.sub_iterators.top();
+        let mut top_idx = self.sub_iterators.top().expect("top ie empty");
         loop {
             let top = &mut self.all_scores[top_idx];
             let v = top.iterator_mut().advance(target)?;

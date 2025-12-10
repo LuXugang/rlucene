@@ -125,7 +125,7 @@ where
         } else if self.all_scorers_idx.len() - self.first_required_scorer >= 2 {
             self.score_inner_window_as_conjunction(collector, accept_docs, max)?;
         } else {
-            let top_index = self.essential_queue.top();
+            let top_index = self.essential_queue.top().expect("top ie empty");
             let top2_index = self.essential_queue.top2(&self.all_scorers);
 
             if top2_index.is_none() {
@@ -164,7 +164,7 @@ where
         LC: LeafCollector,
         B: Bits,
     {
-        let mut top_index = self.essential_queue.top();
+        let mut top_index = self.essential_queue.top().expect("top ie empty");
         {
             let top = &self.all_scorers[top_index];
             debug_assert!(top.doc < max);
@@ -258,7 +258,7 @@ where
         LC: LeafCollector,
         B: Bits,
     {
-        let top_index = self.essential_queue.top();
+        let top_index = self.essential_queue.top().expect("top ie empty");
         let (mut doc, mut score) = {
             let top = &mut self.all_scorers[top_index];
             // single essential clause in this window, we can iterate it directly and skip the bitset.
@@ -321,7 +321,7 @@ where
             let lead2 = &mut lead2_slice[0];
 
             debug_assert!(self.essential_queue.size() == 1);
-            debug_assert!(self.essential_queue.top() == last);
+            debug_assert!(self.essential_queue.top().expect("top ie empty") == last);
 
             if lead1.doc < lead2.doc {
                 let v = lead1.iterator_mut().advance(lead2.doc.min(max))?;
@@ -419,7 +419,7 @@ where
         LC: LeafCollector,
         B: Bits,
     {
-        let top_index = self.essential_queue.top();
+        let top_index = self.essential_queue.top().expect("top ie empty");
         let mut top = &mut self.all_scorers[top_index];
 
         let inner_window_min = top.doc;
@@ -748,7 +748,7 @@ where
                 outer_window_max = new_outer_window_max;
             }
 
-            let mut top_index = self.essential_queue.top();
+            let mut top_index = self.essential_queue.top().expect("top ie empty");
             {
                 let mut doc = self.all_scorers[top_index].doc;
                 while doc < outer_window_min {
@@ -766,7 +766,7 @@ where
 
             while top_doc < outer_window_max {
                 self.score_inner_window(collector, accept_docs, outer_window_max)?;
-                top_index = self.essential_queue.top();
+                top_index = self.essential_queue.top().expect("top ie empty");
                 top_doc = self.all_scorers[top_index].doc;
 
                 if self.scorable.min_competitive_score >= self.next_min_competitive_score {

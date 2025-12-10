@@ -16,19 +16,18 @@
  */
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::scorer::Scorer;
-use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 /// A priority queue of `DocIdSetIterator`s that orders by the current doc ID.
 #[derive(Default)] // for std::mem::take
 pub struct DisiPriorityQueue {
     size: usize,
-    pub(crate) heap: Vec<usize>,
+    pub(crate) heap: Vec<Option<usize>>,
 }
 impl DisiPriorityQueue {
     pub fn new(max_size: i32) -> Self {
         Self {
             size: 0,
-            heap: vec![0; max_size as usize],
+            heap: vec![None; max_size as usize],
         }
     }
 
@@ -48,7 +47,7 @@ impl DisiPriorityQueue {
         self.size
     }
 
-    pub fn top(&self) -> usize {
+    pub fn top(&self) -> Option<usize> {
         self.heap[0]
     }
     /// Return the 2nd least value in this heap, or null if the heap contains less than 2 values
@@ -58,15 +57,14 @@ impl DisiPriorityQueue {
     {
         match self.size() {
             0 | 1 => None,
-            2 => Some(self.heap[1]),
-
+            2 => self.heap[1],
             _ => {
                 let left = self.heap[1];
                 let right = self.heap[2];
-                if wrappers[left].doc <= wrappers[right].doc {
-                    Some(left)
+                if wrappers[*left.as_ref().unwrap()].doc <= wrappers[*right.as_ref().unwrap()].doc {
+                    left
                 } else {
-                    Some(right)
+                    right
                 }
             },
         }
@@ -77,16 +75,16 @@ impl DisiPriorityQueue {
         S: Scorer,
     {
         let heap = &self.heap;
-        let mut list_index = heap[0];
+        let mut list_index = heap[0].expect("top element missing");
         wrappers[list_index].next = None;
 
         if self.size >= 3 {
             list_index = self.top_list(list_index, heap, wrappers, self.size, 1);
             list_index = self.top_list(list_index, heap, wrappers, self.size, 2);
         } else if self.size == 2 {
-            let child = heap[1];
-            if wrappers[child].doc == wrappers[list_index].doc {
-                list_index = self.prepend(child, list_index, wrappers);
+            let child = heap[1].as_ref().unwrap();
+            if wrappers[*child].doc == wrappers[list_index].doc {
+                list_index = self.prepend(*child, list_index, wrappers);
             }
         }
 
@@ -102,7 +100,7 @@ impl DisiPriorityQueue {
     pub fn top_list<S>(
         &self,
         mut list: usize,
-        heap: &[usize],
+        heap: &[Option<usize>],
         wrappers: &mut [DisiWrapper<S>],
         size: usize,
         i: usize,
@@ -110,7 +108,7 @@ impl DisiPriorityQueue {
     where
         S: Scorer,
     {
-        let w_index = heap[i];
+        let w_index = heap[i].expect("heap element missing");
 
         if wrappers[w_index].doc == wrappers[list].doc {
             list = self.prepend(w_index, list, wrappers);
@@ -122,7 +120,7 @@ impl DisiPriorityQueue {
                 list = self.top_list(list, heap, wrappers, size, left);
                 list = self.top_list(list, heap, wrappers, size, right);
             } else if left < size {
-                let left_index = heap[left];
+                let left_index = heap[left].expect("left leaf missing");
                 if wrappers[left_index].doc == wrappers[list].doc {
                     list = self.prepend(left_index, list, wrappers);
                 }
@@ -136,10 +134,10 @@ impl DisiPriorityQueue {
     where
         S: Scorer,
     {
-        self.heap[self.size] = entry;
+        self.heap[self.size] = Some(entry);
         self.up_heap(self.size, wrappers);
         self.size += 1;
-        self.heap[0]
+        self.heap[0].expect("top element missing after add")
     }
     pub fn add_all<S>(
         &mut self,
@@ -164,25 +162,26 @@ impl DisiPriorityQueue {
             );
         }
         // Copy the entries over to our heap array:
-        self.heap
-            .copy_from(&entries[offset..offset + len], self.size);
+        for (idx, entry) in entries[offset..offset + len].iter().enumerate() {
+            self.heap[self.size + idx] = Some(*entry);
+        }
         self.size += len;
         // Heapify in bulk:
         let first_leaf_index = self.size >> 1;
 
         for root_index in (0..first_leaf_index).rev() {
             let mut parent_index = root_index;
-            let parent = self.heap[parent_index];
+            let parent = self.heap[parent_index].expect("parent missing");
             let parent_doc = wrappers[parent].doc;
 
             while parent_index < first_leaf_index {
                 let mut child_index = Self::left_node(parent_index);
                 let right_child_index = Self::right_node(child_index);
 
-                let mut child = self.heap[child_index];
+                let mut child = self.heap[child_index].expect("child missing");
 
                 if right_child_index < self.size {
-                    let right_child = self.heap[right_child_index];
+                    let right_child = self.heap[right_child_index].expect("right child missing");
                     if wrappers[right_child].doc < wrappers[child].doc {
                         child = right_child;
                         child_index = right_child_index;
@@ -193,11 +192,11 @@ impl DisiPriorityQueue {
                     break;
                 }
 
-                self.heap[parent_index] = child;
+                self.heap[parent_index] = Some(child);
                 parent_index = child_index;
             }
 
-            self.heap[parent_index] = parent;
+            self.heap[parent_index] = Some(parent);
         }
         Ok(())
     }
@@ -205,12 +204,12 @@ impl DisiPriorityQueue {
     where
         S: Scorer,
     {
-        let result = self.heap[0];
+        let result = self.heap[0].expect("pop called on empty heap");
         self.size -= 1;
         let i = self.size;
         self.heap[0] = self.heap[i];
         // TODO index i should never be used
-        self.heap[i] = 0;
+        self.heap[i] = None;
         self.down_heap(i, wrappers);
         result
     }
@@ -219,7 +218,7 @@ impl DisiPriorityQueue {
         S: Scorer,
     {
         self.down_heap(self.size, wrappers);
-        self.heap[0]
+        self.heap[0].expect("top element missing after update")
     }
     pub(crate) fn update_top_with<S>(
         &mut self,
@@ -229,13 +228,13 @@ impl DisiPriorityQueue {
     where
         S: Scorer,
     {
-        self.heap[0] = top_replacement;
+        self.heap[0] = Some(top_replacement);
         self.update_top(wrappers)
     }
     /// Clear the heap.
     pub fn clear(&mut self) {
         for v in self.heap.iter_mut() {
-            *v = 0;
+            *v = None;
         }
         self.size = 0;
     }
@@ -243,53 +242,67 @@ impl DisiPriorityQueue {
     where
         S: Scorer,
     {
-        let node_index = self.heap[i];
+        let node_index = self.heap[i].expect("node missing");
         let node_doc = wrappers[node_index].doc;
 
         let mut j = Self::parent_node(i);
 
-        while i > 0 && node_doc < wrappers[self.heap[j]].doc {
+        while i > 0 && node_doc < wrappers[self.heap[j].expect("parent missing")].doc {
             self.heap[i] = self.heap[j];
             i = j;
             j = Self::parent_node(j);
         }
 
-        self.heap[i] = node_index;
+        self.heap[i] = Some(node_index);
     }
     pub fn down_heap<S>(&mut self, size: usize, wrappers: &[DisiWrapper<S>])
     where
         S: Scorer,
     {
+        if size == 0 {
+            return;
+        }
         let mut i = 0;
-        let node = self.heap[0];
+        let node = self.heap[0].expect("node missing at root");
         let mut j = Self::left_node(i);
 
         if j < size {
             let mut k = Self::right_node(j);
 
-            if k < size && wrappers[self.heap[k]].doc < wrappers[self.heap[j]].doc {
+            if k < size
+                && wrappers[self.heap[k].expect("right child missing")].doc
+                    < wrappers[self.heap[j].expect("left child missing")].doc
+            {
                 j = k;
             }
 
-            if wrappers[self.heap[j]].doc < wrappers[node].doc {
+            if wrappers[self.heap[j].expect("child missing")].doc < wrappers[node].doc {
                 loop {
                     self.heap[i] = self.heap[j];
                     i = j;
                     j = Self::left_node(i);
                     k = Self::right_node(j);
-                    if k < size && wrappers[self.heap[k]].doc < wrappers[self.heap[j]].doc {
+                    if k < size
+                        && wrappers[self.heap[k].expect("right child missing")].doc
+                            < wrappers[self.heap[j].expect("left child missing")].doc
+                    {
                         j = k;
                     }
-                    if j >= size || wrappers[self.heap[j]].doc >= wrappers[node].doc {
+                    if j >= size
+                        || wrappers[self.heap[j].expect("child missing")].doc >= wrappers[node].doc
+                    {
                         break;
                     }
                 }
-                self.heap[i] = node;
+                self.heap[i] = Some(node);
             }
         }
     }
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
-        self.heap[..self.size].iter().cloned()
+        self.heap[..self.size]
+            .iter()
+            .cloned()
+            .map(|v| v.expect("heap element missing during iteration"))
     }
 }
 
@@ -357,7 +370,7 @@ pub mod tests {
             let mut sorted_docs: Vec<i32> = all.iter().map(|w| w.doc).collect();
             sorted_docs.sort_unstable();
 
-            let top = all.get_mut(pq.top()).unwrap();
+            let top = all.get_mut(*pq.top().as_ref().unwrap()).unwrap();
             assert_eq!(sorted_docs[0], top.doc);
 
             let next = top.iterator_mut().next_doc()?;
