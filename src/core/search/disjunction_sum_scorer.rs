@@ -24,13 +24,15 @@ use crate::core::util::math_util::MathUtil;
 #[derive(Default)]
 pub struct DisjunctionSumScorer;
 impl DisjunctionScorerBase for DisjunctionSumScorer {
-    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: usize) -> Result<f32>
+    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
     where
         S: Scorer,
     {
         let mut score: f64 = 0.0;
-
-        let mut w = &mut disi_wrapper[top_list];
+        let mut w = match top_list {
+            Some(idx) => &mut disi_wrapper[idx],
+            None => return Ok(score as f32),
+        };
         loop {
             let sub_score = w.scorer.score()? as f64;
             score += sub_score;

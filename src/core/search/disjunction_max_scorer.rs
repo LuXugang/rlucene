@@ -63,14 +63,16 @@ impl DisjunctionMaxScorer {
     }
 }
 impl DisjunctionScorerBase for DisjunctionMaxScorer {
-    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: usize) -> Result<f32>
+    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
     where
         S: Scorer,
     {
         let mut score_max: f32 = 0.0;
         let mut other_score_sum: f64 = 0.0;
-
-        let mut w = &mut disi_wrapper[top_list];
+        let mut w = match top_list {
+            Some(idx) => &mut disi_wrapper[idx],
+            None => return Ok(0f32),
+        };
         loop {
             let sub_score = w.scorer.score()?;
 

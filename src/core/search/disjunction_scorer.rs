@@ -111,8 +111,36 @@ where
     T: DisjunctionScorerBase,
 {
     fn score(&mut self) -> Result<f32> {
-        let _v = self.get_sub_matched()?;
-        todo!()
+        let idx = self.get_sub_matched()?;
+        match self.disi {
+            Disi::A(ref mut v) => self.sub.score(&mut v.all_scores, idx),
+            Disi::B(ref mut v) => self.sub.score(
+                v.two_phase_iterator
+                    .unverified_matches
+                    .compare
+                    .approximation
+                    .all_scores
+                    .as_mut_slice(),
+                idx,
+            ),
+        }
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        match self.disi {
+            Disi::A(ref mut v) => self
+                .sub
+                .set_min_competitive_score(min_score, &mut v.all_scores),
+            Disi::B(ref mut v) => self.sub.set_min_competitive_score(
+                min_score,
+                v.two_phase_iterator
+                    .unverified_matches
+                    .compare
+                    .approximation
+                    .all_scores
+                    .as_mut_slice(),
+            ),
+        }
     }
 
     type Scorable = DummyScorable;
@@ -211,6 +239,35 @@ where
                     ));
                 },
             }),
+        }
+    }
+
+    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        match self.disi {
+            Disi::A(ref mut v) => match self.sub.advance_shallow(target, &mut v.all_scores) {
+                Ok(doc) => Ok(doc),
+                Err(e) => match e {
+                    LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
+                    _ => Err(e),
+                },
+            },
+            Disi::B(ref mut v) => {
+                match self.sub.advance_shallow(
+                    target,
+                    v.two_phase_iterator
+                        .unverified_matches
+                        .compare
+                        .approximation
+                        .all_scores
+                        .as_mut_slice(),
+                ) {
+                    Ok(doc) => Ok(doc),
+                    Err(e) => match e {
+                        LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
+                        _ => Err(e),
+                    },
+                }
+            },
         }
     }
 
@@ -382,8 +439,8 @@ where
     }
 }
 
-pub trait DisjunctionScorerBase {
-    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: usize) -> Result<f32>
+pub(crate) trait DisjunctionScorerBase {
+    fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
     where
         S: Scorer;
     fn advance_shallow<S>(

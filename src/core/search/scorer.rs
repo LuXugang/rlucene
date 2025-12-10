@@ -130,6 +130,9 @@ pub trait Scorer: Scorable {
     fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
         Ok(NO_MORE_DOCS)
     }
+    fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
+        Ok(NO_MORE_DOCS)
+    }
 
     /// Return the maximum score that documents between the last `target` that this
     /// iterator was `advance_shallow`’d to (included) and `up_to` (included) can get.
@@ -292,6 +295,10 @@ macro_rules! either_scorer {
             #[inline]
             fn advance_shallow(&mut self, target: i32) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.advance_shallow(target), )+ }
+            }
+            #[inline]
+            fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.default_advance_shallow(target), )+ }
             }
 
             #[inline]
