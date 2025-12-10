@@ -17,7 +17,7 @@
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -148,18 +148,14 @@ where
 
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi {
-            Disi::A(ref v) => {
-                let queue = v.sub_iterators.top();
-                Ok(v.all_scores[queue].doc)
-            },
+            Disi::A(ref v) => Ok(v.doc_id()),
             Disi::B(ref v) => {
                 let approximation = &v
                     .two_phase_iterator
                     .unverified_matches
                     .compare
                     .approximation;
-                let queue = approximation.sub_iterators.top();
-                Ok(approximation.all_scores[queue].doc)
+                Ok(approximation.doc_id())
             },
         }
     }

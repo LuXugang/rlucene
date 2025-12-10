@@ -34,6 +34,7 @@ mod tests {
         at_least, is_night_mode, random,
     };
     use crate::test::util::test_util::TestUtil;
+    // TODO IMPORTANT 比Java单元测试的速度慢
     #[test]
     fn test_determinize_lexicon() -> Result<()> {
         let mut random = random();

@@ -95,6 +95,8 @@ mod constant_score_query;
 pub mod disi_priority_queue;
 pub mod disi_wrapper;
 pub mod disjunction_disi_approximation;
+mod disjunction_max_scorer;
+mod disjunction_score_block_boundary_propagator;
 pub(crate) mod disjunction_scorer;
 pub mod doc_values_range_iterator;
 mod dummy_query_caching_policy;
