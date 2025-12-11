@@ -30,6 +30,7 @@ use crate::core::search::QueryCache;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
     IndexSortSortedNumericDocValuesRangeQuery, IndexSortSortedNumericDocValuesRangeQueryWeight,
@@ -42,7 +43,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Either8Weight, Weight};
+use crate::core::search::weight::{Either9Weight, Weight};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -107,6 +108,7 @@ pub enum Query {
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
+    FieldExists(FieldExistsQuery),
 }
 #[cfg(test)]
 impl Clone for Query {
@@ -125,6 +127,7 @@ impl Clone for Query {
             Query::IndexSortSortedNumericDocValuesRange(c) => {
                 Query::IndexSortSortedNumericDocValuesRange(c.clone())
             },
+            Query::FieldExists(c) => Query::FieldExists(c.clone()),
         }
     }
 }
@@ -156,6 +159,7 @@ impl PartialEq for Query {
                 Query::IndexSortSortedNumericDocValuesRange(c1),
                 Query::IndexSortSortedNumericDocValuesRange(c2),
             ) => c1 == c2,
+            (Query::FieldExists(c1), Query::FieldExists(c2)) => c1 == c2,
             _ => false,
         }
     }
@@ -197,6 +201,9 @@ impl Hash for Query {
             Query::IndexSortSortedNumericDocValuesRange(c) => {
                 c.hash(state);
             },
+            Query::FieldExists(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -234,7 +241,10 @@ impl Debug for Query {
                 write!(f, "Query::SortedSetDocValuesRange({:?})", c)
             },
             Query::IndexSortSortedNumericDocValuesRange(c) => {
-                write!(f, "Query::SortedSetDocValuesRange({:?})", c)
+                write!(f, "Query::IndexSortSortedNumericDocValuesRange({:?})", c)
+            },
+            Query::FieldExists(c) => {
+                write!(f, "Query::FieldExists({:?})", c)
             },
         }
     }
@@ -254,6 +264,7 @@ impl QueryBase for Query {
             Query::SortedNumericDocValuesRange(c) => c.as_string(field),
             Query::SortedSetDocValuesRange(c) => c.as_string(field),
             Query::IndexSortSortedNumericDocValuesRange(c) => c.as_string(field),
+            Query::FieldExists(c) => c.as_string(field),
         }
     }
 
@@ -329,6 +340,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
+            Query::FieldExists(p) => Ok(QueryWeight::I(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -356,7 +373,7 @@ impl QueryBase for Query {
         todo!()
     }
 }
-pub type QueryWeight<S, IRC> = Either8Weight<
+pub type QueryWeight<S, IRC> = Either9Weight<
     TermWeight<S, IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
@@ -365,6 +382,7 @@ pub type QueryWeight<S, IRC> = Either8Weight<
     SortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     SortedSetDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
+    FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
 >;
 
 impl From<TermQuery> for Query {
@@ -420,6 +438,11 @@ impl From<SortedSetDocValuesRangeQuery> for Query {
 impl From<IndexSortSortedNumericDocValuesRangeQuery> for Query {
     fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
         Query::IndexSortSortedNumericDocValuesRange(value)
+    }
+}
+impl From<FieldExistsQuery> for Query {
+    fn from(value: FieldExistsQuery) -> Self {
+        Query::FieldExists(value)
     }
 }
 #[derive(Clone, Debug)]

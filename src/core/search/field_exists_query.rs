@@ -32,7 +32,6 @@ use crate::core::search::doc_id_set_iterator::Either3DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
@@ -48,6 +47,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
+
 /// A `Query` that matches documents that contain either a `KnnFloatVectorField`,
 /// `org.apache.lucene.document.KnnByteVectorField`, or a field that indexes norms
 /// or doc values.
@@ -82,12 +82,12 @@ impl FieldExistsQuery {
 }
 
 impl QueryBase for FieldExistsQuery {
-    fn as_string(&self, field: &str) -> String {
+    fn as_string(&self, _field: &str) -> String {
         format!("FieldExistsQuery [field={}]", self.field)
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = FieldExistsWeight<IRC::LeafReader>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -97,8 +97,8 @@ impl QueryBase for FieldExistsQuery {
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC, QCP, QC>>
     where
@@ -109,7 +109,7 @@ impl QueryBase for FieldExistsQuery {
         QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
-        todo!()
+        Ok(FieldExistsWeight::new(boost, self, *score_mode))
     }
 
     type RewriteQuery = DummyQuery;
@@ -128,7 +128,7 @@ impl QueryBase for FieldExistsQuery {
         todo!()
     }
 
-    fn visit<QV>(&self, visitor: &QV)
+    fn visit<QV>(&self, _visitor: &QV)
     where
         QV: QueryVisitor,
     {
@@ -146,7 +146,23 @@ where
     _leaf_reader: PhantomData<LR>,
     score: f32,
 }
-impl<LR> FieldExistsWeight<LR> where LR: LeafReader {}
+impl<LR> FieldExistsWeight<LR>
+where
+    LR: LeafReader,
+{
+    fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
+        let query_clone = query.clone();
+        let parent_query = Arc::new(query_clone.into());
+        Self {
+            base: ConstantScoreWeight::new(score),
+            query,
+            parent_query,
+            score_mode,
+            _leaf_reader: PhantomData,
+            score,
+        }
+    }
+}
 
 impl<LR> SegmentCacheable<LR> for FieldExistsWeight<LR>
 where
@@ -184,7 +200,7 @@ where
     }
 
     fn get_query(&self) -> Arc<Query> {
-        todo!()
+        self.parent_query.clone()
     }
 
     type ScorerSupplier =
