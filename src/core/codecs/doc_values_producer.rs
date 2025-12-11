@@ -14,12 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
-};
-use crate::core::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
-};
+use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values::Either2BinaryDocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
@@ -27,14 +22,12 @@ use crate::core::index::doc_values_skipper::Either2DocValuesSkipper;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::Either2NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::Either2SortedDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
-use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -117,103 +110,8 @@ pub trait DocValuesProducer: Clone {
         Ok(None)
     }
 }
+pub type DocValuesProducerType<I> = Lucene90DocValuesProducer<I>;
 
-pub enum DocValuesProducerEnum<I>
-where
-    I: IndexInput,
-{
-    Lucene90(Lucene90DocValuesProducer<I>),
-}
-
-impl<I> Clone for DocValuesProducerEnum<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "DocValuesProducerEnum does not implement the Clone logic.
-The purpose of implementing the Clone trait is to make it could be used with Cow"
-        )
-    }
-}
-
-impl<I> DocValuesProducer for DocValuesProducerEnum<I>
-where
-    I: IndexInput,
-{
-    type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
-
-    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_numeric(field),
-        }
-    }
-
-    type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
-
-    fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_binary(_field),
-        }
-    }
-
-    type SortedDocValues = BaseSortedDocValues<I>;
-
-    fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted(_field),
-        }
-    }
-
-    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
-
-    fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted_numeric(_field),
-        }
-    }
-
-    type SortedSetDocValues = Either2SortedSetDocValues<
-        SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
-        BaseSortedSetDocValues<I>,
-    >;
-
-    fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted_set(_field),
-        }
-    }
-
-    type DocValuesSkipper = DocValuesSkipperImpl<I>;
-
-    fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_skipper(_field),
-        }
-    }
-
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => {
-                let merge_instance = lucene90.get_merge_instance()?;
-                if let Some(instance) = merge_instance {
-                    Ok(Some(DocValuesProducerEnum::Lucene90(instance)))
-                } else {
-                    Ok(None)
-                }
-            },
-        }
-    }
-}
 impl<T> DocValuesProducer for Arc<T>
 where
     T: DocValuesProducer,

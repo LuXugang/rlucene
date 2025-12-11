@@ -17,7 +17,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::core::codecs::doc_values_producer::DocValuesProducerEnum;
+use crate::core::codecs::doc_values_producer::DocValuesProducerType;
 use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 #[cfg(test)]
@@ -41,7 +41,7 @@ where
     pub merge_field_infos: Arc<FieldInfos>,
     pub stored_fields_readers: Vec<StoredFieldsReaderType<I>>,
     pub norms_producers: Vec<Option<NormsProducerType<I>>>,
-    pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I>>>,
+    pub doc_values_producers: Vec<Option<DocValuesProducerType<I>>>,
     pub field_infos: Vec<Arc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
