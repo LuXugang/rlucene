@@ -31,6 +31,7 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::doc_id_set_iterator::Either5DocIdSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -206,6 +207,8 @@ pub type LRBinaryDocValues<LR> = <LR as LeafReader>::BinaryDocValues;
 pub type LRSortedNumericDocValues<LR> = <LR as LeafReader>::SortedNumericDocValues;
 // SortedDocValues
 pub type LRSortedDocValues<LR> = <LR as LeafReader>::SortedDocValues;
+// SortedSetDocValues
+pub type LRSortedSetDocValues<LR> = <LR as LeafReader>::SortedSetDocValues;
 // ImpactsEnum
 pub type LRImpactsEnum<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;
@@ -215,6 +218,14 @@ pub type LRPosting<LR> =
 pub type LRNormNumericDocValues<LR> = <LR as LeafReader>::NormNumericDocValues;
 // DocValuesSkipper
 pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
+
+pub type LRDisis<LR> = Either5DocIdSetIterator<
+    LRNumericDocValues<LR>,
+    LRBinaryDocValues<LR>,
+    LRSortedDocValues<LR>,
+    LRSortedNumericDocValues<LR>,
+    LRSortedSetDocValues<LR>,
+>;
 
 impl<LR> LeafReader for Arc<LR>
 where
