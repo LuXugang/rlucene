@@ -360,3 +360,387 @@ where
         DocValuesType::None => Ok(None),
     }
 }
+#[cfg(test)]
+mod test {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+
+    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+    use crate::core::document::string_field::StringField;
+
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::query_timeout::QueryTimeout;
+    use crate::core::index::sort::Sort;
+    use crate::core::index::term::Term;
+    use crate::core::search::QueryCache;
+    use crate::core::search::field_exists_query::FieldExistsQuery;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::query::Query;
+    use crate::core::search::query_caching_policy::QueryCachingPolicy;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::similarities_impl::similarities::Similarity;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_directory, new_searcher_with_reader, random,
+    };
+
+    use rand::Rng;
+    use std::sync::Arc;
+
+    use crate::core::document::text_field::TextField;
+
+    #[allow(dead_code)] // for quick search
+    struct TestFieldExistsQuery;
+    fn test_doc_values_rewrite_with_terms_present() -> Result<()> {
+        // TODO rewrite 未实现
+        Ok(())
+    }
+    fn test_doc_values_rewrite_with_point_values_present() -> Result<()> {
+        //// TODO rewrite 未实现
+        Ok(())
+    }
+    fn test_doc_values_no_rewrite() -> Result<()> {
+        // TODO rewrite 未实现
+        Ok(())
+    }
+
+    fn test_doc_values_no_rewrite_with_doc_values() -> Result<()> {
+        // TODO rewrite 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_doc_values_random() -> Result<()> {
+        let mut random = random();
+
+        let iters = at_least(&mut random, 10);
+        for _ in 0..iters {
+            let dir = Arc::new(new_directory(&mut random)?);
+            let iw = RandomIndexWriter::new(&mut random, dir.clone());
+            let num_docs = at_least(&mut random, 100);
+
+            for _ in 0..num_docs {
+                let mut doc = Document::new();
+                let has_value = random.random_bool(0.5);
+
+                if has_value {
+                    doc.add(NumericDocValuesField::new("dv1", 1));
+                    doc.add(SortedNumericDocValuesField::new("dv2", 1));
+                    doc.add(SortedNumericDocValuesField::new("dv2", 2));
+                    doc.add(StringField::with_string("has_value", "yes", Store::No)?);
+                }
+
+                doc.add(StringField::with_string(
+                    "f",
+                    if random.random_bool(0.5) { "yes" } else { "no" },
+                    Store::No,
+                )?);
+
+                iw.add_document(doc)?;
+            }
+
+            // TODO delete by query 未实现
+            // if rng.random_bool(0.5) {
+            // }
+
+            iw.commit()?;
+            let reader = Arc::new(iw.get_reader()?);
+            let searcher = new_searcher_with_reader(reader.clone())?;
+            iw.close()?;
+
+            assert_same_matches(
+                &searcher,
+                TermQuery::new(Term::from_text("has_value", "yes")),
+                FieldExistsQuery::new("dv1"),
+                false,
+            )?;
+
+            assert_same_matches(
+                &searcher,
+                TermQuery::new(Term::from_text("has_value", "yes")),
+                FieldExistsQuery::new("dv2"),
+                false,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn test_doc_values_approximation() -> Result<()> {
+        // TODO BooleanQuery 未实现
+        Ok(())
+    }
+    fn test_doc_values_score() -> Result<()> {
+        // TODO BoostQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_doc_values_missing_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_doc_values_all_docs_have_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("f", 1));
+        iw.add_document(doc)?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_doc_values_field_exists_but_no_docs_have_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(NumericDocValuesField::new("f", 1));
+        iw.add_document(doc)?;
+        iw.commit()?;
+
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_doc_values_query_matches_count() -> Result<()> {
+        // force_merge未实现
+        Ok(())
+    }
+    #[test]
+    fn test_norms_random() -> Result<()> {
+        let mut random = random();
+
+        let iters = at_least(&mut random, 10);
+        for _ in 0..iters {
+            let dir = Arc::new(new_directory(&mut random)?);
+            let iw = RandomIndexWriter::new(&mut random, dir.clone());
+            let num_docs = at_least(&mut random, 100);
+
+            for _ in 0..num_docs {
+                let mut doc = Document::new();
+                let has_value = random.random_bool(0.5);
+
+                if has_value {
+                    doc.add(TextField::with_string("text1", "value", Store::No)?);
+                    doc.add(StringField::with_string("has_value", "yes", Store::No)?);
+                }
+
+                doc.add(StringField::with_string(
+                    "f",
+                    if random.random_bool(0.5) { "yes" } else { "no" },
+                    Store::No,
+                )?);
+
+                iw.add_document(doc)?;
+            }
+
+            // TODO: delete-by-query is not implemented yet
+            // if random.random_bool(0.5) {
+            //     iw.delete_documents(TermQuery::new(...));
+            // }
+
+            iw.commit()?;
+            let reader = Arc::new(iw.get_reader()?);
+            let searcher = new_searcher_with_reader(reader.clone())?;
+            iw.close()?;
+
+            assert_same_matches(
+                &searcher,
+                TermQuery::new(Term::from_text("has_value", "yes")),
+                FieldExistsQuery::new("text1"),
+                false,
+            )?;
+        }
+
+        Ok(())
+    }
+    fn test_norms_approximation() -> Result<()> {
+        // TODO BooleanQuery 未实现
+        Ok(())
+    }
+    fn test_norms_score() -> Result<()> {
+        // TODO BoostQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_norms_missing_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_norms_all_docs_have_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(TextField::with_string("f", "value", Store::No)?);
+        iw.add_document(doc)?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
+        let mut random = random();
+
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut doc = Document::new();
+        doc.add(TextField::with_string("f", "value", Store::No)?);
+        iw.add_document(doc)?;
+        iw.commit()?;
+
+        iw.add_document(Document::new())?;
+        iw.commit()?;
+
+        let reader = Arc::new(iw.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        iw.close()?;
+
+        assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
+
+        Ok(())
+    }
+    fn test_norms_query_matches_count() -> Result<()> {
+        // TODO force_merge 未实现
+        Ok(())
+    }
+    fn test_knn_vector_random() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    fn test_knn_vector_missingfield() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    fn test_knn_vector_all_docs_have_field() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    fn test_delete_knn_vector() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    fn test_knn_vector_conjunction() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    fn test_knn_vector_field_exists_but_no_docs_have_field() -> Result<()> {
+        // TODO knn 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_delete_all_point_docs() -> Result<()> {
+        // TODO force_merge 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_delete_all_term_docs() -> Result<()> {
+        // TODO force_merge 未实现
+        Ok(())
+    }
+
+    fn assert_same_matches<S, IRC, QT, QCP, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        q1: T1,
+        q2: T2,
+        scores: bool,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache<IRC::LeafReader>,
+        T1: Into<Query>,
+        T2: Into<Query>,
+    {
+        let irc = searcher.get_top_reader_context();
+        let max_doc = irc.reader().max_doc()?;
+
+        let sort = if scores {
+            Arc::new(Sort::get_relevance()?)
+        } else {
+            Arc::new(Sort::get_index_order()?)
+        };
+
+        let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
+        let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
+        assert_eq!(td1.total_hits().value(), td2.total_hits().value());
+
+        for i in 0..td1.score_docs().len() {
+            let sd1 = &td1.score_docs()[i];
+            let sd2 = &td2.score_docs()[i];
+
+            assert_eq!(sd1.doc(), sd2.doc());
+
+            if scores {
+                let diff = (sd1.score() - sd2.score()).abs();
+                assert!(diff <= 1e-7, "score diff={} idx={}", diff, i);
+            }
+        }
+
+        Ok(())
+    }
+}

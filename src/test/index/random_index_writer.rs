@@ -18,6 +18,7 @@ use crate::core::document::fields::Fields;
 use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::term::Term;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
@@ -58,6 +59,9 @@ where
         DF: IntoIterator<Item = Fields>,
     {
         self.w.add_document(doc)
+    }
+    pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
+        self.w.delete_documents_with_terms(terms)
     }
     pub fn close(&self) -> Result<()> {
         self.w.close()
