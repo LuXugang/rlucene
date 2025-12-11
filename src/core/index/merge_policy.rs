@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -30,6 +30,7 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::info_stream::InfoStreamMT;
 use parking_lot::{Condvar, Mutex};
 
 pub trait MergePolicy {}
@@ -361,6 +362,35 @@ impl OneMergeProgress {
         debug_assert!(owner.is_none());
         *owner = Some(thread::current().id());
     }
+}
+/// This trait represents the current context of the merge selection process.
+/// It allows access to real-time information such as:
+/// - the segments currently being merged
+/// - how many deletes a segment would reclaim if merged
+///
+/// This context may be stateful and can change during the execution of a
+/// merge policy's selection processes.
+pub trait MergeContext {
+    /// Returns the number of deletes a merge would claim back
+    /// if the given segment is merged.
+    ///
+    /// See [`MergePolicy::num_deletes_to_merge`].
+    ///
+    /// * `info` — the segment to get the number of deletes for
+    fn num_deletes_to_merge<D>(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32>
+    where
+        D: Directory;
+
+    /// Returns the number of deleted documents in the given segment.
+    fn num_deleted_docs<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    where
+        D: Directory;
+
+    /// Returns the info stream that can be used to log messages.
+    fn get_info_stream(&self) -> InfoStreamMT;
+
+    /// Returns an unmodifiable set of segments that are currently merging.
+    fn get_merging_segments(&self) -> HashSet<String>;
 }
 
 pub(crate) struct MergeReader<CR, B>

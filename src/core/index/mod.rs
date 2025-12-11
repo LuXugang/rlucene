@@ -30,6 +30,7 @@ pub(crate) mod binary_doc_values_writer;
 mod buffered_updates_stream;
 mod byte_slice_pool;
 mod byte_slice_reader;
+mod caching_merge_context;
 pub mod codec_reader;
 pub mod composite_reader;
 pub mod composite_reader_context;
