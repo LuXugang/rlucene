@@ -22,7 +22,9 @@ use std::time::{Duration, Instant};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::directory::Directory;
@@ -33,7 +35,310 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamMT;
 use parking_lot::{Condvar, Mutex};
 
-pub trait MergePolicy {}
+/// Default ratio for compound file system usage.
+/// Set to `1.0`, always use compound file system.
+pub(crate) const DEFAULT_NO_CFS_RATIO: f64 = 1.0;
+
+/// Default max segment size in order to use compound file system.
+/// Set to `i64::MAX`.
+pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
+
+pub trait MergePolicy {
+    fn get_base(&self) -> &MergePolicyBase;
+    fn get_base_mut(&mut self) -> &mut MergePolicyBase;
+    /// Determine what set of merge operations are now necessary on the index.
+    /// [`IndexWriter`] calls this whenever there is a change to the segments.
+    /// This call is always synchronized on the [`IndexWriter`] instance so only
+    /// one thread at a time will call this method.
+    ///
+    /// * `merge_trigger` — the event that triggered the merge  
+    /// * `segment_infos` — the total set of segments in the index  
+    /// * `merge_context` — the `MergeContext` to find merges on
+    fn find_merges<D, MC>(
+        &self,
+        merge_trigger: MergeTrigger,
+        segment_infos: &SegmentInfos<D>,
+        merge_context: &mut MC,
+    ) -> Result<MergeSpecification>
+    where
+        D: Directory,
+        MC: MergeContext;
+
+    /// Define the set of merge operations to perform on provided codec readers in
+    /// [`IndexWriter::add_indexes`].
+    ///
+    /// The merge operation is required to convert provided readers into segments
+    /// that can be added to the writer. This API can be overridden in custom merge
+    /// policies to control concurrency for `addIndexes`.
+    ///
+    /// Default implementation creates a single merge operation for all provided
+    /// readers (lowest concurrency). Creating a merge for each reader would provide
+    /// the highest level of concurrency possible with the configured merge scheduler.
+    ///
+    /// * `readers` — codec readers to merge into the main index
+    fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<MergeSpecification>
+    where
+        CR: CodecReader;
+
+    /// Determine what set of merge operations is necessary in order to merge to
+    /// `<=` the specified segment count. [`IndexWriter`] calls this when its
+    /// `forceMerge` method is invoked. This call is always synchronized on the
+    /// [`IndexWriter`] instance so only one thread at a time will call it.
+    ///
+    /// * `segment_infos` — the total set of segments in the index  
+    /// * `max_segment_count` — requested maximum number of segments  
+    /// * `segments_to_merge` — map of `SegmentCommitInfo` → boolean indicating
+    ///   which segments must be merged away  
+    /// * `merge_context` — the `MergeContext` to find merges on
+    fn find_forced_merges<D, MC>(
+        &self,
+        segment_infos: &SegmentInfos<D>,
+        max_segment_count: i32,
+        segments_to_merge: &HashMap<String, bool>,
+        merge_context: &mut MC,
+    ) -> Result<MergeSpecification>
+    where
+        D: Directory,
+        MC: MergeContext;
+
+    /// Determine what set of merge operations is necessary in order to expunge all deletes
+    /// from the index.
+    ///
+    /// * `segment_infos` — the total set of segments in the index  
+    /// * `merge_context` — the `MergeContext` to find merges on
+    fn find_forced_deletes_merges<D, MC>(
+        &self,
+        segment_infos: &SegmentInfos<D>,
+        merge_context: &mut MC,
+    ) -> Result<MergeSpecification>
+    where
+        MC: MergeContext,
+        D: Directory;
+    /// Identifies merges that we want to execute **synchronously** on commit.
+    /// By default, this will return the same merges as [`find_merges`]
+    /// (“natural merges”) whose segments are all less than the
+    /// [`max_full_flush_merge_size`] (the max segment size for full flushes).
+    ///
+    /// Any merges returned here will make:
+    /// - [`IndexWriter::commit`],
+    /// - [`IndexWriter::prepare_commit`] or
+    /// - [`IndexWriter::get_reader`]
+    ///
+    /// block until the merges complete, or until
+    /// [`IndexWriterConfig::get_max_full_flush_merge_wait_millis`] has elapsed.
+    ///
+    /// This may be used to merge small segments that have just been flushed,
+    /// reducing the number of segments in the point-in-time snapshot. If a merge
+    /// does not complete in the allotted time, it will continue to execute and
+    /// eventually finish and apply to future point-in-time snapshots, but it will
+    /// **not** be reflected in the current one.
+    ///
+    /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
+    /// that is already included in a registered merge, then
+    /// [`IndexWriter::commit`] or [`IndexWriter::prepare_commit`] will throw an
+    /// error. Use [`MergeContext::get_merging_segments`] to determine which
+    /// segments are currently registered to merge.
+    ///
+    /// # Parameters
+    ///
+    /// * `merge_trigger` — the event that triggered the merge (COMMIT or GET_READER)
+    /// * `segment_infos` — the total set of segments in the index (while preparing the commit)
+    /// * `merge_context` — the [`MergeContext`] to find merges on, which should be
+    ///   used to determine which segments are already in a registered merge
+    ///   (see [`MergeContext::get_merging_segments`])
+
+    fn find_full_flush_merges<D, MC>(
+        &self,
+        merge_trigger: MergeTrigger,
+        segment_infos: &SegmentInfos<D>,
+        merge_context: &mut MC,
+    ) -> Result<Option<MergeSpecification>>
+    where
+        D: Directory,
+        MC: MergeContext;
+
+    /// Returns `true` if a new segment (regardless of its origin) should use the
+    /// compound file format.
+    ///
+    /// The default implementation returns `true` iff:
+    ///
+    /// - the size of the given `merged_info` is less than or equal to
+    ///   [`get_max_cfs_segment_size_mb`], **and**
+    /// - the size is less than or equal to `total_index_size * get_no_cfs_ratio()`
+    ///
+    /// otherwise returns `false`.
+
+    fn use_compound_file<D, MC>(
+        &self,
+        infos: &SegmentInfos<D>,
+        merged_info: &SegmentCommitInfo<D>,
+        merge_context: &MC,
+    ) -> Result<bool>
+    where
+        D: Directory,
+        MC: MergeContext;
+
+    /// Return the byte size of the provided [`SegmentCommitInfo`], prorated by the
+    /// percentage of non-deleted documents that remain.
+    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+    where
+        D: Directory,
+        MC: MergeContext;
+    /// Return the maximum size of segments to be included in full-flush merges
+    /// by the default implementation of [`find_full_flush_merges`].
+    fn max_full_flush_merge_size(&self) -> i64 {
+        0
+    }
+
+    /// Asserts that the `delCount` for this [`SegmentCommitInfo`] is valid.
+    fn assert_del_count<D>(&self, del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
+        assert!(del_count >= 0, "delCount must be positive: {}", del_count);
+        assert!(
+            del_count <= info.info.max_doc()?,
+            "delCount: {} must be ≤ maxDoc: {}",
+            del_count,
+            info.info.max_doc()?
+        );
+        Ok(true)
+    }
+
+    /// Returns `true` if this single info is already fully merged (has no pending
+    /// deletes, is in the same directory as the writer, and matches the current
+    /// compound file setting).
+    fn is_merged<D, MC>(
+        &self,
+        infos: &SegmentInfos<D>,
+        info: &SegmentCommitInfo<D>,
+        merge_context: &mut MC,
+    ) -> Result<bool>
+    where
+        D: Directory,
+        MC: MergeContext,
+    {
+        let del_count = merge_context.num_deletes_to_merge(info)?;
+        assert!(self.assert_del_count(del_count, info)?);
+
+        Ok(del_count == 0
+            && self.use_compound_file(infos, info, merge_context)?
+                == info.info.get_use_compound_file())
+    }
+    /// Returns `true` if the segment represented by the given `CodecReader`
+    /// should be kept even if it is fully deleted.
+    ///
+    /// This is useful for testing, or for merge policies that implement
+    /// retention rules for soft deletes.
+    fn keep_fully_deleted_segment<CR, F>(&self, reader_supplier: F) -> Result<bool>
+    where
+        CR: CodecReader,
+        F: Fn() -> Result<CR>;
+
+    /// Returns the number of deletes that a merge would claim on the given segment.
+    ///
+    /// By default, this returns the sum of:
+    /// - the number of deletes on disk, and
+    /// - the number of pending deletes.
+    ///
+    /// Subclasses that wrap merge readers may override this in order to reflect
+    /// deletes that are carried over into the target segment in the case of soft deletes.
+    ///
+    /// Soft deletes allow deleted documents to survive across merges so that the
+    /// application controls when soft-deleted data is truly removed.
+    ///
+    /// * `info` — the segment being merged
+    /// * `del_count` — the current delete count for this segment
+    /// * `reader_supplier` — a supplier for obtaining a [`CodecReader`] of this segment
+    fn num_deletes_to_merge<D, CR, F>(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        del_count: i32,
+        reader_supplier: F,
+    ) -> Result<i32>
+    where
+        D: Directory,
+        CR: CodecReader,
+        F: Fn() -> Result<CR>;
+
+    /// Builds a string representation of the given [`SegmentCommitInfo`] instances.
+    fn seg_string<MC, D>(&self, merge_context: &MC, infos: &SegmentCommitInfo<D>) -> String
+    where
+        MC: MergeContext,
+        D: Directory;
+
+    /// Print a debug message to the [`MergeContext`]’s `infoStream`.
+    fn message<MC>(&self, message: &str, merge_context: &MC)
+    where
+        MC: MergeContext;
+
+    /// Returns `true` if the info-stream is in verbose mode.
+    ///
+    /// See [`message`].
+    fn verbose<MC>(&self, merge_context: &MC) -> bool
+    where
+        MC: MergeContext;
+}
+
+pub struct MergePolicyBase {
+    /// If the size of the merge segment exceeds this ratio of the total index size
+    /// then it will remain in non-compound format.
+    pub(crate) no_cfs_ratio: f64,
+    /// If the size of the merged segment exceeds this value
+    /// then it will not use compound file format.
+    pub(crate) max_cfs_segment_size: i64,
+}
+impl MergePolicyBase {
+    /// Returns current `noCFSRatio`.
+    ///
+    /// See [`set_no_cfs_ratio`].
+    pub fn get_no_cfs_ratio(&self) -> f64 {
+        self.no_cfs_ratio
+    }
+
+    /// If a merged segment will be more than this percentage of the total size of the index,
+    /// leave the segment as non-compound file even if compound file is enabled.
+    ///
+    /// Set to `1.0` to always use CFS regardless of merge size.
+    pub fn set_no_cfs_ratio(&mut self, ratio: f64) -> Result<()> {
+        if !(0.0..=1.0).contains(&ratio) {
+            return Err(LuceneError::illegal_argument(format!(
+                "noCFSRatio must be 0.0 to 1.0 inclusive; got {}",
+                ratio
+            )));
+        }
+        self.no_cfs_ratio = ratio;
+        Ok(())
+    }
+
+    /// Returns the largest size allowed for a compound file segment (in MB).
+    pub fn get_max_cfs_segment_size_mb(&self) -> f64 {
+        self.max_cfs_segment_size as f64 / 1024.0 / 1024.0
+    }
+
+    /// If a merged segment will be more than this value (MB), leave the segment as non-compound
+    /// even if compound file is enabled.
+    ///
+    /// Set this to `f64::INFINITY` and `noCFSRatio` to `1.0` to always use CFS regardless of size.
+    pub fn set_max_cfs_segment_size_mb(&mut self, mut v: f64) -> Result<()> {
+        if v < 0.0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "maxCFSSegmentSizeMB must be >=0 (got {})",
+                v
+            )));
+        }
+        v *= 1024.0 * 1024.0;
+
+        self.max_cfs_segment_size = if v > i64::MAX as f64 {
+            i64::MAX
+        } else {
+            v as i64
+        };
+
+        Ok(())
+    }
+}
+
 /// OneMerge provides the information necessary to perform an individual
 /// primitive merge operation, resulting in a single new segment.
 ///
@@ -219,6 +524,8 @@ impl OneMergeBase for DefaultOneMergeBaseImpl {
         todo!()
     }
 }
+
+pub struct MergeSpecification;
 
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
