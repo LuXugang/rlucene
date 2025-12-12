@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{
-    DefaultOneMergeBaseImpl, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
-    MergeSpecificationNoReader, OneMergeBase,
+    MergeContext, MergePolicy, MergePolicyBase, MergeSpecification, MergeSpecificationNoReader,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
-use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 

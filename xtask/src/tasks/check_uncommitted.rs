@@ -32,7 +32,7 @@ pub(crate) fn run() {
         println!("✅ ✅ ✅ Working directory clean. All changes committed.");
     } else {
         log(
-            "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again.",
+            "❌ ❌ ❌ Uncommitted changes detected after code check. Please run `Cargo tidy` then commit your work again.",
         );
         log(&stdout);
         process::exit(1);

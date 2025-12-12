@@ -21,10 +21,7 @@ use std::time::{Duration, Instant};
 
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -33,7 +30,6 @@ use crate::core::index::sorter::DocMap;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::bits::Bits;
-use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -342,7 +338,7 @@ pub trait MergePolicy {
     ///
     /// This is useful for testing, or for merge policies that implement
     /// retention rules for soft deletes.
-    fn keep_fully_deleted_segment<CR, F>(&self, reader_supplier: F) -> Result<bool>
+    fn keep_fully_deleted_segment<CR, F>(&self, _reader_supplier: F) -> Result<bool>
     where
         CR: CodecReader,
         F: Fn() -> Result<CR>,
@@ -388,7 +384,7 @@ pub trait MergePolicy {
         infos
             .iter()
             .map(|info| {
-                let del = merge_context.num_deleted_docs(&info) - info.get_del_count();
+                let del = merge_context.num_deleted_docs(info) - info.get_del_count();
                 info.to_string_with_pending_del_count(del)
             })
             .collect::<Vec<_>>()
@@ -541,7 +537,7 @@ where
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc,
             error: Mutex::new(None),
-            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl::default()),
+            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
         })
     }
     /// Constructor for wrapping.
@@ -592,7 +588,7 @@ where
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc: total_docs,
             error: Mutex::new(None),
-            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl::default()),
+            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
         })
     }
 }
@@ -615,23 +611,23 @@ pub enum OneMergeBaseEnum {
     Default(DefaultOneMergeBaseImpl),
 }
 impl OneMergeBase for OneMergeBaseEnum {
-    fn merge_finished(&self, success: bool, segment_dropped: bool) -> Result<()> {
+    fn merge_finished(&self, _success: bool, _segment_dropped: bool) -> Result<()> {
         todo!()
     }
 
     type CodecReader = DummyCodecReader;
 
-    fn wrap_for_merge<CR>(&self, reader: CR) -> Result<Option<Self::CodecReader>> {
+    fn wrap_for_merge<CR>(&self, _reader: CR) -> Result<Option<Self::CodecReader>> {
         todo!()
     }
 
     type DocMap = DummyDocMap;
 
-    fn reorder<CR, D>(&self, dir: D) -> Result<Self::DocMap> {
+    fn reorder<CR, D>(&self, _dir: D) -> Result<Self::DocMap> {
         todo!()
     }
 
-    fn set_merge_info<D>(info: &SegmentCommitInfo<D>)
+    fn set_merge_info<D>(_info: &SegmentCommitInfo<D>)
     where
         D: Directory,
     {
@@ -689,6 +685,15 @@ where
     /// The subset of segments to be included in the primitive merge.
     merges: Vec<OneMerge<CR>>,
 }
+impl<CR> Default for MergeSpecification<CR>
+where
+    CR: CodecReader,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<CR> MergeSpecification<CR>
 where
     CR: CodecReader,
