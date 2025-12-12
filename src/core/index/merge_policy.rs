@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -63,7 +64,7 @@ pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
 /// - When using [`ConcurrentMergeScheduler`], they may run concurrently.
 ///
 /// The default merge policy is [`TieredMergePolicy`].
-pub trait MergePolicy {
+pub trait MergePolicy: Display {
     fn get_base(&self) -> &MergePolicyBase;
     fn get_base_mut(&mut self) -> &mut MergePolicyBase;
     /// Determine what set of merge operations are now necessary on the index.
@@ -79,7 +80,7 @@ pub trait MergePolicy {
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext;
@@ -96,13 +97,13 @@ pub trait MergePolicy {
     /// the highest level of concurrency possible with the configured merge scheduler.
     ///
     /// * `readers` — codec readers to merge into the main index
-    fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<MergeSpecification<CR>>
+    fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<CR>>>
     where
         CR: CodecReader,
     {
         let mut merge_spec = MergeSpecification::new();
         merge_spec.add(OneMerge::from_codec_readers(readers)?);
-        Ok(merge_spec)
+        Ok(Some(merge_spec))
     }
 
     /// Determine what set of merge operations is necessary in order to merge to
@@ -121,7 +122,7 @@ pub trait MergePolicy {
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, bool>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext;
@@ -135,7 +136,7 @@ pub trait MergePolicy {
         &self,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         MC: MergeContext,
         D: Directory;
@@ -185,41 +186,45 @@ pub trait MergePolicy {
         // This returns natural merges that contain segments below the minimum size
         let merge_spec = self.find_merges(merge_trigger, segment_infos, merge_context)?;
 
-        if merge_spec.merges.is_empty() {
-            return Ok(None);
-        }
-        let mut new_merge_spec = None;
+        match merge_spec {
+            None => Ok(None),
+            Some(merge_spec) => {
+                let mut new_merge_spec = None;
 
-        for one_merge in merge_spec.merges.into_iter() {
-            let mut below_max_full_flush_size = true;
+                for one_merge in merge_spec.merges.into_iter() {
+                    let mut below_max_full_flush_size = true;
 
-            for seg_id in &one_merge.segments {
-                match segment_infos.info(seg_id) {
-                    Some(sci) => {
-                        if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
-                            below_max_full_flush_size = false;
-                            break;
+                    for seg_id in &one_merge.segments {
+                        match segment_infos.info(seg_id) {
+                            Some(sci) => {
+                                if self.size(sci, merge_context)?
+                                    >= self.max_full_flush_merge_size()
+                                {
+                                    below_max_full_flush_size = false;
+                                    break;
+                                }
+                            },
+                            None => {
+                                return Err(LuceneError::illegal_state(
+                                    "could not find SegmentCommitInfo from segment_infos",
+                                ));
+                            },
                         }
-                    },
-                    None => {
-                        return Err(LuceneError::illegal_state(
-                            "could not find SegmentCommitInfo from segment_infos",
-                        ));
-                    },
-                }
-            }
+                    }
 
-            if below_max_full_flush_size {
-                if new_merge_spec.is_none() {
-                    new_merge_spec = Some(MergeSpecificationNoReader::new());
+                    if below_max_full_flush_size {
+                        if new_merge_spec.is_none() {
+                            new_merge_spec = Some(MergeSpecificationNoReader::new());
+                        }
+                        if let Some(ref mut spec) = new_merge_spec {
+                            spec.add(one_merge);
+                        }
+                    }
                 }
-                if let Some(ref mut spec) = new_merge_spec {
-                    spec.add(one_merge);
-                }
-            }
+
+                Ok(new_merge_spec)
+            },
         }
-
-        Ok(new_merge_spec)
     }
 
     /// Returns `true` if a new segment (regardless of its origin) should use the
@@ -420,7 +425,21 @@ pub struct MergePolicyBase {
     /// then it will not use compound file format.
     pub(crate) max_cfs_segment_size: i64,
 }
+impl Default for MergePolicyBase {
+    fn default() -> Self {
+        Self {
+            no_cfs_ratio: DEFAULT_NO_CFS_RATIO,
+            max_cfs_segment_size: DEFAULT_MAX_CFS_SEGMENT_SIZE,
+        }
+    }
+}
 impl MergePolicyBase {
+    pub fn new(no_cfs_ratio: f64, max_cfs_segment_size: i64) -> Self {
+        Self {
+            no_cfs_ratio,
+            max_cfs_segment_size,
+        }
+    }
     /// Returns current `noCFSRatio`.
     ///
     /// See [`set_no_cfs_ratio`].

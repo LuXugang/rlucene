@@ -24,8 +24,16 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 pub struct DummyMergePolicy;
+
+impl Display for DummyMergePolicy {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
 impl MergePolicy for DummyMergePolicy {
     fn get_base(&self) -> &MergePolicyBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -40,7 +48,7 @@ impl MergePolicy for DummyMergePolicy {
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext,
@@ -48,7 +56,7 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn find_merges_readers<CR>(&self, _readers: Vec<CR>) -> Result<MergeSpecification<CR>>
+    fn find_merges_readers<CR>(&self, _readers: Vec<CR>) -> Result<Option<MergeSpecification<CR>>>
     where
         CR: CodecReader,
     {
@@ -61,7 +69,7 @@ impl MergePolicy for DummyMergePolicy {
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, bool>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext,
@@ -73,7 +81,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecificationNoReader>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         MC: MergeContext,
         D: Directory,
