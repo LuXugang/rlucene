@@ -51,10 +51,7 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn find_merges_readers<CR>(
-        &self,
-        _readers: Vec<CR>,
-    ) -> Result<MergeSpecification<CR>>
+    fn find_merges_readers<CR>(&self, _readers: Vec<CR>) -> Result<MergeSpecification<CR>>
     where
         CR: CodecReader,
     {
@@ -88,7 +85,7 @@ impl MergePolicy for DummyMergePolicy {
     }
 
     fn find_full_flush_merges<D, MC>(
-        &self,
+        &mut self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
@@ -101,10 +98,10 @@ impl MergePolicy for DummyMergePolicy {
     }
 
     fn use_compound_file<D, MC>(
-        &self,
+        &mut self,
         _infos: &SegmentInfos<D>,
         _merged_info: &SegmentCommitInfo<D>,
-        _merge_context: &MC,
+        _merge_context: &mut MC,
     ) -> Result<bool>
     where
         D: Directory,
@@ -113,7 +110,20 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
+    fn size<D, MC>(&mut self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
+    where
+        D: Directory,
+        MC: MergeContext,
+    {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn has_merged<D, MC>(
+        &mut self,
+        _infos: &SegmentInfos<D>,
+        _info: &SegmentCommitInfo<D>,
+        _merge_context: &mut MC,
+    ) -> Result<bool>
     where
         D: Directory,
         MC: MergeContext,
@@ -143,7 +153,7 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn seg_string<MC, D>(&self, _merge_context: &MC, _infos: &SegmentCommitInfo<D>) -> String
+    fn seg_string<MC, D>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
     where
         MC: MergeContext,
         D: Directory,

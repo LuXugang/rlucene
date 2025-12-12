@@ -36,17 +36,37 @@ use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::info_stream::InfoStreamMT;
+use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::{Condvar, Mutex};
 
 /// Default ratio for compound file system usage.
 /// Set to `1.0`, always use compound file system.
 pub(crate) const DEFAULT_NO_CFS_RATIO: f64 = 1.0;
-
 /// Default max segment size in order to use compound file system.
 /// Set to `i64::MAX`.
 pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
-
+/// Expert: a `MergePolicy` determines the sequence of primitive merge operations.
+///
+/// Whenever the segments in an index have been altered by [`IndexWriter`], either by:
+/// - the addition of a newly flushed segment,
+/// - the addition of many segments from `addIndexes*` calls, or
+/// - a previous merge that may now need to cascade,
+///
+/// [`IndexWriter`] invokes [`Self::find_merges`] to give the `MergePolicy` a chance to
+/// select merges that are now required.
+///
+/// This method returns a [`MergeSpecification`] describing the set of merges
+/// that should be executed, or `None` if no merges are necessary.
+///
+/// When [`IndexWriter::force_merge`] is called, it invokes
+/// [`Self::find_forced_merges`] and the `MergePolicy` should then return the merges
+/// required to satisfy that request.
+///
+/// Note that a policy may return more than one merge at a time.
+/// - When using [`SerialMergeScheduler`], these merges are run sequentially.
+/// - When using [`ConcurrentMergeScheduler`], they may run concurrently.
+///
+/// The default merge policy is [`TieredMergePolicy`].
 pub trait MergePolicy {
     fn get_base(&self) -> &MergePolicyBase;
     fn get_base_mut(&mut self) -> &mut MergePolicyBase;
@@ -80,10 +100,7 @@ pub trait MergePolicy {
     /// the highest level of concurrency possible with the configured merge scheduler.
     ///
     /// * `readers` — codec readers to merge into the main index
-    fn find_merges_readers<CR>(
-        &self,
-        readers: Vec<CR>,
-    ) -> Result<MergeSpecification<CR>>
+    fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<MergeSpecification<CR>>
     where
         CR: CodecReader,
     {
@@ -160,14 +177,54 @@ pub trait MergePolicy {
     ///   (see [`MergeContext::get_merging_segments`])
 
     fn find_full_flush_merges<D, MC>(
-        &self,
+        &mut self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext;
+        MC: MergeContext,
+    {
+        // This returns natural merges that contain segments below the minimum size
+        let merge_spec = self.find_merges(merge_trigger, segment_infos, merge_context)?;
+
+        if merge_spec.merges.is_empty() {
+            return Ok(None);
+        }
+        let mut new_merge_spec = None;
+
+        for one_merge in merge_spec.merges.into_iter() {
+            let mut below_max_full_flush_size = true;
+
+            for seg_id in &one_merge.segments {
+                match segment_infos.info(seg_id) {
+                    Some(sci) => {
+                        if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
+                            below_max_full_flush_size = false;
+                            break;
+                        }
+                    },
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "could not find SegmentCommitInfo from segment_infos",
+                        ));
+                    },
+                }
+            }
+
+            if below_max_full_flush_size {
+                if new_merge_spec.is_none() {
+                    new_merge_spec = Some(MergeSpecificationNoReader::new());
+                }
+                if let Some(ref mut spec) = new_merge_spec {
+                    spec.add(one_merge);
+                }
+            }
+        }
+
+        Ok(new_merge_spec)
+    }
 
     /// Returns `true` if a new segment (regardless of its origin) should use the
     /// compound file format.
@@ -181,21 +238,64 @@ pub trait MergePolicy {
     /// otherwise returns `false`.
 
     fn use_compound_file<D, MC>(
-        &self,
+        &mut self,
         infos: &SegmentInfos<D>,
         merged_info: &SegmentCommitInfo<D>,
-        merge_context: &MC,
+        merge_context: &mut MC,
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext;
+        MC: MergeContext,
+    {
+        let (no_cfs_ratio, max_cfs_segment_size) = {
+            let base = self.get_base();
+            if base.get_no_cfs_ratio() == 0.0 {
+                return Ok(false);
+            }
+            (base.get_no_cfs_ratio(), base.max_cfs_segment_size)
+        };
+
+        let merged_info_size = self.size(merged_info, merge_context)?;
+        if merged_info_size > max_cfs_segment_size {
+            return Ok(false);
+        }
+
+        if no_cfs_ratio >= 1.0 {
+            return Ok(true);
+        }
+        let mut total_size = 0_i64;
+
+        for sci in infos.iter() {
+            total_size += self.size(sci, merge_context)?;
+        }
+        Ok((merged_info_size as f64) <= no_cfs_ratio * (total_size as f64))
+    }
 
     /// Return the byte size of the provided [`SegmentCommitInfo`], prorated by the
     /// percentage of non-deleted documents that remain.
-    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+    fn size<D, MC>(&mut self, info: &SegmentCommitInfo<D>, merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
-        MC: MergeContext;
+        MC: MergeContext,
+    {
+        let byte_size = info.size_in_bytes()?;
+        let del_count = merge_context.num_deletes_to_merge(info)?;
+        assert!(self.assert_del_count(del_count, info)?);
+        let max_doc = info.info.max_doc()?;
+        let del_ratio = if max_doc <= 0 {
+            0.0
+        } else {
+            del_count as f64 / max_doc as f64
+        };
+
+        assert!(del_ratio <= 1.0);
+
+        if max_doc <= 0 {
+            Ok(byte_size)
+        } else {
+            Ok((byte_size as f64 * (1.0 - del_ratio)) as i64)
+        }
+    }
     /// Return the maximum size of segments to be included in full-flush merges
     /// by the default implementation of [`find_full_flush_merges`].
     fn max_full_flush_merge_size(&self) -> i64 {
@@ -220,8 +320,8 @@ pub trait MergePolicy {
     /// Returns `true` if this single info is already fully merged (has no pending
     /// deletes, is in the same directory as the writer, and matches the current
     /// compound file setting).
-    fn is_merged<D, MC>(
-        &self,
+    fn has_merged<D, MC>(
+        &mut self,
         infos: &SegmentInfos<D>,
         info: &SegmentCommitInfo<D>,
         merge_context: &mut MC,
@@ -245,7 +345,10 @@ pub trait MergePolicy {
     fn keep_fully_deleted_segment<CR, F>(&self, reader_supplier: F) -> Result<bool>
     where
         CR: CodecReader,
-        F: Fn() -> Result<CR>;
+        F: Fn() -> Result<CR>,
+    {
+        Ok(false)
+    }
 
     /// Returns the number of deletes that a merge would claim on the given segment.
     ///
@@ -264,32 +367,53 @@ pub trait MergePolicy {
     /// * `reader_supplier` — a supplier for obtaining a [`CodecReader`] of this segment
     fn num_deletes_to_merge<D, CR, F>(
         &self,
-        info: &SegmentCommitInfo<D>,
+        _info: &SegmentCommitInfo<D>,
         del_count: i32,
-        reader_supplier: F,
+        _reader_supplier: F,
     ) -> Result<i32>
     where
         D: Directory,
         CR: CodecReader,
-        F: Fn() -> Result<CR>;
+        F: Fn() -> Result<CR>,
+    {
+        Ok(del_count)
+    }
 
     /// Builds a string representation of the given [`SegmentCommitInfo`] instances.
-    fn seg_string<MC, D>(&self, merge_context: &MC, infos: &SegmentCommitInfo<D>) -> String
+    fn seg_string<MC, D>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
     where
         MC: MergeContext,
-        D: Directory;
+        D: Directory,
+    {
+        infos
+            .iter()
+            .map(|info| {
+                let del = merge_context.num_deleted_docs(&info) - info.get_del_count();
+                info.to_string_with_pending_del_count(del)
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
 
     /// Print a debug message to the [`MergeContext`]’s `infoStream`.
     fn message<MC>(&self, message: &str, merge_context: &MC)
     where
-        MC: MergeContext;
+        MC: MergeContext,
+    {
+        if self.verbose(merge_context) {
+            merge_context.get_info_stream().message("MP", message)
+        }
+    }
 
     /// Returns `true` if the info-stream is in verbose mode.
     ///
     /// See [`message`].
     fn verbose<MC>(&self, merge_context: &MC) -> bool
     where
-        MC: MergeContext;
+        MC: MergeContext,
+    {
+        merge_context.get_info_stream().enabled("MP")
+    }
 }
 
 pub struct MergePolicyBase {
