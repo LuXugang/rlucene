@@ -269,7 +269,7 @@ where
             }
 
             let commit_user_data = segment_infos.get_user_data().clone();
-            let pending_num_docs = Arc::new(AtomicI64::new(segment_infos.total_max_doc()?));
+            let pending_num_docs = Arc::new(AtomicI64::new(segment_infos.total_max_doc()? as i64));
 
             // start with previous field numbers, but new FieldInfos
             // NOTE: this is correct even for an NRT reader because we'll pull FieldInfos

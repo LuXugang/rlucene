@@ -29,7 +29,6 @@ impl ScorerUtil {
     /// remaining clauses
     /// since it is a disjunction overall, the total cost is the sum of the costs of these
     /// two parts
-
     /// If we recurse infinitely, we find out that the cost of a msm query is the sum of the
     /// costs of the num_scorers - minShouldMatch + 1 least costly scorers
     pub fn cost_with_min_should_match<I>(

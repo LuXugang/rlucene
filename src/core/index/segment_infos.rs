@@ -944,14 +944,14 @@ where
 
     /// Returns the sum of all segment's `max_docs`. Note that this does not
     /// include deletions.
-    pub fn total_max_doc(&self) -> Result<i64> {
-        let mut count: i64 = 0;
+    pub fn total_max_doc(&self) -> Result<i32> {
+        let mut count = 0;
         for segment_commit_info in self.segments.values() {
-            count += segment_commit_info.info.max_doc()? as i64;
+            count += segment_commit_info.info.max_doc()?;
         }
 
         // Ensure we don't exceed the actual max document limit.
-        debug_assert!(count <= get_actual_max_docs() as i64);
+        debug_assert!(count <= get_actual_max_docs());
         Ok(count)
     }
     /// Call this before committing if changes have been made to the segments.

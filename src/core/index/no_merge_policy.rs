@@ -69,7 +69,7 @@ impl MergePolicy for NoMergePolicy {
         &self,
         _segment_infos: &SegmentInfos<D>,
         _max_segment_count: i32,
-        _segments_to_merge: &HashMap<String, bool>,
+        _segments_to_merge: &HashMap<String, Option<bool>>,
         _merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
@@ -92,7 +92,7 @@ impl MergePolicy for NoMergePolicy {
     }
 
     fn use_compound_file<D, MC>(
-        &mut self,
+        &self,
         _infos: &SegmentInfos<D>,
         new_segment: &SegmentCommitInfo<D>,
         _merge_context: &mut MC,
@@ -104,7 +104,7 @@ impl MergePolicy for NoMergePolicy {
         Ok(new_segment.info.get_use_compound_file())
     }
 
-    fn size<D, MC>(&mut self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
+    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
         MC: MergeContext,

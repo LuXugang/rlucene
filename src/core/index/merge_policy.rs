@@ -28,6 +28,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMap;
+use crate::core::index::tiered_merge_policy::SegmentCommitInfoMeta;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::bits::Bits;
@@ -120,7 +121,7 @@ pub trait MergePolicy: Display {
         &self,
         segment_infos: &SegmentInfos<D>,
         max_segment_count: i32,
-        segments_to_merge: &HashMap<String, bool>,
+        segments_to_merge: &HashMap<String, Option<bool>>,
         merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
@@ -172,9 +173,8 @@ pub trait MergePolicy: Display {
     /// * `merge_context` — the [`MergeContext`] to find merges on, which should be
     ///   used to determine which segments are already in a registered merge
     ///   (see [`MergeContext::get_merging_segments`])
-
     fn find_full_flush_merges<D, MC>(
-        &mut self,
+        &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
@@ -237,9 +237,8 @@ pub trait MergePolicy: Display {
     /// - the size is less than or equal to `total_index_size * get_no_cfs_ratio()`
     ///
     /// otherwise returns `false`.
-
     fn use_compound_file<D, MC>(
-        &mut self,
+        &self,
         infos: &SegmentInfos<D>,
         merged_info: &SegmentCommitInfo<D>,
         merge_context: &mut MC,
@@ -274,7 +273,7 @@ pub trait MergePolicy: Display {
 
     /// Return the byte size of the provided [`SegmentCommitInfo`], prorated by the
     /// percentage of non-deleted documents that remain.
-    fn size<D, MC>(&mut self, info: &SegmentCommitInfo<D>, merge_context: &mut MC) -> Result<i64>
+    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
         MC: MergeContext,
@@ -322,7 +321,7 @@ pub trait MergePolicy: Display {
     /// deletes, is in the same directory as the writer, and matches the current
     /// compound file setting).
     fn has_merged<D, MC>(
-        &mut self,
+        &self,
         infos: &SegmentInfos<D>,
         info: &SegmentCommitInfo<D>,
         merge_context: &mut MC,
@@ -525,10 +524,7 @@ impl<CR> OneMerge<CR>
 where
     CR: CodecReader,
 {
-    pub fn new<D>(segments: &[SegmentCommitInfo<D>]) -> Result<Self>
-    where
-        D: Directory,
-    {
+    pub fn new(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
         if segments.is_empty() {
             return Err(LuceneError::illegal_state(
                 "segments must include at least one segment",
@@ -537,8 +533,8 @@ where
         let mut v = Vec::with_capacity(segments.len());
         let mut total_max_doc = 0;
         for s in segments.iter() {
-            v.push(s.info.get_id_str());
-            total_max_doc += s.info.max_doc()?
+            v.push(s.name.clone());
+            total_max_doc += s.max_doc
         }
 
         Ok(Self {
@@ -900,7 +896,7 @@ pub trait MergeContext {
     fn get_info_stream(&self) -> InfoStreamMT;
 
     /// Returns an unmodifiable set of segments that are currently merging.
-    fn get_merging_segments(&self) -> HashSet<String>;
+    fn get_merging_segments(&self) -> &HashSet<String>;
 }
 
 pub(crate) struct MergeReader<CR, B>

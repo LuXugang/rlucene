@@ -75,7 +75,7 @@ where
         self.merge_context.get_info_stream()
     }
 
-    fn get_merging_segments(&self) -> HashSet<String> {
+    fn get_merging_segments(&self) -> &HashSet<String> {
         self.merge_context.get_merging_segments()
     }
 }
