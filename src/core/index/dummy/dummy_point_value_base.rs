@@ -21,8 +21,8 @@ use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 #[derive(Clone)]
-pub struct DummyPointValuesBase;
-impl PointValues for DummyPointValuesBase {
+pub struct DummyPointValues;
+impl PointValues for DummyPointValues {
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

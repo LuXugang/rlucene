@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{
-    MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
+    DefaultOneMergeBaseImpl, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
+    MergeSpecificationNoReader, OneMergeBase,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 
@@ -40,7 +43,7 @@ impl MergePolicy for DummyMergePolicy {
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         D: Directory,
         MC: MergeContext,
@@ -48,7 +51,10 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn find_merges_readers<CR>(&self, _readers: Vec<CR>) -> Result<MergeSpecification>
+    fn find_merges_readers<CR>(
+        &self,
+        _readers: Vec<CR>,
+    ) -> Result<MergeSpecification<CR>>
     where
         CR: CodecReader,
     {
@@ -61,7 +67,7 @@ impl MergePolicy for DummyMergePolicy {
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, bool>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         D: Directory,
         MC: MergeContext,
@@ -73,7 +79,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         MC: MergeContext,
         D: Directory,
@@ -86,7 +92,7 @@ impl MergePolicy for DummyMergePolicy {
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecification>>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext,

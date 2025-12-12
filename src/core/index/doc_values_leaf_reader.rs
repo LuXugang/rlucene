@@ -22,7 +22,7 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::dummy::dummy_point_value_base::DummyPointValuesBase;
+use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
@@ -167,7 +167,7 @@ impl LeafReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointValues = DummyPointValuesBase;
+    type PointValues = DummyPointValues;
 
     fn get_point_values(&self, _field: &str) -> Result<Option<Self::PointValues>> {
         Err(LuceneError::unsupported_operation(""))

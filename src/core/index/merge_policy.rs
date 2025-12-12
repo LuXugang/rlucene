@@ -20,7 +20,10 @@ use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -30,6 +33,7 @@ use crate::core::index::sorter::DocMap;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamMT;
@@ -59,7 +63,7 @@ pub trait MergePolicy {
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         D: Directory,
         MC: MergeContext;
@@ -76,9 +80,17 @@ pub trait MergePolicy {
     /// the highest level of concurrency possible with the configured merge scheduler.
     ///
     /// * `readers` — codec readers to merge into the main index
-    fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<MergeSpecification>
+    fn find_merges_readers<CR>(
+        &self,
+        readers: Vec<CR>,
+    ) -> Result<MergeSpecification<CR>>
     where
-        CR: CodecReader;
+        CR: CodecReader,
+    {
+        let mut merge_spec = MergeSpecification::new();
+        merge_spec.add(OneMerge::from_codec_readers(readers)?);
+        Ok(merge_spec)
+    }
 
     /// Determine what set of merge operations is necessary in order to merge to
     /// `<=` the specified segment count. [`IndexWriter`] calls this when its
@@ -96,7 +108,7 @@ pub trait MergePolicy {
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, bool>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         D: Directory,
         MC: MergeContext;
@@ -110,7 +122,7 @@ pub trait MergePolicy {
         &self,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<MergeSpecification>
+    ) -> Result<MergeSpecificationNoReader>
     where
         MC: MergeContext,
         D: Directory;
@@ -152,7 +164,7 @@ pub trait MergePolicy {
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecification>>
+    ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
         MC: MergeContext;
@@ -345,11 +357,9 @@ impl MergePolicyBase {
 /// The merge spec includes:
 /// - the subset of segments to be merged
 /// - whether the new segment should use the compound file format
-pub struct OneMerge<CR, B, T>
+pub struct OneMerge<CR>
 where
     CR: CodecReader,
-    B: Bits,
-    T: OneMergeBase,
 {
     pub(crate) register_done: bool,
     pub(crate) merge_gen: i64,
@@ -361,7 +371,7 @@ where
     /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
     pub(crate) total_merge_bytes: AtomicI64,
     info_id: Option<String>,
-    merge_readers: Vec<MergeReader<CR, B>>,
+    merge_readers: Vec<MergeReader<CR, CR::Bits>>,
     /// Segments to be merged.
     segments: Vec<String>,
     /// Control used to pause/stop/resume the merge thread.
@@ -370,12 +380,11 @@ where
     /// Total number of documents in segments to be merged, not accounting for deletions.
     pub(crate) total_max_doc: i32,
     error: Mutex<Option<LuceneError>>,
-    sub: T,
+    sub: OneMergeBaseEnum,
 }
-impl<CR, B> OneMerge<CR, B, DefaultOneMergeBaseImpl>
+impl<CR> OneMerge<CR>
 where
     CR: CodecReader,
-    B: Bits,
 {
     pub fn new<D>(segments: &[SegmentCommitInfo<D>]) -> Result<Self>
     where
@@ -408,18 +417,11 @@ where
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc,
             error: Mutex::new(None),
-            sub: DefaultOneMergeBaseImpl,
+            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl::default()),
         })
     }
-}
-impl<CR, B, T> OneMerge<CR, B, T>
-where
-    CR: CodecReader,
-    B: Bits,
-    T: OneMergeBase,
-{
     /// Constructor for wrapping.
-    pub(crate) fn from_other(one_merge: OneMerge<CR, B, T>, sub: T) -> Self {
+    pub(crate) fn from_other(one_merge: OneMerge<CR>, sub: OneMergeBaseEnum) -> Self {
         Self {
             segments: one_merge.segments,
             merge_readers: one_merge.merge_readers,
@@ -438,11 +440,6 @@ where
             sub,
         }
     }
-}
-impl<CR> OneMerge<CR, <CR as LeafReader>::Bits, DefaultOneMergeBaseImpl>
-where
-    CR: CodecReader,
-{
     /// Create a OneMerge directly from CodecReaders. Used to merge incoming readers in
     /// IndexWriter::add_indexes(reader...). This OneMerge works directly on readers and has an
     /// empty segments list.
@@ -471,7 +468,7 @@ where
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc: total_docs,
             error: Mutex::new(None),
-            sub: DefaultOneMergeBaseImpl,
+            sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl::default()),
         })
     }
 }
@@ -490,8 +487,44 @@ pub trait OneMergeBase {
     // TODO IMPORTANT 闭包未定义
     fn init_merge_readers(&self) -> Result<()>;
 }
+pub enum OneMergeBaseEnum {
+    Default(DefaultOneMergeBaseImpl),
+}
+impl OneMergeBase for OneMergeBaseEnum {
+    fn merge_finished(&self, success: bool, segment_dropped: bool) -> Result<()> {
+        todo!()
+    }
+
+    type CodecReader = DummyCodecReader;
+
+    fn wrap_for_merge<CR>(&self, reader: CR) -> Result<Option<Self::CodecReader>> {
+        todo!()
+    }
+
+    type DocMap = DummyDocMap;
+
+    fn reorder<CR, D>(&self, dir: D) -> Result<Self::DocMap> {
+        todo!()
+    }
+
+    fn set_merge_info<D>(info: &SegmentCommitInfo<D>)
+    where
+        D: Directory,
+    {
+        todo!()
+    }
+
+    fn on_merge_complete(&self) -> Result<()> {
+        todo!()
+    }
+
+    fn init_merge_readers(&self) -> Result<()> {
+        todo!()
+    }
+}
+
 #[derive(Default)]
-struct DefaultOneMergeBaseImpl;
+pub struct DefaultOneMergeBaseImpl;
 impl OneMergeBase for DefaultOneMergeBaseImpl {
     fn merge_finished(&self, _success: bool, _segment_dropped: bool) -> Result<()> {
         todo!()
@@ -524,8 +557,30 @@ impl OneMergeBase for DefaultOneMergeBaseImpl {
         todo!()
     }
 }
-
-pub struct MergeSpecification;
+pub type MergeSpecificationNoReader = MergeSpecification<DummyCodecReader>;
+pub struct MergeSpecification<CR>
+where
+    CR: CodecReader,
+{
+    /// The subset of segments to be included in the primitive merge.
+    merges: Vec<OneMerge<CR>>,
+}
+impl<CR> MergeSpecification<CR>
+where
+    CR: CodecReader,
+{
+    pub fn new() -> Self {
+        Self { merges: Vec::new() }
+    }
+}
+impl<CR> MergeSpecification<CR>
+where
+    CR: CodecReader,
+{
+    pub fn add(&mut self, merge: OneMerge<CR>) {
+        self.merges.push(merge);
+    }
+}
 
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

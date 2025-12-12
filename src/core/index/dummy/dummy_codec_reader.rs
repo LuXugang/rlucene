@@ -14,14 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
+use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
+use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::Lucene90CompressingTermVectorsReader;
 use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::core::codecs::dummy::dummy_norms_producer::DummyNormsProducer;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
+use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -31,91 +40,18 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct DummyIndexReader;
+pub struct DummyCodecReader;
 
-impl Display for DummyIndexReader {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<Self>())
-    }
-}
-
-impl IndexReader for DummyIndexReader {
-    type TermVectors = DummyTermVectors;
-
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn max_doc(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn num_docs(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn num_deleted_docs(&self) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn inc_ref(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn dec_ref(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn ensure_open(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    type StoredFields = DummyStoredFields;
-
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn has_deletions(&self) -> Result<bool> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn do_close(&self) -> Result<()> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn doc_freq(&self, _term: &Term) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn get_doc_count(&self, _field: &str) -> Result<i32> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-    fn base(&self) -> &IndexReaderBase {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-}
-impl LeafReader for DummyIndexReader {
+impl LeafReader for DummyCodecReader {
     type CacheHelper = DummyCacheHelper;
-    type ParentReader = DummyCompositeReader<DummyIndexReader>;
+    type ParentReader = DummyCompositeReader<DummyLeafReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -192,11 +128,97 @@ impl LeafReader for DummyIndexReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn check_integrity(&self) -> Result<()> {
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl IndexReader for DummyCodecReader {
+    type TermVectors = DummyTermVectors;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_metadata(&self) -> Result<&LeafMetaData> {
+    fn max_doc(&self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type StoredFields = DummyStoredFields;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn do_close(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn doc_freq(&self, _term: &Term) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn total_term_freq(&self, _term: &Term) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_sum_doc_freq(&self, _field: &str) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_doc_count(&self, _field: &str) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_sum_total_term_freq(&self, _field: &str) -> Result<i64> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl Display for DummyCodecReader {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl CodecReader for DummyCodecReader {
+    type StoredFieldsReader = Lucene90CompressingStoredFieldsReader<DummyIndexInput>;
+    type TermVectorsReader = Lucene90CompressingTermVectorsReader<DummyIndexInput>;
+    type NormsProducer = DummyNormsProducer;
+    type DocValuesProducer = Lucene90DocValuesProducer<DummyIndexInput>;
+    type FieldsProducer =
+        Lucene90BlockTreeTermsReader<DummyIndexInput, Lucene101PostingsReader<DummyIndexInput>>;
+    type PointsReader = Lucene90PointsReader<DummyIndexInput>;
+
+    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
