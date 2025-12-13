@@ -54,17 +54,12 @@ where
     doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
     write_doc_values_lock: ReentrantMutex<()>,
-    // used by forceMerge to note those needing merging
-    segments_to_merge: HashMap<SegmentCommitInfo<D>, bool>,
-    merge_max_num_segments: i32,
 
     pub(crate) closed: Arc<AtomicBool>,
     closing: AtomicBool,
 
     maybe_merge: AtomicBool,
-    merging_segments: HashSet<String>,
 
-    merge_gen: i64,
     did_message_state: bool,
     flush_count: AtomicI32,
     flush_deletes_count: AtomicI32,
@@ -96,6 +91,15 @@ where
     // increments every time a change is completed
     change_count: i64,
     commit_user_data: Option<HashMap<String, String>>,
+    pending_merges: VecDeque<MergeStat>,
+    running_merges: HashSet<MergeStat>,
+    merge_exceptions: Vec<MergeStat>,
+    merge_gen: i64,
+    // used by forceMerge to note those needing merging
+    segments_to_merge: HashMap<String, Option<bool>>,
+    merges: Merges,
+    merging_segments: HashSet<String>,
+    merge_max_num_segments: i32,
 }
 
 pub struct CommitInner<D>
@@ -350,7 +354,7 @@ where
                     &format!("init: create={} reader={:?}", create, is_reader_some),
                 );
             }
-            let mut iw = Self {
+            let iw = Self {
                 enable_test_points,
                 tragedy: Arc::new(Mutex::new(None)),
                 directory_orig,
@@ -362,13 +366,9 @@ where
                 doc_writer,
                 event_queue,
                 write_doc_values_lock: ReentrantMutex::new(()),
-                segments_to_merge: HashMap::new(),
-                merge_max_num_segments: 0,
                 closed: Arc::new(AtomicBool::new(false)),
                 closing: AtomicBool::new(false),
                 maybe_merge: AtomicBool::new(false),
-                merging_segments: HashSet::new(),
-                merge_gen: 0,
                 did_message_state,
                 flush_count: AtomicI32::new(0),
                 flush_deletes_count: AtomicI32::new(0),
@@ -386,6 +386,14 @@ where
                     rollback_segments,
                     change_count,
                     commit_user_data: Some(commit_user_data),
+                    pending_merges: VecDeque::new(),
+                    running_merges: Default::default(),
+                    merge_exceptions: Vec::new(),
+                    merge_gen: 0,
+                    segments_to_merge: HashMap::new(),
+                    merges: Merges::new(),
+                    merging_segments: HashSet::new(),
+                    merge_max_num_segments: 0,
                 }),
                 pausing: Condvar::new(),
                 sub,
@@ -466,20 +474,20 @@ where
     pub fn get_config_mut(&mut self) -> &mut L {
         &mut self.config
     }
-    fn message_state(&mut self) -> Result<()> {
-        if self.info_stream.enabled("IW") && !self.did_message_state {
-            self.did_message_state = true;
-
-            let msg = format!(
-                "\ndir={}\nindex={}\nversion={}\n{}",
-                self.directory_orig,
-                self.seg_string()?,
-                *LATEST,
-                self.config
-            );
-
-            self.info_stream.message("IW", &msg);
-        }
+    fn message_state(&self) -> Result<()> {
+        // if self.info_stream.enabled("IW") && !self.did_message_state {
+        //     self.did_message_state = true;
+        //
+        //     let msg = format!(
+        //         "\ndir={}\nindex={}\nversion={}\n{}",
+        //         self.directory_orig,
+        //         self.seg_string()?,
+        //         *LATEST,
+        //         self.config
+        //     );
+        //
+        //     self.info_stream.message("IW", &msg);
+        // }
         Ok(())
     }
 
@@ -801,7 +809,7 @@ where
         // segment, we leave it in the readerPool; the
         // merge will skip merging it and will then drop
         // it once it's done:
-        if self.merging_segments.contains(seg_id) {
+        if inner.merging_segments.contains(seg_id) {
             // it's possible that we invoke this method more than once for the same SCI
             // we must only remove the docs once!
             return Ok(());
@@ -1196,15 +1204,316 @@ where
         let s = BigInt::from(counter).to_str_radix(36);
         format!("_{}", s)
     }
-    fn maybe_merge(
-        &self,
-        _merge_policy: &L::MergePolicy,
-        _trigger: MergeTrigger,
-        _max_num_segments: i32,
-    ) -> Result<()> {
-        // TODO
+    /// Forces the merge policy to merge segments until there are `<= max_num_segments`.
+    /// The actual merges to be executed are determined by the [`MergePolicy`].
+    ///
+    /// This is a **very costly** operation, especially when you pass a small
+    /// `max_num_segments`; usually you should only call this if the index is static
+    /// (will no longer be changed).
+    ///
+    /// Note that this requires free space that is proportional to the size of the
+    /// index in your `Directory`: **2×** if you are not using compound file format,
+    /// and **3×** if you are. For example, if your index size is 10 MB then you need
+    /// an additional 20 MB free for this to complete (30 MB if you're using compound
+    /// file format). This is also affected by the [`Codec`] that is used to execute
+    /// the merge, and may result in an even larger index. It is also recommended to
+    /// call [`IndexWriter::commit`] afterwards, to allow the writer to free up disk
+    /// space.
+    ///
+    /// If some but not all readers are reopened while merging is underway, this may
+    /// cause **more than 2×** temporary space to be consumed, since those new readers
+    /// will hold open the temporary segments at that time. It is best not to reopen
+    /// readers while merging is running.
+    ///
+    /// The actual temporary usage could be much less than these figures; it depends
+    /// on many factors.
+    ///
+    /// In general, once this completes, the total size of the index will be less
+    /// than the size of the starting index. It may be significantly smaller (if
+    /// there were many pending deletes) or only slightly smaller.
+    ///
+    /// If an exception occurs, for example due to running out of disk space, the
+    /// index will not be corrupted and no documents will be lost. However, the index
+    /// may have been partially merged (some segments were merged but not all), and it
+    /// is possible that one of the segments will be left in non-compound format even
+    /// when compound file format is enabled. This can happen if the exception occurs
+    /// while converting a segment into compound format.
+    ///
+    /// This call merges only the segments that were present in the index when the
+    /// call started. If other threads continue to add documents and flush new
+    /// segments, those newly created segments will **not** be merged unless
+    /// `force_merge` is called again.
+    ///
+    /// # Parameters
+    ///
+    /// * `max_num_segments` — maximum number of segments left in the index after
+    ///   merging finishes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the index is corrupt or if a low-level I/O error occurs.
+    ///
+    /// See [`MergePolicy::find_merges`].
+    pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
+        self.force_merge_with_wait(max_num_segments, true)
+    }
+    /// Just like [`IndexWriter::force_merge`], except you can specify whether the call
+    /// should block until all merging completes.
+    ///
+    /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
+    /// in background threads.
+    pub fn force_merge_with_wait(&self, max_num_segments: i32, do_wait: bool) -> Result<()> {
+        self.ensure_open()?;
+
+        if max_num_segments < 1 {
+            return Err(LuceneError::illegal_argument(format!(
+                "maxNumSegments must be >= 1; got {}",
+                max_num_segments
+            )));
+        }
+
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!("forceMerge: index now {}", self.seg_string()?),
+            );
+            self.info_stream.message("IW", "now flush at forceMerge");
+        }
+
+        self.flush_with_apply_merge_deletes(true, true)?;
+
+        {
+            let mut inner = self.inner.lock();
+
+            self.reset_merge_exceptions();
+            inner.segments_to_merge.clear();
+            {
+                let Inner {
+                    segment_infos,
+                    segments_to_merge,
+                    ..
+                } = &mut *inner;
+                for info in segment_infos.iter() {
+                    segments_to_merge.insert(info.info.get_id_str(), Some(true));
+                }
+            }
+
+            inner.merge_max_num_segments = max_num_segments;
+
+            // Now mark all pending & running merges for forced
+            // merge:
+            let Inner {
+                pending_merges,
+                segments_to_merge,
+                running_merges,
+                ..
+            } = &mut *inner;
+            for merge in pending_merges.iter_mut() {
+                merge.max_num_segments = max_num_segments;
+                if let Some(info_id) = &merge.info_id {
+                    // this can be null since we register the merge under lock before we then do the actual
+                    // merge and
+                    // set the merge.info in _mergeInit
+                    segments_to_merge.insert(info_id.clone(), Some(true));
+                }
+            }
+
+            let new_running_merges: HashSet<MergeStat> = running_merges
+                .iter()
+                .map(|m| {
+                    let mut m = m.clone();
+                    m.max_num_segments = max_num_segments;
+                    match m.info_id {
+                        // this can be null since we put the merge on runningMerges before we do the actual merge
+                        // and
+                        // set the merge.info in _mergeInit
+                        Some(ref id) => {
+                            segments_to_merge.insert(id.clone(), Some(true));
+                        },
+                        None => {},
+                    }
+                    m
+                })
+                .collect();
+            inner.running_merges = new_running_merges;
+        }
+
+        self.maybe_merge_with_max_num_segments(
+            self.config.get_merge_policy(),
+            MergeTrigger::Explicit,
+            max_num_segments,
+        )?;
+
+        if do_wait {
+            let mut inner = self.inner.lock();
+            loop {
+                if let Some(t) = &*self.tragedy.lock() {
+                    return Err(LuceneError::illegal_state(format!(
+                        "this writer hit an unrecoverable error; cannot complete forceMerge {}",
+                        t
+                    )));
+                }
+
+                if !inner.merge_exceptions.is_empty() {
+                    for merge in &inner.merge_exceptions {
+                        if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+                            return Err(LuceneError::illegal_state(
+                                "background merge hit exception",
+                            ));
+                        }
+                    }
+                }
+
+                if self.max_num_segments_merges_pending(&inner) {
+                    self.test_point("forceMergeBeforeWait");
+                    self.do_wait(&mut inner);
+                } else {
+                    break;
+                }
+            }
+
+            // If close is called while we are still
+            // running, throw an exception so the calling
+            // thread will know merging did not
+            // complete
+            self.ensure_open()?;
+        }
+        // NOTE: in the ConcurrentMergeScheduler case, when
+        // doWait is false, we can return immediately while
+        // background threads accomplish the merging
         Ok(())
     }
+
+    /// Returns true if any merges in `pending_merges` or `running_merges`
+    /// are max-num-segments merges.
+    pub(crate) fn max_num_segments_merges_pending(&self, inner: &Inner<D>) -> bool {
+        for merge in inner.pending_merges.iter() {
+            if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+                return true;
+            }
+        }
+
+        for merge in inner.running_merges.iter() {
+            if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+                return true;
+            }
+        }
+
+        false
+    }
+    /// **Expert:** Asks the [`MergePolicy`] whether any merges are necessary now and, if so,
+    /// runs the requested merges and then iterates (re-checking whether merges are needed)
+    /// until no more merges are returned by the merge policy.
+    ///
+    /// Explicit calls to `maybe_merge()` are usually not necessary. The most common case
+    /// is when merge policy parameters have changed.
+    ///
+    /// This method will call the [`MergePolicy`] with [`MergeTrigger::Explicit`].
+    pub fn maybe_merge(&self) -> Result<()> {
+        self.maybe_merge_with_max_num_segments(
+            self.config.get_merge_policy(),
+            MergeTrigger::Explicit,
+            UNBOUNDED_MAX_MERGE_SEGMENTS,
+        )
+    }
+
+    fn maybe_merge_with_max_num_segments(
+        &self,
+        merge_policy: &L::MergePolicy,
+        trigger: MergeTrigger,
+        max_num_segments: i32,
+    ) -> Result<()> {
+        // TODO 这里合并逻辑还没有完全实现 暂时返回Ok(())
+        // self.do_ensure_open(false)?;
+        // if self
+        //     .update_pending_merges(merge_policy, trigger, max_num_segments)?
+        //     .is_some()
+        // {
+        //     self.execute_merge(trigger)?;
+        // }
+        Ok(())
+    }
+
+    pub(crate) fn execute_merge(&self, _trigger: MergeTrigger) -> Result<()> {
+        todo!()
+    }
+    fn update_pending_merges(
+        &self,
+        merge_policy: &L::MergePolicy,
+        trigger: MergeTrigger,
+        max_num_segments: i32,
+    ) -> Result<Option<MergeSpecificationNoReader>> {
+        // In case infoStream was disabled on init, but then enabled at some
+        // point, try again to log the config here:
+        let mut inner = self.inner.lock();
+        self.message_state()?;
+
+        debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
+
+        if !inner.merges.are_enabled(&inner) {
+            return Ok(None);
+        }
+
+        // Do not start new merges if disaster struck
+        if self.tragedy.lock().is_some() {
+            return Ok(None);
+        }
+
+        let mut caching_merge_context = CachingMergeContext::new(self);
+        let mut spec_opt: Option<MergeSpecificationNoReader>;
+
+        if max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+            debug_assert!(
+                matches!(
+                    trigger,
+                    MergeTrigger::Explicit | MergeTrigger::MergeFinished
+                ),
+                "Expected EXPLICT or MERGE_FINISHED as trigger even with maxNumSegments set but was: {:?}",
+                trigger
+            );
+
+            spec_opt = merge_policy.find_forced_merges(
+                &inner.segment_infos,
+                max_num_segments,
+                &inner.segments_to_merge,
+                &mut caching_merge_context,
+            )?;
+
+            if let Some(ref mut spec) = spec_opt {
+                for m in &mut spec.merges {
+                    m.stat.max_num_segments = max_num_segments;
+                }
+            }
+        } else {
+            spec_opt = match trigger {
+                MergeTrigger::GetReader | MergeTrigger::Commit => merge_policy
+                    .find_full_flush_merges(
+                        trigger,
+                        &inner.segment_infos,
+                        &mut caching_merge_context,
+                    )?,
+                MergeTrigger::AddIndexes => {
+                    return Err(LuceneError::illegal_state(
+                        "Merges with ADD_INDEXES trigger should be called from within the addIndexes() API flow",
+                    ));
+                },
+                _ => merge_policy.find_merges(
+                    trigger,
+                    &inner.segment_infos,
+                    &mut caching_merge_context,
+                )?,
+            };
+        }
+
+        if let Some(ref mut spec) = spec_opt {
+            for m in &mut spec.merges {
+                self.register_merge(m, &mut inner)?;
+            }
+        }
+
+        Ok(spec_opt)
+    }
+
     pub fn delete_all(&self) -> Result<i64> {
         // TODDO: 未实现
         self.global_field_number_map.lock().clear();
@@ -1218,7 +1527,7 @@ where
         // TODO: 合并逻辑还未实现
         // self.merge_scheduler
         //     .merge(&self.merge_source, MergeTrigger::Closing)?;
-        let _inner = self.inner.lock();
+        let inner = self.inner.lock();
         self.do_ensure_open(false)?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message("IW", "waitForMerges");
@@ -1227,7 +1536,7 @@ where
         //     self.do_wait(&mut inner);
         // }
         debug_assert!(
-            self.merging_segments.is_empty(),
+            inner.merging_segments.is_empty(),
             "mergingSegments should be empty here"
         );
         if self.info_stream.enabled("IW") {
@@ -1406,6 +1715,12 @@ where
 
         res
     }
+    fn reset_merge_exceptions(&self) {
+        let mut inner = self.inner.lock();
+        inner.merge_exceptions.clear();
+        inner.merge_gen += 1;
+    }
+
     /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
     /// This method performs all steps necessary to commit changes since this writer was opened:
     /// flushes pending added and deleted docs, syncs the index files, and writes most of the next
@@ -1424,7 +1739,7 @@ where
             .store(self.prepare_commit_internal(None)?, Ordering::Release);
         // we must do this outside of the commitLock else we can deadlock:
         if self.maybe_merge.swap(false, Ordering::AcqRel) {
-            self.maybe_merge(
+            self.maybe_merge_with_max_num_segments(
                 self.config.get_merge_policy(),
                 MergeTrigger::FullFlush,
                 UNBOUNDED_MAX_MERGE_SEGMENTS,
@@ -1866,7 +2181,7 @@ where
         }
 
         if self.maybe_merge.swap(false, Ordering::AcqRel) {
-            self.maybe_merge(
+            self.maybe_merge_with_max_num_segments(
                 merge_policy,
                 MergeTrigger::FullFlush,
                 UNBOUNDED_MAX_MERGE_SEGMENTS,
@@ -2015,7 +2330,7 @@ where
         // We can be called during close, when closing==true, so we must pass false to ensureOpen:
         self.do_ensure_open(false)?;
         if self.do_flush(apply_all_deletes)? && trigger_merge {
-            self.maybe_merge(
+            self.maybe_merge_with_max_num_segments(
                 self.config.get_merge_policy(),
                 MergeTrigger::FullFlush,
                 UNBOUNDED_MAX_MERGE_SEGMENTS,
@@ -2128,6 +2443,114 @@ where
         let v = self.doc_writer.get_num_docs();
         Ok(v)
     }
+    fn ensure_valid_merge<CR>(&self, merge: &OneMerge<CR>, inner: &Inner<D>) -> Result<()>
+    where
+        CR: CodecReader,
+    {
+        for (info, name) in &merge.stat.segments {
+            if !inner.segment_infos.contains(info) {
+                return Err(LuceneError::merge(format!(
+                    "MergePolicy selected a segment ({}) that is not in the current index {}",
+                    name,
+                    self.seg_string()?
+                )));
+            }
+        }
+
+        Ok(())
+    }
+    /// Checks whether this merge involves any segments already participating in a merge.
+    /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
+    /// and true is returned. Else (the merge conflicts) false is returned.
+    fn register_merge<CR>(
+        &self,
+        merge: &mut OneMerge<CR>,
+        inner: &mut MutexGuard<'_, Inner<D>>,
+    ) -> Result<bool>
+    where
+        CR: CodecReader,
+    {
+        if merge.register_done {
+            return Ok(true);
+        }
+        debug_assert!(!merge.stat.segments.is_empty());
+
+        if !inner.merges.are_enabled(inner) {
+            // TODO: self.abort_one_merge(merge)?;
+            return Err(LuceneError::merge_abort("merge is aborted"));
+        }
+
+        // TODO IMPORTANT Current Rust implementation, `is_external` is always false
+        let is_external = false;
+
+        for (info_id, name) in &merge.stat.segments {
+            if inner.merging_segments.contains(info_id) {
+                return Ok(false);
+            }
+            if !inner.segment_infos.contains(info_id) {
+                return Ok(false);
+            }
+
+            if inner.segments_to_merge.contains_key(info_id) {
+                merge.stat.max_num_segments = inner.merge_max_num_segments;
+            }
+        }
+        self.ensure_valid_merge(merge, inner)?;
+
+        inner.pending_merges.push_back(merge.stat.clone());
+
+        merge.stat.merge_gen = inner.merge_gen;
+        merge.is_external = is_external;
+        // OK it does not conflict; now record that this merge
+        // is running (while synchronized) to avoid race
+        // condition where two conflicting merges from different
+        // threads, start
+        if self.info_stream.enabled("IW") {
+            let mut builder = String::from("registerMerge merging= [");
+            for id in &inner.merging_segments {
+                builder.push_str(id);
+                builder.push_str(", ");
+            }
+            builder.push(']');
+            self.info_stream.message("IW", &builder);
+        }
+
+        for (info_id, _) in &merge.stat.segments {
+            inner.merging_segments.insert(info_id.clone());
+        }
+
+        debug_assert!(merge.estimated_merge_bytes.load(Ordering::Relaxed) == 0);
+        debug_assert!(merge.total_merge_bytes.load(Ordering::Relaxed) == 0);
+
+        let mut est_bytes: i64 = 0;
+        let mut total_bytes: i64 = 0;
+
+        for (info_id, _) in &merge.stat.segments {
+            let info = inner.segment_infos.info(info_id).ok_or_else(|| {
+                LuceneError::illegal_state("{} not in IndexWriter's segment_infos")
+            })?;
+            let max_doc = info.info.max_doc()?;
+            if max_doc > 0 {
+                let del_count = self.num_deleted_docs(info)?;
+                debug_assert!(del_count <= max_doc);
+
+                let del_ratio = (del_count as f64) / (max_doc as f64);
+                est_bytes += (info.size_in_bytes()? as f64 * (1.0 - del_ratio)) as i64;
+                total_bytes += info.size_in_bytes()?;
+            }
+        }
+
+        merge
+            .estimated_merge_bytes
+            .store(est_bytes, Ordering::Release);
+        merge
+            .total_merge_bytes
+            .store(total_bytes, Ordering::Release);
+        // Merge is now registered
+        merge.register_done = true;
+        Ok(true)
+    }
+
     /// Returns a string description of all segments, for debugging.
     fn seg_string(&self) -> Result<String> {
         let inner = self.inner.lock();
@@ -2588,7 +3011,7 @@ where
 
         if trigger_merge {
             let policy = self.config.get_merge_policy();
-            self.maybe_merge(
+            self.maybe_merge_with_max_num_segments(
                 policy,
                 MergeTrigger::SegmentFlush,
                 UNBOUNDED_MAX_MERGE_SEGMENTS,
@@ -3286,6 +3709,125 @@ where
         inner.segment_infos.get_version()
     }
 }
+impl<D, L, B> MergeContext<D> for IndexWriter<D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+        self.do_ensure_open(false)?;
+        self.validate(info)?;
+
+        let merge_policy = self.config.get_merge_policy();
+
+        let num_deletes_to_merge = match self.get_pooled_instance(info, false, None)? {
+            // Some(rld) => rld.num_deletes_to_merge(merge_policy)?,
+            Some(rld) => todo!(),
+            None => {
+                // If we don't have a pooled instance, just return hard deletes; this is safe.
+                info.get_del_count()
+            },
+        };
+
+        debug_assert!(
+            num_deletes_to_merge <= info.info.max_doc()?,
+            "numDeletesToMerge: {} > maxDoc: {}",
+            num_deletes_to_merge,
+            info.info.max_doc()?
+        );
+
+        Ok(num_deletes_to_merge)
+    }
+
+    /// Returns the number of deletes a merge would claim back if the given segment is merged.
+    ///
+    /// See [`MergePolicy::num_deletes_to_merge`].
+    ///
+    /// # Parameters
+    /// * `info` — the segment to get the number of deletes for.
+    fn num_deletes_to_merge_mut(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+        self.num_deletes_to_merge(info)
+    }
+    /// Obtain the number of deleted docs for a pooled reader.
+    ///
+    /// If the reader isn't being pooled, the segmentInfo's `delCount` is returned.
+    fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32 {
+        self.do_ensure_open(false).unwrap();
+        self.validate(info).unwrap();
+
+        if let Some(rld) = self.get_pooled_instance(info, false, None).unwrap() {
+            // get the full count from here since SCI might change concurrently
+            rld.get_del_count(info)
+        } else {
+            let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
+            debug_assert!(
+                del_count <= info.info.max_doc().unwrap(),
+                "delCount: {} maxDoc: {}",
+                del_count,
+                info.info.max_doc().unwrap()
+            );
+            del_count
+        }
+    }
+
+    fn get_info_stream(&self) -> InfoStreamMT {
+        self.info_stream.clone()
+    }
+    /// **Expert:** to be used by a [`MergePolicy`] to avoid selecting merges for segments already
+    /// being merged.
+    ///
+    /// The returned collection is **not cloned**, and thus is only safe to access if you
+    /// hold `IndexWriter`'s lock (which you do when `IndexWriter` invokes the `MergePolicy`).
+    ///
+    /// The returned set is **unmodifiable**.
+    fn get_merging_segments(&self) -> HashSet<String> {
+        let inner = self.inner.lock();
+        inner.merging_segments.clone()
+    }
+}
+pub(crate) struct Merges {
+    merges_enabled: bool,
+}
+impl Merges {
+    fn new() -> Self {
+        Self {
+            merges_enabled: true,
+        }
+    }
+}
+
+impl Merges {
+    pub(crate) fn are_enabled<D>(&self, _inner: &MutexGuard<'_, Inner<D>>) -> bool
+    where
+        D: Directory,
+    {
+        self.merges_enabled
+    }
+
+    pub(crate) fn disable<D>(&mut self, _inner: &MutexGuard<'_, Inner<D>>)
+    where
+        D: Directory,
+    {
+        self.merges_enabled = false;
+    }
+
+    pub(crate) fn enable<D, L, B>(
+        &mut self,
+        writer: &IndexWriter<D, L, B>,
+        _inner: &MutexGuard<'_, Inner<D>>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.ensure_open()?;
+        self.merges_enabled = true;
+        Ok(())
+    }
+}
+
 pub(crate) struct IOConsumerImpl<'a, D, L, B>
 where
     D: Directory,
@@ -3536,6 +4078,8 @@ use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC, get_default_code};
 use crate::core::document::fields::Fields;
 use crate::core::index::buffered_updates::MAX_INT;
+use crate::core::index::caching_merge_context::CachingMergeContext;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_update::{
@@ -3548,6 +4092,9 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::merge_policy::{
+    MergeContext, MergePolicy, MergeSpecificationNoReader, MergeStat, OneMerge,
+};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -3574,7 +4121,7 @@ use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{BYTE_BLOCK_SIZE, LATEST};
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};

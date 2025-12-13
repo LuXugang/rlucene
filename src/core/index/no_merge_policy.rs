@@ -60,7 +60,7 @@ impl MergePolicy for NoMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         Ok(None)
     }
@@ -74,7 +74,7 @@ impl MergePolicy for NoMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         Ok(None)
     }
@@ -85,7 +85,7 @@ impl MergePolicy for NoMergePolicy {
         _merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory,
     {
         Ok(None)
@@ -99,7 +99,7 @@ impl MergePolicy for NoMergePolicy {
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         Ok(new_segment.info.get_use_compound_file())
     }
@@ -107,7 +107,7 @@ impl MergePolicy for NoMergePolicy {
     fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         Ok(i64::MAX)
     }

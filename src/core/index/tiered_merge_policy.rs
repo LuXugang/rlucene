@@ -271,7 +271,7 @@ impl TieredMergePolicy {
     ) -> Result<Vec<SegmentSizeAndDocs>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         let mut sorted_by_size = Vec::new();
 
@@ -279,7 +279,7 @@ impl TieredMergePolicy {
             sorted_by_size.push(SegmentSizeAndDocs::new(
                 info,
                 self.size(info, merge_context)?,
-                merge_context.num_deletes_to_merge(info)?,
+                merge_context.num_deletes_to_merge_mut(info)?,
             )?);
         }
 
@@ -294,7 +294,7 @@ impl TieredMergePolicy {
 
         Ok(sorted_by_size)
     }
-    fn do_find_merges<MC>(
+    fn do_find_merges<MC, D>(
         &self,
         sorted_eligible_infos: &[SegmentSizeAndDocs],
         max_merged_segment_bytes: i64,
@@ -307,7 +307,8 @@ impl TieredMergePolicy {
         max_merge_is_running: bool,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
+        D: Directory,
     {
         let mut sorted_eligible: Vec<SegmentSizeAndDocs> = sorted_eligible_infos.to_vec();
 
@@ -424,6 +425,7 @@ impl TieredMergePolicy {
                         seg_size_docs.seg_info.clone(),
                         seg_size_docs.size_in_seg,
                         seg_size_docs.max_doc,
+                        seg_size_docs.name.clone(),
                     ));
                     bytes_this_merge += seg_bytes;
                     doc_count_this_merge += seg_doc_count as i64;
@@ -433,7 +435,7 @@ impl TieredMergePolicy {
                 // segments, and already pre-excluded the too-large segments:
                 debug_assert!(!candidate.is_empty());
 
-                let max_candidate_segment_size = match seg_infos_sizes.get(&candidate[0].name) {
+                let max_candidate_segment_size = match seg_infos_sizes.get(&candidate[0].seg_id) {
                     Some(c) => c,
                     None => return Err(LuceneError::illegal_state("could not  find candidate")),
                 };
@@ -502,7 +504,7 @@ impl TieredMergePolicy {
             // whether we're going to return this list in the spec of not, we need to remove it from
             // consideration on the next loop.
             for s in best {
-                to_be_merged.insert(s.name);
+                to_be_merged.insert(s.seg_id);
             }
         }
     }
@@ -519,7 +521,7 @@ impl TieredMergePolicy {
         let mut tot_after_merge_bytes_floored: i64 = 0;
 
         for info in candidate {
-            let seg_bytes = segments_sizes.get(&info.name).unwrap().size_in_bytes;
+            let seg_bytes = segments_sizes.get(&info.seg_id).unwrap().size_in_bytes;
             tot_after_merge_bytes += seg_bytes;
             tot_after_merge_bytes_floored += self.floor_size(seg_bytes);
             tot_before_merge_bytes += info.size_in_seg;
@@ -542,7 +544,7 @@ impl TieredMergePolicy {
         } else {
             skew = (self.floor_size(
                 segments_sizes
-                    .get(&candidate[0].name)
+                    .get(&candidate[0].seg_id)
                     .unwrap()
                     .size_in_bytes,
             ) as f64)
@@ -581,16 +583,18 @@ impl TieredMergePolicy {
     }
 }
 pub struct SegmentCommitInfoMeta {
-    pub(crate) name: String,
+    pub(crate) seg_id: String,
     pub(crate) size_in_seg: i64,
     pub(crate) max_doc: i32,
+    pub(crate) name: String,
 }
 impl SegmentCommitInfoMeta {
-    fn new(name: String, size_in_seg: i64, max_doc: i32) -> Self {
+    fn new(seg_id: String, size_in_seg: i64, max_doc: i32, name: String) -> Self {
         Self {
-            name,
+            seg_id,
             size_in_seg,
             max_doc,
+            name,
         }
     }
 }
@@ -636,7 +640,7 @@ impl MergePolicy for TieredMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         // Compute total index bytes & print details about the index
         let mut tot_index_bytes: i64 = 0;
@@ -761,7 +765,7 @@ impl MergePolicy for TieredMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         let mut sorted_size_and_docs = self.get_sorted_by_segment_size(infos, merge_context)?;
 
@@ -883,7 +887,14 @@ impl MergePolicy for TieredMergePolicy {
             let mut spec = MergeSpecificationNoReader::new();
             let all_of_them: Vec<SegmentCommitInfoMeta> = sorted_size_and_docs
                 .iter()
-                .map(|s| SegmentCommitInfoMeta::new(s.seg_info.clone(), s.size_in_seg, s.max_doc))
+                .map(|s| {
+                    SegmentCommitInfoMeta::new(
+                        s.seg_info.clone(),
+                        s.size_in_seg,
+                        s.max_doc,
+                        s.name.clone(),
+                    )
+                })
                 .collect();
             spec.add(OneMerge::new(all_of_them.as_ref())?);
             return Ok(Some(spec));
@@ -912,6 +923,7 @@ impl MergePolicy for TieredMergePolicy {
                         sorted_size_and_doc.name.clone(),
                         sorted_size_and_doc.size_in_seg,
                         sorted_size_and_doc.max_doc,
+                        sorted_size_and_doc.name.clone(),
                     ));
                     index -= 1;
                     current_candidate_bytes += current_segment_size;
@@ -950,7 +962,7 @@ impl MergePolicy for TieredMergePolicy {
         merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory,
     {
         // First do a quick check that there's any work to do.
@@ -959,7 +971,7 @@ impl MergePolicy for TieredMergePolicy {
         let mut total_del_count: i32 = 0;
 
         for info in infos.iter() {
-            let del_count = merge_context.num_deletes_to_merge(info)?;
+            let del_count = merge_context.num_deletes_to_merge_mut(info)?;
             debug_assert!(self.assert_del_count(del_count, info)?);
             total_del_count += del_count;
 

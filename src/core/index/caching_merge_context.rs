@@ -17,44 +17,56 @@
 use crate::core::index::merge_policy::MergeContext;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::info_stream::InfoStreamMT;
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
+
 /// A wrapper around the IndexWriter `MergeContext`.
 ///
-/// Attempts to cache the result of [`MergeContext::num_deletes_to_merge`], in order to avoid
+/// Attempts to cache the result of [`MergeContext::num_deletes_to_merge_mut`], in order to avoid
 /// duplicate calculations during the merge phase.
 ///
 /// This helps prevent repeated computation of delete counts for the same
 /// `SegmentCommitInfo`.
-pub(crate) struct CachingMergeContext<T>
+pub(crate) struct CachingMergeContext<'a, T, D>
 where
-    T: MergeContext,
+    T: MergeContext<D>,
+    D: Directory,
 {
-    merge_context: T,
+    merge_context: &'a T,
     cached_num_deletes_to_merge: HashMap<String, i32>,
+    _mark: PhantomData<D>,
 }
-impl<T> CachingMergeContext<T>
+impl<'a, T, D> CachingMergeContext<'a, T, D>
 where
-    T: MergeContext,
+    T: MergeContext<D>,
+    D: Directory,
 {
-    pub fn new(merge_context: T) -> Self {
+    pub fn new(merge_context: &'a T) -> Self {
         CachingMergeContext {
             merge_context,
             cached_num_deletes_to_merge: HashMap::new(),
+            _mark: PhantomData,
         }
     }
 }
-impl<T> MergeContext for CachingMergeContext<T>
+impl<T, D> MergeContext<D> for CachingMergeContext<'_, T, D>
 where
-    T: MergeContext,
+    T: MergeContext<D>,
+    D: Directory,
 {
-    fn num_deletes_to_merge<D>(
+    fn num_deletes_to_merge(
+        &self,
+        info: &SegmentCommitInfo<D>,
+    ) -> crate::core::util::error::lucene_error::Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn num_deletes_to_merge_mut(
         &mut self,
         info: &SegmentCommitInfo<D>,
-    ) -> crate::core::util::error::lucene_error::Result<i32>
-    where
-        D: Directory,
-    {
+    ) -> crate::core::util::error::lucene_error::Result<i32> {
         let key = info.info.get_id_str();
         if let Some(v) = self.cached_num_deletes_to_merge.get(&key) {
             return Ok(*v);
@@ -64,10 +76,7 @@ where
         Ok(v)
     }
 
-    fn num_deleted_docs<D>(&self, info: &SegmentCommitInfo<D>) -> i32
-    where
-        D: Directory,
-    {
+    fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32 {
         self.merge_context.num_deleted_docs(info)
     }
 
@@ -75,7 +84,7 @@ where
         self.merge_context.get_info_stream()
     }
 
-    fn get_merging_segments(&self) -> &HashSet<String> {
+    fn get_merging_segments(&self) -> HashSet<String> {
         self.merge_context.get_merging_segments()
     }
 }

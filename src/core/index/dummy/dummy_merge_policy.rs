@@ -51,7 +51,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -72,7 +72,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -83,7 +83,7 @@ impl MergePolicy for DummyMergePolicy {
         _merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -97,7 +97,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -110,7 +110,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -118,7 +118,7 @@ impl MergePolicy for DummyMergePolicy {
     fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -131,7 +131,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -160,22 +160,24 @@ impl MergePolicy for DummyMergePolicy {
 
     fn seg_string<MC, D>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn message<MC>(&self, _message: &str, _merge_context: &MC)
+    fn message<MC, D>(&self, _message: &str, _merge_context: &MC)
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
+        D: Directory,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn verbose<MC>(&self, _merge_context: &MC) -> bool
+    fn verbose<MC, D>(&self, _merge_context: &MC) -> bool
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
+        D: Directory,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

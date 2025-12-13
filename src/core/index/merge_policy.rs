@@ -16,6 +16,8 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -84,7 +86,7 @@ pub trait MergePolicy: Display {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext;
+        MC: MergeContext<D>;
 
     /// Define the set of merge operations to perform on provided codec readers in
     /// [`IndexWriter::add_indexes`].
@@ -126,7 +128,7 @@ pub trait MergePolicy: Display {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext;
+        MC: MergeContext<D>;
 
     /// Determine what set of merge operations is necessary in order to expunge all deletes
     /// from the index.
@@ -139,7 +141,7 @@ pub trait MergePolicy: Display {
         merge_context: &mut MC,
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory;
     /// Identifies merges that we want to execute **synchronously** on commit.
     /// By default, this will return the same merges as [`find_merges`]
@@ -181,7 +183,7 @@ pub trait MergePolicy: Display {
     ) -> Result<Option<MergeSpecificationNoReader>>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         // This returns natural merges that contain segments below the minimum size
         let merge_spec = self.find_merges(merge_trigger, segment_infos, merge_context)?;
@@ -194,7 +196,7 @@ pub trait MergePolicy: Display {
                 for one_merge in merge_spec.merges.into_iter() {
                     let mut below_max_full_flush_size = true;
 
-                    for seg_id in &one_merge.segments {
+                    for (seg_id, _) in &one_merge.stat.segments {
                         match segment_infos.info(seg_id) {
                             Some(sci) => {
                                 if self.size(sci, merge_context)?
@@ -245,7 +247,7 @@ pub trait MergePolicy: Display {
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         let (no_cfs_ratio, max_cfs_segment_size) = {
             let base = self.get_base();
@@ -276,10 +278,10 @@ pub trait MergePolicy: Display {
     fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &mut MC) -> Result<i64>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
         let byte_size = info.size_in_bytes()?;
-        let del_count = merge_context.num_deletes_to_merge(info)?;
+        let del_count = merge_context.num_deletes_to_merge_mut(info)?;
         assert!(self.assert_del_count(del_count, info)?);
         let max_doc = info.info.max_doc()?;
         let del_ratio = if max_doc <= 0 {
@@ -328,9 +330,9 @@ pub trait MergePolicy: Display {
     ) -> Result<bool>
     where
         D: Directory,
-        MC: MergeContext,
+        MC: MergeContext<D>,
     {
-        let del_count = merge_context.num_deletes_to_merge(info)?;
+        let del_count = merge_context.num_deletes_to_merge_mut(info)?;
         assert!(self.assert_del_count(del_count, info)?);
 
         Ok(del_count == 0
@@ -382,7 +384,7 @@ pub trait MergePolicy: Display {
     /// Builds a string representation of the given [`SegmentCommitInfo`] instances.
     fn seg_string<MC, D>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
         D: Directory,
     {
         infos
@@ -396,9 +398,10 @@ pub trait MergePolicy: Display {
     }
 
     /// Print a debug message to the [`MergeContext`]’s `infoStream`.
-    fn message<MC>(&self, message: &str, merge_context: &MC)
+    fn message<MC, D>(&self, message: &str, merge_context: &MC)
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
+        D: Directory,
     {
         if self.verbose(merge_context) {
             merge_context.get_info_stream().message("MP", message)
@@ -408,9 +411,10 @@ pub trait MergePolicy: Display {
     /// Returns `true` if the info-stream is in verbose mode.
     ///
     /// See [`message`].
-    fn verbose<MC>(&self, merge_context: &MC) -> bool
+    fn verbose<MC, D>(&self, merge_context: &MC) -> bool
     where
-        MC: MergeContext,
+        MC: MergeContext<D>,
+        D: Directory,
     {
         merge_context.get_info_stream().enabled("MP")
     }
@@ -500,18 +504,13 @@ where
     CR: CodecReader,
 {
     pub(crate) register_done: bool,
-    pub(crate) merge_gen: i64,
     pub(crate) is_external: bool,
-    pub(crate) max_num_segments: i32,
     pub(crate) uses_pooled_readers: bool,
     /// Estimated size in bytes of the merged segment.
     pub estimated_merge_bytes: AtomicI64,
     /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
     pub(crate) total_merge_bytes: AtomicI64,
-    info_id: Option<String>,
     merge_readers: Vec<MergeReader<CR, CR::Bits>>,
-    /// Segments to be merged.
-    segments: Vec<String>,
     /// Control used to pause/stop/resume the merge thread.
     merge_progress: OneMergeProgress,
     pub(crate) merge_start_ns: AtomicI64,
@@ -519,7 +518,33 @@ where
     pub(crate) total_max_doc: i32,
     error: Mutex<Option<LuceneError>>,
     sub: OneMergeBaseEnum,
+    pub(crate) stat: MergeStat,
 }
+#[derive(Clone)]
+pub struct MergeStat {
+    pub(crate) id: Arc<()>,
+    pub(crate) max_num_segments: i32,
+    pub(crate) info_id: Option<String>,
+    /// Segments to be merged.
+    /// SegmentInfo#name and SegmentInfo#Id
+    pub(crate) segments: Vec<(String, String)>,
+    /// SegmentInfo#name
+    pub(crate) name: Option<String>,
+    pub(crate) merge_gen: i64,
+}
+impl PartialEq for MergeStat {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.id, &other.id)
+    }
+}
+impl Eq for MergeStat {}
+
+impl Hash for MergeStat {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.id).hash(state)
+    }
+}
+
 impl<CR> OneMerge<CR>
 where
     CR: CodecReader,
@@ -533,47 +558,51 @@ where
         let mut v = Vec::with_capacity(segments.len());
         let mut total_max_doc = 0;
         for s in segments.iter() {
-            v.push(s.name.clone());
+            v.push((s.seg_id.clone(), s.name.clone()));
             total_max_doc += s.max_doc
         }
 
         Ok(Self {
             register_done: false,
-            merge_gen: 0,
             is_external: false,
-            max_num_segments: -1,
             uses_pooled_readers: true,
             estimated_merge_bytes: AtomicI64::new(0),
             total_merge_bytes: AtomicI64::new(0),
-            info_id: None,
             merge_readers: Vec::new(),
-            segments: v,
             merge_progress: OneMergeProgress::new(),
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc,
             error: Mutex::new(None),
             sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
+            stat: MergeStat {
+                id: Arc::new(()),
+                max_num_segments: -1,
+                info_id: None,
+                segments: v,
+                name: None,
+                merge_gen: 0,
+            },
         })
     }
     /// Constructor for wrapping.
     pub(crate) fn from_other(one_merge: OneMerge<CR>, sub: OneMergeBaseEnum) -> Self {
-        Self {
-            segments: one_merge.segments,
+        let mut one_merge = Self {
             merge_readers: one_merge.merge_readers,
             total_max_doc: one_merge.total_max_doc,
             merge_progress: OneMergeProgress::new(),
             uses_pooled_readers: one_merge.uses_pooled_readers,
             register_done: false,
-            merge_gen: 0,
             is_external: false,
-            max_num_segments: -1,
             estimated_merge_bytes: AtomicI64::new(0),
             total_merge_bytes: AtomicI64::new(0),
-            info_id: None,
             merge_start_ns: AtomicI64::new(-1),
             error: Mutex::new(None),
             sub,
-        }
+            stat: one_merge.stat,
+        };
+        one_merge.stat.max_num_segments = -1;
+        one_merge.stat.info_id = None;
+        one_merge
     }
     /// Create a OneMerge directly from CodecReaders. Used to merge incoming readers in
     /// IndexWriter::add_indexes(reader...). This OneMerge works directly on readers and has an
@@ -590,21 +619,77 @@ where
 
         Ok(Self {
             register_done: false,
-            merge_gen: 0,
             is_external: false,
-            max_num_segments: -1,
             uses_pooled_readers: false,
             estimated_merge_bytes: AtomicI64::new(0),
             total_merge_bytes: AtomicI64::new(0),
-            info_id: None,
             merge_readers,
-            segments: Vec::new(),
             merge_progress: OneMergeProgress::new(),
             merge_start_ns: AtomicI64::new(-1),
             total_max_doc: total_docs,
             error: Mutex::new(None),
             sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
+            stat: MergeStat {
+                id: Arc::new(()),
+                max_num_segments: -1,
+                info_id: None,
+                segments: Vec::new(),
+                name: None,
+                merge_gen: 0,
+            },
         })
+    }
+    /// Record that an exception occurred while executing this merge.
+    pub fn set_exception(&self, error: LuceneError) {
+        let mut guard = self.error.lock();
+        *guard = Some(error);
+    }
+
+    /// Retrieve previous exception set by `set_exception`.
+    pub fn get_exception(&self) -> Option<LuceneError> {
+        let mut guard = self.error.lock();
+        guard.take()
+    }
+    /// Returns a readable description of the current merge state.
+    pub fn seg_string<D>(&self, segments: &SegmentInfos<D>) -> Result<String>
+    where
+        D: Directory,
+    {
+        let mut s = String::new();
+
+        for (i, (seg, _)) in self.stat.segments.iter().enumerate() {
+            if i > 0 {
+                s.push(' ');
+            }
+            let v = segments
+                .info(seg)
+                .ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
+            s.push_str(&v.to_string_with_pending_del_count(0));
+        }
+
+        if let Some(info_id) = &self.stat.info_id {
+            s.push_str(" into ");
+            let v = segments
+                .info(info_id)
+                .ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
+            s.push_str(&v.info.name);
+        }
+
+        if self.stat.max_num_segments != -1 {
+            s.push_str(" [maxNumSegments=");
+            s.push_str(&self.stat.max_num_segments.to_string());
+            s.push(']');
+        }
+
+        if self.is_aborted() {
+            s.push_str(" [ABORTED]");
+        }
+
+        Ok(s)
+    }
+    pub fn is_aborted(&self) -> bool {
+        // TODO
+        todo!()
     }
 }
 
@@ -698,7 +783,7 @@ where
     CR: CodecReader,
 {
     /// The subset of segments to be included in the primitive merge.
-    merges: Vec<OneMerge<CR>>,
+    pub(crate) merges: Vec<OneMerge<CR>>,
 }
 impl<CR> Default for MergeSpecification<CR>
 where
@@ -876,27 +961,27 @@ impl OneMergeProgress {
 ///
 /// This context may be stateful and can change during the execution of a
 /// merge policy's selection processes.
-pub trait MergeContext {
+pub trait MergeContext<D>
+where
+    D: Directory,
+{
     /// Returns the number of deletes a merge would claim back
     /// if the given segment is merged.
     ///
     /// See [`MergePolicy::num_deletes_to_merge`].
     ///
     /// * `info` — the segment to get the number of deletes for
-    fn num_deletes_to_merge<D>(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32>
-    where
-        D: Directory;
+    fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
+    fn num_deletes_to_merge_mut(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32>;
 
     /// Returns the number of deleted documents in the given segment.
-    fn num_deleted_docs<D>(&self, info: &SegmentCommitInfo<D>) -> i32
-    where
-        D: Directory;
+    fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32;
 
     /// Returns the info stream that can be used to log messages.
     fn get_info_stream(&self) -> InfoStreamMT;
 
     /// Returns an unmodifiable set of segments that are currently merging.
-    fn get_merging_segments(&self) -> &HashSet<String>;
+    fn get_merging_segments(&self) -> HashSet<String>;
 }
 
 pub(crate) struct MergeReader<CR, B>
