@@ -21,6 +21,8 @@ use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergeContext;
+use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
@@ -91,7 +93,7 @@ where
     // increments every time a change is completed
     change_count: i64,
     commit_user_data: Option<HashMap<String, String>>,
-    pending_merges: VecDeque<MergeStat>,
+    pending_merges: VecDeque<OneMergeNoReader>,
     running_merges: HashSet<MergeStat>,
     merge_exceptions: Vec<MergeStat>,
     merge_gen: i64,
@@ -1309,8 +1311,8 @@ where
                 ..
             } = &mut *inner;
             for merge in pending_merges.iter_mut() {
-                merge.max_num_segments = max_num_segments;
-                if let Some(info_id) = &merge.info_id {
+                merge.stat.max_num_segments = max_num_segments;
+                if let Some(info_id) = &merge.stat.info_id {
                     // this can be null since we register the merge under lock before we then do the actual
                     // merge and
                     // set the merge.info in _mergeInit
@@ -1388,7 +1390,7 @@ where
     /// are max-num-segments merges.
     pub(crate) fn max_num_segments_merges_pending(&self, inner: &Inner<D>) -> bool {
         for merge in inner.pending_merges.iter() {
-            if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+            if merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
                 return true;
             }
         }
@@ -1419,9 +1421,9 @@ where
 
     fn maybe_merge_with_max_num_segments(
         &self,
-        merge_policy: &L::MergePolicy,
-        trigger: MergeTrigger,
-        max_num_segments: i32,
+        _merge_policy: &L::MergePolicy,
+        _trigger: MergeTrigger,
+        _max_num_segments: i32,
     ) -> Result<()> {
         // TODO 这里合并逻辑还没有完全实现 暂时返回Ok(())
         // self.do_ensure_open(false)?;
@@ -1442,7 +1444,7 @@ where
         merge_policy: &L::MergePolicy,
         trigger: MergeTrigger,
         max_num_segments: i32,
-    ) -> Result<Option<MergeSpecificationNoReader>> {
+    ) -> Result<()> {
         // In case infoStream was disabled on init, but then enabled at some
         // point, try again to log the config here:
         let mut inner = self.inner.lock();
@@ -1451,12 +1453,12 @@ where
         debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
         if !inner.merges.are_enabled(&inner) {
-            return Ok(None);
+            return Ok(());
         }
 
         // Do not start new merges if disaster struck
         if self.tragedy.lock().is_some() {
-            return Ok(None);
+            return Ok(());
         }
 
         let mut caching_merge_context = CachingMergeContext::new(self);
@@ -1505,13 +1507,12 @@ where
             };
         }
 
-        if let Some(ref mut spec) = spec_opt {
-            for m in &mut spec.merges {
+        if let Some(spec) = spec_opt {
+            for m in spec.merges.into_iter() {
                 self.register_merge(m, &mut inner)?;
             }
         }
-
-        Ok(spec_opt)
+        Ok(())
     }
 
     pub fn delete_all(&self) -> Result<i64> {
@@ -2462,14 +2463,11 @@ where
     /// Checks whether this merge involves any segments already participating in a merge.
     /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
     /// and true is returned. Else (the merge conflicts) false is returned.
-    fn register_merge<CR>(
+    fn register_merge(
         &self,
-        merge: &mut OneMerge<CR>,
+        mut merge: OneMergeNoReader,
         inner: &mut MutexGuard<'_, Inner<D>>,
-    ) -> Result<bool>
-    where
-        CR: CodecReader,
-    {
+    ) -> Result<bool> {
         if merge.register_done {
             return Ok(true);
         }
@@ -2495,12 +2493,11 @@ where
                 merge.stat.max_num_segments = inner.merge_max_num_segments;
             }
         }
-        self.ensure_valid_merge(merge, inner)?;
-
-        inner.pending_merges.push_back(merge.stat.clone());
+        self.ensure_valid_merge(&merge, inner)?;
 
         merge.stat.merge_gen = inner.merge_gen;
         merge.is_external = is_external;
+
         // OK it does not conflict; now record that this merge
         // is running (while synchronized) to avoid race
         // condition where two conflicting merges from different
@@ -2548,6 +2545,7 @@ where
             .store(total_bytes, Ordering::Release);
         // Merge is now registered
         merge.register_done = true;
+        inner.pending_merges.push_back(merge);
         Ok(true)
     }
 
@@ -3786,6 +3784,30 @@ where
         inner.merging_segments.clone()
     }
 }
+// impl<D, L, B> MergeSource  for IndexWriter<D, L, B>
+// where
+//     D: Directory,
+//     L: LiveIndexWriterConfig,
+//     B: IndexWriterBase,
+// {
+//     type OneMerge = OneMergeNoReader;
+//
+//     fn get_next_merge(&mut self) -> Option<Self::OneMerge> {
+//         todo!()
+//     }
+//
+//     fn on_merge_finished(&mut self, merge: &Self::OneMerge) {
+//         todo!()
+//     }
+//
+//     fn has_pending_merges(&self) -> bool {
+//         todo!()
+//     }
+//
+//     fn merge(&mut self, merge: Self::OneMerge) -> Result<()> {
+//         todo!()
+//     }
+// }
 pub(crate) struct Merges {
     merges_enabled: bool,
 }
@@ -4093,7 +4115,7 @@ use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterCon
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::merge_policy::{
-    MergeContext, MergePolicy, MergeSpecificationNoReader, MergeStat, OneMerge,
+    MergePolicy, MergeSpecificationNoReader, MergeStat, OneMerge, OneMergeNoReader,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;

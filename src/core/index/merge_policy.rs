@@ -492,7 +492,7 @@ impl MergePolicyBase {
         Ok(())
     }
 }
-
+pub type OneMergeNoReader = OneMerge<DummyCodecReader>;
 /// OneMerge provides the information necessary to perform an individual
 /// primitive merge operation, resulting in a single new segment.
 ///
