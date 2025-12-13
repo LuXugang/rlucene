@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::no_merge_scheduler::NoMergeScheduler;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 pub trait MergeScheduler: Closeable {
@@ -41,4 +43,29 @@ pub trait MergeSource {
     /// Merges the indicated segments, replacing them in the stack
     /// with a single segment.
     fn merge(&mut self, merge: Self::OneMerge) -> Result<()>;
+}
+pub enum MergeSchedulerEnum {
+    Serial(SerialMergeScheduler),
+    No(NoMergeScheduler),
+}
+
+impl Closeable for MergeSchedulerEnum {
+    fn close(&mut self) -> Result<()> {
+        match self {
+            MergeSchedulerEnum::Serial(s) => s.close(),
+            MergeSchedulerEnum::No(n) => n.close(),
+        }
+    }
+}
+
+impl MergeScheduler for MergeSchedulerEnum {
+    fn merge<MS>(&self, merge_source: &mut MS, trigger: MergeTrigger) -> Result<()>
+    where
+        MS: MergeSource,
+    {
+        match self {
+            MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger),
+            MergeSchedulerEnum::No(n) => n.merge(merge_source, trigger),
+        }
+    }
 }

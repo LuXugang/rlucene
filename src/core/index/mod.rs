@@ -105,6 +105,7 @@ pub mod multi_terms;
 mod multi_terms_enum;
 pub mod no_deletion_policy;
 pub mod no_merge_policy;
+pub mod no_merge_scheduler;
 pub(crate) mod norm_values_writer;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
