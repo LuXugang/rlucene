@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -42,12 +45,20 @@ impl Closeable for SerialMergeScheduler {
 /// We do this "synchronized" so that even if the application is using multiple threads,
 /// only one merge may run at a time.
 impl MergeScheduler for SerialMergeScheduler {
-    fn merge<MS>(&self, merge_source: &mut MS, _trigger: MergeTrigger) -> Result<()>
+    fn merge<MS, D, L, B>(
+        &self,
+        merge_source: &mut MS,
+        _trigger: MergeTrigger,
+        index_writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
     where
         MS: MergeSource,
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
-        match merge_source.get_next_merge()? {
-            Some(merge) => merge_source.merge(merge),
+        match merge_source.get_next_merge(index_writer)? {
+            Some(merge) => merge_source.merge(merge, index_writer),
             None => Ok(()),
         }
     }

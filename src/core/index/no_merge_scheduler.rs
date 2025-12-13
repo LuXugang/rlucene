@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// A [`MergeScheduler`] which never executes any merges.
@@ -49,9 +52,17 @@ impl Closeable for NoMergeScheduler {
 }
 
 impl MergeScheduler for NoMergeScheduler {
-    fn merge<MS>(&self, _merge_source: &mut MS, _trigger: MergeTrigger) -> Result<()>
+    fn merge<MS, D, L, B>(
+        &self,
+        _merge_source: &mut MS,
+        _trigger: MergeTrigger,
+        _index_writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
     where
         MS: MergeSource,
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         Ok(())
     }

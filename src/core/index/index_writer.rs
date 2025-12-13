@@ -61,6 +61,7 @@ where
     closing: AtomicBool,
 
     maybe_merge: AtomicBool,
+    merge_source: IndexWriterMergeSource,
 
     did_message_state: bool,
     flush_count: AtomicI32,
@@ -371,6 +372,7 @@ where
                 closed: Arc::new(AtomicBool::new(false)),
                 closing: AtomicBool::new(false),
                 maybe_merge: AtomicBool::new(false),
+                merge_source: IndexWriterMergeSource,
                 did_message_state,
                 flush_count: AtomicI32::new(0),
                 flush_deletes_count: AtomicI32::new(0),
@@ -1514,6 +1516,39 @@ where
         }
         Ok(())
     }
+    /// **Expert:** the [`MergeScheduler`] calls this method to retrieve the next merge
+    /// requested by the [`MergePolicy`].
+    fn get_next_merge(&self) -> Result<Option<OneMergeNoReader>> {
+        let mut inner = self.inner.lock();
+
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot merge: {}",
+                t
+            )));
+        }
+        match inner.pending_merges.pop_front() {
+            Some(merge) => {
+                inner.running_merges.insert(merge.stat.clone());
+                Ok(Some(merge))
+            },
+            None => Ok(None),
+        }
+    }
+
+    /// **Expert:** returns `true` if there are merges waiting to be scheduled.
+    pub fn has_pending_merges(&self) -> Result<bool> {
+        let inner = self.inner.lock();
+
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot merge: {}",
+                t
+            )));
+        }
+
+        Ok(!inner.pending_merges.is_empty())
+    }
 
     pub fn delete_all(&self) -> Result<i64> {
         // TODDO: 未实现
@@ -2547,6 +2582,25 @@ where
         merge.register_done = true;
         inner.pending_merges.push_back(merge);
         Ok(true)
+    }
+
+    /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
+    fn merge_finish(&self, merge: &mut OneMergeNoReader) {
+        let mut inner = self.inner.lock();
+        // forceMerge, addIndexes or waitForMerges may be waiting
+        // on merges to finish.
+        self.pausing.notify_all();
+
+        // It's possible we are called twice, e.g. if there was an
+        // exception inside mergeInit
+        if merge.register_done {
+            for (seg_id, _) in &merge.stat.segments {
+                inner.merging_segments.remove(seg_id);
+            }
+            merge.register_done = false;
+        }
+
+        inner.running_merges.remove(&merge.stat);
     }
 
     /// Returns a string description of all segments, for debugging.
@@ -3784,30 +3838,6 @@ where
         inner.merging_segments.clone()
     }
 }
-// impl<D, L, B> MergeSource  for IndexWriter<D, L, B>
-// where
-//     D: Directory,
-//     L: LiveIndexWriterConfig,
-//     B: IndexWriterBase,
-// {
-//     type OneMerge = OneMergeNoReader;
-//
-//     fn get_next_merge(&mut self) -> Option<Self::OneMerge> {
-//         todo!()
-//     }
-//
-//     fn on_merge_finished(&mut self, merge: &Self::OneMerge) {
-//         todo!()
-//     }
-//
-//     fn has_pending_merges(&self) -> bool {
-//         todo!()
-//     }
-//
-//     fn merge(&mut self, merge: Self::OneMerge) -> Result<()> {
-//         todo!()
-//     }
-// }
 pub(crate) struct Merges {
     merges_enabled: bool,
 }
@@ -4579,5 +4609,55 @@ where
             EventEnum::D(e) => e.process(writer),
             EventEnum::E(e) => e.process(writer),
         }
+    }
+}
+#[derive(Default)]
+struct IndexWriterMergeSource;
+impl MergeSource for IndexWriterMergeSource {
+    type OneMerge = OneMergeNoReader;
+
+    fn get_next_merge<D, L, B>(
+        &self,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<Option<Self::OneMerge>>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        match writer.get_next_merge()? {
+            Some(next_merge) => {
+                // todo
+                Ok(Some(next_merge))
+            },
+            None => Ok(None),
+        }
+    }
+
+    fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge, writer: &IndexWriter<D, L, B>)
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.merge_finish(merge)
+    }
+
+    fn has_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.has_pending_merges()
+    }
+
+    fn merge<D, L, B>(&self, _merge: Self::OneMerge, _writer: &IndexWriter<D, L, B>) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        todo!()
     }
 }
