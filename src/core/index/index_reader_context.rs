@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::terms::Terms;
@@ -53,9 +53,7 @@ pub struct IndexReaderContextBase {
     /// The ord for this reader in the parent, `0` if parent is `None`.
     pub ord_in_parent: i32,
     // An object that uniquely identifies this context without referencing segments.
-    /// In Rust we model it as an `Arc<()>` so that pointer equality can be used for identity.
-    // TODO IMPORTANT 这个不能作为唯一ID
-    pub identity: Arc<()>,
+    pub identity: Identity,
 }
 
 impl IndexReaderContextBase {
@@ -64,11 +62,11 @@ impl IndexReaderContextBase {
             is_top_level,
             doc_base_in_parent,
             ord_in_parent,
-            identity: Arc::new(()),
+            identity: Identity::new(),
         }
     }
 
-    pub fn id(&self) -> &Arc<()> {
+    pub fn id(&self) -> &Identity {
         &self.identity
     }
 }

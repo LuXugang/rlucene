@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::index_reader::IndexReaderEnum;
+use crate::core::index::index_reader::{Identity, IndexReaderEnum};
 use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
 };
@@ -90,7 +90,7 @@ impl<CR> CompositeReaderContext<CR>
 where
     CR: CompositeReader,
 {
-    pub fn identity(&self) -> &Arc<()> {
+    pub fn identity(&self) -> &Identity {
         self.base.id()
     }
 

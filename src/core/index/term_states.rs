@@ -17,6 +17,7 @@
 use crate::core::index::base_terms_enum::TermStateImpl1;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -42,8 +43,7 @@ pub struct TermStates<TS>
 where
     TS: TermState,
 {
-    // TODO IMPORTANT 这个不能作为唯一ID
-    top_reader_context_identity: Arc<()>,
+    top_reader_context_identity: Identity,
     states: Vec<Option<Arc<EitherEmptyTermState<TS>>>>,
     term: Option<Arc<Term>>,
     doc_freq: i32,
@@ -55,7 +55,7 @@ where
 {
     fn default() -> Self {
         TermStates {
-            top_reader_context_identity: Arc::new(()),
+            top_reader_context_identity: Identity::new(),
             states: Vec::new(),
             term: None,
             doc_freq: 0,
@@ -114,7 +114,7 @@ where
     where
         IRC: IndexReaderContext,
     {
-        Arc::ptr_eq(&self.top_reader_context_identity, &irc.base().identity)
+        self.top_reader_context_identity.eq(&irc.base().identity)
     }
     pub fn with_state_and_stats<IRC>(
         context: &IRC,

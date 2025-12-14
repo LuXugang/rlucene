@@ -17,7 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -25,6 +24,7 @@ use std::time::{Duration, Instant};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -522,8 +522,7 @@ where
 }
 #[derive(Clone)]
 pub struct MergeStat {
-    // TODO IMPORTANT 这个不能作为唯一ID
-    pub(crate) id: Arc<()>,
+    pub(crate) id: Identity,
     pub(crate) max_num_segments: i32,
     pub(crate) info_id: Option<String>,
     /// Segments to be merged.
@@ -535,14 +534,14 @@ pub struct MergeStat {
 }
 impl PartialEq for MergeStat {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.id, &other.id)
+        self.id.eq(&other.id)
     }
 }
 impl Eq for MergeStat {}
 
 impl Hash for MergeStat {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.id).hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -576,7 +575,7 @@ where
             error: Mutex::new(None),
             sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
             stat: MergeStat {
-                id: Arc::new(()),
+                id: Identity::new(),
                 max_num_segments: -1,
                 info_id: None,
                 segments: v,
@@ -631,7 +630,7 @@ where
             error: Mutex::new(None),
             sub: OneMergeBaseEnum::Default(DefaultOneMergeBaseImpl),
             stat: MergeStat {
-                id: Arc::new(()),
+                id: Identity::new(),
                 max_num_segments: -1,
                 info_id: None,
                 segments: Vec::new(),

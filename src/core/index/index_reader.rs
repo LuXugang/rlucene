@@ -178,36 +178,7 @@ impl IndexReaderBase {
 pub trait CacheHelper {
     fn get_key(&self) -> CacheKey;
 }
-#[derive(Clone)]
-pub struct CacheKey {
-    // TODO IMPORTANT 这个不能作为唯一ID
-    identity: Arc<()>,
-}
-impl Default for CacheKey {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl CacheKey {
-    pub fn new() -> Self {
-        Self {
-            identity: Arc::new(()),
-        }
-    }
-}
-impl PartialEq for CacheKey {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.identity, &other.identity)
-    }
-}
-impl Eq for CacheKey {}
-
-impl Hash for CacheKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        (Arc::as_ptr(&self.identity) as usize).hash(state);
-    }
-}
+pub type CacheKey = Identity;
 
 pub type IRTermVectors<LR, CR> =
     Either2TermVectors<<LR as IndexReader>::TermVectors, <CR as IndexReader>::TermVectors>;
@@ -453,7 +424,7 @@ where
 #[derive(Debug)]
 struct IdentityTag(u8);
 #[derive(Clone, Debug)]
-pub(crate) struct Identity(Arc<IdentityTag>);
+pub struct Identity(Arc<IdentityTag>);
 
 impl Identity {
     pub(crate) fn new() -> Self {

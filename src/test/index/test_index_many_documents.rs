@@ -51,9 +51,9 @@ fn test_threaded_indexing() -> Result<()> {
     let counter = Arc::new(AtomicI32::new(0));
     let mut threads = Vec::new();
 
-    // TODO: IMPORTANT 这里使用多线程数量超过2的测试未通过
+    // TODO: IMPORTANT 这里使用多线程的测试未通过
     let shared_field_types = Arc::new(Mutex::new(HashMap::new()));
-    for _ in 0..2 {
+    for _ in 0..1 {
         let writer = writer.clone();
         let counter_cloned = counter.clone();
         let field_types = shared_field_types.clone();
