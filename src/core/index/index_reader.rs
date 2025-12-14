@@ -96,6 +96,14 @@ pub trait IndexReader: Display {
     fn has_deletions(&self) -> Result<bool> {
         Ok(self.num_deleted_docs()? > 0)
     }
+    fn close(&self) -> Result<()> {
+        let base = self.base();
+        if !base.closed.load(Ordering::Acquire) {
+            self.dec_ref()?;
+            base.closed.store(true, Ordering::Release);
+        }
+        Ok(())
+    }
 
     fn do_close(&self) -> Result<()>;
 

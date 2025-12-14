@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::field_infos::FieldNumbers;
-use crate::core::index::index_writer::LongSupplierImpl;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
@@ -43,9 +42,10 @@ use std::sync::atomic::AtomicBool;
 /// 3) handing out a real-time reader.
 ///    This pool reuses instances of the SegmentReaders in all these places
 ///    if it is in "near real-time mode" (getReader() has been called on this instance).
-pub(crate) struct ReaderPool<D>
+pub(crate) struct ReaderPool<D, F>
 where
     D: Directory,
+    F: LongSupplier,
 {
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     original_directory: Arc<D>,
@@ -65,7 +65,7 @@ where
     // to be needed and reused ie if IndexWriter#getReader is called.
     pool_readers: AtomicBool,
     inner: Mutex<Inner<D>>,
-    completed_del_gen_supplier: LongSupplierImpl,
+    completed_del_gen_supplier: F,
     index_created_version_major: i32,
 }
 pub(crate) struct Inner<D>
@@ -75,17 +75,17 @@ where
     reader_map: HashMap<String, Arc<ReadersAndUpdates<D>>>,
     closed: AtomicBool,
 }
-
-impl<D> ReaderPool<D>
+impl<D, F> ReaderPool<D, F>
 where
     D: Directory,
+    F: LongSupplier,
 {
     pub(crate) fn new<S, LR, C, D1>(
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         original_directory: Arc<D>,
         info_stream: InfoStreamMT,
         soft_deletes_field: Option<S>,
-        completed_del_gen_supplier: LongSupplierImpl,
+        completed_del_gen_supplier: F,
         _reader: Option<StandardDirectoryReader<LR, C, D1>>,
         index_created_version_major: i32,
     ) -> Self
@@ -241,7 +241,6 @@ where
     }
 
     pub(crate) fn close(&self) -> Result<()> {
-        // compare_and_swap 已弃用，用 compare_exchange 或 swap
         if self
             .inner
             .lock()
@@ -507,11 +506,519 @@ where
         true
     }
 }
-impl<D> Drop for ReaderPool<D>
+impl<D, F> Drop for ReaderPool<D, F>
 where
     D: Directory,
+    F: LongSupplier,
 {
     fn drop(&mut self) {
-        self.close().expect("should not fail")
+        // TODO
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store::Yes;
+    use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::doc_values_field_updates::{
+        DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
+    };
+    use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+    use crate::core::index::field_infos::FieldNumbers;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
+    use crate::core::index::reader_pool::ReaderPool;
+    use crate::core::index::term::Term;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::store::IOContext;
+    use crate::core::store::directory::Directory;
+    use crate::core::store::dummy::dummy_directory::DummyDirectory;
+    use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
+    use crate::core::util::bits::Bits;
+    use crate::core::util::dummy::dummy_comparator::DummyComparator;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::info_stream::InfoStreamEnum;
+    use crate::core::util::long_supplier::LongSupplier;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
+    use parking_lot::Mutex;
+    use rand::Rng;
+    use std::sync::Arc;
+
+    #[allow(dead_code)]
+    struct TestReaderPool;
+
+    #[derive(Default)]
+    struct LongSupplierImpl;
+    impl LongSupplier for LongSupplierImpl {
+        fn get_as_long(&self) -> i64 {
+            0
+        }
+    }
+
+    #[test]
+    fn test_drop() -> Result<()> {
+        let mut random = random();
+        let directory = Arc::new(new_directory(&mut random)?);
+
+        let (field_numbers, index_created_version_major) =
+            build_index(directory.clone(), &mut random)?;
+
+        let mut reader = directory_reader_util::open(directory.clone())?;
+        let segment_infos = reader.segment_infos.as_mut().unwrap();
+        let lock = directory.obtain_lock("writer_lock")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+        let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+            lock_dir,
+            directory.clone(),
+            Arc::new(InfoStreamEnum::default()),
+            None,
+            LongSupplierImpl::default(),
+            None,
+            index_created_version_major,
+        );
+        let idx = random.random_range(0..segment_infos.segments_idx.len());
+        let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+
+        let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+
+        let same = pool.get(&commit_info, false, None)?.unwrap();
+        assert!(Arc::ptr_eq(&readers_and_updates, &same));
+        assert!(pool.drop(&commit_info.info.get_id_str())?);
+
+        if random.random_bool(0.5) {
+            assert!(!pool.drop(&commit_info.info.get_id_str())?);
+        }
+        assert!(pool.get(&commit_info, false, None)?.is_none());
+        pool.release(
+            &readers_and_updates,
+            random.random_bool(0.5),
+            &mut commit_info,
+            &*field_numbers.lock(),
+        )?;
+        pool.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_pool_readers() -> Result<()> {
+        let mut random = random();
+        let directory = Arc::new(new_directory(&mut random)?);
+
+        let (field_numbers, index_created_version_major) =
+            build_index(directory.clone(), &mut random)?;
+
+        let mut reader = directory_reader_util::open(directory.clone())?;
+        let segment_infos = reader.segment_infos.as_mut().unwrap();
+
+        let lock = directory.obtain_lock("writer_lock")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+
+        let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+            lock_dir,
+            directory.clone(),
+            Arc::new(InfoStreamEnum::default()),
+            None,
+            LongSupplierImpl::default(),
+            None,
+            index_created_version_major,
+        );
+
+        let idx = random.random_range(0..segment_infos.segments_idx.len());
+        let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+
+        assert!(!pool.is_reader_pooling_enabled());
+
+        let rau = pool.get(&commit_info, true, None)?.unwrap();
+        pool.release(
+            &rau,
+            random.random_bool(0.5),
+            &mut commit_info,
+            &*field_numbers.lock(),
+        )?;
+
+        assert!(pool.get(&commit_info, false, None)?.is_none());
+        // now start pooling
+        pool.enable_reader_pooling();
+        assert!(pool.is_reader_pooling_enabled());
+
+        let rau = pool.get(&commit_info, true, None)?.unwrap();
+        pool.release(
+            &rau,
+            random.random_bool(0.5),
+            &mut commit_info,
+            &*field_numbers.lock(),
+        )?;
+
+        let pooled = pool.get(&commit_info, false, None)?.unwrap();
+        let pooled_again = pool.get(&commit_info, false, None)?.unwrap();
+        assert!(Arc::ptr_eq(&pooled, &pooled_again));
+
+        pool.drop(&commit_info.info.get_id_str())?;
+
+        // let mut ram_bytes_used = 0_i64;
+        // TODO: memory calculation not implemented
+        // assert_eq!(0, pool.ram_bytes_used());
+
+        for idx in 0..segment_infos.segments_idx.len() {
+            let mut info = segment_infos.info_idx_mut(idx).unwrap();
+
+            let rau = pool.get(&info, true, None)?.unwrap();
+            pool.release(
+                &rau,
+                random.random_bool(0.5),
+                &mut info,
+                &*field_numbers.lock(),
+            )?;
+            // TODO: memory calculation not implemented
+            // assert_eq!(
+            //     0,
+            //     pool.ram_bytes_used(),
+            //     " used: {} actual: {}",
+            //     ram_bytes_used,
+            //     pool.ram_bytes_used()
+            // );
+
+            // ram_bytes_used = pool.ram_bytes_used();
+
+            let a = pool.get(&info, false, None)?.unwrap();
+            let b = pool.get(&info, false, None)?.unwrap();
+            assert!(Arc::ptr_eq(&a, &b));
+        }
+        // TODO: memory calculation not implemented
+        // assert_ne!(0, pool.ram_bytes_used());
+
+        pool.drop_all()?;
+
+        for idx in 0..segment_infos.segments_idx.len() {
+            let info = segment_infos.info_idx(idx).unwrap();
+            assert!(pool.get(&info, false, None)?.is_none());
+        }
+
+        // TODO: memory calculation not implemented
+        // assert_eq!(0, pool.ram_bytes_used());
+
+        pool.close()?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_update() -> Result<()> {
+        let mut random = random();
+        let directory = Arc::new(new_directory(&mut random)?);
+
+        let (field_numbers, index_created_version_major) =
+            build_index(directory.clone(), &mut random)?;
+
+        let mut reader = directory_reader_util::open(directory.clone())?;
+        let segment_infos = reader.segment_infos.as_mut().unwrap();
+
+        let lock = directory.obtain_lock("writer_lock")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+
+        let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+            lock_dir,
+            directory.clone(),
+            Arc::new(InfoStreamEnum::default()),
+            None,
+            LongSupplierImpl::default(),
+            None,
+            index_created_version_major,
+        );
+
+        let id = random.random_range(0..10);
+
+        if random.random_bool(0.5) {
+            pool.enable_reader_pooling();
+        }
+
+        for idx in 0..segment_infos.segments_idx.len() {
+            let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
+                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let read_only_clone = readers_and_updates
+                    .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+                    .unwrap();
+
+                let term = Term::from_text("id", id.to_string());
+                let postings = read_only_clone.postings(&term)?;
+                (
+                    read_only_clone,
+                    commit_info.info.max_doc()?,
+                    readers_and_updates,
+                    postings,
+                )
+            };
+            let mut expect_update = false;
+            let mut doc = -1_i32;
+
+            if let Some(ref mut postings) = postings {
+                if postings.next_doc()? != NO_MORE_DOCS {
+                    let sub_update1 = NumericDocValuesFieldUpdates::new()?;
+                    let mut number_updates = DocValuesFieldUpdates::new(
+                        max_doc,
+                        0,
+                        "number",
+                        sub_update1.sub_type(),
+                        sub_update1,
+                    )?;
+                    doc = postings.doc_id();
+                    number_updates.add_value(doc, 1000_i64)?;
+                    number_updates.finish()?;
+
+                    readers_and_updates.add_dv_update(number_updates)?;
+                    expect_update = true;
+
+                    assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
+                    assert!(pool.any_doc_values_changes());
+                } else {
+                    assert!(!pool.any_doc_values_changes());
+                }
+            } else {
+                assert!(!pool.any_doc_values_changes());
+            }
+            read_only_clone.close()?;
+            let written_to_disk: bool;
+            let mut commit_info_vec = None;
+            if pool.is_reader_pooling_enabled() {
+                if random.random_bool(0.5) {
+                    written_to_disk = pool.write_all_doc_values_updates(
+                        &mut segment_infos.segments,
+                        &mut *field_numbers.lock(),
+                    )?;
+                    assert!(!readers_and_updates.is_merging());
+                } else if random.random_bool(0.5) {
+                    written_to_disk = pool.commit(segment_infos, &mut *field_numbers.lock())?;
+                    assert!(!readers_and_updates.is_merging());
+                } else {
+                    let mut commit_info = vec![segment_infos.info_idx_mut(idx).unwrap().clone()];
+                    written_to_disk = pool.write_doc_values_updates_for_merge(
+                        commit_info.as_mut(),
+                        &mut *field_numbers.lock(),
+                    )?;
+                    assert!(readers_and_updates.is_merging());
+                    commit_info_vec = Some(commit_info);
+                }
+                let mut commit_info = if let Some(ref mut v) = commit_info_vec {
+                    &mut v[0]
+                } else {
+                    segment_infos.info_idx_mut(idx).unwrap()
+                };
+                assert!(!pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    &mut commit_info,
+                    &*field_numbers.lock(),
+                )?);
+            } else {
+                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                if random.random_bool(0.5) {
+                    written_to_disk = pool.release(
+                        &readers_and_updates,
+                        random.random_bool(0.5),
+                        &mut commit_info,
+                        &*field_numbers.lock(),
+                    )?;
+                    assert!(!readers_and_updates.is_merging());
+                } else {
+                    let mut commit_info = vec![commit_info.clone()];
+                    written_to_disk = pool.write_doc_values_updates_for_merge(
+                        commit_info.as_mut(),
+                        &mut *field_numbers.lock(),
+                    )?;
+                    assert!(readers_and_updates.is_merging());
+
+                    assert!(!pool.release(
+                        &readers_and_updates,
+                        random.random_bool(0.5),
+                        &mut commit_info[0],
+                        &*field_numbers.lock(),
+                    )?);
+                    commit_info_vec = Some(commit_info);
+                }
+            }
+
+            assert!(!pool.any_doc_values_changes());
+            assert_eq!(expect_update, written_to_disk);
+
+            let mut commit_info = if let Some(commit_info_vec) = commit_info_vec {
+                commit_info_vec[0].clone()
+            } else {
+                segment_infos.info_idx_mut(idx).unwrap().clone()
+            };
+            if expect_update {
+                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let updated_reader = readers_and_updates
+                    .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
+                    .unwrap();
+
+                assert_ne!(-1, doc);
+
+                let mut number = updated_reader
+                    .get_numeric_doc_values("number")?
+                    .expect("numeric dv missing");
+
+                assert_eq!(doc, number.advance(doc)?);
+                assert_eq!(1000_i64, number.long_value()?);
+
+                readers_and_updates.release(updated_reader.as_ref(), None)?;
+                assert!(!pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    &mut commit_info,
+                    &*field_numbers.lock(),
+                )?);
+            }
+        }
+
+        pool.close()?;
+        Ok(())
+    }
+    #[test]
+    fn test_deletes() -> Result<()> {
+        let mut random = random();
+        let directory = Arc::new(new_directory(&mut random)?);
+
+        let (field_numbers, index_created_version_major) =
+            build_index(directory.clone(), &mut random)?;
+
+        let mut reader = directory_reader_util::open(directory.clone())?;
+        let segment_infos = reader.segment_infos.as_mut().unwrap();
+
+        let lock = directory.obtain_lock("writer_lock")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+
+        let pool = ReaderPool::new::<String, DummyLeafReader, DummyComparator, DummyDirectory>(
+            lock_dir,
+            directory.clone(),
+            Arc::new(InfoStreamEnum::default()),
+            None,
+            LongSupplierImpl::default(),
+            None,
+            index_created_version_major,
+        );
+
+        let id = random.random_range(0..10);
+
+        if random.random_bool(0.5) {
+            pool.enable_reader_pooling();
+        }
+
+        for idx in 0..segment_infos.segments_idx.len() {
+            let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
+                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let read_only_clone = readers_and_updates
+                    .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+                    .unwrap();
+
+                let term = Term::from_text("id", id.to_string());
+                let postings = read_only_clone.postings(&term)?;
+                (
+                    read_only_clone,
+                    commit_info.info.max_doc()?,
+                    readers_and_updates,
+                    postings,
+                )
+            };
+            let mut expect_update = false;
+            let mut doc = -1_i32;
+            if let Some(ref mut postings) = postings {
+                if postings.next_doc()? != NO_MORE_DOCS {
+                    doc = postings.doc_id();
+                    assert!(readers_and_updates.delete(
+                        postings.doc_id(),
+                        segment_infos.info_idx_mut(idx).unwrap(),
+                        None
+                    )?);
+                    expect_update = true;
+                    assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
+                }
+            };
+            assert!(!pool.any_doc_values_changes()); // deletes are not accounted here
+            read_only_clone.close()?;
+            let written_to_disk: bool;
+            if pool.is_reader_pooling_enabled() {
+                written_to_disk = pool.commit(segment_infos, &mut *field_numbers.lock())?;
+                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                assert!(!pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    &mut commit_info,
+                    &*field_numbers.lock(),
+                )?);
+            } else {
+                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                written_to_disk = pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    &mut commit_info,
+                    &*field_numbers.lock(),
+                )?;
+            }
+
+            assert!(!pool.any_doc_values_changes());
+            assert_eq!(expect_update, written_to_disk);
+
+            let mut commit_info = segment_infos.info_idx_mut(idx).unwrap().clone();
+            if expect_update {
+                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let updated_reader = readers_and_updates
+                    .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
+                    .unwrap();
+
+                assert_ne!(-1, doc);
+                assert!(!updated_reader.get_live_docs()?.as_ref().unwrap().get(doc));
+                readers_and_updates.release(updated_reader.as_ref(), None)?;
+                assert!(!pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    &mut commit_info,
+                    &*field_numbers.lock(),
+                )?);
+            }
+        }
+        pool.close()?;
+        Ok(())
+    }
+
+    fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    fn test_get_reader_by_ram() -> Result<()> {
+        // TODO: memory calculation not implemented
+        Ok(())
+    }
+
+    fn build_index<D: Directory, R: Rng + ?Sized>(
+        directory: Arc<D>,
+        random: &mut R,
+    ) -> Result<(Arc<Mutex<FieldNumbers>>, i32)> {
+        let writer = IndexWriter::new(directory, new_index_writer_config(random))?;
+        for i in 0..10 {
+            let mut document = Document::new();
+            document.add(StringField::with_string("id", i.to_string(), Yes)?);
+            document.add(NumericDocValuesField::new("number", i));
+
+            writer.add_document(document)?;
+
+            if random.random_bool(0.5) {
+                writer.flush()?;
+            }
+        }
+        writer.commit()?;
+        let field_numbers = writer.global_field_number_map.clone();
+
+        writer.close()?;
+
+        Ok((field_numbers, writer.get_index_major_version_created()))
     }
 }

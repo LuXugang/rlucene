@@ -57,7 +57,7 @@ where
     apply_all_deletes: bool,
     write_all_deletes: bool,
     // if Some, this reader owns the SegmentInfos, else from IndexWriter
-    segment_infos: Option<SegmentInfos<D>>,
+    pub(crate) segment_infos: Option<SegmentInfos<D>>,
     sub_reader_sorter: Option<Arc<C>>,
     base: IndexReaderBase,
     closed: Option<Arc<AtomicBool>>,

@@ -240,9 +240,13 @@ where
         inner.reader.as_ref().unwrap().inc_ref()?;
         Ok(())
     }
-    pub fn release(&self, sr: &SegmentReader<D>, inner: &Inner<D>) -> Result<()> {
+    pub fn release(&self, sr: &SegmentReader<D>, inner: Option<&Inner<D>>) -> Result<()> {
+        let _inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
         debug_assert!(self.info_id == sr.get_original_segment_info_id());
-        inner.reader.as_ref().unwrap().dec_ref()?;
+        sr.dec_ref()?;
         Ok(())
     }
 

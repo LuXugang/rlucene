@@ -66,7 +66,7 @@ where
     did_message_state: bool,
     flush_count: AtomicI32,
     flush_deletes_count: AtomicI32,
-    reader_pool: ReaderPool<D>,
+    reader_pool: ReaderPool<D, LongSupplierImpl>,
     buffered_updates_stream: Arc<BufferedUpdatesStream>,
     merge_finished_gen: AtomicI64,
     pub(crate) config: L,

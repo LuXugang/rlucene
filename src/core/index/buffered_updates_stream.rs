@@ -293,7 +293,7 @@ where
                     ));
                 },
             };
-            self.rld.release(reader.as_ref(), &rld_inner)?;
+            self.rld.release(reader.as_ref(), Some(&rld_inner))?;
         }
         writer.release(self.rld.as_ref(), inner)?;
         Ok(())

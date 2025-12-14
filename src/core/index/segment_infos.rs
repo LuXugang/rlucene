@@ -197,6 +197,14 @@ where
             None => None,
         }
     }
+    #[cfg(test)]
+    pub fn info_idx_mut(&mut self, i: usize) -> Option<&mut SegmentCommitInfo<D>> {
+        let str = self.segments_idx.get(i);
+        match str {
+            Some(s) => self.segments.get_mut(s),
+            None => None,
+        }
+    }
     pub fn info_mut(&mut self, i: &str) -> Option<&mut SegmentCommitInfo<D>> {
         self.segments.get_mut(i)
     }
