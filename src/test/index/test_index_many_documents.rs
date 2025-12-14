@@ -26,6 +26,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir, new_fs_directory, new_text_field, random,
 };
 use crate::test::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -50,13 +51,14 @@ fn test_threaded_indexing() -> Result<()> {
     let counter = Arc::new(AtomicI32::new(0));
     let mut threads = Vec::new();
 
-    // TODO: IMPORTANT 这里使用多线程的测试未通过
-    for _ in 0..1 {
+    // TODO: IMPORTANT 这里使用多线程数量超过2的测试未通过
+    let shared_field_types = Arc::new(Mutex::new(HashMap::new()));
+    for _ in 0..2 {
         let writer = writer.clone();
         let counter_cloned = counter.clone();
+        let field_types = shared_field_types.clone();
 
         threads.push(thread::spawn(move || {
-            let mut field_types = HashMap::new();
             loop {
                 let curr = counter_cloned.fetch_add(1, Ordering::SeqCst);
                 if curr >= num_docs {
@@ -64,7 +66,7 @@ fn test_threaded_indexing() -> Result<()> {
                 }
 
                 let mut doc = Document::new();
-                doc.add(new_text_field("field", "text", No, &mut field_types).unwrap());
+                doc.add(new_text_field("field", "text", No, &mut field_types.lock()).unwrap());
 
                 if let Err(e) = writer.add_document(doc) {
                     panic!("thread indexing failed: {:?}", e);

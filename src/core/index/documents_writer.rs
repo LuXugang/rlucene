@@ -518,7 +518,10 @@ where
                                     let v = dwpt.flush(&self.flush_notifications, writer)?;
                                     match v {
                                         Some(new_segment) => {
-                                            self.ticket_queue.add_segment(ticket, new_segment);
+                                            self.ticket_queue.add_segment(
+                                                has_ticket.as_ref().unwrap(),
+                                                new_segment,
+                                            )?;
                                             Ok(())
                                         },
                                         None => Err(LuceneError::illegal_state(
@@ -550,7 +553,7 @@ where
                     // In the case of a failure make sure we are making progress and
                     // apply all the deletes since the segment flush failed since the flush
                     // ticket could hold global deletes see FlushTicket#canPublish()
-                    self.ticket_queue.mark_ticket_failed(ticket_idx);
+                    self.ticket_queue.mark_ticket_failed(ticket_idx)?;
                 }
                 result?;
                 //Now we are done and try to flush the ticket queue if the head of the

@@ -16,11 +16,12 @@
  */
 use crate::core::index::documents_writer_per_thread::FlushedSegment;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
+use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, ReentrantMutex};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicI32, Ordering};
 
 pub(crate) struct DocumentsWriterFlushQueue<D>
@@ -37,7 +38,8 @@ pub(crate) struct Inner<D>
 where
     D: Directory,
 {
-    pub(crate) queue: VecDeque<FlushTicket<D>>,
+    pub(crate) queue: VecDeque<Identity>,
+    pub(crate) value: HashMap<Identity, FlushTicket<D>>,
 }
 impl<D> DocumentsWriterFlushQueue<D>
 where
@@ -47,24 +49,26 @@ where
         DocumentsWriterFlushQueue {
             inner: Mutex::new(Inner {
                 queue: VecDeque::new(),
+                value: HashMap::new(),
             }),
             ticket_count: AtomicI32::new(0),
             purge_lock: ReentrantMutex::new(()),
         }
     }
-    pub(crate) fn add_ticket<S>(&self, mut ticket_supplier: S) -> Result<Option<usize>>
+    pub(crate) fn add_ticket<S>(&self, mut ticket_supplier: S) -> Result<Option<Identity>>
     where
         S: Supplier<Option<FlushTicket<D>>>,
     {
         // first inc the ticket count - freeze opens a window for #anyChanges to fail
         let mut inner = self.inner.lock();
         self.inc_tickets();
-        let result: Result<Option<usize>> = (|| {
+        let result = (|| {
             let ticket_opt = ticket_supplier.get_mut()?;
             if let Some(ticket) = ticket_opt {
-                inner.queue.push_back(ticket);
-                let len = inner.queue.len() - 1;
-                Ok(Some(len))
+                let id = ticket.id.clone();
+                inner.queue.push_back(ticket.id.clone());
+                inner.value.insert(ticket.id.clone(), ticket);
+                Ok(Some(id))
             } else {
                 Ok(None)
             }
@@ -84,17 +88,30 @@ where
         debug_assert!(new_count >= 0);
     }
 
-    pub(crate) fn add_segment(&self, ticket_index: usize, segment: FlushedSegment<D>) {
+    pub(crate) fn add_segment(
+        &self,
+        ticket_index: &Identity,
+        segment: FlushedSegment<D>,
+    ) -> Result<()> {
         let mut inner = self.inner.lock();
         // the actual flush is done asynchronously and once done the FlushedSegment
         // is passed to the flush ticket
-        inner.queue[ticket_index].set_segment(segment)
+        inner
+            .value
+            .get_mut(ticket_index)
+            .ok_or_else(|| LuceneError::illegal_state("could not get ticket"))?
+            .set_segment(segment);
+        Ok(())
     }
-    pub(crate) fn mark_ticket_failed(&self, ticket_idx: usize) {
+    pub(crate) fn mark_ticket_failed(&self, ticket_idx: Identity) -> Result<()> {
         let mut inner = self.inner.lock();
-        let ticket = &mut inner.queue[ticket_idx];
+        let ticket = inner
+            .value
+            .get_mut(&ticket_idx)
+            .ok_or_else(|| LuceneError::illegal_state("could not get ticket"))?;
         // to free the queue we mark tickets as failed just to clean up the queue.
         ticket.set_failed();
+        Ok(())
     }
 
     pub(crate) fn has_tickets(&self) -> bool {
@@ -110,10 +127,18 @@ where
         loop {
             let can_publish = {
                 let inner = self.inner.lock();
-                let head = inner.queue.front();
-                head.is_some() && head.as_ref().unwrap().can_publish()
+                match inner.queue.front() {
+                    None => false,
+                    Some(id) => match inner.value.get(id) {
+                        None => {
+                            return Err(LuceneError::illegal_state(
+                                "id in inner.queue but not in inner.value",
+                            ));
+                        },
+                        Some(ticket) => ticket.can_publish(),
+                    },
+                }
             };
-            // TODO: this Implement is diff from Java Lucene
             if can_publish {
                 /*
                  * if we block on publish -> lock IW -> lock BufferedDeletes we don't block
@@ -121,10 +146,14 @@ where
                  * the downside is that we need to force a purge on fullFlush since there could
                  * be a ticket still in the queue.
                  */
-                let mut inner = self.inner.lock();
-                let head = inner.queue.pop_front().unwrap();
+                let head = {
+                    let mut inner = self.inner.lock();
+                    let id = inner.queue.pop_front().unwrap();
+                    let head = inner.value.remove(&id).unwrap();
+                    self.dec_tickets();
+                    head
+                };
                 consumer(head)?;
-                self.dec_tickets();
             } else {
                 break;
             }
@@ -164,6 +193,7 @@ where
     failed: bool,
     published: bool,
     lock: Mutex<()>,
+    id: Identity,
 }
 impl<D> FlushTicket<D>
 where
@@ -177,6 +207,7 @@ where
             failed: false,
             published: false,
             lock: Mutex::new(()),
+            id: Identity::new(),
         }
     }
     pub(crate) fn can_publish(&self) -> bool {

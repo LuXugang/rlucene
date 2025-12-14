@@ -180,6 +180,7 @@ pub trait CacheHelper {
 }
 #[derive(Clone)]
 pub struct CacheKey {
+    // TODO IMPORTANT 这个不能作为唯一ID
     identity: Arc<()>,
 }
 impl Default for CacheKey {
@@ -446,5 +447,34 @@ where
 
     fn base(&self) -> &IndexReaderBase {
         (**self).base()
+    }
+}
+
+#[derive(Debug)]
+struct IdentityTag(u8);
+#[derive(Clone, Debug)]
+pub(crate) struct Identity(Arc<IdentityTag>);
+
+impl Identity {
+    pub(crate) fn new() -> Self {
+        Identity(Arc::new(IdentityTag(0)))
+    }
+
+    #[inline]
+    fn ptr(&self) -> *const IdentityTag {
+        Arc::as_ptr(&self.0)
+    }
+}
+
+impl PartialEq for Identity {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.ptr(), other.ptr())
+    }
+}
+impl Eq for Identity {}
+
+impl Hash for Identity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.ptr() as usize).hash(state);
     }
 }

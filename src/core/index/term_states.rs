@@ -42,6 +42,7 @@ pub struct TermStates<TS>
 where
     TS: TermState,
 {
+    // TODO IMPORTANT 这个不能作为唯一ID
     top_reader_context_identity: Arc<()>,
     states: Vec<Option<Arc<EitherEmptyTermState<TS>>>>,
     term: Option<Arc<Term>>,

@@ -522,6 +522,7 @@ where
 }
 #[derive(Clone)]
 pub struct MergeStat {
+    // TODO IMPORTANT 这个不能作为唯一ID
     pub(crate) id: Arc<()>,
     pub(crate) max_num_segments: i32,
     pub(crate) info_id: Option<String>,
