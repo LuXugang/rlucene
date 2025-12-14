@@ -134,6 +134,7 @@ pub mod directory_reader_util {
     use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
     use crate::core::index::index_commit::IndexCommit;
 
+    use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
     use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::segment_reader::SegmentReader;
@@ -157,13 +158,13 @@ pub mod directory_reader_util {
     /// Returns an error if there is a low-level I/O error.
     pub fn open<D>(
         directory: Arc<D>,
-    ) -> Result<
-        StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>,
-    >
+    ) -> Result<StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>>
     where
         D: Directory,
     {
-        StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, None)
+        StandardDirectoryReader::<DummyLeafReader, _, _>::open::<DummyIndexCommit<D>>(
+            directory, None, None,
+        )
     }
 
     /// Returns an [`IndexReader`] for the index in the given [`Directory`].

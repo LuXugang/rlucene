@@ -16,10 +16,8 @@
  */
 use crate::core::util::Comparator;
 
-pub struct DummyComparator<T> {
-    _marker: std::marker::PhantomData<T>,
-}
-impl<T> Comparator<T> for DummyComparator<T> {
+pub struct DummyComparator {}
+impl<T> Comparator<T> for DummyComparator {
     const TYPE: &'static str = "DummyComparator";
 
     fn compare(&self, _a: &T, _b: &T) -> crate::core::util::error::lucene_error::Result<i32> {

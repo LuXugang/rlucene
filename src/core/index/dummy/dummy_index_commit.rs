@@ -109,7 +109,7 @@ where
     }
 
     type LeafReader = DummyLeafReader;
-    type Comparator = DummyComparator<Self::LeafReader>;
+    type Comparator = DummyComparator;
 
     fn get_reader(
         &self,

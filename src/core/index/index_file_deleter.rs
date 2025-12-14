@@ -673,7 +673,7 @@ where
     }
 
     type LeafReader = DummyLeafReader;
-    type Comparator = DummyComparator<Self::LeafReader>;
+    type Comparator = DummyComparator;
 }
 
 pub(crate) struct MessengerImpl {

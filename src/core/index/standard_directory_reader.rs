@@ -125,7 +125,7 @@ where
     }
 }
 pub type StandardDirectoryReaderType<D> =
-    StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator<Arc<SegmentReader<D>>>, D>;
+    StandardDirectoryReader<Arc<SegmentReader<D>>, DummyComparator, D>;
 pub(crate) fn open_with_reader_function<D, L, B, IO>(
     writer: &IndexWriter<D, L, B>,
     reader_function: &mut IO,
@@ -200,7 +200,7 @@ where
             readers,
             segment_infos,
             // TODO IMPORTANT 这里不对 要从LiveIndexWriterConfig中获取
-            None::<Arc<DummyComparator<Arc<SegmentReader<D>>>>>,
+            None::<Arc<DummyComparator>>,
             apply_all_deletes,
             write_all_deletes,
             Some(writer.closed.clone()),
