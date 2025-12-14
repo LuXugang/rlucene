@@ -250,8 +250,12 @@ where
         &self,
         doc_id: i32,
         info: &SegmentCommitInfo<D>,
-        inner: &mut Inner<D>,
+        inner: Option<&mut Inner<D>>,
     ) -> Result<bool> {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
         if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
             self.get_reader(&IOContext::default_io_context()?, info, Some(inner))?; // pass a reader to initialize the pending deletes
         }

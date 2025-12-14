@@ -2495,6 +2495,77 @@ where
 
         Ok(())
     }
+    /// This method carries over hard-deleted documents that are applied to the source segment during a
+    /// merge.
+    fn carry_over_hard_deletes<DM, B1, B2>(
+        merged_readers_and_updates: &ReadersAndUpdates<D>,
+        max_doc: i32,
+        prev_hard_live_docs: Option<&B1>, // the hard deletes when the merge reader was pulled
+        current_hard_live_docs: Option<&B2>, // the current hard deletes
+        seg_doc_map: &DM,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+        B1: Bits,
+        B2: Bits,
+    {
+        // if we mix soft and hard deletes we need to make sure that we only carry over deletes
+        // that were not deleted before. Otherwise the segDocMap doesn't contain a mapping.
+        // yet this is also required if any MergePolicy modifies the liveDocs since this is
+        // what the segDocMap is build on.
+        if let Some(current_hard_live_docs) = current_hard_live_docs {
+            let carry_over_delete = |doc_id: i32| -> bool {
+                seg_doc_map.get(doc_id) != -1 && !current_hard_live_docs.get(doc_id)
+            };
+
+            if let Some(prev_hard_live_docs) = prev_hard_live_docs {
+                // If we had deletions on starting the merge we must
+                // still have deletions now:
+                debug_assert!(prev_hard_live_docs.length() == max_doc);
+                debug_assert!(current_hard_live_docs.length() == max_doc);
+
+                // There were deletes on this segment when the merge
+                // started.  The merge has collapsed away those
+                // deletes, but, if new deletes were flushed since
+                // the merge started, we must now carefully keep any
+                // newly flushed deletes but mapping them to the new
+                // docIDs.
+
+                // Since we copy-on-write, if any new deletes were
+                // applied after merging has started, we can just
+                // check if the before/after liveDocs have changed.
+                // If so, we must carefully merge the liveDocs one
+                // doc at a time:
+                // TODO IMPORTANT 这里不对
+                // if !std::ptr::eq(prev_hard_live_docs as *const _, current_hard_live_docs as *const _) {
+                //     // This means this segment received new deletes
+                //     // since we started the merge, so we
+                //     // must merge them:
+                //     for j in 0..max_doc {
+                //         if prev_hard_live_docs.get(j) == false {
+                //             // if the document was deleted before, it better still be deleted!
+                //             debug_assert!(current_hard_live_docs.get(j) == false);
+                //         } else if carry_over_delete(j) {
+                //             // the document was deleted while we were merging:
+                //             merged_readers_and_updates.delete(seg_doc_map.get(j), info, None)?;
+                //         }
+                //     }
+                // }
+            } else {
+                debug_assert!(current_hard_live_docs.length() == max_doc);
+                // This segment had no deletes before but now it
+                // does:
+                for j in 0..max_doc {
+                    if carry_over_delete(j) {
+                        merged_readers_and_updates.delete(seg_doc_map.get(j), info, None)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Checks whether this merge involves any segments already participating in a merge.
     /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
     /// and true is returned. Else (the merge conflicts) false is returned.
@@ -4165,6 +4236,7 @@ use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirecto
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::bits::Bits;
 use crate::core::util::constants::Constants;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;

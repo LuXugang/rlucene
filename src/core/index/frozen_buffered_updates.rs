@@ -484,7 +484,10 @@ impl FrozenBufferedUpdates {
                             }
                             let info = infos.get(&seg_state.rld.info_id);
                             debug_assert!(info.is_some());
-                            if seg_state.rld.delete(doc_id, info.unwrap(), &mut inner)? {
+                            if seg_state
+                                .rld
+                                .delete(doc_id, info.unwrap(), Some(&mut inner))?
+                            {
                                 del_count += 1;
                             }
                         }

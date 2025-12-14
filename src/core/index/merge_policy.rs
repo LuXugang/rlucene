@@ -639,6 +639,10 @@ where
             },
         })
     }
+    /// Called by IndexWriter after the merge started and from the thread that will be executing the merge.
+    pub fn merge_init(&self) {
+        self.merge_progress.set_merge_thread()
+    }
     /// Record that an exception occurred while executing this merge.
     pub fn set_exception(&self, error: LuceneError) {
         let mut guard = self.error.lock();
