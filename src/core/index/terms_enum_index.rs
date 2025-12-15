@@ -215,6 +215,9 @@ mod tests {
     use crate::core::index::BytesRef;
     use crate::core::index::terms_enum_index::prefix8_to_comparable_unsigned_long;
 
+    #[allow(dead_code)] // for quick search
+    struct TermsEnumIndex;
+
     #[test]
     fn test_prefix8_to_comparable_unsigned_long() {
         let b = vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];

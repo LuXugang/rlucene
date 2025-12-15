@@ -294,8 +294,7 @@ where
         for (i, state) in self.states.iter().enumerate() {
             writeln!(
                 f,
-                "  ord {}: {}",
-                i,
+                "  state={}",
                 match state {
                     None => "null".to_string(),
                     Some(s) => format!("{}", s),
@@ -403,4 +402,36 @@ where
         }
     }
     Ok(per_reader_term_state)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::term::Term;
+    use crate::core::index::term_states::{TermStates, build};
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use rand::Rng;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTermStates;
+    #[test]
+    fn test_to_string_on_null_term_state() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let w = RandomIndexWriter::new(&mut random, dir);
+        w.add_document(Document::new())?;
+        let reader = Arc::new(w.get_reader()?);
+        let reader = get_context(reader)?;
+        let searcher = IndexSearcher::new(reader)?;
+        let term = Term::from_text("foo", "bar");
+        let needs_stats = random.random_bool(0.5);
+        let states = build(&searcher, Arc::new(term), needs_stats)?;
+        assert_eq!("TermStates\n  state=null\n", states.to_string());
+        Ok(())
+    }
 }
