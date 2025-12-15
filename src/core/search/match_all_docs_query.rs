@@ -278,3 +278,102 @@ impl BulkScorer for MatchAllBulkScorer {
     }
 }
 pub type MatchAllBulkScorerEnum<T> = Either2BulkScorer<MatchAllBulkScorer, DefaultBulkScorer<T>>;
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+    use crate::core::search::total_hits::Relation;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, new_searcher_with_reader,
+        new_searcher_with_threads, new_text_field, random,
+    };
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestMatchAllDocsQuery;
+    #[test]
+    fn test_query() -> Result<()> {
+        // TODO BooleanQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_equals() -> Result<()> {
+        let q1 = MatchAllDocsQuery::new();
+        let q2 = MatchAllDocsQuery::new();
+        assert_eq!(q1, q2);
+        Ok(())
+    }
+    fn add_doc<D, L, B>(
+        text: &str,
+        iw: &IndexWriter<D, L, B>,
+        field_to_type: &mut HashMap<String, FieldType>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        let mut doc = Document::new();
+        let field = new_text_field("key", text, Store::Yes, field_to_type)?;
+        doc.add(field);
+        iw.add_document(doc)?;
+        Ok(())
+    }
+    #[test]
+    fn test_early_termination() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(2);
+        let iw = IndexWriter::new(dir.clone(), config)?;
+        let mut field_types = HashMap::new();
+        let num_docs = 500;
+        for i in 0..num_docs {
+            let text = format!("doc{}", i);
+            add_doc(&text, &iw, &mut field_types)?;
+        }
+
+        let ir = directory_reader_util::open_with_writer(&iw)?;
+        let ir_arc = Arc::new(ir);
+
+        let single_threaded_searcher =
+            new_searcher_with_threads(ir_arc.clone(), true, true, false)?;
+
+        let total_hits_threshold = 200;
+        let mut collector_mgr = TopScoreDocCollectorManager::new(10, total_hits_threshold)?;
+
+        let top_docs = single_threaded_searcher
+            .search_with_collector_manager(MatchAllDocsQuery::new(), &mut collector_mgr)?;
+
+        assert_eq!(
+            top_docs.total_hits.value(),
+            total_hits_threshold as usize + 1
+        );
+        assert_eq!(
+            top_docs.total_hits.relation(),
+            Relation::GreaterThanOrEqualTo
+        );
+
+        let searcher = new_searcher_with_reader(ir_arc.clone())?;
+        let mut collector_mgr = TopScoreDocCollectorManager::new(10, num_docs)?;
+
+        let top_docs =
+            searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &mut collector_mgr)?;
+
+        assert_eq!(top_docs.total_hits.value(), num_docs as usize);
+        assert_eq!(top_docs.total_hits.relation(), Relation::EqualTo);
+        iw.close()?;
+        Ok(())
+    }
+}
