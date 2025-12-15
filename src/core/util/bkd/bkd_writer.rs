@@ -1492,7 +1492,7 @@ where
                     &mut self.scratch_bytes_ref1,
                     &mut self.scratch_bytes_ref2,
                 )?;
-
+                // TODO IMPORTANT do we need clone/copy here?
                 let mut comparator = self.scratch_bytes_ref1.clone();
                 let mut collector = self.scratch_bytes_ref2.clone();
                 reader.get_value(from as usize, &mut comparator);
