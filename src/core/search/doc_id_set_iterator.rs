@@ -368,7 +368,7 @@ pub type EitherEmpty<DISI> = Either2DocIdSetIterator<DISI, EmptyDISI>;
 mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetIterator {}
@@ -387,20 +387,20 @@ mod tests {
 
     #[test]
     fn test_invalid_range() {
-        let disi_result = RangeDISI::new(5, 4);
-        assert!(disi_result.is_err());
+        let err = RangeDISI::new(5, 4);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_invalid_min() {
-        let disi_result = RangeDISI::new(-1, 4);
-        assert!(disi_result.is_err());
+        let err = RangeDISI::new(-1, 4);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_empty() {
-        let disi_result = RangeDISI::new(7, 7);
-        assert!(disi_result.is_err());
+        let err = RangeDISI::new(7, 7);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]

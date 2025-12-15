@@ -328,6 +328,8 @@ pub mod tests {
     use std::hash::Hash;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicI32, Ordering};
+    #[allow(dead_code)] // for quick search
+    struct TestDisiPriorityQueue;
 
     #[test]
     fn test_random() -> Result<()> {
