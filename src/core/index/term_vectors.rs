@@ -100,3 +100,102 @@ macro_rules! either_term_vectors {
 either_term_vectors!(
     pub Either2TermVectors => { fe: Either2Fields } { A: A, B: B }
 );
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Field;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::text_field::text_field_type;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::fields::Fields;
+    use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::term_vectors::TermVectors;
+    use crate::core::store::directory::Directory;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_index_writer_config, random,
+    };
+    use rand::Rng;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTermVectors;
+
+    pub fn create_dir<D, R: Rng + ?Sized>(random: &mut R, dir: Arc<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        // TODO: 未实现MockAnalyzer
+        let mut config = new_index_writer_config(random);
+        config.set_max_buffered_docs(2);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+        writer.add_document(create_doc()?)?;
+        writer.close()
+    }
+
+    fn create_doc() -> Result<Document> {
+        let mut doc = Document::new();
+
+        let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+        ft.set_store_term_vectors(true)?;
+        ft.set_store_term_vector_positions(true)?;
+        ft.set_store_term_vector_offsets(true)?;
+
+        doc.add(Field::new("c", "aaa", ft));
+
+        Ok(doc)
+    }
+    fn verify_index<D>(dir: Arc<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        let reader = directory_reader_util::open(dir)?;
+
+        let mut term_vectors = reader.term_vectors()?;
+        let num_docs = reader.num_docs()?;
+
+        for i in 0..num_docs {
+            let terms = term_vectors.get(i as i32)?.as_ref().unwrap().terms("c")?;
+
+            assert!(
+                terms.is_some(),
+                "term vectors should not have been null for document {}",
+                i
+            );
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_full_merge_add_docs() -> Result<()> {
+        let mut random = random();
+        let target = Arc::new(new_directory(&mut random)?);
+        let mut config = new_index_writer_config(&mut random);
+        config.set_max_buffered_docs(2);
+        let writer = IndexWriter::new(target.clone(), config)?;
+        // with maxBufferedDocs=2, this results in two segments, so that forceMerge
+        // actually does something.
+        for _ in 0..4 {
+            writer.add_document(create_doc()?)?;
+        }
+        // TODO force_merge未实现
+        // writer.force_merge(1)?;
+        writer.close()?;
+
+        verify_index(target.clone())?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_full_merge_add_indexes_reader() -> Result<()> {
+        // TODO add_indexes_slowly未实现
+        Ok(())
+    }
+    #[test]
+    fn test_merge_with_payloads() -> Result<()> {
+        // TODO token_stream 未实现
+        Ok(())
+    }
+}
