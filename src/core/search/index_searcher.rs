@@ -599,7 +599,7 @@ where
         }
 
         let stats = CollectionStatistics::new(
-            field.to_string(),
+            field,
             self.reader_context.reader().max_doc()? as i64,
             doc_count,
             sum_total_term_freq,

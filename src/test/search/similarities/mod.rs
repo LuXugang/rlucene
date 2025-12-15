@@ -14,12 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod check_hits;
-pub mod dummy_total_hit_count_collector;
-pub mod query_utils;
-pub mod random_approximation_query;
-pub mod similarities;
-mod test_boolean_or;
-mod test_doc_values_queries;
-mod test_sort_optimization;
-mod test_top_field_collector_early_termination;
+pub mod base_similarity_test_case;

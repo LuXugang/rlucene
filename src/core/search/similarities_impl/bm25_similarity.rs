@@ -27,6 +27,7 @@ use std::fmt;
 /// BM25 Similarity. Introduced in Stephen E. Robertson, Steve Walker, Susan Jones, Micheline
 /// Hancock-Beaulieu, and Mike Gatford. Okapi at TREC-3. In Proceedings of the Third
 /// **T**ext **RE**trieval **C**onference (TREC 1994). Gaithersburg, USA, November 1994.
+#[derive(Debug)]
 pub struct BM25Similarity {
     k1: f32,
     b: f32,
@@ -338,5 +339,95 @@ impl SimScorer for BM25Scorer {
             ),
             subs,
         )
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use rand::Rng;
+
+    struct TestBM25Similarity;
+    impl BaseSimilarityTestCase for TestBM25Similarity {
+        type Similarity = BM25Similarity;
+
+        fn get_similarity<R: Rng + ?Sized>(&self, random: &mut R) -> Result<Self::Similarity> {
+            let k1: f32 = match random.random_range(0..4) {
+                0 => 0.0,
+                1 => f32::MIN_POSITIVE,
+                2 => i32::MAX as f32,
+                _ => {
+                    let r: f32 = random.random();
+                    (i32::MAX as f32) * r
+                },
+            };
+
+            let b: f32 = match random.random_range(0..4) {
+                0 => 0.0,
+                1 => f32::MIN_POSITIVE,
+                2 => 1.0,
+                _ => random.random(),
+            };
+
+            BM25Similarity::with_k1_b(k1, b)
+        }
+    }
+    #[test]
+    fn test_random_scoring() -> Result<()> {
+        let mut random = random();
+        let case = TestBM25Similarity;
+        case.test_random_scoring(&mut random)
+    }
+    #[test]
+    fn test_illegal_k1() -> Result<()> {
+        {
+            let err = BM25Similarity::with_k1_b(f32::INFINITY, 0.75);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+        }
+
+        {
+            let err = BM25Similarity::with_k1_b(-1.0, 0.75);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+        }
+
+        {
+            let err = BM25Similarity::with_k1_b(f32::NAN, 0.75);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegal_b() -> Result<()> {
+        {
+            let err = BM25Similarity::with_k1_b(1.2, 2.0);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal b value"));
+        }
+
+        {
+            let err = BM25Similarity::with_k1_b(1.2, -1.0);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal b value"));
+        }
+
+        {
+            let err = BM25Similarity::with_k1_b(1.2, f32::INFINITY);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal b value"));
+        }
+
+        {
+            let err = BM25Similarity::with_k1_b(1.2, f32::NAN);
+            assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+            assert!(err.unwrap_err().to_string().contains("illegal b value"));
+        }
+
+        Ok(())
     }
 }

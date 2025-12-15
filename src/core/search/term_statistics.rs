@@ -57,7 +57,7 @@ use std::sync::Arc;
 ///   This value is always a positive number, always at least `doc_freq()`,  
 ///   and never exceeds [`CollectionStatistics::sum_total_term_freq()`](crate::core::search::collection_statistics::CollectionStatistics::get_sum_total_term_freq).
 ///   See also: [`TermsEnum::total_term_freq()`](crate::core::index::terms_enum::TermsEnum::total_term_freq)
-#[derive(Getters)]
+#[derive(Getters, Debug)]
 pub struct TermStatistics {
     term: Arc<Term>,
     doc_freq: i64,
@@ -71,7 +71,11 @@ impl TermStatistics {
     ///
     /// - Error if `doc_freq` is zero or negative.  
     /// - Error if `total_term_freq` is less than `doc_freq`.  
-    pub fn new(term: Arc<Term>, doc_freq: i64, total_term_freq: i64) -> Result<Self> {
+    pub fn new<T>(term: T, doc_freq: i64, total_term_freq: i64) -> Result<Self>
+    where
+        T: Into<Arc<Term>>,
+    {
+        let term = term.into();
         if doc_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "doc_freq must be positive, doc_freq: {doc_freq}"

@@ -194,13 +194,7 @@ where
             (collection_stats, term_stats)
         } else {
             // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
-            let collection_stats = Some(CollectionStatistics::new(
-                query.term.field().to_string(),
-                1,
-                1,
-                1,
-                1,
-            )?);
+            let collection_stats = Some(CollectionStatistics::new(query.term.field(), 1, 1, 1, 1)?);
             let term_stats = Some(TermStatistics::new(query.term.clone(), 1, 1)?);
             (collection_stats, term_stats)
         };
