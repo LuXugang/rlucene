@@ -1470,15 +1470,9 @@ mod tests {
     use crate::core::document::string_field::StringField;
     use crate::core::index::BytesRef;
     use crate::core::index::composite_reader::get_context;
-    use rand::Rng;
-    use rand::seq::SliceRandom;
-    use std::cell::RefCell;
-    use std::collections::HashSet;
-    use std::rc::Rc;
-    use std::sync::Arc;
-
+    use crate::core::index::term::Term;
     use crate::core::search::index_searcher::IndexSearcher;
-
+    use crate::core::search::term_query::TermQuery;
     use crate::core::store::directory::Directory;
     use crate::core::store::dummy::dummy_directory::DummyDirectory;
     use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -1508,6 +1502,12 @@ mod tests {
         random_from_seed, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use rand::seq::SliceRandom;
+    use std::cell::RefCell;
+    use std::collections::HashSet;
+    use std::rc::Rc;
+    use std::sync::Arc;
     struct TestFSTs {
         // TODO: MockDirectoryWrapper not Implement
         dir: Rc<RefCell<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
@@ -2007,21 +2007,20 @@ mod tests {
 
         let reader = Arc::new(writer.get_reader()?);
         let reader_ctx = get_context(reader.clone())?;
-        let _searcher = IndexSearcher::new(reader_ctx)?;
+        let searcher = IndexSearcher::new(reader_ctx)?;
         writer.close()?;
 
         let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();
         all_terms_list.shuffle(&mut random);
 
-        // TODO IndexSearcher#count() 未实现
-        // for term in all_terms_list {
-        //     let query = TermQuery::new(Term::from_text("field", &term));
-        //     let count = searcher.count(query)?;
-        //     assert_eq!(
-        //         count, 1,
-        //         "term={term} -- expected exactly 1 match, got {count}"
-        //     );
-        // }
+        for term in all_terms_list {
+            let query = TermQuery::new(Term::from_text("field", &term));
+            let count = searcher.count(query)?;
+            assert_eq!(
+                count, 1,
+                "term={term} -- expected exactly 1 match, got {count}"
+            );
+        }
 
         Ok(())
     }

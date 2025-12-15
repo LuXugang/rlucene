@@ -22,6 +22,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
+use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, create_temp_dir, new_directory, new_field, new_fs_directory, new_index_writer_config,
@@ -186,10 +187,9 @@ fn test_diverse_docs() -> Result<()> {
     writer.close()?;
 
     let reader = Arc::new(directory_reader_util::open(dir.clone())?);
-    let _searcher = new_searcher_with_reader(reader.clone())?;
-    // TODO IndexSearcher#count() 未实现
-    // let total_hits = searcher.count(&TermQuery::new(Term::from_text("field", "aaa")))?;
-    // assert_eq!(n * 100, total_hits);
+    let searcher = new_searcher_with_reader(reader.clone())?;
+    let total_hits = searcher.count(TermQuery::new(Term::from_text("field", "aaa")))?;
+    assert_eq!(n * 100, total_hits);
 
     Ok(())
 }
