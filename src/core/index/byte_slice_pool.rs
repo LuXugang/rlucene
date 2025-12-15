@@ -179,6 +179,8 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
 
+    #[allow(dead_code)] // for quick search
+    struct TestByteSlicePool;
     #[test]
     fn test_alloc_known_size_slice() -> Result<()> {
         let mut random = random();

@@ -22,6 +22,7 @@ mod base_postings_format_test_case;
 pub(crate) mod base_segment_info_format_test_case;
 pub mod random_index_writer;
 mod test_binary_terms;
+mod test_consistent_field_numbers;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
 mod test_exceed_max_term_length;
