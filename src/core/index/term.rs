@@ -102,12 +102,14 @@ impl Term {
 }
 impl Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}:{}",
-            self.field,
-            self.text().unwrap_or_else(|_| "".to_string())
-        )
+        match self.text() {
+            Err(_) => {
+                write!(f, "{}:{}", self.field, self.bytes)
+            },
+            Ok(v) => {
+                write!(f, "{}:{}", self.field, v)
+            },
+        }
     }
 }
 impl Accountable for Term {

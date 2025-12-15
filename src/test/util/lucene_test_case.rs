@@ -191,7 +191,7 @@ pub mod lucene_test_case_util {
         new_field_with_random(
             &mut rng,
             name.into(),
-            FieldDataEnum::Binary(value),
+            value.into(),
             &field_type,
             field_to_type,
         )

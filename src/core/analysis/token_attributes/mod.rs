@@ -22,6 +22,7 @@ pub mod dummy;
 pub mod flags_attribute;
 mod keyword_attribute;
 pub mod offset_attribute;
+pub mod packed_token_and_binary;
 pub mod packed_token_attribute_impl;
 pub mod payload_attribute;
 pub mod position_increment_attribute;

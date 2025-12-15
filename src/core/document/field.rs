@@ -17,9 +17,9 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
-use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
 use crate::core::analysis::token_stream::{
     Either2TokenStream, InnerTokenStreams, TokenStream, TokenStreamBase,
 };
@@ -543,11 +543,15 @@ impl IndexableField for Field {
                 return Ok(Some(Either2TokenStream::B(self.ts.as_mut().unwrap())));
             }
             if self.binary_value()?.is_some() {
-                let binary_value = self.take_binary_value()?.ok_or_else(|| {
-                    LuceneError::illegal_state(
-                        "Expected binary value to be present after is_some() check",
-                    )
-                })?;
+                // TODO IMPORTANT avoid copy here?
+                let binary_value = self
+                    .binary_value()?
+                    .ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "Expected binary value to be present after is_some() check",
+                        )
+                    })?
+                    .into_owned();
                 if self.ts.is_none() {
                     self.ts = Some(Either2TokenStream::A(BinaryTokenStream::new()))
                 }
@@ -867,8 +871,8 @@ impl BinaryTokenStream {
         Self {
             used: false,
             value: None,
-            token_stream_base: TokenStreamBase::new(Attributes::BytesTerm(
-                BytesTermAttributeImpl::new(),
+            token_stream_base: TokenStreamBase::new(Attributes::BinaryTokenStream(
+                BinaryTokenStreamAttributeImpl::default(),
             )),
         }
     }
