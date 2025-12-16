@@ -2423,7 +2423,7 @@ where
 {
     fn next_ord(&mut self) -> Result<i64> {
         let ord = self.value.get_mut(self.curr)?;
-        self.count += 1;
+        self.curr += 1;
         Ok(ord)
     }
 

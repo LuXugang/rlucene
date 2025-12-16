@@ -601,3 +601,77 @@ where
         self.default_terms_enum()
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
+    use crate::core::index::sort::Sort;
+    use crate::core::index::stored_fields::StoredFields;
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::score_doc::ScoreDocLike;
+    use crate::core::search::sorted_set_selector::SortedSetSelectorType::Max;
+    use crate::core::search::sorted_set_sort_field::SortedSetSortField;
+    use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_from_string, new_directory, new_searcher_with_wrap, new_string_field, random,
+    };
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestSortedSetSelector;
+    #[test]
+    fn test_max() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+        let mut doc1 = Document::new();
+        doc1.add(SortedSetDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "foo")?,
+        ));
+        doc1.add(SortedSetDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "bar")?,
+        ));
+        doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
+        writer.add_document(doc1)?;
+
+        let mut doc2 = Document::new();
+        doc2.add(SortedSetDocValuesField::new(
+            "value",
+            new_bytes_ref_from_string(&mut random, "baz")?,
+        ));
+        doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
+        writer.add_document(doc2)?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        writer.close()?;
+        // slow wrapper does not support random access ordinals (there is no need for that!)
+        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+
+        let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
+            "value", false, Max,
+        )?])?;
+
+        let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+
+        assert_eq!(top_docs.total_hits().value(), 2);
+        let doc0 = searcher
+            .stored_fields()?
+            .document(top_docs.score_docs()[0].doc())?;
+        assert_eq!(doc0.get("id")?.unwrap().as_ref(), "2");
+        let doc1 = searcher
+            .stored_fields()?
+            .document(top_docs.score_docs()[1].doc())?;
+        assert_eq!(doc1.get("id")?.unwrap().as_ref(), "1");
+
+        Ok(())
+    }
+}
