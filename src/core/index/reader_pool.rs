@@ -290,11 +290,18 @@ where
     /// Writes all doc values updates to disk if there are any.
     pub(crate) fn write_doc_values_updates_for_merge(
         &self,
-        infos: &mut [SegmentCommitInfo<D>],
+        info_ids: &[String],
+        infos: &mut SegmentInfos<D>,
         global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let mut any = false;
-        for info in infos {
+        for ids in info_ids {
+            let info = infos.info_mut(ids).ok_or_else(|| {
+                LuceneError::illegal_state(format!(
+                    "could not find SegmentCommitInfo with {} in SegmentInfos",
+                    ids
+                ))
+            })?;
             if let Some(rld) = self.get(info, false, None)? {
                 any |= rld.write_field_updates(
                     self.directory.clone(),
@@ -734,7 +741,7 @@ mod tests {
             pool.enable_reader_pooling();
         }
 
-        for idx in 0..segment_infos.segments_idx.len() {
+        for (idx, seg_id) in segment_infos.segments_idx.clone().iter().enumerate() {
             let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
@@ -781,7 +788,6 @@ mod tests {
             }
             read_only_clone.close()?;
             let written_to_disk: bool;
-            let mut commit_info_vec = None;
             if pool.is_reader_pooling_enabled() {
                 if random.random_bool(0.5) {
                     written_to_disk = pool.write_all_doc_values_updates(
@@ -793,65 +799,51 @@ mod tests {
                     written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
                     assert!(!readers_and_updates.is_merging());
                 } else {
-                    let mut commit_info = vec![segment_infos.info_idx_mut(idx).unwrap().clone()];
                     written_to_disk = pool.write_doc_values_updates_for_merge(
-                        commit_info.as_mut(),
+                        vec![seg_id.clone()].as_ref(),
+                        segment_infos,
                         &field_numbers.lock(),
                     )?;
                     assert!(readers_and_updates.is_merging());
-                    commit_info_vec = Some(commit_info);
                 }
-                let commit_info = if let Some(ref mut v) = commit_info_vec {
-                    &mut v[0]
-                } else {
-                    segment_infos.info_idx_mut(idx).unwrap()
-                };
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    commit_info,
+                    segment_infos.info_idx_mut(idx).unwrap(),
                     &field_numbers.lock(),
                 )?);
+            } else if random.random_bool(0.5) {
+                written_to_disk = pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    segment_infos.info_idx_mut(idx).unwrap(),
+                    &field_numbers.lock(),
+                )?;
+                assert!(!readers_and_updates.is_merging());
             } else {
-                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-                if random.random_bool(0.5) {
-                    written_to_disk = pool.release(
-                        &readers_and_updates,
-                        random.random_bool(0.5),
-                        commit_info,
-                        &field_numbers.lock(),
-                    )?;
-                    assert!(!readers_and_updates.is_merging());
-                } else {
-                    let mut commit_info = vec![commit_info.clone()];
-                    written_to_disk = pool.write_doc_values_updates_for_merge(
-                        commit_info.as_mut(),
-                        &field_numbers.lock(),
-                    )?;
-                    assert!(readers_and_updates.is_merging());
+                written_to_disk = pool.write_doc_values_updates_for_merge(
+                    vec![seg_id.clone()].as_ref(),
+                    segment_infos,
+                    &field_numbers.lock(),
+                )?;
+                assert!(readers_and_updates.is_merging());
 
-                    assert!(!pool.release(
-                        &readers_and_updates,
-                        random.random_bool(0.5),
-                        &mut commit_info[0],
-                        &field_numbers.lock(),
-                    )?);
-                    commit_info_vec = Some(commit_info);
-                }
+                assert!(!pool.release(
+                    &readers_and_updates,
+                    random.random_bool(0.5),
+                    segment_infos.info_idx_mut(idx).unwrap(),
+                    &field_numbers.lock(),
+                )?);
             }
 
             assert!(!pool.any_doc_values_changes());
             assert_eq!(expect_update, written_to_disk);
 
-            let mut commit_info = if let Some(commit_info_vec) = commit_info_vec {
-                commit_info_vec[0].clone()
-            } else {
-                segment_infos.info_idx_mut(idx).unwrap().clone()
-            };
+            let commit_info = segment_infos.info_idx_mut(idx).unwrap();
             if expect_update {
-                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
                 let updated_reader = readers_and_updates
-                    .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
+                    .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
 
                 assert_ne!(-1, doc);
@@ -867,7 +859,7 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    &mut commit_info,
+                    commit_info,
                     &field_numbers.lock(),
                 )?);
             }

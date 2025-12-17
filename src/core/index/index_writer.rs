@@ -21,7 +21,9 @@ use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::{MergeContext, MergeSpecificationNoReader, OneMergeSR};
+use crate::core::index::merge_policy::{
+    MergeContext, MergeSpecificationNoReader, OneMergeBase, OneMergeSR,
+};
 use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
@@ -2483,11 +2485,11 @@ where
     where
         CR: CodecReader,
     {
-        for (info, name) in &merge.stat.segments {
+        for info in &merge.stat.segments {
             if !inner.segment_infos.contains(info) {
                 return Err(LuceneError::merge(format!(
                     "MergePolicy selected a segment ({}) that is not in the current index {}",
-                    name,
+                    info,
                     self.seg_string()?
                 )));
             }
@@ -2587,7 +2589,7 @@ where
         // TODO IMPORTANT Current Rust implementation, `is_external` is always false
         let is_external = false;
 
-        for (info_id, _name) in &merge.stat.segments {
+        for info_id in &merge.stat.segments {
             if inner.merging_segments.contains(info_id) {
                 return Ok(false);
             }
@@ -2618,7 +2620,7 @@ where
             self.info_stream.message("IW", &builder);
         }
 
-        for (info_id, _) in &merge.stat.segments {
+        for info_id in &merge.stat.segments {
             inner.merging_segments.insert(info_id.clone());
         }
 
@@ -2628,7 +2630,7 @@ where
         let mut est_bytes: i64 = 0;
         let mut total_bytes: i64 = 0;
 
-        for (info_id, _) in &merge.stat.segments {
+        for info_id in &merge.stat.segments {
             let info = inner.segment_infos.info(info_id).ok_or_else(|| {
                 LuceneError::illegal_state("{} not in IndexWriter's segment_infos")
             })?;
@@ -2654,6 +2656,100 @@ where
         inner.pending_merges.push_back(merge);
         Ok(true)
     }
+    /// Does initial setup for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
+    fn merge_init_(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+        let mut inner = self.inner.lock();
+        self.test_point("startMergeInit");
+
+        debug_assert!(merge.register_done);
+        debug_assert!(
+            merge.stat.max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS
+                || merge.stat.max_num_segments > 0
+        );
+
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot merge: {}",
+                t
+            )));
+        }
+
+        if merge.info.is_some() {
+            // mergeInit already done
+            return Ok(());
+        }
+
+        merge.merge_init();
+
+        if merge.is_aborted() {
+            return Ok(());
+        }
+
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "now apply deletes for {} merging segments",
+                    merge.stat.segments.len()
+                ),
+            );
+        }
+
+        // Must move the pending doc values updates to disk now
+        if self.reader_pool.write_doc_values_updates_for_merge(
+            merge.stat.segments.as_ref(),
+            &mut inner.segment_infos,
+            &self.global_field_number_map.lock(),
+        )? {
+            self.checkpoint(&mut self.inner.lock())?;
+        }
+
+        let mut has_blocks = false;
+        for info_id in &merge.stat.segments {
+            let info = inner.segment_infos.info(info_id).ok_or_else(|| {
+                LuceneError::illegal_state("{} not in IndexWriter's segment_infos")
+            })?;
+            if info.info.get_has_blocks() {
+                has_blocks = true;
+                break;
+            }
+        }
+        // Bind a new segment name here so even with
+        // ConcurrentMergePolicy we keep deterministic segment
+        // names.
+        let merge_segment_name = self.new_segment_name(Some(&mut inner));
+
+        let mut si = SegmentInfo::new(
+            self.directory_orig.clone(),
+            Some((*LATEST).clone()),
+            None,
+            merge_segment_name.as_ref(),
+            -1,
+            false,
+            has_blocks,
+            HashMap::new(),
+            StringHelper::random_id(),
+            HashMap::new(),
+            self.config.get_index_sort(),
+        )?;
+
+        let mut details = HashMap::new();
+        details.insert(
+            "mergeMaxNumSegments".to_string(),
+            merge.stat.max_num_segments.to_string(),
+        );
+        details.insert(
+            "mergeFactor".to_string(),
+            merge.stat.segments.len().to_string(),
+        );
+
+        set_diagnostics_impl(&mut si, SOURCE_MERGE, Some(details));
+
+        let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+        merge.set_merge_info(sci);
+
+        Ok(())
+    }
 
     /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
     fn merge_finish(&self, merge: &mut OneMergeSR<D>) {
@@ -2665,7 +2761,7 @@ where
         // It's possible we are called twice, e.g. if there was an
         // exception inside mergeInit
         if merge.register_done {
-            for (seg_id, _) in &merge.stat.segments {
+            for seg_id in &merge.stat.segments {
                 inner.merging_segments.remove(seg_id);
             }
             merge.register_done = false;
@@ -4240,7 +4336,7 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
-use crate::core::util::{BYTE_BLOCK_SIZE, LATEST};
+use crate::core::util::{BYTE_BLOCK_SIZE, LATEST, StringHelper};
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};
