@@ -38,7 +38,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::merge_policy::{MergePolicy, MergeReader, MergeReaderSR};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -760,6 +760,61 @@ where
         let inner = self.inner.lock();
         inner.is_merging
     }
+    pub(crate) fn get_reader_for_merge(
+        &self,
+        context: &IOContext,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<MergeReaderSR<D>> {
+        // We must carry over any still-pending DV updates because they were not
+        // successfully written, e.g. because there was a hole in the delGens,
+        // or they arrived after we wrote all DVs for merge but before we set
+        // isMerging here:
+        let mut inner = self.inner.lock();
+        let Inner {
+            pending_dv_updates,
+            merging_dv_updates,
+            ..
+        } = &mut *inner;
+
+        for (field, updates) in pending_dv_updates.iter() {
+            let entry = merging_dv_updates
+                .entry(field.clone())
+                .or_insert_with(Vec::new);
+            entry.extend(updates.iter().cloned());
+        }
+
+        self.get_reader(context, info, Some(&mut inner))?;
+        let mut reader_arc = inner.reader.as_ref().unwrap().clone();
+
+        let need_refresh = inner
+            .pending_deletes
+            .needs_refresh(reader_arc.as_ref(), info)?
+            || reader_arc.get_segment_info().get_del_gen()
+                != inner.pending_deletes.get_del_count(info) as i64;
+
+        if need_refresh {
+            debug_assert!(inner.pending_deletes.get_live_docs().is_some());
+            let new_reader = self.create_new_reader_with_latest_live_docs(
+                &mut inner,
+                Some(reader_arc.as_ref()),
+                info,
+            )?;
+            reader_arc = Arc::new(new_reader);
+        }
+
+        debug_assert!(
+            inner
+                .pending_deletes
+                .verify_doc_counts(reader_arc.as_ref(), info)?
+        );
+
+        let merge_reader = MergeReader::new(
+            reader_arc.clone(),
+            inner.pending_deletes.get_hard_live_docs(),
+        );
+        Ok(merge_reader)
+    }
+
     /// Drops all merging updates.
     /// Called from IndexWriter after this segment finished merging (whether successfully or not).
     pub fn drop_merging_updates(&self, inner: Option<&mut Inner<D>>) {

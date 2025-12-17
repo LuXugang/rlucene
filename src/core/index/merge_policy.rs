@@ -18,6 +18,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -33,6 +34,7 @@ use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -490,7 +492,7 @@ impl MergePolicyBase {
         Ok(())
     }
 }
-pub type OneMergeSR<D> = OneMerge<D, SegmentReader<D>>;
+pub type OneMergeSR<D> = OneMerge<D, Arc<SegmentReader<D>>>;
 /// OneMerge provides the information necessary to perform an individual
 /// primitive merge operation, resulting in a single new segment.
 ///
@@ -705,10 +707,12 @@ where
         }
         Ok(())
     }
+    pub fn get_merge_reader(&self) -> &[MergeReader<CR, CR::Bits>] {
+        &self.merge_readers
+    }
 }
-impl<D, CR> OneMergeBase<D, CR> for OneMerge<D, CR>
+impl<D> OneMergeBase<D, Arc<SegmentReader<D>>> for OneMerge<D, Arc<SegmentReader<D>>>
 where
-    CR: CodecReader,
     D: Directory,
 {
     type CodecReader = DummyCodecReader;
@@ -718,8 +722,24 @@ where
         self.info = Some(info);
     }
 
-    fn init_merge_readers(&self) -> Result<()> {
-        todo!()
+    type MergeCodecReader = Arc<SegmentReader<D>>;
+    type Bits = <Arc<SegmentReader<D>> as LeafReader>::Bits;
+
+    fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
+    where
+        F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>,
+    {
+        debug_assert!(self.merge_readers.is_empty());
+        // TODO merge_completed未实现
+        let mut readers = Vec::with_capacity(self.stat.segments.len());
+        let result: Result<_> = (|| {
+            for seg_id in self.stat.segments.iter() {
+                readers.push(reader_factory(seg_id)?);
+            }
+            Ok(())
+        })();
+        self.merge_readers = readers;
+        result
     }
 }
 
@@ -744,10 +764,13 @@ where
     fn on_merge_complete(&self) -> Result<()> {
         Ok(())
     }
-    // TODO IMPORTANT 闭包未定义
-    fn init_merge_readers(&self) -> Result<()>;
+    type MergeCodecReader: CodecReader;
+    type Bits: Bits;
+    fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
+    where
+        F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
 }
-pub type MergeSpecificationNoReader<D> = MergeSpecification<D, SegmentReader<D>>;
+pub type MergeSpecificationNoReader<D> = MergeSpecification<D, Arc<SegmentReader<D>>>;
 pub struct MergeSpecification<D, CR>
 where
     D: Directory,
@@ -958,7 +981,9 @@ where
     fn get_merging_segments(&self) -> HashSet<String>;
 }
 
-pub(crate) struct MergeReader<CR, B>
+pub type MergeReaderSR<D> =
+    MergeReader<Arc<SegmentReader<D>>, <Arc<SegmentReader<D>> as LeafReader>::Bits>;
+pub struct MergeReader<CR, B>
 where
     CR: CodecReader,
     B: Bits,
