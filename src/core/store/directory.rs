@@ -18,8 +18,11 @@ use crate::core::index::IndexFileNames;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
-use crate::core::store::lock::{Either2Lock, Lock};
-use crate::core::store::{Either2IndexInput, Either2IndexOutput, IOContext, IndexOutput};
+use crate::core::store::lock::{Either2Lock, Either3Lock, Lock};
+use crate::core::store::{
+    Either2IndexInput, Either2IndexOutput, Either3IndexInput, Either3IndexOutput, IOContext,
+    IndexOutput,
+};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
@@ -253,177 +256,175 @@ pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
     IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }
 
-pub enum Either2Directory<A, B> {
-    A(A),
-    B(B),
+macro_rules! either_directory {
+    ($vis:vis $name:ident, $index_output:ident, $index_input:ident, $lock:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Display for $name<$( $T ),+>
+        where
+            $( $T: Directory ),+
+        {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $( Self::$Variant(inner) => inner.fmt(f), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> Directory for $name<$( $T ),+>
+        where
+            $( $T: Directory ),+
+        {
+            fn list_all(&self) -> Result<Vec<String>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.list_all(), )+
+                }
+            }
+
+            fn delete_file(&self, name: &str) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.delete_file(name), )+
+                }
+            }
+
+            fn file_length(&self, name: &str) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.file_length(name), )+
+                }
+            }
+
+            fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+                match self {
+                    $( Self::$Variant(inner) => Ok($index_output::$Variant(
+                        inner.create_output(name, context)?,
+                    )), )+
+                }
+            }
+
+            type IndexOutput = $index_output<$( $T::IndexOutput ),+>;
+
+            fn create_temp_output(
+                &self,
+                prefix: &str,
+                suffix: &str,
+                context: &IOContext,
+            ) -> Result<Self::IndexOutput> {
+                match self {
+                    $( Self::$Variant(inner) => Ok($index_output::$Variant(
+                        inner.create_temp_output(prefix, suffix, context)?,
+                    )), )+
+                }
+            }
+
+            fn sync<'a, TIter>(&self, names: TIter) -> Result<()>
+            where
+                TIter: IntoIterator<Item = &'a String>,
+            {
+                match self {
+                    $( Self::$Variant(inner) => inner.sync(names), )+
+                }
+            }
+
+            fn sync_metadata(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.sync_metadata(), )+
+                }
+            }
+
+            fn rename(&self, source: &str, dest: &str) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.rename(source, dest), )+
+                }
+            }
+
+            type IndexInput = $index_input<$( $T::IndexInput ),+>;
+
+            fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+                match self {
+                    $( Self::$Variant(inner) => Ok($index_input::$Variant(
+                        inner.open_input(name, context)?,
+                    )), )+
+                }
+            }
+
+            fn open_checksum_input(
+                &self,
+                name: &str,
+            ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+                let input = self.open_input(name, &IOContext::default_io_context()?)?;
+                Ok(BufferedChecksumIndexInput::new(input))
+            }
+
+            type Lock = $lock<$( $T::Lock ),+>;
+
+            fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+                match self {
+                    $( Self::$Variant(inner) => Ok($lock::$Variant(inner.obtain_lock(name)?)), )+
+                }
+            }
+
+            fn copy_from(
+                &self,
+                from: &impl Directory,
+                src: &str,
+                dest: &str,
+                context: &IOContext,
+            ) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.copy_from(from, src, dest, context), )+
+                }
+            }
+
+            fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+                match self {
+                    $( Self::$Variant(inner) => inner.delete_files_ignoring_exceptions(files), )+
+                }
+            }
+
+            fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_pending_deletions(), )+
+                }
+            }
+            #[cfg(debug_assertions)]
+            fn is_fs_directory(&self) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.is_fs_directory(), )+
+                }
+            }
+
+            fn ensure_open(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.ensure_open(), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> Closeable for $name<$( $T ),+>
+        where
+            $( $T: Directory ),+
+        {
+            fn close(&mut self) -> Result<()> {
+                // TODO
+                Ok(())
+            }
+        }
+    };
 }
-
-impl<A, B> Display for Either2Directory<A, B>
-where
-    A: Directory,
-    B: Directory,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Either2Directory::A(f_dir) => f_dir.fmt(f),
-            Either2Directory::B(s_dir) => s_dir.fmt(f),
-        }
-    }
-}
-
-impl<A, B> Directory for Either2Directory<A, B>
-where
-    A: Directory,
-    B: Directory,
-{
-    fn list_all(&self) -> Result<Vec<String>> {
-        match self {
-            Either2Directory::A(f) => f.list_all(),
-            Either2Directory::B(s) => s.list_all(),
-        }
-    }
-
-    fn delete_file(&self, name: &str) -> Result<()> {
-        match self {
-            Either2Directory::A(f) => f.delete_file(name),
-            Either2Directory::B(s) => s.delete_file(name),
-        }
-    }
-
-    fn file_length(&self, name: &str) -> Result<i64> {
-        match self {
-            Either2Directory::A(f) => f.file_length(name),
-            Either2Directory::B(s) => s.file_length(name),
-        }
-    }
-
-    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        match self {
-            Either2Directory::A(f) => Ok(Either2IndexOutput::A(f.create_output(name, context)?)),
-            Either2Directory::B(s) => Ok(Either2IndexOutput::B(s.create_output(name, context)?)),
-        }
-    }
-
-    type IndexOutput = Either2IndexOutput<A::IndexOutput, B::IndexOutput>;
-
-    fn create_temp_output(
-        &self,
-        prefix: &str,
-        suffix: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutput> {
-        match self {
-            Either2Directory::A(f) => Ok(Either2IndexOutput::A(
-                f.create_temp_output(prefix, suffix, context)?,
-            )),
-            Either2Directory::B(s) => Ok(Either2IndexOutput::B(
-                s.create_temp_output(prefix, suffix, context)?,
-            )),
-        }
-    }
-
-    fn sync<'a, T>(&self, names: T) -> Result<()>
-    where
-        T: IntoIterator<Item = &'a String>,
-    {
-        match self {
-            Either2Directory::A(f) => f.sync(names),
-            Either2Directory::B(s) => s.sync(names),
-        }
-    }
-
-    fn sync_metadata(&self) -> Result<()> {
-        match self {
-            Either2Directory::A(f) => f.sync_metadata(),
-            Either2Directory::B(s) => s.sync_metadata(),
-        }
-    }
-
-    fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        match self {
-            Either2Directory::A(f) => f.rename(source, dest),
-            Either2Directory::B(s) => s.rename(source, dest),
-        }
-    }
-
-    type IndexInput = Either2IndexInput<A::IndexInput, B::IndexInput>;
-
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        match self {
-            Either2Directory::A(f) => Ok(Either2IndexInput::A(f.open_input(name, context)?)),
-            Either2Directory::B(s) => Ok(Either2IndexInput::B(s.open_input(name, context)?)),
-        }
-    }
-
-    fn open_checksum_input(
-        &self,
-        name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        let input = self.open_input(name, &IOContext::default_io_context()?)?;
-        Ok(BufferedChecksumIndexInput::new(input))
-    }
-
-    type Lock = Either2Lock<A::Lock, B::Lock>;
-
-    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        match self {
-            Either2Directory::A(f) => Ok(Either2Lock::A(f.obtain_lock(name)?)),
-            Either2Directory::B(s) => Ok(Either2Lock::B(s.obtain_lock(name)?)),
-        }
-    }
-
-    fn copy_from(
-        &self,
-        from: &impl Directory,
-        src: &str,
-        dest: &str,
-        context: &IOContext,
-    ) -> Result<()> {
-        match self {
-            Either2Directory::A(f) => f.copy_from(from, src, dest, context),
-            Either2Directory::B(s) => s.copy_from(from, src, dest, context),
-        }
-    }
-
-    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-        match self {
-            Either2Directory::A(f) => f.delete_files_ignoring_exceptions(files),
-            Either2Directory::B(s) => s.delete_files_ignoring_exceptions(files),
-        }
-    }
-
-    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-        match self {
-            Either2Directory::A(f) => f.get_pending_deletions(),
-            Either2Directory::B(s) => s.get_pending_deletions(),
-        }
-    }
-    #[cfg(debug_assertions)]
-    fn is_fs_directory(&self) -> bool {
-        match self {
-            Either2Directory::A(f) => f.is_fs_directory(),
-            Either2Directory::B(s) => s.is_fs_directory(),
-        }
-    }
-
-    fn ensure_open(&self) -> Result<()> {
-        match self {
-            Either2Directory::A(f) => f.ensure_open(),
-            Either2Directory::B(s) => s.ensure_open(),
-        }
-    }
-}
-
-impl<A, B> Closeable for Either2Directory<A, B>
-where
-    A: Directory,
-    B: Directory,
-{
-    fn close(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
-}
+either_directory!(
+    pub Either2Directory,
+    Either2IndexOutput,
+    Either2IndexInput,
+    Either2Lock { A: A, B: B }
+);
+either_directory!(
+    pub Either3Directory,
+    Either3IndexOutput,
+    Either3IndexInput,
+    Either3Lock { A: A, B: B, C: C }
+);
 impl<D: Directory> Directory for &D {
     fn list_all(&self) -> Result<Vec<String>> {
         (**self).list_all()

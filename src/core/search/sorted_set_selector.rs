@@ -610,7 +610,6 @@ mod tests {
     use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-    use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
     use crate::core::search::sort_field::SortFiledBase;
     use crate::core::search::sorted_set_selector::SortedSetSelectorType::{

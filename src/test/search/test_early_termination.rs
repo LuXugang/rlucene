@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;

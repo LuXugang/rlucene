@@ -42,61 +42,65 @@ pub trait RandomAccessInput {
     fn prefetch(&mut self, pos: i64, len: i64) -> Result<()>;
 }
 
-pub enum Either2RandomAccessInput<A, B> {
-    A(A),
-    B(B),
+macro_rules! either_random_access_input {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> RandomAccessInput for $name<$( $T ),+>
+        where
+            $( $T: RandomAccessInput ),+
+        {
+            fn length(&self) -> i64 {
+                match self {
+                    $( Self::$Variant(inner) => inner.length(), )+
+                }
+            }
+
+            fn read_byte(&mut self, pos: i64) -> Result<u8> {
+                match self {
+                    $( Self::$Variant(inner) => inner.read_byte(pos), )+
+                }
+            }
+
+            fn read_bytes(
+                &mut self,
+                pos: i64,
+                buf: &mut [u8],
+                offset: i32,
+                len: i32,
+            ) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.read_bytes(pos, buf, offset, len), )+
+                }
+            }
+
+            fn read_short(&mut self, pos: i64) -> Result<i16> {
+                match self {
+                    $( Self::$Variant(inner) => inner.read_short(pos), )+
+                }
+            }
+
+            fn read_int(&mut self, pos: i64) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.read_int(pos), )+
+                }
+            }
+
+            fn read_long(&mut self, pos: i64) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.read_long(pos), )+
+                }
+            }
+
+            fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.prefetch(pos, len), )+
+                }
+            }
+        }
+    };
 }
-impl<A, B> RandomAccessInput for Either2RandomAccessInput<A, B>
-where
-    A: RandomAccessInput,
-    B: RandomAccessInput,
-{
-    fn length(&self) -> i64 {
-        match self {
-            Either2RandomAccessInput::A(f) => f.length(),
-            Either2RandomAccessInput::B(s) => s.length(),
-        }
-    }
-
-    fn read_byte(&mut self, pos: i64) -> Result<u8> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.read_byte(pos),
-            Either2RandomAccessInput::B(s) => s.read_byte(pos),
-        }
-    }
-
-    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.read_bytes(pos, buf, offset, len),
-            Either2RandomAccessInput::B(s) => s.read_bytes(pos, buf, offset, len),
-        }
-    }
-
-    fn read_short(&mut self, pos: i64) -> Result<i16> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.read_short(pos),
-            Either2RandomAccessInput::B(s) => s.read_short(pos),
-        }
-    }
-
-    fn read_int(&mut self, pos: i64) -> Result<i32> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.read_int(pos),
-            Either2RandomAccessInput::B(s) => s.read_int(pos),
-        }
-    }
-
-    fn read_long(&mut self, pos: i64) -> Result<i64> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.read_long(pos),
-            Either2RandomAccessInput::B(s) => s.read_long(pos),
-        }
-    }
-
-    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
-        match self {
-            Either2RandomAccessInput::A(f) => f.prefetch(pos, len),
-            Either2RandomAccessInput::B(s) => s.prefetch(pos, len),
-        }
-    }
-}
+either_random_access_input!(pub Either2RandomAccessInput { A: A, B: B });
+either_random_access_input!(pub Either3RandomAccessInput { A: A, B: B, C: C });
