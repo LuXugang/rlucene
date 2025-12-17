@@ -560,3 +560,6 @@ where
         Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
     }
 }
+
+#[cfg(test)]
+mod tests {}

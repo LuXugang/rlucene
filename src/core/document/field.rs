@@ -74,7 +74,7 @@ pub struct Field {
     /// Field's type.
     indexable_field_type: FieldType,
     /// Field's name.
-    name: String,
+    pub(crate) name: String,
     /// Field's value.
     pub(crate) fields_data: FieldDataEnum,
     // TODO: IMPORTANT 在这里定义没有无法实现复用
