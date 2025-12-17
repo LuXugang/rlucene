@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, Either2Directory};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 pub trait MergeScheduler: Closeable {
     fn merge<MS, D, L, B>(
         &self,
@@ -34,6 +37,18 @@ pub trait MergeScheduler: Closeable {
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase;
+    type Directory: Directory;
+    fn wrap_for_merge<D, CR>(
+        &self,
+        _merge: OneMerge<D, CR>,
+        _in_: Arc<D>,
+    ) -> Result<Option<Self::Directory>>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
+        Ok(None)
+    }
 }
 
 /// Provides access to new merges and executes the actual merge
@@ -109,6 +124,38 @@ impl MergeScheduler for MergeSchedulerEnum {
         match self {
             MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger, index_writer),
             MergeSchedulerEnum::No(n) => n.merge(merge_source, trigger, index_writer),
+        }
+    }
+
+    type Directory = Either2Directory<
+        <SerialMergeScheduler as MergeScheduler>::Directory,
+        <NoMergeScheduler as MergeScheduler>::Directory,
+    >;
+
+    fn wrap_for_merge<D, CR>(
+        &self,
+        merge: OneMerge<D, CR>,
+        in_: Arc<D>,
+    ) -> Result<Option<Self::Directory>>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
+        match self {
+            MergeSchedulerEnum::Serial(s) => {
+                let v = s.wrap_for_merge(merge, in_)?;
+                match v {
+                    Some(e) => Ok(Some(Either2Directory::A(e))),
+                    None => Ok(None),
+                }
+            },
+            MergeSchedulerEnum::No(n) => {
+                let v = n.wrap_for_merge(merge, in_)?;
+                match v {
+                    Some(e) => Ok(Some(Either2Directory::B(e))),
+                    None => Ok(None),
+                }
+            },
         }
     }
 }

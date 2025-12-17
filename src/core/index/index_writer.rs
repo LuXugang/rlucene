@@ -75,7 +75,7 @@ where
     pub(crate) pending_num_docs: Arc<AtomicI64>,
     soft_deletes_enabled: bool,
     info_stream: InfoStreamMT,
-    inner: Mutex<Inner<D>>,
+    pub(crate) inner: Mutex<Inner<D>>,
     pausing: Condvar,
     pub(crate) sub: Option<B>,
     commit_lock: Mutex<CommitInner<D>>,
@@ -2657,6 +2657,24 @@ where
         Ok(true)
     }
     /// Does initial setup for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
+    pub(crate) fn merge_init(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+        // Make sure any deletes that must be resolved before we commit the merge are complete:
+        self.buffered_updates_stream
+            .wait_apply_for_merge(&merge.stat.segments, self)?;
+
+        let result = (|| {
+            self.merge_init_(merge)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            if self.info_stream.enabled("IW") {
+                self.info_stream.message("IW", "hit exception in mergeInit");
+            }
+            self.merge_finish(merge);
+        }
+        result
+    }
+
     fn merge_init_(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
         let mut inner = self.inner.lock();
         self.test_point("startMergeInit");

@@ -662,17 +662,21 @@ where
             if i > 0 {
                 s.push(' ');
             }
-            let v = segments
-                .info(seg)
-                .ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
+            let v = segments.info(seg).ok_or_else(|| {
+                LuceneError::illegal_state(
+                    "merge's segment could find from IndexWriter's SegmentInfos",
+                )
+            })?;
             s.push_str(&v.to_string_with_pending_del_count(0));
         }
 
         if let Some(info_id) = &self.stat.info_id {
             s.push_str(" into ");
-            let v = segments
-                .info(info_id)
-                .ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
+            let v = segments.info(info_id).ok_or_else(|| {
+                LuceneError::illegal_state(
+                    "merge's segment could find from IndexWriter's SegmentInfos",
+                )
+            })?;
             s.push_str(&v.info.name);
         }
 
@@ -691,6 +695,15 @@ where
     pub fn is_aborted(&self) -> bool {
         // TODO
         todo!()
+    }
+    pub fn check_aborted(&self, segments: &SegmentInfos<D>) -> Result<()> {
+        if self.is_aborted() {
+            return Err(LuceneError::merge_abort(format!(
+                "merge is aborted: {}",
+                self.seg_string(segments)?
+            )));
+        }
+        Ok(())
     }
 }
 impl<D, CR> OneMergeBase<D, CR> for OneMerge<D, CR>

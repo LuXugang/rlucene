@@ -167,6 +167,60 @@ impl BufferedUpdatesStream {
     pub fn get_completed_del_gen(&self) -> i64 {
         self.finished_segments.get_completed_del_gen()
     }
+    /// Waits only for those in-flight packets that apply to these merge segments.
+    /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
+    pub(crate) fn wait_apply_for_merge<D, L, B>(
+        &self,
+        merge_infos_id: &[String],
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        let mut max_del_gen = i64::MIN;
+        {
+            let writer_inner = writer.inner.lock();
+            for info in merge_infos_id {
+                let info = writer_inner.segment_infos.info(info).ok_or_else(|| {
+                    LuceneError::illegal_argument(
+                        "could not find merge's segment from IndexWriter's segment_infos",
+                    )
+                })?;
+                max_del_gen = max_del_gen.max(info.get_buffered_deletes_gen());
+            }
+        }
+
+        let wait_for = {
+            let inner = self.inner.lock();
+            let mut set = HashSet::new();
+
+            for packet in &inner.updates {
+                if packet.del_gen() <= max_del_gen {
+                    // We must wait for this packet before finishing the merge because its
+                    // deletes apply to a subset of the segments being merged.
+                    set.insert(packet.clone());
+                }
+            }
+
+            set
+        };
+
+        if self.info_stream.enabled("BD") {
+            self.info_stream.message(
+                "BD",
+                &format!(
+                    "waitApplyForMerge: {} packets, {} merging segments",
+                    wait_for.len(),
+                    merge_infos_id.len()
+                ),
+            );
+        }
+
+        self.wait_apply(wait_for, writer)
+    }
+
     fn wait_apply<D, L, B>(
         &self,
         wait_for: HashSet<Arc<FrozenBufferedUpdates>>,

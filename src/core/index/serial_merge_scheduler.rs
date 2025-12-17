@@ -19,6 +19,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -62,4 +63,6 @@ impl MergeScheduler for SerialMergeScheduler {
             None => Ok(()),
         }
     }
+
+    type Directory = DummyDirectory;
 }
