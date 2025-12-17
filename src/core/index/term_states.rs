@@ -291,7 +291,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "TermStates")?;
-        for (i, state) in self.states.iter().enumerate() {
+        for state in self.states.iter() {
             writeln!(
                 f,
                 "  state={}",
@@ -409,7 +409,7 @@ mod tests {
     use crate::core::document::document::Document;
     use crate::core::index::composite_reader::get_context;
     use crate::core::index::term::Term;
-    use crate::core::index::term_states::{TermStates, build};
+    use crate::core::index::term_states::build;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;

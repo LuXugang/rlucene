@@ -351,10 +351,10 @@ mod tests {
             new_searcher_with_threads(ir_arc.clone(), true, true, false)?;
 
         let total_hits_threshold = 200;
-        let mut collector_mgr = TopScoreDocCollectorManager::new(10, total_hits_threshold)?;
+        let collector_mgr = TopScoreDocCollectorManager::new(10, total_hits_threshold)?;
 
         let top_docs = single_threaded_searcher
-            .search_with_collector_manager(MatchAllDocsQuery::new(), &mut collector_mgr)?;
+            .search_with_collector_manager(MatchAllDocsQuery::new(), &collector_mgr)?;
 
         assert_eq!(
             top_docs.total_hits.value(),
@@ -366,10 +366,10 @@ mod tests {
         );
 
         let searcher = new_searcher_with_reader(ir_arc.clone())?;
-        let mut collector_mgr = TopScoreDocCollectorManager::new(10, num_docs)?;
+        let collector_mgr = TopScoreDocCollectorManager::new(10, num_docs)?;
 
         let top_docs =
-            searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &mut collector_mgr)?;
+            searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_mgr)?;
 
         assert_eq!(top_docs.total_hits.value(), num_docs as usize);
         assert_eq!(top_docs.total_hits.relation(), Relation::EqualTo);

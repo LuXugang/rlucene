@@ -58,7 +58,7 @@ where
 {
     fn num_deletes_to_merge(
         &self,
-        info: &SegmentCommitInfo<D>,
+        _info: &SegmentCommitInfo<D>,
     ) -> crate::core::util::error::lucene_error::Result<i32> {
         Err(LuceneError::unsupported_operation(""))
     }

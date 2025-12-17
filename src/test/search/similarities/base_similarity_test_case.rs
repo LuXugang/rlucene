@@ -22,7 +22,7 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
 use crate::test::search::check_hits::CheckHits;
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random, rarely};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, rarely};
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
 
@@ -382,7 +382,7 @@ pub trait BaseSimilarityTestCase {
                         } else {
                             // at least one other document has at least 1 occurrence
                             let upper_bound = std::cmp::min(
-                                (term.get_total_term_freq() - term.get_doc_freq() + 1),
+                                term.get_total_term_freq() - term.get_doc_freq() + 1,
                                 i32::MAX as i64,
                             ) as i32;
 

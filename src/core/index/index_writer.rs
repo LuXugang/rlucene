@@ -2587,7 +2587,7 @@ where
         // TODO IMPORTANT Current Rust implementation, `is_external` is always false
         let is_external = false;
 
-        for (info_id, name) in &merge.stat.segments {
+        for (info_id, _name) in &merge.stat.segments {
             if inner.merging_segments.contains(info_id) {
                 return Ok(false);
             }
@@ -3842,11 +3842,11 @@ where
         self.do_ensure_open(false)?;
         self.validate(info)?;
 
-        let merge_policy = self.config.get_merge_policy();
+        let _merge_policy = self.config.get_merge_policy();
 
         let num_deletes_to_merge = match self.get_pooled_instance(info, false, None)? {
             // Some(rld) => rld.num_deletes_to_merge(merge_policy)?,
-            Some(rld) => todo!(),
+            Some(_rld) => todo!(),
             None => {
                 // If we don't have a pooled instance, just return hard deletes; this is safe.
                 info.get_del_count()

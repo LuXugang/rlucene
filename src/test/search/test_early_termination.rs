@@ -57,7 +57,7 @@ fn test_early_termination() -> Result<()> {
         let searcher = new_searcher_with_reader(reader.clone())?;
         searcher.search_with_collector_manager_states(
             MatchAllDocsQuery,
-            &CollectorManagerImpl::default(),
+            &CollectorManagerImpl,
             None,
         )?;
     }
@@ -69,7 +69,7 @@ fn test_early_termination() -> Result<()> {
 struct CollectorManagerImpl;
 impl CollectorManager for CollectorManagerImpl {
     type C = SimpleCollectorImpl;
-    type T = (());
+    type T = ();
 
     fn new_collector(&self) -> Result<Self::C> {
         Ok(SimpleCollectorImpl::new())
@@ -157,7 +157,7 @@ impl SimpleCollector for SimpleCollectorImpl {
     }
 }
 
-impl<'t> LeafCollector for &'t mut SimpleCollectorImpl {
+impl LeafCollector for &mut SimpleCollectorImpl {
     fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
     where
         S: Scorable,

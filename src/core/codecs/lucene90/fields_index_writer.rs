@@ -258,7 +258,7 @@ where
         if self.docs_out.is_some() {
             match fs::remove_file(self.docs_out.as_ref().unwrap().get_name()) {
                 Ok(_) => {},
-                Err(e) => {
+                Err(_e) => {
                     // TODO IMPORTANT
                     // debug_assert!(false, "Failed to delete docs file: {:?}", e);
                 },
@@ -267,7 +267,7 @@ where
         if self.file_pointers_out.is_some() {
             match fs::remove_file(self.file_pointers_out.as_ref().unwrap().get_name()) {
                 Ok(_) => {},
-                Err(e) => {
+                Err(_e) => {
                     // TODO IMPORTANT
                     // debug_assert!(false, "Failed to delete file pointers file: {:?}", e);
                 },

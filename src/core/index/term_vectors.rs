@@ -158,7 +158,7 @@ mod tests {
         let num_docs = reader.num_docs()?;
 
         for i in 0..num_docs {
-            let terms = term_vectors.get(i as i32)?.as_ref().unwrap().terms("c")?;
+            let terms = term_vectors.get(i)?.as_ref().unwrap().terms("c")?;
 
             assert!(
                 terms.is_some(),

@@ -21,7 +21,6 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::error::Error;
 
 pub struct CheckHits;
 impl CheckHits {

@@ -16,7 +16,6 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;

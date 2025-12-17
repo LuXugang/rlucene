@@ -581,28 +581,28 @@ mod tests {
             directory.clone(),
             Arc::new(InfoStreamEnum::default()),
             None,
-            LongSupplierImpl::default(),
+            LongSupplierImpl,
             None,
             index_created_version_major,
         );
         let idx = random.random_range(0..segment_infos.segments_idx.len());
-        let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+        let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
-        let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+        let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
 
-        let same = pool.get(&commit_info, false, None)?.unwrap();
+        let same = pool.get(commit_info, false, None)?.unwrap();
         assert!(Arc::ptr_eq(&readers_and_updates, &same));
         assert!(pool.drop(&commit_info.info.get_id_str())?);
 
         if random.random_bool(0.5) {
             assert!(!pool.drop(&commit_info.info.get_id_str())?);
         }
-        assert!(pool.get(&commit_info, false, None)?.is_none());
+        assert!(pool.get(commit_info, false, None)?.is_none());
         pool.release(
             &readers_and_updates,
             random.random_bool(0.5),
-            &mut commit_info,
-            &*field_numbers.lock(),
+            commit_info,
+            &field_numbers.lock(),
         )?;
         pool.close()?;
         Ok(())
@@ -626,39 +626,39 @@ mod tests {
             directory.clone(),
             Arc::new(InfoStreamEnum::default()),
             None,
-            LongSupplierImpl::default(),
+            LongSupplierImpl,
             None,
             index_created_version_major,
         );
 
         let idx = random.random_range(0..segment_infos.segments_idx.len());
-        let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+        let commit_info = segment_infos.info_idx_mut(idx).unwrap();
 
         assert!(!pool.is_reader_pooling_enabled());
 
-        let rau = pool.get(&commit_info, true, None)?.unwrap();
+        let rau = pool.get(commit_info, true, None)?.unwrap();
         pool.release(
             &rau,
             random.random_bool(0.5),
-            &mut commit_info,
-            &*field_numbers.lock(),
+            commit_info,
+            &field_numbers.lock(),
         )?;
 
-        assert!(pool.get(&commit_info, false, None)?.is_none());
+        assert!(pool.get(commit_info, false, None)?.is_none());
         // now start pooling
         pool.enable_reader_pooling();
         assert!(pool.is_reader_pooling_enabled());
 
-        let rau = pool.get(&commit_info, true, None)?.unwrap();
+        let rau = pool.get(commit_info, true, None)?.unwrap();
         pool.release(
             &rau,
             random.random_bool(0.5),
-            &mut commit_info,
-            &*field_numbers.lock(),
+            commit_info,
+            &field_numbers.lock(),
         )?;
 
-        let pooled = pool.get(&commit_info, false, None)?.unwrap();
-        let pooled_again = pool.get(&commit_info, false, None)?.unwrap();
+        let pooled = pool.get(commit_info, false, None)?.unwrap();
+        let pooled_again = pool.get(commit_info, false, None)?.unwrap();
         assert!(Arc::ptr_eq(&pooled, &pooled_again));
 
         pool.drop(&commit_info.info.get_id_str())?;
@@ -668,15 +668,10 @@ mod tests {
         // assert_eq!(0, pool.ram_bytes_used());
 
         for idx in 0..segment_infos.segments_idx.len() {
-            let mut info = segment_infos.info_idx_mut(idx).unwrap();
+            let info = segment_infos.info_idx_mut(idx).unwrap();
 
-            let rau = pool.get(&info, true, None)?.unwrap();
-            pool.release(
-                &rau,
-                random.random_bool(0.5),
-                &mut info,
-                &*field_numbers.lock(),
-            )?;
+            let rau = pool.get(info, true, None)?.unwrap();
+            pool.release(&rau, random.random_bool(0.5), info, &field_numbers.lock())?;
             // TODO: memory calculation not implemented
             // assert_eq!(
             //     0,
@@ -688,8 +683,8 @@ mod tests {
 
             // ram_bytes_used = pool.ram_bytes_used();
 
-            let a = pool.get(&info, false, None)?.unwrap();
-            let b = pool.get(&info, false, None)?.unwrap();
+            let a = pool.get(info, false, None)?.unwrap();
+            let b = pool.get(info, false, None)?.unwrap();
             assert!(Arc::ptr_eq(&a, &b));
         }
         // TODO: memory calculation not implemented
@@ -699,7 +694,7 @@ mod tests {
 
         for idx in 0..segment_infos.segments_idx.len() {
             let info = segment_infos.info_idx(idx).unwrap();
-            assert!(pool.get(&info, false, None)?.is_none());
+            assert!(pool.get(info, false, None)?.is_none());
         }
 
         // TODO: memory calculation not implemented
@@ -728,7 +723,7 @@ mod tests {
             directory.clone(),
             Arc::new(InfoStreamEnum::default()),
             None,
-            LongSupplierImpl::default(),
+            LongSupplierImpl,
             None,
             index_created_version_major,
         );
@@ -742,7 +737,7 @@ mod tests {
         for idx in 0..segment_infos.segments_idx.len() {
             let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
                 let read_only_clone = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
@@ -791,22 +786,22 @@ mod tests {
                 if random.random_bool(0.5) {
                     written_to_disk = pool.write_all_doc_values_updates(
                         &mut segment_infos.segments,
-                        &mut *field_numbers.lock(),
+                        &field_numbers.lock(),
                     )?;
                     assert!(!readers_and_updates.is_merging());
                 } else if random.random_bool(0.5) {
-                    written_to_disk = pool.commit(segment_infos, &mut *field_numbers.lock())?;
+                    written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
                     assert!(!readers_and_updates.is_merging());
                 } else {
                     let mut commit_info = vec![segment_infos.info_idx_mut(idx).unwrap().clone()];
                     written_to_disk = pool.write_doc_values_updates_for_merge(
                         commit_info.as_mut(),
-                        &mut *field_numbers.lock(),
+                        &field_numbers.lock(),
                     )?;
                     assert!(readers_and_updates.is_merging());
                     commit_info_vec = Some(commit_info);
                 }
-                let mut commit_info = if let Some(ref mut v) = commit_info_vec {
+                let commit_info = if let Some(ref mut v) = commit_info_vec {
                     &mut v[0]
                 } else {
                     segment_infos.info_idx_mut(idx).unwrap()
@@ -814,24 +809,24 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    &mut commit_info,
-                    &*field_numbers.lock(),
+                    commit_info,
+                    &field_numbers.lock(),
                 )?);
             } else {
-                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 if random.random_bool(0.5) {
                     written_to_disk = pool.release(
                         &readers_and_updates,
                         random.random_bool(0.5),
-                        &mut commit_info,
-                        &*field_numbers.lock(),
+                        commit_info,
+                        &field_numbers.lock(),
                     )?;
                     assert!(!readers_and_updates.is_merging());
                 } else {
                     let mut commit_info = vec![commit_info.clone()];
                     written_to_disk = pool.write_doc_values_updates_for_merge(
                         commit_info.as_mut(),
-                        &mut *field_numbers.lock(),
+                        &field_numbers.lock(),
                     )?;
                     assert!(readers_and_updates.is_merging());
 
@@ -839,7 +834,7 @@ mod tests {
                         &readers_and_updates,
                         random.random_bool(0.5),
                         &mut commit_info[0],
-                        &*field_numbers.lock(),
+                        &field_numbers.lock(),
                     )?);
                     commit_info_vec = Some(commit_info);
                 }
@@ -873,7 +868,7 @@ mod tests {
                     &readers_and_updates,
                     random.random_bool(0.5),
                     &mut commit_info,
-                    &*field_numbers.lock(),
+                    &field_numbers.lock(),
                 )?);
             }
         }
@@ -900,7 +895,7 @@ mod tests {
             directory.clone(),
             Arc::new(InfoStreamEnum::default()),
             None,
-            LongSupplierImpl::default(),
+            LongSupplierImpl,
             None,
             index_created_version_major,
         );
@@ -912,9 +907,9 @@ mod tests {
         }
 
         for idx in 0..segment_infos.segments_idx.len() {
-            let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
+            let (read_only_clone, _max_doc, readers_and_updates, mut postings) = {
                 let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-                let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
+                let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
                 let read_only_clone = readers_and_updates
                     .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
                     .unwrap();
@@ -930,37 +925,37 @@ mod tests {
             };
             let mut expect_update = false;
             let mut doc = -1_i32;
-            if let Some(ref mut postings) = postings {
-                if postings.next_doc()? != NO_MORE_DOCS {
-                    doc = postings.doc_id();
-                    assert!(readers_and_updates.delete(
-                        postings.doc_id(),
-                        segment_infos.info_idx_mut(idx).unwrap(),
-                        None
-                    )?);
-                    expect_update = true;
-                    assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
-                }
+            if let Some(ref mut postings) = postings
+                && postings.next_doc()? != NO_MORE_DOCS
+            {
+                doc = postings.doc_id();
+                assert!(readers_and_updates.delete(
+                    postings.doc_id(),
+                    segment_infos.info_idx_mut(idx).unwrap(),
+                    None
+                )?);
+                expect_update = true;
+                assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
             };
             assert!(!pool.any_doc_values_changes()); // deletes are not accounted here
             read_only_clone.close()?;
             let written_to_disk: bool;
             if pool.is_reader_pooling_enabled() {
-                written_to_disk = pool.commit(segment_infos, &mut *field_numbers.lock())?;
-                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
+                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    &mut commit_info,
-                    &*field_numbers.lock(),
+                    commit_info,
+                    &field_numbers.lock(),
                 )?);
             } else {
-                let mut commit_info = segment_infos.info_idx_mut(idx).unwrap();
+                let commit_info = segment_infos.info_idx_mut(idx).unwrap();
                 written_to_disk = pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    &mut commit_info,
-                    &*field_numbers.lock(),
+                    commit_info,
+                    &field_numbers.lock(),
                 )?;
             }
 
@@ -981,7 +976,7 @@ mod tests {
                     &readers_and_updates,
                     random.random_bool(0.5),
                     &mut commit_info,
-                    &*field_numbers.lock(),
+                    &field_numbers.lock(),
                 )?);
             }
         }

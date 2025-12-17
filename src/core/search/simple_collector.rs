@@ -26,8 +26,8 @@ pub trait SimpleCollector: Collector + LeafCollector {
     where
         LR: LeafReader;
 
-    fn get_leaf_collector<'a, W, LR>(
-        &'a mut self,
+    fn get_leaf_collector<W, LR>(
+        &mut self,
         context: &LeafReaderContext<LR>,
         _weight: Option<&W>,
     ) -> Result<()>

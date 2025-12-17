@@ -17,18 +17,15 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
-use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_field, new_searcher, new_searcher_with_reader, new_string_field_binary,
-    random,
+    new_directory, new_field, new_searcher_with_reader, new_string_field_binary, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
