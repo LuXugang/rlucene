@@ -305,7 +305,7 @@ impl TieredMergePolicy {
         merge_type: MergeType,
         merge_context: &MC,
         max_merge_is_running: bool,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
         D: Directory,
@@ -637,7 +637,7 @@ impl MergePolicy for TieredMergePolicy {
         _merge_trigger: MergeTrigger,
         infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -762,7 +762,7 @@ impl MergePolicy for TieredMergePolicy {
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
         merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -900,7 +900,7 @@ impl MergePolicy for TieredMergePolicy {
             return Ok(Some(spec));
         }
 
-        let mut spec: Option<MergeSpecificationNoReader> = None;
+        let mut spec: Option<MergeSpecificationNoReader<D>> = None;
 
         let mut index: i32 = starting_segment_count - 1;
         let mut resulting_segments: i32 = starting_segment_count;
@@ -960,7 +960,7 @@ impl MergePolicy for TieredMergePolicy {
         &self,
         infos: &SegmentInfos<D>,
         merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
         D: Directory,

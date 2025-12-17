@@ -57,7 +57,7 @@ impl MergePolicy for NoMergePolicy {
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -71,7 +71,7 @@ impl MergePolicy for NoMergePolicy {
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, Option<bool>>,
         _merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -83,7 +83,7 @@ impl MergePolicy for NoMergePolicy {
         &self,
         _segment_infos: &SegmentInfos<D>,
         _merge_context: &mut MC,
-    ) -> Result<Option<MergeSpecificationNoReader>>
+    ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
         D: Directory,

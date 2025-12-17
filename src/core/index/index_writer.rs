@@ -21,7 +21,7 @@ use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::MergeContext;
+use crate::core::index::merge_policy::{MergeContext, MergeSpecificationNoReader, OneMergeSR};
 use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
@@ -94,7 +94,7 @@ where
     // increments every time a change is completed
     change_count: i64,
     commit_user_data: Option<HashMap<String, String>>,
-    pending_merges: VecDeque<OneMergeNoReader>,
+    pending_merges: VecDeque<OneMergeSR<D>>,
     running_merges: HashSet<MergeStat>,
     merge_exceptions: Vec<MergeStat>,
     merge_gen: i64,
@@ -1464,7 +1464,7 @@ where
         }
 
         let mut caching_merge_context = CachingMergeContext::new(self);
-        let mut spec_opt: Option<MergeSpecificationNoReader>;
+        let mut spec_opt: Option<MergeSpecificationNoReader<D>>;
 
         if max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
             debug_assert!(
@@ -1518,7 +1518,7 @@ where
     }
     /// **Expert:** the [`MergeScheduler`] calls this method to retrieve the next merge
     /// requested by the [`MergePolicy`].
-    fn get_next_merge(&self) -> Result<Option<OneMergeNoReader>> {
+    fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
         let mut inner = self.inner.lock();
 
         if let Some(t) = &*self.tragedy.lock() {
@@ -2479,7 +2479,7 @@ where
         let v = self.doc_writer.get_num_docs();
         Ok(v)
     }
-    fn ensure_valid_merge<CR>(&self, merge: &OneMerge<CR>, inner: &Inner<D>) -> Result<()>
+    fn ensure_valid_merge<CR>(&self, merge: &OneMerge<D, CR>, inner: &Inner<D>) -> Result<()>
     where
         CR: CodecReader,
     {
@@ -2571,7 +2571,7 @@ where
     /// and true is returned. Else (the merge conflicts) false is returned.
     fn register_merge(
         &self,
-        mut merge: OneMergeNoReader,
+        mut merge: OneMergeSR<D>,
         inner: &mut MutexGuard<'_, Inner<D>>,
     ) -> Result<bool> {
         if merge.register_done {
@@ -2656,7 +2656,7 @@ where
     }
 
     /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
-    fn merge_finish(&self, merge: &mut OneMergeNoReader) {
+    fn merge_finish(&self, merge: &mut OneMergeSR<D>) {
         let mut inner = self.inner.lock();
         // forceMerge, addIndexes or waitForMerges may be waiting
         // on merges to finish.
@@ -4215,9 +4215,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::index::merge_policy::{
-    MergePolicy, MergeSpecificationNoReader, MergeStat, OneMerge, OneMergeNoReader,
-};
+use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -4686,12 +4684,15 @@ where
 #[derive(Default)]
 struct IndexWriterMergeSource;
 impl MergeSource for IndexWriterMergeSource {
-    type OneMerge = OneMergeNoReader;
+    type OneMerge<D>
+        = OneMergeSR<D>
+    where
+        D: Directory;
 
     fn get_next_merge<D, L, B>(
         &self,
         writer: &IndexWriter<D, L, B>,
-    ) -> Result<Option<Self::OneMerge>>
+    ) -> Result<Option<Self::OneMerge<D>>>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
@@ -4706,8 +4707,11 @@ impl MergeSource for IndexWriterMergeSource {
         }
     }
 
-    fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge, writer: &IndexWriter<D, L, B>)
-    where
+    fn on_merge_finished<D, L, B>(
+        &self,
+        merge: &mut Self::OneMerge<D>,
+        writer: &IndexWriter<D, L, B>,
+    ) where
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
@@ -4724,7 +4728,11 @@ impl MergeSource for IndexWriterMergeSource {
         writer.has_pending_merges()
     }
 
-    fn merge<D, L, B>(&self, _merge: Self::OneMerge, _writer: &IndexWriter<D, L, B>) -> Result<()>
+    fn merge<D, L, B>(
+        &self,
+        _merge: Self::OneMerge<D>,
+        _writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,

@@ -39,22 +39,27 @@ pub trait MergeScheduler: Closeable {
 /// Provides access to new merges and executes the actual merge
 pub trait MergeSource {
     /// The merge type produced by this source.
-    type OneMerge;
+    type OneMerge<D>
+    where
+        D: Directory;
 
     /// The `MergeScheduler` calls this method to retrieve the next merge
     /// requested by the `MergePolicy`.
     fn get_next_merge<D, L, B>(
         &self,
         writer: &IndexWriter<D, L, B>,
-    ) -> Result<Option<Self::OneMerge>>
+    ) -> Result<Option<Self::OneMerge<D>>>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase;
 
     /// Does finishing for a merge.
-    fn on_merge_finished<D, L, B>(&self, merge: &mut Self::OneMerge, writer: &IndexWriter<D, L, B>)
-    where
+    fn on_merge_finished<D, L, B>(
+        &self,
+        merge: &mut Self::OneMerge<D>,
+        writer: &IndexWriter<D, L, B>,
+    ) where
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase;
@@ -68,7 +73,7 @@ pub trait MergeSource {
 
     /// Merges the indicated segments, replacing them in the stack
     /// with a single segment.
-    fn merge<D, L, B>(&self, merge: Self::OneMerge, writer: &IndexWriter<D, L, B>) -> Result<()>
+    fn merge<D, L, B>(&self, merge: Self::OneMerge<D>, writer: &IndexWriter<D, L, B>) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
