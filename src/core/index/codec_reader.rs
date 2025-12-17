@@ -321,3 +321,39 @@ where
         self.reader.document_with_visitor(doc_id, visitor, writer)
     }
 }
+
+impl<CR> CodecReader for Arc<CR>
+where
+    CR: CodecReader + ?Sized,
+{
+    type StoredFieldsReader = CR::StoredFieldsReader;
+    type TermVectorsReader = CR::TermVectorsReader;
+    type NormsProducer = CR::NormsProducer;
+    type DocValuesProducer = CR::DocValuesProducer;
+    type FieldsProducer = CR::FieldsProducer;
+    type PointsReader = CR::PointsReader;
+
+    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+        (**self).get_fields_reader()
+    }
+
+    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+        (**self).get_term_vectors_reader()
+    }
+
+    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+        (**self).get_norms_reader()
+    }
+
+    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+        (**self).get_doc_values_reader()
+    }
+
+    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+        (**self).get_postings_reader()
+    }
+
+    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+        (**self).get_points_reader()
+    }
+}
