@@ -21,8 +21,6 @@ use std::sync::atomic::AtomicI64;
 
 use parking_lot::Mutex;
 
-use crate::core::util::dummy::dummy_counter::DummyCounter;
-
 pub trait Counter {
     /// Adds the given delta to the counter's current value.
     ///
@@ -66,35 +64,8 @@ impl Counter for AtomicCounter {
     }
 }
 #[derive(Debug)]
-pub struct SerialCounter {
-    count: i64,
-}
-impl Default for SerialCounter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SerialCounter {
-    pub fn new() -> SerialCounter {
-        SerialCounter { count: 0 }
-    }
-}
-impl Counter for SerialCounter {
-    fn add_and_get(&mut self, delta: i64) -> i64 {
-        self.count += delta;
-        self.count
-    }
-    fn get(&self) -> i64 {
-        self.count
-    }
-}
-
-#[derive(Debug)]
 pub enum CounterEnum {
     Atomic(AtomicCounter),
-    Serial(SerialCounter),
-    Dummy(DummyCounter),
 }
 impl CounterEnum {
     /// Returns a new counter.
@@ -105,27 +76,19 @@ impl CounterEnum {
     ///
     /// # Returns
     /// A new counter.
-    pub fn new_counter(thread_safe: bool) -> CounterEnum {
-        if thread_safe {
-            CounterEnum::Atomic(AtomicCounter::new())
-        } else {
-            CounterEnum::Serial(SerialCounter::new())
-        }
+    pub fn new_counter(_thread_safe: bool) -> CounterEnum {
+        CounterEnum::Atomic(AtomicCounter::new())
     }
 }
 impl Counter for CounterEnum {
     fn add_and_get(&mut self, delta: i64) -> i64 {
         match self {
             CounterEnum::Atomic(c) => c.add_and_get(delta),
-            CounterEnum::Serial(c) => c.add_and_get(delta),
-            CounterEnum::Dummy(c) => c.add_and_get(delta),
         }
     }
     fn get(&self) -> i64 {
         match self {
             CounterEnum::Atomic(c) => c.get(),
-            CounterEnum::Serial(c) => c.get(),
-            CounterEnum::Dummy(c) => c.get(),
         }
     }
 }
