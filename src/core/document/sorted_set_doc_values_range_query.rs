@@ -426,26 +426,33 @@ where
         }
         let iterator = if values.is_single_valued() {
             let mut singleton = DocValues::unwrap_singleton_sorted(&mut values)?;
-            if skipper_opt.is_some() {
-                let skipper = skipper_opt.as_mut().unwrap();
-                let ps_iterator_opt = get_doc_id_set_iterator_or_null_for_primary_sort(
-                    context.reader(),
-                    &mut singleton,
-                    skipper,
-                    min_ord,
-                    max_ord,
-                    &self.query.field,
-                )?;
-                if ps_iterator_opt.is_some() {
-                    let ps_iterator = ps_iterator_opt.unwrap();
-                    let v =
-                        ConstantScoreScorer::with_disi(self.score, self.score_mode, ps_iterator);
-                    return Ok(Some(ScorerType::<LR>::C(v)));
-                } else {
+            match skipper_opt {
+                Some(ref mut skipper) => {
+                    let ps_iterator_opt = get_doc_id_set_iterator_or_null_for_primary_sort(
+                        context.reader(),
+                        &mut singleton,
+                        skipper,
+                        min_ord,
+                        max_ord,
+                        &self.query.field,
+                    )?;
+                    match ps_iterator_opt {
+                        Some(ps_iterator) => {
+                            let v = ConstantScoreScorer::with_disi(
+                                self.score,
+                                self.score_mode,
+                                ps_iterator,
+                            );
+                            return Ok(Some(ScorerType::<LR>::C(v)));
+                        },
+                        None => Either2TwoPhaseIterator::A(TwoPhaseIterator5::new(
+                            singleton, min_ord, max_ord,
+                        )),
+                    }
+                },
+                None => {
                     Either2TwoPhaseIterator::A(TwoPhaseIterator5::new(singleton, min_ord, max_ord))
-                }
-            } else {
-                Either2TwoPhaseIterator::A(TwoPhaseIterator5::new(singleton, min_ord, max_ord))
+                },
             }
         } else {
             Either2TwoPhaseIterator::B(TwoPhaseIterator6::new(values, min_ord, max_ord))

@@ -389,12 +389,18 @@ mod tests {
                 1,
                 Sort::with_fields(vec![SortField::new(Some("val"), SortFieldType::Long)?])?,
             )?;
-            assert_eq!(td.total_hits().value, 1, "{}", format!("{} missing?", id));
+            assert_eq!(
+                td.total_hits().value,
+                1,
+                "{}",
+                format_args!("{} missing?", id)
+            );
+
             assert_eq!(
                 *td.base.score_docs[0].fields()?[0].as_i64().unwrap(),
                 expected_val,
                 "{}",
-                format!("{} value", id)
+                format_args!("{} value", id)
             );
         }
 

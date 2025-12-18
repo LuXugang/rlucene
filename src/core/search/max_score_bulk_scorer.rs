@@ -126,27 +126,30 @@ where
             self.score_inner_window_as_conjunction(collector, accept_docs, max)?;
         } else {
             let top_index = self.essential_queue.top().expect("top ie empty");
-            let top2_index = self.essential_queue.top2(&self.all_scorers);
+            let top2_index_opt = self.essential_queue.top2(&self.all_scorers);
 
-            if top2_index.is_none() {
-                self.score_inner_window_single_essential_clause(collector, accept_docs, max)?;
-            } else {
-                let top = &self.all_scorers[top_index];
-                let top2 = &self.all_scorers[top2_index.unwrap()];
+            match top2_index_opt {
+                Some(top2_index) => {
+                    let top = &self.all_scorers[top_index];
+                    let top2 = &self.all_scorers[top2_index];
 
-                if top2.doc - (INNER_WINDOW_SIZE / 2) >= top.doc {
-                    self.score_inner_window_single_essential_clause(
-                        collector,
-                        accept_docs,
-                        max.min(top2.doc),
-                    )?;
-                } else {
-                    self.score_inner_window_multiple_essential_clauses(
-                        collector,
-                        accept_docs,
-                        max,
-                    )?;
-                }
+                    if top2.doc - (INNER_WINDOW_SIZE / 2) >= top.doc {
+                        self.score_inner_window_single_essential_clause(
+                            collector,
+                            accept_docs,
+                            max.min(top2.doc),
+                        )?;
+                    } else {
+                        self.score_inner_window_multiple_essential_clauses(
+                            collector,
+                            accept_docs,
+                            max,
+                        )?;
+                    }
+                },
+                None => {
+                    self.score_inner_window_single_essential_clause(collector, accept_docs, max)?;
+                },
             }
         }
 

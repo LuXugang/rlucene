@@ -1445,7 +1445,7 @@ impl PartialEq<Self> for Cost {
 }
 impl PartialOrd<Self> for Cost {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Option::from(Ord::cmp(&self.point, &other.point))
+        Some(self.cmp(other))
     }
 }
 impl Ord for Cost {

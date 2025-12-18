@@ -1496,32 +1496,32 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
         let reader2 = Arc::new(directory_reader_util::open_with_writer(&w)?);
         let leaf = get_only_leaf_reader(reader2.clone())?;
-        let expected = leaf.get_point_values("field")?;
+        let expected_opt = leaf.get_point_values("field")?;
+        match expected_opt {
+            Some(expected) => {
+                assert_eq!(
+                    Some(expected.get_min_packed_value()?.unwrap().into_owned()),
+                    get_min_packed_value(reader1.clone(), "field")?
+                );
 
-        if expected.is_none() {
-            assert_eq!(get_min_packed_value(reader1.clone(), "field")?, None);
-            assert_eq!(get_max_packed_value(reader1.clone(), "field")?, None);
-            assert_eq!(get_doc_count(reader1.clone(), "field")?, 0);
-            assert_eq!(size(reader1.clone(), "field")?, 0);
-        } else {
-            let expected = expected.unwrap();
+                assert_eq!(
+                    Some(expected.get_max_packed_value()?.unwrap().into_owned()),
+                    get_max_packed_value(reader1.clone(), "field")?
+                );
 
-            assert_eq!(
-                Some(expected.get_min_packed_value()?.unwrap().into_owned()),
-                get_min_packed_value(reader1.clone(), "field")?
-            );
+                assert_eq!(
+                    expected.get_doc_count()?,
+                    get_doc_count(reader1.clone(), "field")?
+                );
 
-            assert_eq!(
-                Some(expected.get_max_packed_value()?.unwrap().into_owned()),
-                get_max_packed_value(reader1.clone(), "field")?
-            );
-
-            assert_eq!(
-                expected.get_doc_count()?,
-                get_doc_count(reader1.clone(), "field")?
-            );
-
-            assert_eq!(expected.size()?, size(reader1.clone(), "field")?);
+                assert_eq!(expected.size()?, size(reader1.clone(), "field")?);
+            },
+            None => {
+                assert_eq!(get_min_packed_value(reader1.clone(), "field")?, None);
+                assert_eq!(get_max_packed_value(reader1.clone(), "field")?, None);
+                assert_eq!(get_doc_count(reader1.clone(), "field")?, 0);
+                assert_eq!(size(reader1.clone(), "field")?, 0);
+            },
         }
 
         Ok(())

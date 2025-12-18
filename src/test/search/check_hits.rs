@@ -68,11 +68,8 @@ impl CheckHits {
         expl: &Explanation,
     ) -> Result<()> {
         let value = expl.get_value().to_f32().unwrap();
-
-        // assertEquals(score, value, 0d)
         if value != score {
-            assert!(
-                false,
+            unreachable!(
                 "{}: score(doc={})={} != explanationScore={} Explanation: {}",
                 q, doc, score, value, expl
             );
@@ -132,8 +129,7 @@ impl CheckHits {
             }
 
             if !(product_of || sum_of || max_of || computed_of || max_times_others) {
-                assert!(
-                    false,
+                unreachable!(
                     "{}: multi valued explanation description=\"{}\" must be 'max plus x times others', \
                  'computed as x from:' or end with 'product of', 'sum of:', 'max of:' - {}",
                     q, descr, expl
@@ -146,8 +142,7 @@ impl CheckHits {
             let mut max = f32::NEG_INFINITY;
             let mut max_error = 0f64;
 
-            for i in 0..details.len() {
-                let d = &details[i];
+            for d in details.iter() {
                 let dval = d.get_value().to_f32().unwrap();
                 Self::verify_explanation(q, doc, dval, deep, d)?;
 
@@ -180,8 +175,7 @@ impl CheckHits {
             // assertEquals(combined, value, maxError)
             let diff = (combined as f64 - value as f64).abs();
             if diff > max_error {
-                assert!(
-                    false,
+                unreachable!(
                     "{}: actual subDetails combined=={} != value={} Explanation: {}",
                     q, combined, value, expl
                 );

@@ -1329,14 +1329,10 @@ where
                 .map(|m| {
                     let mut m = m.clone();
                     m.max_num_segments = max_num_segments;
-                    match m.info_id {
+                    if let Some(ref id) = m.info_id {
                         // this can be null since we put the merge on runningMerges before we do the actual merge
-                        // and
-                        // set the merge.info in _mergeInit
-                        Some(ref id) => {
-                            segments_to_merge.insert(id.clone(), Some(true));
-                        },
-                        None => {},
+                        // and set the merge.info in _mergeInit
+                        segments_to_merge.insert(id.clone(), Some(true));
                     }
                     m
                 })

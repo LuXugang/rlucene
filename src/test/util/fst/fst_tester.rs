@@ -203,26 +203,29 @@ where
                 Ok::<(), LuceneError>(())
             })?;
         }
-        let fst_metadata = fst_compiler.compile()?;
+        let fst_metadata_opt = fst_compiler.compile()?;
         let node_count = fst_compiler.get_node_count();
         let arc_count = fst_compiler.get_arc_count();
         let fst = if use_off_heap {
-            if fst_metadata.is_none() {
-                self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
-                None
-            } else {
-                // flush data to file
-                drop(fst_compiler);
-                let mut input = self
-                    .dir
-                    .borrow_mut()
-                    .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
-                let fst = FST::from_on_heap_store(fst_metadata.unwrap(), &mut input)?;
-                self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
-                Some(FSTEnums::FST1(fst))
+            match fst_metadata_opt {
+                None => {
+                    self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                    None
+                },
+                Some(metadata) => {
+                    // flush data to file
+                    drop(fst_compiler);
+                    let mut input = self
+                        .dir
+                        .borrow_mut()
+                        .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+                    let fst = FST::from_on_heap_store(metadata, &mut input)?;
+                    self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                    Some(FSTEnums::FST1(fst))
+                },
             }
-        } else if fst_metadata.is_some() {
-            let fst = FST::from_fst_reader(fst_metadata, Some(fst_compiler.get_fst_reader()?));
+        } else if fst_metadata_opt.is_some() {
+            let fst = FST::from_fst_reader(fst_metadata_opt, Some(fst_compiler.get_fst_reader()?));
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {

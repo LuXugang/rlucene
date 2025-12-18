@@ -119,24 +119,26 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         ds2: impl DocIdSet,
     ) -> Result<()> {
         // nextDoc
-        let mut it2 = ds2.iterator()?;
-        if it2.is_none() {
-            assert!(ds1.is_empty())
-        } else {
-            assert_eq!(-1, it2.unwrap().doc_id());
-            let mut disi = ds2.iterator()?.unwrap();
-            let iter = ds1.iter();
-            for doc in iter {
-                assert_eq!(doc, disi.next_doc()? as usize);
-                assert_eq!(doc, disi.doc_id() as usize);
-            }
-            assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
-            assert_eq!(disi.doc_id(), NO_MORE_DOCS);
+        let mut it2_opt = ds2.iterator()?;
+        match it2_opt {
+            Some(it2) => {
+                assert_eq!(-1, it2.doc_id());
+                let mut disi = ds2.iterator()?.unwrap();
+                let iter = ds1.iter();
+                for doc in iter {
+                    assert_eq!(doc, disi.next_doc()? as usize);
+                    assert_eq!(doc, disi.doc_id() as usize);
+                }
+                assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
+                assert_eq!(disi.doc_id(), NO_MORE_DOCS);
+            },
+            None => {
+                assert!(ds1.is_empty())
+            },
         }
-
         // nextDoc / advance
-        it2 = ds2.iterator()?;
-        match it2 {
+        it2_opt = ds2.iterator()?;
+        match it2_opt {
             None => assert!(ds1.is_empty()),
             Some(ref mut disi) => {
                 let iter = ds1.iter();

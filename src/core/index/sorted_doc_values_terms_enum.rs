@@ -166,7 +166,6 @@ where
     fn term_state(&mut self) -> Result<Self::TermState> {
         Ok(OrdTermState {
             ord: self.current_ord as i64,
-            ..OrdTermState::new()
         })
     }
 }

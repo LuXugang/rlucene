@@ -266,13 +266,13 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let io_context = IOContext::default_io_context()?;
 
         for version in self.get_versions() {
-            for min_version in [Some(version.clone()), None] {
+            for min_version_opt in [Some(version.clone()), None] {
                 let dir = Arc::new(new_directory(random)?);
                 let id = StringHelper::random_id();
                 let mut info = SegmentInfo::new(
                     dir.clone(),
                     Some(version.clone()),
-                    min_version.clone(),
+                    min_version_opt.clone(),
                     "_123",
                     1,
                     false,
@@ -295,10 +295,13 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 assert!(info2.get_version_ref().is_some());
                 assert_eq!(*info2.get_version_ref().unwrap(), version.clone());
                 if self.supports_min_version() {
-                    if min_version.is_none() {
-                        assert_eq!(info2.get_min_version_ref(), None);
-                    } else {
-                        assert_eq!(*info2.get_min_version_ref().unwrap(), min_version.unwrap());
+                    match min_version_opt {
+                        Some(min_version) => {
+                            assert_eq!(*info2.get_min_version_ref().unwrap(), min_version);
+                        },
+                        None => {
+                            assert_eq!(info2.get_min_version_ref(), None);
+                        },
                     }
                 } else {
                     assert_eq!(info2.get_min_version_ref(), None);

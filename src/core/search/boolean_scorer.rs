@@ -156,6 +156,7 @@ where
         w.doc = doc;
         Ok(())
     }
+    #[allow(clippy::too_many_arguments)]
     fn score_window_into_bitset_and_replay<LC, B>(
         &mut self,
         collector: &mut LC,
@@ -170,8 +171,7 @@ where
         B: Bits,
         LC: LeafCollector,
     {
-        for i in 0..num_scorers {
-            let w = &mut scorers[i];
+        for w in scorers.iter_mut().take(num_scorers) {
             debug_assert!(w.doc < max);
             self.score_disi_wrapper_into_bitset(w, accept_docs, min, max)?;
         }
@@ -222,6 +222,7 @@ where
             Some(top) => Ok(top),
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn score_window_multiple_scorers<B, LC>(
         &mut self,
         collector: &mut LC,

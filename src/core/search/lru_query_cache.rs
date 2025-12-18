@@ -527,7 +527,7 @@ where
         }
 
         // TODO: memory calculation not implemented
-        let mut recomputed_ram_bytes_used = 0 * (inner.cache.len() as i64);
+        let mut recomputed_ram_bytes_used = inner.cache.len() as i64;
 
         {
             let uq = inner.unique_queries.lock();
@@ -539,7 +539,7 @@ where
         for leaf_cache in inner.cache.values() {
             recomputed_ram_bytes_used +=
                 // TODO: memory calculation not implemented
-                0 * (leaf_cache.cache.len() as i64);
+                leaf_cache.cache.len() as i64;
             for cached in leaf_cache.cache.values() {
                 recomputed_ram_bytes_used += cached.ram_bytes_used()?;
             }

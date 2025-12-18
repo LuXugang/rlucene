@@ -275,13 +275,12 @@ mod tests {
         )?;
         Ok(())
     }
-
     fn assert_equals<T1: DocIdSet, T2: DocIdSet>(
         mut d1: Option<T1>,
         mut d2: Option<T2>,
     ) -> Result<()> {
-        if d1.is_none() {
-            if d2.is_none() {
+        match (d1.as_mut(), d2.as_mut()) {
+            (None, None) => {
                 assert_eq!(
                     d2.as_mut()
                         .unwrap()
@@ -291,27 +290,29 @@ mod tests {
                         .next_doc()?,
                     NO_MORE_DOCS
                 );
-            }
-        } else if d2.is_none() {
-            assert_eq!(
-                d1.as_mut()
-                    .unwrap()
-                    .iterator()?
-                    .as_mut()
-                    .unwrap()
-                    .next_doc()?,
-                NO_MORE_DOCS
-            );
-        } else {
-            let mut i1 = d1.as_mut().unwrap().iterator()?.unwrap();
-            let mut i2 = d2.as_mut().unwrap().iterator()?.unwrap();
-            let mut doc = i1.next_doc()?;
-            while doc != NO_MORE_DOCS {
-                assert_eq!(doc, i2.next_doc()?);
-                doc = i1.next_doc()?;
-            }
-            assert_eq!(i2.next_doc()?, NO_MORE_DOCS);
-        };
+            },
+
+            (None, Some(d2v)) => {
+                assert_eq!(d2v.iterator()?.unwrap().next_doc()?, NO_MORE_DOCS);
+            },
+
+            (Some(d1v), None) => {
+                assert_eq!(d1v.iterator()?.unwrap().next_doc()?, NO_MORE_DOCS);
+            },
+
+            (Some(d1v), Some(d2v)) => {
+                let mut i1 = d1v.iterator()?.unwrap();
+                let mut i2 = d2v.iterator()?.unwrap();
+
+                let mut doc = i1.next_doc()?;
+                while doc != NO_MORE_DOCS {
+                    assert_eq!(doc, i2.next_doc()?);
+                    doc = i1.next_doc()?;
+                }
+                assert_eq!(i2.next_doc()?, NO_MORE_DOCS);
+            },
+        }
+
         Ok(())
     }
 

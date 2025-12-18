@@ -425,7 +425,6 @@ where
                 }
                 positions[i] = field_positions;
             }
-            term_index += term_count;
         }
         let read = reader.ord();
         reader.skip(total_positions as i64 - read, &mut self.vectors_stream)?;

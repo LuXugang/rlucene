@@ -788,11 +788,14 @@ mod tests {
                     .expect("priority queue top element should exist"),
                 false => *pq.top().expect("priority queue top element should exist"),
             };
-            if last_least.is_some() && new_least != new_entry && new_least != last_least.unwrap() {
+            if let Some(last) = last_least
+                && new_least != new_entry
+                && new_least != last
+            {
                 // If there has been a change of least entry and it wasn't our
                 // new addition we expect the scores to increase
                 assert!(new_least <= new_entry);
-                assert!(new_least >= last_least.unwrap());
+                assert!(new_least >= last);
             }
             last_least = Some(new_least);
         }
@@ -814,8 +817,8 @@ mod tests {
                     .expect("priority queue top element should exist"),
                 false => *pq.top().expect("priority queue top element should exist"),
             };
-            if object_to_remove != last_least.unwrap()
-                && last_least.is_some()
+            if let Some(last) = last_least
+                && object_to_remove != last
                 && new_least != new_entry
             {
                 // If there has been a change of least entry and it wasn't our
@@ -823,7 +826,7 @@ mod tests {
                 // removed entry we expect the
                 // scores to increase
                 assert!(new_least <= new_entry);
-                assert!(new_least >= last_least.unwrap());
+                assert!(new_least >= last);
             }
             last_least = Some(new_least);
         }

@@ -294,6 +294,7 @@ impl TieredMergePolicy {
 
         Ok(sorted_by_size)
     }
+    #[allow(clippy::too_many_arguments)]
     fn do_find_merges<MC, D>(
         &self,
         sorted_eligible_infos: &[SegmentSizeAndDocs],
@@ -533,23 +534,22 @@ impl TieredMergePolicy {
         // 1.0/numSegsBeingMerged (good) to 1.0 (poor). Heavily
         // lopsided merges (skew near 1.0) is no good; it means
         // O(N^2) merge cost over time:
-        let skew: f64;
-        if hit_too_large {
+        let skew: f64 = if hit_too_large {
             // Pretend the merge has perfect skew; skew doesn't
             // matter in this case because this merge will not
             // "cascade" and so it cannot lead to N^2 merge cost
             // over time:
             let merge_factor = std::cmp::min(self.max_merge_at_once, self.segs_per_tier as i32);
-            skew = 1.0 / (merge_factor as f64);
+            1.0 / (merge_factor as f64)
         } else {
-            skew = (self.floor_size(
+            (self.floor_size(
                 segments_sizes
                     .get(&candidate[0].seg_id)
                     .unwrap()
                     .size_in_bytes,
             ) as f64)
-                / (tot_after_merge_bytes_floored as f64);
-        }
+                / (tot_after_merge_bytes_floored as f64)
+        };
 
         // Strongly favor merges with less skew (smaller
         // mergeScore is better):
@@ -777,20 +777,16 @@ impl MergePolicy for TieredMergePolicy {
         // shouldn't add it in again.
         sorted_size_and_docs.retain(|seg| {
             let is_original = segments_to_merge.get(&seg.seg_info).copied();
-            match is_original {
-                None => false,
-                Some(v) => match v {
-                    Some(_) => {
-                        if merging.contains(&seg.seg_info) {
-                            force_merge_running = true;
-                            false
-                        } else {
-                            total_merge_bytes += seg.size_in_bytes;
-                            true
-                        }
-                    },
-                    None => false,
-                },
+            if let Some(Some(_)) = is_original {
+                if merging.contains(&seg.seg_info) {
+                    force_merge_running = true;
+                    false
+                } else {
+                    total_merge_bytes += seg.size_in_bytes;
+                    true
+                }
+            } else {
+                false
             }
         });
 

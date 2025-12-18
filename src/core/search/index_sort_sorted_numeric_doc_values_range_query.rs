@@ -961,7 +961,7 @@ where
     let max_cmp = comparator.compare(max.as_ref(), 0, query_upper_point, 0);
     Ok(max_cmp <= 0)
 }
-
+#[allow(clippy::type_complexity)]
 fn get_doc_id_set_iterator_or_null_from_bkd<LR>(
     context: &LeafReaderContext<LR>,
     delegate: Disi<LR>,

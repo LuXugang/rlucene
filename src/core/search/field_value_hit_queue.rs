@@ -34,6 +34,7 @@ use std::rc::Rc;
 /// A hit queue for sorting by hits by terms in more than one field
 pub struct FieldValueHitQueue;
 impl FieldValueHitQueue {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         fields: &[SortFieldEnum],
         size: i32,

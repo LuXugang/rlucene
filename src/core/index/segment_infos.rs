@@ -646,7 +646,6 @@ where
             // minSegmentVersion before any SegmentInfo; this makes
             // it cleaner to throw IndexFormatTooOldExc at read time:
             for si_per_commit_id in &self.segments_idx {
-                debug_assert!(self.segments.get(si_per_commit_id).is_some());
                 let si_per_commit = self.segments.get(si_per_commit_id).unwrap();
                 let segment_version = si_per_commit.info.version.clone();
                 debug_assert!(segment_version.is_some());
@@ -666,7 +665,6 @@ where
             out.write_vint(min_version.bug_fix)?;
         }
         for si_per_commit_id in &self.segments_idx {
-            debug_assert!(self.segments.get(si_per_commit_id).is_some());
             let si_per_commit = self.segments.get(si_per_commit_id).unwrap();
             let si = &si_per_commit.info;
             if self.index_created_version_major >= 7 && si.min_version.is_none() {
@@ -758,7 +756,6 @@ where
         };
 
         for segment_commit_info_id in &self.segments_idx {
-            debug_assert!(self.segments.get(segment_commit_info_id).is_some());
             let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
             // debug_assert!(segment_commit_info.info.codec.is_some());
             cloned.add(segment_commit_info.clone())?;
@@ -859,7 +856,6 @@ where
             files.insert(segment_file_name);
         }
         for segment_commit_info_id in &self.segments_idx {
-            debug_assert!(self.segments.get(segment_commit_info_id).is_some());
             let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
             files.extend(segment_commit_info.files()?);
         }
@@ -1025,7 +1021,6 @@ where
     pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info_id in &self.segments_idx {
-            debug_assert!(self.segments.get(segment_commit_info_id).is_some());
             let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
             backup_list.push(segment_commit_info.clone());
         }
@@ -1148,7 +1143,6 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: ", self.get_segments_file_name().unwrap_or_default())?;
         for (i, segment_commit_info_id) in self.segments_idx.iter().enumerate() {
-            debug_assert!(self.segments.get(segment_commit_info_id).is_some());
             let segment_commit_info = self.segments.get(segment_commit_info_id).unwrap();
             if i > 0 {
                 write!(f, " ")?;

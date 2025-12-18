@@ -106,12 +106,12 @@ where
         let commits = Vec::new();
         let mut last_segment_infos: Option<SegmentInfos<D>> = None;
 
-        let current_segments_file = segment_infos.get_segments_file_name();
+        let current_segments_file_opt = segment_infos.get_segments_file_name();
         if info_stream.enabled("IFD") {
             info_stream.message(
                 "IFD",
                 &format!(
-                    "init: current segments file is \"{current_segments_file:?}\"; deletionPolicy={policy}"
+                    "init: current segments file is \"{current_segments_file_opt:?}\"; deletionPolicy={policy}"
                 ),
             );
         }
@@ -134,7 +134,7 @@ where
             file_deleter,
         };
         let mut current_commit_point = None;
-        if current_segments_file.is_some() {
+        if current_segments_file_opt.is_some() {
             let current_gen = segment_infos.get_generation();
             for file in files {
                 if file.ends_with("write.lock") {
@@ -179,8 +179,9 @@ where
                 }
             }
         }
-
-        if current_commit_point.is_none() && current_segments_file.is_some() && initial_index_exists
+        if let Some(file) = current_segments_file_opt
+            && current_commit_point.is_none()
+            && initial_index_exists
         {
             // We did not in fact see the segments_N file
             // corresponding to the segmentInfos that was passed
@@ -189,7 +190,6 @@ where
             // listing was stale (eg when index accessed via NFS
             // client with stale directory listing cache).  So we
             // try now to explicitly open this commit point:
-            let file = current_segments_file.unwrap();
             let sis = SegmentInfos::read_commit(directory_orig.clone(), &file);
             let sis = sis.map_err(|e| {
                 LuceneError::corrupt_index(format!(

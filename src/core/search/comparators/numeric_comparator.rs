@@ -100,6 +100,7 @@ where
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct NumericLeafComparator<LR, N, V, T>
 where
     LR: LeafReader,
@@ -155,7 +156,7 @@ where
             None
         };
 
-        let (enable_skipping, max_doc, competitive_iterator) = if let Some(_) = point_values {
+        let (enable_skipping, max_doc, competitive_iterator) = if point_values.is_some() {
             if let Some(info) = context
                 .reader()
                 .get_field_infos()?

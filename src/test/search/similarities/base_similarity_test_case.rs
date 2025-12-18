@@ -264,10 +264,7 @@ pub trait BaseSimilarityTestCase {
         if prev_score > score {
             println!("{prev_explanation}");
             println!("{explanation}");
-            assert!(
-                false,
-                "score({prev_freq})={prev_score} > score({freq})={score}"
-            );
+            unreachable!("score({prev_freq})={prev_score} > score({freq})={score}");
         }
         // check score(norm-1), given the same freq it should be >= score(norm) [scores non-decreasing
         // as docs get shorter]
@@ -301,8 +298,7 @@ pub trait BaseSimilarityTestCase {
             if prev_norm_score < score {
                 println!("{prev_norm_explanation}");
                 println!("{explanation}");
-                assert!(
-                    false,
+                unreachable!(
                     "score({freq},{})={} < score({freq},{norm})={}",
                     norm - 1,
                     prev_norm_score,
@@ -351,8 +347,7 @@ pub trait BaseSimilarityTestCase {
             if prev_term_score < score {
                 println!("{prev_term_explanation}");
                 println!("{explanation}");
-                assert!(
-                    false,
+                unreachable!(
                     "score({freq},{prev_term:?})={prev_term_score} < score({freq},{term:?})={score}"
                 );
             }

@@ -31,7 +31,7 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    disi: TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>,
+    disi: TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>,
 }
 impl<S1, S2> ReqExclScorer<S1, S2>
 where
@@ -89,22 +89,22 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>;
+    type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>;
     type DocIdSetIteratorRef<'a>
-        = &'a TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>
+        = &'a TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
     where
         Self: 'a;
     type DocIdSetIteratorMut<'a>
-        = &'a mut TwoPhaseIteratorAsDocIdSetIterator<TPI<S1, S2>>
+        = &'a mut TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
     where
         Self: 'a;
-    type TwoPhaseIter = TPI<S1, S2>;
+    type TwoPhaseIter = Tpi<S1, S2>;
     type TwoPhaseIterRef<'a>
-        = &'a TPI<S1, S2>
+        = &'a Tpi<S1, S2>
     where
         Self: 'a;
     type TwoPhaseIterMut<'a>
-        = &'a mut TPI<S1, S2>
+        = &'a mut Tpi<S1, S2>
     where
         Self: 'a;
 
@@ -333,7 +333,7 @@ where
         self.match_cost
     }
 }
-pub type TPI<S1, S2> =
+pub type Tpi<S1, S2> =
     Either2TwoPhaseIterator<TwoPhaseIteratorImpl1<S1, S2>, TwoPhaseIteratorImpl2<S1, S2>>;
 /// Estimation of the number of operations required to call DISI.advance.
 /// This is likely completely wrong,

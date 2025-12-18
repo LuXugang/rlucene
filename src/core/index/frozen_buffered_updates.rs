@@ -25,7 +25,7 @@ use crate::core::index::doc_values_field_updates::{
 use crate::core::index::field_term_iterator::FieldTermIterator;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values_field_updates::{
     NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
@@ -47,13 +47,13 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::int_consumer::IntConsumer;
-use crate::core::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
+use crate::core::util::{ByteBlockPool, CounterEnum, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicI64;
 use std::sync::{
     Arc,
@@ -91,7 +91,7 @@ pub(crate) struct FrozenBufferedUpdates {
     del_gen: i64,
     // SegmentInfo ID in SegmentCommitInfo
     pub(crate) private_segment: Option<String>,
-    id: String,
+    id: Identity,
 }
 
 impl FrozenBufferedUpdates {
@@ -138,10 +138,11 @@ impl FrozenBufferedUpdates {
         // TODO: memory calculation not implemented
         let bytes_used = 0;
         if info_stream.enabled("BD") {
-            let private_segment_msg = if private_segment.is_none() {
-                "None".to_string()
-            } else {
-                format!("; private segment {}", private_segment.as_ref().unwrap())
+            let private_segment_msg = match private_segment {
+                Some(ref v) => {
+                    format!("; private segment {}", v)
+                },
+                None => "None".to_string(),
             };
             info_stream.message(
                 "BD",
@@ -154,7 +155,6 @@ impl FrozenBufferedUpdates {
                 ),
             );
         }
-        let id = StringHelper::id_to_string(Some(&StringHelper::random_id()));
         Ok(Self {
             info_stream: info_stream.clone(),
             delete_terms,
@@ -168,7 +168,7 @@ impl FrozenBufferedUpdates {
             field_updates_count,
             del_gen: -1,
             private_segment,
-            id,
+            id: Identity::new(),
         })
     }
     /// Tries to lock this buffered update instance
@@ -554,18 +554,18 @@ impl Display for FrozenBufferedUpdates {
         Ok(())
     }
 }
-impl Hash for FrozenBufferedUpdates {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
 impl PartialEq for FrozenBufferedUpdates {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id.eq(&other.id)
     }
 }
 impl Eq for FrozenBufferedUpdates {}
 
+impl Hash for FrozenBufferedUpdates {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
 /// This struct helps iterating a term dictionary and consuming all the docs for each term.
 /// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::core::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry
 /// for the given value.  

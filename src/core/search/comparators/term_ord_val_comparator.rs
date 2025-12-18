@@ -257,38 +257,40 @@ where
                 .reader()
                 .get_field_infos()?
                 .field_info_by_name(&comparator.field);
-            if field_info.is_none() {
-                if leaf.terms_index.get_value_count()? != 0 {
-                    return Err(LuceneError::illegal_state(format!(
-                        "Field [{}] cannot be found in field infos",
-                        comparator.field
-                    )));
-                }
-                leaf.dense = false;
-                true
-            } else if *field_info.unwrap().get_index_options() == IndexOptions::None {
-                // No terms index
-                leaf.dense = false;
-                false
-            } else {
-                let terms = context.reader().terms(&comparator.field)?;
-                match terms {
-                    None => {
-                        leaf.dense = false;
-                    },
-                    Some(ref t) => {
-                        leaf.dense = t.get_sum_doc_freq()? == context.reader().max_doc()? as i64;
-                    },
-                }
+            match field_info {
+                None => {
+                    if leaf.terms_index.get_value_count()? != 0 {
+                        return Err(LuceneError::illegal_state(format!(
+                            "Field [{}] cannot be found in field infos",
+                            comparator.field
+                        )));
+                    }
+                    leaf.dense = false;
+                    true
+                },
 
-                if leaf.dense || comparator.top_value.is_some() {
-                    true
-                } else if comparator.reverse == comparator.sort_missing_last {
-                    // Missing values are always competitive, we can never skip
+                Some(info) if *info.get_index_options() == IndexOptions::None => {
+                    // No terms index
+                    leaf.dense = false;
                     false
-                } else {
-                    true
-                }
+                },
+
+                Some(_) => {
+                    let terms = context.reader().terms(&comparator.field)?;
+                    leaf.dense = match terms {
+                        None => false,
+                        Some(ref t) => t.get_sum_doc_freq()? == context.reader().max_doc()? as i64,
+                    };
+
+                    if leaf.dense || comparator.top_value.is_some() {
+                        true
+                    } else if comparator.reverse == comparator.sort_missing_last {
+                        // Missing values are always competitive, we can never skip
+                        false
+                    } else {
+                        true
+                    }
+                },
             }
         };
 

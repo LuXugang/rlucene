@@ -947,19 +947,17 @@ mod tests {
         let fis3 = read_field_infos(sis.info_idx(2).unwrap())?;
 
         let iter = fis1.iter();
-        let mut i = 0;
-        for fi in iter {
-            assert_eq!(i, fi.number);
+        for (i, fi) in iter.enumerate() {
+            assert_eq!(i, fi.number as usize);
             assert_eq!(format!("f{}", i), fi.name);
             assert_eq!(
                 format!("f{}", i),
-                fis1.field_info_by_number(i)?.unwrap().name
+                fis1.field_info_by_number(i as i32)?.unwrap().name
             ); // lookup by number
             assert_eq!(
                 format!("f{}", i),
                 fis1.field_info_by_name(&format!("f{}", i)).unwrap().name
             ); // lookup by name
-            i += 1;
         }
 
         // testing sparse FieldInfos

@@ -218,6 +218,8 @@ pub type LRPosting<LR> =
 pub type LRNormNumericDocValues<LR> = <LR as LeafReader>::NormNumericDocValues;
 // DocValuesSkipper
 pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
+// PointValues
+pub type LRPointValues<LR> = <LR as LeafReader>::PointValues;
 
 pub type LRDisis<LR> = Either5DocIdSetIterator<
     LRNumericDocValues<LR>,

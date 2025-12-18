@@ -311,28 +311,31 @@ where
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
         let iterator = if values.is_single_valued() {
             let mut singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
-            if skipper_opt.is_some() {
-                let skipper = skipper_opt.as_mut().unwrap();
-                let ps_iterator_opt = self.get_doc_id_set_iterator_or_null_for_primary_sort(
-                    context.reader(),
-                    &mut singleton,
-                    skipper,
-                )?;
-                if let Some(ps_iterator) = ps_iterator_opt {
-                    let v = DefaultScorerSupplier::new(ConstantScoreScorer::with_disi(
-                        self.base.score(),
-                        self.score_mode,
-                        ps_iterator,
-                    ));
-                    return Ok(Some(Either4ScorerSupplier::B(v)));
-                } else {
-                    Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
-                        singleton,
-                        self.query.clone(),
-                    ))
-                }
-            } else {
-                Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
+            match skipper_opt {
+                Some(ref mut skipper) => {
+                    let ps_iterator_opt = self.get_doc_id_set_iterator_or_null_for_primary_sort(
+                        context.reader(),
+                        &mut singleton,
+                        skipper,
+                    )?;
+                    if let Some(ps_iterator) = ps_iterator_opt {
+                        let v = DefaultScorerSupplier::new(ConstantScoreScorer::with_disi(
+                            self.base.score(),
+                            self.score_mode,
+                            ps_iterator,
+                        ));
+                        return Ok(Some(Either4ScorerSupplier::B(v)));
+                    } else {
+                        Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
+                            singleton,
+                            self.query.clone(),
+                        ))
+                    }
+                },
+                None => Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
+                    singleton,
+                    self.query.clone(),
+                )),
             }
         } else {
             Either2TwoPhaseIterator::B(TwoPhaseIterator4::new(values, self.query.clone()))

@@ -1352,14 +1352,13 @@ mod tests {
     use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
     use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
     use crate::core::search::total_hits::TotalHits;
-    use crate::core::store::nio_fs_directory::NIOFSDirectory;
-    use crate::core::store::{FSDirectory, NativeFSLockFactory};
+
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, new_searcher_with_threads, random,
+        DirType, at_least, new_directory, new_searcher_with_threads, random,
     };
     use std::sync::Arc;
 
@@ -1367,7 +1366,7 @@ mod tests {
     struct TestTopFieldCollector;
 
     fn setup() -> Result<(
-        Arc<StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
+        Arc<StandardDirectoryReaderType<DirType>>,
         DefaultIndexSearch,
     )> {
         let mut random = random();

@@ -56,6 +56,7 @@ where
     merging: bool,
 
     disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::Slice>>>>,
+    #[allow(clippy::type_complexity)]
     disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,
     data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
 }

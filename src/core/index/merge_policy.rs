@@ -88,18 +88,18 @@ pub trait MergePolicy: Display {
         D: Directory,
         MC: MergeContext<D>;
 
-    /// Define the set of merge operations to perform on provided codec readers in
-    /// [`IndexWriter::add_indexes`].
-    ///
-    /// The merge operation is required to convert provided readers into segments
-    /// that can be added to the writer. This API can be overridden in custom merge
-    /// policies to control concurrency for `addIndexes`.
-    ///
-    /// Default implementation creates a single merge operation for all provided
-    /// readers (lowest concurrency). Creating a merge for each reader would provide
-    /// the highest level of concurrency possible with the configured merge scheduler.
-    ///
-    /// * `readers` — codec readers to merge into the main index
+    // Define the set of merge operations to perform on provided codec readers in
+    // [`IndexWriter::add_indexes`].
+    //
+    // The merge operation is required to convert provided readers into segments
+    // that can be added to the writer. This API can be overridden in custom merge
+    // policies to control concurrency for `addIndexes`.
+    //
+    // Default implementation creates a single merge operation for all provided
+    // readers (lowest concurrency). Creating a merge for each reader would provide
+    // the highest level of concurrency possible with the configured merge scheduler.
+    //
+    // * `readers` — codec readers to merge into the main index
     // fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<CR>>>
     // where
     //     CR: CodecReader,
@@ -109,10 +109,10 @@ pub trait MergePolicy: Display {
     //     Ok(Some(merge_spec))
     // }
 
-    /// Determine what set of merge operations is necessary in order to merge to
-    /// `<=` the specified segment count. [`IndexWriter`] calls this when its
-    /// `forceMerge` method is invoked. This call is always synchronized on the
-    /// [`IndexWriter`] instance so only one thread at a time will call it.
+    ///   Determine what set of merge operations is necessary in order to merge to
+    ///   `<=` the specified segment count. [`IndexWriter`] calls this when its
+    ///   `forceMerge` method is invoked. This call is always synchronized on the
+    ///   [`IndexWriter`] instance so only one thread at a time will call it.
     ///
     /// * `segment_infos` — the total set of segments in the index  
     /// * `max_segment_count` — requested maximum number of segments  

@@ -719,7 +719,7 @@ mod tests {
                 _ => min_doc_id + ((1 << range_log) - 1),
             }
         }
-
+        #[allow(clippy::if_same_then_else)]
         fn min_value_with_level(&self, _level: i32) -> i64 {
             let d = self.doc % 1024;
             if d < 128 {

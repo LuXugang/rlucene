@@ -48,7 +48,7 @@ where
     D: Directory,
 {
     fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        Some(self.cmp(_other))
     }
 }
 

@@ -361,12 +361,7 @@ where
         self.ensure_open()?;
 
         let reader_from_dir = match self.closed {
-            Some(ref closed) => {
-                if closed.load(SeqCst) {
-                    true;
-                }
-                false
-            },
+            Some(ref closed) => closed.load(SeqCst),
             None => true,
         };
         if reader_from_dir {

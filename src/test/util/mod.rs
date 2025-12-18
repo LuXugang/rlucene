@@ -17,8 +17,7 @@
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::search::index_searcher::DefaultIndexSearcher;
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{FSDirectory, NativeFSLockFactory};
+use crate::test::util::lucene_test_case::lucene_test_case_util::DirType;
 use std::sync::Arc;
 
 pub(crate) mod automaton;
@@ -33,10 +32,5 @@ pub(crate) mod index_package_access;
 pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
-pub type DefaultIndexSearch = DefaultIndexSearcher<
-    Arc<
-        CompositeReaderContext<
-            Arc<StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
-        >,
-    >,
->;
+pub type DefaultIndexSearch =
+    DefaultIndexSearcher<Arc<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>>;
