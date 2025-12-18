@@ -91,7 +91,7 @@ pub(crate) struct FrozenBufferedUpdates {
     del_gen: i64,
     // SegmentInfo ID in SegmentCommitInfo
     pub(crate) private_segment: Option<String>,
-    id: Identity,
+    pub(crate) id: Identity,
 }
 
 impl FrozenBufferedUpdates {
