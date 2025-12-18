@@ -298,7 +298,6 @@ where
     ///                                   ^       ^       ^
     ///                                   |       |       |
     ///                                block B  lead2   lead1
-    /// ```
     fn score_inner_window_as_conjunction<LC, B>(
         &mut self,
         collector: &mut LC,

@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use crate::core::index::index_reader::Identity;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automata::Automata;
@@ -40,6 +41,7 @@ use crate::core::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 /// - [`Automata::make_string_union_iter`](Automaton::make_string_union_iter)
 /// - [`Automata::make_binary_string_union_iter`](Automaton::make_binary_string_union_iter)
 pub(crate) struct StringsToAutomaton {
+    // TODO IMPORTANT 这里没必要用RcRefCell包装吧
     /// A "registry" for state interning.
     pub(crate) state_registry: Option<HashMap<StateKey, Rc<RefCell<State>>>>,
     /// Root automaton state.
@@ -73,11 +75,9 @@ impl StringsToAutomaton {
     fn convert(
         a: &mut Builder,
         s: &Rc<RefCell<State>>,
-        visited: &mut HashMap<StateKey, i32>,
+        visited: &mut HashMap<Identity, i32>,
     ) -> Result<i32> {
-        let key = StateKey {
-            state: Rc::clone(s),
-        };
+        let key = s.borrow().identity.clone();
 
         if let Some(&converted) = visited.get(&key) {
             return Ok(converted);
@@ -236,7 +236,7 @@ impl StringsToAutomaton {
             self.replace_or_register(child.clone())?;
         }
         let state_key = StateKey {
-            state: Rc::clone(&state),
+            state: Rc::clone(&child),
         };
         if let Some(registered) = self.state_registry.as_ref().unwrap().get(&state_key) {
             state.borrow_mut().replace_last_child(Rc::clone(registered));
@@ -252,7 +252,7 @@ impl StringsToAutomaton {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct State {
     /// Labels of outgoing transitions. Indexed identically to [`states`].
     /// Labels must be sorted lexicographically.
@@ -263,6 +263,18 @@ pub(crate) struct State {
     /// `true` if this state corresponds to the end of at least one input
     /// sequence.
     pub is_final: bool,
+    pub identity: Identity,
+}
+// for padding
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            labels: Vec::new(),
+            states: Vec::new(),
+            is_final: false,
+            identity: Identity::new(),
+        }
+    }
 }
 
 impl State {
@@ -271,6 +283,7 @@ impl State {
             labels: Vec::new(),
             states: Vec::new(),
             is_final: false,
+            identity: Identity::new(),
         }
     }
     /// Returns the target state of a transition leaving this state and labeled
@@ -402,10 +415,10 @@ mod tests {
     struct TestStringsToAutomaton;
     #[test]
     fn test_basic() -> Result<()> {
-        let mut terms = basic_terms();
+        let mut random = random();
+        let mut terms = basic_terms(&mut random)?;
         terms.sort();
 
-        let mut random = random();
         let a = build(&mut random, terms.clone(), false)?;
         check_automaton(&terms, a.clone(), false)?;
         check_minimized(&a)?;
@@ -414,10 +427,10 @@ mod tests {
     }
     #[test]
     fn test_basic_binary() -> Result<()> {
-        let mut terms = basic_terms();
+        let mut random = random();
+        let mut terms = basic_terms(&mut random)?;
         terms.sort();
 
-        let mut random = random();
         let a = build(&mut random, terms.clone(), true)?;
         check_automaton(&terms, a.clone(), true)?;
         check_minimized(&a)?;
@@ -575,14 +588,14 @@ mod tests {
         Ok(())
     }
 
-    fn basic_terms() -> Vec<BytesRef<Vec<u8>>> {
-        vec![
-            BytesRef::from_string("dog"),
-            BytesRef::from_string("day"),
-            BytesRef::from_string("dad"),
-            BytesRef::from_string("cats"),
-            BytesRef::from_string("cat"),
-        ]
+    fn basic_terms<R: Rng + ?Sized>(random: &mut R) -> Result<Vec<BytesRef<Vec<u8>>>> {
+        Ok(vec![
+            new_bytes_ref_from_string(random, "dog")?,
+            new_bytes_ref_from_string(random, "day")?,
+            new_bytes_ref_from_string(random, "dad")?,
+            new_bytes_ref_from_string(random, "cats")?,
+            new_bytes_ref_from_string(random, "cat")?,
+        ])
     }
 
     fn build<R: Rng + ?Sized>(
