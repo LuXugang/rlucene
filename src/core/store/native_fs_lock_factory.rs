@@ -115,7 +115,8 @@ impl FSLockFactory for NativeFSLockFactory {
         // will fail below.
         let file = OpenOptions::new()
             .write(true)
-            .create_new(true)
+            .create(true)
+            .truncate(false)
             .open(&lock_file)?;
         let real_path = lock_file
             .canonicalize()
