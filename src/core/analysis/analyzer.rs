@@ -33,7 +33,7 @@ pub trait Analyzer {
     fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
     /// Default reuse strategy is GlobalReuseStrategy
     fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
-        ReuseStrategyEnum::Global(GlobalReuseStrategy::default())
+        ReuseStrategyEnum::Global(Box::default())
     }
     fn normalize_with_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<impl TokenStream>
     where
@@ -147,7 +147,7 @@ pub trait Analyzer {
     }
 }
 pub enum ReuseStrategyEnum {
-    Global(GlobalReuseStrategy<InnerTokenStreams>),
+    Global(Box<GlobalReuseStrategy<InnerTokenStreams>>),
     PerField(PerFieldReuseStrategy<InnerTokenStreams>),
 }
 impl ReuseStrategy<InnerTokenStreams> for ReuseStrategyEnum {
