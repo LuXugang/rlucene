@@ -1510,14 +1510,12 @@ mod tests {
     use std::sync::Arc;
     struct TestFSTs {
         // TODO: MockDirectoryWrapper not Implement
-        dir: Rc<RefCell<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
+        dir: Rc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
     }
     impl TestFSTs {
         fn new<R: Rng>(random: &mut R) -> Result<Self> {
             let dir = new_directory(random)?;
-            Ok(Self {
-                dir: Rc::new(RefCell::new(dir)),
-            })
+            Ok(Self { dir: Rc::new(dir) })
         }
         fn do_test<R: Rng>(
             &self,
@@ -1794,7 +1792,7 @@ mod tests {
     fn test_random_words() -> Result<()> {
         let mut random = random();
         let test = TestFSTs {
-            dir: Rc::new(RefCell::new(new_directory(&mut random)?)),
+            dir: Rc::new(new_directory(&mut random)?),
         };
         if is_night_mode() {
             let num_iter = at_least(&mut random, 2);

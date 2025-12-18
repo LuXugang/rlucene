@@ -294,7 +294,6 @@ pub type MTBufferedUpdates = BufferedUpdates<CounterEnumLock, ByteBlockPoolLock>
 pub type BufferedUpdatesLock = Arc<Mutex<MTBufferedUpdates>>;
 /// for single-threaded scenarios
 pub type STBufferedUpdates = BufferedUpdates<CounterEnumBorrow, ByteBlockPoolBorrow>;
-pub type BufferedUpdatesBorrow = Rc<RefCell<STBufferedUpdates>>;
 
 pub(crate) struct DeletedTerms<C, B>
 where

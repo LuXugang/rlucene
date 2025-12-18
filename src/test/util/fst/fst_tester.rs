@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -50,7 +49,7 @@ where
     pub pairs: Vec<InputOutput<O::V, Vec<i32>>>,
     pub input_mode: i32,
     pub outputs: O,
-    pub dir: Rc<RefCell<D>>,
+    pub dir: Rc<D>,
 
     pub node_count: i64,
     pub arc_count: i64,
@@ -66,7 +65,7 @@ where
     #[allow(clippy::type_complexity)]
     pub fn new(
         random: R,
-        dir: Rc<RefCell<D>>,
+        dir: Rc<D>,
         input_mode: i32,
         pairs: Vec<InputOutput<O::V, Vec<i32>>>,
         outputs: O,
@@ -183,7 +182,6 @@ where
         if use_off_heap {
             let out = self
                 .dir
-                .borrow_mut()
                 .create_output("fstOffHeap.bin", &IOContext::default_io_context()?)?;
             let out = DataOutputEnum::FromDir(out);
             fst_compiler_builder.data_output(out);
@@ -209,7 +207,7 @@ where
         let fst = if use_off_heap {
             match fst_metadata_opt {
                 None => {
-                    self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                    self.dir.delete_file("fstOffHeap.bin")?;
                     None
                 },
                 Some(metadata) => {
@@ -217,10 +215,9 @@ where
                     drop(fst_compiler);
                     let mut input = self
                         .dir
-                        .borrow_mut()
                         .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
                     let fst = FST::from_on_heap_store(metadata, &mut input)?;
-                    self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                    self.dir.delete_file("fstOffHeap.bin")?;
                     Some(FSTEnums::FST1(fst))
                 },
             }
@@ -229,15 +226,15 @@ where
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
-                    let mut out = self.dir.borrow_mut().create_output("fst.bin", &ctx)?;
+                    let mut out = self.dir.create_output("fst.bin", &ctx)?;
                     if let Some(fst_ref) = &fst {
                         fst_ref.save_with_same_data_out(&mut out)?;
                     }
                 }
-                let mut input = self.dir.borrow_mut().open_input("fst.bin", &ctx)?;
+                let mut input = self.dir.open_input("fst.bin", &ctx)?;
                 let metadata = read_metadata(&mut input, self.outputs.clone())?;
                 let fst = FST::from_on_heap_store(metadata, &mut input)?;
-                self.dir.borrow_mut().delete_file("fst.bin")?;
+                self.dir.delete_file("fst.bin")?;
                 Some(FSTEnums::FST1(fst))
             } else {
                 Some(FSTEnums::FST2(fst.unwrap()))
