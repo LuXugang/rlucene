@@ -144,11 +144,13 @@ impl TermVectorsConsumerPerField {
                     if self.do_vector_positions || self.do_vector_offsets {
                         if let Some(reader) = pos_reader.as_mut() {
                             self.base.init_reader(reader, term_id, 0, int_pool);
+                            tv.add_positions(freq as usize, &mut pos_reader)?;
                         }
                         if let Some(reader) = off_reader.as_mut() {
                             self.base.init_reader(reader, term_id, 1, int_pool);
+                            tv.add_offsets(freq as usize, &mut off_reader)?;
                         }
-                        tv.add_prox(freq as usize, &mut pos_reader, &mut off_reader)?;
+                        tv.finish_add_prox(freq as usize)?;
                     }
 
                     tv.finish_term()?;

@@ -58,11 +58,15 @@ pub trait TermVectorsWriter: Accountable {
     fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
     where
         D: Directory;
-
-    fn add_prox(
+    fn finish_add_prox(&mut self, num_prox: usize) -> Result<()>;
+    fn add_positions(
         &mut self,
         num_prox: usize,
         positions: &mut Option<&mut impl DataInput>,
+    ) -> Result<()>;
+    fn add_offsets(
+        &mut self,
+        num_prox: usize,
         offsets: &mut Option<&mut impl DataInput>,
     ) -> Result<()>;
 

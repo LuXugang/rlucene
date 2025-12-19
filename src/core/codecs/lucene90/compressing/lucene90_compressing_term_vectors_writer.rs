@@ -860,11 +860,19 @@ where
         Ok(())
     }
 
-    fn add_prox(
+    fn finish_add_prox(&mut self, num_prox: usize) -> Result<()> {
+        self.pending_docs[self.cur_doc]
+            .fields
+            .get_mut(self.cur_field)
+            .unwrap()
+            .total_positions += num_prox;
+        Ok(())
+    }
+
+    fn add_positions(
         &mut self,
         num_prox: usize,
         positions: &mut Option<&mut impl DataInput>,
-        offsets: &mut Option<&mut impl DataInput>,
     ) -> Result<()> {
         let cur_field = match self.pending_docs[self.cur_doc]
             .fields
@@ -880,7 +888,6 @@ where
         };
 
         debug_assert_eq!(cur_field.has_positions, positions.is_some());
-        debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
         if cur_field.has_positions {
             if let Some(positions) = positions {
                 let pos_start = cur_field.pos_start + cur_field.total_positions;
@@ -923,7 +930,27 @@ where
                 Err(LuceneError::illegal_state("Positions is None"))?
             }
         }
+        Ok(())
+    }
 
+    fn add_offsets(
+        &mut self,
+        num_prox: usize,
+        offsets: &mut Option<&mut impl DataInput>,
+    ) -> Result<()> {
+        let cur_field = match self.pending_docs[self.cur_doc]
+            .fields
+            .get_mut(self.cur_field)
+        {
+            Some(cur_field) => cur_field,
+            None => {
+                return Err(LuceneError::illegal_state(format!(
+                    "No field found at index {} for current doc {}",
+                    self.cur_field, self.cur_doc
+                )));
+            },
+        };
+        debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
         if cur_field.has_offsets {
             if let Some(offsets) = offsets {
                 let off_start = cur_field.off_start + cur_field.total_positions;
@@ -948,8 +975,6 @@ where
                 return Err(LuceneError::illegal_state("Offsets is None"))?;
             }
         }
-
-        cur_field.total_positions += num_prox;
         Ok(())
     }
 }
