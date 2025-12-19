@@ -128,19 +128,17 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         D1: Directory,
         D2: Directory,
     {
-        Ok(TermVectorsWriterEnum::Lucene90(
-            Lucene90CompressingTermVectorsWriter::new(
-                directory,
-                segment_info,
-                &self.segment_suffix,
-                context,
-                &self.format_name,
-                self.compression_mode.clone(),
-                self.chunk_size,
-                self.max_docs_per_chunk,
-                self.block_size,
-            )?,
-        ))
+        Lucene90CompressingTermVectorsWriter::new(
+            directory,
+            segment_info,
+            &self.segment_suffix,
+            context,
+            &self.format_name,
+            self.compression_mode.clone(),
+            self.chunk_size,
+            self.max_docs_per_chunk,
+            self.block_size,
+        )
     }
 }
 
