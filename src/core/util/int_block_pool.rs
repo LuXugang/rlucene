@@ -128,7 +128,7 @@ impl IntBlockPool {
     pub fn get_buffer_mut(&mut self, buffer_index: i32) -> &mut Vec<i32> {
         &mut self.buffers[buffer_index as usize]
     }
-    pub fn get_buffer(&mut self, buffer_index: i32) -> &[i32] {
+    pub fn get_buffer(&self, buffer_index: i32) -> &[i32] {
         &self.buffers[buffer_index as usize]
     }
 }

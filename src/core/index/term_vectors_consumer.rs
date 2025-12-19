@@ -37,9 +37,7 @@ use crate::core::util::allocator_byte::AllocatorByteEnum;
 use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::int_block_pool::AllocatorIntEnum;
-#[cfg(test)]
-use crate::core::util::int_block_pool::DirectAllocatorI32;
+use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, Counter};
 use std::cmp::Ordering;
 use std::sync::Arc;
@@ -96,10 +94,9 @@ impl Ord for PerFieldMeta {
 #[cfg(test)]
 impl Default for TermVectorsConsumer<DummyDirectory> {
     fn default() -> Self {
-        let int_block_allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(DummyDirectory);
-        TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, None)
+        TermVectorsConsumer::new(byte_block_allocator, directory, None)
     }
 }
 
@@ -108,16 +105,11 @@ where
     D: Directory,
 {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum,
         byte_block_allocator: AllocatorByteEnum,
         directory: Arc<D>,
         sub: Option<SortingTermVectorsConsumer<D>>,
     ) -> Self {
-        let base = TermsHash::new(
-            int_block_allocator,
-            byte_block_allocator,
-            Arc::new(AtomicCounter::new()),
-        );
+        let base = TermsHash::new(byte_block_allocator, Arc::new(AtomicCounter::new()));
 
         let per_fields = vec![PerFieldMeta::default(); 1];
 
@@ -163,6 +155,7 @@ where
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
+        int_pool: &mut IntBlockPool,
     ) -> Result<()>
     where
         D1: Directory,
@@ -201,7 +194,7 @@ where
                 .next_per_field
                 .as_mut()
                 .unwrap()
-                .finish_document(self)?;
+                .finish_document(self, int_pool)?;
         }
 
         match self.sub {

@@ -53,7 +53,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::int_block_pool::AllocatorIntEnum;
+use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::{SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
@@ -74,12 +74,11 @@ where
     D: Directory,
 {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum,
         byte_block_allocator: AllocatorByteEnum,
         bytes_used: SharedCounter,
         mut next_terms_hash: TermVectorsConsumer<D>,
     ) -> Self {
-        let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
+        let mut base = TermsHash::new(byte_block_allocator, bytes_used);
         base.term_byte_pool = Some(base.byte_pool.clone());
         next_terms_hash.base.term_byte_pool = Some(base.byte_pool.clone());
 
@@ -149,6 +148,7 @@ where
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
         seg_updates: Option<&mut BufferedUpdates>,
+        int_pool: IntBlockPool,
     ) -> Result<()>
     where
         N: NormsProducer,
@@ -170,7 +170,7 @@ where
         }
         // Sort by field name
         CollectionUtil::intro_sort(&mut all_fields)?;
-        let mut fields = FreqProxFields::new(all_fields);
+        let mut fields = FreqProxFields::new(all_fields, int_pool);
         self.apply_deletes(state, &fields, info, seg_updates)?;
 
         let mut consumer = get_default_code()
@@ -194,12 +194,13 @@ where
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
+        int_pool: &mut IntBlockPool,
     ) -> Result<()>
     where
         D1: Directory,
     {
         self.next_terms_hash
-            .finish_document(doc_id, codec, info, per_fields)?;
+            .finish_document(doc_id, codec, info, per_fields, int_pool)?;
         Ok(())
     }
     pub(crate) fn start_document(&mut self) -> Result<()> {

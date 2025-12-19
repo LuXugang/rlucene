@@ -102,7 +102,9 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
-use crate::core::util::int_block_pool::{AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE};
+use crate::core::util::int_block_pool::{
+    AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
+};
 use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -140,6 +142,17 @@ where
     byte_block_allocator: AllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
+    context: IndexContext,
+}
+pub(crate) struct IndexContext {
+    pub(crate) term_vectors_int_pool: IntBlockPool,
+    pub(crate) freq_prox_term_int_pool: IntBlockPool,
+}
+impl IndexContext {
+    pub(crate) fn reset(&mut self) {
+        self.term_vectors_int_pool.reset(false, false);
+        self.freq_prox_term_int_pool.reset(false, false);
+    }
 }
 
 impl<D> IndexingChain<D>
@@ -165,7 +178,6 @@ where
             (
                 StoredFieldsConsumer::new(Arc::clone(&directory), None),
                 TermVectorsConsumer::new(
-                    IntBlockAllocator::allocator_enum(bytes_used.clone()),
                     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
                     Arc::clone(&directory),
                     None,
@@ -177,7 +189,6 @@ where
             (
                 StoredFieldsConsumer::new(Arc::clone(&directory), Some(stored_fields_consumer_sub)),
                 TermVectorsConsumer::new(
-                    IntBlockAllocator::allocator_enum(bytes_used.clone()),
                     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
                     Arc::clone(&directory),
                     Some(term_vector_consumer_sub),
@@ -186,7 +197,6 @@ where
         };
 
         let terms_hash = FreqProxTermsWriter::new(
-            IntBlockAllocator::allocator_enum(bytes_used.clone()),
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
             bytes_used.clone(),
             term_vectors_writer,
@@ -195,6 +205,14 @@ where
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
         )));
         let info_stream = index_writer_config.get_info_stream().clone();
+        let term_vectors_int_pool =
+            IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+        let freq_prox_term_int_pool =
+            IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+        let context = IndexContext {
+            term_vectors_int_pool,
+            freq_prox_term_int_pool,
+        };
         IndexingChain {
             bytes_used,
             terms_hash,
@@ -211,6 +229,7 @@ where
             info_stream,
             index_created_version_major,
             has_hit_aborting_exception: false,
+            context,
         }
     }
     pub(crate) fn maybe_sort_segment<D1>(
@@ -397,6 +416,7 @@ where
         };
 
         // flush postings + vectors
+        let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
         let t0 = Instant::now();
         self.terms_hash.flush(
             fields_to_flush,
@@ -406,6 +426,7 @@ where
             index_writer_config.get_codec(),
             segment_info,
             seg_updates,
+            int_pool,
         )?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
@@ -602,6 +623,7 @@ where
     }
 
     pub(crate) fn abort(&mut self) -> Result<()> {
+        self.context.reset();
         self.terms_hash.abort()?;
         self.stored_fields_consumer.abort()?;
         Ok(())
@@ -770,6 +792,7 @@ where
                 index_writer_config.get_codec(),
                 info,
                 &mut self.per_fields,
+                &mut self.context.term_vectors_int_pool,
             )?;
         }
         result
@@ -916,6 +939,7 @@ where
                     true,
                     index_writer_config.get_analyzer(),
                     self.info_stream.as_ref(),
+                    &mut self.context,
                 )?;
                 pf.first = false;
                 indexed_field = true;
@@ -926,6 +950,7 @@ where
                     false,
                     index_writer_config.get_analyzer(),
                     self.info_stream.as_ref(),
+                    &mut self.context,
                 )?;
             }
         }
@@ -1414,6 +1439,7 @@ impl PerField {
         first: bool,
         analyzer: &A,
         info_stream: &InfoStreamEnum,
+        context: &mut IndexContext,
     ) -> Result<()>
     where
         A: Analyzer,
@@ -1437,10 +1463,10 @@ impl PerField {
 
         match field.invertable_type() {
             InvertableType::BINARY => {
-                self.invert_term(doc_id, field, first)?;
+                self.invert_term(doc_id, field, first, context)?;
             },
             InvertableType::TokenStream => {
-                self.invert_token_stream(doc_id, field, first, analyzer, info_stream)?;
+                self.invert_token_stream(doc_id, field, first, analyzer, info_stream, context)?;
             },
         }
 
@@ -1453,6 +1479,7 @@ impl PerField {
         first: bool,
         analyzer: &A,
         info_stream: &InfoStreamEnum,
+        context: &mut IndexContext,
     ) -> Result<()>
     where
         A: Analyzer,
@@ -1565,6 +1592,7 @@ impl PerField {
                     doc_id,
                     self.invert_state.as_mut().unwrap(),
                     attribute_source,
+                    context,
                 ) {
                     let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
                         LuceneError::illegal_state(
@@ -1619,7 +1647,13 @@ impl PerField {
         Ok(())
     }
 
-    fn invert_term<F>(&mut self, doc_id: i32, field: &F, first: bool) -> Result<()>
+    fn invert_term<F>(
+        &mut self,
+        doc_id: i32,
+        field: &F,
+        first: bool,
+        context: &mut IndexContext,
+    ) -> Result<()>
     where
         F: IndexableField,
     {
@@ -1663,6 +1697,7 @@ impl PerField {
             doc_id,
             state,
             &mut attribute_source,
+            context,
         ) {
             let mut prefix = [0u8; 30];
             prefix.copy_from(
@@ -1713,7 +1748,7 @@ impl IntBlockAllocator {
             byte_used,
         }
     }
-    fn allocator_enum(byte_used: SharedCounter) -> AllocatorIntEnum {
+    pub(crate) fn allocator_enum(byte_used: SharedCounter) -> AllocatorIntEnum {
         AllocatorIntEnum::IBA(IntBlockAllocator::new(byte_used))
     }
 }
