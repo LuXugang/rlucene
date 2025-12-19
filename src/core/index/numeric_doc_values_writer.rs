@@ -42,7 +42,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{CoreHelper, Counter, CounterEnumLock};
+use crate::core::util::{CoreHelper, Counter, SharedCounter};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -52,7 +52,7 @@ use std::sync::Arc;
 pub(crate) struct NumericDocValuesWriter {
     pending: PackedLongValuesBuilder,
     final_values: Option<PackedLongValues>,
-    iw_bytes_used: CounterEnumLock,
+    iw_bytes_used: SharedCounter,
     bytes_used: i64,
     docs_with_field: DocsWithFieldSet,
     field_info: Arc<FieldInfo>,
@@ -60,13 +60,13 @@ pub(crate) struct NumericDocValuesWriter {
 }
 
 impl NumericDocValuesWriter {
-    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
 
-        iw_bytes_used.lock().add_and_get(bytes_used);
+        iw_bytes_used.add_and_get(bytes_used);
 
         Ok(Self {
             pending,
@@ -98,7 +98,6 @@ impl NumericDocValuesWriter {
         let new_bytes_used =
             self.pending.ram_bytes_used()? + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used
-            .lock()
             .add_and_get(new_bytes_used - self.bytes_used);
         self.bytes_used = new_bytes_used;
         Ok(())

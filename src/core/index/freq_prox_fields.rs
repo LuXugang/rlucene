@@ -34,12 +34,12 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::DataInput;
+use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{ByteBlockPoolLock, CounterEnumLock, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -181,7 +181,7 @@ impl Terms for FreqProxTerms {
 
 pub(crate) struct FreqProxTermsEnum {
     terms: Rc<FreqProxTermsWriterPerField>,
-    terms_pool: BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>,
+    terms_pool: BytesRefBlockPool,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
     ord: i32,

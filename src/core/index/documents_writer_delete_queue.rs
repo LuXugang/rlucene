@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use parking_lot::Mutex;
 
-use crate::core::index::buffered_updates::{BufferedUpdates, MAX_INT, MTBufferedUpdates};
+use crate::core::index::buffered_updates::{BufferedUpdates, MAX_INT};
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
@@ -98,7 +98,7 @@ pub(crate) struct GlobalState {
     global_slice: DeleteSlice,
 
     generation: i64,
-    global_buffered_updates: MTBufferedUpdates,
+    global_buffered_updates: BufferedUpdates,
     advanced: bool,
     closed: bool,
 }
@@ -108,7 +108,7 @@ impl GlobalState {
             tail: tail.clone(),
             global_slice: DeleteSlice::new(tail),
             generation,
-            global_buffered_updates: BufferedUpdates::new_sync("global"),
+            global_buffered_updates: BufferedUpdates::new("global"),
             advanced: false,
             closed: false,
         }
@@ -524,7 +524,7 @@ impl DeleteSlice {
         }
     }
 
-    pub(crate) fn apply(&mut self, del: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    pub(crate) fn apply(&mut self, del: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         if Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
             // 0 length slice
             return Ok(());
@@ -598,7 +598,7 @@ impl Node {
     }
 }
 impl NodeBase for Node {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         self.item.apply(buffered_deletes, doc_id_upto)
     }
 }
@@ -621,7 +621,7 @@ impl EmptyNode {
     }
 }
 impl NodeBase for EmptyNode {
-    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates, _doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, _buffered_deletes: &mut BufferedUpdates, _doc_id_upto: i32) -> Result<()> {
         Ok(())
     }
 }
@@ -640,7 +640,7 @@ impl TermNode {
     }
 }
 impl NodeBase for TermNode {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_term(&self.item, doc_id_upto)
     }
 }
@@ -659,7 +659,7 @@ impl QueryNode {
     }
 }
 impl NodeBase for QueryNode {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_query(self.item.clone(), doc_id_upto);
         Ok(())
     }
@@ -679,7 +679,7 @@ impl QueryNodeArray {
     }
 }
 impl NodeBase for QueryNodeArray {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for query in &self.item {
             buffered_deletes.add_query(query.clone(), doc_id_upto);
         }
@@ -703,7 +703,7 @@ impl TermNodeArray {
     }
 }
 impl NodeBase for TermNodeArray {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for term in &self.item {
             buffered_deletes.add_term(term, doc_id_upto)?;
         }
@@ -727,7 +727,7 @@ impl DocValuesUpdatesNode {
     }
 }
 impl NodeBase for DocValuesUpdatesNode {
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for doc_values_update in &self.item {
             match doc_values_update.doc_values_type {
                 DocValuesType::Binary => {
@@ -783,7 +783,7 @@ pub(crate) enum NodeEnum {
 impl NodeEnum {
     pub(crate) fn apply(
         &self,
-        buffered_deletes: &mut MTBufferedUpdates,
+        buffered_deletes: &mut BufferedUpdates,
         doc_id_upto: i32,
     ) -> Result<()> {
         match self {
@@ -817,7 +817,7 @@ impl Display for NodeEnum {
 }
 
 pub(crate) trait NodeBase {
-    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates, _doc_id_upto: i32) -> Result<()> {
+    fn apply(&self, _buffered_deletes: &mut BufferedUpdates, _doc_id_upto: i32) -> Result<()> {
         Err(LuceneError::illegal_argument(
             "sentinel item must never be applied",
         ))
@@ -838,9 +838,7 @@ mod tests {
     use parking_lot::Mutex;
     use rand::Rng;
 
-    use crate::core::index::buffered_updates::{
-        BufferedUpdates, BufferedUpdatesLock, MAX_INT, MTBufferedUpdates,
-    };
+    use crate::core::index::buffered_updates::{BufferedUpdates, BufferedUpdatesLock, MAX_INT};
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
@@ -874,8 +872,8 @@ mod tests {
         }
         let mut slice1 = queue.new_slice();
         let mut slice2 = queue.new_slice();
-        let mut bd1 = BufferedUpdates::new_sync("bd1");
-        let mut bd2 = BufferedUpdates::new_sync("bd2");
+        let mut bd1 = BufferedUpdates::new("bd1");
+        let mut bd2 = BufferedUpdates::new("bd2");
         let mut last1 = 0;
         let mut last2 = 0;
         let mut unique_values = HashSet::new();
@@ -933,7 +931,7 @@ mod tests {
     fn test_assert_all_between(
         start: i32,
         end: i32,
-        deletes: &mut MTBufferedUpdates,
+        deletes: &mut BufferedUpdates,
         ids: &[i32],
     ) -> Result<()> {
         for i in start..=end {
@@ -1156,7 +1154,7 @@ mod tests {
             barrier: Arc<Barrier>,
         ) -> Result<Self> {
             let slice = queue.new_slice();
-            let deletes = Arc::new(Mutex::new(BufferedUpdates::new_sync("deletes")));
+            let deletes = Arc::new(Mutex::new(BufferedUpdates::new("deletes")));
 
             Ok(UpdateThread {
                 queue,

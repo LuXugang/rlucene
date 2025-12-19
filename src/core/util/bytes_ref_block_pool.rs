@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -24,72 +21,39 @@ use parking_lot::Mutex;
 use crate::core::index::BytesRef;
 use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{
-    DirectAllocatorByte, MTAllocatorByteEnum, STAllocatorByteEnum,
-};
+use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bytes_ref_hash::BytesRefHash;
+use crate::core::util::bytes_ref_hash::do_hash;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{
-    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolBorrow,
-    ByteBlockPoolLock, CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps,
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock,
+    SliceCopyOps,
 };
 
-pub struct BytesRefBlockPool<C, B>
-where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-{
-    byte_block_pool: B,
-    _phantom: PhantomData<C>,
+pub struct BytesRefBlockPool {
+    byte_block_pool: ByteBlockPoolLock,
 }
 
-impl BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock> {
-    pub fn new_sync() -> BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock> {
-        let allocator = MTAllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
-        BytesRefBlockPool {
-            byte_block_pool: pool,
-            _phantom: Default::default(),
-        }
-    }
-}
-impl Default for BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
+impl Default for BytesRefBlockPool {
     fn default() -> Self {
         Self::new()
     }
 }
-impl Default for BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock> {
-    fn default() -> Self {
-        Self::new_sync()
-    }
-}
 
-impl BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
-    pub fn new() -> BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
-        let allocator = STAllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+impl BytesRefBlockPool {
+    pub fn new() -> BytesRefBlockPool {
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         BytesRefBlockPool {
             byte_block_pool: pool,
-            _phantom: Default::default(),
         }
     }
-}
-
-impl<C, B> BytesRefBlockPool<C, B>
-where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-{
     // TODO: memory calculation not implemented
     const BASE_RAM_BYTES: i32 = 0;
-    pub fn from_byte_block_pool(byte_block_pool: B) -> BytesRefBlockPool<C, B> {
-        BytesRefBlockPool {
-            byte_block_pool,
-            _phantom: Default::default(),
-        }
+    pub fn from_byte_block_pool(byte_block_pool: ByteBlockPoolLock) -> BytesRefBlockPool {
+        BytesRefBlockPool { byte_block_pool }
     }
-    pub fn byte_block_pool(&mut self) -> B {
+    pub fn byte_block_pool(&mut self) -> ByteBlockPoolLock {
         self.byte_block_pool.clone()
     }
     /// Resets this buffer to the empty state.
@@ -191,7 +155,7 @@ where
                 (len as usize, offset + 2)
             };
 
-            BytesRefHash::do_hash(bytes, pos, len)
+            do_hash(bytes, pos, len)
         })
     }
     /// Computes the equality between the BytesRef at the given start position
@@ -216,11 +180,7 @@ where
         })
     }
 }
-impl<C, B> Accountable for BytesRefBlockPool<C, B>
-where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-{
+impl Accountable for BytesRefBlockPool {
     fn ram_bytes_used(&self) -> Result<i64> {
         let result = self.byte_block_pool.access(|pool| pool.ram_bytes_used());
         if result.is_err() {
@@ -231,8 +191,3 @@ where
         }
     }
 }
-// for single thread
-pub type BytesRefBlockPoolBorrow =
-    Rc<RefCell<BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>>>;
-// for multi thread
-pub type BytesRefBlockPoolLock = Arc<Mutex<BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>>>;

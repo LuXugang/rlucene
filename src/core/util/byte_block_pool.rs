@@ -21,13 +21,11 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::{SharedAccess, SharedAccessVec};
+use crate::core::util::SliceCopyOps;
+use crate::core::util::access::SharedAccessVec;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{
-    AllocatorByte, AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
-};
+use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
 
 /// This struct enables the allocation of fixed-size buffers and their
 /// management as part of a buffer array. Allocation is done through the use of
@@ -40,14 +38,11 @@ use crate::core::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCo
 /// # Note
 /// This is an internal API.
 #[derive(Debug)]
-pub struct ByteBlockPool<A>
-where
-    A: SharedAccess<CounterEnum>,
-{
+pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
     pub buffer_upto: i32,
-    allocator: AllocatorByteEnum<A>,
+    allocator: AllocatorByteEnum,
     /// Offset from the start of the first buffer to the start of the current
     /// buffer, which is `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool
     /// maintains this offset because it is the first to overflow if there
@@ -55,29 +50,16 @@ where
     pub(crate) byte_offset: i32,
     pub(crate) byte_upto: i32,
 }
-
-macro_rules! impl_byte_block_pool {
-    ($enum_ty:ty, $alloc_ty:ty, $method:ident) => {
-        impl ByteBlockPool<$enum_ty> {
-            pub fn $method(allocator: $alloc_ty) -> Self {
-                ByteBlockPool {
-                    buffers: vec![],
-                    buffer_upto: -1,
-                    allocator,
-                    byte_offset: -BYTE_BLOCK_SIZE,
-                    byte_upto: BYTE_BLOCK_SIZE,
-                }
-            }
+impl ByteBlockPool {
+    pub fn new(allocator: AllocatorByteEnum) -> Self {
+        ByteBlockPool {
+            buffers: vec![],
+            buffer_upto: -1,
+            allocator,
+            byte_offset: -BYTE_BLOCK_SIZE,
+            byte_upto: BYTE_BLOCK_SIZE,
         }
-    };
-}
-impl_byte_block_pool!(CounterEnumBorrow, STAllocatorByteEnum, new);
-impl_byte_block_pool!(CounterEnumLock, MTAllocatorByteEnum, new_sync);
-
-impl<A> ByteBlockPool<A>
-where
-    A: SharedAccess<CounterEnum>,
-{
+    }
     /// Expert: Resets the pool to its initial state, while optionally reusing
     /// the first buffer. Buffers that are not reused are reclaimed by
     /// [`AllocatorByte::recycle_byte_blocks`].
@@ -206,7 +188,7 @@ where
     /// * `length` - The number of bytes to copy.
     pub fn append_from_byte_block_pool(
         &mut self,
-        src_pool: &ByteBlockPool<A>,
+        src_pool: &ByteBlockPool,
         mut src_offset: i64,
         length: i32,
     ) -> Result<()> {
@@ -231,7 +213,7 @@ where
     }
     fn append_bytes_single_buffer(
         &mut self,
-        src_pool: &ByteBlockPool<A>,
+        src_pool: &ByteBlockPool,
         mut src_offset: i64,
         mut length: i32,
     ) {
@@ -352,18 +334,15 @@ where
         self.allocator.get_used()
     }
 }
-impl<A> Accountable for ByteBlockPool<A>
-where
-    A: SharedAccess<CounterEnum>,
-{
+impl Accountable for ByteBlockPool {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
 // for single thread
-pub type ByteBlockPoolBorrow = Rc<RefCell<ByteBlockPool<CounterEnumBorrow>>>;
+pub type ByteBlockPoolBorrow = Rc<RefCell<ByteBlockPool>>;
 // for multi thread
-pub type ByteBlockPoolLock = Arc<Mutex<ByteBlockPool<CounterEnumLock>>>;
+pub type ByteBlockPoolLock = Arc<Mutex<ByteBlockPool>>;
 
 //TODO
 const BASE_RAM_BYTES: i64 = 0;
@@ -391,20 +370,17 @@ pub(crate) const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
     use rand::distr::Alphanumeric;
     use rand::{Rng, RngCore};
+    use std::sync::Arc;
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::allocator_byte::{
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
     };
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::core::util::{
-        BYTE_BLOCK_SIZE, ByteBlockPool, CounterEnum, CounterEnumBorrow, SliceCopyOps,
-    };
+    use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
 
@@ -459,7 +435,7 @@ mod tests {
     #[test]
     fn test_read_and_write() -> Result<()> {
         let mut random = random();
-        let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let byte_used = Arc::new(AtomicCounter::new());
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
@@ -530,7 +506,7 @@ mod tests {
     #[test]
     fn test_large_random_block() -> Result<()> {
         let mut random = random();
-        let byte_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let byte_used = Arc::new(AtomicCounter::new());
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used.clone()));
         let mut pool = ByteBlockPool::new(allocator);
         let _ = pool.next_buffer();
@@ -571,7 +547,7 @@ mod tests {
     #[test]
     fn test_too_many_allocs() -> Result<()> {
         // Use a mock allocator that doesn't waste memory
-        let allocator = AllocatorByteEnum::<CounterEnumBorrow>::DA(DirectAllocatorByte::new());
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
 

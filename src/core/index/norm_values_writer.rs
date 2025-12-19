@@ -37,20 +37,20 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{CoreHelper, Counter, CounterEnumLock};
+use crate::core::util::{CoreHelper, Counter, SharedCounter};
 use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NormValuesWriter {
     docs_with_field: DocsWithFieldSet,
     pending: PackedLongValuesBuilder,
-    iw_bytes_used: CounterEnumLock,
+    iw_bytes_used: SharedCounter,
     bytes_used: i64,
     field_info: Arc<FieldInfo>,
     last_doc_id: i32,
 }
 impl NormValuesWriter {
-    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
         Ok(Self {
             docs_with_field: DocsWithFieldSet::new(),
             pending: PackedLongValues::delta_packed_long_values_builder_default(
@@ -81,7 +81,6 @@ impl NormValuesWriter {
         let new_bytes_used =
             self.pending.ram_bytes_used()? + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used
-            .lock()
             .add_and_get(new_bytes_used - self.bytes_used);
         self.bytes_used = new_bytes_used;
         Ok(())

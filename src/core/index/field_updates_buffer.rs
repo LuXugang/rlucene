@@ -20,7 +20,6 @@ use std::sync::Arc;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::core::index::term::Term;
-use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
@@ -30,8 +29,8 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{
-    BytesRefArray, Counter, CounterEnumLock, IndexedBytesRefIteratorImpl, MTBytesRefArray,
-    NaturalOrder, SortState, SortableBytesRefArray,
+    BytesRefArray, Counter, IndexedBytesRefIteratorImpl, NaturalOrder, SharedCounter, SortState,
+    SortableBytesRefArray,
 };
 
 /// This struct efficiently buffers numeric and binary field updates and stores
@@ -50,7 +49,7 @@ use crate::core::util::{
 /// numeric field, we only store the value once.
 #[derive(Debug)]
 pub(crate) struct FieldUpdatesBuffer {
-    bytes_used: CounterEnumLock,
+    bytes_used: SharedCounter,
     num_updates: i32,
     // we use a very simple approach and store the update term values without
     // de-duplication which is also not a common case to keep updating the
@@ -58,10 +57,10 @@ pub(crate) struct FieldUpdatesBuffer {
     // memory in certain cases but will gain on CPU for those. We also use
     // a stable sort to sort to apply the terms in order
     // since by definition we store them in order.
-    term_values: MTBytesRefArray,
+    term_values: BytesRefArray,
     term_sort_state: Arc<SortState>,
-    byte_values: Option<MTBytesRefArray>, /* this will be null if we are
-                                           * buffering numerics  */
+    byte_values: Option<BytesRefArray>, /* this will be null if we are
+                                         * buffering numerics  */
     docs_upto: Vec<i32>,
     numeric_values: Option<Vec<i64>>, /* this will be null if we are
                                        * buffering binaries  */
@@ -78,7 +77,7 @@ impl FieldUpdatesBuffer {
 
     const STRING_SHALLOW_SIZE: i64 = 0;
     fn new(
-        bytes_used: CounterEnumLock,
+        bytes_used: SharedCounter,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
         is_numeric: bool,
@@ -88,23 +87,19 @@ impl FieldUpdatesBuffer {
         } else {
             None
         };
-        bytes_used.access_mut(|bytes_used_guard| {
-            bytes_used_guard.add_and_get(Self::size_of_string(&initial_value.term.field));
-            if !initial_value.has_value {
-                bytes_used_guard.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
-            }
-            // Help the compiler infer types.
-            Ok::<(), LuceneError>(())
-        })?;
+        bytes_used.add_and_get(Self::size_of_string(&initial_value.term.field));
+        if !initial_value.has_value {
+            bytes_used.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
+        }
         let mut buffer = FieldUpdatesBuffer {
             bytes_used: bytes_used.clone(),
             num_updates: 1,
-            term_values: BytesRefArray::new_sync(bytes_used.clone())?,
+            term_values: BytesRefArray::new(bytes_used.clone())?,
             term_sort_state: Arc::new(SortState::new(None)),
             byte_values: if is_numeric {
                 None
             } else {
-                Some(BytesRefArray::new_sync(bytes_used.clone())?)
+                Some(BytesRefArray::new(bytes_used.clone())?)
             },
             docs_upto: vec![doc_upto],
             numeric_values: if is_numeric { Some(vec![]) } else { None },
@@ -120,7 +115,7 @@ impl FieldUpdatesBuffer {
         Ok(buffer)
     }
     pub(crate) fn from_numeric_update(
-        bytes_used: CounterEnumLock,
+        bytes_used: SharedCounter,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
     ) -> Result<Self> {
@@ -140,16 +135,13 @@ impl FieldUpdatesBuffer {
         buffer.max_numeric = max_numeric;
         buffer.min_numeric = min_numeric;
         {
-            buffer
-                .bytes_used
-                .lock()
-                .add_and_get(BitUtil::LONG_BYTES as i64);
+            buffer.bytes_used.add_and_get(BitUtil::LONG_BYTES as i64);
         }
         Ok(buffer)
     }
 
     pub(crate) fn from_binary_update(
-        bytes_used: CounterEnumLock,
+        bytes_used: SharedCounter,
         initial_value: &DocValuesUpdate,
         doc_upto: i32,
     ) -> Result<Self> {
@@ -201,7 +193,6 @@ impl FieldUpdatesBuffer {
         debug_assert!(!self.finished, "buffer was finished already");
         let fields_len = self.fields.len();
         if self.fields[0] != field || fields_len != 1 {
-            let mut bytes_used = self.bytes_used.lock();
             if fields_len <= ord as usize {
                 ArrayUtil::grow_with_len(&mut self.fields, (ord + 1) as usize);
                 if fields_len == 1 {
@@ -210,10 +201,10 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                bytes_used.add_and_get(0);
+                self.bytes_used.add_and_get(0);
             }
             if self.fields[0] != field {
-                bytes_used.add_and_get(field.len() as i64);
+                self.bytes_used.add_and_get(field.len() as i64);
             }
             self.fields[ord as usize] = field;
         }
@@ -228,23 +219,22 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                self.bytes_used.lock().add_and_get(0);
+                self.bytes_used.add_and_get(0);
             }
             self.docs_upto[ord as usize] = doc_upto;
         }
 
         if !has_value || self.has_values.is_some() {
-            let mut bytes_used = self.bytes_used.lock();
             if self.has_values.is_none() {
                 let mut new_bitset = FixedBitSet::new(ord + 1);
                 new_bitset.set_with_range(0, ord);
-                bytes_used.add_and_get(new_bitset.ram_bytes_used()?);
+                self.bytes_used.add_and_get(new_bitset.ram_bytes_used()?);
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
                 bitset.ensure_capacity(ord + 1);
                 // TODO: memory calculation not implemented
-                bytes_used.add_and_get(0);
+                self.bytes_used.add_and_get(0);
             }
             if has_value {
                 self.has_values.as_mut().unwrap().set(ord);
@@ -270,7 +260,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                self.bytes_used.lock().add_and_get(0);
+                self.bytes_used.add_and_get(0);
             }
             numeric_values[ord as usize] = value;
         }
@@ -312,7 +302,7 @@ impl FieldUpdatesBuffer {
             self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
             // TODO: memory calculation not implemented
-            self.bytes_used.lock().add_and_get(0);
+            self.bytes_used.add_and_get(0);
         }
 
         Ok(())
@@ -389,9 +379,9 @@ impl FieldUpdatesBuffer {
 }
 /// An iterator that iterates over all updates in insertion order.
 pub struct BufferedUpdateIterator<'a> {
-    term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock>,
-    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
-    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
+    term_values_iterator: IndexedBytesRefIteratorImpl<'a>,
+    look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
+    byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<UpdateBits<'a>>,
     fields_length: i32,
@@ -610,11 +600,11 @@ mod tests {
     };
     use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
     use crate::core::index::term::Term;
-    use crate::core::util::CounterEnum;
+    use crate::core::util::AtomicCounter;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, rarely};
     use crate::test::util::test_util::TestUtil;
-    use parking_lot::Mutex;
+
     use rand::Rng;
 
     #[allow(dead_code)] // for quick search
@@ -622,7 +612,7 @@ mod tests {
 
     #[test]
     pub fn test_basics() -> Result<()> {
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
         let update = DocValuesUpdate::new(
             DocValuesType::Numeric,
             Term::from_text("id", "1"),
@@ -686,7 +676,7 @@ mod tests {
     #[test]
     fn test_update_share_values() -> Result<()> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
         let int_value = random.random::<i32>();
         let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(
@@ -735,7 +725,7 @@ mod tests {
     #[test]
     pub fn test_update_share_values_binary() -> Result<()> {
         let mut random = random();
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
         let value_for_three = random.random_bool(0.5);
         let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
             BytesRef::from_string(""),
@@ -869,7 +859,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
 
         let mut random_update = get_random_binary_update(&mut random, 0);
 
@@ -926,7 +916,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
 
         let mut random_update = get_random_numeric_update(&mut random, 0);
 
@@ -979,7 +969,7 @@ mod tests {
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
         );
 
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
         let doc_id_upto = update.doc_id_upto;
         let buffer =
             FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, doc_id_upto)?;
@@ -994,7 +984,7 @@ mod tests {
         let mut random = random();
         let mut updates = Vec::new();
         let num_updates = 1 + random.random_range(0..1000);
-        let counter = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
 
         let term_field = random_from(vec!["id", "_id", "some_other_field"]);
         let doc_value = 1 + random.random_range(0..1000);

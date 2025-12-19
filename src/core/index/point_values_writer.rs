@@ -37,7 +37,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::paged_bytes::{
     PagedBytes, PagedBytesDataOutput, PagedBytesReader, get_data_output,
 };
-use crate::core::util::{CoreHelper, Counter, CounterEnumLock, SliceCopyOps};
+use crate::core::util::{CoreHelper, Counter, SharedCounter, SliceCopyOps};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -46,7 +46,7 @@ use std::sync::Arc;
 pub(crate) struct PointValuesWriter {
     field_info: Arc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
-    iw_bytes_used: CounterEnumLock,
+    iw_bytes_used: SharedCounter,
     doc_ids: Vec<i32>,
     num_points: usize,
     num_docs: usize,
@@ -55,13 +55,11 @@ pub(crate) struct PointValuesWriter {
 }
 
 impl PointValuesWriter {
-    pub(crate) fn new(iw_bytes_used: CounterEnumLock, field_info: Arc<FieldInfo>) -> Result<Self> {
+    pub(crate) fn new(iw_bytes_used: SharedCounter, field_info: Arc<FieldInfo>) -> Result<Self> {
         let bytes = PagedBytes::new(12);
         let bytes_out = get_data_output(bytes)?;
         let doc_ids = vec![0; 16];
-        iw_bytes_used
-            .lock()
-            .add_and_get((16 * BitUtil::INT_BYTES) as i64);
+        iw_bytes_used.add_and_get((16 * BitUtil::INT_BYTES) as i64);
         let packed_bytes_length =
             (field_info.get_point_dimension_count() * field_info.get_point_num_bytes()) as usize;
         Ok(Self {
@@ -93,14 +91,13 @@ impl PointValuesWriter {
         if self.doc_ids.len() == self.num_points {
             ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1);
             self.iw_bytes_used
-                .lock()
                 .add_and_get(((self.doc_ids.len() - self.num_points) * BitUtil::INT_BYTES) as i64);
         }
 
         let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;
         self.bytes_out
             .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
-        self.iw_bytes_used.lock().add_and_get(
+        self.iw_bytes_used.add_and_get(
             self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before,
         );
 

@@ -46,7 +46,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock};
+use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPoolLock, CoreHelper, Counter, SharedCounter};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -58,7 +58,7 @@ pub(crate) struct SortedDocValuesWriter {
     hash_rc: Option<Arc<MTBytesRefHash>>,
     pending: PackedLongValuesBuilder,
     docs_with_field: DocsWithFieldSet,
-    iw_bytes_used: CounterEnumLock,
+    iw_bytes_used: SharedCounter,
     bytes_used: i64, // this currently only tracks differences in 'pending'
     field_info: Arc<FieldInfo>,
     last_doc_id: i32,
@@ -75,18 +75,18 @@ pub(crate) struct SortedDocValuesWriter {
 impl SortedDocValuesWriter {
     pub(crate) fn new(
         field_info: Arc<FieldInfo>,
-        iw_bytes_used: CounterEnumLock,
+        iw_bytes_used: SharedCounter,
         pool: ByteBlockPoolLock,
     ) -> Result<Self> {
         let bytes_start_array =
-            DirectBytesStartArray::with_counter_sync(DEFAULT_CAPACITY, iw_bytes_used.clone());
+            DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, iw_bytes_used.clone());
         let hash = BytesRefHash::from_bytes_start_array(pool, DEFAULT_CAPACITY, bytes_start_array);
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
         // TODO: memory calculation not implemented
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
-        iw_bytes_used.lock().add_and_get(bytes_used);
+        iw_bytes_used.add_and_get(bytes_used);
 
         Ok(Self {
             hash,
@@ -135,7 +135,6 @@ impl SortedDocValuesWriter {
             //    TODO: can this same OOM happen in THPF?
             // 2. when flushing, we need 1 int per value (slot in the ordMap).
             self.iw_bytes_used
-                .lock()
                 .add_and_get((2 * BitUtil::INT_BYTES) as i64);
         }
 
@@ -147,7 +146,7 @@ impl SortedDocValuesWriter {
         let new_bytes_used =
             self.pending.ram_bytes_used()? + self.docs_with_field.ram_bytes_used()?;
         let delta = new_bytes_used - self.bytes_used;
-        self.iw_bytes_used.lock().add_and_get(delta);
+        self.iw_bytes_used.add_and_get(delta);
         self.bytes_used = new_bytes_used;
         Ok(())
     }

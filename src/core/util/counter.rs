@@ -14,12 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
-
-use parking_lot::Mutex;
 
 pub trait Counter {
     /// Adds the given delta to the counter's current value.
@@ -29,7 +25,7 @@ pub trait Counter {
     ///
     /// # Returns
     /// The counter's updated value.
-    fn add_and_get(&mut self, delta: i64) -> i64;
+    fn add_and_get(&self, delta: i64) -> i64;
     /// Returns the counter's current value.
     ///
     /// # Returns
@@ -54,46 +50,15 @@ impl AtomicCounter {
     }
 }
 impl Counter for AtomicCounter {
-    fn add_and_get(&mut self, delta: i64) -> i64 {
+    fn add_and_get(&self, delta: i64) -> i64 {
         self.count
-            .fetch_add(delta, std::sync::atomic::Ordering::SeqCst)
+            .fetch_add(delta, std::sync::atomic::Ordering::Relaxed)
             + delta
     }
     fn get(&self) -> i64 {
-        self.count.load(std::sync::atomic::Ordering::SeqCst)
-    }
-}
-#[derive(Debug)]
-pub enum CounterEnum {
-    Atomic(AtomicCounter),
-}
-impl CounterEnum {
-    /// Returns a new counter.
-    ///
-    /// # Arguments
-    /// * `thread_safe` - `true` if the returned counter can be used by multiple
-    ///   threads concurrently.
-    ///
-    /// # Returns
-    /// A new counter.
-    pub fn new_counter(_thread_safe: bool) -> CounterEnum {
-        CounterEnum::Atomic(AtomicCounter::new())
-    }
-}
-impl Counter for CounterEnum {
-    fn add_and_get(&mut self, delta: i64) -> i64 {
-        match self {
-            CounterEnum::Atomic(c) => c.add_and_get(delta),
-        }
-    }
-    fn get(&self) -> i64 {
-        match self {
-            CounterEnum::Atomic(c) => c.get(),
-        }
+        self.count.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
-/// for single-threaded scenarios
-pub type CounterEnumBorrow = Rc<RefCell<CounterEnum>>;
 /// for multi-threaded scenarios
-pub type CounterEnumLock = Arc<Mutex<CounterEnum>>;
+pub type SharedCounter = Arc<AtomicCounter>;

@@ -16,7 +16,7 @@
  */
 use crate::core::util::allocator_byte::AllocatorByteEnum;
 use crate::core::util::int_block_pool::{AllocatorIntEnum, IntBlockPool, IntBlockPoolLock};
-use crate::core::util::{ByteBlockPool, ByteBlockPoolLock, CounterEnumLock};
+use crate::core::util::{ByteBlockPool, ByteBlockPoolLock, SharedCounter};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -24,19 +24,19 @@ pub struct TermsHash {
     pub(crate) int_pool: IntBlockPoolLock,
     pub(crate) byte_pool: ByteBlockPoolLock,
     pub(crate) term_byte_pool: Option<ByteBlockPoolLock>,
-    pub(crate) bytes_used: CounterEnumLock,
+    pub(crate) bytes_used: SharedCounter,
 }
 impl TermsHash {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
-        bytes_used: CounterEnumLock,
+        int_block_allocator: AllocatorIntEnum,
+        byte_block_allocator: AllocatorByteEnum,
+        bytes_used: SharedCounter,
     ) -> Self {
         Self {
             int_pool: Arc::new(Mutex::new(IntBlockPool::with_allocator(
                 int_block_allocator,
             ))),
-            byte_pool: Arc::new(Mutex::new(ByteBlockPool::new_sync(byte_block_allocator))),
+            byte_pool: Arc::new(Mutex::new(ByteBlockPool::new(byte_block_allocator))),
             term_byte_pool: None,
             bytes_used,
         }

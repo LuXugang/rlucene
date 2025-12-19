@@ -17,20 +17,20 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
+use crate::core::util::ByteBlockPool;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
-use crate::core::util::{ByteBlockPool, CounterEnumBorrow};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
-    pub(crate) buf: ByteBlockPool<CounterEnumBorrow>,
+    pub(crate) buf: ByteBlockPool,
     // the difference between the FST node address and the hash table copied
     // node address
     pos_delta: i64,
     pos: i64,
 }
 impl ByteBlockPoolReverseBytesReader {
-    pub fn new(buf: ByteBlockPool<CounterEnumBorrow>) -> Self {
+    pub fn new(buf: ByteBlockPool) -> Self {
         Self {
             buf,
             pos_delta: 0,

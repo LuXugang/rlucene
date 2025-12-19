@@ -29,7 +29,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values_writer::{
     BinaryDocValuesWriter, BufferedBinaryDocValues,
 };
-use crate::core::index::buffered_updates::MTBufferedUpdates;
+use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::core::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -92,11 +92,8 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{
-    AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
-};
+use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::core::util::bit_set::BitSet;
@@ -110,8 +107,8 @@ use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{
-    ByteBlockPool, ByteBlockPoolLock, CoreHelper, Counter, CounterEnum, CounterEnumLock,
-    LUCENE_10_0_0, SliceCopyOps,
+    AtomicCounter, ByteBlockPool, ByteBlockPoolLock, CoreHelper, Counter, LUCENE_10_0_0,
+    SharedCounter, SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::cmp::Ordering;
@@ -127,7 +124,7 @@ pub(crate) struct IndexingChain<D>
 where
     D: Directory,
 {
-    bytes_used: CounterEnumLock,
+    bytes_used: SharedCounter,
     terms_hash: FreqProxTermsWriter<D>,
     doc_values_byte_pool: ByteBlockPoolLock,
     stored_fields_consumer: StoredFieldsConsumer<D>,
@@ -140,7 +137,7 @@ where
     per_fields: Vec<PerField>,
     doc_fields: Vec<usize>,
     info_stream: InfoStreamMT,
-    byte_block_allocator: MTAllocatorByteEnum,
+    byte_block_allocator: AllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
@@ -158,7 +155,7 @@ where
     where
         D1: Directory,
     {
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let bytes_used = Arc::new(AtomicCounter::new());
         let byte_block_allocator =
             AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
         let (stored_fields_consumer, term_vectors_writer) = if segment_info
@@ -194,7 +191,7 @@ where
             bytes_used.clone(),
             term_vectors_writer,
         );
-        let doc_values_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(
+        let doc_values_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new(
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
         )));
         let info_stream = index_writer_config.get_info_stream().clone();
@@ -287,7 +284,7 @@ where
         &mut self,
         state: &mut SegmentWriteState<D>,
         segment_info: &mut SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates>,
+        seg_updates: Option<&mut BufferedUpdates>,
         index_writer_config: &impl LiveIndexWriterConfig,
         field_info: &mut Builder,
     ) -> Result<Option<Arc<DocMapImpl>>>
@@ -1341,7 +1338,7 @@ impl PerField {
     pub(crate) fn set_invert_state<D>(
         &mut self,
         terms_hash: &mut FreqProxTermsWriter<D>,
-        bytes_used: CounterEnumLock,
+        bytes_used: SharedCounter,
     ) -> Result<()>
     where
         D: Directory,
@@ -1705,43 +1702,31 @@ impl Ord for PerField {
     }
 }
 
-pub struct IntBlockAllocator<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+pub struct IntBlockAllocator {
     block_size: usize,
-    pub byte_used: C,
+    pub byte_used: SharedCounter,
 }
-impl<C> IntBlockAllocator<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
-    fn new(byte_used: C) -> Self {
+impl IntBlockAllocator {
+    fn new(byte_used: SharedCounter) -> Self {
         IntBlockAllocator {
             block_size: INT_BLOCK_SIZE as usize,
             byte_used,
         }
     }
-    fn allocator_enum(byte_used: C) -> AllocatorIntEnum<C> {
+    fn allocator_enum(byte_used: SharedCounter) -> AllocatorIntEnum {
         AllocatorIntEnum::IBA(IntBlockAllocator::new(byte_used))
     }
 }
-impl<C> AllocatorI32 for IntBlockAllocator<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+impl AllocatorI32 for IntBlockAllocator {
     fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _offset: usize, length: usize) {
-        self.byte_used.access_mut(|byte_used| {
-            let delta = length as i64 * (self.block_size as i64 * BitUtil::INT_BYTES as i64);
-            byte_used.add_and_get(-delta);
-        });
+        let delta = length as i64 * (self.block_size as i64 * BitUtil::INT_BYTES as i64);
+        self.byte_used.add_and_get(-delta);
     }
 
     fn get_byte_block(&mut self) -> Vec<i32> {
         let b = vec![0; INT_BLOCK_SIZE as usize];
-        self.byte_used.access_mut(|byte_used| {
-            byte_used.add_and_get(INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
-        });
+        self.byte_used
+            .add_and_get(INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
         b
     }
 

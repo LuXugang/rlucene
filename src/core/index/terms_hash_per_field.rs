@@ -21,7 +21,6 @@ use crate::core::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPos
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
-use crate::core::util::access::SharedAccess;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
@@ -30,8 +29,8 @@ use crate::core::util::int_block_pool::{
     INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPool, IntBlockPoolLock,
 };
 use crate::core::util::{
-    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, Counter,
-    CounterEnum, CounterEnumLock, SliceCopyOps,
+    AtomicCounter, BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool,
+    ByteBlockPoolLock, Counter, SharedCounter, SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -62,8 +61,7 @@ pub struct TermsHashPerField {
     // This stores the actual term bytes for postings and offsets into the
     // parent hash in the case that this TermsHashPerField is hashing term
     // vectors.
-    pub(crate) bytes_hash:
-        BytesRefHash<CounterEnumLock, ByteBlockPoolLock, PostingsBytesStartArray>,
+    pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
     pub(crate) do_next_call: bool,
     pub(crate) field_name: String,
@@ -73,9 +71,9 @@ impl Default for TermsHashPerField {
     // for padding
     fn default() -> Self {
         let postings_array_wrapper = PostingsArrayWrapper::default();
-        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let bytes_used = Arc::new(AtomicCounter::new());
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
-        let term_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(AllocatorByteEnum::DA(
+        let term_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorByteEnum::DA(
             DirectAllocatorByte::new(),
         ))));
         let byte_pool = term_byte_pool.clone();
@@ -107,7 +105,7 @@ impl TermsHashPerField {
         int_pool: IntBlockPoolLock,
         byte_pool: ByteBlockPoolLock,
         term_byte_pool: ByteBlockPoolLock,
-        bytes_used: CounterEnumLock,
+        bytes_used: SharedCounter,
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
         index_options: IndexOptions,
@@ -420,11 +418,11 @@ impl PostingsArrayWrapper {
 
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
-    bytes_used: CounterEnumLock,
+    bytes_used: SharedCounter,
 }
 
 impl PostingsBytesStartArray {
-    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: CounterEnumLock) -> Self {
+    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: SharedCounter) -> Self {
         Self {
             per_field,
             bytes_used,
@@ -438,9 +436,7 @@ impl BytesStartArray for PostingsBytesStartArray {
                 Option::from(self.per_field.terms_hash_per_field_type.new_per_field(2));
             if let Some(ref mut postings_array) = self.per_field.postings_array {
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                let _ = self
-                    .bytes_used
-                    .access_mut(|bytes_used| bytes_used.add_and_get(byte_used as i64));
+                let _ = self.bytes_used.add_and_get(byte_used as i64);
             }
         }
     }
@@ -450,12 +446,9 @@ impl BytesStartArray for PostingsBytesStartArray {
         let postings_array = self.per_field.postings_array.as_mut().unwrap();
         let old_size = postings_array.get_size();
         postings_array.grow()?;
-        self.bytes_used.access_mut(|bytes_used| {
-            bytes_used.add_and_get(
-                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
-                    as i64,
-            )
-        });
+        self.bytes_used.add_and_get(
+            (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size)) as i64,
+        );
         Ok(())
     }
 
@@ -464,16 +457,12 @@ impl BytesStartArray for PostingsBytesStartArray {
             let postings_array = self.per_field.postings_array.as_ref().unwrap();
             let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
             debug_assert!(byte_used <= i64::MAX as usize);
-            let _ = self
-                .bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(-(byte_used as i64)));
+            let _ = self.bytes_used.add_and_get(-(byte_used as i64));
             self.per_field.postings_array = None;
         }
     }
 
-    type Counter = CounterEnumLock;
-
-    fn bytes_used(&mut self) -> Self::Counter {
+    fn bytes_used(&mut self) -> SharedCounter {
         self.bytes_used.clone()
     }
 
@@ -570,7 +559,7 @@ pub(crate) mod tests {
     use crate::core::util::attribute_source::EmptyAttributeSource;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32};
-    use crate::core::util::{ByteBlockPool, CounterEnum};
+    use crate::core::util::{AtomicCounter, ByteBlockPool};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
@@ -1002,7 +991,7 @@ pub(crate) mod tests {
         #[allow(clippy::new_ret_no_self)]
         pub(crate) fn new(new_called: AtomicI64, add_called: AtomicI64) -> Self {
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+            let bytes_used = Arc::new(AtomicCounter::new());
 
             let allocator_int = AllocatorIntEnum::DA(DirectAllocatorI32::new());
             let mut writer: FreqProxTermsWriter<DummyDirectory> = FreqProxTermsWriter::new(
@@ -1013,9 +1002,8 @@ pub(crate) mod tests {
             );
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            writer.base.term_byte_pool = Some(Arc::new(Mutex::new(ByteBlockPool::new_sync(
-                allocator_term,
-            ))));
+            writer.base.term_byte_pool =
+                Some(Arc::new(Mutex::new(ByteBlockPool::new(allocator_term))));
 
             let field_state = FieldInvertState::default();
             let mut field_info = FieldInfo::default();

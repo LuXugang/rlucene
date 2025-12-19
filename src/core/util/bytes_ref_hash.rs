@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
@@ -29,10 +26,9 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
-    CounterEnum, CounterEnumBorrow, CounterEnumLock, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
-    LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase, Natural, Sorter, StringHelper,
-    StringSorter, StringSorterBase,
+    AtomicCounter, ByteBlockPool, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
+    GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE, LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase,
+    Natural, SharedCounter, Sorter, StringHelper, StringSorter, StringSorterBase,
 };
 
 /// `BytesRefHash` is a special purpose hash-map like data structure optimized
@@ -48,13 +44,11 @@ use crate::core::util::{
 /// - The internal storage is limited to 2GB total byte storage.
 ///
 /// [`BYTE_BLOCK_SIZE`]: BYTE_BLOCK_SIZE
-pub(crate) struct BytesRefHash<C, B, BSA>
+pub(crate) struct BytesRefHash<BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-    BSA: BytesStartArray<Counter = C>,
+    BSA: BytesStartArray,
 {
-    pool: BytesRefBlockPool<C, B>,
+    pool: BytesRefBlockPool,
     hash_size: i32,
     hash_half_size: i32,
     hash_mask: i32,
@@ -62,42 +56,31 @@ where
     last_count: i32,
     pub ids: Vec<i32>,
     pub(crate) bytes_start_array: BSA,
-    bytes_used: C,
+    bytes_used: SharedCounter,
 }
-
-impl MTBytesRefHash {
-    pub fn new_sync() -> Self {
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
-        BytesRefHash::from_pool_sync(pool)
-    }
+impl BytesRefHash<DirectBytesStartArray> {
     pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Self {
-        let bytes_start_array = DirectBytesStartArray::new_sync(DEFAULT_CAPACITY);
-        BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
-    }
-}
-impl STBytesRefHash {
-    pub fn new() -> Self {
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        BytesRefHash::from_pool(pool)
-    }
-    pub fn from_pool(pool: ByteBlockPoolBorrow) -> Self {
         let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
-    pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
-        StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
+    pub fn new() -> Self {
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
+        BytesRefHash::from_pool_sync(pool)
     }
 }
-
-impl<C, B, BSA> BytesRefHash<C, B, BSA>
+pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
+    StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
+}
+impl<BSA> BytesRefHash<BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-    BSA: BytesStartArray<Counter = C>,
+    BSA: BytesStartArray,
 {
-    pub fn from_bytes_start_array(pool: B, capacity: i32, mut bytes_start_array: BSA) -> Self {
+    pub fn from_bytes_start_array(
+        pool: ByteBlockPoolLock,
+        capacity: i32,
+        mut bytes_start_array: BSA,
+    ) -> Self {
         bytes_start_array.init();
         let bytes_used = bytes_start_array.bytes_used();
         let ref_pool = BytesRefBlockPool::from_byte_block_pool(pool);
@@ -208,8 +191,7 @@ where
 
         if new_size != self.hash_size {
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(0));
+            self.bytes_used.add_and_get(0);
             self.hash_size = new_size;
             self.ids = vec![-1; self.hash_size as usize];
             self.hash_half_size = new_size / 2;
@@ -245,9 +227,7 @@ where
         self.clear_with_reset_pool(true);
         self.ids.clear();
         // TODO: memory calculation not implemented
-        self.bytes_used.access_mut(|bytes_used| {
-            bytes_used.add_and_get(0);
-        });
+        self.bytes_used.add_and_get(0);
     }
     /// Adds a new [`BytesRef`].
     ///
@@ -319,7 +299,7 @@ where
             "bytesStart is null - not initialized"
         );
 
-        let mut code = BytesRefHash::do_hash(&bytes.bytes, bytes.offset, bytes.length);
+        let mut code = do_hash(&bytes.bytes, bytes.offset, bytes.length);
 
         // final position
         let mut hash_pos = code & self.hash_mask;
@@ -402,9 +382,7 @@ where
     fn rehash(&mut self, new_size: i32, hash_on_data: bool) {
         let new_mask = new_size - 1;
         // TODO: memory calculation not implemented
-        self.bytes_used.access_mut(|bytes_used| {
-            bytes_used.add_and_get(0);
-        });
+        self.bytes_used.add_and_get(0);
         let mut new_hash = vec![-1; new_size as usize];
         for i in 0..self.hash_size {
             let e0 = self.ids[i as usize];
@@ -432,9 +410,7 @@ where
         }
         self.hash_mask = new_mask;
         // TODO: memory calculation not implemented
-        self.bytes_used.access_mut(|bytes_used| {
-            bytes_used.add_and_get(0);
-        });
+        self.bytes_used.add_and_get(0);
         self.ids = new_hash;
         self.hash_size = new_size;
         self.hash_half_size = new_size / 2;
@@ -450,8 +426,7 @@ where
         if self.ids.is_empty() {
             self.ids = vec![-1; self.hash_size as usize];
             // TODO: memory calculation not implemented
-            self.bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(0));
+            self.bytes_used.add_and_get(0);
         }
     }
     // pub fn set_bytes_start_array(&mut self, bytes_start_array:
@@ -476,11 +451,9 @@ where
         self.bytes_start_array.get_value(bytes_id as usize)
     }
 }
-impl<C, B, BSA> Accountable for BytesRefHash<C, B, BSA>
+impl<BSA> Accountable for BytesRefHash<BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
-    BSA: BytesStartArray<Counter = C>,
+    BSA: BytesStartArray,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -488,49 +461,32 @@ where
     }
 }
 
-// used for std::mem::take(&mut STBytesRefHash)
-impl Default for STBytesRefHash {
+// used for std::mem::take
+impl Default for BytesRefHash<DirectBytesStartArray> {
     fn default() -> Self {
         BytesRefHash::new()
     }
 }
-// used for std::mem::take(&mut MTBytesRefHash)
-impl Default for MTBytesRefHash {
-    fn default() -> Self {
-        BytesRefHash::new_sync()
-    }
-}
 
-/// for single-threaded scenarios
-pub(crate) type STBytesRefHash =
-    BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, DirectBytesStartArray<CounterEnumBorrow>>;
-/// for multi-threaded scenarios
-pub(crate) type MTBytesRefHash =
-    BytesRefHash<CounterEnumLock, ByteBlockPoolLock, DirectBytesStartArray<CounterEnumLock>>;
-
-pub(crate) struct StringSorterImpl<'a, C, B, BSA>
+pub(crate) struct StringSorterImpl<'a, BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     tmp_offset: i32,
     compact: &'a mut Vec<i32>,
-    pool: &'a mut BytesRefBlockPool<C, B>,
+    pool: &'a mut BytesRefBlockPool,
     bytes_start_array: &'a BSA,
     k: i32,
     cmp: Natural,
 }
-impl<'a, C, B, BSA> StringSorterImpl<'a, C, B, BSA>
+impl<'a, BSA> StringSorterImpl<'a, BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     pub fn new(
         tmp_offset: i32,
         compact: &'a mut Vec<i32>,
-        pool: &'a mut BytesRefBlockPool<C, B>,
+        pool: &'a mut BytesRefBlockPool,
         bytes_start_array: &'a BSA,
     ) -> Self {
         StringSorterImpl {
@@ -551,10 +507,8 @@ where
         Ok(())
     }
 }
-impl<C, B, BSA> MSBRadixSorterBase for StringSorterImpl<'_, C, B, BSA>
+impl<BSA> MSBRadixSorterBase for StringSorterImpl<'_, BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
@@ -621,10 +575,8 @@ where
         to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
     }
 }
-impl<C, B, BSA> Sorter for StringSorterImpl<'_, C, B, BSA>
+impl<BSA> Sorter for StringSorterImpl<'_, BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -632,10 +584,8 @@ where
         Ok(())
     }
 }
-impl<C, B, BSA> StringSorterBase for StringSorterImpl<'_, C, B, BSA>
+impl<BSA> StringSorterBase for StringSorterImpl<'_, BSA>
 where
-    C: SharedAccess<CounterEnum>,
-    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn get(
@@ -688,8 +638,7 @@ pub trait BytesStartArray {
     ///
     /// # Returns
     /// A reference holding the number of bytes used by this `BytesStartArray`.
-    type Counter: SharedAccess<CounterEnum>;
-    fn bytes_used(&mut self) -> Self::Counter;
+    fn bytes_used(&mut self) -> SharedCounter;
     fn get_value(&self, index: usize) -> i32;
     fn set_value(&mut self, index: usize, value: i32);
     fn len(&self) -> usize;
@@ -697,37 +646,16 @@ pub trait BytesStartArray {
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private
 /// `Counter` instance.
-pub struct DirectBytesStartArray<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+pub struct DirectBytesStartArray {
     init_size: i32,
     bytes_start: Option<Vec<i32>>,
-    bytes_used: C,
+    bytes_used: SharedCounter,
 }
-impl DirectBytesStartArray<CounterEnumBorrow> {
+impl DirectBytesStartArray {
     pub fn new(init_size: i32) -> Self {
-        DirectBytesStartArray::with_counter(
-            init_size,
-            Rc::new(RefCell::new(CounterEnum::new_counter(false))),
-        )
+        DirectBytesStartArray::with_counter(init_size, Arc::new(AtomicCounter::new()))
     }
-    pub fn with_counter(init_size: i32, counter: CounterEnumBorrow) -> Self {
-        DirectBytesStartArray {
-            init_size,
-            bytes_start: None,
-            bytes_used: counter,
-        }
-    }
-}
-impl DirectBytesStartArray<CounterEnumLock> {
-    pub fn new_sync(init_size: i32) -> Self {
-        DirectBytesStartArray::with_counter_sync(
-            init_size,
-            Arc::new(Mutex::new(CounterEnum::new_counter(false))),
-        )
-    }
-    pub fn with_counter_sync(init_size: i32, counter: CounterEnumLock) -> Self {
+    pub fn with_counter(init_size: i32, counter: SharedCounter) -> Self {
         DirectBytesStartArray {
             init_size,
             bytes_start: None,
@@ -736,10 +664,7 @@ impl DirectBytesStartArray<CounterEnumLock> {
     }
 }
 
-impl<C> BytesStartArray for DirectBytesStartArray<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+impl BytesStartArray for DirectBytesStartArray {
     fn init(&mut self) {
         self.bytes_start = Some(vec![
             0;
@@ -761,9 +686,7 @@ where
         self.bytes_start = None;
     }
 
-    type Counter = C;
-
-    fn bytes_used(&mut self) -> Self::Counter {
+    fn bytes_used(&mut self) -> SharedCounter {
         self.bytes_used.clone()
     }
 
@@ -865,7 +788,7 @@ where
 }
 
 pub const DEFAULT_CAPACITY: i32 = 16;
-
+pub(crate) type MTBytesRefHash = BytesRefHash<DirectBytesStartArray>;
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
@@ -889,7 +812,7 @@ mod tests {
 
     fn new_pool() -> ByteBlockPoolLock {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
+        Arc::new(Mutex::new(ByteBlockPool::new(allocator)))
     }
     fn new_hash<R: Rng + ?Sized>(random: &mut R, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
@@ -899,7 +822,7 @@ mod tests {
             BytesRefHash::from_bytes_start_array(
                 block_pool,
                 init_size,
-                DirectBytesStartArray::new_sync(init_size),
+                DirectBytesStartArray::new(init_size),
             )
         }
     }

@@ -45,11 +45,9 @@ use crate::core::util::paged_bytes::{
     PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, get_data_input, get_data_output,
 };
 use crate::core::util::{
-    BytesRefArray, CoreHelper, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock,
-    SortableBytesRefArray,
+    AtomicCounter, BytesRefArray, CoreHelper, Counter, SharedCounter, SortableBytesRefArray,
 };
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -58,7 +56,7 @@ use std::sync::Arc;
 pub(crate) struct BinaryDocValuesWriter {
     field_info: Arc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
-    iw_bytes_used: CounterEnumLock,
+    iw_bytes_used: SharedCounter,
     lengths: PackedLongValuesBuilder,
     docs_with_field: DocsWithFieldSet,
     bytes_used: i64,
@@ -68,7 +66,7 @@ pub(crate) struct BinaryDocValuesWriter {
 }
 
 impl BinaryDocValuesWriter {
-    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
         let bytes = PagedBytes::new(BLOCK_BITS);
         let bytes_out = get_data_output(bytes)?;
         let lengths =
@@ -76,7 +74,7 @@ impl BinaryDocValuesWriter {
         let docs_with_field = DocsWithFieldSet::new();
 
         let bytes_used = lengths.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
-        iw_bytes_used.lock().add_and_get(bytes_used);
+        iw_bytes_used.add_and_get(bytes_used);
 
         Ok(Self {
             field_info,
@@ -122,7 +120,6 @@ impl BinaryDocValuesWriter {
             + self.bytes_out.paged_bytes.ram_bytes_used()?
             + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used
-            .lock()
             .add_and_get(new_bytes_used - self.bytes_used);
         self.bytes_used = new_bytes_used;
         Ok(())
@@ -418,7 +415,7 @@ impl BinaryDocValues for SortingBinaryDocValues {
 #[derive(Clone)]
 pub(crate) struct BinaryDVs {
     pub(crate) offsets: Rc<Vec<i32>>,
-    pub(crate) values: Rc<BytesRefArray<CounterEnumBorrow>>,
+    pub(crate) values: Rc<BytesRefArray>,
 }
 
 impl BinaryDVs {
@@ -431,7 +428,7 @@ impl BinaryDVs {
         DM: DocMap,
     {
         let mut offsets = vec![0i32; max_doc as usize];
-        let counter = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let counter = Arc::new(AtomicCounter::new());
         let mut values = BytesRefArray::new(counter)?;
         let mut offset = 1i32; // 0 means no values for this document
         let mut doc_id;

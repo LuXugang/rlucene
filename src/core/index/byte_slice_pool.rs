@@ -16,7 +16,7 @@
  */
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, CounterEnumLock};
+use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool};
 
 /// struct that Posting and PostingVector use to write interleaved byte streams
 /// into shared fixed-size byte[] arrays. The idea is to allocate slices of
@@ -52,11 +52,7 @@ impl ByteSlicePool {
     ///
     /// # Returns
     /// The position where the slice starts
-    pub fn new_slice(
-        &mut self,
-        size: i32,
-        pool: &mut ByteBlockPool<CounterEnumLock>,
-    ) -> Result<i32> {
+    pub fn new_slice(&mut self, size: i32, pool: &mut ByteBlockPool) -> Result<i32> {
         if size > BYTE_BLOCK_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "Slice size {} should be less than the block size {}",
@@ -89,7 +85,7 @@ impl ByteSlicePool {
         &self,
         slice_index: i32,
         upto: i32,
-        pool: &mut ByteBlockPool<CounterEnumLock>,
+        pool: &mut ByteBlockPool,
     ) -> Result<i32> {
         Ok(self.alloc_known_size_slice(slice_index, upto, pool)? >> 8)
     }
@@ -108,7 +104,7 @@ impl ByteSlicePool {
         &self,
         slice_index: i32,
         upto: i32,
-        pool: &mut ByteBlockPool<CounterEnumLock>,
+        pool: &mut ByteBlockPool,
     ) -> Result<i32> {
         let upto = upto as usize;
         let level;
@@ -174,7 +170,7 @@ mod tests {
     use crate::core::util::bit_util::BitUtil;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::{
-        BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, CounterEnum, SliceCopyOps,
+        AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, SliceCopyOps,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
@@ -184,9 +180,9 @@ mod tests {
     #[test]
     fn test_alloc_known_size_slice() -> Result<()> {
         let mut random = random();
-        let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let byte_used = Arc::new(AtomicCounter::new());
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
-        let mut block_pool = ByteBlockPool::new_sync(allocator);
+        let mut block_pool = ByteBlockPool::new(allocator);
         block_pool.next_buffer()?;
         let mut slice_pool = ByteSlicePool;
 
@@ -236,7 +232,7 @@ mod tests {
     #[test]
     fn test_alloc_large_slice() -> Result<()> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let mut block_pool = ByteBlockPool::new_sync(allocator);
+        let mut block_pool = ByteBlockPool::new(allocator);
         let mut slice_pool = ByteSlicePool;
         assert_eq!(0, slice_pool.new_slice(BYTE_BLOCK_SIZE, &mut block_pool)?);
         {
@@ -479,9 +475,9 @@ mod tests {
     #[test]
     fn test_random_interleaved_slices() -> Result<()> {
         let mut random = random();
-        let byte_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
+        let byte_used = Arc::new(AtomicCounter::new());
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)));
+        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
         let slice_pool = Arc::new(Mutex::new(ByteSlicePool));
 
         let n_iterations = random.random_range(1..=3); // 1-3 iterations with buffer resets

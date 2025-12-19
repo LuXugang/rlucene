@@ -19,7 +19,7 @@ use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
+use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::documents_writer::FlushNotifications;
 use crate::core::index::documents_writer_delete_queue::{
     DeleteSlice, DocumentsWriterDeleteQueue, Node,
@@ -69,7 +69,7 @@ where
 {
     pub(crate) directory: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
-    pending_updates: MTBufferedUpdates,
+    pending_updates: BufferedUpdates,
     pub(crate) segment_info: SegmentInfo<D>,
     field_infos: Builder,
     info_stream: InfoStreamMT,
@@ -206,7 +206,7 @@ where
         let info_stream = index_writer_config.get_info_stream();
         let tracking_dir = TrackingDirectoryWrapper::new(directory.clone());
         let directory_wrapped = Arc::new(tracking_dir);
-        let pending_updates = MTBufferedUpdates::new_sync(segment_name);
+        let pending_updates = BufferedUpdates::new(segment_name);
         let delete_slice = Some(delete_queue.new_slice());
         let random_id = StringHelper::random_id();
         let id = StringHelper::id_to_string(Some(&random_id));
@@ -692,7 +692,7 @@ where
                 } else {
                     Some(std::mem::replace(
                         &mut self.pending_updates,
-                        BufferedUpdates::new_sync("dummy"),
+                        BufferedUpdates::new("dummy"),
                     ))
                 };
 
@@ -1023,7 +1023,7 @@ where
         info_stream: InfoStreamMT,
         segment_info: SegmentCommitInfo<D>,
         field_infos: Arc<FieldInfos>,
-        mut segment_updates: Option<MTBufferedUpdates>,
+        mut segment_updates: Option<BufferedUpdates>,
         live_docs: Option<FixedBitSet>,
         del_count: i32,
         sort_map: Option<Arc<DocMapImpl>>,

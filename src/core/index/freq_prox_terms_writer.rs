@@ -20,7 +20,7 @@ use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::buffered_updates::MTBufferedUpdates;
+use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
@@ -56,7 +56,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_block_pool::AllocatorIntEnum;
 use crate::core::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::core::util::packed::PackedInts;
-use crate::core::util::{CounterEnumLock, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
+use crate::core::util::{SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -74,9 +74,9 @@ where
     D: Directory,
 {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
-        bytes_used: CounterEnumLock,
+        int_block_allocator: AllocatorIntEnum,
+        byte_block_allocator: AllocatorByteEnum,
+        bytes_used: SharedCounter,
         mut next_terms_hash: TermVectorsConsumer<D>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
@@ -93,7 +93,7 @@ where
         state: &mut SegmentWriteState<D>,
         fields: &FreqProxFields,
         segment_info: &SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates>,
+        seg_updates: Option<&mut BufferedUpdates>,
     ) -> Result<()>
     where
         D1: Directory,
@@ -148,7 +148,7 @@ where
         norms: Option<N>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates>,
+        seg_updates: Option<&mut BufferedUpdates>,
     ) -> Result<()>
     where
         N: NormsProducer,

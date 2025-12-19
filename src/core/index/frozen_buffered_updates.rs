@@ -40,14 +40,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
-use crate::core::util::access::SharedAccess;
+use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::int_consumer::IntConsumer;
-use crate::core::util::{ByteBlockPool, CounterEnum, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use std::collections::HashMap;
@@ -95,15 +94,11 @@ pub(crate) struct FrozenBufferedUpdates {
 }
 
 impl FrozenBufferedUpdates {
-    pub fn new<C, B>(
+    pub fn new(
         info_stream: InfoStreamMT,
-        updates: &mut BufferedUpdates<C, B>,
+        updates: &mut BufferedUpdates,
         private_segment: Option<String>,
-    ) -> Result<Self>
-    where
-        C: SharedAccess<CounterEnum>,
-        B: SharedAccess<ByteBlockPool<C>>,
-    {
+    ) -> Result<Self> {
         assert!(
             private_segment.is_none() || updates.delete_terms.is_empty(),
             "segment private packet should only have del queries"

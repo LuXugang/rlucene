@@ -33,7 +33,6 @@ use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::sync::Arc;
 
 pub(crate) struct TermVectorsConsumerPerField {
@@ -42,7 +41,7 @@ pub(crate) struct TermVectorsConsumerPerField {
     do_vector_positions: bool,
     do_vector_offsets: bool,
     do_vector_payloads: bool,
-    term_byte_pool: BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>,
+    term_byte_pool: BytesRefBlockPool,
     has_payloads: bool,
     field_name: String,
     base: TermsHashPerField,

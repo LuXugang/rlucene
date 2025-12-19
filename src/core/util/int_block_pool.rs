@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::indexing_chain::IntBlockAllocator;
-use crate::core::util::access::SharedAccess;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock};
 use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 /// # Internal
 /// A pool for int blocks similar to `ByteBlockPool`.
-pub struct IntBlockPool<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+pub struct IntBlockPool {
     /// array of buffers currently used in the pool. Buffers are allocated if
     /// needed don't modify this outside of this struct
     buffers: Vec<Vec<i32>>,
@@ -38,21 +33,15 @@ where
     pub(crate) int_upto: i32,
     /// Current head offset.
     pub(crate) int_offset: i32,
-    allocator: AllocatorIntEnum<C>,
+    allocator: AllocatorIntEnum,
 }
-impl<C> Default for IntBlockPool<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+impl Default for IntBlockPool {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<C> IntBlockPool<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+impl IntBlockPool {
     /// Creates a new `IntBlockPool` with a default `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
@@ -63,7 +52,7 @@ where
     /// Creates a new `IntBlockPool` with the given `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
-    pub fn with_allocator(allocator: AllocatorIntEnum<C>) -> Self {
+    pub fn with_allocator(allocator: AllocatorIntEnum) -> Self {
         IntBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -144,9 +133,9 @@ where
     }
 }
 // for single thread
-pub type IntBlockPoolBorrow = Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>;
+pub type IntBlockPoolBorrow = Rc<RefCell<IntBlockPool>>;
 // for multi thread
-pub type IntBlockPoolLock = Arc<Mutex<IntBlockPool<CounterEnumLock>>>;
+pub type IntBlockPoolLock = Arc<Mutex<IntBlockPool>>;
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {
@@ -185,17 +174,11 @@ impl AllocatorI32 for DirectAllocatorI32 {
         self.block_size
     }
 }
-pub enum AllocatorIntEnum<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+pub enum AllocatorIntEnum {
     DA(DirectAllocatorI32),
-    IBA(IntBlockAllocator<C>),
+    IBA(IntBlockAllocator),
 }
-impl<C> AllocatorI32 for AllocatorIntEnum<C>
-where
-    C: SharedAccess<CounterEnum>,
-{
+impl AllocatorI32 for AllocatorIntEnum {
     fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: usize, end: usize) {
         match self {
             AllocatorIntEnum::DA(da) => da.recycle_int_blocks(blocks, start, end),
@@ -227,7 +210,6 @@ mod tests {
 
     use rand::Rng;
 
-    use crate::core::util::CounterEnumBorrow;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::int_block_pool::{
         AllocatorIntEnum, DirectAllocatorI32, INT_BLOCK_SIZE, IntBlockPool,
@@ -239,7 +221,7 @@ mod tests {
     fn test_write_read_reset() -> Result<()> {
         let mut random = random();
         let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
-        let mut pool: IntBlockPool<CounterEnumBorrow> = IntBlockPool::with_allocator(allocator);
+        let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
         // Write <count> consecutive ints to the buffer, possibly allocating a
@@ -282,7 +264,7 @@ mod tests {
     #[test]
     fn test_too_many_allocs() -> Result<()> {
         let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
-        let mut pool: IntBlockPool<CounterEnumBorrow> = IntBlockPool::with_allocator(allocator);
+        let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
         let result = (|| {

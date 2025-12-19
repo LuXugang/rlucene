@@ -187,9 +187,9 @@ mod tests {
     use crate::core::index::byte_slice_pool::ByteSlicePool;
     use crate::core::index::byte_slice_reader::ByteSliceReader;
     use crate::core::store::DataInput;
+    use crate::core::util::ByteBlockPool;
     use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::core::util::error::lucene_error::Result;
-    use crate::core::util::{ByteBlockPool, CounterEnumLock};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
 
@@ -197,14 +197,12 @@ mod tests {
     struct TestByteSliceReader;
 
     #[allow(clippy::type_complexity)]
-    pub fn before_class<R: Rng + ?Sized>(
-        random: &mut R,
-    ) -> Result<(Vec<u8>, ByteBlockPool<CounterEnumLock>, i32)> {
+    pub fn before_class<R: Rng + ?Sized>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let mut block_pool = ByteBlockPool::new_sync(allocator);
+        let mut block_pool = ByteBlockPool::new(allocator);
         block_pool.next_buffer()?;
 
         let mut slice_pool = ByteSlicePool;
