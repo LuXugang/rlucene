@@ -405,7 +405,7 @@ mod tests {
         /// been read.
         pub fn read_slice(&mut self) -> bool {
             // The first slice is special
-            let mut block_pool = self.block_pool.lock();
+            let block_pool = self.block_pool.lock();
             if !self.has_started {
                 self.data_offset = 0;
                 // Index into LEVEL_SIZE_ARRAY, allowing us to find the size of

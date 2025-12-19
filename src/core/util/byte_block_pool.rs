@@ -327,7 +327,7 @@ impl ByteBlockPool {
     pub fn get_buffer_mut(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
     }
-    pub fn get_buffer(&mut self, buffer_index: i32) -> &Vec<u8> {
+    pub fn get_buffer(&self, buffer_index: i32) -> &Vec<u8> {
         &self.buffers[buffer_index as usize]
     }
     pub fn get_bytes_used(&self) -> i64 {

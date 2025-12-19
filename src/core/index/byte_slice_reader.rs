@@ -80,7 +80,7 @@ impl ByteSliceReader {
         // Skip to our next slice
 
         debug_assert!(self.pool.is_some());
-        let mut pool = self.pool.as_mut().unwrap().lock();
+        let pool = self.pool.as_ref().unwrap().lock();
         let buffer = pool.get_buffer(self.buffer_upto);
         let next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
         self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
@@ -117,7 +117,7 @@ impl DataInput for ByteSliceReader {
             self.next_slice();
         }
         debug_assert!(self.pool.is_some());
-        let mut pool = self.pool.as_mut().unwrap().lock();
+        let pool = self.pool.as_mut().unwrap().lock();
         let byte = pool.get_buffer(self.buffer_upto)[self.upto as usize];
         self.upto += 1;
         Ok(byte)
@@ -131,7 +131,7 @@ impl DataInput for ByteSliceReader {
             if num_left < len {
                 // Read entire slice
                 {
-                    let mut pool = self.pool.as_mut().unwrap().lock();
+                    let pool = self.pool.as_mut().unwrap().lock();
                     let buffer = pool.get_buffer(self.buffer_upto);
                     b.copy_from(
                         &buffer[self.upto as usize..self.upto as usize + num_left as usize],
@@ -142,7 +142,7 @@ impl DataInput for ByteSliceReader {
                 len -= num_left;
                 self.next_slice();
             } else {
-                let mut pool = self.pool.as_mut().unwrap().lock();
+                let pool = self.pool.as_ref().unwrap().lock();
                 // This slice is the last one
                 let buffer = pool.get_buffer(self.buffer_upto);
                 b.copy_from(

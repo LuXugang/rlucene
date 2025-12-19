@@ -43,7 +43,7 @@ impl BytesRefBlockPool {
 
     /// Populates the given `BytesRef` with the term starting at `start`.
     pub fn fill_bytes_ref(&self, term: &mut BytesRef<Vec<u8>>, start: i32) {
-        self.byte_block_pool.access_mut(|pool| {
+        self.byte_block_pool.access(|pool| {
             {
                 let block = pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
                 let pos = (start & BYTE_BLOCK_MASK) as usize;
@@ -119,9 +119,9 @@ impl BytesRefBlockPool {
         })
     }
     /// Computes the hash of the BytesRef at the given start.
-    pub fn hash(&mut self, start: i32) -> i32 {
+    pub fn hash(&self, start: i32) -> i32 {
         let offset = (start & BYTE_BLOCK_MASK) as usize;
-        self.byte_block_pool.access_mut(|pool| {
+        self.byte_block_pool.access(|pool| {
             let bytes = pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
 
             let (len, pos) = if (bytes[offset] & 0x80) == 0 {
@@ -141,7 +141,7 @@ impl BytesRefBlockPool {
     /// and the provided BytesRef.
     pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>) -> bool {
         let pos = (start & BYTE_BLOCK_MASK) as usize;
-        self.byte_block_pool.access_mut(|pool| {
+        self.byte_block_pool.access(|pool| {
             let bytes = pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
 
             let (length, offset) = if (bytes[pos] & 0x80) == 0 {
