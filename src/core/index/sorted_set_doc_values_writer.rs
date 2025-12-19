@@ -44,7 +44,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
-    BytesRefHash, DEFAULT_CAPACITY, DirectBytesStartArray, MTBytesRefHash,
+    BytesRefHash, DEFAULT_CAPACITY, DirectBytesRefHash, DirectBytesStartArray,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -61,8 +61,8 @@ use std::sync::Arc;
 
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedSetDocValuesWriter {
-    hash: MTBytesRefHash,
-    hash_rc: Option<Arc<MTBytesRefHash>>,
+    hash: DirectBytesRefHash,
+    hash_rc: Option<Arc<DirectBytesRefHash>>,
     pending: PackedLongValuesBuilder, // stream of all termIDs
     pending_counts: Option<PackedLongValuesBuilder>, // termIDs per doc
     docs_with_field: DocsWithFieldSet,
@@ -212,7 +212,7 @@ impl SortedSetDocValuesWriter {
 
     pub(crate) fn get_values(
         ord_map: Arc<Vec<i32>>,
-        hash: Arc<MTBytesRefHash>,
+        hash: Arc<DirectBytesRefHash>,
         ords: &PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -366,7 +366,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
 pub(crate) struct DocValuesProducerImpl1 {
     field_info: Arc<FieldInfo>,
     ord_map: Arc<Vec<i32>>,
-    hash: Arc<MTBytesRefHash>,
+    hash: Arc<DirectBytesRefHash>,
     ords: PackedLongValues,
     ord_counts: Option<PackedLongValues>,
     max_count: i32,
@@ -378,7 +378,7 @@ impl DocValuesProducerImpl1 {
     pub(crate) fn new(
         field_info: Arc<FieldInfo>,
         ord_map: Arc<Vec<i32>>,
-        hash: Arc<MTBytesRefHash>,
+        hash: Arc<DirectBytesRefHash>,
         ords: PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -496,7 +496,7 @@ where
     D: DocIdSetIterator,
 {
     ord_map: Arc<Vec<i32>>,
-    hash: Arc<MTBytesRefHash>,
+    hash: Arc<DirectBytesRefHash>,
     scratch: BytesRef<Vec<u8>>,
     ords_iter: PackedLongValuesIterator,
     ord_counts_iter: PackedLongValuesIterator,
@@ -512,7 +512,7 @@ where
 {
     pub(crate) fn new(
         ord_map: Arc<Vec<i32>>,
-        hash: Arc<MTBytesRefHash>,
+        hash: Arc<DirectBytesRefHash>,
         ords: &PackedLongValues,
         ord_counts: PackedLongValues,
         max_count: i32,

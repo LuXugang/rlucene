@@ -806,7 +806,7 @@ where
 }
 
 pub const DEFAULT_CAPACITY: i32 = 16;
-pub(crate) type MTBytesRefHash = BytesRefHash<DirectBytesStartArray>;
+pub(crate) type DirectBytesRefHash = BytesRefHash<DirectBytesStartArray>;
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
@@ -819,7 +819,9 @@ mod tests {
 
     use crate::core::index::{BytesRef, BytesRefBuilder};
     use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
+    use crate::core::util::bytes_ref_hash::{
+        BytesRefHash, DirectBytesRefHash, DirectBytesStartArray,
+    };
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -832,7 +834,10 @@ mod tests {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         Arc::new(Mutex::new(ByteBlockPool::new(allocator)))
     }
-    fn new_hash<R: Rng + ?Sized>(random: &mut R, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
+    fn new_hash<R: Rng + ?Sized>(
+        random: &mut R,
+        block_pool: ByteBlockPoolLock,
+    ) -> DirectBytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
             BytesRefHash::from_pool(block_pool)
@@ -1336,7 +1341,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_all_in(strings: &HashSet<String>, hash: &mut MTBytesRefHash) -> Result<()> {
+    fn assert_all_in(strings: &HashSet<String>, hash: &mut DirectBytesRefHash) -> Result<()> {
         let mut ref_builder = BytesRefBuilder::new();
         let mut scratch = BytesRef::new();
         let count = hash.size();

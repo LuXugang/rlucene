@@ -38,7 +38,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
-    BytesRefHash, DEFAULT_CAPACITY, DirectBytesStartArray, MTBytesRefHash,
+    BytesRefHash, DEFAULT_CAPACITY, DirectBytesRefHash, DirectBytesStartArray,
 };
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -54,8 +54,8 @@ use std::sync::Arc;
 
 ///  Buffers up pending `[u8]` per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedDocValuesWriter {
-    hash: MTBytesRefHash,
-    hash_rc: Option<Arc<MTBytesRefHash>>,
+    hash: DirectBytesRefHash,
+    hash_rc: Option<Arc<DirectBytesRefHash>>,
     pending: PackedLongValuesBuilder,
     docs_with_field: DocsWithFieldSet,
     iw_bytes_used: SharedCounter,
@@ -252,7 +252,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
 }
 
 pub(crate) struct DocValuesProducerImpl {
-    hash: Arc<MTBytesRefHash>,
+    hash: Arc<DirectBytesRefHash>,
     ords: PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: DocsWithFieldSet,
@@ -261,7 +261,7 @@ pub(crate) struct DocValuesProducerImpl {
 }
 impl DocValuesProducerImpl {
     pub(crate) fn new(
-        hash: Arc<MTBytesRefHash>,
+        hash: Arc<DirectBytesRefHash>,
         ords: PackedLongValues,
         ord_map: Arc<Vec<i32>>,
         docs_with_field: DocsWithFieldSet,
@@ -325,7 +325,7 @@ pub(crate) struct BufferedSortedDocValues<D>
 where
     D: DocIdSetIterator,
 {
-    hash: Arc<MTBytesRefHash>,
+    hash: Arc<DirectBytesRefHash>,
     scratch: BytesRef<Vec<u8>>,
     ord_map: Arc<Vec<i32>>,
     ord: i32,
@@ -338,7 +338,7 @@ where
     D: DocIdSetIterator,
 {
     pub(crate) fn new(
-        hash: Arc<MTBytesRefHash>,
+        hash: Arc<DirectBytesRefHash>,
         doc_to_ord: &PackedLongValues,
         ord_map: Arc<Vec<i32>>,
         docs_with_field: D,
@@ -516,7 +516,7 @@ where
 
 pub(crate) fn get_doc_values_producer<DM>(
     writer_field_info: Arc<FieldInfo>,
-    hash: Arc<MTBytesRefHash>,
+    hash: Arc<DirectBytesRefHash>,
     ords: PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: DocsWithFieldSet,
