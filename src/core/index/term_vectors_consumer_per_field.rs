@@ -47,23 +47,6 @@ pub(crate) struct TermVectorsConsumerPerField {
     base: TermsHashPerField,
 }
 
-impl Clone for TermVectorsConsumerPerField {
-    // for padding
-    fn clone(&self) -> Self {
-        TermVectorsConsumerPerField {
-            field_info: self.field_info.clone(),
-            do_vectors: self.do_vectors,
-            do_vector_positions: self.do_vector_positions,
-            do_vector_offsets: self.do_vector_offsets,
-            do_vector_payloads: self.do_vector_payloads,
-            term_byte_pool: BytesRefBlockPool::default(),
-            has_payloads: self.has_payloads,
-            field_name: self.field_name.clone(),
-            base: TermsHashPerField::default(),
-        }
-    }
-}
-
 impl TermVectorsConsumerPerField {
     pub(crate) fn new<D>(terms_hash: &TermVectorsConsumer<D>, field_info: Arc<FieldInfo>) -> Self
     where

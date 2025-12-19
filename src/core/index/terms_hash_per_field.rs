@@ -21,19 +21,16 @@ use crate::core::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPos
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
-use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::{
-    INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPool, IntBlockPoolLock,
+    INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPoolLock,
 };
 use crate::core::util::{
-    AtomicCounter, BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool,
-    ByteBlockPoolLock, Counter, SharedCounter, SliceCopyOps,
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPoolLock, Counter, SharedCounter,
+    SliceCopyOps,
 };
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 /// This struct stores streams of information per term without knowing the size
 /// of the stream ahead of time. Each stream typically encodes one level of
@@ -67,35 +64,6 @@ pub struct TermsHashPerField {
     pub(crate) field_name: String,
     pub(crate) index_options: IndexOptions,
 }
-impl Default for TermsHashPerField {
-    // for padding
-    fn default() -> Self {
-        let postings_array_wrapper = PostingsArrayWrapper::default();
-        let bytes_used = Arc::new(AtomicCounter::new());
-        let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
-        let term_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new(AllocatorByteEnum::DA(
-            DirectAllocatorByte::new(),
-        ))));
-        let byte_pool = term_byte_pool.clone();
-
-        let bytes_hash =
-            BytesRefHash::from_bytes_start_array(term_byte_pool, HASH_INIT_SIZE, byte_starts);
-        TermsHashPerField {
-            int_pool: Arc::new(Mutex::new(IntBlockPool::default())),
-            byte_pool,
-            slice_pool: ByteSlicePool,
-            term_stream_address_buffer_index: 0,
-            stream_address_offset: 0,
-            stream_count: 0,
-            bytes_hash,
-            last_doc_id: 0,
-            do_next_call: false,
-            field_name: String::new(),
-            index_options: IndexOptions::None,
-        }
-    }
-}
-
 impl TermsHashPerField {
     ///  streamCount: how many streams this field stores per term. E.g.
     /// doc(+freq) is 1 stream, prox+offset is a second.

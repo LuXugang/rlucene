@@ -14,47 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::core::index::BytesRef;
 use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::do_hash;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{
-    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock,
-    SliceCopyOps,
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPoolLock, SliceCopyOps,
 };
 
 pub struct BytesRefBlockPool {
     byte_block_pool: ByteBlockPoolLock,
 }
 
-impl Default for BytesRefBlockPool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+// TODO: memory calculation not implemented
+const BASE_RAM_BYTES: i32 = 0;
 impl BytesRefBlockPool {
-    pub fn new() -> BytesRefBlockPool {
-        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
-        BytesRefBlockPool {
-            byte_block_pool: pool,
-        }
-    }
-    // TODO: memory calculation not implemented
-    const BASE_RAM_BYTES: i32 = 0;
     pub fn from_byte_block_pool(byte_block_pool: ByteBlockPoolLock) -> BytesRefBlockPool {
         BytesRefBlockPool { byte_block_pool }
-    }
-    pub fn byte_block_pool(&mut self) -> ByteBlockPoolLock {
-        self.byte_block_pool.clone()
     }
     /// Resets this buffer to the empty state.
     pub fn reset(&mut self) {
