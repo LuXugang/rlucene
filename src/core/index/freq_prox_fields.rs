@@ -202,7 +202,7 @@ impl FreqProxTermsEnum {
     fn new(terms: Rc<FreqProxTermsWriterPerField>, int_pool: Rc<IntBlockPool>) -> Self {
         let (num_terms, terms_pool) = {
             let num_terms = terms.base.get_num_terms();
-            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.base.byte_pool.clone());
+            let terms_pool = BytesRefBlockPool::new();
             (num_terms, terms_pool)
         };
         Self {
@@ -243,8 +243,11 @@ impl BytesRefIterator for FreqProxTermsEnum {
         };
 
         let text_start = p.parent.text_starts[term_id as usize];
-        self.terms_pool
-            .fill_bytes_ref(&mut self.scratch, text_start);
+        self.terms_pool.fill_bytes_ref(
+            &mut self.scratch,
+            text_start,
+            &self.terms.base.byte_pool.lock(),
+        );
 
         Ok(Some(Cow::Borrowed(&self.scratch)))
     }
@@ -279,8 +282,11 @@ impl TermsEnum for FreqProxTermsEnum {
             let term_id = sorted_term_ids[mid as usize];
             let text_start = postings_array.parent.text_starts[term_id as usize];
 
-            self.terms_pool
-                .fill_bytes_ref(&mut self.scratch, text_start);
+            self.terms_pool.fill_bytes_ref(
+                &mut self.scratch,
+                text_start,
+                &self.terms.base.byte_pool.lock(),
+            );
             let cmp = self.scratch.cmp(text).to_int();
 
             if cmp < 0 {
@@ -302,8 +308,11 @@ impl TermsEnum for FreqProxTermsEnum {
         } else {
             let term_id = sorted_term_ids[self.ord as usize];
             let text_start = postings_array.parent.text_starts[term_id as usize];
-            self.terms_pool
-                .fill_bytes_ref(&mut self.scratch, text_start);
+            self.terms_pool.fill_bytes_ref(
+                &mut self.scratch,
+                text_start,
+                &self.terms.base.byte_pool.lock(),
+            );
             debug_assert!((*self.term()?).cmp(text).to_int() > 0);
             Ok(SeekStatus::NotFound)
         }
@@ -330,8 +339,11 @@ impl TermsEnum for FreqProxTermsEnum {
         };
 
         let text_start = p.parent.text_starts[term_id as usize];
-        self.terms_pool
-            .fill_bytes_ref(&mut self.scratch, text_start);
+        self.terms_pool.fill_bytes_ref(
+            &mut self.scratch,
+            text_start,
+            &self.terms.base.byte_pool.lock(),
+        );
 
         Ok(())
     }

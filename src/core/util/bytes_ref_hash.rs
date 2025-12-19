@@ -49,6 +49,7 @@ where
     BSA: BytesStartArray,
 {
     pool: BytesRefBlockPool,
+    pub(crate) byte_block_pool: ByteBlockPoolLock,
     hash_size: i32,
     hash_half_size: i32,
     hash_mask: i32,
@@ -59,14 +60,15 @@ where
     bytes_used: SharedCounter,
 }
 impl BytesRefHash<DirectBytesStartArray> {
-    pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Self {
+    pub fn from_pool(pool: ByteBlockPoolLock) -> Self {
         let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
+    // used for std::mem::take
     pub fn new() -> Self {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
-        BytesRefHash::from_pool_sync(pool)
+        BytesRefHash::from_pool(pool)
     }
 }
 pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
@@ -83,9 +85,10 @@ where
     ) -> Self {
         bytes_start_array.init();
         let bytes_used = bytes_start_array.bytes_used();
-        let ref_pool = BytesRefBlockPool::from_byte_block_pool(pool);
+        let ref_pool = BytesRefBlockPool::new();
         BytesRefHash {
             pool: ref_pool,
+            byte_block_pool: pool,
             hash_size: capacity,
             hash_half_size: capacity >> 1,
             hash_mask: capacity - 1,
@@ -127,7 +130,8 @@ where
             "bytesID exceeds bytes_start len"
         );
         let value = self.bytes_start_array.get_value(bytes_id as usize);
-        self.pool.fill_bytes_ref(ref_, value)
+        self.pool
+            .fill_bytes_ref(ref_, value, &self.byte_block_pool.lock())
     }
 
     /// Returns the id array in arbitrary order. Valid ids start at offset 0 and
@@ -166,10 +170,12 @@ where
             "We need load factor <= 0.5f to speed up this sort"
         );
         let tmp_offset = self.count;
+        let byte_block_pool = &*self.byte_block_pool.lock();
         let sub_sorter = StringSorterImpl::new(
             tmp_offset,
             &mut self.ids,
             &mut self.pool,
+            byte_block_pool,
             &self.bytes_start_array,
         );
         let mut sorter = StringSorter::new(sub_sorter, Natural::default());
@@ -207,7 +213,7 @@ where
         self.count = 0;
 
         if reset_pool {
-            self.pool.reset();
+            self.pool.reset(&mut self.byte_block_pool.lock());
         }
 
         self.bytes_start_array.clear();
@@ -266,7 +272,9 @@ where
                     );
                 }
 
-                let v = self.pool.add_bytes_ref(bytes)?;
+                let v = self
+                    .pool
+                    .add_bytes_ref(bytes, &mut self.byte_block_pool.lock())?;
                 self.bytes_start_array.set_value(self.count as usize, v);
                 e = self.count;
                 self.count += 1;
@@ -305,18 +313,22 @@ where
         let mut hash_pos = code & self.hash_mask;
         let mut e = self.ids[hash_pos as usize];
         if e != -1
-            && !self
-                .pool
-                .equals(self.bytes_start_array.get_value(e as usize), bytes)
+            && !self.pool.equals(
+                self.bytes_start_array.get_value(e as usize),
+                bytes,
+                &self.byte_block_pool.lock(),
+            )
         {
             loop {
                 code += 1;
                 hash_pos = code & self.hash_mask;
                 e = self.ids[hash_pos as usize];
                 if e == -1
-                    || self
-                        .pool
-                        .equals(self.bytes_start_array.get_value(e as usize), bytes)
+                    || self.pool.equals(
+                        self.bytes_start_array.get_value(e as usize),
+                        bytes,
+                        &self.byte_block_pool.lock(),
+                    )
                 {
                     break;
                 }
@@ -388,8 +400,10 @@ where
             let e0 = self.ids[i as usize];
             if e0 != -1 {
                 let mut code = if hash_on_data {
-                    self.pool
-                        .hash(self.bytes_start_array.get_value(e0 as usize))
+                    self.pool.hash(
+                        self.bytes_start_array.get_value(e0 as usize),
+                        &self.byte_block_pool.lock(),
+                    )
                 } else {
                     self.bytes_start_array.get_value(e0 as usize)
                 };
@@ -475,6 +489,7 @@ where
     tmp_offset: i32,
     compact: &'a mut Vec<i32>,
     pool: &'a mut BytesRefBlockPool,
+    byte_block_pool: &'a ByteBlockPool,
     bytes_start_array: &'a BSA,
     k: i32,
     cmp: Natural,
@@ -487,12 +502,14 @@ where
         tmp_offset: i32,
         compact: &'a mut Vec<i32>,
         pool: &'a mut BytesRefBlockPool,
+        byte_block_pool: &'a ByteBlockPool,
         bytes_start_array: &'a BSA,
     ) -> Self {
         StringSorterImpl {
             tmp_offset,
             compact,
             pool,
+            byte_block_pool,
             bytes_start_array,
             k: 0,
             cmp: Natural::default(),
@@ -597,7 +614,8 @@ where
         let start = self
             .bytes_start_array
             .get_value(self.compact[i as usize] as usize);
-        self.pool.fill_bytes_ref(result, start);
+        self.pool
+            .fill_bytes_ref(result, start, self.byte_block_pool);
         Ok(())
     }
 
@@ -817,7 +835,7 @@ mod tests {
     fn new_hash<R: Rng + ?Sized>(random: &mut R, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
-            BytesRefHash::from_pool_sync(block_pool)
+            BytesRefHash::from_pool(block_pool)
         } else {
             BytesRefHash::from_bytes_start_array(
                 block_pool,

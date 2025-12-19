@@ -69,9 +69,7 @@ impl TermVectorsConsumerPerField {
             do_vector_positions: false,
             do_vector_offsets: false,
             do_vector_payloads: false,
-            term_byte_pool: BytesRefBlockPool::from_byte_block_pool(
-                terms_hash.base.term_byte_pool.as_ref().unwrap().clone(),
-            ),
+            term_byte_pool: BytesRefBlockPool::new(),
             has_payloads: false,
             field_name,
             base,
@@ -138,6 +136,7 @@ impl TermVectorsConsumerPerField {
                     self.term_byte_pool.fill_bytes_ref(
                         &mut term_vectors_consumer.flush_term,
                         postings.parent.text_starts[term_id as usize],
+                        &self.base.bytes_hash.byte_block_pool.lock(),
                     );
 
                     tv.start_term(&term_vectors_consumer.flush_term, freq)?;
