@@ -34,13 +34,13 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::DataInput;
-use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
+use crate::core::util::{ByteBlockPool, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -50,10 +50,15 @@ use std::rc::Rc;
 pub(crate) struct FreqProxFields {
     fields: HashMap<String, Rc<FreqProxTermsWriterPerField>>,
     int_pool: Rc<IntBlockPool>,
+    byte_pool: Rc<ByteBlockPool>,
     keys: Vec<String>,
 }
 impl FreqProxFields {
-    pub fn new(field_list: Vec<Rc<FreqProxTermsWriterPerField>>, int_pool: IntBlockPool) -> Self {
+    pub fn new(
+        field_list: Vec<Rc<FreqProxTermsWriterPerField>>,
+        int_pool: IntBlockPool,
+        byte_pool: ByteBlockPool,
+    ) -> Self {
         // NOTE: fields are already sorted by field name
         let len = field_list.len();
         let mut fields = HashMap::with_capacity(len);
@@ -66,6 +71,7 @@ impl FreqProxFields {
         Self {
             fields,
             int_pool: Rc::new(int_pool),
+            byte_pool: Rc::new(byte_pool),
             keys,
         }
     }
@@ -88,6 +94,7 @@ impl Fields for FreqProxFields {
             Some(terms) => Ok(Some(FreqProxTerms::new(
                 Rc::clone(terms),
                 Rc::clone(&self.int_pool),
+                Rc::clone(&self.byte_pool),
             ))),
             None => Ok(None),
         }
@@ -103,6 +110,7 @@ impl Clone for FreqProxFields {
         Self {
             fields: self.fields.clone(),
             int_pool: self.int_pool.clone(),
+            byte_pool: self.byte_pool.clone(),
             keys: self.keys.clone(),
         }
     }
@@ -111,17 +119,30 @@ impl Clone for FreqProxFields {
 pub(crate) struct FreqProxTerms {
     terms: Rc<FreqProxTermsWriterPerField>,
     int_pool: Rc<IntBlockPool>,
+    byte_pool: Rc<ByteBlockPool>,
 }
 impl FreqProxTerms {
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField>, int_pool: Rc<IntBlockPool>) -> Self {
-        Self { terms, int_pool }
+    pub fn new(
+        terms: Rc<FreqProxTermsWriterPerField>,
+        int_pool: Rc<IntBlockPool>,
+        byte_pool: Rc<ByteBlockPool>,
+    ) -> Self {
+        Self {
+            terms,
+            int_pool,
+            byte_pool,
+        }
     }
 }
 impl Terms for FreqProxTerms {
     type TermsEnum = BaseTermsEnum<FreqProxTermsEnum>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        let mut v = FreqProxTermsEnum::new(self.terms.clone(), self.int_pool.clone());
+        let mut v = FreqProxTermsEnum::new(
+            self.terms.clone(),
+            self.int_pool.clone(),
+            self.byte_pool.clone(),
+        );
         v.reset();
         Ok(v.into())
     }
@@ -193,13 +214,18 @@ impl Terms for FreqProxTerms {
 pub(crate) struct FreqProxTermsEnum {
     terms: Rc<FreqProxTermsWriterPerField>,
     int_pool: Rc<IntBlockPool>,
+    byte_pool: Rc<ByteBlockPool>,
     terms_pool: BytesRefBlockPool,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
     ord: i32,
 }
 impl FreqProxTermsEnum {
-    fn new(terms: Rc<FreqProxTermsWriterPerField>, int_pool: Rc<IntBlockPool>) -> Self {
+    fn new(
+        terms: Rc<FreqProxTermsWriterPerField>,
+        int_pool: Rc<IntBlockPool>,
+        byte_pool: Rc<ByteBlockPool>,
+    ) -> Self {
         let (num_terms, terms_pool) = {
             let num_terms = terms.base.get_num_terms();
             let terms_pool = BytesRefBlockPool::new();
@@ -208,6 +234,7 @@ impl FreqProxTermsEnum {
         Self {
             terms,
             int_pool,
+            byte_pool,
             terms_pool,
             scratch: BytesRef::new(),
             num_terms,
@@ -243,11 +270,8 @@ impl BytesRefIterator for FreqProxTermsEnum {
         };
 
         let text_start = p.parent.text_starts[term_id as usize];
-        self.terms_pool.fill_bytes_ref(
-            &mut self.scratch,
-            text_start,
-            &self.terms.base.byte_pool.lock(),
-        );
+        self.terms_pool
+            .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
 
         Ok(Some(Cow::Borrowed(&self.scratch)))
     }
@@ -282,11 +306,8 @@ impl TermsEnum for FreqProxTermsEnum {
             let term_id = sorted_term_ids[mid as usize];
             let text_start = postings_array.parent.text_starts[term_id as usize];
 
-            self.terms_pool.fill_bytes_ref(
-                &mut self.scratch,
-                text_start,
-                &self.terms.base.byte_pool.lock(),
-            );
+            self.terms_pool
+                .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
             let cmp = self.scratch.cmp(text).to_int();
 
             if cmp < 0 {
@@ -308,11 +329,8 @@ impl TermsEnum for FreqProxTermsEnum {
         } else {
             let term_id = sorted_term_ids[self.ord as usize];
             let text_start = postings_array.parent.text_starts[term_id as usize];
-            self.terms_pool.fill_bytes_ref(
-                &mut self.scratch,
-                text_start,
-                &self.terms.base.byte_pool.lock(),
-            );
+            self.terms_pool
+                .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
             debug_assert!((*self.term()?).cmp(text).to_int() > 0);
             Ok(SeekStatus::NotFound)
         }
@@ -339,11 +357,8 @@ impl TermsEnum for FreqProxTermsEnum {
         };
 
         let text_start = p.parent.text_starts[term_id as usize];
-        self.terms_pool.fill_bytes_ref(
-            &mut self.scratch,
-            text_start,
-            &self.terms.base.byte_pool.lock(),
-        );
+        self.terms_pool
+            .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
 
         Ok(())
     }
@@ -399,7 +414,11 @@ impl TermsEnum for FreqProxTermsEnum {
 
             let mut pos_enum = match reuse {
                 Some(Either2PostingsEnum::A(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
-                _ => FreqProxPostingsEnum::new(self.terms.clone(), self.int_pool.clone()),
+                _ => FreqProxPostingsEnum::new(
+                    self.terms.clone(),
+                    self.int_pool.clone(),
+                    self.byte_pool.clone(),
+                ),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
             return Ok(Either2PostingsEnum::A(pos_enum));
@@ -412,7 +431,11 @@ impl TermsEnum for FreqProxTermsEnum {
         };
         let mut docs_enum = match reuse {
             Some(Either2PostingsEnum::B(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
-            _ => FreqProxDocsEnum::new(self.terms.clone(), self.int_pool.clone()),
+            _ => FreqProxDocsEnum::new(
+                self.terms.clone(),
+                self.int_pool.clone(),
+                self.byte_pool.clone(),
+            ),
         };
         docs_enum.reset(sorted_term_ids[self.ord as usize]);
         Ok(Either2PostingsEnum::B(docs_enum))
@@ -430,7 +453,7 @@ impl TermsEnum for FreqProxTermsEnum {
 pub(crate) struct FreqProxDocsEnum {
     pub(crate) terms: Rc<FreqProxTermsWriterPerField>,
     int_pool: Rc<IntBlockPool>,
-    pub(crate) reader: ByteSliceReader,
+    pub(crate) reader: ByteSliceReader<Rc<ByteBlockPool>>,
     pub(crate) read_term_freq: bool,
     pub(crate) doc_id: i32,
     pub(crate) freq: i32,
@@ -438,12 +461,16 @@ pub(crate) struct FreqProxDocsEnum {
     pub(crate) term_id: i32,
 }
 impl FreqProxDocsEnum {
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField>, int_pool: Rc<IntBlockPool>) -> Self {
+    pub fn new(
+        terms: Rc<FreqProxTermsWriterPerField>,
+        int_pool: Rc<IntBlockPool>,
+        byte_pool: Rc<ByteBlockPool>,
+    ) -> Self {
         let read_term_freq = terms.has_freq;
         Self {
             terms,
             int_pool,
-            reader: ByteSliceReader::new(),
+            reader: ByteSliceReader::new(byte_pool),
             read_term_freq,
             doc_id: -1,
             freq: 0,
@@ -554,8 +581,8 @@ impl PostingsEnum for FreqProxDocsEnum {
 pub(crate) struct FreqProxPostingsEnum {
     terms: Rc<FreqProxTermsWriterPerField>,
     int_pool: Rc<IntBlockPool>,
-    reader: ByteSliceReader,
-    pos_reader: ByteSliceReader,
+    reader: ByteSliceReader<Rc<ByteBlockPool>>,
+    pos_reader: ByteSliceReader<Rc<ByteBlockPool>>,
     read_offsets: bool,
     doc_id: i32,
     freq: i32,
@@ -569,13 +596,17 @@ pub(crate) struct FreqProxPostingsEnum {
     payload: BytesRefBuilder<Vec<u8>>,
 }
 impl FreqProxPostingsEnum {
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField>, int_pool: Rc<IntBlockPool>) -> Self {
+    pub fn new(
+        terms: Rc<FreqProxTermsWriterPerField>,
+        int_pool: Rc<IntBlockPool>,
+        byte_pool: Rc<ByteBlockPool>,
+    ) -> Self {
         let has_offsets = terms.has_offsets;
         Self {
             terms,
             int_pool,
-            reader: ByteSliceReader::new(),
-            pos_reader: ByteSliceReader::new(),
+            reader: ByteSliceReader::new(byte_pool.clone()),
+            pos_reader: ByteSliceReader::new(byte_pool),
             read_offsets: has_offsets,
             doc_id: -1,
             freq: 0,

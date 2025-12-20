@@ -45,7 +45,8 @@ use crate::core::util::paged_bytes::{
     PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, get_data_input, get_data_output,
 };
 use crate::core::util::{
-    AtomicCounter, BytesRefArray, CoreHelper, Counter, SharedCounter, SortableBytesRefArray,
+    AtomicCounter, ByteBlockPool, BytesRefArray, CoreHelper, Counter, SharedCounter,
+    SortableBytesRefArray,
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -194,7 +195,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         ))
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
         self.docs_with_field.finish();
         if self.final_lengths.is_none() {
             self.final_lengths = Some(self.lengths.build()?);

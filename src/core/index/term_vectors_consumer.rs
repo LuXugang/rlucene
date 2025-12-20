@@ -18,7 +18,6 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::core::index::BytesRef;
-use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -32,13 +31,10 @@ use crate::core::store::directory::Directory;
 #[cfg(test)]
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::util::allocator_byte::AllocatorByteEnum;
-#[cfg(test)]
-use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
-use crate::core::util::{AtomicCounter, Counter};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -50,9 +46,6 @@ where
     pub(crate) writer: Option<TermVectorsWriterEnum<D::IndexOutput>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
-    // Used by TermVectorsConsumerPerField when serializing the term vectors.
-    pub(crate) vector_slice_reader_pos: ByteSliceReader,
-    pub(crate) vector_slice_reader_off: ByteSliceReader,
     has_vectors: bool,
     num_vector_fields: i32,
     pub(crate) last_doc_id: i32,
@@ -94,9 +87,8 @@ impl Ord for PerFieldMeta {
 #[cfg(test)]
 impl Default for TermVectorsConsumer<DummyDirectory> {
     fn default() -> Self {
-        let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(DummyDirectory);
-        TermVectorsConsumer::new(byte_block_allocator, directory, None)
+        TermVectorsConsumer::new(directory, None)
     }
 }
 
@@ -104,12 +96,8 @@ impl<D> TermVectorsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(
-        byte_block_allocator: AllocatorByteEnum,
-        directory: Arc<D>,
-        sub: Option<SortingTermVectorsConsumer<D>>,
-    ) -> Self {
-        let base = TermsHash::new(byte_block_allocator, Arc::new(AtomicCounter::new()));
+    pub(crate) fn new(directory: Arc<D>, sub: Option<SortingTermVectorsConsumer<D>>) -> Self {
+        let base = TermsHash::new(Arc::new(AtomicCounter::new()));
 
         let per_fields = vec![PerFieldMeta::default(); 1];
 
@@ -117,8 +105,6 @@ where
             directory,
             writer: None,
             flush_term: BytesRef::default(),
-            vector_slice_reader_pos: ByteSliceReader::new(),
-            vector_slice_reader_off: ByteSliceReader::new(),
             has_vectors: false,
             num_vector_fields: 0,
             last_doc_id: 0,
@@ -156,6 +142,7 @@ where
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()>
     where
         D1: Directory,
@@ -188,13 +175,15 @@ where
         let idxs = std::mem::take(&mut self.per_fields_idxs);
         for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
             let v = &mut per_fields[per_field_idx.idx as usize];
-            v.terms_hash_per_field
+            let next_per_field = v
+                .terms_hash_per_field
                 .as_mut()
                 .unwrap()
                 .next_per_field
                 .as_mut()
-                .unwrap()
-                .finish_document(self, int_pool)?;
+                .unwrap();
+            next_per_field.finish_document(self, int_pool, byte_pool)?;
+            next_per_field.reset(byte_pool)
         }
 
         match self.sub {
@@ -313,7 +302,6 @@ where
     }
 
     pub(crate) fn abort(&mut self) -> Result<()> {
-        self.base.reset();
         if let Some(ref mut sub) = self.sub {
             sub.abort()?;
         }

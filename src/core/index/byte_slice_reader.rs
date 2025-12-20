@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, SliceCopyOps, ByteBlockPool};
+use crate::core::util::{BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
+use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 /// IndexInput that knows how to read the byte slices written by Posting and PostingVector.
 /// We read the bytes in each slice until we hit the end of that slice at which point we read the forwarding address of the next slice and then jump to it.
 pub(crate) struct ByteSliceReader<P> {
@@ -60,7 +60,7 @@ impl<P> ByteSliceReader<P> {
 
 impl<P> ByteSliceReader<P>
 where
-    P: Deref<Target = ByteBlockPool>
+    P: Deref<Target = ByteBlockPool>,
 {
     pub(crate) fn init(&mut self, start_index: i32, end_index: i32) {
         debug_assert!(end_index - start_index >= 0);
@@ -108,7 +108,7 @@ where
 
 impl<P> DataInput for ByteSliceReader<P>
 where
-    P: Deref<Target = ByteBlockPool>
+    P: Deref<Target = ByteBlockPool>,
 {
     fn read_byte(&mut self) -> Result<u8> {
         debug_assert!(!self.eof());
@@ -179,14 +179,13 @@ impl<P> Display for ByteSliceReader<P> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
     use rand::Rng;
+    use std::rc::Rc;
 
     use crate::core::index::byte_slice_pool::ByteSlicePool;
-    use crate::core::index::byte_slice_reader::{ByteSliceReader};
+    use crate::core::index::byte_slice_reader::ByteSliceReader;
     use crate::core::store::DataInput;
     use crate::core::util::ByteBlockPool;
     use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
@@ -227,8 +226,8 @@ mod tests {
     fn test_read_byte() -> Result<()> {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
-        let mut reader= ByteSliceReader::new(&block_pool);
-        reader.init( 0, block_pool_end);
+        let mut reader = ByteSliceReader::new(&block_pool);
+        reader.init(0, block_pool_end);
         for &expected in random_data.iter() {
             let byte = reader.read_byte()?;
             assert_eq!(byte, expected);

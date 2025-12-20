@@ -576,12 +576,6 @@ where
                         ),
                     );
                 }
-                let mut soft_deleted_docs =
-                    if let Some(field) = index_writer_config.get_soft_deletes_field() {
-                        self.indexing_chain.get_has_doc_values(field)?
-                    } else {
-                        None
-                    };
 
                 let sort_map = self.indexing_chain.flush(
                     &mut flush_state,
@@ -590,7 +584,12 @@ where
                     index_writer_config,
                     &mut self.field_infos,
                 )?;
-
+                let mut soft_deleted_docs =
+                    if let Some(field) = index_writer_config.get_soft_deletes_field() {
+                        self.indexing_chain.get_has_doc_values(field)?
+                    } else {
+                        None
+                    };
                 flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs
                 {
                     let cnt = count_soft_deletes(Some(iter), flush_state.live_docs.as_ref())?;

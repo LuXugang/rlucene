@@ -93,7 +93,7 @@ use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
+use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::core::util::bit_set::BitSet;
@@ -109,10 +109,8 @@ use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{
-    AtomicCounter, ByteBlockPool, ByteBlockPoolLock, CoreHelper, Counter, LUCENE_10_0_0,
-    SharedCounter, SliceCopyOps,
+    AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, SliceCopyOps,
 };
-use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -128,7 +126,7 @@ where
 {
     bytes_used: SharedCounter,
     terms_hash: FreqProxTermsWriter<D>,
-    doc_values_byte_pool: ByteBlockPoolLock,
+    doc_values_byte_pool: ByteBlockPool,
     stored_fields_consumer: StoredFieldsConsumer<D>,
     field_hash: Vec<i32>,
     hash_mask: usize,
@@ -139,7 +137,6 @@ where
     per_fields: Vec<PerField>,
     doc_fields: Vec<usize>,
     info_stream: InfoStreamMT,
-    byte_block_allocator: AllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
     context: IndexContext,
@@ -147,11 +144,13 @@ where
 pub(crate) struct IndexContext {
     pub(crate) term_vectors_int_pool: IntBlockPool,
     pub(crate) freq_prox_term_int_pool: IntBlockPool,
+    pub(crate) byte_pool: ByteBlockPool,
 }
 impl IndexContext {
     pub(crate) fn reset(&mut self) {
         self.term_vectors_int_pool.reset(false, false);
         self.freq_prox_term_int_pool.reset(false, false);
+        self.byte_pool.reset(false, false);
     }
 }
 
@@ -169,49 +168,38 @@ where
         D1: Directory,
     {
         let bytes_used = Arc::new(AtomicCounter::new());
-        let byte_block_allocator =
-            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
         let (stored_fields_consumer, term_vectors_writer) = if segment_info
             .get_index_sort()
             .is_none()
         {
             (
                 StoredFieldsConsumer::new(Arc::clone(&directory), None),
-                TermVectorsConsumer::new(
-                    DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
-                    Arc::clone(&directory),
-                    None,
-                ),
+                TermVectorsConsumer::new(Arc::clone(&directory), None),
             )
         } else {
             let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone());
             let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone());
             (
                 StoredFieldsConsumer::new(Arc::clone(&directory), Some(stored_fields_consumer_sub)),
-                TermVectorsConsumer::new(
-                    DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
-                    Arc::clone(&directory),
-                    Some(term_vector_consumer_sub),
-                ),
+                TermVectorsConsumer::new(Arc::clone(&directory), Some(term_vector_consumer_sub)),
             )
         };
 
-        let terms_hash = FreqProxTermsWriter::new(
-            DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+        let terms_hash = FreqProxTermsWriter::new(bytes_used.clone(), term_vectors_writer);
+        let doc_values_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
             bytes_used.clone(),
-            term_vectors_writer,
-        );
-        let doc_values_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new(
-            DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
-        )));
+        ));
         let info_stream = index_writer_config.get_info_stream().clone();
         let term_vectors_int_pool =
             IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
         let freq_prox_term_int_pool =
             IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+        let allocator = DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone());
+        let byte_pool = ByteBlockPool::new(allocator);
         let context = IndexContext {
             term_vectors_int_pool,
             freq_prox_term_int_pool,
+            byte_pool,
         };
         IndexingChain {
             bytes_used,
@@ -225,7 +213,6 @@ where
             fields: vec![0; 1],
             per_fields: vec![],
             doc_fields: vec![0; 2],
-            byte_block_allocator,
             info_stream,
             index_created_version_major,
             has_hit_aborting_exception: false,
@@ -312,7 +299,8 @@ where
     {
         // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,
         // so that DocValuesWriter::get_doc_values can be an immutable (&self) method.
-        self.finish_doc_values_writer()?;
+        let pool = std::mem::take(&mut self.doc_values_byte_pool);
+        self.finish_doc_values_writer(pool)?;
         // NOTE: caller (DocumentsWriterPerThread) handles
         // aborting on any exception from this method
         let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
@@ -417,6 +405,7 @@ where
 
         // flush postings + vectors
         let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
+        let byte_pool = std::mem::take(&mut self.context.byte_pool);
         let t0 = Instant::now();
         self.terms_hash.flush(
             fields_to_flush,
@@ -427,6 +416,7 @@ where
             segment_info,
             seg_updates,
             int_pool,
+            byte_pool,
         )?;
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
@@ -505,14 +495,15 @@ where
         Ok(())
     }
     // Finishes all doc values writers.
-    fn finish_doc_values_writer(&mut self) -> Result<()> {
+    fn finish_doc_values_writer(&mut self, pool: ByteBlockPool) -> Result<()> {
+        let pool = Arc::new(pool);
         let mut per_field_index;
         for i in 0..self.field_hash.len() {
             per_field_index = self.field_hash[i];
             while per_field_index >= 0 {
                 let per_field = &mut self.per_fields[per_field_index as usize];
                 if let Some(ref mut writer) = per_field.doc_values_writer {
-                    writer.finish()?;
+                    writer.finish(pool.clone())?;
                 }
                 per_field_index = per_field.next;
             }
@@ -793,6 +784,7 @@ where
                 info,
                 &mut self.per_fields,
                 &mut self.context.term_vectors_int_pool,
+                &mut self.context.byte_pool,
             )?;
         }
         result
@@ -878,12 +870,9 @@ where
                 ));
             },
             DocValuesType::Sorted => {
-                pf.doc_values_writer =
-                    Some(DocValuesWriterEnum::Sorted(SortedDocValuesWriter::new(
-                        fi.clone(),
-                        self.bytes_used.clone(),
-                        self.doc_values_byte_pool.clone(),
-                    )?));
+                pf.doc_values_writer = Some(DocValuesWriterEnum::Sorted(
+                    SortedDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+                ));
             },
             DocValuesType::SortedNumeric => {
                 pf.doc_values_writer = Some(DocValuesWriterEnum::SortedNumeric(
@@ -892,11 +881,7 @@ where
             },
             DocValuesType::SortedSet => {
                 pf.doc_values_writer = Some(DocValuesWriterEnum::SortedSet(
-                    SortedSetDocValuesWriter::new(
-                        fi.clone(),
-                        self.bytes_used.clone(),
-                        self.doc_values_byte_pool.clone(),
-                    )?,
+                    SortedSetDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
                 ));
             },
         }
@@ -978,7 +963,7 @@ where
 
         let dv_type = *field_type.doc_values_type();
         if dv_type != DocValuesType::None {
-            Self::index_doc_value(doc_id, pf, dv_type, field)?;
+            Self::index_doc_value(doc_id, pf, dv_type, field, &mut self.doc_values_byte_pool)?;
         }
 
         // points
@@ -1171,6 +1156,7 @@ where
         fp: &mut PerField,
         dv_type: DocValuesType,
         field: &impl IndexableField,
+        pool: &mut ByteBlockPool,
     ) -> Result<()> {
         match fp.doc_values_writer.as_mut() {
             Some(DocValuesWriterEnum::Numeric(writer)) => {
@@ -1215,7 +1201,7 @@ where
                         fp.field_info.as_ref().unwrap().name
                     ))
                 })?;
-                writer.add_value(doc_id, bytes.as_ref())?;
+                writer.add_value(doc_id, bytes.as_ref(), pool)?;
             },
             Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
                 debug_assert_eq!(dv_type, DocValuesType::SortedNumeric);
@@ -1250,7 +1236,7 @@ where
                         fp.field_info.as_ref().unwrap().name
                     ))
                 })?;
-                writer.add_value(doc_id, bytes.as_ref())?;
+                writer.add_value(doc_id, bytes.as_ref(), pool)?;
             },
             None => {
                 return Err(LuceneError::illegal_state(format!(
@@ -1506,7 +1492,7 @@ impl PerField {
                 };
 
          let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-                terms_hash_per_field.start(field, first)?;
+                terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
         let mut stream = field
             .token_stream(ts)?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
@@ -1682,7 +1668,7 @@ impl PerField {
         state.position += 1;
         state.length += 1;
         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first)?;
+        terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
         match state.length.checked_add(1) {
             Some(new_length) => {
                 state.length = new_length;

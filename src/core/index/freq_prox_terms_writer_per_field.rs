@@ -32,12 +32,12 @@ use crate::core::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
 use crate::core::store::directory::Directory;
-use crate::core::util::ToInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
+use crate::core::util::{ByteBlockPool, ToInt};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -88,8 +88,6 @@ impl FreqProxTermsWriterPerField {
         ));
         let base = TermsHashPerField::new(
             stream_count,
-            terms_hash.base.byte_pool.clone(),
-            terms_hash.base.term_byte_pool.as_ref().unwrap().clone(),
             terms_hash.base.bytes_used.clone(),
             postings_array_wrapper,
             name,
@@ -112,24 +110,30 @@ impl FreqProxTermsWriterPerField {
         field_state: &FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         if let Some(payload) = attribute_source.get_payload() {
             if payload.length > 0 {
-                self.base.write_vint(1, (prox_code << 1) | 1, int_pool)?;
-                self.base.write_vint(1, payload.length as i32, int_pool)?;
+                self.base
+                    .write_vint(1, (prox_code << 1) | 1, int_pool, byte_pool)?;
+                self.base
+                    .write_vint(1, payload.length as i32, int_pool, byte_pool)?;
                 self.base.write_bytes(
                     1,
                     &payload.bytes,
                     payload.offset,
                     payload.length,
                     int_pool,
+                    byte_pool,
                 )?;
                 self.saw_payloads = true;
             } else {
-                self.base.write_vint(1, prox_code << 1, int_pool)?;
+                self.base
+                    .write_vint(1, prox_code << 1, int_pool, byte_pool)?;
             }
         } else {
-            self.base.write_vint(1, prox_code << 1, int_pool)?;
+            self.base
+                .write_vint(1, prox_code << 1, int_pool, byte_pool)?;
         }
         let postings_array_enum = self
             .base
@@ -158,6 +162,7 @@ impl FreqProxTermsWriterPerField {
         offset_accum: i32,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let (start, end) = attribute_source
             .start_offset()
@@ -196,8 +201,8 @@ impl FreqProxTermsWriterPerField {
             },
             _ => unreachable!("expected FreqProx posting array"),
         };
-        self.base.write_vint(1, v1, int_pool)?;
-        self.base.write_vint(1, v2, int_pool)?;
+        self.base.write_vint(1, v1, int_pool, byte_pool)?;
+        self.base.write_vint(1, v2, int_pool, byte_pool)?;
 
         Ok(())
     }
@@ -232,10 +237,10 @@ impl FreqProxTermsWriterPerField {
                 .expect("should not fail")
         }
     }
-    pub(crate) fn reset(&mut self) {
-        self.base.reset();
+    pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
+        self.base.reset(byte_pool);
         if self.next_per_field.is_some() {
-            self.next_per_field.as_mut().unwrap().reset();
+            self.next_per_field.as_mut().unwrap().reset(byte_pool);
         }
     }
     /// Called once per inverted token. This is the primary entry point (for
@@ -264,16 +269,24 @@ impl FreqProxTermsWriterPerField {
                 bytes.as_ref().unwrap()
             },
         };
-        let mut term_id = self.base.bytes_hash.add(term_bytes)?;
+        let mut term_id = self
+            .base
+            .bytes_hash
+            .add(term_bytes, &mut context.byte_pool)?;
         if term_id >= 0 {
-            self.base
-                .init_stream_slices(term_id, doc_id, &mut context.freq_prox_term_int_pool)?;
+            self.base.init_stream_slices(
+                term_id,
+                doc_id,
+                &mut context.freq_prox_term_int_pool,
+                &mut context.byte_pool,
+            )?;
             self.new_term(
                 term_id,
                 doc_id,
                 field_state,
                 attribute_source,
                 &mut context.freq_prox_term_int_pool,
+                &mut context.byte_pool,
             )?;
         } else {
             term_id = self.base.position_stream_slice(term_id, doc_id)?;
@@ -283,6 +296,7 @@ impl FreqProxTermsWriterPerField {
                 field_state,
                 attribute_source,
                 &mut context.freq_prox_term_int_pool,
+                &mut context.byte_pool,
             )?;
         }
 
@@ -300,6 +314,7 @@ impl FreqProxTermsWriterPerField {
                 field_state,
                 attribute_source,
                 &mut context.term_vectors_int_pool,
+                &mut context.byte_pool,
             )?;
         }
         Ok(())
@@ -312,18 +327,20 @@ impl FreqProxTermsWriterPerField {
         sub: &mut TermsHashPerFieldMock,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         debug_assert!(self.base.assert_doc_id(doc_id));
         // We are first in the chain so we must "intern" the
         // term text into textStart address
         // Get the text & hash of this term.
-        let mut term_id = self.base.bytes_hash.add(term_bytes)?;
+        let mut term_id = self.base.bytes_hash.add(term_bytes, byte_pool)?;
         if term_id >= 0 {
-            self.base.init_stream_slices(term_id, doc_id, int_pool)?;
+            self.base
+                .init_stream_slices(term_id, doc_id, int_pool, byte_pool)?;
             sub.new_term(term_id, doc_id, &mut self.base)?;
         } else {
             term_id = self.base.position_stream_slice(term_id, doc_id)?;
-            sub.add_term(term_id, doc_id, &mut self.base, int_pool)?;
+            sub.add_term(term_id, doc_id, &mut self.base, int_pool, byte_pool)?;
         }
 
         if let Some(ref mut next_per_field) = self.next_per_field {
@@ -340,16 +357,22 @@ impl FreqProxTermsWriterPerField {
                 &mut sub.field_state,
                 attribute_source,
                 int_pool,
+                byte_pool,
             )?;
         }
         Ok(())
     }
-    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
+    pub(crate) fn start<F>(
+        &mut self,
+        field: &F,
+        first: bool,
+        byte_pool: &mut ByteBlockPool,
+    ) -> Result<bool>
     where
         F: IndexableField,
     {
         match self.next_per_field {
-            Some(ref mut next_per_field) => next_per_field.start(field, first)?,
+            Some(ref mut next_per_field) => next_per_field.start(field, first, byte_pool)?,
             None => true,
         };
         Ok(true)
@@ -363,6 +386,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         field_state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let term_id = term_id as usize;
         // First time we're seeing this term since the last
@@ -396,6 +420,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                             field_state,
                             attribute_source,
                             int_pool,
+                            byte_pool,
                         )?;
                         if self.has_offsets {
                             self.write_offsets(
@@ -403,6 +428,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                                 field_state.offset,
                                 attribute_source,
                                 int_pool,
+                                byte_pool,
                             )?;
                         }
                     } else {
@@ -430,6 +456,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         field_state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let term_id = term_id as usize;
 
@@ -470,7 +497,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     }
                     // Due to borrow conflict, we add later before handle prox/offset
                     for x in v {
-                        self.base.write_vint(0, x, int_pool)?
+                        self.base.write_vint(0, x, int_pool, byte_pool)?
                     }
                 } else if doc_id != postings.last_doc_ids[term_id] {
                     debug_assert!(
@@ -508,7 +535,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     }
                     // Due to borrow conflict, we add later before handle prox/offset
                     for x in v {
-                        self.base.write_vint(0, x, int_pool)?
+                        self.base.write_vint(0, x, int_pool, byte_pool)?
                     }
                     if self.has_prox {
                         self.write_prox(
@@ -517,6 +544,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                             field_state,
                             attribute_source,
                             int_pool,
+                            byte_pool,
                         )?;
                         if self.has_offsets {
                             self.write_offsets(
@@ -524,6 +552,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                                 field_state.offset,
                                 attribute_source,
                                 int_pool,
+                                byte_pool,
                             )?;
                         }
                     } else {
@@ -542,13 +571,21 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                     if self.has_prox {
                         let delta = field_state.position
                             - postings.last_positions.as_ref().unwrap()[term_id];
-                        self.write_prox(term_id, delta, field_state, attribute_source, int_pool)?;
+                        self.write_prox(
+                            term_id,
+                            delta,
+                            field_state,
+                            attribute_source,
+                            int_pool,
+                            byte_pool,
+                        )?;
                         if self.has_offsets {
                             self.write_offsets(
                                 term_id,
                                 field_state.offset,
                                 attribute_source,
                                 int_pool,
+                                byte_pool,
                             )?;
                         }
                     }

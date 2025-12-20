@@ -28,9 +28,10 @@ use crate::core::util::int_block_pool::{
     INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPool,
 };
 use crate::core::util::{
-    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPoolLock, Counter, SharedCounter,
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter,
     SliceCopyOps,
 };
+use std::ops::Deref;
 
 /// This struct stores streams of information per term without knowing the size
 /// of the stream ahead of time. Each stream typically encodes one level of
@@ -41,7 +42,6 @@ use crate::core::util::{
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
 pub struct TermsHashPerField {
-    pub(crate) byte_pool: ByteBlockPoolLock,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the
     // bytePool above the address is updated once data is written to the
@@ -66,11 +66,8 @@ pub struct TermsHashPerField {
 impl TermsHashPerField {
     ///  streamCount: how many streams this field stores per term. E.g.
     /// doc(+freq) is 1 stream, prox+offset is a second.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         stream_count: i32,
-        byte_pool: ByteBlockPoolLock,
-        term_byte_pool: ByteBlockPoolLock,
         bytes_used: SharedCounter,
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
@@ -82,10 +79,8 @@ impl TermsHashPerField {
         let slice_pool = ByteSlicePool;
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
-        let bytes_hash =
-            BytesRefHash::from_bytes_start_array(term_byte_pool, HASH_INIT_SIZE, byte_starts);
+        let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE, byte_starts);
         TermsHashPerField {
-            byte_pool,
             slice_pool,
             term_stream_address_buffer_index: 0,
             stream_address_offset: 0,
@@ -97,13 +92,15 @@ impl TermsHashPerField {
             index_options,
         }
     }
-    pub(crate) fn init_reader(
+    pub(crate) fn init_reader<P>(
         &self,
-        reader: &mut ByteSliceReader,
+        reader: &mut ByteSliceReader<P>,
         term_id: i32,
         stream: i32,
         int_pool: &IntBlockPool,
-    ) {
+    ) where
+        P: Deref<Target = ByteBlockPool>,
+    {
         debug_assert!(stream < self.stream_count);
         let term_id = term_id as usize;
         let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
@@ -125,14 +122,14 @@ impl TermsHashPerField {
             .unwrap()
             .get_byte_starts()[term_id]
             + stream * ByteSlicePool::FIRST_LEVEL_SIZE;
-        reader.init(self.byte_pool.clone(), init_offset, addr)
+        reader.init(init_offset, addr)
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs
     /// to the results. This method must not be called twice unless
     /// [`reset()`](Self::reset) or
     /// [`reinit_hash()`](Self::reinit_hash) was called.
-    pub(crate) fn sort_terms(&mut self) -> Result<()> {
-        self.bytes_hash.sort()?;
+    pub(crate) fn sort_terms(&mut self, byte_pool: &ByteBlockPool) -> Result<()> {
+        self.bytes_hash.sort(byte_pool)?;
         Ok(())
     }
     /// Returns the sorted term IDs.
@@ -141,12 +138,17 @@ impl TermsHashPerField {
         self.bytes_hash.ids.as_slice()
     }
 
-    pub(crate) fn write_byte(&self, stream: i32, b: u8, int_pool: &mut IntBlockPool) -> Result<()> {
+    pub(crate) fn write_byte(
+        &self,
+        stream: i32,
+        b: u8,
+        int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
+    ) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let term_stream_address_buffer =
             int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
-        let mut byte_pool = self.byte_pool.lock();
         let mut block_index = upto >> BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
         let mut bytes = byte_pool.get_buffer_mut(block_index);
@@ -155,7 +157,7 @@ impl TermsHashPerField {
             // End of slice; allocate a new one
             offset = self
                 .slice_pool
-                .alloc_slice(block_index, offset, &mut byte_pool)?;
+                .alloc_slice(block_index, offset, byte_pool)?;
             term_stream_address_buffer[stream_address] = offset + byte_pool.byte_offset;
             // try update bytes
             block_index = byte_pool.buffer_upto;
@@ -172,6 +174,7 @@ impl TermsHashPerField {
         mut offset: usize,
         len: usize,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let end = offset + len;
         let stream_address = (self.stream_address_offset + stream) as usize;
@@ -180,7 +183,6 @@ impl TermsHashPerField {
             int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         {
-            let mut byte_pool = self.byte_pool.lock();
             let mut block_index = upto >> BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer_mut(block_index);
@@ -193,17 +195,15 @@ impl TermsHashPerField {
                 term_stream_address_buffer[stream_address] += 1;
             }
 
-            drop(byte_pool);
             while offset < end {
                 debug_assert!(slice_offset <= i32::MAX as usize);
                 let offset_and_length = self.slice_pool.alloc_known_size_slice(
                     block_index,
                     slice_offset as i32,
-                    &mut self.byte_pool.lock(),
+                    byte_pool,
                 )?;
                 slice_offset = (offset_and_length >> 8) as usize;
                 let slice_length = offset_and_length & 0xff;
-                let mut byte_pool = self.byte_pool.lock();
                 let buffer_upto = byte_pool.buffer_upto;
                 block_index = buffer_upto;
                 let slice = byte_pool.get_buffer_mut(buffer_upto);
@@ -223,13 +223,14 @@ impl TermsHashPerField {
         stream: i32,
         mut i: i32,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         debug_assert!(stream < self.stream_count);
         while (i & !0x7F) != 0 {
-            self.write_byte(stream, ((i & 0x7F) | 0x80) as u8, int_pool)?;
+            self.write_byte(stream, ((i & 0x7F) | 0x80) as u8, int_pool, byte_pool)?;
             i = ((i as u32) >> 7) as i32;
         }
-        self.write_byte(stream, i as u8, int_pool)
+        self.write_byte(stream, i as u8, int_pool, byte_pool)
     }
 
     pub(crate) fn get_field_name(&self) -> &str {
@@ -239,8 +240,8 @@ impl TermsHashPerField {
     pub(crate) fn get_num_terms(&self) -> i32 {
         self.bytes_hash.size()
     }
-    pub(crate) fn reset(&mut self) {
-        self.bytes_hash.clear_with_reset_pool(false);
+    pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
+        self.bytes_hash.clear_with_reset_pool(false, byte_pool);
     }
 
     pub(crate) fn reinit_hash(&mut self) {
@@ -256,19 +257,16 @@ impl TermsHashPerField {
         term_id: i32,
         _doc_id: i32,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
-        let byte_offset;
+        if BYTE_BLOCK_SIZE - byte_pool.byte_upto
+            < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
         {
-            let mut byte_pool = self.byte_pool.lock();
-            if BYTE_BLOCK_SIZE - byte_pool.byte_upto
-                < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
-            {
-                // can we fit at least one byte per stream in the current
-                // buffer, if not allocate a new one
-                byte_pool.next_buffer()?;
-            }
-            byte_offset = byte_pool.byte_offset;
+            // can we fit at least one byte per stream in the current
+            // buffer, if not allocate a new one
+            byte_pool.next_buffer()?;
         }
+        let byte_offset = byte_pool.byte_offset;
         {
             if self.stream_count + int_pool.int_upto > INT_BLOCK_SIZE {
                 int_pool.next_buffer()?;
@@ -292,7 +290,7 @@ impl TermsHashPerField {
             for i in 0..self.stream_count as usize {
                 let upto = self
                     .slice_pool
-                    .new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut self.byte_pool.lock())?;
+                    .new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, byte_pool)?;
                 term_stream_address_buffer[self.stream_address_offset as usize + i] =
                     upto + byte_offset;
             }
@@ -343,6 +341,7 @@ pub(crate) trait TermsHashPerFieldBase {
         state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()>;
     /// Called when a previously seen term is seen again.
     fn add_term(
@@ -352,6 +351,7 @@ pub(crate) trait TermsHashPerFieldBase {
         state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
@@ -515,9 +515,8 @@ pub(crate) const HASH_INIT_SIZE: i32 = 4;
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use parking_lot::Mutex;
     use std::collections::{BTreeMap, HashMap};
-
+    use std::ops::Deref;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -535,7 +534,7 @@ pub(crate) mod tests {
     use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
     use crate::core::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
     use crate::core::store::DataInput;
-    use crate::core::store::dummy::dummy_directory::DummyDirectory;
+
     use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::core::util::attribute_source::EmptyAttributeSource;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -544,7 +543,7 @@ pub(crate) mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
-    use crate::test::util::test_util::TestUtil;
+
     use rand::Rng;
     use rand::distr::Alphanumeric;
     use rand::prelude::SliceRandom;
@@ -556,14 +555,17 @@ pub(crate) mod tests {
         TermsHashPerFieldMock::new(new_called, add_called)
     }
 
-    fn assert_doc_and_freq(
-        reader: &mut ByteSliceReader,
+    fn assert_doc_and_freq<P>(
+        reader: &mut ByteSliceReader<P>,
         postings_array_wrapper: &PostingsArrayWrapper,
         prev_doc: i32,
         term_id: i32,
         doc: i32,
         frequency: i32,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        P: Deref<Target = ByteBlockPool>,
+    {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
         let postings_array_enum = postings_array_wrapper.postings_array.as_ref().unwrap();
@@ -613,8 +615,9 @@ pub(crate) mod tests {
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
+        let mut byte_pool = ByteBlockPool::new(AllocatorByteEnum::DA(DirectAllocatorByte::new()));
         let mut base = hash.base.take().unwrap();
-        base.start(&dummy_filed, true)?;
+        base.start(&dummy_filed, true, &mut byte_pool)?;
         // Pass `None` for the field as in the Java version (null)
         let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(
             Arc::new(AtomicCounter::new()),
@@ -627,6 +630,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foo")?,
@@ -634,6 +638,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -641,6 +646,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
@@ -649,6 +655,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foobar")?,
@@ -656,6 +663,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -663,6 +671,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -670,6 +679,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foobar")?,
@@ -677,6 +687,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
@@ -684,6 +695,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
@@ -692,6 +704,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "boom")?,
@@ -699,6 +712,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
@@ -707,6 +721,7 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "end")?,
@@ -714,13 +729,14 @@ pub(crate) mod tests {
             &mut hash,
             &attribute_source,
             &mut int_pool,
+            &mut byte_pool,
         )?;
         // base.finish();
 
         assert_eq!(7, hash.new_called.load(Ordering::SeqCst));
         assert_eq!(6, hash.add_called.load(Ordering::SeqCst));
 
-        let mut reader = ByteSliceReader::new();
+        let mut reader = ByteSliceReader::new(&byte_pool);
         base.base.init_reader(&mut reader, 0, 0, &int_pool);
 
         let postings_array_wrapper = &base.base.bytes_hash.bytes_start_array.per_field;
@@ -825,7 +841,11 @@ pub(crate) mod tests {
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
-        hash.base.as_mut().unwrap().start(&dummy_filed, true)?;
+        let mut byte_pool = ByteBlockPool::new(AllocatorByteEnum::DA(DirectAllocatorByte::new()));
+        hash.base
+            .as_mut()
+            .unwrap()
+            .start(&dummy_filed, true, &mut byte_pool)?;
         let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(
             Arc::new(AtomicCounter::new()),
         ));
@@ -888,6 +908,7 @@ pub(crate) mod tests {
                     &mut hash,
                     &EmptyAttributeSource,
                     &mut int_pool,
+                    &mut byte_pool,
                 )?;
             }
             // base.finish();
@@ -899,7 +920,7 @@ pub(crate) mod tests {
             .cloned()
             .collect();
         values.shuffle(&mut random);
-        let mut reader = ByteSliceReader::new();
+        let mut reader = ByteSliceReader::new(&byte_pool);
 
         let postings_array_wrapper = &base.base.bytes_hash.bytes_start_array.per_field;
         for posting in values {
@@ -931,64 +952,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn test_write_bytes() -> Result<()> {
-        let mut random = random();
-        let attribute_source = EmptyAttributeSource;
-        let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(
-            Arc::new(AtomicCounter::new()),
-        ));
-        for _ in 0..100 {
-            let new_called = AtomicI64::new(0);
-            let add_called = AtomicI64::new(0);
-            let mut hash = create_new_hash(new_called, add_called);
-            let dummy_value = "dummy";
-            let dummy_filed = Fields::Stored(StoredField::with_binary(
-                "binary",
-                dummy_value.as_bytes().to_vec(),
-            )?);
-            let mut base = hash.base.take().unwrap();
-            base.start(&dummy_filed, true)?;
-            base.add_with_bytes_ref_with_test(
-                &new_bytes_ref_from_string(&mut random, "start")?,
-                0,
-                &mut hash,
-                &attribute_source,
-                &mut int_pool,
-            )?;
-
-            let size = random.random_range(50_000..=100_000);
-            let mut random_data = vec![0u8; size];
-            random.fill(&mut random_data[..]);
-
-            let mut offset = 0;
-            while offset < random_data.len() {
-                let write_length = std::cmp::min(
-                    random_data.len() - offset,
-                    TestUtil::next_int(&mut random, 1, 200) as usize,
-                );
-                debug_assert!(offset <= i32::MAX as usize);
-                debug_assert!(write_length <= i32::MAX as usize);
-                base.base
-                    .write_bytes(0, &random_data, offset, write_length, &mut int_pool)?;
-                offset += write_length;
-            }
-
-            let mut reader = ByteSliceReader::new();
-            {
-                let byte_block_pool = base.base.byte_pool;
-                let byte_offset;
-                let byte_upto;
-                {
-                    let byte_pool = byte_block_pool.lock();
-                    byte_offset = byte_pool.byte_offset;
-                    byte_upto = byte_pool.byte_upto;
-                }
-                reader.init(byte_block_pool, 0, byte_offset + byte_upto);
-            }
-
-            for &expected in &random_data {
-                assert_eq!(expected, reader.read_byte()?);
-            }
-        }
+        // this test is not required in Rust Lucene
         Ok(())
     }
 
@@ -1001,17 +965,8 @@ pub(crate) mod tests {
     impl TermsHashPerFieldMock {
         #[allow(clippy::new_ret_no_self)]
         pub(crate) fn new(new_called: AtomicI64, add_called: AtomicI64) -> Self {
-            let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
             let bytes_used = Arc::new(AtomicCounter::new());
-            let _int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(
-                Arc::new(AtomicCounter::new()),
-            ));
-            let mut writer: FreqProxTermsWriter<DummyDirectory> =
-                FreqProxTermsWriter::new(allocator, bytes_used, TermVectorsConsumer::default());
-
-            let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            writer.base.term_byte_pool =
-                Some(Arc::new(Mutex::new(ByteBlockPool::new(allocator_term))));
+            let writer = FreqProxTermsWriter::new(bytes_used, TermVectorsConsumer::default());
 
             let field_state = FieldInvertState::default();
             let mut field_info = FieldInfo::default();
@@ -1063,6 +1018,7 @@ pub(crate) mod tests {
             doc_id: i32,
             base: &mut TermsHashPerField,
             int_pool: &mut IntBlockPool,
+            byte_pool: &mut ByteBlockPool,
         ) -> Result<()> {
             self.add_called.fetch_add(1, Ordering::SeqCst);
             let term_id = term_id as usize;
@@ -1099,9 +1055,7 @@ pub(crate) mod tests {
                             Some(term_freqs) => {
                                 let value = term_freqs[term_id] as i64 + 1;
                                 if value > i32::MAX as i64 {
-                                    return Err(LuceneError::number_overflow(
-                                        "term_freqs".to_string(),
-                                    ));
+                                    return Err(LuceneError::number_overflow("term_freqs"));
                                 }
                                 term_freqs[term_id] += 1;
                             },
@@ -1113,7 +1067,7 @@ pub(crate) mod tests {
             }
             if need_write {
                 for x in v {
-                    base.write_vint(0, x, int_pool)?;
+                    base.write_vint(0, x, int_pool, byte_pool)?;
                 }
             }
             Ok(())

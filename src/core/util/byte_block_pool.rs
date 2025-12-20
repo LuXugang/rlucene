@@ -24,7 +24,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum};
+use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// This struct enables the allocation of fixed-size buffers and their
@@ -49,6 +49,12 @@ pub struct ByteBlockPool {
     /// are too many allocated blocks.
     pub(crate) byte_offset: i32,
     pub(crate) byte_upto: i32,
+}
+impl Default for ByteBlockPool {
+    fn default() -> Self {
+        let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+        Self::new(allocator)
+    }
 }
 impl ByteBlockPool {
     pub fn new(allocator: AllocatorByteEnum) -> Self {

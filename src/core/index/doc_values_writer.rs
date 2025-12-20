@@ -39,6 +39,7 @@ use crate::core::index::sorted_set_doc_values_writer::{
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either5DocIdSetIterator};
 use crate::core::store::directory::Directory;
+use crate::core::util::ByteBlockPool;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use std::fmt::Display;
@@ -58,7 +59,7 @@ pub(crate) trait DocValuesWriter: Display {
 
     type DocIdSetIterator: DocIdSetIterator;
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator>;
-    fn finish(&mut self) -> Result<()>;
+    fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()>;
 }
 
 pub(crate) enum DocValuesWriterEnum {
@@ -132,13 +133,13 @@ impl DocValuesWriter for DocValuesWriterEnum {
         }
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
         match self {
-            DocValuesWriterEnum::Binary(writer) => writer.finish(),
-            DocValuesWriterEnum::Numeric(writer) => writer.finish(),
-            DocValuesWriterEnum::SortedNumeric(writer) => writer.finish(),
-            DocValuesWriterEnum::Sorted(writer) => writer.finish(),
-            DocValuesWriterEnum::SortedSet(writer) => writer.finish(),
+            DocValuesWriterEnum::Binary(writer) => writer.finish(pool),
+            DocValuesWriterEnum::Numeric(writer) => writer.finish(pool),
+            DocValuesWriterEnum::SortedNumeric(writer) => writer.finish(pool),
+            DocValuesWriterEnum::Sorted(writer) => writer.finish(pool),
+            DocValuesWriterEnum::SortedSet(writer) => writer.finish(pool),
         }
     }
 }

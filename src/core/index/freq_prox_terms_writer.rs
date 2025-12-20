@@ -46,7 +46,6 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
-use crate::core::util::allocator_byte::AllocatorByteEnum;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -56,7 +55,9 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::core::util::packed::PackedInts;
-use crate::core::util::{SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
+use crate::core::util::{
+    ByteBlockPool, SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt,
+};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -73,14 +74,8 @@ impl<D> FreqProxTermsWriter<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(
-        byte_block_allocator: AllocatorByteEnum,
-        bytes_used: SharedCounter,
-        mut next_terms_hash: TermVectorsConsumer<D>,
-    ) -> Self {
-        let mut base = TermsHash::new(byte_block_allocator, bytes_used);
-        base.term_byte_pool = Some(base.byte_pool.clone());
-        next_terms_hash.base.term_byte_pool = Some(base.byte_pool.clone());
+    pub(crate) fn new(bytes_used: SharedCounter, next_terms_hash: TermVectorsConsumer<D>) -> Self {
+        let base = TermsHash::new(bytes_used);
 
         Self {
             next_terms_hash,
@@ -134,7 +129,6 @@ where
     }
 
     pub(crate) fn abort(&mut self) -> Result<()> {
-        self.base.reset();
         self.next_terms_hash.abort()
     }
 
@@ -149,6 +143,7 @@ where
         info: &SegmentInfo<D1>,
         seg_updates: Option<&mut BufferedUpdates>,
         int_pool: IntBlockPool,
+        byte_pool: ByteBlockPool,
     ) -> Result<()>
     where
         N: NormsProducer,
@@ -163,14 +158,14 @@ where
         let mut all_fields = Vec::new();
         for mut per_field in fields_to_flush.into_values() {
             if per_field.base.get_num_terms() > 0 {
-                per_field.base.sort_terms()?;
+                per_field.base.sort_terms(&byte_pool)?;
                 debug_assert!(per_field.base.index_options != IndexOptions::None);
                 all_fields.push(Rc::new(per_field));
             }
         }
         // Sort by field name
         CollectionUtil::intro_sort(&mut all_fields)?;
-        let mut fields = FreqProxFields::new(all_fields, int_pool);
+        let mut fields = FreqProxFields::new(all_fields, int_pool, byte_pool);
         self.apply_deletes(state, &fields, info, seg_updates)?;
 
         let mut consumer = get_default_code()
@@ -195,12 +190,13 @@ where
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()>
     where
         D1: Directory,
     {
         self.next_terms_hash
-            .finish_document(doc_id, codec, info, per_fields, int_pool)?;
+            .finish_document(doc_id, codec, info, per_fields, int_pool, byte_pool)?;
         Ok(())
     }
     pub(crate) fn start_document(&mut self) -> Result<()> {

@@ -49,7 +49,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{CoreHelper, Counter, SharedCounter};
+use crate::core::util::{ByteBlockPool, CoreHelper, Counter, SharedCounter};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -280,7 +280,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         )
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
         if self.final_values.is_none() {
             debug_assert!(self.final_values_count.is_none());
             self.finish_current_doc()?;

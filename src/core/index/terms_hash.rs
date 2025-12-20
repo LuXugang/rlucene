@@ -14,25 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::allocator_byte::AllocatorByteEnum;
-use crate::core::util::{ByteBlockPool, ByteBlockPoolLock, SharedCounter};
-use parking_lot::Mutex;
-use std::sync::Arc;
+use crate::core::util::SharedCounter;
 
 pub struct TermsHash {
-    pub(crate) byte_pool: ByteBlockPoolLock,
-    pub(crate) term_byte_pool: Option<ByteBlockPoolLock>,
     pub(crate) bytes_used: SharedCounter,
 }
 impl TermsHash {
-    pub(crate) fn new(byte_block_allocator: AllocatorByteEnum, bytes_used: SharedCounter) -> Self {
-        Self {
-            byte_pool: Arc::new(Mutex::new(ByteBlockPool::new(byte_block_allocator))),
-            term_byte_pool: None,
-            bytes_used,
-        }
-    }
-    pub(crate) fn reset(&mut self) {
-        self.byte_pool.lock().reset(false, false)
+    pub(crate) fn new(bytes_used: SharedCounter) -> Self {
+        Self { bytes_used }
     }
 }

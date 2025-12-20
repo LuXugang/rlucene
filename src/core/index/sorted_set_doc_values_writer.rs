@@ -53,7 +53,7 @@ use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
-use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPoolLock, CoreHelper, Counter, SharedCounter};
+use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -83,17 +83,14 @@ pub(crate) struct SortedSetDocValuesWriter {
     // we can simply define an `is_sorted` field to indicate whether the BytesRefHash::sort method has been called.
     is_sorted: bool,
     final_ord_map: Option<Arc<Vec<i32>>>,
+    pool: Arc<ByteBlockPool>,
 }
 
 impl SortedSetDocValuesWriter {
-    pub(crate) fn new(
-        field_info: Arc<FieldInfo>,
-        iw_bytes_used: SharedCounter,
-        pool: ByteBlockPoolLock,
-    ) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
         let bytes_start_array =
             DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, iw_bytes_used.clone());
-        let hash = BytesRefHash::from_bytes_start_array(pool, DEFAULT_CAPACITY, bytes_start_array);
+        let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array);
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
@@ -117,10 +114,16 @@ impl SortedSetDocValuesWriter {
             final_ord_counts: None,
             is_sorted: false,
             final_ord_map: None,
+            pool: Arc::new(ByteBlockPool::default()),
         })
     }
 
-    pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub(crate) fn add_value(
+        &mut self,
+        doc_id: i32,
+        value: &BytesRef<Vec<u8>>,
+        pool: &mut ByteBlockPool,
+    ) -> Result<()> {
         debug_assert!(doc_id >= self.current_doc);
         if value.length > (BYTE_BLOCK_SIZE as usize - 2) {
             return Err(LuceneError::illegal_argument(format!(
@@ -133,7 +136,7 @@ impl SortedSetDocValuesWriter {
             self.finish_current_doc()?;
             self.current_doc = doc_id;
         }
-        self.add_one_value(value)?;
+        self.add_one_value(value, pool)?;
         self.update_bytes_used()
     }
     // finalize currentDoc: this deduplicates the current term ids
@@ -172,8 +175,8 @@ impl SortedSetDocValuesWriter {
         Ok(())
     }
 
-    fn add_one_value(&mut self, value: &BytesRef<Vec<u8>>) -> Result<()> {
-        let mut term_id = self.hash.add(value)?;
+    fn add_one_value(&mut self, value: &BytesRef<Vec<u8>>, pool: &mut ByteBlockPool) -> Result<()> {
+        let mut term_id = self.hash.add(value, pool)?;
         if term_id < 0 {
             term_id = -term_id - 1;
         } else {
@@ -213,6 +216,7 @@ impl SortedSetDocValuesWriter {
     pub(crate) fn get_values(
         ord_map: Arc<Vec<i32>>,
         hash: Arc<DirectBytesRefHash>,
+        pool: Arc<ByteBlockPool>,
         ords: &PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -231,6 +235,7 @@ impl SortedSetDocValuesWriter {
                 BufferedSortedSetDocValues::new(
                     ord_map,
                     hash,
+                    pool,
                     ords,
                     ords_counts,
                     max_count,
@@ -238,7 +243,7 @@ impl SortedSetDocValuesWriter {
                 ),
             )),
             None => Ok(Either2SortedSetDocValues::A(DocValues::singleton_sorted(
-                BufferedSortedDocValues::new(hash, ords, ord_map, docs_iter),
+                BufferedSortedDocValues::new(hash, pool, ords, ord_map, docs_iter),
             )?)),
         }
     }
@@ -272,6 +277,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             let single_value_producer = get_doc_values_producer(
                 self.field_info.clone(),
                 self.hash_rc.clone().unwrap(),
+                self.pool.clone(),
                 ords.clone(),
                 ord_map.clone(),
                 std::mem::take(&mut self.docs_with_field),
@@ -289,6 +295,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
                 &mut SortedSetDocValuesWriter::get_values(
                     ord_map.clone(),
                     self.hash_rc.clone().unwrap(),
+                    self.pool.clone(),
                     &ords,
                     ord_counts.clone(),
                     self.max_count,
@@ -304,6 +311,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             self.field_info.clone(),
             ord_map,
             self.hash_rc.clone().unwrap(),
+            self.pool.clone(),
             ords,
             ord_counts,
             self.max_count,
@@ -328,6 +336,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         SortedSetDocValuesWriter::get_values(
             self.final_ord_map.as_ref().unwrap().clone(),
             self.hash_rc.clone().unwrap(),
+            self.pool.clone(),
             self.final_ords.as_ref().unwrap(),
             self.final_ord_counts.clone(),
             self.max_count,
@@ -335,7 +344,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         )
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
+        self.pool = pool;
         if self.final_ords.is_none() {
             debug_assert!(
                 self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
@@ -347,7 +357,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
                 Some(mut pc) => Some(pc.build()?),
                 None => None,
             };
-            self.hash.sort()?;
+            self.hash.sort(self.pool.as_ref())?;
             self.is_sorted = true;
             let mut ord_map = vec![0; value_count as usize];
             for ord in 0..value_count as usize {
@@ -367,6 +377,7 @@ pub(crate) struct DocValuesProducerImpl1 {
     field_info: Arc<FieldInfo>,
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
+    pool: Arc<ByteBlockPool>,
     ords: PackedLongValues,
     ord_counts: Option<PackedLongValues>,
     max_count: i32,
@@ -379,6 +390,7 @@ impl DocValuesProducerImpl1 {
         field_info: Arc<FieldInfo>,
         ord_map: Arc<Vec<i32>>,
         hash: Arc<DirectBytesRefHash>,
+        pool: Arc<ByteBlockPool>,
         ords: PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -389,6 +401,7 @@ impl DocValuesProducerImpl1 {
             field_info,
             ord_map,
             hash,
+            pool,
             ords,
             ord_counts,
             max_count,
@@ -433,6 +446,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
         let buf = SortedSetDocValuesWriter::get_values(
             self.ord_map.clone(),
             self.hash.clone(),
+            self.pool.clone(),
             &self.ords,
             self.ord_counts.clone(),
             self.max_count,
@@ -497,6 +511,7 @@ where
 {
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
+    pool: Arc<ByteBlockPool>,
     scratch: BytesRef<Vec<u8>>,
     ords_iter: PackedLongValuesIterator,
     ord_counts_iter: PackedLongValuesIterator,
@@ -513,6 +528,7 @@ where
     pub(crate) fn new(
         ord_map: Arc<Vec<i32>>,
         hash: Arc<DirectBytesRefHash>,
+        pool: Arc<ByteBlockPool>,
         ords: &PackedLongValues,
         ord_counts: PackedLongValues,
         max_count: i32,
@@ -521,6 +537,7 @@ where
         Self {
             ord_map,
             hash,
+            pool,
             scratch: BytesRef::new(),
             ords_iter: ords.iterator(),
             ord_counts_iter: ord_counts.iterator(),
@@ -592,7 +609,8 @@ where
         debug_assert!(ord >= 0 && (ord as usize) < self.ord_map.len());
         let idx: i32 = ord.try_into()?;
         let hash_idx = self.hash.ids[idx as usize];
-        self.hash.get(hash_idx, &mut self.scratch);
+        self.hash
+            .get(hash_idx, &mut self.scratch, self.pool.as_ref());
         Ok(Cow::Borrowed(&self.scratch))
     }
 

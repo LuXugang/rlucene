@@ -37,7 +37,6 @@ use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
-use std::ops::DerefMut;
 
 pub(crate) static FLAGS_BITS: Lazy<i32> =
     Lazy::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
@@ -869,11 +868,7 @@ where
         Ok(())
     }
 
-    fn add_positions(
-        &mut self,
-        num_prox: usize,
-        positions: &mut Option<&mut impl DataInput>,
-    ) -> Result<()> {
+    fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()> {
         let cur_field = match self.pending_docs[self.cur_doc]
             .fields
             .get_mut(self.cur_field)
@@ -887,57 +882,48 @@ where
             },
         };
 
-        debug_assert_eq!(cur_field.has_positions, positions.is_some());
         if cur_field.has_positions {
-            if let Some(positions) = positions {
-                let pos_start = cur_field.pos_start + cur_field.total_positions;
-                let len = pos_start + num_prox;
-                if len > self.positions_buf.len() {
-                    ArrayUtil::grow_i32(&mut self.positions_buf, len)?;
+            let pos_start = cur_field.pos_start + cur_field.total_positions;
+            let len = pos_start + num_prox;
+            if len > self.positions_buf.len() {
+                ArrayUtil::grow_i32(&mut self.positions_buf, len)?;
+            }
+
+            let mut position = 0;
+            if cur_field.has_payloads {
+                let pay_start = cur_field.pay_start + cur_field.total_positions;
+                let len = pay_start + num_prox;
+                if len > self.payload_lengths_buf.len() {
+                    ArrayUtil::grow_i32(&mut self.payload_lengths_buf, len)?;
                 }
 
-                let mut position = 0;
-                if cur_field.has_payloads {
-                    let pay_start = cur_field.pay_start + cur_field.total_positions;
-                    let len = pay_start + num_prox;
-                    if len > self.payload_lengths_buf.len() {
-                        ArrayUtil::grow_i32(&mut self.payload_lengths_buf, len)?;
+                for i in 0..num_prox {
+                    let code = positions.read_vint()?;
+                    if (code & 1) != 0 {
+                        // This position has a payload
+                        let payload_len = positions.read_vint()?;
+                        self.payload_lengths_buf[pay_start + i] = payload_len;
+                        self.payload_bytes
+                            .copy_bytes(positions, payload_len as i64)?;
+                    } else {
+                        self.payload_lengths_buf[pay_start + i] = 0;
                     }
-
-                    for i in 0..num_prox {
-                        let code = positions.read_vint()?;
-                        if (code & 1) != 0 {
-                            // This position has a payload
-                            let payload_len = positions.read_vint()?;
-                            self.payload_lengths_buf[pay_start + i] = payload_len;
-                            self.payload_bytes
-                                .copy_bytes(positions.deref_mut(), payload_len as i64)?;
-                        } else {
-                            self.payload_lengths_buf[pay_start + i] = 0;
-                        }
-                        let code = ((code as u32) >> 1) as i32;
-                        position += code;
-                        self.payload_lengths_buf[pay_start + i] = position;
-                    }
-                } else {
-                    for i in 0..num_prox {
-                        let code = positions.read_vint()?;
-                        position += (code as u32 >> 1) as i32;
-                        self.positions_buf[pos_start + i] = position;
-                    }
+                    let code = ((code as u32) >> 1) as i32;
+                    position += code;
+                    self.payload_lengths_buf[pay_start + i] = position;
                 }
             } else {
-                Err(LuceneError::illegal_state("Positions is None"))?
+                for i in 0..num_prox {
+                    let code = positions.read_vint()?;
+                    position += (code as u32 >> 1) as i32;
+                    self.positions_buf[pos_start + i] = position;
+                }
             }
         }
         Ok(())
     }
 
-    fn add_offsets(
-        &mut self,
-        num_prox: usize,
-        offsets: &mut Option<&mut impl DataInput>,
-    ) -> Result<()> {
+    fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()> {
         let cur_field = match self.pending_docs[self.cur_doc]
             .fields
             .get_mut(self.cur_field)
@@ -950,29 +936,24 @@ where
                 )));
             },
         };
-        debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
         if cur_field.has_offsets {
-            if let Some(offsets) = offsets {
-                let off_start = cur_field.off_start + cur_field.total_positions;
-                let len = off_start + num_prox;
-                if self.start_offsets_buf.len() < len {
-                    let new_length = ArrayUtil::oversize(len, 4);
-                    ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length)?;
-                    ArrayUtil::grow_exact(&mut self.lengths_buf, new_length)?;
-                }
+            let off_start = cur_field.off_start + cur_field.total_positions;
+            let len = off_start + num_prox;
+            if self.start_offsets_buf.len() < len {
+                let new_length = ArrayUtil::oversize(len, 4);
+                ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length)?;
+                ArrayUtil::grow_exact(&mut self.lengths_buf, new_length)?;
+            }
 
-                let mut last_offset = 0;
-                for i in 0..num_prox {
-                    let start_offset = last_offset + offsets.read_vint()?;
-                    let end_offset = start_offset + offsets.read_vint()?;
-                    last_offset = end_offset;
-                    debug_assert!(start_offset >= 0);
-                    debug_assert!((end_offset - start_offset) >= 0);
-                    self.start_offsets_buf[off_start + i] = start_offset;
-                    self.lengths_buf[off_start + i] = end_offset - start_offset;
-                }
-            } else {
-                return Err(LuceneError::illegal_state("Offsets is None"))?;
+            let mut last_offset = 0;
+            for i in 0..num_prox {
+                let start_offset = last_offset + offsets.read_vint()?;
+                let end_offset = start_offset + offsets.read_vint()?;
+                last_offset = end_offset;
+                debug_assert!(start_offset >= 0);
+                debug_assert!((end_offset - start_offset) >= 0);
+                self.start_offsets_buf[off_start + i] = start_offset;
+                self.lengths_buf[off_start + i] = end_offset - start_offset;
             }
         }
         Ok(())

@@ -28,13 +28,12 @@ use crate::core::index::doc_values_update::DocValuesUpdate;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::term::Term;
 use crate::core::search::query::Query;
-use crate::core::util::access::SharedAccess;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{AtomicCounter, ByteBlockPool, ByteBlockPoolLock, Counter, SharedCounter};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
 
 /// Holds buffered deletes and updates, including deletions by docID, term, or
 /// query for a single segment.
@@ -246,7 +245,7 @@ pub type BufferedUpdatesLock = Arc<Mutex<BufferedUpdates>>;
 
 pub(crate) struct DeletedTerms {
     bytes_used: SharedCounter,
-    pool: ByteBlockPoolLock,
+    pool: ByteBlockPool,
     delete_terms: HashMap<String, BytesRefIntMap>,
     terms_size: i32,
 }
@@ -255,7 +254,7 @@ impl DeletedTerms {
         let bytes_used = Arc::new(AtomicCounter::new());
         let allocator =
             AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
+        let pool = ByteBlockPool::new(allocator);
         Self::new_impl(pool, bytes_used)
     }
     pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
@@ -263,18 +262,18 @@ impl DeletedTerms {
             Vacant(vacant) => {
                 // TODO: memory calculation not implemented
                 self.bytes_used.add_and_get(0);
-                let new_map = BytesRefIntMap::new(self.pool.clone(), self.bytes_used.clone());
+                let new_map = BytesRefIntMap::new(self.bytes_used.clone());
                 vacant.insert(new_map)
             },
             Occupied(occupied) => occupied.into_mut(),
         };
-        if hash.put(&term.bytes, value)? {
+        if hash.put(&term.bytes, value, &mut self.pool)? {
             self.terms_size += 1;
         }
         Ok(())
     }
     /// Creates a new instance of `DeletedTerms`.
-    fn new_impl(pool: ByteBlockPoolLock, bytes_used: SharedCounter) -> Self {
+    fn new_impl(pool: ByteBlockPool, bytes_used: SharedCounter) -> Self {
         Self {
             bytes_used,
             pool,
@@ -288,13 +287,13 @@ impl DeletedTerms {
     /// `-1`.
     pub(crate) fn get(&self, term: &Term) -> i32 {
         if let Some(hash) = self.delete_terms.get(&term.field) {
-            hash.get(&term.bytes)
+            hash.get(&term.bytes, &self.pool)
         } else {
             -1
         }
     }
     pub(crate) fn clear(&mut self) {
-        self.pool.access_mut(|p| p.reset(false, false));
+        self.pool.reset(false, false);
         let used = -self.bytes_used.get();
         self.bytes_used.add_and_get(used);
         self.delete_terms.clear();
@@ -312,7 +311,7 @@ impl DeletedTerms {
     pub(crate) fn key_set(&self) -> HashSet<Term> {
         let mut set = HashSet::new();
         for (field, hash) in &self.delete_terms {
-            for bytes in hash.key_set() {
+            for bytes in hash.key_set(&self.pool) {
                 set.insert(Term::new(field.clone(), bytes));
             }
         }
@@ -335,19 +334,21 @@ impl DeletedTerms {
         let mut scratch = Term::new("", BytesRef::new());
         for (field, terms) in delete_fields {
             scratch.field = field.clone();
-            terms.bytes_ref_hash.sort()?;
+            terms.bytes_ref_hash.sort(&self.pool)?;
             let indices = &terms.bytes_ref_hash.ids;
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
-                terms.bytes_ref_hash.get(index, &mut scratch.bytes);
+                terms
+                    .bytes_ref_hash
+                    .get(index, &mut scratch.bytes, &self.pool);
                 consumer(&scratch, terms.values[index as usize])?;
             }
         }
         Ok(())
     }
     #[cfg(debug_assertions)]
-    pub(crate) fn get_pool(&self) -> ByteBlockPoolLock {
-        self.pool.clone()
+    pub(crate) fn get_pool(&self) -> &ByteBlockPool {
+        &self.pool
     }
 }
 
@@ -379,9 +380,8 @@ struct BytesRefIntMap {
 }
 
 impl BytesRefIntMap {
-    pub fn new(pool: ByteBlockPoolLock, counter: SharedCounter) -> Self {
+    pub fn new(counter: SharedCounter) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
-            pool,
             DEFAULT_CAPACITY,
             DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, counter.clone()),
         );
@@ -401,19 +401,24 @@ impl BytesRefIntMap {
             values,
         }
     }
-    fn key_set(&self) -> HashSet<BytesRef<Vec<u8>>> {
+    fn key_set(&self, pool: &ByteBlockPool) -> HashSet<BytesRef<Vec<u8>>> {
         let mut scratch = BytesRef::new();
         let mut set = HashSet::new();
 
         for i in 0..self.bytes_ref_hash.size() {
-            self.bytes_ref_hash.get(i, &mut scratch);
+            self.bytes_ref_hash.get(i, &mut scratch, pool);
             set.insert(BytesRef::deep_copy_of(&scratch));
         }
         set
     }
-    fn put(&mut self, key: &BytesRef<Vec<u8>>, value: i32) -> Result<bool> {
+    fn put(
+        &mut self,
+        key: &BytesRef<Vec<u8>>,
+        value: i32,
+        pool: &mut ByteBlockPool,
+    ) -> Result<bool> {
         debug_assert!(value >= 0, "Value must be non-negative.");
-        let e = self.bytes_ref_hash.add(key)?;
+        let e = self.bytes_ref_hash.add(key, pool)?;
         if e < 0 {
             self.values[(-e - 1) as usize] = value;
             Ok(false)
@@ -428,8 +433,8 @@ impl BytesRefIntMap {
             Ok(true)
         }
     }
-    fn get(&self, key: &BytesRef<Vec<u8>>) -> i32 {
-        let e = self.bytes_ref_hash.find(key);
+    fn get(&self, key: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> i32 {
+        let e = self.bytes_ref_hash.find(key, pool);
         if e == -1 { -1 } else { self.values[e as usize] }
     }
 }
@@ -576,8 +581,7 @@ mod tests {
             actual.clear();
             assert_eq!(actual.size(), 0);
             assert_eq!(actual.ram_bytes_used()?, 0);
-            let pool_guard = actual.get_pool();
-            let pool = pool_guard.lock();
+            let pool = actual.get_pool();
             assert_eq!(pool.buffer_upto, -1);
         }
 

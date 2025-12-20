@@ -42,7 +42,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{CoreHelper, Counter, SharedCounter};
+use crate::core::util::{ByteBlockPool, CoreHelper, Counter, SharedCounter};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -151,7 +151,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
         ))
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
         self.docs_with_field.finish();
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)

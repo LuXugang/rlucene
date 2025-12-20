@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_options::IndexOptions;
@@ -28,6 +29,7 @@ use crate::core::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
 use crate::core::store::directory::Directory;
+use crate::core::util::ByteBlockPool;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bit_util::BitUtil;
@@ -55,8 +57,6 @@ impl TermVectorsConsumerPerField {
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::TermVectors);
         let base = TermsHashPerField::new(
             2,
-            terms_hash.base.byte_pool.clone(),
-            terms_hash.base.term_byte_pool.as_ref().unwrap().clone(),
             terms_hash.base.bytes_used.clone(),
             postings_array_wrapper,
             field_info.name.clone(),
@@ -80,6 +80,7 @@ impl TermVectorsConsumerPerField {
         &mut self,
         term_vectors_consumer: &mut TermVectorsConsumer<D>,
         int_pool: &mut IntBlockPool,
+        byte_pool: &ByteBlockPool,
     ) -> Result<()>
     where
         D: Directory,
@@ -92,13 +93,9 @@ impl TermVectorsConsumerPerField {
         let num_postings = self.base.get_num_terms();
         debug_assert!(num_postings >= 0);
 
-        let (tv, pos_reader, off_reader) = (
-            term_vectors_consumer.writer.as_mut().unwrap(),
-            &mut term_vectors_consumer.vector_slice_reader_pos,
-            &mut term_vectors_consumer.vector_slice_reader_off,
-        );
+        let tv = term_vectors_consumer.writer.as_mut().unwrap();
 
-        self.base.sort_terms()?;
+        self.base.sort_terms(byte_pool)?;
         let term_ids = self.base.get_sorted_term_ids();
 
         tv.start_field(
@@ -108,17 +105,6 @@ impl TermVectorsConsumerPerField {
             self.do_vector_offsets,
             self.has_payloads,
         )?;
-
-        let mut pos_reader = if self.do_vector_positions {
-            Some(pos_reader)
-        } else {
-            None
-        };
-        let mut off_reader = if self.do_vector_offsets {
-            Some(off_reader)
-        } else {
-            None
-        };
 
         let postings_array_enum = self
             .base
@@ -130,24 +116,26 @@ impl TermVectorsConsumerPerField {
             .expect("postings_array must be Some");
         match postings_array_enum {
             PostingsArrayEnum::TermVectors(postings) => {
+                let mut off_reader = ByteSliceReader::new(byte_pool);
+                let mut pos_reader = ByteSliceReader::new(byte_pool);
                 for i in 0..num_postings {
                     let term_id = term_ids[i as usize];
                     let freq = postings.freqs[term_id as usize];
                     self.term_byte_pool.fill_bytes_ref(
                         &mut term_vectors_consumer.flush_term,
                         postings.parent.text_starts[term_id as usize],
-                        &self.base.bytes_hash.byte_block_pool.lock(),
+                        byte_pool,
                     );
 
                     tv.start_term(&term_vectors_consumer.flush_term, freq)?;
 
                     if self.do_vector_positions || self.do_vector_offsets {
-                        if let Some(reader) = pos_reader.as_mut() {
-                            self.base.init_reader(reader, term_id, 0, int_pool);
+                        if self.do_vector_positions {
+                            self.base.init_reader(&mut pos_reader, term_id, 0, int_pool);
                             tv.add_positions(freq as usize, &mut pos_reader)?;
                         }
-                        if let Some(reader) = off_reader.as_mut() {
-                            self.base.init_reader(reader, term_id, 1, int_pool);
+                        if self.do_vector_offsets {
+                            self.base.init_reader(&mut off_reader, term_id, 1, int_pool);
                             tv.add_offsets(freq as usize, &mut off_reader)?;
                         }
                         tv.finish_add_prox(freq as usize)?;
@@ -160,13 +148,11 @@ impl TermVectorsConsumerPerField {
         }
 
         tv.finish_field()?;
-
-        self.reset();
         self.field_info.set_store_term_vectors()?;
         Ok(())
     }
-    pub(crate) fn reset(&mut self) {
-        self.base.reset();
+    pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
+        self.base.reset(byte_pool);
     }
     // Secondary entry point (for 2nd & subsequent TermsHash),
     // because token text has already been "interned" into
@@ -179,20 +165,44 @@ impl TermVectorsConsumerPerField {
         state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
-        let term_id = self.base.bytes_hash.add_by_pool_offset(text_start)?;
+        let term_id = self
+            .base
+            .bytes_hash
+            .add_by_pool_offset(text_start, byte_pool)?;
         if term_id >= 0 {
             // First time we are seeing this token since we last
             // flushed the hash.
-            self.base.init_stream_slices(term_id, doc_id, int_pool)?;
-            self.new_term(term_id, doc_id, state, attribute_source, int_pool)?;
+            self.base
+                .init_stream_slices(term_id, doc_id, int_pool, byte_pool)?;
+            self.new_term(
+                term_id,
+                doc_id,
+                state,
+                attribute_source,
+                int_pool,
+                byte_pool,
+            )?;
         } else {
             let term_id = self.base.position_stream_slice(term_id, doc_id)?;
-            self.add_term(term_id, doc_id, state, attribute_source, int_pool)?;
+            self.add_term(
+                term_id,
+                doc_id,
+                state,
+                attribute_source,
+                int_pool,
+                byte_pool,
+            )?;
         }
         Ok(())
     }
-    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
+    pub(crate) fn start<F>(
+        &mut self,
+        field: &F,
+        first: bool,
+        byte_pool: &mut ByteBlockPool,
+    ) -> Result<bool>
     where
         F: IndexableField,
     {
@@ -203,7 +213,7 @@ impl TermVectorsConsumerPerField {
                 // Only necessary if previous doc hit a
                 // non-aborting exception while writing vectors in
                 // this field:
-                self.base.reset();
+                self.base.reset(byte_pool);
             }
 
             self.base.reinit_hash();
@@ -283,6 +293,7 @@ impl TermVectorsConsumerPerField {
         field_state: &FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let postings = self
             .base
@@ -313,9 +324,10 @@ impl TermVectorsConsumerPerField {
                         1,
                         start_offset - postings.last_offsets[term_id],
                         int_pool,
+                        byte_pool,
                     )?;
                     self.base
-                        .write_vint(1, end_offset - start_offset, int_pool)?;
+                        .write_vint(1, end_offset - start_offset, int_pool, byte_pool)?;
                     last_offset = Some(end_offset);
                 }
 
@@ -324,21 +336,24 @@ impl TermVectorsConsumerPerField {
 
                     if let Some(payload) = attribute_source.get_payload() {
                         if payload.length > 0 {
-                            self.base.write_vint(0, (pos << 1) | 1, int_pool)?;
-                            self.base.write_vint(0, payload.length as i32, int_pool)?;
+                            self.base
+                                .write_vint(0, (pos << 1) | 1, int_pool, byte_pool)?;
+                            self.base
+                                .write_vint(0, payload.length as i32, int_pool, byte_pool)?;
                             self.base.write_bytes(
                                 0,
                                 &payload.bytes,
                                 payload.offset,
                                 payload.length,
                                 int_pool,
+                                byte_pool,
                             )?;
                             self.has_payloads = true;
                         } else {
-                            self.base.write_vint(0, pos << 1, int_pool)?;
+                            self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
                         }
                     } else {
-                        self.base.write_vint(0, pos << 1, int_pool)?;
+                        self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
                     }
 
                     last_position = Some(field_state.position);
@@ -413,6 +428,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         field_state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let term_id = term_id as usize;
         let freq = self.get_term_freq(attribute_source)?;
@@ -429,7 +445,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
             postings.last_offsets[term_id] = 0;
             postings.last_positions[term_id] = 0;
 
-            self.write_prox(term_id, field_state, attribute_source, int_pool)?;
+            self.write_prox(term_id, field_state, attribute_source, int_pool, byte_pool)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }
@@ -443,6 +459,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         state: &mut FieldInvertState,
         attribute_source: &impl AttributeSource,
         int_pool: &mut IntBlockPool,
+        byte_pool: &mut ByteBlockPool,
     ) -> Result<()> {
         let term_id = term_id as usize;
         let freq = self.get_term_freq(attribute_source)?;
@@ -457,7 +474,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
         if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
             postings.freqs[term_id] += freq;
-            self.write_prox(term_id, state, attribute_source, int_pool)?;
+            self.write_prox(term_id, state, attribute_source, int_pool, byte_pool)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }
