@@ -18,7 +18,6 @@ use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
-use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -241,21 +240,8 @@ impl OutputIdentity for BytesRef<Arc<Vec<u8>>> {
             && self.length == other.length
     }
 }
-impl OutputIdentity for BytesRef<Arc<Mutex<Vec<u8>>>> {
-    fn is_same_reference(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.bytes, &other.bytes)
-            && self.offset == other.offset
-            && self.length == other.length
-    }
-}
+
 impl OutputIdentity for IntsRef<Arc<Vec<i32>>> {
-    fn is_same_reference(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.ints, &other.ints)
-            && self.offset == other.offset
-            && self.length == other.length
-    }
-}
-impl OutputIdentity for IntsRef<Arc<Mutex<Vec<i32>>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.ints, &other.ints)
             && self.offset == other.offset

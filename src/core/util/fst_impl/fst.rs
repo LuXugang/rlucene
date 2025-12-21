@@ -1504,7 +1504,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use rand::seq::SliceRandom;
-    use std::cell::RefCell;
     use std::collections::HashSet;
     use std::rc::Rc;
     use std::sync::Arc;
@@ -1930,7 +1929,7 @@ mod tests {
 
         let a = new_bytes_ref_from_string(&mut random, "a")?;
         let b = new_bytes_ref_from_string(&mut random, "b")?;
-        let c: BytesRef<Rc<RefCell<Vec<u8>>>> = new_bytes_ref_from_string(&mut random, "c")?;
+        let c: BytesRef<Rc<Vec<u8>>> = new_bytes_ref_from_string(&mut random, "c")?;
 
         let mut v = IntsRefBuilder::new();
         Util::get_ints_ref(&a, &mut v);
