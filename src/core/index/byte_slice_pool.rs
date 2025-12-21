@@ -159,7 +159,6 @@ impl ByteSlicePool {
 #[cfg(test)]
 mod tests {
 
-    use parking_lot::Mutex;
     use rand::Rng;
     use std::sync::Arc;
 
@@ -169,9 +168,7 @@ mod tests {
     };
     use crate::core::util::bit_util::BitUtil;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::core::util::{
-        AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, SliceCopyOps,
-    };
+    use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
 
@@ -250,10 +247,6 @@ mod tests {
     /// slice at a time.
     struct SliceWriter {
         has_started: bool,
-
-        block_pool: ByteBlockPoolLock,
-        slice_pool: Arc<Mutex<ByteSlicePool>>,
-
         size: i32,
         random_data: Vec<u8>,
         data_offset: i32,
@@ -268,11 +261,7 @@ mod tests {
 
     impl SliceWriter {
         /// Creates a new `SliceWriter` instance.
-        pub fn new<R: Rng + ?Sized>(
-            random: &mut R,
-            slice_pool: Arc<Mutex<ByteSlicePool>>,
-            block_pool: ByteBlockPoolLock,
-        ) -> Self {
+        pub fn new<R: Rng + ?Sized>(random: &mut R) -> Self {
             let size: i32 = if random.random_bool(0.5) {
                 // size < ByteBlockPool.BYTE_BLOCK_SIZE
                 random.random_range(100..1000)
@@ -286,8 +275,6 @@ mod tests {
 
             SliceWriter {
                 has_started: false,
-                block_pool,
-                slice_pool,
                 size,
                 random_data,
                 data_offset: 0,
@@ -304,21 +291,22 @@ mod tests {
         /// # Returns
         /// `true` if a slice is written and `false` if we're out of data to
         /// write.
-        pub fn write_slice(&mut self) -> Result<bool> {
+        pub fn write_slice(
+            &mut self,
+            block_pool: &mut ByteBlockPool,
+            slice_pool: &mut ByteSlicePool,
+        ) -> Result<bool> {
             // The first slice is special
-            let mut slice_pool = self.slice_pool.lock();
             if !self.has_started {
                 self.data_offset = 0;
                 self.slice_length = ByteSlicePool::FIRST_LEVEL_SIZE;
-                self.slice_offset =
-                    slice_pool.new_slice(self.slice_length, &mut self.block_pool.lock())?;
+                self.slice_offset = slice_pool.new_slice(self.slice_length, block_pool)?;
                 self.first_slice_offset = self.slice_offset;
-                self.first_slice = self.block_pool.lock().buffer_upto;
+                self.first_slice = block_pool.buffer_upto;
                 self.slice = self.first_slice;
 
                 let write_length = std::cmp::min(self.size, self.slice_length - 1);
-                let mut pool = self.block_pool.lock();
-                let buffer = pool.get_buffer_mut(self.first_slice);
+                let buffer = block_pool.get_buffer_mut(self.first_slice);
                 buffer.copy_from(
                     &self.random_data
                         [self.data_offset as usize..(self.data_offset + write_length) as usize],
@@ -337,18 +325,17 @@ mod tests {
             let offset_and_length = slice_pool.alloc_known_size_slice(
                 self.slice,
                 self.slice_offset + self.slice_length - 1,
-                &mut self.block_pool.lock(),
+                block_pool,
             )?;
 
             // No, write more
             #[allow(unused_assignments)]
-            let mut current_pool_buffer = self.block_pool.lock().get_buffer_mut(self.slice);
-            self.slice = self.block_pool.lock().buffer_upto;
+            let mut current_pool_buffer = block_pool.get_buffer_mut(self.slice);
+            self.slice = block_pool.buffer_upto;
             self.slice_length = offset_and_length & 0xff;
             self.slice_offset = offset_and_length >> 8;
             let write_length = std::cmp::min(self.size - self.data_offset, self.slice_length - 1);
-            let mut pool = self.block_pool.lock();
-            current_pool_buffer = pool.get_buffer_mut(self.slice);
+            current_pool_buffer = block_pool.get_buffer_mut(self.slice);
             current_pool_buffer.copy_from(
                 &self.random_data
                     [self.data_offset as usize..(self.data_offset + write_length) as usize],
@@ -361,9 +348,6 @@ mod tests {
     /// Reads a sequence of slices into a byte array.
     struct SliceReader {
         has_started: bool,
-        block_pool: ByteBlockPoolLock,
-        slice_pool: Arc<Mutex<ByteSlicePool>>,
-
         size: i32,
         read_data: Vec<u8>,
         data_offset: i32,
@@ -377,17 +361,9 @@ mod tests {
 
     impl SliceReader {
         /// Creates a new `SliceReader` instance.
-        pub fn new(
-            slice_pool: Arc<Mutex<ByteSlicePool>>,
-            block_pool: ByteBlockPoolLock,
-            size: i32,
-            first_slice_offset: i32,
-            first_slice: i32,
-        ) -> Self {
+        pub fn new(size: i32, first_slice_offset: i32, first_slice: i32) -> Self {
             SliceReader {
                 has_started: false,
-                block_pool,
-                slice_pool,
                 size,
                 read_data: vec![0u8; size as usize],
                 data_offset: 0,
@@ -403,9 +379,8 @@ mod tests {
         /// # Returns
         /// `true` if a slice is read and `false` if the entire sequence has
         /// been read.
-        pub fn read_slice(&mut self) -> bool {
+        pub fn read_slice(&mut self, block_pool: &ByteBlockPool) -> bool {
             // The first slice is special
-            let block_pool = self.block_pool.lock();
             if !self.has_started {
                 self.data_offset = 0;
                 // Index into LEVEL_SIZE_ARRAY, allowing us to find the size of
@@ -477,8 +452,8 @@ mod tests {
         let mut random = random();
         let byte_used = Arc::new(AtomicCounter::new());
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
-        let pool = Arc::new(Mutex::new(ByteBlockPool::new(allocator)));
-        let slice_pool = Arc::new(Mutex::new(ByteSlicePool));
+        let mut pool = ByteBlockPool::new(allocator);
+        let mut slice_pool = ByteSlicePool;
 
         let n_iterations = random.random_range(1..=3); // 1-3 iterations with buffer resets
         for _ in 0..n_iterations {
@@ -488,21 +463,19 @@ mod tests {
 
             // Init slice writers
             for _ in 0..n {
-                slice_writers.push(SliceWriter::new(
-                    &mut random,
-                    slice_pool.clone(),
-                    pool.clone(),
-                ));
+                slice_writers.push(SliceWriter::new(&mut random));
             }
             // Write slices
             loop {
                 let i = random.random_range(0..n);
-                let succeeded = slice_writers[i].write_slice()?;
+                let succeeded = slice_writers[i].write_slice(&mut pool, &mut slice_pool)?;
                 if !succeeded {
-                    slice_writers
-                        .iter_mut()
-                        .take(n)
-                        .for_each(|writer| while writer.write_slice().unwrap_or(false) {});
+                    slice_writers.iter_mut().take(n).for_each(|writer| {
+                        while writer
+                            .write_slice(&mut pool, &mut slice_pool)
+                            .unwrap_or(false)
+                        {}
+                    });
                     break;
                 }
             }
@@ -510,8 +483,6 @@ mod tests {
             // Init slice readers
             slice_writers.iter().take(n).for_each(|writer| {
                 slice_readers.push(SliceReader::new(
-                    slice_pool.clone(),
-                    pool.clone(),
                     writer.size,
                     writer.first_slice_offset,
                     writer.first_slice,
@@ -521,10 +492,10 @@ mod tests {
             // Read slices
             loop {
                 let i = rand::rng().random_range(0..n);
-                let succeeded = slice_readers[i].read_slice();
+                let succeeded = slice_readers[i].read_slice(&pool);
                 if !succeeded {
                     for j in slice_readers.iter_mut().take(n) {
-                        while j.read_slice() {}
+                        while j.read_slice(&pool) {}
                     }
                     break;
                 }
@@ -539,7 +510,7 @@ mod tests {
             // SliceWriter keeps the slice length as state, but
             // ByteSlicePool.allocKnownSizeSlice asserts on zeros in the
             // buffer.
-            pool.lock().reset(true, rand::rng().random_bool(0.5));
+            pool.reset(true, rand::rng().random_bool(0.5));
         }
 
         Ok(())

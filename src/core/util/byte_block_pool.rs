@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::SliceCopyOps;
@@ -345,10 +340,6 @@ impl Accountable for ByteBlockPool {
         todo!()
     }
 }
-// for single thread
-pub type ByteBlockPoolBorrow = Rc<RefCell<ByteBlockPool>>;
-// for multi thread
-pub type ByteBlockPoolLock = Arc<Mutex<ByteBlockPool>>;
 
 //TODO
 const BASE_RAM_BYTES: i64 = 0;
