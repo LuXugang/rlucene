@@ -14,11 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 use std::sync::Arc;
-
-use parking_lot::{Mutex, MutexGuard};
 
 use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
@@ -45,7 +42,6 @@ impl<T> SharedReadOnly<T> for &T {
     }
 }
 
-/// Similar to the `Access` trait, but specifically for `Vec<T>`.
 pub trait SharedAccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> R
     where
@@ -188,62 +184,4 @@ macro_rules! with_other {
     ($x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
         $x.access(|$ia| $y.access(|$ib| $body))
     };
-}
-/// A trait for ergonomic, read/write access to `Rc<RefCell<T>>` and variants.
-///
-/// `access()` returns a shared borrow (`Ref<T>`);
-/// `access_mut()` returns a mutable borrow (`RefMut<'_,T>`).
-///
-/// # Panics
-///
-/// If implemented on `Option<Rc<RefCell<T>>>`, the value must be `Some`.
-/// Calling `.access()` or `.access_mut()` on `None` will panic.
-pub trait BorrowExt<T> {
-    fn access(&self) -> Ref<'_, T>;
-    fn access_mut(&self) -> RefMut<'_, T>;
-}
-/// Implementation for `Option<Rc<RefCell<T>>>`
-///
-/// # Panics
-///
-/// Will panic if the `Option` is `None`.
-impl<T> BorrowExt<T> for Option<Rc<RefCell<T>>> {
-    #[inline]
-    fn access(&self) -> Ref<'_, T> {
-        self.as_ref().unwrap().borrow()
-    }
-
-    #[inline]
-    fn access_mut(&self) -> RefMut<'_, T> {
-        self.as_ref().unwrap().borrow_mut()
-    }
-}
-/// A trait for ergonomic, read/write access to `Arc<Mutex<T>>` and variants.
-///
-/// `access()` acquires a lock and returns a guard (`MutexGuard<T>`).
-/// `access_mut()` is equivalent to `access()` (alias).
-///
-/// # Panics
-///
-/// If implemented on `Option<Arc<Mutex<T>>>`, the value must be `Some`.
-/// Calling `.access()` or `.access_mut()` on `None` will panic.
-pub trait MutexAccess<T> {
-    fn access(&self) -> MutexGuard<'_, T>;
-    fn access_mut(&self) -> MutexGuard<'_, T>;
-}
-/// Implementation for `Option<Arc<Mutex<T>>>`
-///
-/// # Panics
-///
-/// Will panic if the `Option` is `None`.
-impl<T> MutexAccess<T> for Option<Arc<Mutex<T>>> {
-    #[inline]
-    fn access(&self) -> MutexGuard<'_, T> {
-        self.as_ref().unwrap().lock()
-    }
-
-    #[inline]
-    fn access_mut(&self) -> MutexGuard<'_, T> {
-        self.as_ref().unwrap().lock()
-    }
 }
