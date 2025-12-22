@@ -24,7 +24,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicI64;
+use std::sync::atomic::Ordering::{Relaxed, SeqCst};
+use std::sync::atomic::{AtomicBool, AtomicI64};
 
 ///  Access to the Field Info file that describes document fields and whether or
 /// not they are indexed.  Each segment has a separate Field Info file. Objects
@@ -58,21 +59,19 @@ pub struct FieldInfo {
     // whether this field is used as the soft-deletes field
     soft_deletes_field: bool,
     is_parent_field: bool,
+    store_payloads: AtomicBool, /* whether this field stores payloads together
+                                 * with term positions  */
+    // True if any document indexed term vectors
+    store_term_vector: AtomicBool,
 }
 pub struct Inner {
     pub(crate) attributes: HashMap<String, String>,
-    store_payloads: bool, /* whether this field stores payloads together
-                           * with term positions  */
-    // True if any document indexed term vectors
-    store_term_vector: bool,
 }
 /// For padding using
 impl Default for Inner {
     fn default() -> Self {
         Inner {
             attributes: HashMap::new(),
-            store_payloads: false,
-            store_term_vector: false,
         }
     }
 }
@@ -111,11 +110,7 @@ impl FieldInfo {
         } else {
             (false, false, false)
         };
-        let properties = Mutex::new(Inner {
-            attributes,
-            store_payloads,
-            store_term_vector,
-        });
+        let properties = Mutex::new(Inner { attributes });
 
         FieldInfo {
             name: name.into(),
@@ -134,6 +129,8 @@ impl FieldInfo {
             vector_similarity_function,
             soft_deletes_field,
             is_parent_field,
+            store_payloads: AtomicBool::new(store_payloads),
+            store_term_vector: AtomicBool::new(store_term_vector),
         }
     }
 
@@ -144,14 +141,13 @@ impl FieldInfo {
     /// Returns `IllegalArgumentException` if some options are incorrect
     pub fn check_consistency(&self) -> Result<()> {
         {
-            let properties = self.inner.lock();
             if self.index_options != IndexOptions::None {
                 // Cannot store payloads unless positions are indexed
                 if self
                     .index_options
                     .cmp(&IndexOptions::DocsAndFreqsAndPositions)
                     == Ordering::Less
-                    && properties.store_payloads
+                    && self.store_payloads.load(Relaxed)
                 {
                     return Err(LuceneError::illegal_argument(format!(
                         "indexed field '{}' cannot have payloads without positions",
@@ -159,13 +155,13 @@ impl FieldInfo {
                     )));
                 }
             } else {
-                if properties.store_term_vector {
+                if self.store_term_vector.load(Relaxed) {
                     return Err(LuceneError::illegal_argument(format!(
                         "non-indexed field '{}' cannot store term vectors",
                         self.name
                     )));
                 }
-                if properties.store_payloads {
+                if self.store_payloads.load(Relaxed) {
                     return Err(LuceneError::illegal_argument(format!(
                         "non-indexed field '{}' cannot store payloads",
                         self.name
@@ -266,8 +262,8 @@ impl FieldInfo {
             Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
             Self::verify_same_store_term_vectors(
                 field_name,
-                self.inner.lock().store_term_vector,
-                other.inner.lock().store_term_vector,
+                self.store_term_vector.load(Relaxed),
+                other.store_term_vector.load(Relaxed),
             )?;
         }
 
@@ -553,8 +549,7 @@ impl FieldInfo {
 
     /// Sets the docValues generation of this field.
     pub fn set_doc_values_gen(&self, dv_gen: i64) -> Result<()> {
-        self.dv_gen
-            .store(dv_gen, std::sync::atomic::Ordering::SeqCst);
+        self.dv_gen.store(dv_gen, SeqCst);
         self.check_consistency()?;
         Ok(())
     }
@@ -562,23 +557,20 @@ impl FieldInfo {
     /// Returns the docValues generation of this field, or -1 if no docValues
     /// updates exist for it.
     pub fn get_doc_values_gen(&self) -> i64 {
-        self.dv_gen.load(std::sync::atomic::Ordering::SeqCst)
+        self.dv_gen.load(SeqCst)
     }
 
     /// Set store term vectors
     pub fn set_store_term_vectors(&self) -> Result<()> {
-        self.inner.lock().store_term_vector = true;
+        self.store_term_vector.store(true, SeqCst);
         self.check_consistency()?;
         Ok(())
     }
 
     /// Set store payloads
     pub fn set_store_payloads(&self) -> Result<()> {
-        {
-            let mut properties = self.inner.lock();
-            if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
-                properties.store_payloads = true;
-            }
+        if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
+            self.store_payloads.store(true, SeqCst);
         }
         self.check_consistency()?;
         Ok(())
@@ -608,13 +600,12 @@ impl FieldInfo {
 
     /// Returns true if any payloads exist for this field.
     pub fn has_payloads(&self) -> bool {
-        let properties = self.inner.lock();
-        properties.store_payloads
+        self.store_payloads.load(Relaxed)
     }
 
     /// Returns true if any term vectors exist for this field.
     pub fn has_term_vectors(&self) -> bool {
-        self.inner.lock().store_term_vector
+        self.store_term_vector.load(Relaxed)
     }
 
     /// Returns whether any (numeric) vector values exist for this field
