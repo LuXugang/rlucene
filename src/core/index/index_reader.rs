@@ -431,7 +431,7 @@ where
 
 #[derive(Debug)]
 struct IdentityTag(u8);
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Identity(Arc<IdentityTag>);
 
 impl Identity {

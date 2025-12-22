@@ -55,3 +55,5 @@ where
         (**self).to_string()
     }
 }
+
+pub type CompositeReaderBits<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Bits;

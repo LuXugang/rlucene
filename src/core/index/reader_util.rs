@@ -30,7 +30,7 @@ impl ReaderUtil {
         leaf_reader.top_parent()
     }
     /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
-    pub fn sub_index(n: i32, doc_starts: &[i32]) -> usize {
+    pub fn sub_index(n: i32, doc_starts: &[i32]) -> i32 {
         debug_assert!(doc_starts.len() <= i32::MAX as usize);
         // find searcher/reader for doc n:
         let size = doc_starts.len();
@@ -50,10 +50,10 @@ impl ReaderUtil {
                 while (mid + 1) < size as i32 && doc_starts[(mid + 1) as usize] == mid_value {
                     mid += 1; // scan to last match
                 }
-                return mid as usize;
+                return mid;
             }
         }
-        hi.max(0) as usize
+        hi
     }
     /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
     pub fn sub_index_with_leaves<LR>(n: i32, leaves: &[Arc<LeafReaderContext<LR>>]) -> usize

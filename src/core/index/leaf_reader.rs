@@ -228,6 +228,8 @@ pub type LRDisis<LR> = Either5DocIdSetIterator<
     LRSortedNumericDocValues<LR>,
     LRSortedSetDocValues<LR>,
 >;
+// Bits
+pub type LRBits<LR> = <LR as LeafReader>::Bits;
 
 impl<LR> LeafReader for Arc<LR>
 where

@@ -48,6 +48,9 @@ pub trait Bits {
         }
         bit_set
     }
+    fn as_string(&self) -> String {
+        std::any::type_name::<Self>().to_string()
+    }
 }
 
 /// Bits impl of the specified length with all bits set.
@@ -113,6 +116,13 @@ where
             Either2Bits::B(s) => s.copy_of(),
         }
     }
+
+    fn as_string(&self) -> String {
+        match self {
+            Either2Bits::A(t) => t.as_string(),
+            Either2Bits::B(s) => s.as_string(),
+        }
+    }
 }
 
 pub enum BitsEnum {}
@@ -141,6 +151,9 @@ where
     fn copy_of(&self) -> FixedBitSet {
         (**self).copy_of()
     }
+    fn as_string(&self) -> String {
+        (**self).as_string()
+    }
 }
 
 impl<T: Bits + ?Sized> Bits for &T {
@@ -154,5 +167,9 @@ impl<T: Bits + ?Sized> Bits for &T {
 
     fn copy_of(&self) -> FixedBitSet {
         <T as Bits>::copy_of(*self)
+    }
+
+    fn as_string(&self) -> String {
+        <T as Bits>::as_string(*self)
     }
 }

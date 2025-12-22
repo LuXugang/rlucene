@@ -436,5 +436,9 @@ pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[i32]) -> Result<usize> 
             max_doc, doc_id
         )));
     }
-    Ok(ReaderUtil::sub_index(doc_id, starts))
+    let v = ReaderUtil::sub_index(doc_id, starts);
+    if v < 0 {
+        return Err(LuceneError::illegal_state("index should >= 0"));
+    }
+    Ok(v as usize)
 }

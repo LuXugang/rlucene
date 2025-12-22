@@ -14,4 +14,146 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct MultiBits;
+use crate::core::index::composite_reader::{CompositeReader, CompositeReaderBits, get_context};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::reader_util::ReaderUtil;
+use crate::core::util::bits::{Bits, Either2Bits};
+use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
+/// Concatenates multiple `Bits` together on every lookup.
+///
+/// **NOTE:** This is very costly, as every lookup must perform a binary search
+/// to locate the correct sub-reader.
+pub struct MultiBits<B>
+where
+    B: Bits,
+{
+    subs: Vec<Option<B>>,
+    starts: Vec<i32>,
+    default_value: bool,
+}
+
+impl<B> MultiBits<B>
+where
+    B: Bits,
+{
+    pub fn new(subs: Vec<Option<B>>, starts: Vec<i32>, default_value: bool) -> Self {
+        debug_assert_eq!(starts.len(), subs.len() + 1);
+        Self {
+            subs,
+            starts,
+            default_value,
+        }
+    }
+    fn check_length(&self, reader: usize, doc: i32) -> bool {
+        let length = self.starts[reader + 1] - self.starts[reader];
+        debug_assert!(
+            doc - self.starts[reader] < length,
+            "doc={} reader={} starts[reader]={} length={}",
+            doc,
+            reader,
+            self.starts[reader],
+            length
+        );
+        true
+    }
+}
+impl<B> Bits for MultiBits<B>
+where
+    B: Bits,
+{
+    fn get(&self, doc: i32) -> bool {
+        let reader = ReaderUtil::sub_index(doc, &self.starts);
+        debug_assert!(reader != -1);
+
+        let reader = reader as usize;
+        let bits = &self.subs[reader];
+        match bits {
+            None => self.default_value,
+            Some(bits) => {
+                debug_assert!(self.check_length(reader, doc));
+                bits.get(doc - self.starts[reader])
+            },
+        }
+    }
+
+    fn length(&self) -> i32 {
+        let len = self.starts.len() - 1;
+        self.starts[len]
+    }
+}
+impl<B> Display for MultiBits<B>
+where
+    B: Bits,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} subs: ", self.subs.len())?;
+
+        for i in 0..self.subs.len() {
+            if i != 0 {
+                write!(f, "; ")?;
+            }
+
+            match &self.subs[i] {
+                None => {
+                    write!(f, "s={} l=null", self.starts[i])?;
+                },
+                Some(bits) => {
+                    write!(
+                        f,
+                        "s={} l={} b={}",
+                        self.starts[i],
+                        bits.length(),
+                        bits.as_string()
+                    )?;
+                },
+            }
+        }
+        write!(f, " end={}", self.starts[self.subs.len()])
+    }
+}
+/// Returns a single `Bits` instance for this reader, merging live documents on the fly.
+/// This method will return `None` if the reader has no deletions.
+///
+/// **NOTE:** this is a very slow way to access live docs.
+/// For example, each `Bits` access will require a binary search.
+/// It's better to get the sub-readers and iterate through them yourself.
+pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    if !reader.has_deletions()? {
+        return Ok(None);
+    }
+    let leaves = get_context(reader.clone())?.leaves()?;
+    let size = leaves.len();
+    debug_assert!(
+        size > 0,
+        "A reader with deletions must have at least one leave"
+    );
+
+    if size == 1 {
+        return match leaves[0].reader().get_live_docs()? {
+            Some(bits) => Ok(Some(Either2Bits::A(bits))),
+            None => Ok(None),
+        };
+    }
+
+    let mut live_docs = Vec::with_capacity(size);
+    let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+
+    for ctx in &leaves {
+        // record all liveDocs, even if they are null
+        live_docs.push(ctx.reader().get_live_docs()?);
+        starts.push(ctx.doc_base);
+    }
+
+    starts.push(reader.max_doc()?);
+
+    Ok(Some(BitsType::<CR>::B(MultiBits::new(
+        live_docs, starts, true,
+    ))))
+}
+pub type BitsType<CR> = Either2Bits<CompositeReaderBits<CR>, MultiBits<CompositeReaderBits<CR>>>;
