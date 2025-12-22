@@ -319,10 +319,23 @@ impl FieldType {
     ///
     /// If a value already exists for the field, it will be replaced with the
     /// new value.
-    #[allow(dead_code)]
-    pub fn put_attribute(&mut self, _key: String, _value: String) -> Result<Option<String>> {
-        // not used in Java Lucene
-        Ok(Some("".to_string()))
+    pub fn put_attribute<T1, T2>(&mut self, key: T1, value: T2) -> Result<Option<String>>
+    where
+        T1: Into<String>,
+        T2: Into<String>,
+    {
+        let key = key.into();
+        let value = value.into();
+        self.check_if_frozen()?;
+        match self.attributes {
+            Some(ref mut attrs) => Ok(attrs.insert(key, value)),
+            None => {
+                let mut attrs = HashMap::new();
+                attrs.insert(key, value);
+                self.attributes = Some(attrs);
+                Ok(None)
+            },
+        }
     }
 
     /// Sets the field's DocValuesType.

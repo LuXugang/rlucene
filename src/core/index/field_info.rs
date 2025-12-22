@@ -189,7 +189,7 @@ impl FieldInfo {
                 self.name, self.doc_values_skip_index, self.doc_values_type
             )));
         }
-        if self.dv_gen.load(std::sync::atomic::Ordering::SeqCst) != -1
+        if self.dv_gen.load(std::sync::atomic::Ordering::Relaxed) != -1
             && self.doc_values_type == DocValuesType::None
         {
             return Err(LuceneError::illegal_argument(format!(

@@ -14,14 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use once_cell::sync::Lazy;
+use parking_lot::lock_api::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -239,8 +246,8 @@ impl FieldInfos {
 
     /// Returns the parent document field name if it exists; otherwise returns
     /// None.
-    pub fn get_parent_field(&self) -> Option<&str> {
-        self.parent_field.as_deref()
+    pub fn get_parent_field(&self) -> Option<&String> {
+        self.parent_field.as_ref()
     }
 
     /// Returns the number of fields.
@@ -276,6 +283,76 @@ impl FieldInfos {
             .and_then(|fi| fi.clone()))
     }
 }
+pub(crate) static EMPTY: Lazy<Arc<FieldInfos>> =
+    Lazy::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not failed")));
+
+pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
+where
+    CR: CompositeReader + Clone,
+    CR::LeafReader: LeafReader<ParentReader = CR>,
+{
+    let crc = get_context(reader)?;
+    let leaves = crc.leaves()?;
+
+    if leaves.is_empty() {
+        return Ok(EMPTY.clone());
+    }
+
+    if leaves.len() == 1 {
+        return Ok(leaves[0].reader().get_field_infos()?.clone());
+    }
+
+    let mut soft_deletes_field: Option<String> = None;
+    for l in leaves.iter() {
+        if let Some(v) = l.reader().get_field_infos()?.get_soft_deletes_field() {
+            soft_deletes_field = Some(v.clone());
+            break;
+        }
+    }
+
+    let parent_field = get_and_validate_parent_field(leaves.as_ref())?;
+
+    let mut builder = Builder::new(Arc::new(Mutex::new(FieldNumbers::new(
+        soft_deletes_field.clone(),
+        parent_field.clone(),
+    )?)));
+
+    for leaf in &leaves {
+        for field_info in leaf.reader().get_field_infos()?.iter() {
+            builder.add(field_info.clone())?;
+        }
+    }
+
+    Ok(Arc::new(builder.finish()?))
+}
+
+pub(crate) fn get_and_validate_parent_field<LR>(
+    leaves: &[Arc<LeafReaderContext<LR>>],
+) -> Result<Option<String>>
+where
+    LR: LeafReader,
+{
+    let mut the_field: Option<String> = None;
+    let mut set = false;
+
+    for ctx in leaves {
+        let field = ctx.reader().get_field_infos()?.get_parent_field().cloned();
+
+        if !set {
+            the_field = field;
+            set = true;
+        } else if field != the_field {
+            return Err(LuceneError::illegal_state(format!(
+                "expected parent doc field to be \"{:?}\" across all segments \
+                 but found a segment with different field \"{:?}\"",
+                the_field, field
+            )));
+        }
+    }
+
+    Ok(the_field)
+}
+
 impl<'a> IntoIterator for &'a FieldInfos {
     type Item = &'a Arc<FieldInfo>;
     type IntoIter = std::slice::Iter<'a, Arc<FieldInfo>>;
@@ -284,73 +361,6 @@ impl<'a> IntoIterator for &'a FieldInfos {
         self.values.iter()
     }
 }
-
-//TODO:
-// /// Call this to get the (merged) FieldInfos for a composite reader.
-// ///
-// /// # NOTE
-// /// the returned field numbers will likely not correspond to the actual field
-// numbers in /// the underlying readers, and codec metadata
-// (FieldInfo::get_attribute) will be unavailable.
-// pub fn get_merged_field_infos(reader: &impl IndexReader) ->
-// Result<FieldInfos> {     let leaves = reader.leaves();
-//     if leaves.is_empty() {
-//         return Ok(FieldInfos::empty());
-//     } else if leaves.len() == 1 {
-//         return Ok(leaves[0].reader().get_field_infos().clone());
-//     } else {
-//         let soft_deletes_field = leaves
-//             .iter()
-//             .filter_map(|l|
-// l.reader().get_field_infos().get_soft_deletes_field().cloned())
-// .next();         let parent_field = get_and_validate_parent_field(&leaves)?;
-//         let mut builder = Builder::new(FieldNumbers::new(soft_deletes_field,
-// Some(parent_field))?);         for ctx in leaves {
-//             for fi in ctx.reader().get_field_infos().iter() {
-//                 builder.add(fi.clone());
-//             }
-//         }
-//         builder.finish()
-//     }
-// }
-//
-// /// Helper function to validate and retrieve the parent field name across
-// leaves. fn get_and_validate_parent_field(leaves: &[LeafReaderContext]) ->
-// Result<String> {     let mut set = false;
-//     let mut the_field: Option<String> = None;
-//     for ctx in leaves {
-//         let field =
-// ctx.reader().get_field_infos().get_parent_field().unwrap_or_default();
-//         if set {
-//             if the_field.as_ref() != Some(&field) {
-//                 return Err(LuceneError::illegal_state(format!(
-//                     "expected parent doc field to be \"{}\" across all
-// segments but found a segment with different field \"{}\"",
-// the_field.unwrap_or_default(),                     field
-//                 )));
-//             }
-//         } else {
-//             the_field = Some(field);
-//             set = true;
-//         }
-//     }
-//     Ok(the_field.unwrap_or_default())
-// }
-//
-// /// Returns a set of names of fields that have a terms index. The order is
-// undefined. pub fn get_indexed_fields(reader: &impl IndexReader) ->
-// HashSet<String> {     reader
-//         .leaves()
-//         .iter()
-//         .flat_map(|l| {
-//             l.reader()
-//                 .get_field_infos()
-//                 .iter()
-//                 .filter(|fi| fi.get_index_options() != IndexOptions::None)
-//                 .map(|fi| fi.name.clone())
-//         })
-//         .collect()
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDimensions {
@@ -386,9 +396,6 @@ pub(crate) struct FieldProperties {
 pub(crate) struct FieldNumbers {
     number_to_name: HashMap<i32, String>,
     field_properties: HashMap<String, FieldProperties>,
-    // TODO: we should similarly catch an attempt to turn
-    // norms back on after they were already committed; today
-    // we silently discard the norm but this is badly trappy
     lowest_unassigned_field_number: i32,
     soft_deletes_field_name: Option<String>,
     // The parent document field from IWC to mark parent document when indexing
@@ -827,9 +834,11 @@ pub mod build {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
-                let inner = fi.inner.lock();
-                for (k, v) in inner.attributes.iter() {
-                    cur_fi.put_attribute(k.clone(), v.clone());
+                {
+                    let inner = fi.inner.lock();
+                    for (k, v) in inner.attributes.iter() {
+                        cur_fi.put_attribute(k.clone(), v.clone());
+                    }
                 }
                 if fi.has_payloads() {
                     cur_fi.set_store_payloads()?;
@@ -888,15 +897,17 @@ mod tests {
     use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
     use crate::core::index::doc_values_type::DocValuesType;
     use crate::core::index::field_info::FieldInfo;
-    use crate::core::index::field_infos::FieldNumbers;
+    use crate::core::index::field_infos::{EMPTY, FieldNumbers, get_merged_field_infos};
     use crate::core::index::index_options::IndexOptions;
     use crate::core::index::vector_encoding::VectorEncoding;
     use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::core::util::error::lucene_error::Result;
 
     use crate::core::document::document::Document;
-    use crate::core::document::field::Store;
+    use crate::core::document::field::{Field, Store};
+    use crate::core::document::field_type::FieldType;
     use crate::core::document::string_field::StringField;
+    use crate::core::index::directory_reader::directory_reader_util;
     use crate::core::index::index_writer::{IndexWriter, read_field_infos};
     use crate::core::index::segment_infos::SegmentInfos;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -981,24 +992,128 @@ mod tests {
     }
     #[test]
     fn test_field_attributes() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut type1 = FieldType::new();
+        type1.set_stored(true)?;
+        type1.put_attribute("testKey1", "testValue1")?;
+
+        let mut d1 = Document::new();
+        d1.add(Field::new("f1", "v1", type1.clone()));
+        let mut type2 = type1.clone();
+        type2.put_attribute("testKey1", "testValue2")?;
+
+        writer.add_document(d1)?;
+        writer.commit()?;
+
+        type1.put_attribute("testKey1", "testValueX")?;
+        type1.put_attribute("testKey2", "testValue2")?;
+
+        let mut d2 = Document::new();
+        d2.add(Field::new("f1", "v2", type1.clone()));
+        d2.add(Field::new("f2", "v2", type2.clone()));
+        writer.add_document(d2)?;
+        writer.commit()?;
+        // TODO force_merge未实现
+        // writer.force_merge(1)?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let fis = get_merged_field_infos(reader)?;
+        assert_eq!(2, fis.size());
+
+        for fi in fis.iter() {
+            match fi.name.as_str() {
+                // testKey1 can point to either testValue1 or testValueX based on the order
+                // of merge, but we see textValueX winning here since segment_2 is merged on segment_1.
+                "f1" => {
+                    assert_eq!(Some("testValueX".to_string()), fi.get_attribute("testKey1"));
+                    assert_eq!(Some("testValue2".to_string()), fi.get_attribute("testKey2"));
+                },
+                "f2" => {
+                    assert_eq!(Some("testValue2".to_string()), fi.get_attribute("testKey1"));
+                },
+                _ => {
+                    unreachable!("Unknown field");
+                },
+            }
+        }
+        writer.close()?;
         Ok(())
     }
+
     #[test]
     fn test_field_attributes_single_segment() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        // TODO: 未实现 MockAnalyzer / NoMergePolicy
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let mut d1 = Document::new();
+        let mut type1 = FieldType::new();
+        type1.set_stored(true)?;
+        type1.put_attribute("att1", "attdoc1")?;
+        d1.add(Field::new("f1", "v1", type1.clone()));
+
+        type1.put_attribute("att2", "attdoc1")?;
+        d1.add(Field::new("f1", "v1", type1.clone()));
+
+        writer.add_document(d1)?;
+
+        let mut d2 = Document::new();
+        type1.put_attribute("att1", "attdoc2")?;
+        type1.put_attribute("att2", "attdoc2")?;
+        type1.put_attribute("att3", "attdoc2")?;
+
+        let mut type2 = FieldType::new();
+        type2.set_stored(true)?;
+        type2.put_attribute("att4", "attdoc2")?;
+
+        d2.add(Field::new("f1", "v2", type1.clone()));
+        d2.add(Field::new("f2", "v2", type2.clone()));
+        writer.add_document(d2)?;
+
+        writer.commit()?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let fis = get_merged_field_infos(reader)?;
+
+        let fi1 = fis.field_info_by_name("f1").unwrap();
+        assert_eq!(Some("attdoc1".to_string()), fi1.get_attribute("att1"));
+        assert_eq!(Some("attdoc1".to_string()), fi1.get_attribute("att2"));
+        assert_eq!(None, fi1.get_attribute("att3"));
+
+        let fi2 = fis.field_info_by_name("f2").unwrap();
+        assert_eq!(Some("attdoc2".to_string()), fi2.get_attribute("att4"));
+
+        writer.close()?;
         Ok(())
     }
+
     #[test]
     fn test_merged_field_infos_empty() -> Result<()> {
-        // TODO
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let config = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), config)?;
+
+        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let actual = get_merged_field_infos(reader.clone())?;
+
+        assert!(Arc::ptr_eq(&EMPTY.clone(), &actual));
+        writer.close()?;
         Ok(())
     }
     #[test]
     fn test_merged_field_infos_single_leaf() -> Result<()> {
-        // TODO
+        // TODO force_merge未实现
         Ok(())
     }
+
     #[test]
     fn test_field_numbers_auto_increment() -> Result<()> {
         let mut field_numbers = FieldNumbers::new(Some("softDeletes"), Some("parentDoc"))?;
