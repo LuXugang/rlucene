@@ -1754,6 +1754,50 @@ where
         inner.merge_exceptions.clear();
         inner.merge_gen += 1;
     }
+    pub(crate) fn validate_merge_reader<CR>(&self, leaf: &CR) -> Result<()>
+    where
+        CR: CodecReader,
+    {
+        let segment_meta = leaf.get_metadata()?;
+        let index_created_version_major = self
+            .inner
+            .lock()
+            .segment_infos
+            .get_index_created_version_major();
+
+        if index_created_version_major != segment_meta.get_created_version_major() {
+            return Err(LuceneError::illegal_argument(format!(
+                "Cannot merge a segment that has been created with major version {} \
+             into this index which has been created by major version {}",
+                segment_meta.get_created_version_major(),
+                index_created_version_major
+            )));
+        }
+
+        if index_created_version_major >= 7 && segment_meta.get_min_version().is_none() {
+            return Err(LuceneError::illegal_state(format!(
+                "Indexes created on or after Lucene 7 must record the created version major, \
+             but {} hides it",
+                leaf
+            )));
+        }
+
+        let leaf_index_sort = segment_meta.get_sort();
+        if let Some(index_sort) = self.config.get_index_sort()
+            && leaf_index_sort
+                .as_ref()
+                .map(|s| !is_congruent_sort(&index_sort, s))
+                .unwrap_or(true)
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "cannot change index sort from {} to {}",
+                leaf_index_sort.as_ref().unwrap(),
+                index_sort
+            )));
+        }
+
+        Ok(())
+    }
 
     /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
     /// This method performs all steps necessary to commit changes since this writer was opened:
@@ -2709,7 +2753,6 @@ where
             );
         }
 
-        // Must move the pending doc values updates to disk now
         if self.reader_pool.write_doc_values_updates_for_merge(
             merge.stat.segments.as_ref(),
             &mut inner.segment_infos,
@@ -3942,6 +3985,27 @@ where
         inner.segment_infos.get_version()
     }
 }
+pub(crate) struct BitsImpl<B1, B2>
+where
+    B1: Bits,
+    B2: Bits,
+{
+    hard_live_docs: B1,
+    wrapped_live_docs: B2,
+}
+impl<B1, B2> Bits for BitsImpl<B1, B2>
+where
+    B1: Bits,
+    B2: Bits,
+{
+    fn get(&self, index: i32) -> bool {
+        self.hard_live_docs.get(index) && self.wrapped_live_docs.get(index)
+    }
+
+    fn length(&self) -> i32 {
+        self.hard_live_docs.length()
+    }
+}
 impl<D, L, B> MergeContext<D> for IndexWriter<D, L, B>
 where
     D: Directory,
@@ -4414,6 +4478,23 @@ fn set_diagnostics_impl<D>(
     }
     info.set_diagnostics(diagnostics);
 }
+/// Returns `true` if `index_sort` is a prefix of `other_sort`.
+pub(crate) fn is_congruent_sort(index_sort: &Sort, other_sort: &Sort) -> bool {
+    let fields1 = index_sort.get_sort();
+    let fields2 = other_sort.get_sort();
+
+    if fields1.len() > fields2.len() {
+        return false;
+    }
+
+    for (idx, v1) in fields1.iter().enumerate() {
+        if fields2[idx] != *v1 {
+            return false;
+        }
+    }
+    true
+}
+
 // reads latest field infos for the commit
 // this is used on IW init and addIndexes(Dir) to create/update the global field map.
 // TODO: fix tests abusing this method!
