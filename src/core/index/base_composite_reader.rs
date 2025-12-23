@@ -62,7 +62,7 @@ where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
+    pub(crate) sub_reader: Vec<IndexReaderEnum<LR, CR>>,
     starts: Arc<Vec<i32>>,
     max_doc: i32,
     num_docs: AtomicI32,

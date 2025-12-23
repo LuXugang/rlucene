@@ -101,6 +101,7 @@ pub mod merge_state;
 pub mod merge_trigger;
 pub mod multi_bits;
 mod multi_doc_values;
+pub mod multi_reader;
 pub mod multi_terms;
 mod multi_terms_enum;
 pub mod no_deletion_policy;
