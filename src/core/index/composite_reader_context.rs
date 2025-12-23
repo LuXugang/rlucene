@@ -30,15 +30,14 @@ where
     CR: CompositeReader,
 {
     leaves: Vec<Arc<LeafReaderContext<CR::LeafReader>>>,
-    reader: CR,
+    pub(crate) reader: CR,
     base: IndexReaderContextBase,
 }
-pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
+pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<Arc<CR>>>
 where
     CR: CompositeReader,
-    CR: Clone,
-    CR::LeafReader: LeafReader,
 {
+    let reader = Arc::new(reader);
     let v = IndexReaderEnum::new(reader.clone());
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader>::new();

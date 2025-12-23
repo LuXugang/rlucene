@@ -492,8 +492,8 @@ mod tests {
         let doc = Document::new();
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
         assert_eq!(v.next_doc()?, NO_MORE_DOCS);
@@ -521,8 +521,8 @@ mod tests {
         doc.add(StringField::with_string("foo", "bar", Store::No)?);
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // errors
         assert!(matches!(
@@ -561,8 +561,8 @@ mod tests {
         doc.add(NumericDocValuesField::new("foo", 3));
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // ok
         let mut v = DocValues::get_numeric(r.as_ref(), "foo")?;
@@ -603,8 +603,8 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // ok
         let mut v = DocValues::get_binary(r.as_ref(), "foo")?;
@@ -646,8 +646,8 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // ok
         let mut v = DocValues::get_sorted(r.as_ref(), "foo")?;
@@ -688,8 +688,8 @@ mod tests {
         ));
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // ok
         let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;
@@ -728,8 +728,8 @@ mod tests {
         doc.add(SortedNumericDocValuesField::new("foo", 3));
         writer.add_document(doc)?;
 
-        let dr = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let r = get_only_leaf_reader(dr.clone())?;
+        let dr = directory_reader_util::open_with_writer(&writer)?;
+        let r = get_only_leaf_reader(dr)?;
 
         // ok
         let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;

@@ -439,7 +439,6 @@ mod tests {
     ) -> Result<TopDocs<ScoreDoc>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
         let collector_manager =
@@ -454,7 +453,6 @@ mod tests {
     ) -> Result<TopDocs<ScoreDoc>>
     where
         CR: CompositeReader + Clone + 'static,
-        CR::LeafReader: LeafReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
         let collector_manager =
@@ -635,7 +633,7 @@ mod tests {
         writer.add_documents(vec![Document::new(), Document::new()])?;
         writer.flush()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = directory_reader_util::open_with_writer(&writer)?;
         let v = get_context(reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
@@ -758,8 +756,8 @@ mod tests {
         ])?;
         writer.flush()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let v = get_context(reader.clone())?;
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let v = get_context(reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
         let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
@@ -821,7 +819,7 @@ mod tests {
         writer.flush()?;
 
         let reader = writer.get_reader(false, false)?;
-        let searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+        let searcher = IndexSearcher::new(get_context(reader)?)?;
 
         let manager = TopScoreDocCollectorManager::new(2, 10)?;
         let top_docs = searcher
@@ -863,7 +861,7 @@ mod tests {
         w.flush()?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;
 

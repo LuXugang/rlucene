@@ -449,8 +449,8 @@ mod test {
             // }
 
             iw.commit()?;
-            let reader = Arc::new(iw.get_reader()?);
-            let searcher = new_searcher_with_reader(reader.clone())?;
+            let reader = iw.get_reader()?;
+            let searcher = new_searcher_with_reader(reader)?;
             iw.close()?;
 
             assert_same_matches(
@@ -489,8 +489,8 @@ mod test {
         iw.add_document(Document::new())?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
@@ -509,8 +509,8 @@ mod test {
         iw.add_document(doc)?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
@@ -532,8 +532,8 @@ mod test {
         iw.add_document(Document::new())?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
@@ -579,8 +579,8 @@ mod test {
             // }
 
             iw.commit()?;
-            let reader = Arc::new(iw.get_reader()?);
-            let searcher = new_searcher_with_reader(reader.clone())?;
+            let reader = iw.get_reader()?;
+            let searcher = new_searcher_with_reader(reader)?;
             iw.close()?;
 
             assert_same_matches(
@@ -611,8 +611,8 @@ mod test {
         iw.add_document(Document::new())?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
@@ -631,8 +631,8 @@ mod test {
         iw.add_document(doc)?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
@@ -654,8 +654,8 @@ mod test {
         iw.add_document(Document::new())?;
         iw.commit()?;
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         iw.close()?;
 
         assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);

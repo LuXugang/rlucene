@@ -33,4 +33,4 @@ pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
 pub type DefaultIndexSearch =
-    DefaultIndexSearcher<Arc<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>>;
+    DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>;

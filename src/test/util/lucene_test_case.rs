@@ -57,7 +57,7 @@ pub mod lucene_test_case_util {
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field_type::IndexableFieldType;
-    use crate::core::index::leaf_reader::LeafReader;
+
     use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
     use crate::core::store::directory::Directory;
     use crate::core::store::flush_info::FlushInfo;
@@ -93,15 +93,14 @@ pub mod lucene_test_case_util {
 
     pub fn get_only_leaf_reader<CR>(reader: CR) -> Result<<CR as CompositeReader>::LeafReader>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
-        let irc = get_context(reader.clone())?;
+        let irc = get_context(reader)?;
         let sub_readers = irc.leaves()?;
         if sub_readers.len() != 1 {
             return Err(LuceneError::illegal_argument(format!(
                 "{} has {} segments instead of exactly one",
-                reader,
+                irc.reader(),
                 sub_readers.len()
             )));
         }
@@ -434,21 +433,19 @@ pub mod lucene_test_case_util {
         composite_reader: CR,
         _may_be_wrap: bool,
         _wrap_with_assertions: bool,
-    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    ) -> Result<DefaultIndexSearcher<CompositeReaderContext<Arc<CR>>>>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
-        let irc = Arc::new(get_context(composite_reader)?);
+        let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
     pub fn new_searcher_with_wrap<CR>(
         composite_reader: CR,
         may_be_wrap: bool,
-    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    ) -> Result<DefaultIndexSearcher<CompositeReaderContext<Arc<CR>>>>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
         new_searcher_with_wrap_assert(composite_reader, may_be_wrap, true)
     }
@@ -456,10 +453,9 @@ pub mod lucene_test_case_util {
         composite_reader: CR,
         may_be_wrap: bool,
         wrap_with_assertions: bool,
-    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    ) -> Result<DefaultIndexSearcher<CompositeReaderContext<Arc<CR>>>>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
         new_searcher_with_threads(
             composite_reader,
@@ -473,23 +469,21 @@ pub mod lucene_test_case_util {
         _may_be_wrap: bool,
         _wrap_with_assertions: bool,
         _use_threads: bool,
-    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    ) -> Result<DefaultIndexSearcher<CompositeReaderContext<Arc<CR>>>>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
-        let irc = Arc::new(get_context(composite_reader)?);
+        let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
 
     pub fn new_searcher_with_reader<CR>(
         composite_reader: CR,
-    ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
+    ) -> Result<DefaultIndexSearcher<CompositeReaderContext<Arc<CR>>>>
     where
-        CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
+        CR: CompositeReader,
     {
-        let irc = Arc::new(get_context(composite_reader)?);
+        let irc = get_context(composite_reader)?;
         IndexSearcher::new(irc)
     }
 

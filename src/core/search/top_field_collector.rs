@@ -1328,7 +1328,6 @@ mod tests {
     use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::sort::Sort;
-    use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
@@ -1358,17 +1357,14 @@ mod tests {
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, at_least, new_directory, new_searcher_with_threads, random,
+        at_least, new_directory, new_searcher_with_threads, random,
     };
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestTopFieldCollector;
 
-    fn setup() -> Result<(
-        Arc<StandardDirectoryReaderType<DirType>>,
-        DefaultIndexSearch,
-    )> {
+    fn setup() -> Result<DefaultIndexSearch> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
         let iw = RandomIndexWriter::new(&mut random, dir);
@@ -1377,14 +1373,14 @@ mod tests {
             let doc = Document::new();
             iw.add_document(doc)?;
         }
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         iw.close()?;
-        let is = new_searcher_with_threads(ir.clone(), true, true, false)?;
-        Ok((ir, is))
+        let is = new_searcher_with_threads(ir, true, true, false)?;
+        Ok(is)
     }
     #[test]
     fn test_sort_without_fill_fields() -> Result<()> {
-        let (_ir, is) = setup()?;
+        let is = setup()?;
         let sorts = vec![
             Sort::with_fields(vec![SortField::get_field_doc()?])?,
             Sort::new()?,
@@ -1405,7 +1401,7 @@ mod tests {
     }
     #[test]
     fn test_sort() -> Result<()> {
-        let (_ir, is) = setup()?;
+        let is = setup()?;
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
             Sort::with_fields(vec![SortField::get_field_doc()?])?,
@@ -1432,9 +1428,19 @@ mod tests {
     #[test]
     fn test_shared_hitcount_collector() -> Result<()> {
         // 对应 newSearcher(ir, true, true, true)
-        let (ir, _) = setup()?;
+        let mut random = random();
+        let dir = Arc::new(new_directory(&mut random)?);
+        let iw = RandomIndexWriter::new(&mut random, dir);
+        let num_docs = at_least(&mut random, 100);
+        for _ in 0..num_docs {
+            let doc = Document::new();
+            iw.add_document(doc)?;
+        }
+        let ir = Arc::new(iw.get_reader()?);
+        iw.close()?;
+
         let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
-        let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
+        let single_threaded_searcher = new_searcher_with_threads(ir, true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
@@ -1467,7 +1473,7 @@ mod tests {
     }
     #[test]
     fn test_sort_without_total_hit_tracking() -> Result<()> {
-        let (_ir, is) = setup()?;
+        let is = setup()?;
         let sort = Arc::new(Sort::with_fields(vec![SortField::get_field_doc()?])?);
 
         for i in 0..2 {
@@ -1526,7 +1532,7 @@ mod tests {
         writer.flush()?;
 
         let reader = directory_reader_util::open_with_writer(&writer)?;
-        let reader = crate::core::index::composite_reader::get_context(Arc::new(reader))?;
+        let reader = crate::core::index::composite_reader::get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
 
@@ -1614,7 +1620,7 @@ mod tests {
         }
         writer.flush()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = directory_reader_util::open_with_writer(&writer)?;
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
@@ -1688,7 +1694,7 @@ mod tests {
         }
         writer.flush()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = directory_reader_util::open_with_writer(&writer)?;
         let reader = get_context(reader)?;
         assert_eq!(2, reader.leaves()?.len());
         writer.close()?;
@@ -1783,7 +1789,7 @@ mod tests {
         w.flush()?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(3, reader.leaves()?.len());
         w.close()?;
 
@@ -1937,7 +1943,7 @@ mod tests {
         writer.flush()?;
 
         let reader = writer.get_reader(false, false)?;
-        let searcher = IndexSearcher::new(get_context(Arc::new(reader))?)?;
+        let searcher = IndexSearcher::new(get_context(reader)?)?;
 
         let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
         let top_docs = searcher

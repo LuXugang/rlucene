@@ -102,14 +102,7 @@ pub type DefaultIndexSearcher<IRC> = IndexSearcher<
     UsageTrackingQueryCachingPolicy,
     Arc<LRUQueryCache<MinSegmentSizePredicate, <IRC as IndexReaderContext>::LeafReader>>,
 >;
-impl<IRC>
-    IndexSearcher<
-        IRC,
-        BM25Similarity,
-        DummyQueryTimeout,
-        UsageTrackingQueryCachingPolicy,
-        Arc<LRUQueryCache<MinSegmentSizePredicate, <IRC as IndexReaderContext>::LeafReader>>,
-    >
+impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
 {

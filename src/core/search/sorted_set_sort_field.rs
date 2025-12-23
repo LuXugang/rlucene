@@ -421,10 +421,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -471,10 +471,10 @@ mod tests {
         doc.add(StringField::with_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -527,10 +527,10 @@ mod tests {
         doc.add(new_string_field("id", "3", Store::Yes, &mut field_types)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let mut sort_field = SortedSetSortField::new("value", false)?;
         sort_field.set_missing_value(StringFirst)?;
@@ -580,10 +580,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
         let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;

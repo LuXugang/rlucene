@@ -348,7 +348,7 @@ mod tests {
             r
         };
 
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(1, reader.leaves()?.len());
         let leaf = &reader.leaves()?[0];
         let r = leaf.reader();
@@ -404,7 +404,7 @@ mod tests {
             writer.close()?;
             r
         };
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for context in reader.leaves()?.iter() {
             let r = context.reader();
             let bdv = r.get_binary_doc_values("val")?;
@@ -464,7 +464,7 @@ mod tests {
             writer.close()?;
             r
         };
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
         let r = leaves[0].reader();
         let live_docs = r.get_live_docs()?.unwrap();
@@ -518,7 +518,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
         let r = leaves[0].reader();
 
@@ -594,7 +594,7 @@ mod tests {
 
         // open reader
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
         let r = leaves[0].reader();
 
@@ -642,7 +642,7 @@ mod tests {
 
         // open reader
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
         assert_eq!(1, leaves.len());
         let r = leaves[0].reader();
@@ -755,7 +755,7 @@ mod tests {
 
         // Validation phase
         let reader = directory_reader_util::open(dir)?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for ctx in reader.leaves()? {
             let r = ctx.reader();
             let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
@@ -809,7 +809,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir)?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
         let r1 = leaves[0].reader();
         let mut bdv1 = r1.get_binary_doc_values("bdv")?.unwrap();
@@ -852,7 +852,7 @@ mod tests {
 
         // verify BDV content unchanged
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let mut bdv = reader.leaves()?[0]
             .reader()
             .get_binary_doc_values("f")?
@@ -905,7 +905,7 @@ mod tests {
             )?;
 
             let reader = directory_reader_util::open_with_writer(&writer)?;
-            let reader = get_context(Arc::new(reader))?;
+            let reader = get_context(reader)?;
 
             for ctx in reader.leaves()? {
                 let r = ctx.reader();
@@ -1040,7 +1040,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for context in reader.leaves()? {
             let r = context.reader();
             let max_doc = r.max_doc()?;
@@ -1089,7 +1089,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
 
         let leaf = &reader.leaves()?[0];
         let r = leaf.reader();
@@ -1138,7 +1138,7 @@ mod tests {
 
         // open reader and verify
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
 
         let leaf = &reader.leaves()?[0];
         let r = leaf.reader();
@@ -1171,7 +1171,7 @@ mod tests {
 
         // open reader and verify value not changed
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
 
         let leaf = &reader.leaves()?[0];
         let r = leaf.reader();

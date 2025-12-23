@@ -454,8 +454,8 @@ mod tests {
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         writer.add_document(make_document_with_fields()?)?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let reader_ctx = get_context(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let reader_ctx = get_context(reader)?;
         let searcher = IndexSearcher::new(reader_ctx)?;
 
         // search for something that does exist
@@ -610,8 +610,8 @@ mod tests {
         doc.add(field2.clone());
         writer.add_document(doc.clone())?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let reader_ctx = get_context(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let reader_ctx = get_context(reader)?;
         let searcher = IndexSearcher::new(reader_ctx)?;
 
         let query = TermQuery::new(Term::from_text("keyword", "test"));
@@ -675,7 +675,7 @@ mod tests {
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
         iw.add_document(doc.clone())?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         let sdoc = ir.stored_fields()?.document(0)?;
 
         assert_eq!("5", sdoc.get("int")?.unwrap().as_ref());

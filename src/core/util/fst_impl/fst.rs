@@ -2002,8 +2002,8 @@ mod tests {
             writer.add_document(d)?;
         }
 
-        let reader = Arc::new(writer.get_reader()?);
-        let reader_ctx = get_context(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let reader_ctx = get_context(reader)?;
         let searcher = IndexSearcher::new(reader_ctx)?;
         writer.close()?;
 

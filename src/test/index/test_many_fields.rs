@@ -187,7 +187,7 @@ fn test_diverse_docs() -> Result<()> {
     writer.close()?;
 
     let reader = Arc::new(directory_reader_util::open(dir.clone())?);
-    let searcher = new_searcher_with_reader(reader.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
     let total_hits = searcher.count(TermQuery::new(Term::from_text("field", "aaa")))?;
     assert_eq!(n * 100, total_hits);
 

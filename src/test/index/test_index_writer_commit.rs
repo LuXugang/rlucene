@@ -56,7 +56,7 @@ fn test_commit_on_close() -> Result<()> {
 
     {
         let reader = Arc::new(directory_reader_util::open(dir.clone())?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(14, hits.score_docs.len(), "first number of hits");
     }

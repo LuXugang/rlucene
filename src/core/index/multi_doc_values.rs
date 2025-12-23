@@ -57,7 +57,6 @@ impl MultiDocValues {
     ) -> Result<Option<MultiNormNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -96,7 +95,6 @@ impl MultiDocValues {
     ) -> Result<Option<MultiNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -137,7 +135,6 @@ impl MultiDocValues {
     ) -> Result<Option<MultiBinaryDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;
@@ -177,7 +174,6 @@ impl MultiDocValues {
     ) -> Result<Option<MultiSortedNumericDocValues<CR::LeafReader>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader,
     {
         let reader = get_context(reader)?;
         let leaves = reader.leaves()?;

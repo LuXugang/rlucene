@@ -66,7 +66,7 @@ fn test_binary() -> Result<()> {
         iw.add_document(doc)?;
     }
 
-    let ir = Arc::new(iw.get_reader()?);
+    let ir = iw.get_reader()?;
     let is = new_searcher_with_reader(ir)?;
 
     for i in 0..256u16 {

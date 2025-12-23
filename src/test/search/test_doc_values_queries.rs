@@ -110,8 +110,8 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
         iw.add_document(doc)?;
     }
 
-    let reader = Arc::new(iw.get_reader()?);
-    let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -192,8 +192,8 @@ fn do_test_duel_point_range_numeric_range_query(
         //     iw.delete_documents(del_query)?;
         // }
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
         iw.close()?;
 
         for _ in 0..100 {
@@ -295,8 +295,8 @@ fn do_test_duel_point_range_sorted_range_query(
         //     iw.ded(del_query)?;
         // }
 
-        let reader = Arc::new(iw.get_reader()?);
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let reader = iw.get_reader()?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
         iw.close()?;
 
         for _ in 0..100 {
@@ -436,8 +436,8 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
         iw.add_document(doc)?;
     }
 
-    let reader = Arc::new(iw.get_reader()?);
-    let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_wrap(reader, false)?;
     iw.close()?;
 
     for _ in 0..100 {
@@ -712,8 +712,8 @@ fn test_sorted_numeric_npe() -> Result<()> {
 
     iw.commit()?;
 
-    let reader = Arc::new(iw.get_reader()?);
-    let searcher = new_searcher_with_reader(reader.clone())?;
+    let reader = iw.get_reader()?;
+    let searcher = new_searcher_with_reader(reader)?;
     iw.close()?;
 
     let lo = NumericUtils::double_to_sortable_long(8.701032080293731E-226_f64);

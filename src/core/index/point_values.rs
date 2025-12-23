@@ -116,7 +116,6 @@ pub trait PointValues: Clone {
 pub fn size<CR>(reader: CR, field: &str) -> Result<i64>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -139,7 +138,6 @@ where
 pub fn get_doc_count<CR>(reader: CR, field: &str) -> Result<i32>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -161,7 +159,6 @@ where
 pub fn get_min_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -208,7 +205,6 @@ where
 pub fn get_max_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
 {
     let ctx = get_context(reader)?;
     let leaves = ctx.leaves()?;
@@ -1207,7 +1203,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         }
 
         let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
-        let reader = get_context(reader.clone())?;
+        let reader = get_context(reader)?;
 
         for leaf in reader.leaves()? {
             let points = leaf.reader().get_point_values("int")?;
@@ -1243,7 +1239,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         // w.force_merge(1)?;
         let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
 
-        let ctx = get_context(reader.clone())?;
+        let ctx = get_context(reader)?;
         let leaves = ctx.leaves()?;
         let leaf = &leaves[0];
 
@@ -1316,7 +1312,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         }
 
         let reader = Arc::new(w.get_reader()?);
-        let ctx = get_context(reader.clone())?;
+        let ctx = get_context(reader)?;
         let leaves = ctx.leaves()?;
 
         for field in 0..num_fields {

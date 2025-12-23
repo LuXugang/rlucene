@@ -651,10 +651,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Int,
@@ -693,10 +693,10 @@ mod tests {
         doc.add(StringField::with_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::with_reverse(
             "value",
             SortFieldType::Int,
@@ -740,10 +740,10 @@ mod tests {
         doc.add(StringField::with_string("id", "3", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
         sort_field.set_missing_value(i32::MIN)?;
@@ -791,10 +791,10 @@ mod tests {
         doc.add(StringField::with_string("id", "3", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let mut sort_field = SortedNumericSortField::new("value", SortFieldType::Int)?;
         sort_field.set_missing_value(i32::MAX)?;
@@ -839,10 +839,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Int,
@@ -880,10 +880,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Float,
@@ -922,10 +922,10 @@ mod tests {
         doc.add(StringField::with_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let searcher = new_searcher_with_reader(reader)?;
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
             "value",
             SortFieldType::Double,

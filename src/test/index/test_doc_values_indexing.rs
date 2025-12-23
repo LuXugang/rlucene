@@ -84,10 +84,10 @@ fn test_multi_valued_doc_values_field() -> Result<()> {
         res
     );
 
-    let r = Arc::new(w.get_reader()?);
+    let r = w.get_reader()?;
     w.close()?;
 
-    let leaf = get_only_leaf_reader(r.clone())?;
+    let leaf = get_only_leaf_reader(r)?;
     let values_opt = leaf.get_numeric_doc_values("field")?;
     assert!(values_opt.is_some());
     let mut values = values_opt.unwrap();
@@ -124,10 +124,10 @@ fn test_different_typed_doc_values_field() -> Result<()> {
         res
     );
 
-    let r = Arc::new(w.get_reader()?);
+    let r = w.get_reader()?;
     w.close()?;
 
-    let leaf = get_only_leaf_reader(r.clone())?;
+    let leaf = get_only_leaf_reader(r)?;
     let values_opt = leaf.get_numeric_doc_values("field")?;
     assert!(values_opt.is_some());
 
@@ -162,9 +162,9 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
         res
     );
 
-    let r = Arc::new(w.get_reader()?);
+    let r = w.get_reader()?;
 
-    let leaf = get_only_leaf_reader(r.clone())?;
+    let leaf = get_only_leaf_reader(r)?;
     let values_opt = leaf.get_numeric_doc_values("field")?;
     assert!(values_opt.is_some());
     let mut values = values_opt.unwrap();
@@ -198,9 +198,9 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
     doc.add(SortedDocValuesField::new("field", b.clone()));
     w.add_document(doc)?;
     // TODO force_merge未实现
-    let r = Arc::new(directory_reader_util::open_with_writer(&w)?);
+    let r = directory_reader_util::open_with_writer(&w)?;
 
-    let leaf = get_only_leaf_reader(r.clone())?;
+    let leaf = get_only_leaf_reader(r)?;
     let mut s = leaf
         .get_sorted_doc_values("field")?
         .expect("sorted doc values must exist");
@@ -715,7 +715,7 @@ fn test_illegal_type_change() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    let ir = directory_reader_util::open_with_writer(&writer)?;
     assert_eq!(1, ir.num_docs()?);
 
     writer.close()?;

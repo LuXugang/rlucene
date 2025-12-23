@@ -387,10 +387,10 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
     doc.add(new_text_field("foo", "bar", No, &mut field_types)?);
     writer.add_document(doc)?;
 
-    let reader = Arc::new(writer.get_reader()?);
+    let reader = writer.get_reader()?;
     writer.close()?;
 
-    let r = get_only_leaf_reader(reader.clone())?;
+    let r = get_only_leaf_reader(reader)?;
 
     let term = Term::from_text("foo", "bar");
     let mut disi = r.postings_with_flag(&term, ALL as i32)?.unwrap();

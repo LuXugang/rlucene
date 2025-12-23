@@ -372,9 +372,9 @@ mod tests {
             .into(),
         ])?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+        let reader = directory_reader_util::open_with_writer(&w)?;
         w.close()?;
-        let leaf = get_only_leaf_reader(reader.clone())?;
+        let leaf = get_only_leaf_reader(reader)?;
         let mut terms = leaf.terms("field")?.unwrap().iterator()?;
 
         assert_eq!(
@@ -411,9 +411,9 @@ mod tests {
             KeywordField::with_string("field", "value", Store::Yes)?.into(),
         ])?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&w)?);
+        let reader = directory_reader_util::open_with_writer(&w)?;
         w.close()?;
-        let leaf = get_only_leaf_reader(reader.clone())?;
+        let leaf = get_only_leaf_reader(reader)?;
         let mut terms = leaf.terms("field")?.unwrap().iterator()?;
 
         assert_eq!(

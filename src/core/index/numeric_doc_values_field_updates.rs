@@ -296,7 +296,7 @@ mod tests {
         } else {
             directory_reader_util::open_with_writer(&writer)?
         };
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let searcher = IndexSearcher::new(reader)?;
 
         let td = searcher.search_with_sort(
@@ -380,7 +380,7 @@ mod tests {
         writer.commit()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let searcher = IndexSearcher::new(reader)?;
 
         for (id, expected_val) in expected {
@@ -469,7 +469,7 @@ mod tests {
             r
         };
 
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(reader.leaves()?.len(), 1);
         let r = reader.leaves()?;
         let r = r[0].reader();
@@ -521,7 +521,7 @@ mod tests {
             writer.close()?;
             r
         };
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
 
         for context in reader.leaves()?.iter() {
             let r = context.reader();
@@ -575,7 +575,7 @@ mod tests {
             r
         };
 
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let leaf = &reader.leaves()?[0];
         let r = leaf.reader();
         let live_docs = r.get_live_docs()?.unwrap();
@@ -624,7 +624,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let leaf = get_context(Arc::new(reader))?;
+        let leaf = get_context(reader)?;
         let r = leaf.leaves()?;
         let r = r[0].reader();
 
@@ -689,7 +689,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let r = reader.leaves()?;
         let r = r[0].reader();
 
@@ -729,7 +729,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let r = reader.leaves()?;
         let r = r[0].reader();
 
@@ -844,7 +844,7 @@ mod tests {
         writer.close()?;
 
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for ctx in reader.leaves()? {
             let r = ctx.reader();
             let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
@@ -897,7 +897,7 @@ mod tests {
 
         // Verify index content
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for ctx in reader.leaves()? {
             let r = ctx.reader();
             let mut ndv = r.get_numeric_doc_values("ndv")?.unwrap();
@@ -934,7 +934,7 @@ mod tests {
 
         // verify NDV content unchanged
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let mut ndv = reader.leaves()?[0]
             .reader()
             .get_numeric_doc_values("f")?
@@ -987,7 +987,7 @@ mod tests {
             )?;
 
             let reader = directory_reader_util::open_with_writer(&writer)?;
-            let reader = get_context(Arc::new(reader))?;
+            let reader = get_context(reader)?;
             for ctx in reader.leaves()? {
                 let r = ctx.reader();
                 let mut fndv = r.get_numeric_doc_values("f")?.unwrap();
@@ -1139,7 +1139,7 @@ mod tests {
 
         // validate
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         for ctx in reader.leaves()? {
             let r = ctx.reader();
             for i in 0..num_numeric_fields {
@@ -1188,7 +1188,7 @@ mod tests {
 
         // verify the latest values
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         let r = reader.leaves()?;
         let r = r[0].reader();
 
@@ -1232,7 +1232,7 @@ mod tests {
 
         // verify only one segment remains and update was applied
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(reader.leaves()?.len(), 1);
 
         let r = reader.leaves()?;
@@ -1264,7 +1264,7 @@ mod tests {
 
         // verify the value remains unchanged
         let reader = directory_reader_util::open(dir.clone())?;
-        let reader = get_context(Arc::new(reader))?;
+        let reader = get_context(reader)?;
         assert_eq!(reader.leaves()?.len(), 1);
 
         let r = reader.leaves()?;

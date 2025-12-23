@@ -21,6 +21,7 @@ use crate::core::index::reader_util::ReaderUtil;
 use crate::core::util::bits::{Bits, Either2Bits};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+
 /// Concatenates multiple `Bits` together on every lookup.
 ///
 /// **NOTE:** This is very costly, as every lookup must perform a binary search
@@ -122,12 +123,12 @@ where
 pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
 {
     if !reader.has_deletions()? {
         return Ok(None);
     }
-    let leaves = get_context(reader.clone())?.leaves()?;
+    let max_doc = reader.max_doc()?;
+    let leaves = get_context(reader)?.leaves()?;
     let size = leaves.len();
     debug_assert!(
         size > 0,
@@ -150,7 +151,7 @@ where
         starts.push(ctx.doc_base);
     }
 
-    starts.push(reader.max_doc()?);
+    starts.push(max_doc);
 
     Ok(Some(BitsType::<CR>::B(MultiBits::new(
         live_docs, starts, true,

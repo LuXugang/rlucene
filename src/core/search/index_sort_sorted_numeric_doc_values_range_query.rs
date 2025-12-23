@@ -1359,8 +1359,8 @@ mod tests {
             //     iw.delete_documents_query(LongPoint::new_range_query("idx", vec![0], vec![10])?)?;
             // }
 
-            let reader = Arc::new(iw.get_reader()?);
-            let searcher = new_searcher_with_reader(reader.clone())?;
+            let reader = iw.get_reader()?;
+            let searcher = new_searcher_with_reader(reader)?;
             iw.close()?;
 
             for _i in 0..100 {
@@ -1480,8 +1480,8 @@ mod tests {
         writer.add_document(create_document("field", 30))?;
         writer.add_document(create_document("field", 35))?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         // Test ranges consisting of one value.
 
@@ -1570,8 +1570,8 @@ mod tests {
         writer.add_document(create_document("field", 30))?;
         writer.add_document(create_document("field", 35))?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         // Test ranges consisting of one value.
         assert_number_of_hits(&searcher, create_query("field", -80, -80), 1)?;
@@ -1632,8 +1632,8 @@ mod tests {
 
         writer.add_document(create_document("field", 42))?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         assert_number_of_hits(&searcher, create_query("field", 42, 43), 1)?;
         assert_number_of_hits(&searcher, create_query("field", 42, 42), 1)?;
@@ -1667,8 +1667,8 @@ mod tests {
         writer.add_document(create_document("other-field", 10))?;
         writer.add_document(create_document("other-field", 20))?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         assert_number_of_hits(&searcher, create_query("field", -70, 0), 2)?;
         assert_number_of_hits(&searcher, create_query("field", -2, 35), 2)?;
@@ -1689,8 +1689,8 @@ mod tests {
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         writer.add_document(Document::new())?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let query = create_query("foo", 2, 4);
 
@@ -1794,8 +1794,8 @@ mod tests {
     where
         D: Directory,
     {
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         let query = create_query("field", 0, 0);
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
         for ctx in searcher.get_leaf_contexts()? {
@@ -1864,8 +1864,8 @@ mod tests {
             // }
 
             // Reader + Searcher
-            let reader = Arc::new(writer.get_reader()?);
-            let searcher = new_searcher_with_reader(reader.clone())?;
+            let reader = writer.get_reader()?;
+            let searcher = new_searcher_with_reader(reader)?;
             writer.close()?;
 
             for _i in 0..100 {
@@ -1951,8 +1951,8 @@ mod tests {
         )?)?;
         writer.add_document(create_missing_value_document()?)?;
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         let fallback_query =
             LongPoint::new_range_query("field", vec![lower_value], vec![upper_value])?;
@@ -2052,8 +2052,8 @@ mod tests {
         writer.flush()?;
         // writer.force_merge(1)?; // TODO force_merge未实现
 
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
         // Both bounds exist in the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![7], vec![9])?;
@@ -2193,8 +2193,8 @@ mod tests {
         writer.flush()?;
         // TODO force_merge未实现
         // writer.force_merge(1)?;
-        let reader = Arc::new(writer.get_reader()?);
-        let searcher = new_searcher_with_reader(reader.clone())?;
+        let reader = writer.get_reader()?;
+        let searcher = new_searcher_with_reader(reader)?;
 
         for _k in 0..100 {
             let random1 = random.random_range(0..1100) as i64;

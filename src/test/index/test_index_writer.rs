@@ -68,7 +68,7 @@ fn test_doc_count() -> Result<()> {
     writer.add_document(doc)?;
 
     writer.commit()?;
-    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    let reader = directory_reader_util::open_with_writer(&writer)?;
     let irc = get_context(reader)?;
     let index_searcher = IndexSearcher::new(irc)?;
     let term_query = TermQuery::new(Term::from_text("content1", "aaa"));
@@ -409,7 +409,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
     d.add(StringField::with_string("id", "doc-1", Store::Yes)?);
     writer.add_document(d)?;
 
-    let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+    let reader = directory_reader_util::open_with_writer(&writer)?;
     let context = get_context(reader)?;
     let r = context.leaves()?;
     let segment_reader = r.first().unwrap().reader();

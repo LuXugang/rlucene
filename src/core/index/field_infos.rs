@@ -288,8 +288,7 @@ pub(crate) static EMPTY: Lazy<Arc<FieldInfos>> =
 
 pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
 where
-    CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader,
+    CR: CompositeReader,
 {
     let crc = get_context(reader)?;
     let leaves = crc.leaves()?;
@@ -1021,7 +1020,7 @@ mod tests {
         // TODO force_merge未实现
         // writer.force_merge(1)?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = directory_reader_util::open_with_writer(&writer)?;
         let fis = get_merged_field_infos(reader)?;
         assert_eq!(2, fis.size());
 
@@ -1079,7 +1078,7 @@ mod tests {
 
         writer.commit()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
+        let reader = directory_reader_util::open_with_writer(&writer)?;
         let fis = get_merged_field_infos(reader)?;
 
         let fi1 = fis.field_info_by_name("f1").unwrap();
@@ -1101,8 +1100,8 @@ mod tests {
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let actual = get_merged_field_infos(reader.clone())?;
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let actual = get_merged_field_infos(reader)?;
 
         assert!(Arc::ptr_eq(&EMPTY.clone(), &actual));
         writer.close()?;

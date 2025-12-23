@@ -654,10 +654,10 @@ mod tests {
         doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
         // slow wrapper does not support random access ordinals (there is no need for that!)
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, Max,
@@ -705,10 +705,10 @@ mod tests {
         doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
         // slow wrapper does not support random access ordinals (there is no need for that!)
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector("value", true, Max)?])?;
 
@@ -760,10 +760,10 @@ mod tests {
         doc3.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
         sort_field.set_missing_value(StringFirst)?;
@@ -822,10 +822,10 @@ mod tests {
         doc3.add(new_string_field("id", "3", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let mut sort_field = SortedSetSortField::with_selector("value", false, Max)?;
         sort_field.set_missing_value(StringLast)?;
@@ -875,10 +875,10 @@ mod tests {
         doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, Max,
@@ -925,10 +925,10 @@ mod tests {
         doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, MiddleMin,
@@ -975,10 +975,10 @@ mod tests {
         doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", true, MiddleMin,
@@ -1029,10 +1029,10 @@ mod tests {
         doc3.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
         sort_field.set_missing_value(StringFirst)?;
@@ -1088,10 +1088,10 @@ mod tests {
         doc3.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         // MIDDLE_MIN with missing last
         let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMin)?;
@@ -1145,10 +1145,10 @@ mod tests {
         doc2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, MiddleMin,
@@ -1195,10 +1195,10 @@ mod tests {
         doc2.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, MiddleMax,
@@ -1244,9 +1244,9 @@ mod tests {
         d2.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(d2)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", true, MiddleMax,
@@ -1305,10 +1305,10 @@ mod tests {
         doc3.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let mut sort_field = SortedSetSortField::with_selector("value", false, MiddleMax)?;
         sort_field.set_missing_value(StringFirst)?;
@@ -1365,10 +1365,10 @@ mod tests {
         doc3.add(new_string_field("id", "2", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc3)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let mut sf = SortedSetSortField::with_selector("value", false, MiddleMax)?;
         sf.set_missing_value(StringLast)?;
@@ -1418,10 +1418,10 @@ mod tests {
         doc1.add(new_string_field("id", "1", Store::Yes, &mut field_to_type)?);
         writer.add_document(doc1)?;
 
-        let reader = Arc::new(writer.get_reader()?);
+        let reader = writer.get_reader()?;
         writer.close()?;
 
-        let searcher = new_searcher_with_wrap(reader.clone(), false)?;
+        let searcher = new_searcher_with_wrap(reader, false)?;
 
         let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
             "value", false, MiddleMax,
