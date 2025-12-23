@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::index_reader::{Identity, IndexReaderEnum};
+use crate::core::index::index_reader::IndexReaderEnum;
 use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
 };
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -34,7 +34,7 @@ where
     reader: CR,
     base: IndexReaderContextBase,
 }
-pub(crate) fn create<CR>(reader: CR) -> Result<Arc<CompositeReaderContext<CR>>>
+pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
     CR: CompositeReader,
     CR: Clone,
@@ -43,24 +43,23 @@ where
     let v = IndexReaderEnum::new(reader.clone());
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader, CR>::new();
-    builder.build::<CR>(v, 0, 0)?;
-    let mut leaves = builder.leaves.take().unwrap();
-    let ctx_arc = Arc::new_cyclic(|weak_ctx| {
-        for leaf in &mut leaves {
-            if let Some(leaf_mut) = Arc::get_mut(leaf) {
-                leaf_mut.top_parent = Some(weak_ctx.clone());
-            } else {
-                debug_assert!(false, "LeafReaderContext Arc is not unique");
-            }
-        }
-
-        CompositeReaderContext {
-            leaves,
-            reader,
-            base,
-        }
+    builder.build(v, 0, 0)?;
+    let leaves = builder.leaves.take().unwrap();
+    let mut ctx = CompositeReaderContext {
+        leaves,
+        reader,
+        base,
+    };
+    let top_parent_meta = TopParentMeta {
+        leaves_num: ctx.leaves.len(),
+        max_doc: builder.max_doc,
+        id: ctx.base.id().clone(),
+    };
+    ctx.leaves.iter_mut().for_each(|leaf| {
+        debug_assert!(Arc::strong_count(leaf) == 1);
+        Arc::get_mut(leaf).unwrap().top_parent = top_parent_meta.clone();
     });
-    Ok(ctx_arc)
+    Ok(ctx)
 }
 
 impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
@@ -86,26 +85,6 @@ where
     }
 }
 
-impl<CR> CompositeReaderContext<CR>
-where
-    CR: CompositeReader,
-{
-    pub fn identity(&self) -> &Identity {
-        self.base.id()
-    }
-
-    pub fn contains_leaf(this: &Arc<Self>, leaf: &Arc<LeafReaderContext<CR::LeafReader>>) -> bool
-    where
-        CR::LeafReader: LeafReader<ParentReader = CR>,
-    {
-        leaf.top_parent
-            .as_ref()
-            .unwrap()
-            .upgrade()
-            .is_some_and(|parent| Arc::ptr_eq(&parent, this))
-    }
-}
-
 struct Builder<LR, PR>
 where
     LR: LeafReader<ParentReader = PR>,
@@ -114,6 +93,7 @@ where
     // for easy taken
     pub(crate) leaves: Option<Vec<Arc<LeafReaderContext<LR>>>>,
     pub(crate) leaf_doc_base: i32,
+    pub(crate) max_doc: i32,
     _marker: PhantomData<PR>,
 }
 impl<LR, PR> Builder<LR, PR>
@@ -125,6 +105,7 @@ where
         Self {
             leaves: Some(Vec::new()),
             leaf_doc_base: 0,
+            max_doc: 0,
             _marker: PhantomData,
         }
     }
@@ -147,10 +128,12 @@ where
                     doc_base,
                     leaves_size,
                     self.leaf_doc_base,
-                    None,
+                    TopParentMeta::default(),
                 ));
                 self.leaves.as_mut().unwrap().push(atomic);
-                self.leaf_doc_base += ar.max_doc()?;
+                let max_doc = ar.max_doc()?;
+                self.leaf_doc_base += max_doc;
+                self.max_doc += max_doc;
             },
             IndexReaderEnum::Composite(composite_reader) => {
                 let sequential_sub_readers = composite_reader.get_sequential_sub_readers();

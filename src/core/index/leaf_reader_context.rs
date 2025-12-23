@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
 pub struct LeafReaderContext<LR>
@@ -34,19 +34,34 @@ where
     pub(crate) doc_base: i32,
     reader: LR,
     base: IndexReaderContextBase,
-    pub(crate) top_parent: Option<Weak<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>,
+    pub(crate) top_parent: TopParentMeta,
+}
+#[derive(Clone)]
+pub struct TopParentMeta {
+    pub(crate) leaves_num: usize,
+    pub(crate) max_doc: i32,
+    pub(crate) id: Identity,
+}
+impl Default for TopParentMeta {
+    fn default() -> Self {
+        Self {
+            leaves_num: 0,
+            max_doc: 0,
+            id: Identity::new(),
+        }
+    }
 }
 impl<LR> LeafReaderContext<LR>
 where
     LR: LeafReader,
 {
-    pub fn new(
+    pub(crate) fn new(
         reader: LR,
         ord: i32,
         doc_base: i32,
         leaf_ord: usize,
         leaf_doc_base: i32,
-        parent: Option<Weak<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>,
+        parent: TopParentMeta,
     ) -> Self {
         Self {
             ord: leaf_ord,
@@ -55,10 +70,6 @@ where
             base: IndexReaderContextBase::new(false, ord, doc_base),
             top_parent: parent,
         }
-    }
-
-    pub fn new_single(reader: LR) -> Self {
-        Self::new(reader, 0, 0, 0, 0, None)
     }
 }
 impl<LR> IndexReaderContextSealed for LeafReaderContext<LR> where LR: LeafReader {}
@@ -93,8 +104,8 @@ impl<LR> LeafReaderContext<LR>
 where
     LR: LeafReader,
 {
-    pub fn top_parent(&self) -> Option<Arc<CompositeReaderContext<LR::ParentReader>>> {
-        self.top_parent.as_ref().unwrap().upgrade()
+    pub fn top_parent(&self) -> &TopParentMeta {
+        &self.top_parent
     }
 }
 impl<LR> fmt::Display for LeafReaderContext<LR>

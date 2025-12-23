@@ -439,7 +439,7 @@ pub mod lucene_test_case_util {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let irc = get_context(composite_reader)?;
+        let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)
     }
     pub fn new_searcher_with_wrap<CR>(
@@ -478,7 +478,7 @@ pub mod lucene_test_case_util {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let irc = get_context(composite_reader)?;
+        let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)
     }
 
@@ -489,7 +489,7 @@ pub mod lucene_test_case_util {
         CR: CompositeReader + Clone,
         CR::LeafReader: LeafReader<ParentReader = CR>,
     {
-        let irc = get_context(composite_reader)?;
+        let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)
     }
 

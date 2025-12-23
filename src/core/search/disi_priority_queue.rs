@@ -308,7 +308,7 @@ impl DisiPriorityQueue {
 #[cfg(test)]
 pub mod tests {
     use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-    use crate::core::index::leaf_reader_context::LeafReaderContext;
+    use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
     use crate::core::search::constant_score_scorer::ConstantScoreScorer;
     use crate::core::search::disi_priority_queue::DisiPriorityQueue;
     use crate::core::search::disi_wrapper::DisiWrapper;
@@ -393,7 +393,7 @@ where {
         let q = DummyQueryImpl::new(iterator);
         let weight = q.weight();
         let reader = DummyLeafReader;
-        let lrc = LeafReaderContext::new(reader, 0, 0, 0, 0, None);
+        let lrc = LeafReaderContext::new(reader, 0, 0, 0, 0, TopParentMeta::default());
         let s = weight.scorer(&lrc)?.unwrap();
         DisiWrapper::new(s)
     }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
+use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -721,8 +721,7 @@ where
     }
     fn should_cache(&self, context: &LeafReaderContext<LR>) -> Result<bool> {
         let top_context = ReaderUtil::get_top_level_context(context);
-        debug_assert!(top_context.is_some());
-        let max_doc = top_context.as_ref().unwrap().reader().max_doc()?;
+        let max_doc = top_context.max_doc;
         let v = self.cache_entry_has_reasonable_worst_case_size(max_doc)
             && self.lru_cache.leaves_to_cache.test(context)?;
         Ok(v)
@@ -1257,19 +1256,9 @@ where
             return Ok(false);
         }
         let top_level_context = ReaderUtil::get_top_level_context(context);
-        let average_total_docs = match top_level_context {
-            Some(tlc) => {
-                let doc = tlc.reader().max_doc()?;
-                debug_assert!(tlc.leaves()?.len() <= i32::MAX as usize);
-                let size = tlc.leaves()?.len() as i32;
-                doc / size
-            },
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "context should have top level context",
-                ));
-            },
-        };
+        let doc = top_level_context.max_doc;
+        let size: i32 = top_level_context.leaves_num.try_into()?;
+        let average_total_docs = doc / size;
         Ok((max_doc * 2) > average_total_docs)
     }
 }

@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use std::sync::Arc;
 
 pub struct ReaderUtil;
 impl ReaderUtil {
-    pub fn get_top_level_context<LR>(
-        leaf_reader: &LeafReaderContext<LR>,
-    ) -> Option<Arc<CompositeReaderContext<<LR as LeafReader>::ParentReader>>>
+    pub fn get_top_level_context<LR>(leaf_reader: &LeafReaderContext<LR>) -> &TopParentMeta
     where
         LR: LeafReader,
     {

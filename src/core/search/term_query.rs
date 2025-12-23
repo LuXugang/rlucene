@@ -135,7 +135,7 @@ impl QueryBase for TermQuery {
     {
         let context = searcher.get_top_reader_context();
         let term_state = match per_reader_term_state {
-            Some(states) if states.was_built_for_some(context) => states,
+            Some(states) if states.was_built_for_some(context.base().id()) => states,
             _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
         };
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
@@ -233,7 +233,7 @@ where
         debug_assert!(
             {
                 let v = ReaderUtil::get_top_level_context(context);
-                self.term_states.lock().was_built_for::<IRC>(v)
+                self.term_states.lock().was_built_for(v)
             },
             "The top-reader used to create Weight is not the same as the current reader's top-reader"
         );
@@ -377,7 +377,7 @@ where
         debug_assert!(
             {
                 let v = ReaderUtil::get_top_level_context(context);
-                self.term_states.lock().was_built_for::<IRC>(v)
+                self.term_states.lock().was_built_for(v)
             },
             "The top-reader used to create Weight is not the same as the current reader's top-reader"
         );
