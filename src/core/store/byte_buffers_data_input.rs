@@ -17,7 +17,6 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-use std::marker::PhantomData;
 
 use byteorder::{ByteOrder, LE};
 
@@ -28,30 +27,24 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{ReadableCursorExt, SliceCopyOps};
-pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<'a, &'a [u8]>;
-pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<'static, Vec<u8>>;
+pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<&'a [u8]>;
+pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
 
 /// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
-pub struct ByteBuffersDataInput<'a, B: AsRef<[u8]>> {
-    /// In Java Lucene, hierarchical data is encapsulated using
-    /// List<`java.nio.ByteBuffer`>, where each ByteBuffer limits the
-    /// readable data using the limit parameter. In Rust Lucene, however,
-    /// this is managed by controlling the readable data using
-    /// Cursor#setPosition.
+pub struct ByteBuffersDataInput<B: AsRef<[u8]>> {
     blocks: Vec<Cursor<B>>,
     block_mask: i32,
     block_bits: i32,
     length: i64,
     offset: i64,
     pos: i64,
-    _phantom: PhantomData<&'a B>,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of
 /// remaining bytes (which must be a power of two). The last buffer can have an
 /// arbitrary remaining length.
-impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
+impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
     pub fn new(blocks: Vec<Cursor<B>>, length: i64) -> Self {
         let (block_bits, block_mask) = if blocks.is_empty() {
             (32, !0)
@@ -70,7 +63,6 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
             length,
             offset,
             pos: offset,
-            _phantom: PhantomData,
         }
     }
     fn block_index(&self, pos: i64) -> i32 {
@@ -172,11 +164,11 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
         self.pos - self.offset
     }
 }
-impl<'a, B> ByteBuffersDataInput<'a, B>
+impl<B> ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
-    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a, B>> {
+    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<B>> {
         if offset < 0 || length < 0 || offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
@@ -225,7 +217,7 @@ where
     }
 }
 
-impl<B> Display for ByteBuffersDataInput<'_, B>
+impl<B> Display for ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]>,
 {
@@ -249,7 +241,7 @@ where
     }
 }
 
-impl<B> DataInput for ByteBuffersDataInput<'_, B>
+impl<B> DataInput for ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]>,
 {
@@ -331,7 +323,7 @@ where
 // TODO: In the current implementation, after performing a random read of a
 // specific value, it is not possible to use sequential reads to access the next
 // value at the subsequent position. TODO: should we support this feature?
-impl<B> RandomAccessInput for ByteBuffersDataInput<'_, B>
+impl<B> RandomAccessInput for ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]>,
 {
@@ -372,7 +364,7 @@ where
     }
 }
 
-impl<B> Accountable for ByteBuffersDataInput<'_, B>
+impl<B> Accountable for ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]>,
 {

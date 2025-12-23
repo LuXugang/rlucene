@@ -25,18 +25,18 @@ use crate::core::util::error::lucene_error::Result;
 
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
 /// and backed by a [`ByteBuffersDataInput`](ByteBuffersDataInput).
-pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<'a, &'a [u8]>;
-pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<'static, Vec<u8>>;
+pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
+pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 
-pub struct ByteBuffersIndexInput<'a, B: AsRef<[u8]>> {
-    data_input: ByteBuffersDataInput<'a, B>,
+pub struct ByteBuffersIndexInput<B: AsRef<[u8]>> {
+    data_input: ByteBuffersDataInput<B>,
     resource_description: String,
 }
-impl<'a, B> ByteBuffersIndexInput<'a, B>
+impl<B> ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]>,
 {
-    pub fn new(data_input: ByteBuffersDataInput<'a, B>, resource_description: &str) -> Self {
+    pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
         Self {
             data_input,
             resource_description: resource_description.to_string(),
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<B> DataInput for ByteBuffersIndexInput<'_, B>
+impl<B> DataInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
@@ -137,7 +137,7 @@ where
         IndexInput::get_file_pointer(self)
     }
 }
-impl<B> RandomAccessInput for ByteBuffersIndexInput<'_, B>
+impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]>,
 {
@@ -166,7 +166,7 @@ where
     }
 }
 
-impl<B> Display for ByteBuffersIndexInput<'_, B>
+impl<B> Display for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]>,
 {
@@ -175,7 +175,7 @@ where
     }
 }
 
-impl<B> crate::core::util::clone::TryClone for ByteBuffersIndexInput<'_, B>
+impl<B> crate::core::util::clone::TryClone for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
@@ -191,7 +191,7 @@ where
     }
 }
 
-impl<'a, B> IndexInput for ByteBuffersIndexInput<'a, B>
+impl<B> IndexInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
@@ -207,7 +207,7 @@ where
         self.data_input.length()
     }
 
-    type Slice = ByteBuffersIndexInput<'a, B>;
+    type Slice = ByteBuffersIndexInput<B>;
 
     fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
         Ok(ByteBuffersIndexInput::new(
