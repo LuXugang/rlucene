@@ -873,7 +873,7 @@ where
     }
 
     fn all_equal(b: &[u8], start_offset: usize, end_offset: usize, value: u8) -> Result<bool> {
-        CoreHelper::check_from_index_size(start_offset as i32, end_offset as i32, b.len() as i32)?;
+        CoreHelper::check_from_to_index(start_offset, end_offset, b.len())?;
         Ok(b[start_offset..end_offset].iter().all(|&x| x == value))
     }
     /// Writes the specified slice (start is inclusive, end is exclusive) from
