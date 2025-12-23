@@ -86,13 +86,10 @@ where
 
     type LeafReader = LR;
 
-    fn leaves(&self) -> Result<Vec<Arc<LeafReaderContext<Self::LeafReader>>>> {
-        if !self.base.is_top_level {
-            return Err(LuceneError::unsupported_operation(
-                "This is not a top-level context".to_string(),
-            ));
-        }
-        Ok(vec![])
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+        Err(LuceneError::unsupported_operation(
+            "This is a leaf reader context",
+        ))
     }
 
     fn base(&self) -> &IndexReaderContextBase {

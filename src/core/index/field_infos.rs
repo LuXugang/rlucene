@@ -309,14 +309,14 @@ where
         }
     }
 
-    let parent_field = get_and_validate_parent_field(leaves.as_ref())?;
+    let parent_field = get_and_validate_parent_field(leaves)?;
 
     let mut builder = Builder::new(Arc::new(Mutex::new(FieldNumbers::new(
         soft_deletes_field.clone(),
         parent_field.clone(),
     )?)));
 
-    for leaf in &leaves {
+    for leaf in leaves {
         for field_info in leaf.reader().get_field_infos()?.iter() {
             builder.add(field_info.clone())?;
         }

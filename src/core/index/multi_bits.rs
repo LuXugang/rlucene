@@ -128,7 +128,8 @@ where
         return Ok(None);
     }
     let max_doc = reader.max_doc()?;
-    let leaves = get_context(reader)?.leaves()?;
+    let ctx = get_context(reader)?;
+    let leaves = ctx.leaves()?;
     let size = leaves.len();
     debug_assert!(
         size > 0,
@@ -145,7 +146,7 @@ where
     let mut live_docs = Vec::with_capacity(size);
     let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
 
-    for ctx in &leaves {
+    for ctx in leaves {
         // record all liveDocs, even if they are null
         live_docs.push(ctx.reader().get_live_docs()?);
         starts.push(ctx.doc_base);

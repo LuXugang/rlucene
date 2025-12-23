@@ -1320,7 +1320,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
             let mut size = 0i32;
             let field_name = format!("int{}", field);
 
-            for leaf in leaves.as_slice() {
+            for leaf in leaves.iter() {
                 if let Some(points) = leaf.reader().get_point_values(&field_name)? {
                     doc_count += points.get_doc_count()?;
                     size += points.size()? as i32;

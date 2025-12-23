@@ -74,8 +74,8 @@ where
 
     type LeafReader = CR::LeafReader;
 
-    fn leaves(&self) -> Result<Vec<Arc<LeafReaderContext<Self::LeafReader>>>> {
-        Ok(self.leaves.clone())
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+        Ok(self.leaves.as_ref())
     }
 
     fn base(&self) -> &IndexReaderContextBase {
@@ -157,8 +157,8 @@ where
 
     type LeafReader = CR::LeafReader;
 
-    fn leaves(&self) -> Result<Vec<Arc<LeafReaderContext<Self::LeafReader>>>> {
-        Ok(self.leaves.clone())
+    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+        Ok(self.leaves.as_ref())
     }
 
     fn base(&self) -> &IndexReaderContextBase {

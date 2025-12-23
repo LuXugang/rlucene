@@ -173,7 +173,7 @@ where
 
     fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<()> {
         if inner.leaf_slices.is_none() {
-            let res = slices(self.reader_context.leaves()?.as_slice())?;
+            let res = slices(self.reader_context.leaves()?)?;
             // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
             // same leaf context. It is a requirement that [`Collector::get_leaf_collector(LeafReaderContext)`]
             // gets called once per leaf context.
@@ -601,7 +601,7 @@ where
 
         Ok(Some(stats))
     }
-    pub fn get_leaf_contexts(&self) -> Result<Vec<Arc<LeafReaderContext<IRC::LeafReader>>>> {
+    pub fn get_leaf_contexts(&self) -> Result<&[Arc<LeafReaderContext<IRC::LeafReader>>]> {
         self.reader_context.leaves()
     }
     pub fn get_index_reader(&self) -> &IRC::IndexReader {
