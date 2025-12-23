@@ -51,7 +51,7 @@ impl BinaryPoint {
     }
 
     /// Expert API: directly supply packed bytes + type
-    pub fn new_with_type<T>(
+    pub fn with_type<T>(
         name: T,
         packed_point: Vec<u8>,
         field_type: FieldType,

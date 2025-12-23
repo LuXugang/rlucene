@@ -57,32 +57,32 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// *Lucene internal API*
 pub trait BaseCompositeReader: CompositeReader {}
 
-pub struct BaseCompositeReaderBase<IR, CR>
+pub struct BaseCompositeReaderBase<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<IR, CR>>,
+    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
     starts: Arc<Vec<i32>>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
-impl<IR, CR> BaseCompositeReaderBase<IR, CR>
+impl<LR, CR> BaseCompositeReaderBase<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    pub fn new_with_leaf_readers<C>(
-        sub_readers: Vec<IR>,
+    pub fn with_leaf_readers<C>(
+        sub_readers: Vec<LR>,
         sub_reader_sorter: &Option<Arc<C>>,
     ) -> Result<Self>
     where
-        C: Comparator<IR>,
+        C: Comparator<LR>,
     {
         Self::build_from_sub_readers(sub_readers, sub_reader_sorter, IndexReaderEnum::Leaf)
     }
 
-    pub fn new_with_composite_readers<C>(
+    pub fn with_composite_readers<C>(
         sub_readers: Vec<CR>,
         sub_reader_sorter: &Option<Arc<C>>,
     ) -> Result<Self>
@@ -103,15 +103,15 @@ where
     ///
     /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
     ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-    fn build_from_sub_readers<R, C, F>(
-        mut sub_readers: Vec<R>,
+    fn build_from_sub_readers<IR, C, F>(
+        mut sub_readers: Vec<IR>,
         sub_reader_sorter: &Option<Arc<C>>,
         to_index_reader_enum: F,
     ) -> Result<Self>
     where
-        R: IndexReader,
-        C: Comparator<R>,
-        F: FnMut(R) -> IndexReaderEnum<IR, CR>,
+        IR: IndexReader,
+        C: Comparator<IR>,
+        F: FnMut(IR) -> IndexReaderEnum<LR, CR>,
     {
         if let Some(sorter) = &sub_reader_sorter {
             let mut err: Option<LuceneError> = None;
@@ -160,7 +160,7 @@ where
     pub fn term_vector(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRTermVectorsImpl<IR, CR>> {
+    ) -> Result<BCRTermVectorsImpl<LR, CR>> {
         reader.ensure_open()?;
         Ok(TermVectorsImpl::new(
             self.sub_reader.clone(),
@@ -198,7 +198,7 @@ where
     pub fn stored_fields(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRStoredFieldsImpl<IR, CR>> {
+    ) -> Result<BCRStoredFieldsImpl<LR, CR>> {
         reader.ensure_open()?;
         Ok(StoredFieldsImpl::new(
             self.sub_reader.clone(),
@@ -281,30 +281,30 @@ where
         }
         Ok(self.starts[reader_index])
     }
-    pub fn get_sequential_sub_readers(&self) -> Vec<IndexReaderEnum<IR, CR>> {
+    pub fn get_sequential_sub_readers(&self) -> Vec<IndexReaderEnum<LR, CR>> {
         self.sub_reader.clone()
     }
 }
 pub type BCRTermVectorsImpl<IR, CR> = TermVectorsImpl<IR, CR>;
 pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
 
-pub struct TermVectorsImpl<IR, CR>
+pub struct TermVectorsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<IR, CR>>,
+    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
     starts: Arc<Vec<i32>>,
-    sub_term_vectors: Vec<Option<IRTermVectors<IR, CR>>>,
+    sub_term_vectors: Vec<Option<IRTermVectors<LR, CR>>>,
     max_doc: i32,
 }
-impl<IR, CR> TermVectorsImpl<IR, CR>
+impl<LR, CR> TermVectorsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     pub fn new(
-        sub_reader: Vec<IndexReaderEnum<IR, CR>>,
+        sub_reader: Vec<IndexReaderEnum<LR, CR>>,
         starts: Arc<Vec<i32>>,
         max_doc: i32,
     ) -> Self {
@@ -319,16 +319,10 @@ where
             max_doc,
         }
     }
-    fn ensure_open<BCR>(_reader: &BCR) -> Result<()>
-    where
-        BCR: BaseCompositeReader,
-    {
-        todo!()
-    }
 }
-impl<IR, CR> TermVectors for TermVectorsImpl<IR, CR>
+impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
@@ -344,7 +338,7 @@ where
         Ok(())
     }
 
-    type Fields = <IRTermVectors<IR, CR> as TermVectors>::Fields;
+    type Fields = <IRTermVectors<LR, CR> as TermVectors>::Fields;
 
     fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
         let i = reader_index(doc_id, self.max_doc, &self.starts)?;
@@ -357,24 +351,24 @@ where
         tv.get(doc_id - self.starts[i])
     }
 }
-pub struct StoredFieldsImpl<IR, CR>
+pub struct StoredFieldsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<IR, CR>>,
+    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
     starts: Arc<Vec<i32>>,
-    sub_stored_fields: Vec<Option<IRStoredFields<IR, CR>>>,
+    sub_stored_fields: Vec<Option<IRStoredFields<LR, CR>>>,
     max_doc: i32,
 }
 
-impl<IR, CR> StoredFieldsImpl<IR, CR>
+impl<LR, CR> StoredFieldsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     pub fn new(
-        sub_reader: Vec<IndexReaderEnum<IR, CR>>,
+        sub_reader: Vec<IndexReaderEnum<LR, CR>>,
         starts: Arc<Vec<i32>>,
         max_doc: i32,
     ) -> Self {
@@ -391,9 +385,9 @@ where
     }
 }
 
-impl<IR, CR> StoredFields for StoredFieldsImpl<IR, CR>
+impl<LR, CR> StoredFields for StoredFieldsImpl<LR, CR>
 where
-    IR: LeafReader + Clone,
+    LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {

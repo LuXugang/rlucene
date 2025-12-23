@@ -78,7 +78,7 @@ where
         closed: Option<Arc<AtomicBool>>,
     ) -> Result<Self> {
         let base_composite_reader_base =
-            BaseCompositeReaderBase::new_with_leaf_readers::<C>(readers, &leaf_sorter)?;
+            BaseCompositeReaderBase::with_leaf_readers(readers, &leaf_sorter)?;
         let directory_reader_base = DirectoryReaderBase::new(directory);
         Ok(StandardDirectoryReader {
             base_composite_reader_base,
