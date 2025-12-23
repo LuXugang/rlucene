@@ -18,12 +18,17 @@ use crate::core::index::base_composite_reader::{
     BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
 use crate::core::index::composite_reader::CompositeReader;
+#[cfg(test)]
+use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+#[cfg(test)]
+use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
+
 /// A [`CompositeReader`] which reads multiple indexes, appending their content.
 /// It can be used to create a view on several sub-readers (like [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader))
 /// and execute searches on it.
@@ -46,6 +51,12 @@ where
     base_composite_reader_base: BaseCompositeReaderBase<LR, CR>,
     index_reader_base: IndexReaderBase,
     close_sub_readers: bool,
+}
+#[cfg(test)]
+impl MultiReader<DummyLeafReader, DummyCompositeReader<DummyLeafReader>> {
+    pub fn empty() -> Result<Self> {
+        Self::with_leaf_reader(vec![])
+    }
 }
 
 impl<LR, CR> MultiReader<LR, CR>

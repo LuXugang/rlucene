@@ -652,11 +652,13 @@ mod tests {
     use crate::core::document::long_point::LongPoint;
     use crate::core::index::composite_reader::get_context;
     use crate::core::index::directory_reader::directory_reader_util;
+
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field::IndexableField;
     use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::multi_reader::MultiReader;
     use crate::core::index::point_values::{
         IntersectVisitor, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointValues, Relation,
         get_doc_count, get_max_packed_value, get_min_packed_value, size,
@@ -1342,9 +1344,16 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     }
     #[test]
     fn test_merged_stats_empty_reader() -> Result<()> {
-        // TODO MultiReader未实现
+        let reader = Arc::new(MultiReader::empty()?);
+
+        assert!(get_min_packed_value(reader.clone(), "field")?.is_none());
+        assert!(get_max_packed_value(reader.clone(), "field")?.is_none());
+        assert_eq!(0, get_doc_count(reader.clone(), "field")?);
+        assert_eq!(0, size(reader.clone(), "field")?);
+
         Ok(())
     }
+
     #[test]
     fn test_merged_stats_one_segment_without_points() -> Result<()> {
         let mut random = random();

@@ -86,6 +86,11 @@ pub enum SortedSetSelectorType {
     /// is chosen.
     MiddleMax,
 }
+impl SortedSetSelectorType {
+    pub fn values() -> &'static [Self] {
+        &[Self::Min, Self::Max, Self::MiddleMin, Self::MiddleMax]
+    }
+}
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
 pub struct MinValue<S>
 where

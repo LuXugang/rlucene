@@ -87,6 +87,11 @@ pub enum SortedNumericSelectorType {
     Max,
     // TODO: We could implement Median in constant time (at most 2 lookups).
 }
+impl SortedNumericSelectorType {
+    pub fn values() -> &'static [Self] {
+        &[Self::Min, Self::Max]
+    }
+}
 
 pub struct MinValue<S> {
     inner: S,

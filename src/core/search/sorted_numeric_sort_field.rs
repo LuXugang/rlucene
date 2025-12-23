@@ -584,12 +584,16 @@ mod tests {
     use crate::core::document::float_field::FloatField;
     use crate::core::document::int_field::IntField;
     use crate::core::document::string_field::StringField;
+
+    use crate::core::index::multi_reader::MultiReader;
     use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
+    use crate::core::index::term::Term;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
     use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
     use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
     use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+    use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::CoreHelper;
     use crate::core::util::error::lucene_error::Result;
@@ -603,9 +607,33 @@ mod tests {
     struct TestSortedNumericSortField;
     #[test]
     fn test_empty_index() -> Result<()> {
-        // TODO MultiReader未实现
+        let reader = MultiReader::empty()?;
+        let empty = new_searcher_with_reader(Arc::new(reader))?;
+        let query = TermQuery::new(Term::from_text("contents", "foo"));
+
+        let sort = Sort::with_fields(vec![SortedNumericSortField::new(
+            "sortednumeric",
+            SortFieldType::Long,
+        )?])?;
+        let td = empty.search_with_sort(query.clone(), 10, sort)?;
+        assert_eq!(0, td.total_hits().value());
+
+        // for an empty index, any selector should work
+        for v in SortedNumericSelectorType::values() {
+            let sort = Sort::with_fields(vec![SortedNumericSortField::with_selector(
+                "sortednumeric",
+                SortFieldType::Long,
+                false,
+                *v,
+            )?])?;
+
+            let td = empty.search_with_sort(query.clone(), 10, sort)?;
+            assert_eq!(0, td.total_hits().value());
+        }
+
         Ok(())
     }
+
     #[test]
     fn test_equals() -> Result<()> {
         let sf = SortedNumericSortField::new("a", SortFieldType::Long)?;
