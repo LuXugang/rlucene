@@ -22,10 +22,10 @@ use std::sync::Arc;
 
 pub trait CompositeReader: IndexReader {
     type LeafReader: LeafReader + Clone;
-    type CompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
+    type SubCompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>>;
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>>;
     fn to_string(&self) -> String {
         todo!()
     }
@@ -43,11 +43,11 @@ where
     CR: CompositeReader,
 {
     type LeafReader = CR::LeafReader;
-    type CompositeReader = CR::CompositeReader;
+    type SubCompositeReader = CR::SubCompositeReader;
 
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>> {
         (**self).get_sequential_sub_readers()
     }
 

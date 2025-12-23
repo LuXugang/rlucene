@@ -98,11 +98,11 @@ where
     LR: LeafReader + Clone,
 {
     type LeafReader = LR;
-    type CompositeReader = DummyCompositeReader<LR>;
+    type SubCompositeReader = DummyCompositeReader<LR>;
 
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::CompositeReader>> {
+    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

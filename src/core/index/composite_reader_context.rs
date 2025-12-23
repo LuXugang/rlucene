@@ -155,7 +155,7 @@ where
             IndexReaderEnum::Composite(composite_reader) => {
                 let sequential_sub_readers = composite_reader.get_sequential_sub_readers();
                 for sub_reader in sequential_sub_readers {
-                    self.build::<CR::CompositeReader>(
+                    self.build::<CR::SubCompositeReader>(
                         sub_reader,
                         ord,
                         doc_base + self.leaf_doc_base,
