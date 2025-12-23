@@ -122,7 +122,7 @@ where
 pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     if !reader.has_deletions()? {
         return Ok(None);

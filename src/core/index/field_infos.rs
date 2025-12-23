@@ -289,7 +289,7 @@ pub(crate) static EMPTY: Lazy<Arc<FieldInfos>> =
 pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let crc = get_context(reader)?;
     let leaves = crc.leaves()?;

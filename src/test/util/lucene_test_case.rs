@@ -94,7 +94,7 @@ pub mod lucene_test_case_util {
     pub fn get_only_leaf_reader<CR>(reader: CR) -> Result<<CR as CompositeReader>::LeafReader>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let irc = get_context(reader.clone())?;
         let sub_readers = irc.leaves()?;
@@ -437,7 +437,7 @@ pub mod lucene_test_case_util {
     ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)
@@ -448,7 +448,7 @@ pub mod lucene_test_case_util {
     ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         new_searcher_with_wrap_assert(composite_reader, may_be_wrap, true)
     }
@@ -459,7 +459,7 @@ pub mod lucene_test_case_util {
     ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         new_searcher_with_threads(
             composite_reader,
@@ -476,7 +476,7 @@ pub mod lucene_test_case_util {
     ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)
@@ -487,7 +487,7 @@ pub mod lucene_test_case_util {
     ) -> Result<DefaultIndexSearcher<Arc<CompositeReaderContext<CR>>>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let irc = Arc::new(get_context(composite_reader)?);
         IndexSearcher::new(irc)

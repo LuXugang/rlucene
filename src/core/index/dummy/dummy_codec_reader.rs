@@ -29,8 +29,6 @@ use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
@@ -51,7 +49,6 @@ pub struct DummyCodecReader;
 
 impl LeafReader for DummyCodecReader {
     type CacheHelper = DummyCacheHelper;
-    type ParentReader = DummyCompositeReader<DummyLeafReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

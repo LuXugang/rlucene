@@ -22,7 +22,6 @@ use crate::core::index::index_reader_context::{
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::util::error::lucene_error::Result;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
@@ -38,11 +37,11 @@ pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
     CR: CompositeReader,
     CR: Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let v = IndexReaderEnum::new(reader.clone());
     let base = IndexReaderContextBase::new(true, 0, 0);
-    let mut builder = Builder::<CR::LeafReader, CR>::new();
+    let mut builder = Builder::<CR::LeafReader>::new();
     builder.build(v, 0, 0)?;
     let leaves = builder.leaves.take().unwrap();
     let mut ctx = CompositeReaderContext {
@@ -85,35 +84,30 @@ where
     }
 }
 
-struct Builder<LR, PR>
+struct Builder<LR>
 where
-    LR: LeafReader<ParentReader = PR>,
-    PR: CompositeReader,
+    LR: LeafReader,
 {
     // for easy taken
     pub(crate) leaves: Option<Vec<Arc<LeafReaderContext<LR>>>>,
     pub(crate) leaf_doc_base: i32,
     pub(crate) max_doc: i32,
-    _marker: PhantomData<PR>,
 }
-impl<LR, PR> Builder<LR, PR>
+impl<LR> Builder<LR>
 where
-    LR: LeafReader<ParentReader = PR>,
-    PR: CompositeReader,
+    LR: LeafReader,
 {
     fn new() -> Self {
         Self {
             leaves: Some(Vec::new()),
             leaf_doc_base: 0,
             max_doc: 0,
-            _marker: PhantomData,
         }
     }
 }
-impl<LR, PR> Builder<LR, PR>
+impl<LR> Builder<LR>
 where
-    LR: LeafReader<ParentReader = PR> + Clone,
-    PR: CompositeReader,
+    LR: LeafReader + Clone,
 {
     fn build<CR>(&mut self, reader: IndexReaderEnum<LR, CR>, ord: i32, doc_base: i32) -> Result<()>
     where

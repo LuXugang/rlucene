@@ -38,7 +38,6 @@ use crate::core::index::doc_values_writer::{
     DocValuesWriter, DocValuesWriterDISI, DocValuesWriterEnum,
 };
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::field_infos::build::Builder;
@@ -2067,7 +2066,6 @@ where
     D: Directory,
 {
     type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
-    type ParentReader = DummyCompositeReader<DocValuesLeafReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         self.base.get_core_cache_helper_ref()
@@ -2337,7 +2335,6 @@ where
     SFB: SortFiledBase,
 {
     type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
-    type ParentReader = DummyCompositeReader<DocValuesLeafReader>;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         self.base.get_core_cache_helper_ref()

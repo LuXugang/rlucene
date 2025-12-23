@@ -439,7 +439,7 @@ mod tests {
     ) -> Result<TopDocs<ScoreDoc>>
     where
         CR: CompositeReader + Clone,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
         let collector_manager =
@@ -454,7 +454,7 @@ mod tests {
     ) -> Result<TopDocs<ScoreDoc>>
     where
         CR: CompositeReader + Clone + 'static,
-        CR::LeafReader: LeafReader<ParentReader = CR>,
+        CR::LeafReader: LeafReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
         let collector_manager =

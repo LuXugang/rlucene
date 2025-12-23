@@ -116,7 +116,7 @@ pub trait PointValues: Clone {
 pub fn size<CR>(reader: CR, field: &str) -> Result<i64>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -139,7 +139,7 @@ where
 pub fn get_doc_count<CR>(reader: CR, field: &str) -> Result<i32>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -161,7 +161,7 @@ where
 pub fn get_min_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let leaves = get_context(reader)?;
     let leaves = leaves.leaves()?;
@@ -208,7 +208,7 @@ where
 pub fn get_max_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
 where
     CR: CompositeReader + Clone,
-    CR::LeafReader: LeafReader<ParentReader = CR>,
+    CR::LeafReader: LeafReader,
 {
     let ctx = get_context(reader)?;
     let leaves = ctx.leaves()?;

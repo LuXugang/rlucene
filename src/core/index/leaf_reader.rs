@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
@@ -37,7 +36,6 @@ use std::sync::Arc;
 
 pub trait LeafReader: IndexReader {
     type CacheHelper: CacheHelper;
-    type ParentReader: CompositeReader;
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>>;
     fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>>;
 
@@ -229,7 +227,6 @@ where
     LR: LeafReader + ?Sized,
 {
     type CacheHelper = LR::CacheHelper;
-    type ParentReader = LR::ParentReader;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
         (**self).get_core_cache_helper_ref()
