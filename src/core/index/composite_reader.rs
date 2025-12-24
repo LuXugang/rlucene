@@ -31,7 +31,7 @@ pub trait CompositeReader: IndexReader {
     }
 }
 
-pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<Arc<CR>>>
+pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR>>
 where
     CR: CompositeReader,
 {

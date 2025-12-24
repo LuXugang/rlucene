@@ -18,7 +18,6 @@ use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::search::index_searcher::DefaultIndexSearcher;
 use crate::test::util::lucene_test_case::lucene_test_case_util::DirType;
-use std::sync::Arc;
 
 pub(crate) mod automaton;
 pub(crate) mod base_bit_set_test_case;
@@ -33,4 +32,4 @@ pub(crate) mod lucene_test_case;
 mod packed;
 pub mod test_util;
 pub type DefaultIndexSearch =
-    DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>;
+    DefaultIndexSearcher<CompositeReaderContext<StandardDirectoryReaderType<DirType>>>;

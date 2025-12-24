@@ -21,7 +21,7 @@ use crate::core::index::index_reader_context::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
@@ -34,16 +34,23 @@ where
     pub(crate) reader: CR,
     base: IndexReaderContextBase,
 }
-pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<Arc<CR>>>
+pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
     CR: CompositeReader,
 {
-    let reader = Arc::new(reader);
-    let v = IndexReaderEnum::new(reader.clone());
+    let v = IndexReaderEnum::new(reader);
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader>::new();
     builder.build(&v, 0, 0)?;
     let leaves = builder.leaves.take().unwrap();
+    let reader = match v {
+        IndexReaderEnum::Composite(composite_reader) => composite_reader,
+        _ => {
+            return Err(LuceneError::illegal_state(
+                "CompositeReaderContext can only be created from CompositeReader",
+            ));
+        },
+    };
     let mut ctx = CompositeReaderContext {
         leaves,
         reader,

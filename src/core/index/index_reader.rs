@@ -208,23 +208,10 @@ where
 }
 impl<CR> IndexReaderEnum<CR::LeafReader, CR>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub(crate) fn new(reader: CR) -> Self {
         IndexReaderEnum::Composite(reader)
-    }
-}
-
-impl<LR, CR> Clone for IndexReaderEnum<LR, CR>
-where
-    LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
-{
-    fn clone(&self) -> Self {
-        match self {
-            IndexReaderEnum::Leaf(leaf) => IndexReaderEnum::Leaf(leaf.clone()),
-            IndexReaderEnum::Composite(comp) => IndexReaderEnum::Composite(comp.clone()),
-        }
     }
 }
 

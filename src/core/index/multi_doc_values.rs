@@ -37,7 +37,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::sync::Arc;
 
 pub struct MultiDocValues;
 
@@ -230,7 +229,7 @@ where
 {
     next_leaf: i32,
     current_values: Option<LRNormNumericDocValues<CR::LeafReader>>,
-    reader: CompositeReaderContext<Arc<CR>>,
+    reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
     current_doc_base: i32,
@@ -239,7 +238,7 @@ impl<CR> NumericDocValuesImpl<CR>
 where
     CR: CompositeReader,
 {
-    pub fn new(reader: CompositeReaderContext<Arc<CR>>, field: String) -> Self {
+    pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
         Self {
             next_leaf: 0,
             current_values: None,
@@ -356,7 +355,7 @@ where
 {
     next_leaf: i32,
     current_values: Option<LRNumericDocValues<CR::LeafReader>>,
-    reader: CompositeReaderContext<Arc<CR>>,
+    reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
     current_doc_base: i32,
@@ -366,7 +365,7 @@ impl<CR> NumericDocValuesImpl1<CR>
 where
     CR: CompositeReader,
 {
-    pub fn new(reader: CompositeReaderContext<Arc<CR>>, field: String) -> Self {
+    pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
         Self {
             next_leaf: 0,
             current_values: None,
@@ -514,7 +513,7 @@ where
 {
     next_leaf: i32,
     current_values: Option<LRBinaryDocValues<CR::LeafReader>>,
-    reader: CompositeReaderContext<Arc<CR>>,
+    reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
     current_doc_base: i32,
@@ -524,7 +523,7 @@ impl<CR> BinaryDocValuesImpl<CR>
 where
     CR: CompositeReader,
 {
-    pub fn new(reader: CompositeReaderContext<Arc<CR>>, field: String) -> Self {
+    pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
         Self {
             next_leaf: 0,
             current_values: None,
@@ -676,7 +675,7 @@ where
             LRSortedNumericDocValues<CR::LeafReader>,
         >,
     >,
-    reader: CompositeReaderContext<Arc<CR>>,
+    reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
     current_doc_base: i32,
@@ -687,7 +686,7 @@ where
     CR: CompositeReader,
 {
     pub fn new(
-        reader: CompositeReaderContext<Arc<CR>>,
+        reader: CompositeReaderContext<CR>,
         values: Vec<
             Either2SortedNumericDocValues<
                 SingletonSortedNumericDocValues<EmptyNumeric>,
