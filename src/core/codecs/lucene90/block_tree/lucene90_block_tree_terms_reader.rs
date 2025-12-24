@@ -63,7 +63,7 @@ where
 {
     terms_reader: Arc<TermsReader<I, PR>>,
     // Open input to the terms index file (_X.tip)
-    index_in: Arc<Mutex<I>>,
+    index_in: Arc<I>,
     field_map: HashMap<i32, FieldReader<I, PR>>,
     field_list: Vec<String>,
     field_infos: Arc<FieldInfos>,
@@ -146,7 +146,6 @@ where
 
         let mut prior_error = None;
         let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
-        let index_in = Arc::new(Mutex::new(index_in));
         let terms_reader = TermsReader {
             terms_in: Mutex::new(terms_in),
             postings_reader,
@@ -241,7 +240,6 @@ where
                     doc_count,
                     index_start_fp,
                     &mut meta_in,
-                    index_in.clone(),
                     min_term,
                     max_term,
                 )?;
@@ -276,12 +274,16 @@ where
         }
         // At this point the checksum of the meta file has been verified so the lengths
         // are likely correct
-        CodecUtil::retrieve_checksum_with_expected(&mut *index_in.lock(), index_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
         CodecUtil::retrieve_checksum_with_expected(
             &mut *terms_reader.terms_in.lock(),
             terms_length,
         )?;
 
+        let index_in = Arc::new(index_in);
+        for (_field_number, reader) in field_map.iter_mut() {
+            FieldReader::init_field_reader(index_in.clone(), reader)?;
+        }
         let field_list = sort_field_names(&field_map, &state.field_infos)?;
         Ok(Lucene90BlockTreeTermsReader {
             terms_reader,
@@ -354,7 +356,7 @@ where
     PR: PostingsReaderBase<TermState = BlockTermStateEnum>,
 {
     fn check_integrity(&self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&*self.index_in.lock())?;
+        CodecUtil::checksum_entire_file(self.index_in.as_ref())?;
         CodecUtil::checksum_entire_file(&*self.terms_reader.terms_in.lock())?;
         self.terms_reader.postings_reader.check_integrity()
     }

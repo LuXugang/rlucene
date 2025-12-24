@@ -30,11 +30,10 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-use crate::core::util::fst_impl::fst::{FST, read_metadata};
+use crate::core::util::fst_impl::fst::{FST, FSTMetadata, read_metadata};
 use crate::core::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
@@ -57,6 +56,12 @@ where
     pub(crate) max_term: Arc<BytesRef<Vec<u8>>>,
     pub(crate) parent: Arc<TermsReader<I, PR>>,
     pub(crate) index: Option<Arc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
+    tmp_data: Option<TmpData>,
+}
+struct TmpData {
+    pub(crate) metadata: FSTMetadata<ByteSequenceOutputs>,
+    index_start_fp: i64,
+    pub(crate) root_code: BytesRef<Vec<u8>>,
 }
 impl<I, PR> FieldReader<I, PR>
 where
@@ -64,7 +69,7 @@ where
     PR: PostingsReaderBase,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<I1: IndexInput>(
+    pub(crate) fn new<I1: IndexInput>(
         parent: Arc<TermsReader<I, PR>>,
         field_info: Arc<FieldInfo>,
         num_terms: i64,
@@ -74,19 +79,20 @@ where
         doc_count: i32,
         index_start_fp: i64,
         meta_in: &mut I1,
-        index_in: Arc<Mutex<I>>,
         min_term: Arc<BytesRef<Vec<u8>>>,
         max_term: Arc<BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
         assert!(num_terms > 0);
         // Read FST metadata and build the index
         let metadata = read_metadata(meta_in, ByteSequenceOutputs)?;
-        let store = OffHeapFSTStore::new(index_in, index_start_fp, metadata.num_bytes);
-        let index = FST::from_fst_reader(Some(metadata), Some(store))
-            .expect("metadata and store are some, should not return None");
-        let empty_output = index.metadata().empty_output().cloned();
-
-        let mut v = Self {
+        let tmp = {
+            TmpData {
+                metadata,
+                index_start_fp,
+                root_code,
+            }
+        };
+        Ok(Self {
             parent,
             field_info,
             num_terms,
@@ -99,17 +105,46 @@ where
             root_code: BytesRef::new(),
             min_term,
             max_term,
-            index: Some(Arc::new(index)),
+            index: None,
+            tmp_data: Some(tmp),
+        })
+    }
+    pub fn init_field_reader(index_in: Arc<I>, reader: &mut FieldReader<I, PR>) -> Result<()> {
+        let tmp_data = match reader.tmp_data.take() {
+            Some(tmp_data) => tmp_data,
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "TmpData is None, cannot init FieldReader".to_string(),
+                ));
+            },
         };
+        let store = OffHeapFSTStore::new(
+            index_in,
+            tmp_data.index_start_fp,
+            tmp_data.metadata.num_bytes,
+        );
+        let index = match FST::from_fst_reader(Some(tmp_data.metadata), Some(store)) {
+            Some(fst) => fst,
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "FST metadata and store are some, should not return None".to_string(),
+                ));
+            },
+        };
+        let empty_output = index.metadata().empty_output().cloned();
+        reader.index = Some(Arc::new(index));
         // ownership to ByteArrayDataInput
-        let mut input =
-            ByteArrayDataInput::with_range(root_code.bytes, root_code.offset, root_code.length);
-        v.root_block_fp = v.read_vlong_output(&mut input)?;
+        let mut input = ByteArrayDataInput::with_range(
+            tmp_data.root_code.bytes,
+            tmp_data.root_code.offset,
+            tmp_data.root_code.length,
+        );
+        reader.root_block_fp = reader.read_vlong_output(&mut input)?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
             bytes: Arc::new(input.bytes),
-            offset: root_code.offset,
-            length: root_code.length,
+            offset: tmp_data.root_code.offset,
+            length: tmp_data.root_code.length,
         };
         // Get empty output and adjust rootCode
         let root_code_final = match empty_output {
@@ -122,9 +157,10 @@ where
             },
             None => root_code,
         };
-        v.root_code = root_code_final;
-        Ok(v)
+        reader.root_code = root_code_final;
+        Ok(())
     }
+
     pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
         let version = self.parent.version;
         if version >= VERSION_MSB_VLONG_OUTPUT {
@@ -247,6 +283,7 @@ where
             max_term: self.max_term.clone(),
             parent: Arc::clone(&self.parent),
             index: Some(Arc::clone(self.index.as_ref().unwrap())),
+            tmp_data: None,
         }
     }
 }
