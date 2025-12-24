@@ -27,7 +27,9 @@ use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, 
 use crate::core::util::packed::direct_monotonic_writer::{
     DirectMonotonicWriter, MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT,
 };
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    at_least, new_directory, new_directory_shared, random,
+};
 use crate::test::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
@@ -55,7 +57,7 @@ fn test_validation() {
 #[test]
 pub fn test_empty() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let block_shift = TestUtil::next_int(&mut random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
 
     let data_length;
@@ -80,7 +82,7 @@ pub fn test_empty() -> Result<()> {
 #[test]
 pub fn test_simple() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let block_shift = 2;
 
     let actual_values = vec![1, 2, 5, 7, 8, 100];
@@ -119,7 +121,7 @@ pub fn test_simple() -> Result<()> {
 #[test]
 pub fn test_constant_slope() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let block_shift = TestUtil::next_int(&mut random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
     let num_values = TestUtil::next_int(&mut random, 1, 1 << 20);
     let min: i64 = random.random();
@@ -163,7 +165,7 @@ pub fn test_constant_slope() -> Result<()> {
 #[test]
 pub fn test_zero_values_small_blob_shift() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let num_values = TestUtil::next_int(&mut random, 8, 1 << 20);
     let block_shift = TestUtil::next_int(
         &mut random,
@@ -218,7 +220,7 @@ pub fn test_random_merging() -> Result<()> {
 fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> {
     let iters = at_least(random, 3);
     for _ in 0..iters {
-        let dir = new_directory(random)?;
+        let dir = new_directory_shared(random)?;
         let block_shift = TestUtil::next_int(random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
         let max_num_values = 1 << 20;
         let num_values = if random.random_bool(0.5) {

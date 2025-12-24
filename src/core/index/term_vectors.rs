@@ -116,7 +116,7 @@ mod tests {
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config, random,
     };
     use rand::Rng;
     use std::sync::Arc;
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn test_full_merge_add_docs() -> Result<()> {
         let mut random = random();
-        let target = Arc::new(new_directory(&mut random)?);
+        let target = new_directory_shared(&mut random)?;
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2);
         let writer = IndexWriter::new(target.clone(), config)?;

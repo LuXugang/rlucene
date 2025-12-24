@@ -1357,7 +1357,7 @@ mod tests {
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::DefaultIndexSearch;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, new_searcher_with_threads, random,
+        at_least, new_directory_shared, new_searcher_with_threads, random,
     };
     use std::sync::Arc;
 
@@ -1366,7 +1366,7 @@ mod tests {
 
     fn setup() -> Result<DefaultIndexSearch> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir);
         let num_docs = at_least(&mut random, 100);
         for _ in 0..num_docs {
@@ -1429,7 +1429,7 @@ mod tests {
     fn test_shared_hitcount_collector() -> Result<()> {
         // 对应 newSearcher(ir, true, true, true)
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir);
         let num_docs = at_least(&mut random, 100);
         for _ in 0..num_docs {
@@ -1507,7 +1507,7 @@ mod tests {
     #[test]
     fn test_total_hits() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let sort = Arc::new(Sort::with_fields(vec![SortField::new(
             Some("foo"),
             SortFieldType::Long,
@@ -1605,7 +1605,7 @@ mod tests {
     #[test]
     fn test_set_min_competitive_score() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let config = IndexWriterConfig::new();
         // TODO: 未设置合并策略
@@ -1679,7 +1679,7 @@ mod tests {
     #[test]
     fn test_total_hits_with_score() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 未设置合并策略
         let config = IndexWriterConfig::new();
@@ -1776,7 +1776,7 @@ mod tests {
     #[test]
     fn test_concurrent_min_score() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO 未实现合并策略
         let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
@@ -1930,7 +1930,7 @@ mod tests {
             SortField::get_field_doc()?,
         ])?);
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO 未实现合并策略
         let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 

@@ -47,7 +47,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::search::query_utils::QueryUtils;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
+    at_least, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
     new_searcher_with_reader, new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
@@ -90,7 +90,7 @@ fn test_duel_point_range_numeric_range_with_skipper_query() -> Result<()> {
 #[test]
 fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mut config = IndexWriterConfig::new();
     let reverse = random.random_bool(0.5);
     config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
@@ -144,7 +144,7 @@ fn do_test_duel_point_range_numeric_range_query(
     let iters = at_least(&mut random, 10);
 
     for _ in 0..iters {
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let iw = if sorted_numeric || random.random_bool(0.5) {
             RandomIndexWriter::new(&mut random, dir.clone())
@@ -232,7 +232,7 @@ fn do_test_duel_point_range_sorted_range_query(
     let iters = at_least(&mut random, 10);
 
     for _ in 0..iters {
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let iw = if sorted_set || random.random_bool(0.5) {
             RandomIndexWriter::new(&mut random, dir.clone())
@@ -406,7 +406,7 @@ fn test_duel_point_range_sorted_range_skipper_query() -> Result<()> {
 fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let mut config = IndexWriterConfig::new();
     let reverse = random.random_bool(0.5);
@@ -689,7 +689,7 @@ fn test_slow_range_query_rewrite() -> Result<()> {
 #[test]
 fn test_sorted_numeric_npe() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
     let nums = [

@@ -625,17 +625,17 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_directory, new_searcher_with_wrap, new_string_field, random,
+        new_bytes_ref_from_string, new_directory_shared, new_searcher_with_wrap, new_string_field,
+        random,
     };
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestSortedSetSelector;
     #[test]
     fn test_max() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -685,7 +685,7 @@ mod tests {
     #[test]
     fn test_max_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -736,7 +736,7 @@ mod tests {
     #[test]
     fn test_max_missing_first() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -798,7 +798,7 @@ mod tests {
     #[test]
     fn test_max_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -859,7 +859,7 @@ mod tests {
     #[test]
     fn test_max_singleton() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -907,7 +907,7 @@ mod tests {
     #[test]
     fn test_middle_min() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -957,7 +957,7 @@ mod tests {
     #[test]
     fn test_middle_min_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1007,7 +1007,7 @@ mod tests {
     #[test]
     fn test_middle_min_missing_first() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1066,7 +1066,7 @@ mod tests {
     #[test]
     fn test_middle_min_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1129,7 +1129,7 @@ mod tests {
     #[test]
     fn test_middle_min_singleton() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1177,7 +1177,7 @@ mod tests {
     #[test]
     fn test_middle_max() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1227,7 +1227,7 @@ mod tests {
     #[test]
     fn test_middle_max_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type = HashMap::new();
 
@@ -1283,7 +1283,7 @@ mod tests {
     #[test]
     fn test_middle_max_missing_first() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1343,7 +1343,7 @@ mod tests {
     #[test]
     fn test_middle_max_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -1402,7 +1402,7 @@ mod tests {
     #[test]
     fn test_middle_max_singleton() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut field_to_type: HashMap<String, FieldType> = HashMap::new();

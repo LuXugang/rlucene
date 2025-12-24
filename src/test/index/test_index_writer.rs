@@ -32,7 +32,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_field, new_index_writer_config, new_text_field, random,
+    new_directory_shared, new_field, new_index_writer_config, new_text_field, random,
 };
 use once_cell::sync::Lazy;
 use rand::Rng;
@@ -49,7 +49,7 @@ pub(crate) struct TestIndexWriter;
 #[test]
 fn test_doc_count() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
@@ -85,7 +85,7 @@ fn test_doc_count() -> Result<()> {
 #[test]
 fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -114,7 +114,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
 #[test]
 fn test_bad_segment() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -141,7 +141,7 @@ fn test_variable_schema() -> Result<()> {
 #[test]
 fn test_unlimited_max_field_length() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -160,7 +160,7 @@ fn test_unlimited_max_field_length() -> Result<()> {
 #[test]
 fn test_empty_field_name() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -209,7 +209,7 @@ impl IndexWriterBase for MockIndexWriter {
 #[test]
 fn test_do_before_after_flush() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mock_index_writer = MockIndexWriter::new();
     let writer = IndexWriter::with_sub(
         dir.clone(),
@@ -286,7 +286,7 @@ fn test_index_store_combos() -> Result<()> {
 #[test]
 fn test_no_docs_index() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现 MockAnalyzer
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
     writer.add_document(Document::new())?;
@@ -312,7 +312,7 @@ fn test_empty_fsdir_with_no_lock() -> Result<()> {
 #[test]
 fn test_delete_same_term_across_fields() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     // TODO: 未实现 MockAnalyzer
     let iwc = new_index_writer_config(&mut random);
@@ -366,7 +366,7 @@ where
 #[test]
 fn test_fully_deleted_segments_release_files() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let config = new_index_writer_config(&mut random);
     // TODO: 没有定义flush条件
@@ -395,7 +395,7 @@ fn test_fully_deleted_segments_release_files() -> Result<()> {
 #[test]
 fn test_segment_info_is_snapshot() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     // TODO: 没有定义flush条件
     let config = new_index_writer_config(&mut random);
@@ -437,7 +437,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
 #[test]
 fn test_pending_num_docs() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let num_docs = random.random_range(0..100);
 
@@ -465,7 +465,7 @@ fn test_pending_num_docs() -> Result<()> {
 #[test]
 fn test_get_field_names() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     {
         let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
         let mut field_types = HashMap::new();

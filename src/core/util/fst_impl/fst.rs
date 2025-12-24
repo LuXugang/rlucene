@@ -1498,8 +1498,8 @@ mod tests {
         to_ints_ref_from_string,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random,
-        random_from_seed, random_multiplier,
+        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, new_directory_shared,
+        random, random_from_seed, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -1977,7 +1977,7 @@ mod tests {
     #[test]
     fn test_random_term_lookup() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // build writer
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
@@ -2171,7 +2171,7 @@ mod tests {
         let fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
 
         let mut random = random();
-        let dir = new_directory(&mut random)?;
+        let dir = new_directory_shared(&mut random)?;
         {
             let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
             fst.save_with_same_data_out(&mut out)?;

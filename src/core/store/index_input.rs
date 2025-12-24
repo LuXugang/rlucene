@@ -447,12 +447,11 @@ mod tests {
     use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        is_night_mode, new_directory, new_io_context, random, random_multiplier, rarely,
+        is_night_mode, new_directory_shared, new_io_context, random, random_multiplier, rarely,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::fmt::{Display, Formatter};
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestIndexInput;
@@ -597,7 +596,7 @@ mod tests {
         let read_test_bytes = READ_TEST_BYTES.to_vec();
 
         for _ in 0..10 {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
 
             {
                 let mut os = dir.create_output("foo", &new_io_context(&mut random)?)?;

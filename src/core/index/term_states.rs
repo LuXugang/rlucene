@@ -393,7 +393,9 @@ mod tests {
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
     use rand::Rng;
     use std::sync::Arc;
 
@@ -402,7 +404,7 @@ mod tests {
     #[test]
     fn test_to_string_on_null_term_state() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let w = RandomIndexWriter::new(&mut random, dir);
         w.add_document(Document::new())?;
         let reader = Arc::new(w.get_reader()?);

@@ -1296,7 +1296,7 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, new_searcher_with_reader, random,
+        at_least, new_directory_shared, new_searcher_with_reader, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -1314,7 +1314,7 @@ mod tests {
         let iters = at_least(&mut random, 10);
 
         for _iter in 0..iters {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
             // TODO: 未实现MockAnalyzer
             let mut iwc = IndexWriterConfig::new();
 
@@ -1465,7 +1465,7 @@ mod tests {
     ) -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
         let sort_field = SortedNumericSortField::with_reverse("field", field_type, reverse)?;
         iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
@@ -1553,7 +1553,7 @@ mod tests {
     fn test_index_sort_doc_values_with_odd_length_inner(reverse: bool) -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let mut iwc = IndexWriterConfig::new();
         let sort_field =
@@ -1621,7 +1621,7 @@ mod tests {
     fn test_index_sort_doc_values_with_single_value_inner(reverse: bool) -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let mut iwc = IndexWriterConfig::new();
         let sort_field =
@@ -1648,7 +1648,7 @@ mod tests {
     fn test_index_sort_missing_values() -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
         let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
         let missing_value: i64 = random.random();
@@ -1684,7 +1684,7 @@ mod tests {
     fn test_no_documents() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         writer.add_document(Document::new())?;
@@ -1723,7 +1723,7 @@ mod tests {
     fn test_no_index_sort() -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         writer.add_document(create_document("field", 0))?;
         test_index_sort_optimization_deactivated(&writer)?;
@@ -1736,7 +1736,7 @@ mod tests {
     fn test_index_sort_on_wrong_field() -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
         let sort_field = SortedNumericSortField::new("other-field", SortFieldType::Long)?;
         let sort = Sort::with_fields(vec![sort_field])?;
@@ -1754,7 +1754,7 @@ mod tests {
         let mut random = random();
         for sort_type in [Float, Double] {
             // TODO 未实现MockAnalyzer
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
             let mut iwc = IndexWriterConfig::new();
             let sort_field = SortedNumericSortField::new("field", sort_type)?;
             let sort = Sort::with_fields(vec![sort_field])?;
@@ -1773,7 +1773,7 @@ mod tests {
     fn test_multi_doc_values() -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
         let sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
         let sort = Sort::with_fields(vec![sort_field])?;
@@ -1820,7 +1820,7 @@ mod tests {
         let iters = at_least(&mut random, 10);
 
         for _iter in 0..iters {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
             // TODO 未实现MockAnalyzer
             let mut iwc = IndexWriterConfig::new();
             let mut sort_field =
@@ -1921,7 +1921,7 @@ mod tests {
     fn test_count_boundary() -> Result<()> {
         let mut random = random();
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
 
         let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
@@ -2033,7 +2033,7 @@ mod tests {
         let field_name = "field";
 
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
 
         let sort_field =
@@ -2175,7 +2175,7 @@ mod tests {
         let mut random = random();
         let field_name = "field";
         // TODO 未实现MockAnalyzer
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut iwc = IndexWriterConfig::new();
         let sort_field =
             SortedNumericSortField::with_reverse(field_name, SortFieldType::Long, reverse)?;

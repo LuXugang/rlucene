@@ -38,7 +38,7 @@ struct TestIndexManyDocuments;
 fn test_threaded_indexing() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+    let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
     let mut iwc = IndexWriterConfig::new();
     let max_buffered_docs = TestUtil::next_int(&mut random, 100, 2000);

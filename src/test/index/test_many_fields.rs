@@ -25,8 +25,8 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, create_temp_dir, new_directory, new_field, new_fs_directory, new_index_writer_config,
-    new_searcher_with_reader, random,
+    at_least, create_temp_dir, new_directory_shared, new_field, new_fs_directory,
+    new_index_writer_config, new_searcher_with_reader, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ struct TestManyFields;
 fn test_many_fields() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现 MockAnalyzer
     let mut iwc = new_index_writer_config(&mut random);
     iwc.set_max_buffered_docs(10);
@@ -128,7 +128,7 @@ fn test_many_fields() -> Result<()> {
 fn test_diverse_docs() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let mut iwc = new_index_writer_config(&mut random);
     iwc.set_ram_buffer_size_mb(0.5);
@@ -197,7 +197,7 @@ fn test_diverse_docs() -> Result<()> {
 fn test_rotating_field_names() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+    let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
     let mut iwc = new_index_writer_config(&mut random);
     iwc.set_ram_buffer_size_mb(0.2);
     iwc.set_max_buffered_docs(-1);

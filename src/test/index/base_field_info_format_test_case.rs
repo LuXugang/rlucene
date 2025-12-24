@@ -40,7 +40,7 @@ use crate::core::util::{LATEST, StringHelper};
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory_shared};
 use crate::test::util::test_util::TestUtil;
 
 pub trait BaseFieldInfoFormatTestCase {
@@ -48,7 +48,7 @@ pub trait BaseFieldInfoFormatTestCase {
         true
     }
     fn test_one_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
@@ -120,7 +120,7 @@ pub trait BaseFieldInfoFormatTestCase {
     }
     // Test field infos read/write with random fields, with different values.
     fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
         let num_fields = at_least(random, 2000);

@@ -351,7 +351,7 @@ mod tests {
     use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
 
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config, random,
     };
 
     use std::sync::Arc;
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
-        let directory_orig = Arc::new(new_directory(&mut random)?);
+        let directory_orig = new_directory_shared(&mut random)?;
         let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),
@@ -411,7 +411,7 @@ mod tests {
         use std::time::Duration;
 
         let mut random = random();
-        let directory_orig = Arc::new(new_directory(&mut random)?);
+        let directory_orig = new_directory_shared(&mut random)?;
         let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),

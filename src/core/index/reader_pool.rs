@@ -554,7 +554,7 @@ mod tests {
     use crate::core::util::info_stream::InfoStreamEnum;
     use crate::core::util::long_supplier::LongSupplier;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config, random,
     };
     use parking_lot::Mutex;
     use rand::Rng;
@@ -574,7 +574,7 @@ mod tests {
     #[test]
     fn test_drop() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(new_directory(&mut random)?);
+        let directory = new_directory_shared(&mut random)?;
 
         let (field_numbers, index_created_version_major) =
             build_index(directory.clone(), &mut random)?;
@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn test_pool_readers() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(new_directory(&mut random)?);
+        let directory = new_directory_shared(&mut random)?;
 
         let (field_numbers, index_created_version_major) =
             build_index(directory.clone(), &mut random)?;
@@ -714,7 +714,7 @@ mod tests {
     #[test]
     fn test_update() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(new_directory(&mut random)?);
+        let directory = new_directory_shared(&mut random)?;
 
         let (field_numbers, index_created_version_major) =
             build_index(directory.clone(), &mut random)?;
@@ -871,7 +871,7 @@ mod tests {
     #[test]
     fn test_deletes() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(new_directory(&mut random)?);
+        let directory = new_directory_shared(&mut random)?;
 
         let (field_numbers, index_created_version_major) =
             build_index(directory.clone(), &mut random)?;

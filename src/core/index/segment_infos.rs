@@ -1399,8 +1399,10 @@ mod tests {
     use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::{LATEST, LUCENE_10_0_0, LUCENE_11_0_0, StringHelper};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_directory_shared,
+    };
     use crate::test::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
@@ -1433,7 +1435,7 @@ mod tests {
     #[test]
     fn test_versions_no_segments() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(new_directory(&mut random)?);
+        let directory = new_directory_shared(&mut random)?;
         let mut sis = SegmentInfos::new(LATEST.major)?;
         sis.commit(directory.as_ref())?;
         sis = SegmentInfos::read_latest_commit(directory.clone())?;
@@ -1570,7 +1572,7 @@ mod tests {
     #[test]
     fn test_to_string() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // Diagnostics map
         let diagnostics: HashMap<String, String> = [
             ("key1".to_string(), "value1".to_string()),
@@ -1678,7 +1680,7 @@ mod tests {
     #[test]
     fn test_id_changes_on_advance() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let id = StringHelper::random_id();
 
         let info = SegmentInfo::new(
@@ -1748,7 +1750,7 @@ mod tests {
     #[test]
     fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let codec = get_default_code();
         let mut sis = SegmentInfos::new(LATEST.major)?;
         let io_context = IOContext::default_io_context()?;
@@ -1798,7 +1800,7 @@ mod tests {
         sis.commit(dir.as_ref())?;
 
         // Create a corrupt directory
-        let corrupt_dir = Arc::new(new_directory(&mut random)?);
+        let corrupt_dir = new_directory_shared(&mut random)?;
         let mut corrupt = false;
         let io_context = IOContext::read_once_io_context()?;
         {
@@ -1861,7 +1863,7 @@ mod tests {
     #[test]
     fn test_add_diagnostics() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // Diagnostics map
         let diagnostics: HashMap<String, String> = [
             ("key1".to_string(), "value1".to_string()),

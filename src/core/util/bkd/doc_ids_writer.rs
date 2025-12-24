@@ -496,12 +496,11 @@ mod tests {
     use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, random,
+        at_least, new_directory, new_directory_shared, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::collections::HashSet;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdsWriter;
@@ -634,7 +633,7 @@ mod tests {
         let itrs = at_least(&mut random, 100);
 
         for _ in 0..itrs {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
 
             let config = IndexWriterConfig::new();
             let iw = IndexWriter::new(dir.clone(), config)?;

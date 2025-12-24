@@ -450,7 +450,9 @@ mod tests {
     };
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
 
     struct TestLucene101PostingsFormat;
     impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
@@ -539,7 +541,7 @@ mod tests {
         for imp in impacts {
             acc.add(imp.freq, imp.norm);
         }
-        let dir = new_directory(&mut random)?;
+        let dir = new_directory_shared(&mut random)?;
         {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
             write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;

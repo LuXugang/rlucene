@@ -43,7 +43,7 @@ use crate::core::search::total_hits::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_directory, new_searcher, new_searcher_with_reader,
+    at_least, is_night_mode, new_directory_shared, new_searcher, new_searcher_with_reader,
     new_searcher_with_threads, random,
 };
 use rand::{Rng, random_bool};
@@ -55,7 +55,7 @@ struct TestSortOptimization;
 #[test]
 fn test_long_sort_optimization() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let config = IndexWriterConfig::new();
     let writer = IndexWriter::new(dir.clone(), config)?;
@@ -196,7 +196,7 @@ fn test_long_sort_optimization() -> Result<()> {
 #[test]
 fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = at_least(&mut random, 100);
@@ -240,7 +240,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
 #[test]
 fn test_sort_optimization_with_missing_values() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let config = IndexWriterConfig::new();
     let writer = IndexWriter::new(dir.clone(), config)?;
@@ -399,7 +399,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 #[test]
 fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let config = IndexWriterConfig::new();
     let writer = IndexWriter::new(dir.clone(), config)?;
@@ -485,7 +485,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 #[test]
 fn test_sort_optimization_equal_values() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let config = IndexWriterConfig::new();
     let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -597,7 +597,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
 #[test]
 fn test_float_sort_optimization() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let config = IndexWriterConfig::new();
     let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -657,7 +657,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     let mut readers = Vec::with_capacity(num_indices);
 
     for i in 0..num_indices {
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let config = IndexWriterConfig::new();
         let writer = IndexWriter::new(dir.clone(), config)?;
         for doc_id in 0..num_docs_in_index {
@@ -740,7 +740,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
 #[test]
 fn test_doc_sort_optimization_with_after() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = at_least(&mut random, 150);
@@ -871,7 +871,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 #[test]
 fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = if is_night_mode() {
@@ -929,7 +929,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
 #[test]
 fn test_doc_sort_optimization() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = at_least(&mut random, 100);
@@ -988,7 +988,7 @@ fn test_doc_sort() -> Result<()> {
 #[test]
 fn test_point_validation() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
     let mut doc = Document::new();
@@ -1068,7 +1068,7 @@ fn test_point_validation() -> Result<()> {
 #[test]
 fn test_max_doc_visited() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = at_least(&mut random, 10_000);
@@ -1124,7 +1124,7 @@ fn test_random_long() -> Result<()> {
 #[test]
 fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = at_least(&mut random, 5000);

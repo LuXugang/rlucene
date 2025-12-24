@@ -283,8 +283,9 @@ mod tests {
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
-    use std::sync::Arc;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
 
     #[allow(dead_code)] // for quick search
     struct TestDocument;
@@ -409,7 +410,7 @@ mod tests {
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
         Field::with_string("name", "value", ft.clone())?;
@@ -449,7 +450,7 @@ mod tests {
     #[test]
     fn test_get_values_for_indexed_document() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         writer.add_document(make_document_with_fields()?)?;
@@ -587,7 +588,7 @@ mod tests {
     #[test]
     fn test_field_set_value() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let mut field = StringField::with_string("id", "id1", Store::Yes)?;
         let mut doc = Document::new();
@@ -671,7 +672,7 @@ mod tests {
 
         // index it
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
         iw.add_document(doc.clone())?;
 

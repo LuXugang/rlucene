@@ -667,7 +667,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory,
+        at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
         new_fs_directory, new_index_writer_config, new_string_field, random,
     };
     use crate::test::util::test_util::TestUtil;
@@ -683,7 +683,7 @@ mod tests {
     fn test_upgrade_field_to_points() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 这里应该使用了带有分词器的构造方法
         let iwc = new_index_writer_config(&mut random);
@@ -712,7 +712,7 @@ mod tests {
     fn test_illegal_dim_change_one_doc() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -739,7 +739,7 @@ mod tests {
     fn test_illegal_dim_change_two_docs() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -770,7 +770,7 @@ mod tests {
     fn test_illegal_dim_change_two_segments() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
 
         let iwc = new_index_writer_config(&mut random);
@@ -805,7 +805,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
     fn test_illegal_dim_change_two_writers() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         {
             // TODO: 这里应该使用了带有分词器的构造方法
@@ -862,7 +862,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
     fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -891,7 +891,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
     fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -922,7 +922,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
     fn test_illegal_num_bytes_change_two_segments() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
 
         let iwc = new_index_writer_config(&mut random);
@@ -958,7 +958,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         {
             let iwc = new_index_writer_config(&mut random);
@@ -1014,7 +1014,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_illegal_too_many_bytes() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
 
         let iwc = new_index_writer_config(&mut random);
@@ -1038,7 +1038,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_illegal_too_many_dimensions() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用了带有分词器的构造方法
 
         let iwc = new_index_writer_config(&mut random);
@@ -1183,7 +1183,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_tie_break_by_doc_id() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+        let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -1222,7 +1222,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_delete_all_point_docs() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -1255,7 +1255,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_points_field_missing_from_one_segment() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_fs_directory(&mut random, create_temp_dir()?)?);
+        let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -1281,7 +1281,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_sparse_points() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let num_docs = at_least(&mut random, 1000);
         let num_fields = TestUtil::next_int(&mut random, 1, 10);
 
@@ -1358,7 +1358,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     fn test_merged_stats_one_segment_without_points() -> Result<()> {
         let mut random = random();
         // TODO ByteBuffersDirectory未实现
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO NoMergePolicy未实现
         let iwc = IndexWriterConfig::new();
 
@@ -1402,7 +1402,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let mut random = random();
 
         // TODO ByteBuffersDirectory 未实现
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let iwc = IndexWriterConfig::new();
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -1472,7 +1472,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let num_bytes_per_dim = TestUtil::next_int(random, 1, 16);
 
         // TODO ByteBuffersDirectory 未实现
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
 
         let iwc = IndexWriterConfig::new();
         let w = IndexWriter::new(dir.clone(), iwc)?;

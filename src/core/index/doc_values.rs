@@ -471,9 +471,8 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        get_only_leaf_reader, new_directory, new_index_writer_config, random,
+        get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
     };
-    use std::sync::Arc;
 
     use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
     use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
@@ -486,7 +485,7 @@ mod tests {
     #[test]
     fn test_empty_index() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
         let doc = Document::new();
@@ -513,7 +512,7 @@ mod tests {
     #[test]
     fn test_misconfigured_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -553,7 +552,7 @@ mod tests {
     #[test]
     fn test_numeric_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -592,7 +591,7 @@ mod tests {
     #[test]
     fn test_binary_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -635,7 +634,7 @@ mod tests {
     #[test]
     fn test_sorted_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -677,7 +676,7 @@ mod tests {
     #[test]
     fn test_sorted_set_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -720,7 +719,7 @@ mod tests {
     #[test]
     fn test_sorted_numeric_field() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 需要使用指定分词器的new_index_writer_config
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 

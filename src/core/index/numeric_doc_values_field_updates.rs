@@ -239,14 +239,14 @@ mod tests {
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, new_index_writer_config,
-        random,
+        at_least, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
+        new_index_writer_config, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use rand::seq::IndexedRandom;
     use std::collections::HashSet;
-    use std::sync::Arc;
+
     use std::vec;
 
     #[allow(dead_code)]
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn test_multiple_updates_same_doc() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(3); // small number of docs
@@ -332,7 +332,7 @@ mod tests {
         // rather then randomizing equally, we'll pick (random) cutoffs so each test run is biased,
         // in terms of some ops happen more often then others
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn test_updates_are_flushed() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_ram_buffer_size_mb(0.00000001);
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn test_simple() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         // make sure random config doesn't flush on us
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_update_few_segments() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer / NoMergePolicy
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(2); // generate few segments
@@ -550,7 +550,7 @@ mod tests {
     fn test_updates_with_deletes() -> Result<()> {
         // update and delete different documents in the same commit session
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer / NoMergePolicy
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10);
@@ -589,7 +589,7 @@ mod tests {
     // TODO: 测试未通过
     fn test_multiple_doc_values_types() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10); // prevent merges
@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn test_multiple_numeric_doc_values() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(10); // prevent merges
@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn test_document_with_no_value() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -750,7 +750,7 @@ mod tests {
     fn test_update_non_numeric_doc_values_field() -> Result<()> {
         // we don't support adding new fields or updating existing non-numeric-dv fields through numeric updates
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -809,7 +809,7 @@ mod tests {
     #[test]
     fn test_update_segment_with_no_doc_values() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer 与 NoMergePolicy
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -864,7 +864,7 @@ mod tests {
     #[test]
     fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer / NoMergePolicy
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -913,7 +913,7 @@ mod tests {
     fn test_update_numeric_dv_field_with_same_name_as_posting_field() -> Result<()> {
         // this used to fail because FieldInfos::Builder neglected to update globalFieldMaps.docValuesTypes map
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -953,7 +953,7 @@ mod tests {
     fn test_update_different_docs_in_different_gens() -> Result<()> {
         // update same document multiple times across generations
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let mut config = new_index_writer_config(&mut random);
         config.set_max_buffered_docs(4);
@@ -1042,7 +1042,7 @@ mod tests {
     #[test]
     fn test_delete_unused_updates_files() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1074,7 +1074,7 @@ mod tests {
     fn test_tons_of_updates() -> Result<()> {
         // LUCENE-5248: make sure that when there are many updates, we don't use too much RAM
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let mut config = new_index_writer_config(&mut random);
         config.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
@@ -1165,7 +1165,7 @@ mod tests {
     #[test]
     fn test_updates_order() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1205,7 +1205,7 @@ mod tests {
     #[test]
     fn test_update_all_deleted_segment() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1246,7 +1246,7 @@ mod tests {
     #[test]
     fn test_update_two_nonexisting_terms() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;

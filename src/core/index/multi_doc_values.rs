@@ -852,8 +852,8 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, get_only_leaf_reader, is_night_mode, new_directory, new_index_writer_config,
-        random,
+        at_least, get_only_leaf_reader, is_night_mode, new_directory_shared,
+        new_index_writer_config, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -866,7 +866,7 @@ mod tests {
     fn test_numerics() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut doc = Document::new();
 
         let mut field = NumericDocValuesField::new("numbers", 0i64);

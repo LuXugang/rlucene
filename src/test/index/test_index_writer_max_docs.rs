@@ -43,10 +43,7 @@ struct TestIndexWriterMaxDocs;
 fn test_exactly_at_true_limit() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_fs_directory(
-        &mut random,
-        create_temp_dir_with_prefix("2BDocs3")?,
-    )?);
+    let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;
 
     let iwc = new_index_writer_config(&mut random);
     let iw = IndexWriter::new(dir.clone(), iwc)?;

@@ -36,13 +36,13 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{StringHelper, Version};
 use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory_shared};
 use crate::test::util::test_util::TestUtil;
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map
     fn test_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
         let mut info = SegmentInfo::new(
@@ -71,7 +71,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     fn test_has_blocks<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         assert!(self.supports_has_blocks());
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let has_blocks = random.random_bool(0.5);
         let io_context = IOContext::default_io_context()?;
@@ -102,7 +102,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
     /// Tests SI writer adds itself to files...
     fn test_adds_self_to_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
 
@@ -147,7 +147,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     /// Test diagnostics map
     fn test_diagnostics<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let mut diagnostics: HashMap<String, String> = HashMap::new();
         diagnostics.insert("key1".to_string(), "value1".to_string());
@@ -188,7 +188,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     /// Test attributes map
     fn test_attributes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let mut attributes: HashMap<String, String> = HashMap::new();
         attributes.insert("key1".to_string(), "value1".to_string());
@@ -232,7 +232,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
     /// Test unique ID
     fn test_unique_id<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
 
@@ -267,7 +267,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         for version in self.get_versions() {
             for min_version_opt in [Some(version.clone()), None] {
-                let dir = Arc::new(new_directory(random)?);
+                let dir = new_directory_shared(random)?;
                 let id = StringHelper::random_id();
                 let mut info = SegmentInfo::new(
                     dir.clone(),
@@ -449,7 +449,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Some(Arc::new(Sort::with_fields(sort_fields)?))
             };
             let sort_clone = sort.clone();
-            let dir = Arc::new(new_directory(random)?);
+            let dir = new_directory_shared(random)?;
             let id = StringHelper::random_id();
             let mut info = SegmentInfo::new(
                 dir.clone(),
@@ -505,7 +505,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let io_context = IOContext::default_io_context()?;
 
         for _ in 0..10 {
-            let dir = Arc::new(new_directory(random)?);
+            let dir = new_directory_shared(random)?;
             let version = versions[random.random_range(0..versions.len())].clone();
             let random_segment_index = random.random::<i64>().abs();
             let big_int = if random_segment_index != i64::MIN {

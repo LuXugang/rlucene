@@ -76,7 +76,7 @@ pub mod lucene_test_case_util {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
-
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     pub(crate) fn random_multiplier() -> i32 {
@@ -132,6 +132,10 @@ pub mod lucene_test_case_util {
 
     // TODO: When we have implemented multiple directories, we need to select one
     // randomly. Currently, we choose NIOFSDirectory.
+    pub(crate) fn new_directory_shared<R: Rng + ?Sized>(random: &mut R) -> Result<Arc<DirType>> {
+        let dir = new_directory(random)?;
+        Ok(Arc::new(dir))
+    }
     pub(crate) fn new_directory<R: Rng + ?Sized>(_random: &mut R) -> Result<DirType> {
         let temp_dir = TempDir::new()?;
         let sub_directory = NIOFSDirectory::new();
@@ -141,10 +145,10 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_fs_directory<R: Rng + ?Sized>(
         _random: &mut R,
         temp_dir: TempDir,
-    ) -> Result<DirType> {
+    ) -> Result<Arc<DirType>> {
         // TODO 这里简单返回FSDirectory
         let sub_directory = NIOFSDirectory::new();
-        FSDirectory::new(temp_dir.keep(), sub_directory)
+        Ok(Arc::new(FSDirectory::new(temp_dir.keep(), sub_directory)?))
     }
 
     pub(crate) fn new_string_field<S1, S2>(

@@ -727,7 +727,9 @@ mod tests {
     use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::packed::PackedInts;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)] // for quick search
     struct TestForUtil;
@@ -746,7 +748,7 @@ mod tests {
         }
 
         // TODO:: 这里要换成ByteBuffersDirectory
-        let dir = new_directory(&mut random)?;
+        let dir = new_directory_shared(&mut random)?;
         let end_pointer;
 
         {

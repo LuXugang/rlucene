@@ -1092,7 +1092,7 @@ mod tests {
         at_least, is_night_mode, random_from_seed,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_io_context, random, rarely,
+        new_directory_shared, new_io_context, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
 
@@ -1174,7 +1174,7 @@ mod tests {
                 } else {
                     TestUtil::next_int(&mut random, 0, 4096)
                 };
-                let directory = new_directory(&mut random)?;
+                let directory = new_directory_shared(&mut random)?;
                 let mut values = vec![0i64; value_count];
                 let fp: i64;
                 {
@@ -1284,7 +1284,7 @@ mod tests {
     fn test_end_pointer() -> Result<()> {
         let mut random = random();
 
-        let directory = new_directory(&mut random)?;
+        let directory = new_directory_shared(&mut random)?;
         let value_count = random.random_range(1..=1000);
         let io_context = new_io_context(&mut random)?;
 
@@ -2323,7 +2323,7 @@ mod tests {
                 };
             }
             let fp;
-            let dir = new_directory(&mut random)?;
+            let dir = new_directory_shared(&mut random)?;
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
                 let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
@@ -2477,7 +2477,7 @@ mod tests {
                     );
                 }
             }
-            let dir = new_directory(&mut random)?;
+            let dir = new_directory_shared(&mut random)?;
             let file_pointer;
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
@@ -2519,7 +2519,7 @@ mod tests {
             i64::from(i32::MAX) * 2,
         );
         let block_size = 1 << TestUtil::next_long(&mut random, 20, 22);
-        let dir = new_directory(&mut random)?;
+        let dir = new_directory_shared(&mut random)?;
         let value_offset = TestUtil::next_long(&mut random, 0, value_count - 1);
         let value = random.random::<i64>() & 0xFFFFFFFF;
 

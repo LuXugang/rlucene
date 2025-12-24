@@ -39,9 +39,11 @@ use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_io_context, random_from_seed, slow_file_exists,
+    at_least, is_night_mode, new_directory,
+};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    new_io_context, random_from_seed, slow_file_exists,
 };
 use crate::test::util::test_util::TestUtil;
 

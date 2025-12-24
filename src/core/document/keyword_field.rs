@@ -238,11 +238,10 @@ mod tests {
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        get_only_leaf_reader, new_bytes_ref_from_string, new_directory, new_index_writer_config,
-        random,
+        get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
+        new_index_writer_config, random,
     };
     use std::borrow::Cow;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestKeywordField;
@@ -360,7 +359,7 @@ mod tests {
     #[test]
     fn test_index_bytes_value() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![
@@ -404,7 +403,7 @@ mod tests {
     #[test]
     fn test_index_string_value() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![

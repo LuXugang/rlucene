@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use rand::Rng;
 
@@ -30,7 +29,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
+use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 use crate::test::util::test_util::TestUtil;
 
 pub trait BaseLiveDocsFormatTestCase {
@@ -95,7 +94,7 @@ pub trait BaseLiveDocsFormatTestCase {
         } else {
             TestBitsEnum::Test(TestBits::new(live_docs))
         };
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let si = SegmentInfo::new(
             dir.clone(),
             Option::from(LATEST.clone()),

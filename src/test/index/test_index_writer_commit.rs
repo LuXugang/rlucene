@@ -22,7 +22,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::test_index_writer::add_doc;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_index_writer_config, new_searcher_with_reader, random,
+    new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ struct TestIndexWriterCommit;
 fn test_commit_on_close() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
     let iwc1 = new_index_writer_config(&mut random);
@@ -156,7 +156,7 @@ fn test_prepare_commit_rollback() -> Result<()> {
 #[test]
 fn test_prepare_commit_no_changes() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现 MockAnalyzer
     let iwc = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), iwc)?;

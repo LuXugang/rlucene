@@ -34,7 +34,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, random, random_from_seed,
+    at_least, new_directory, new_directory_shared, random, random_from_seed,
 };
 use crate::test::util::test_util::TestUtil;
 use bit_set::BitSet;
@@ -61,7 +61,7 @@ fn get_point_values<I: IndexInput>(index_input: Arc<Mutex<I>>) -> Result<BKDRead
 fn test_basic_ints_1d() -> Result<()> {
     let mut random = random();
     let config = BKDConfig::new(1, 1, 4, 2)?;
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     {
         let mut writer = BKDWriter::new(100, dir.as_ref(), "tmp", config.clone(), 1.0, 100)?;
@@ -119,7 +119,7 @@ fn test_basic_ints_1d() -> Result<()> {
 fn test_random_ints_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_dims = TestUtil::next_int(&mut random, 1, 5);
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
@@ -253,7 +253,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 fn test_big_int_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
     let num_dims = TestUtil::next_int(&mut random, 1, 5);
@@ -399,7 +399,7 @@ fn test_random_binary_big() -> Result<()> {
 }
 #[test]
 fn test_too_little_heap() -> Result<()> {
-    let dir = Arc::new(new_directory(&mut random())?);
+    let dir = new_directory_shared(&mut random())?;
 
     let err = BKDWriter::new(
         1,
@@ -815,7 +815,7 @@ fn verify_full<R: Rng + ?Sized>(
     num_bytes_per_dim: i32,
     max_points_in_leaf_node: i32,
 ) -> Result<()> {
-    let dir = Arc::new(new_directory(random)?);
+    let dir = new_directory_shared(random)?;
     let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
     verify_with_max_mb(
         random,
@@ -1370,7 +1370,7 @@ impl IntersectVisitor for IntersectVisitorMock2 {
 #[test]
 fn test_tie_break_order() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_docs = 10_000;
 
     let config = BKDConfig::new(1, 1, 4, 2)?;
@@ -1451,7 +1451,7 @@ impl IntersectVisitor for IntersectVisitorMock3 {
 #[test]
 fn test_check_data_dim_optimal_order() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_values = at_least(&mut random, 5000);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -1546,7 +1546,7 @@ impl IntersectVisitor for IntersectVisitorMock4<'_> {
 #[test]
 fn test_2d_long_ords_offline() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_docs = 100_000;
 
     let config = BKDConfig::new(2, 2, 4, 2)?;
@@ -1648,7 +1648,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
     let bytes_per_dim = MAX_NUM_BYTES;
     let bytes_used = TestUtil::next_int(&mut random, 1, 3);
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_docs = at_least(&mut random, 10000);
     let config = BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?;
 
@@ -1758,7 +1758,7 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
 #[test]
 fn test_estimate_point_count() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_values = at_least(&mut random, 10_000);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -1897,7 +1897,7 @@ impl MutablePointTree for MutablePointTreeMock1 {
 #[test]
 fn test_total_point_count_validation() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let num_values = 10;
     let num_points_added = 50;
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -2042,7 +2042,7 @@ fn test_too_many_points() -> Result<()> {
 #[test]
 fn test_too_many_points_1d() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let num_values = 10;
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);

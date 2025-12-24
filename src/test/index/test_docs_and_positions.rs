@@ -32,7 +32,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory, new_field,
+    at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_field,
     new_index_writer_config, new_text_field, random,
 };
 use rand::Rng;
@@ -50,7 +50,7 @@ fn field_name<R: Rng + ?Sized>(random: &mut R) -> String {
 #[test]
 fn test_positions_simple() -> Result<()> {
     let mut random = random();
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let config = new_index_writer_config(&mut random);
     let writer = RandomIndexWriter::with_config(&mut random, directory, config);
@@ -156,7 +156,7 @@ where
 #[test]
 fn test_random_positions() -> Result<()> {
     let mut random = random();
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     // TODO: newLogMergePolicy未实现
     let config = new_index_writer_config(&mut random);
@@ -288,7 +288,7 @@ fn test_random_docs() -> Result<()> {
 #[test]
 fn test_large_number_of_positions() -> Result<()> {
     let mut random = random();
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
 
     // TODO: 未实现 MockAnalyzer
     let config = new_index_writer_config(&mut random);
@@ -377,7 +377,7 @@ fn test_docs_enum_start() -> Result<()> {
 #[test]
 fn test_docs_and_positions_enum_start() -> Result<()> {
     let mut random = random();
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
 
     let config = new_index_writer_config(&mut random);
     let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);

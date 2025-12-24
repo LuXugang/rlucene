@@ -188,7 +188,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_io_context, random,
+        new_directory_shared, new_io_context, random,
     };
     use std::collections::HashSet;
     use std::path::PathBuf;
@@ -529,7 +529,7 @@ mod tests {
     fn test_track_empty() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
             HashSet::new()
@@ -539,7 +539,7 @@ mod tests {
     #[test]
     fn test_track_create() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn test_track_delete() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn test_track_rename() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -585,8 +585,8 @@ mod tests {
     #[test]
     fn test_track_copy_from() -> Result<()> {
         let mut random = random();
-        let source = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
-        let dest = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        let source = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let dest = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
 
         source.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(

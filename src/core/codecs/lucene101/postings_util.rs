@@ -86,7 +86,9 @@ mod tests {
     use crate::core::store::IOContext;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
 
     // checks for bug described in https://github.com/apache/lucene/issues/13373
     #[allow(dead_code)] // for quick search
@@ -108,7 +110,7 @@ mod tests {
         doc_delta_buffer[0] = delta;
 
         // TODO: ByteBuffersDirectory not Implemented
-        let dir = new_directory(random)?;
+        let dir = new_directory_shared(random)?;
         {
             let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
             PostingsUtil::write_vint_block(

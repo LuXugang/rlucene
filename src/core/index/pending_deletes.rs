@@ -700,7 +700,9 @@ mod tests {
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{LATEST, StringHelper};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
 
     use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
     use crate::core::index::readers_and_updates::{IOSupplierImpl, ReadersAndUpdates};
@@ -724,7 +726,7 @@ mod tests {
     fn test_delete_doc() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),
@@ -772,7 +774,7 @@ mod tests {
     fn test_write_live_docs() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let lock = dir.obtain_lock("writer_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
         let si = SegmentInfo::new(
@@ -865,7 +867,7 @@ mod tests {
     fn test_is_fully_deleted() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),

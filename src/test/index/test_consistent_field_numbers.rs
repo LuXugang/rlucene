@@ -26,10 +26,9 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory, new_index_writer_config, random,
+    at_least, new_directory_shared, new_index_writer_config, random,
 };
 use rand::Rng;
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestConsistentFieldNumbers;
@@ -38,7 +37,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
     let mut random = random();
     // TODO: 未实现 MockAnalyzer NoMergePolicy
     for i in 0..2 {
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let writer_opt = {
             let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
@@ -114,7 +113,7 @@ fn test_field_number_gaps() -> Result<()> {
     let mut random = random();
     let num_iters = at_least(&mut random, 13);
     for _ in 0..num_iters {
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         {
             let writer = IndexWriter::new(
                 dir.clone(),
@@ -217,7 +216,7 @@ fn test_many_fields() -> Result<()> {
         docs.push(doc_fields);
     }
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(
         dir.clone(),
         new_index_writer_config(&mut random), // TODO: MockAnalyzer

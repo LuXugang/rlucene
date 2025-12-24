@@ -140,7 +140,8 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_field, new_index_writer_config, new_string_field, new_text_field, random,
+        new_directory_shared, new_field, new_index_writer_config, new_string_field, new_text_field,
+        random,
     };
     use rand::Rng;
     use std::collections::HashMap;
@@ -153,7 +154,7 @@ mod tests {
     fn test_double_offset_counting() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现MockAnalyzer
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -232,7 +233,7 @@ mod tests {
     #[test]
     fn test_double_offset_counting2() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现MockAnalyzer
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -286,7 +287,7 @@ mod tests {
     fn test_end_offset_position_char_analyzer() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 未实现MockAnalyzer
         let iwc = new_index_writer_config(&mut random);
@@ -345,7 +346,7 @@ mod tests {
     fn test_end_offset_position_stop_filter() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: MockAnalyzer
         let iwc = new_index_writer_config(&mut random);
@@ -399,7 +400,7 @@ mod tests {
     fn test_end_offset_position_standard() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: MockAnalyzer 尚未实现
         let iwc = new_index_writer_config(&mut random);
@@ -459,7 +460,7 @@ mod tests {
     fn test_end_offset_position_standard_empty_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO MockAnalyzer 尚未实现
         let iwc = new_index_writer_config(&mut random);
@@ -515,7 +516,7 @@ mod tests {
     fn test_end_offset_position_standard_empty_field2() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 未实现 MockAnalyzer
         let iwc = new_index_writer_config(&mut random);
@@ -583,7 +584,7 @@ mod tests {
     fn test_term_vector_corruption2() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let mut field_types = HashMap::new();
 
         for _ in 0..2 {
@@ -636,7 +637,7 @@ mod tests {
     fn test_term_vector_corruption3() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: MockAnalyzer, SerialMergeScheduler, LogDocMergePolicy未实现
         let mut iwc1 = new_index_writer_config(&mut random);
         iwc1.set_max_buffered_docs(2);
@@ -695,7 +696,7 @@ mod tests {
     fn test_no_term_vector_after_term_vector() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         let iwc = new_index_writer_config(&mut random);
         let iw = IndexWriter::new(dir.clone(), iwc)?;
@@ -806,7 +807,7 @@ mod tests {
         ft1: FieldType,
         ft2: FieldType,
     ) -> Result<()> {
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let iw = RandomIndexWriter::new(random, dir.clone());
 
         let mut field_types = HashMap::new();
@@ -845,7 +846,7 @@ mod tests {
     fn test_no_abort_on_bad_tv_settings() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // Don't use RandomIndexWriter because we want to be sure both docs go to 1 seg:
         let iwc = new_index_writer_config(&mut random);
         let iw = IndexWriter::new(dir.clone(), iwc)?;

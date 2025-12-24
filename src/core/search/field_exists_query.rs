@@ -387,7 +387,7 @@ mod test {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, new_directory, new_searcher_with_reader, random,
+        at_least, new_directory_shared, new_searcher_with_reader, random,
     };
 
     use rand::Rng;
@@ -420,7 +420,7 @@ mod test {
 
         let iters = at_least(&mut random, 10);
         for _ in 0..iters {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
             let iw = RandomIndexWriter::new(&mut random, dir.clone());
             let num_docs = at_least(&mut random, 100);
 
@@ -483,7 +483,7 @@ mod test {
     fn test_doc_values_missing_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         iw.add_document(Document::new())?;
@@ -501,7 +501,7 @@ mod test {
     fn test_doc_values_all_docs_have_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
@@ -521,7 +521,7 @@ mod test {
     fn test_doc_values_field_exists_but_no_docs_have_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
@@ -551,7 +551,7 @@ mod test {
 
         let iters = at_least(&mut random, 10);
         for _ in 0..iters {
-            let dir = Arc::new(new_directory(&mut random)?);
+            let dir = new_directory_shared(&mut random)?;
             let iw = RandomIndexWriter::new(&mut random, dir.clone());
             let num_docs = at_least(&mut random, 100);
 
@@ -605,7 +605,7 @@ mod test {
     fn test_norms_missing_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         iw.add_document(Document::new())?;
@@ -623,7 +623,7 @@ mod test {
     fn test_norms_all_docs_have_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
@@ -643,7 +643,7 @@ mod test {
     fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();

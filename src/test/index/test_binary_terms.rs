@@ -25,17 +25,16 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_field, new_searcher_with_reader, new_string_field_binary, random,
+    new_directory_shared, new_field, new_searcher_with_reader, new_string_field_binary, random,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestBinaryTerms;
 #[test]
 fn test_binary() -> Result<()> {
     let mut random = random();
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
 
     let iw = RandomIndexWriter::new(&mut random, directory.clone());
     let mut field_types = HashMap::new();

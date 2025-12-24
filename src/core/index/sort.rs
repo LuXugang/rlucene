@@ -147,7 +147,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_bytes_ref_from_string, new_directory, new_searcher_with_reader, random,
+        new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader, random,
     };
     use std::hash::DefaultHasher;
     use std::sync::Arc;
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_string() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn test_string_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // doc 1: bar
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_string_val() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
         let mut doc = Document::new();
         doc.add(BinaryDocValuesField::new(
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_string_val_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
         let mut doc = Document::new();
         doc.add(BinaryDocValuesField::new(
@@ -413,7 +413,7 @@ mod tests {
     #[test]
     fn test_int() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
@@ -461,7 +461,7 @@ mod tests {
     #[test]
     fn test_int_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn test_int_missing() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let doc = Document::new();
@@ -559,7 +559,7 @@ mod tests {
     #[test]
     fn test_int_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let doc = Document::new();
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn test_long() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let mut doc = Document::new();
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn test_long_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // doc 1: 3000000000
@@ -714,7 +714,7 @@ mod tests {
     #[test]
     fn test_long_missing() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let doc = Document::new();
@@ -761,7 +761,7 @@ mod tests {
     #[test]
     fn test_long_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         let doc = Document::new();
@@ -810,7 +810,7 @@ mod tests {
     #[test]
     fn test_float() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // 30.1
@@ -862,7 +862,7 @@ mod tests {
     #[test]
     fn test_float_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // 30.1
@@ -918,7 +918,7 @@ mod tests {
     #[test]
     fn test_float_missing() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // missing
@@ -967,7 +967,7 @@ mod tests {
     #[test]
     fn test_float_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // missing
@@ -1019,7 +1019,7 @@ mod tests {
     #[test]
     fn test_double() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // 30.1
@@ -1090,7 +1090,7 @@ mod tests {
     #[test]
     fn test_double_signed_zero() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // +0
@@ -1131,7 +1131,7 @@ mod tests {
     #[test]
     fn test_double_reverse() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // 30.1
@@ -1206,7 +1206,7 @@ mod tests {
     #[test]
     fn test_double_missing() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // missing
@@ -1275,7 +1275,7 @@ mod tests {
     #[test]
     fn test_double_missing_last() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // missing
@@ -1345,7 +1345,7 @@ mod tests {
     #[test]
     fn test_multi_sort() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir);
 
         // doc1: foo, 0

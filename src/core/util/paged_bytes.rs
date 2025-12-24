@@ -474,7 +474,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, new_directory, random,
+        at_least, is_night_mode, new_directory_shared, random,
     };
     use crate::test::util::test_util::TestUtil;
 
@@ -487,7 +487,7 @@ mod tests {
 
         for _ in 0..num_iters {
             // TODO: BaseDirectoryWrapper not implement
-            let dir = new_directory(&mut random)?;
+            let dir = new_directory_shared(&mut random)?;
             let block_bits = TestUtil::next_int(&mut random, 1, 20);
             let block_size = 1 << block_bits;
             let mut paged_bytes = PagedBytes::new(block_bits as usize);
@@ -651,7 +651,7 @@ mod tests {
     fn test_overflow() -> Result<()> {
         let mut random = random();
         // TODO: BaseDirectoryWrapper not implement
-        let dir = new_directory(&mut random)?;
+        let dir = new_directory_shared(&mut random)?;
         let block_bits = TestUtil::next_int(&mut random, 14, 28);
         let block_size = 1 << block_bits;
 

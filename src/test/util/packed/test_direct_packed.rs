@@ -25,7 +25,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    is_night_mode, new_directory, random,
+    is_night_mode, new_directory, new_directory_shared, random,
 };
 use crate::test::util::test_util::TestUtil;
 
@@ -35,7 +35,7 @@ pub struct TestDirectPacked;
 #[test]
 fn test_simple() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let bits_per_value = bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
@@ -61,7 +61,7 @@ fn test_simple() -> Result<()> {
 #[test]
 fn test_not_enough_values() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     let bits_per_value = bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;

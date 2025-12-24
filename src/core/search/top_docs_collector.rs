@@ -250,7 +250,7 @@ mod tests {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, new_searcher_with_reader,
+        new_directory_shared, new_index_writer_config, new_searcher_with_reader,
         new_searcher_with_threads, random,
     };
     use rand::Rng;
@@ -425,7 +425,7 @@ mod tests {
     }
     fn do_search<R: Rng + ?Sized>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector> {
         let query = MatchAllDocsQuery::new();
-        let dir = Arc::new(new_directory(random)?);
+        let dir = new_directory_shared(random)?;
         let reader = Arc::new(get_reader(dir)?);
         let searcher = new_searcher_with_reader(reader)?;
         let cm = MyTopDocsCollectorMananger::new(num_results);
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn test_set_min_competitive_score() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里没有定义合并策略
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -704,7 +704,7 @@ mod tests {
     fn test_shared_count_collector_manager() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里没有定义合并策略
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -735,7 +735,7 @@ mod tests {
     #[test]
     fn test_total_hits() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里没有定义合并策略
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -806,7 +806,7 @@ mod tests {
     #[test]
     fn test_relation_vs_top_docs_count() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO : 这里没有定义合并策略
         let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
@@ -846,7 +846,7 @@ mod tests {
     #[test]
     fn test_concurrent_min_score() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO 未实现合并策略
         let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;

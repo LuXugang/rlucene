@@ -29,7 +29,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_index_writer_config, new_searcher_with_reader, new_string_field,
+    new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_string_field,
     new_text_field, random,
 };
 use std::collections::HashMap;
@@ -46,7 +46,7 @@ fn test_simple_case() -> Result<()> {
     let unstored = ["Amsterdam has lots of bridges", "Venice has lots of canals"];
     let text = ["Amsterdam", "Venice"];
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: MockAnalyzer 未实现
     let iwc = new_index_writer_config(&mut random);
     let modifier = IndexWriter::new(dir.clone(), iwc)?;
@@ -85,7 +85,7 @@ fn test_simple_case() -> Result<()> {
 fn test_non_ram_delete() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现
@@ -135,7 +135,7 @@ fn test_ram_deletes() -> Result<()> {
 fn test_both_deletes() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现
@@ -181,7 +181,7 @@ fn test_both_deletes() -> Result<()> {
 fn test_batch_deletes() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let mut field_types = HashMap::new();
 
     // TODO: MockAnalyzer 未实现

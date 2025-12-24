@@ -46,8 +46,9 @@ mod tests {
     use crate::core::document::text_field::text_field_type;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
-    use std::sync::Arc;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, random,
+    };
 
     #[allow(dead_code)] // for quick search
     struct TestTermVectorsReader;
@@ -82,7 +83,7 @@ mod tests {
     fn test_illegal_payloads_without_positions() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO c需要使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
@@ -112,7 +113,7 @@ mod tests {
     fn test_illegal_offsets_without_vectors() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
@@ -142,7 +143,7 @@ mod tests {
     fn test_illegal_positions_without_vectors() -> Result<()> {
         let mut random = random();
 
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
 
         // TODO: 需要使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
@@ -171,7 +172,7 @@ mod tests {
     #[test]
     fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
@@ -200,7 +201,7 @@ mod tests {
     #[test]
     fn test_illegal_vectors_without_indexed() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
@@ -228,7 +229,7 @@ mod tests {
     #[test]
     fn test_illegal_vector_positions_without_indexed() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
@@ -256,7 +257,7 @@ mod tests {
     #[test]
     fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 
@@ -284,7 +285,7 @@ mod tests {
     #[test]
     fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 这里应该使用带分词器的构造方法
         let w = RandomIndexWriter::new(&mut random, dir.clone());
 

@@ -32,7 +32,7 @@ pub struct TestPointQueries;
 #[test]
 fn test_basic_ints() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 

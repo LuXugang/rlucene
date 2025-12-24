@@ -44,8 +44,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory,
-    new_index_writer_config, random,
+    get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string,
+    new_directory_shared, new_index_writer_config, random,
 };
 use rand::RngCore;
 use std::borrow::Cow;
@@ -64,7 +64,7 @@ fn test_add_indexes() -> Result<()> {
 fn test_multi_valued_doc_values_field() -> Result<()> {
     let mut random = random();
 
-    let d = Arc::new(new_directory(&mut random)?);
+    let d = new_directory_shared(&mut random)?;
     let config = new_index_writer_config(&mut random);
     let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
@@ -102,7 +102,7 @@ fn test_different_typed_doc_values_field() -> Result<()> {
     let mut random = random();
 
     // directory + writer
-    let d = Arc::new(new_directory(&mut random)?);
+    let d = new_directory_shared(&mut random)?;
     let config = new_index_writer_config(&mut random);
     let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
@@ -141,7 +141,7 @@ fn test_different_typed_doc_values_field() -> Result<()> {
 fn test_different_typed_doc_values_field2() -> Result<()> {
     let mut random = random();
 
-    let d = Arc::new(new_directory(&mut random)?);
+    let d = new_directory_shared(&mut random)?;
     let config = new_index_writer_config(&mut random);
     let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
@@ -180,7 +180,7 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
 fn test_length_prefix_across_two_pages() -> Result<()> {
     let mut random = random();
 
-    let d = Arc::new(new_directory(&mut random)?);
+    let d = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let config = IndexWriterConfig::new();
     let w = IndexWriter::new(d.clone(), config)?;
@@ -236,7 +236,7 @@ fn test_doc_values_unstored() -> Result<()> {
 #[test]
 fn test_mixed_types_same_document() -> Result<()> {
     let mut random = random();
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let config = new_index_writer_config(&mut random);
     let w = IndexWriter::new(dir.clone(), config)?;
@@ -268,7 +268,7 @@ fn test_mixed_types_same_document() -> Result<()> {
 fn test_mixed_types_different_documents() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let config = new_index_writer_config(&mut random);
     let w = IndexWriter::new(dir.clone(), config)?;
@@ -301,7 +301,7 @@ fn test_mixed_types_different_documents() -> Result<()> {
 fn test_add_sorted_twice() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
 
     let iwc = new_index_writer_config(&mut random);
     // TODO: newLogMergePolicy 未实现
@@ -336,7 +336,7 @@ fn test_add_sorted_twice() -> Result<()> {
 fn test_add_binary_twice() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
 
     let iwc = new_index_writer_config(&mut random);
     // TODO: newLogMergePolicy 未实现
@@ -372,7 +372,7 @@ fn test_add_binary_twice() -> Result<()> {
 fn test_add_numeric_twice() -> Result<()> {
     let mut random = random();
 
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let iwc = new_index_writer_config(&mut random);
     // TODO: newLogMergePolicy 未实现
@@ -402,7 +402,7 @@ fn test_add_numeric_twice() -> Result<()> {
 fn test_too_large_sorted_bytes() -> Result<()> {
     let mut random = random();
 
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     // TODO: newLogMergePolicy 未实现
     let iwc = new_index_writer_config(&mut random);
@@ -437,7 +437,7 @@ fn test_too_large_sorted_bytes() -> Result<()> {
 fn test_too_large_term_sorted_set_bytes() -> Result<()> {
     let mut random = random();
 
-    let directory = Arc::new(new_directory(&mut random)?);
+    let directory = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     // TODO: newLogMergePolicy 未实现
     let iwc = new_index_writer_config(&mut random);
@@ -477,7 +477,7 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
 fn test_mixed_types_different_segments() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let iwc = new_index_writer_config(&mut random);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -509,7 +509,7 @@ fn test_mixed_types_after_delete_all() -> Result<()> {
     // TODO writer.delete_all未实现
     // let mut random = random();
     //
-    // let dir = Arc::new(new_directory(&mut random)?);
+    // let dir = new_directory(&mut random)?;
     // // TODO: 未实现MockAnalyzer
     // let iwc = new_index_writer_config(&mut random);
     // let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -535,7 +535,7 @@ fn test_mixed_types_after_delete_all() -> Result<()> {
 fn test_mixed_types_after_reopen_create() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let iwc1 = new_index_writer_config(&mut random);
     {
@@ -562,7 +562,7 @@ fn test_mixed_types_after_reopen_create() -> Result<()> {
 fn test_mixed_types_after_reopen_append1() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let iwc1 = new_index_writer_config(&mut random);
     {
@@ -597,7 +597,7 @@ fn test_mixed_types_after_reopen_append1() -> Result<()> {
 fn test_mixed_types_after_reopen_append2() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let iwc1 = new_index_writer_config(&mut random);
     {
@@ -641,7 +641,7 @@ fn test_mixed_types_after_reopen_append2() -> Result<()> {
 fn test_mixed_types_after_reopen_append3() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let iwc1 = new_index_writer_config(&mut random);
     {
@@ -694,7 +694,7 @@ fn test_mixed_types_via_add_indexes() -> Result<()> {
 fn test_illegal_type_change() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let conf = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -726,7 +726,7 @@ fn test_illegal_type_change() -> Result<()> {
 fn test_illegal_type_change_across_segments() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let conf1 = new_index_writer_config(&mut random);
     {
         let writer = IndexWriter::new(dir.clone(), conf1)?;
@@ -761,7 +761,7 @@ fn test_illegal_type_change_across_segments() -> Result<()> {
 fn test_type_change_after_close_and_delete_all() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
 
     let conf1 = new_index_writer_config(&mut random);
     {
@@ -793,7 +793,7 @@ fn test_type_change_after_delete_all() -> Result<()> {
     // TODO writer.delete_all未实现
     // let mut random = random();
     //
-    // let dir = Arc::new(new_directory(&mut random)?);
+    // let dir = new_directory(&mut random)?;
     // TODO: 未实现MockAnalyzer
     // let conf = new_index_writer_config(&mut random);
     // let writer = IndexWriter::new(dir.clone(), conf)?;
@@ -823,7 +823,7 @@ fn test_type_change_after_commit_and_delete_all() -> Result<()> {
 fn test_type_change_after_open_create() -> Result<()> {
     let mut random = random();
 
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let conf1 = new_index_writer_config(&mut random);
     {
@@ -874,7 +874,7 @@ fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
 fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let conf = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -903,7 +903,7 @@ fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
 fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer
-    let dir = Arc::new(new_directory(&mut random)?);
+    let dir = new_directory_shared(&mut random)?;
     let iwc = new_index_writer_config(&mut random);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 

@@ -113,7 +113,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, new_directory, random,
+        at_least, is_night_mode, new_directory_shared, random,
     };
     use crate::test::util::test_util::TestUtil;
 
@@ -190,7 +190,7 @@ mod tests {
                 if cfg!(feature = "test_log_verbose") {
                     println!("TEST: save/load final bytes");
                 }
-                let dir = new_directory(&mut random)?;
+                let dir = new_directory_shared(&mut random)?;
                 {
                     let mut out = dir.create_output("bytes", &IOContext::default_io_context()?)?;
                     bytes.write_to_data_output(&mut out)?;

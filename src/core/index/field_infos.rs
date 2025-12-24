@@ -910,7 +910,7 @@ mod tests {
     use crate::core::index::index_writer::{IndexWriter, read_field_infos};
     use crate::core::index::segment_infos::SegmentInfos;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, new_index_writer_config, random,
+        new_directory_shared, new_index_writer_config, random,
     };
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -920,7 +920,7 @@ mod tests {
     #[test]
     fn test_field_infos() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现MockAnalyzer
         let config = new_index_writer_config(&mut random);
         // TODO: 未定义NoMergePolicy
@@ -992,7 +992,7 @@ mod tests {
     #[test]
     fn test_field_attributes() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer / NoMergePolicy
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1047,7 +1047,7 @@ mod tests {
     #[test]
     fn test_field_attributes_single_segment() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         // TODO: 未实现 MockAnalyzer / NoMergePolicy
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1096,7 +1096,7 @@ mod tests {
     #[test]
     fn test_merged_field_infos_empty() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(new_directory(&mut random)?);
+        let dir = new_directory_shared(&mut random)?;
         let config = new_index_writer_config(&mut random);
         let writer = IndexWriter::new(dir.clone(), config)?;
 
