@@ -54,7 +54,7 @@ where
     pub(crate) root_code: BytesRef<Arc<Vec<u8>>>,
     pub(crate) min_term: Arc<BytesRef<Vec<u8>>>,
     pub(crate) max_term: Arc<BytesRef<Vec<u8>>>,
-    pub(crate) parent: Arc<TermsReader<I, PR>>,
+    pub(crate) parent: Option<Arc<TermsReader<I, PR>>>,
     pub(crate) index: Option<Arc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
     tmp_data: Option<TmpData>,
 }
@@ -70,7 +70,6 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<I1: IndexInput>(
-        parent: Arc<TermsReader<I, PR>>,
         field_info: Arc<FieldInfo>,
         num_terms: i64,
         root_code: BytesRef<Vec<u8>>,
@@ -93,7 +92,7 @@ where
             }
         };
         Ok(Self {
-            parent,
+            parent: None,
             field_info,
             num_terms,
             sum_total_term_freq,
@@ -162,7 +161,7 @@ where
     }
 
     pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
-        let version = self.parent.version;
+        let version = self.parent.as_ref().unwrap().version;
         if version >= VERSION_MSB_VLONG_OUTPUT {
             read_msb_vlong(input)
         } else {
@@ -256,7 +255,7 @@ where
         write!(
             f,
             "BlockTreeTerms(seg={} terms={} postings={} positions={} docs={})",
-            self.parent.segment,
+            self.parent.as_ref().unwrap().segment,
             self.num_terms,
             self.sum_doc_freq,
             self.sum_total_term_freq,
@@ -281,7 +280,7 @@ where
             root_code: self.root_code.clone(),
             min_term: self.min_term.clone(),
             max_term: self.max_term.clone(),
-            parent: Arc::clone(&self.parent),
+            parent: self.parent.clone(),
             index: Some(Arc::clone(self.index.as_ref().unwrap())),
             tmp_data: None,
         }

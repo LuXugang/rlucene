@@ -111,7 +111,7 @@ where
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
         if self.input.is_none() {
-            self.input = Some(self.fr.parent.terms_in.lock().try_clone()?);
+            self.input = Some(self.fr.parent.as_ref().unwrap().terms_in.try_clone()?);
         }
         Ok(())
     }
@@ -874,7 +874,7 @@ where
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
 
         let field_info = &self.fr.field_info;
-        let postings_reader = &self.fr.parent.postings_reader;
+        let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
             &mut self.static_frame
         } else {
@@ -898,7 +898,7 @@ where
             &mut self.stack[self.current_frame_idx]
         };
         let field_info = &self.fr.field_info;
-        let postings_reader = &self.fr.parent.postings_reader;
+        let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
 
         let result = postings_reader.impacts(field_info, &current_frame.state, flags)?;
         Ok(result)

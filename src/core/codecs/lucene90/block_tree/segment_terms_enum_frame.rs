@@ -99,7 +99,12 @@ impl SegmentTermsEnumFrame {
         I: IndexInput,
         P: PostingsReaderBase<TermState = BlockTermStateEnum>,
     {
-        let mut state = fr.parent.postings_reader.new_term_state()?;
+        let mut state = fr
+            .parent
+            .as_ref()
+            .unwrap()
+            .postings_reader
+            .new_term_state()?;
         state.get_block_term_state().total_term_freq = -1;
         let suffix_bytes = vec![0u8; 32];
         let suffixes_reader = ByteArrayDataInput::with_bytes(suffix_bytes);
@@ -610,12 +615,17 @@ impl SegmentTermsEnumFrame {
                 }
             }
 
-            ste.fr.parent.postings_reader.decode_term(
-                &mut frame.bytes_reader,
-                &ste.fr.field_info,
-                &mut frame.state,
-                absolute,
-            )?;
+            ste.fr
+                .parent
+                .as_ref()
+                .unwrap()
+                .postings_reader
+                .decode_term(
+                    &mut frame.bytes_reader,
+                    &ste.fr.field_info,
+                    &mut frame.state,
+                    absolute,
+                )?;
 
             frame.meta_data_upto += 1;
             absolute = false;

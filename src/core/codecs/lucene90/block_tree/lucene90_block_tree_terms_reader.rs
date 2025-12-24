@@ -29,7 +29,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -74,9 +73,7 @@ where
     PR: PostingsReaderBase,
 {
     // Open input to the main terms dict file (_X.tib)
-    // After the immutable reference has been shared elsewhere,
-    // we can then perform the `CodecUtil::retrieve_checksum_with_expected` check — and this method requires mutability.
-    pub(crate) terms_in: Mutex<I>,
+    pub(crate) terms_in: I,
     pub(crate) postings_reader: PR,
     pub(crate) segment: String,
     pub(crate) version: i32,
@@ -146,13 +143,12 @@ where
 
         let mut prior_error = None;
         let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
-        let terms_reader = TermsReader {
-            terms_in: Mutex::new(terms_in),
+        let mut terms_reader = TermsReader {
+            terms_in,
             postings_reader,
             segment,
             version,
         };
-        let terms_reader = Arc::new(terms_reader);
         let result: Result<()> = (|| {
             CodecUtil::check_index_header(
                 &mut meta_in,
@@ -231,7 +227,6 @@ where
                 let index_start_fp = meta_in.read_vlong()?;
 
                 let reader = FieldReader::new(
-                    terms_reader.clone(),
                     field_info.clone(),
                     num_terms,
                     root_code,
@@ -275,13 +270,11 @@ where
         // At this point the checksum of the meta file has been verified so the lengths
         // are likely correct
         CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
-        CodecUtil::retrieve_checksum_with_expected(
-            &mut *terms_reader.terms_in.lock(),
-            terms_length,
-        )?;
-
+        CodecUtil::retrieve_checksum_with_expected(&mut terms_reader.terms_in, terms_length)?;
+        let terms_reader = Arc::new(terms_reader);
         let index_in = Arc::new(index_in);
         for (_field_number, reader) in field_map.iter_mut() {
+            reader.parent = Some(Arc::clone(&terms_reader));
             FieldReader::init_field_reader(index_in.clone(), reader)?;
         }
         let field_list = sort_field_names(&field_map, &state.field_infos)?;
@@ -357,7 +350,7 @@ where
 {
     fn check_integrity(&self) -> Result<()> {
         CodecUtil::checksum_entire_file(self.index_in.as_ref())?;
-        CodecUtil::checksum_entire_file(&*self.terms_reader.terms_in.lock())?;
+        CodecUtil::checksum_entire_file(&self.terms_reader.terms_in)?;
         self.terms_reader.postings_reader.check_integrity()
     }
 }
