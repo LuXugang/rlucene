@@ -96,9 +96,13 @@ where
     CR: CompositeReader<LeafReader = LR> + Clone,
     LR: LeafReader + Clone,
 {
-    type TermVectors = BCRTermVectorsImpl<LR, CR>;
+    type TermVectors<'a>
+        = BCRTermVectorsImpl<'a, LR, CR>
+    where
+        CR: 'a,
+        LR: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         self.base_composite_reader_base.term_vector(self)
     }
 
@@ -110,9 +114,13 @@ where
         self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields = BCRStoredFieldsImpl<LR, CR>;
+    type StoredFields<'a>
+        = BCRStoredFieldsImpl<'a, LR, CR>
+    where
+        CR: 'a,
+        LR: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         self.base_composite_reader_base.stored_fields(self)
     }
 

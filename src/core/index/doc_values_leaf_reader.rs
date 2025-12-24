@@ -45,9 +45,9 @@ impl Display for DocValuesLeafReader {
 }
 
 impl IndexReader for DocValuesLeafReader {
-    type TermVectors = DummyTermVectors;
+    type TermVectors<'a> = DummyTermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
@@ -59,9 +59,9 @@ impl IndexReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type StoredFields = DummyStoredFields;
+    type StoredFields<'a> = DummyStoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         Err(LuceneError::unsupported_operation(""))
     }
 

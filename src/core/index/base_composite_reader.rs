@@ -160,10 +160,10 @@ where
     pub fn term_vector(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRTermVectorsImpl<LR, CR>> {
+    ) -> Result<BCRTermVectorsImpl<'_, LR, CR>> {
         reader.ensure_open()?;
         Ok(TermVectorsImpl::new(
-            self.sub_reader.clone(),
+            self.sub_reader.as_slice(),
             Arc::clone(&self.starts),
             self.max_doc,
         ))
@@ -198,10 +198,10 @@ where
     pub fn stored_fields(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRStoredFieldsImpl<LR, CR>> {
+    ) -> Result<BCRStoredFieldsImpl<'_, LR, CR>> {
         reader.ensure_open()?;
         Ok(StoredFieldsImpl::new(
-            self.sub_reader.clone(),
+            self.sub_reader.as_slice(),
             Arc::clone(&self.starts),
             self.max_doc,
         ))
@@ -285,26 +285,26 @@ where
         self.sub_reader.as_slice()
     }
 }
-pub type BCRTermVectorsImpl<IR, CR> = TermVectorsImpl<IR, CR>;
-pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
+pub type BCRTermVectorsImpl<'a, IR, CR> = TermVectorsImpl<'a, IR, CR>;
+pub type BCRStoredFieldsImpl<'a, IR, CR> = StoredFieldsImpl<'a, IR, CR>;
 
-pub struct TermVectorsImpl<LR, CR>
+pub struct TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
+    sub_reader: &'a [IndexReaderEnum<LR, CR>],
     starts: Arc<Vec<i32>>,
-    sub_term_vectors: Vec<Option<IRTermVectors<LR, CR>>>,
+    sub_term_vectors: Vec<Option<IRTermVectors<'a, LR, CR>>>,
     max_doc: i32,
 }
-impl<LR, CR> TermVectorsImpl<LR, CR>
+impl<'a, LR, CR> TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     pub fn new(
-        sub_reader: Vec<IndexReaderEnum<LR, CR>>,
+        sub_reader: &'a [IndexReaderEnum<LR, CR>],
         starts: Arc<Vec<i32>>,
         max_doc: i32,
     ) -> Self {
@@ -320,7 +320,7 @@ where
         }
     }
 }
-impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
+impl<'a, LR, CR> TermVectors for TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
@@ -338,7 +338,7 @@ where
         Ok(())
     }
 
-    type Fields = <IRTermVectors<LR, CR> as TermVectors>::Fields;
+    type Fields = <IRTermVectors<'a, LR, CR> as TermVectors>::Fields;
 
     fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
         let i = reader_index(doc_id, self.max_doc, &self.starts)?;
@@ -351,24 +351,24 @@ where
         tv.get(doc_id - self.starts[i])
     }
 }
-pub struct StoredFieldsImpl<LR, CR>
+pub struct StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
-    sub_reader: Vec<IndexReaderEnum<LR, CR>>,
+    sub_reader: &'a [IndexReaderEnum<LR, CR>],
     starts: Arc<Vec<i32>>,
-    sub_stored_fields: Vec<Option<IRStoredFields<LR, CR>>>,
+    sub_stored_fields: Vec<Option<IRStoredFields<'a, LR, CR>>>,
     max_doc: i32,
 }
 
-impl<LR, CR> StoredFieldsImpl<LR, CR>
+impl<'a, LR, CR> StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,
 {
     pub fn new(
-        sub_reader: Vec<IndexReaderEnum<LR, CR>>,
+        sub_reader: &'a [IndexReaderEnum<LR, CR>],
         starts: Arc<Vec<i32>>,
         max_doc: i32,
     ) -> Self {
@@ -385,7 +385,7 @@ where
     }
 }
 
-impl<LR, CR> StoredFields for StoredFieldsImpl<LR, CR>
+impl<'a, LR, CR> StoredFields for StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
     CR: CompositeReader + Clone,

@@ -251,9 +251,14 @@ where
     D: Directory,
     LR: LeafReader + Clone,
 {
-    type TermVectors = BCRTermVectorsImpl<LR, DummyCompositeReader<LR>>;
+    type TermVectors<'a>
+        = BCRTermVectorsImpl<'a, LR, DummyCompositeReader<LR>>
+    where
+        C: 'a,
+        D: 'a,
+        LR: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         self.base_composite_reader_base.term_vector(self)
     }
 
@@ -265,9 +270,14 @@ where
         self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields = BCRStoredFieldsImpl<LR, DummyCompositeReader<LR>>;
+    type StoredFields<'a>
+        = BCRStoredFieldsImpl<'a, LR, DummyCompositeReader<LR>>
+    where
+        C: 'a,
+        D: 'a,
+        LR: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         self.base_composite_reader_base.stored_fields(self)
     }
 

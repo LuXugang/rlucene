@@ -26,8 +26,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 pub trait IndexReader: Display {
-    type TermVectors: TermVectors;
-    fn term_vectors(&self) -> Result<Self::TermVectors>;
+    type TermVectors<'a>: TermVectors
+    where
+        Self: 'a;
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>>;
 
     fn max_doc(&self) -> Result<i32>;
 
@@ -90,8 +92,10 @@ pub trait IndexReader: Display {
         Ok(())
     }
 
-    type StoredFields: StoredFields;
-    fn stored_fields(&self) -> Result<Self::StoredFields>;
+    type StoredFields<'a>: StoredFields
+    where
+        Self: 'a;
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>>;
 
     fn has_deletions(&self) -> Result<bool> {
         Ok(self.num_deleted_docs()? > 0)
@@ -188,10 +192,12 @@ pub trait CacheHelper {
 }
 pub type CacheKey = Identity;
 
-pub type IRTermVectors<LR, CR> =
-    Either2TermVectors<<LR as IndexReader>::TermVectors, <CR as IndexReader>::TermVectors>;
-pub type IRStoredFields<LR, CR> =
-    Either2StoredFields<<LR as IndexReader>::StoredFields, <CR as IndexReader>::StoredFields>;
+pub type IRTermVectors<'a, LR, CR> =
+    Either2TermVectors<<LR as IndexReader>::TermVectors<'a>, <CR as IndexReader>::TermVectors<'a>>;
+pub type IRStoredFields<'a, LR, CR> = Either2StoredFields<
+    <LR as IndexReader>::StoredFields<'a>,
+    <CR as IndexReader>::StoredFields<'a>,
+>;
 pub enum IndexReaderEnum<LR, CR>
 where
     LR: LeafReader,
@@ -240,9 +246,13 @@ where
     LR: LeafReader,
     CR: CompositeReader,
 {
-    type TermVectors = IRTermVectors<LR, CR>;
+    type TermVectors<'a>
+        = IRTermVectors<'a, LR, CR>
+    where
+        CR: 'a,
+        LR: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         match self {
             IndexReaderEnum::Leaf(leaf) => Ok(Either2TermVectors::A(leaf.term_vectors()?)),
             IndexReaderEnum::Composite(comp) => Ok(Either2TermVectors::B(comp.term_vectors()?)),
@@ -291,9 +301,13 @@ where
         }
     }
 
-    type StoredFields = IRStoredFields<LR, CR>;
+    type StoredFields<'a>
+        = IRStoredFields<'a, LR, CR>
+    where
+        CR: 'a,
+        LR: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         match self {
             IndexReaderEnum::Leaf(leaf) => Ok(Either2StoredFields::A(leaf.stored_fields()?)),
             IndexReaderEnum::Composite(comp) => Ok(Either2StoredFields::B(comp.stored_fields()?)),
@@ -360,9 +374,12 @@ impl<IR> IndexReader for Arc<IR>
 where
     IR: IndexReader + ?Sized,
 {
-    type TermVectors = IR::TermVectors;
+    type TermVectors<'a>
+        = IR::TermVectors<'a>
+    where
+        IR: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         (**self).term_vectors()
     }
 
@@ -390,9 +407,12 @@ where
         (**self).ensure_open()
     }
 
-    type StoredFields = IR::StoredFields;
+    type StoredFields<'a>
+        = IR::StoredFields<'a>
+    where
+        IR: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         (**self).stored_fields()
     }
 

@@ -345,9 +345,12 @@ impl<D> IndexReader for SegmentReader<D>
 where
     D: Directory,
 {
-    type TermVectors = TermVectorsType<<Self as CodecReader>::TermVectorsReader>;
+    type TermVectors<'a>
+        = TermVectorsType<<Self as CodecReader>::TermVectorsReader>
+    where
+        D: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         CodecReader::term_vectors(self)
     }
 
@@ -359,9 +362,12 @@ where
         Ok(self.num_docs)
     }
 
-    type StoredFields = StoredFieldsType<<Self as CodecReader>::StoredFieldsReader>;
+    type StoredFields<'a>
+        = StoredFieldsType<<Self as CodecReader>::StoredFieldsReader>
+    where
+        D: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         CodecReader::stored_fields(self)
     }
 

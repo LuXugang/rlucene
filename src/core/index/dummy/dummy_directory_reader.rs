@@ -63,9 +63,12 @@ impl<D> IndexReader for DummyDirectoryReader<D>
 where
     D: Directory,
 {
-    type TermVectors = DummyTermVectors;
+    type TermVectors<'a>
+        = DummyTermVectors
+    where
+        D: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -77,9 +80,12 @@ where
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type StoredFields = DummyStoredFields;
+    type StoredFields<'a>
+        = DummyStoredFields
+    where
+        D: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -38,9 +38,12 @@ impl<LR> DummyCompositeReader<LR> {
 }
 
 impl<LR> IndexReader for DummyCompositeReader<LR> {
-    type TermVectors = DummyTermVectors;
+    type TermVectors<'a>
+        = DummyTermVectors
+    where
+        LR: 'a;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors> {
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -52,9 +55,12 @@ impl<LR> IndexReader for DummyCompositeReader<LR> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type StoredFields = DummyStoredFields;
+    type StoredFields<'a>
+        = DummyStoredFields
+    where
+        LR: 'a;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields> {
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
