@@ -78,7 +78,7 @@ impl DocIdsWriter {
         }
     }
     pub(crate) fn write_doc_ids(
-        &mut self,
+        &self,
         doc_ids: &[i32],
         start: i32,
         count: i32,
