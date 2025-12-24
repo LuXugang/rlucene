@@ -31,9 +31,6 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     type LeafReader: LeafReader;
     /// Returns the context's leaves if this context is a top-level context.
     ///
-    /// For convenience, if this is a [`LeafReaderContext`] this returns itself as the only leaf,
-    /// and it will never return a `None`.
-    ///
     /// # Error
     ///
     /// Error with `UnsupportedOperationException` if this is not a top-level context.
@@ -42,7 +39,7 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
 
     fn base(&self) -> &IndexReaderContextBase;
 }
-
+#[derive(Clone)]
 pub struct IndexReaderContextBase {
     /// `true` if this context struct represents the top-level reader within the hierarchical context.
     pub is_top_level: bool,

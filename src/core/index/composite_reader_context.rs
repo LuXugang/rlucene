@@ -25,9 +25,10 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
+#[derive(Clone)]
 pub struct CompositeReaderContext<CR>
 where
-    CR: CompositeReader,
+    CR: CompositeReader + Clone,
 {
     leaves: Vec<Arc<LeafReaderContext<CR::LeafReader>>>,
     pub(crate) reader: CR,
@@ -60,11 +61,11 @@ where
     Ok(ctx)
 }
 
-impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
+impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader + Clone {}
 
 impl<CR> IndexReaderContext for CompositeReaderContext<CR>
 where
-    CR: CompositeReader,
+    CR: CompositeReader + Clone,
 {
     type IndexReader = CR;
 
@@ -143,11 +144,14 @@ where
     }
 }
 
-impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where CR: CompositeReader {}
+impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where
+    CR: CompositeReader + Clone
+{
+}
 
 impl<CR> IndexReaderContext for Arc<CompositeReaderContext<CR>>
 where
-    CR: CompositeReader,
+    CR: CompositeReader + Clone,
 {
     type IndexReader = CR;
 
