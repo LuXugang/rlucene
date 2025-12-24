@@ -438,7 +438,7 @@ mod tests {
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        CR: CompositeReader + Clone,
+        CR: CompositeReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
         let collector_manager =
@@ -452,7 +452,7 @@ mod tests {
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
     where
-        CR: CompositeReader + Clone + 'static,
+        CR: CompositeReader,
     {
         let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
         let collector_manager =

@@ -122,7 +122,7 @@ where
 /// It's better to get the sub-readers and iterate through them yourself.
 pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     if !reader.has_deletions()? {
         return Ok(None);
