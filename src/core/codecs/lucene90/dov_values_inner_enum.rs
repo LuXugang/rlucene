@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
-use crate::core::codecs::indexed_disi::IndexedDISI;
+use crate::core::codecs::indexed_disi::{IndexedDISI, Owned};
 use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
     BaseSortedDocValuesImpl, DenseBaseSortedDocValues, DenseBinaryDocValuesBase,
     DenseBinaryDocValuesBaseImpl, DenseBinaryDocValuesBaseImpl1, DenseNumericDocValuesBase,
@@ -238,7 +238,10 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I::Random
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn binary_value(
+        &mut self,
+        disi: &mut IndexedDISI<I, Owned>,
+    ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
             SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
@@ -288,7 +291,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I::Rando
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {

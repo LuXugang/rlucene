@@ -14,12 +14,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-use std::sync::Arc;
-
 use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
+use parking_lot::Mutex;
+use std::rc::Rc;
+use std::sync::Arc;
+/// A small abstraction that unifies access to an inner value `T`,
+/// regardless of whether it is:
+///
+/// - owned directly (`T`)
+/// - or shared behind synchronization (`Arc<Mutex<T>>`)
+///
+/// The key idea:
+/// - `with_ref`  provides shared (read-only) access
+/// - `with_mut`  provides exclusive (mutable) access
+///
+/// In the owned case, these are zero-cost abstractions.
+/// In the shared case, they correspond to locking a mutex for the
+/// duration of the closure.
+pub trait MutAccess<T> {
+    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R;
+    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R;
+}
 
+impl<T> MutAccess<T> for T {
+    #[inline]
+    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+        f(self)
+    }
+    #[inline]
+    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        f(self)
+    }
+}
+
+impl<T> MutAccess<T> for Arc<Mutex<T>> {
+    #[inline]
+    fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+        let mut guard = self.lock();
+        f(&mut *guard)
+    }
+    #[inline]
+    fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        let guard = self.lock();
+        f(&*guard)
+    }
+}
 pub trait SharedReadOnly<T>: Clone {
     fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R;
 }

@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
-use crate::core::codecs::indexed_disi::IndexedDISI;
+use crate::core::codecs::indexed_disi::{IndexedDISI, Owned};
 use crate::core::codecs::lucene90::dov_values_inner_enum::{
     BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
     DenseNumericDocValuesSubEnum, LongValuesEnums, SparseBinaryDocValuesBaseEnum,
@@ -1265,13 +1265,16 @@ where
     I: IndexInput,
 {
     sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>,
-    disi: IndexedDISI<I>,
+    disi: IndexedDISI<I, Owned>,
 }
 impl<I> SparseNumericDocValues<I>
 where
     I: IndexInput,
 {
-    fn new(sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>, disi: IndexedDISI<I>) -> Self {
+    fn new(
+        sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>,
+        disi: IndexedDISI<I, Owned>,
+    ) -> Self {
         Self { sub, disi }
     }
 }
@@ -1386,13 +1389,16 @@ where
     I: IndexInput,
 {
     sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>,
-    disi: IndexedDISI<I>,
+    disi: IndexedDISI<I, Owned>,
 }
 impl<I> SparseBinaryDocValues<I>
 where
     I: IndexInput,
 {
-    fn new(sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>, disi: IndexedDISI<I>) -> Self {
+    fn new(
+        sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>,
+        disi: IndexedDISI<I, Owned>,
+    ) -> Self {
         Self { sub, disi }
     }
 }
@@ -1777,7 +1783,7 @@ where
 }
 
 pub trait SparseNumericDocValuesBase<I> {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput;
 }
@@ -1788,7 +1794,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, _disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, _disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {
@@ -1805,7 +1811,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I::Ran
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {
@@ -1824,7 +1830,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I::Ran
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {
@@ -1841,7 +1847,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I::Ran
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {
@@ -1860,7 +1866,7 @@ impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I::Ran
 where
     I: IndexInput,
 {
-    fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>
+    fn long_value(&mut self, disi: &mut IndexedDISI<I, Owned>) -> Result<i64>
     where
         I: IndexInput,
     {
@@ -1992,7 +1998,10 @@ pub trait SparseBinaryDocValuesBase<I>
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
+    fn binary_value(
+        &mut self,
+        disi: &mut IndexedDISI<I, Owned>,
+    ) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<R>
 where
@@ -2006,7 +2015,10 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I::Random
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn binary_value(
+        &mut self,
+        disi: &mut IndexedDISI<I, Owned>,
+    ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let pos = (disi.index() * self.length) as i64;
         self.bytes_slice
             .read_bytes(pos, &mut self.bytes.bytes, 0, self.length)?;
@@ -2025,7 +2037,10 @@ impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I::Rando
 where
     I: IndexInput,
 {
-    fn binary_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn binary_value(
+        &mut self,
+        disi: &mut IndexedDISI<I, Owned>,
+    ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let index = disi.index() as i64;
         let start_offset = self.addresses.get_mut(index)?;
         self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
@@ -2120,14 +2135,14 @@ pub struct SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
-    disi: IndexedDISI<I>,
+    disi: IndexedDISI<I, Owned>,
     value: DirectPackedEnum<I::RandomAccessSlice>,
 }
 impl<I> SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
-    fn new(disi: IndexedDISI<I>, value: DirectPackedEnum<I::RandomAccessSlice>) -> Self {
+    fn new(disi: IndexedDISI<I, Owned>, value: DirectPackedEnum<I::RandomAccessSlice>) -> Self {
         Self { disi, value }
     }
 }
@@ -2449,7 +2464,7 @@ pub struct SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
-    disi: IndexedDISI<I>,
+    disi: IndexedDISI<I, Owned>,
     set: bool,
     curr: i64,
     count: i32,
@@ -2461,7 +2476,7 @@ where
     I: IndexInput,
 {
     fn new(
-        disi: IndexedDISI<I>,
+        disi: IndexedDISI<I, Owned>,
         value: DirectPackedEnum<I::RandomAccessSlice>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
@@ -3270,7 +3285,7 @@ pub struct SpareSortedNumericDocValues<I>
 where
     I: IndexInput,
 {
-    disi: IndexedDISI<I>,
+    disi: IndexedDISI<I, Owned>,
     values: LongValuesEnums<I::RandomAccessSlice>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     set: bool,
@@ -3283,7 +3298,7 @@ where
     I: IndexInput,
 {
     pub fn new(
-        disi: IndexedDISI<I>,
+        disi: IndexedDISI<I, Owned>,
         values: LongValuesEnums<I::RandomAccessSlice>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
