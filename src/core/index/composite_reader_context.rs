@@ -42,7 +42,7 @@ where
     let v = IndexReaderEnum::new(reader.clone());
     let base = IndexReaderContextBase::new(true, 0, 0);
     let mut builder = Builder::<CR::LeafReader>::new();
-    builder.build(v, 0, 0)?;
+    builder.build(&v, 0, 0)?;
     let leaves = builder.leaves.take().unwrap();
     let mut ctx = CompositeReaderContext {
         leaves,
@@ -109,7 +109,7 @@ impl<LR> Builder<LR>
 where
     LR: LeafReader + Clone,
 {
-    fn build<CR>(&mut self, reader: IndexReaderEnum<LR, CR>, ord: i32, doc_base: i32) -> Result<()>
+    fn build<CR>(&mut self, reader: &IndexReaderEnum<LR, CR>, ord: i32, doc_base: i32) -> Result<()>
     where
         CR: CompositeReader<LeafReader = LR>,
     {

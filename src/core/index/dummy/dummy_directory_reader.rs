@@ -50,7 +50,7 @@ where
 
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>> {
+    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

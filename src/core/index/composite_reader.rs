@@ -25,7 +25,7 @@ pub trait CompositeReader: IndexReader {
     type SubCompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>>;
+    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>];
     fn to_string(&self) -> String {
         todo!()
     }
@@ -46,7 +46,7 @@ where
 
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>> {
+    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
         (**self).get_sequential_sub_readers()
     }
 

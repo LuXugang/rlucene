@@ -236,7 +236,7 @@ where
 
     fn get_sequential_sub_readers(
         &self,
-    ) -> Vec<IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>> {
+    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
         self.base_composite_reader_base.get_sequential_sub_readers()
     }
 

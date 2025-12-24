@@ -281,8 +281,8 @@ where
         }
         Ok(self.starts[reader_index])
     }
-    pub fn get_sequential_sub_readers(&self) -> Vec<IndexReaderEnum<LR, CR>> {
-        self.sub_reader.clone()
+    pub fn get_sequential_sub_readers(&self) -> &[IndexReaderEnum<LR, CR>] {
+        self.sub_reader.as_slice()
     }
 }
 pub type BCRTermVectorsImpl<IR, CR> = TermVectorsImpl<IR, CR>;
