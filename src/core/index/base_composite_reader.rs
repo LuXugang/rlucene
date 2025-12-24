@@ -60,7 +60,7 @@ pub trait BaseCompositeReader: CompositeReader {}
 pub struct BaseCompositeReaderBase<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub(crate) sub_reader: Vec<IndexReaderEnum<LR, CR>>,
     starts: Arc<Vec<i32>>,
@@ -70,7 +70,7 @@ where
 impl<LR, CR> BaseCompositeReaderBase<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn with_leaf_readers<C>(
         sub_readers: Vec<LR>,
@@ -291,7 +291,7 @@ pub type BCRStoredFieldsImpl<'a, IR, CR> = StoredFieldsImpl<'a, IR, CR>;
 pub struct TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
     starts: Arc<Vec<i32>>,
@@ -301,7 +301,7 @@ where
 impl<'a, LR, CR> TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn new(
         sub_reader: &'a [IndexReaderEnum<LR, CR>],
@@ -323,7 +323,7 @@ where
 impl<'a, LR, CR> TermVectors for TermVectorsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, self.starts.as_slice())?;
@@ -354,7 +354,7 @@ where
 pub struct StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
     starts: Arc<Vec<i32>>,
@@ -365,7 +365,7 @@ where
 impl<'a, LR, CR> StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn new(
         sub_reader: &'a [IndexReaderEnum<LR, CR>],
@@ -388,7 +388,7 @@ where
 impl<'a, LR, CR> StoredFields for StoredFieldsImpl<'a, LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, &self.starts)?;
