@@ -100,7 +100,6 @@ where
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     directory_orig: Arc<D>,
     enable_test_points: bool,
-    global_field_number_map: Arc<Mutex<FieldNumbers>>,
     flush_notifications: FN,
 }
 pub(crate) struct Inner {
@@ -120,7 +119,6 @@ where
         config: &L,
         directory_orig: Arc<D>,
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
-        global_field_number_map: Arc<Mutex<FieldNumbers>>,
     ) -> Result<Self>
     where
         L: LiveIndexWriterConfig,
@@ -142,7 +140,6 @@ where
             directory,
             directory_orig,
             enable_test_points,
-            global_field_number_map,
             flush_notifications,
         })
     }

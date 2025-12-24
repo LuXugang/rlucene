@@ -309,7 +309,6 @@ where
                 &conf,
                 directory_orig.clone(),
                 directory.clone(),
-                global_field_number_map.clone(),
             )?;
 
             let reader_pool = ReaderPool::new(

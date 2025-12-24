@@ -2266,7 +2266,6 @@ where
     I: IndexInput,
 {
     entry: Arc<SortedEntry>,
-    // if copy is heavy, we could change `Vec<u8>` as `Arc<Mutex<Vec<u8>>>`
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedDocValuesEnum<I>,
 }
@@ -2639,7 +2638,6 @@ where
     I: IndexInput,
 {
     entry: Arc<SortedSetEntry>,
-    // if copy is heavy, we could change `Vec<u8>` as `Arc<Mutex<Vec<u8>>>`
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedSetDocValuesEnum<I>,
 }

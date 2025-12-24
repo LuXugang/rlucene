@@ -14,15 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::sync::Arc;
-use std::sync::atomic::AtomicI32;
-
-use parking_lot::Mutex;
-
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_update::DocValuesUpdate;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
@@ -31,9 +22,17 @@ use crate::core::search::query::Query;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
+#[cfg(test)]
+use parking_lot::Mutex;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
 
 /// Holds buffered deletes and updates, including deletions by docID, term, or
 /// query for a single segment.
@@ -241,6 +240,7 @@ impl fmt::Display for BufferedUpdates {
         }
     }
 }
+#[cfg(test)]
 pub type BufferedUpdatesLock = Arc<Mutex<BufferedUpdates>>;
 
 pub(crate) struct DeletedTerms {

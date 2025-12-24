@@ -132,9 +132,6 @@ impl AllocatorByte for AllocatorByteEnum {
 }
 
 pub(crate) trait Allocator {
-    type Handle: Clone;
-
-    fn new_allocator(allocator: AllocatorByteEnum) -> Self::Handle;
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize);
     fn get_byte_block(&mut self) -> Vec<u8>;
     fn get_block_size(&self) -> usize;
@@ -142,12 +139,6 @@ pub(crate) trait Allocator {
 }
 
 impl Allocator for Rc<RefCell<AllocatorByteEnum>> {
-    type Handle = Rc<RefCell<AllocatorByteEnum>>;
-
-    fn new_allocator(allocator: AllocatorByteEnum) -> Self::Handle {
-        Rc::new(RefCell::new(allocator))
-    }
-
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
         self.borrow_mut().recycle_byte_blocks(blocks, start, end)
     }
@@ -166,12 +157,6 @@ impl Allocator for Rc<RefCell<AllocatorByteEnum>> {
 }
 
 impl Allocator for Arc<Mutex<AllocatorByteEnum>> {
-    type Handle = Arc<Mutex<AllocatorByteEnum>>;
-
-    fn new_allocator(allocator: AllocatorByteEnum) -> Self::Handle {
-        Arc::new(Mutex::new(allocator))
-    }
-
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
         self.lock().recycle_byte_blocks(blocks, start, end)
     }
