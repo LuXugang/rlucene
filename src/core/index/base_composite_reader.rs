@@ -63,7 +63,7 @@ where
     CR: CompositeReader,
 {
     pub(crate) sub_reader: Vec<IndexReaderEnum<LR, CR>>,
-    starts: Arc<Vec<i32>>,
+    starts: Vec<i32>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
@@ -151,7 +151,7 @@ where
 
         Ok(Self {
             sub_reader,
-            starts: Arc::new(starts),
+            starts,
             max_doc: max_doc_i32,
             num_docs: AtomicI32::new(-1),
         })
@@ -164,7 +164,7 @@ where
         reader.ensure_open()?;
         Ok(TermVectorsImpl::new(
             self.sub_reader.as_slice(),
-            Arc::clone(&self.starts),
+            self.starts.as_slice(),
             self.max_doc,
         ))
     }
@@ -202,7 +202,7 @@ where
         reader.ensure_open()?;
         Ok(StoredFieldsImpl::new(
             self.sub_reader.as_slice(),
-            Arc::clone(&self.starts),
+            self.starts.as_slice(),
             self.max_doc,
         ))
     }
@@ -294,7 +294,7 @@ where
     CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: Arc<Vec<i32>>,
+    starts: &'a [i32],
     sub_term_vectors: Vec<Option<IRTermVectors<'a, LR, CR>>>,
     max_doc: i32,
 }
@@ -305,7 +305,7 @@ where
 {
     pub fn new(
         sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: Arc<Vec<i32>>,
+        starts: &'a [i32],
         max_doc: i32,
     ) -> Self {
         let mut sub_term_vectors = Vec::with_capacity(starts.len());
@@ -326,7 +326,7 @@ where
     CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, self.starts.as_slice())?;
+        let i = reader_index(doc_id, self.max_doc, self.starts)?;
         match self.sub_term_vectors[i] {
             Some(ref mut tv) => tv.prefetch(doc_id - self.starts[i])?,
             None => {
@@ -341,7 +341,7 @@ where
     type Fields = <IRTermVectors<'a, LR, CR> as TermVectors>::Fields;
 
     fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts)?;
 
         if self.sub_term_vectors[i].is_none() {
             let tv = self.sub_reader[i].term_vectors()?;
@@ -357,7 +357,7 @@ where
     CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: Arc<Vec<i32>>,
+    starts: &'a [i32],
     sub_stored_fields: Vec<Option<IRStoredFields<'a, LR, CR>>>,
     max_doc: i32,
 }
@@ -369,7 +369,7 @@ where
 {
     pub fn new(
         sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: Arc<Vec<i32>>,
+        starts: &'a [i32],
         max_doc: i32,
     ) -> Self {
         let mut sub_stored_fields = Vec::with_capacity(starts.len());
@@ -391,7 +391,7 @@ where
     CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts)?;
 
         match self.sub_stored_fields[i] {
             Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i])?,
@@ -411,7 +411,7 @@ where
         visitor: &mut impl StoredFieldVisitor,
         writer: Option<&mut S>,
     ) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, &self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts)?;
 
         if self.sub_stored_fields[i].is_none() {
             let sf = self.sub_reader[i].stored_fields()?;
