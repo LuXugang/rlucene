@@ -28,7 +28,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct CompositeReaderContext<CR>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     leaves: Vec<Arc<LeafReaderContext<CR::LeafReader>>>,
     pub(crate) reader: CR,
@@ -61,11 +61,11 @@ where
     Ok(ctx)
 }
 
-impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader + Clone {}
+impl<CR> IndexReaderContextSealed for CompositeReaderContext<CR> where CR: CompositeReader {}
 
 impl<CR> IndexReaderContext for CompositeReaderContext<CR>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     type IndexReader = CR;
 
@@ -144,14 +144,11 @@ where
     }
 }
 
-impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where
-    CR: CompositeReader + Clone
-{
-}
+impl<CR> IndexReaderContextSealed for Arc<CompositeReaderContext<CR>> where CR: CompositeReader {}
 
 impl<CR> IndexReaderContext for Arc<CompositeReaderContext<CR>>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     type IndexReader = CR;
 
