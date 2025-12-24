@@ -20,7 +20,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 
 /// A struct like class that represents a hierarchical relationship between IndexReader instances.
 #[allow(private_bounds)]
@@ -35,7 +34,7 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     ///
     /// Error with `UnsupportedOperationException` if this is not a top-level context.
     /// [`IndexReaderContext::children`]
-    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]>;
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]>;
 
     fn base(&self) -> &IndexReaderContextBase;
 }

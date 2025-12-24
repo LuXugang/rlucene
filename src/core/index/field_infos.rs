@@ -326,7 +326,7 @@ where
 }
 
 pub(crate) fn get_and_validate_parent_field<LR>(
-    leaves: &[Arc<LeafReaderContext<LR>>],
+    leaves: &[LeafReaderContext<LR>],
 ) -> Result<Option<String>>
 where
     LR: LeafReader,

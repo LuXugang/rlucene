@@ -20,7 +20,6 @@ use crate::core::index::index_reader_context::{
     IndexReaderContext, IndexReaderContextBase, IndexReaderContextSealed,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use std::sync::Arc;
 
 pub struct DummyIndexReaderContext;
 
@@ -37,7 +36,7 @@ impl IndexReaderContext for DummyIndexReaderContext {
 
     fn leaves(
         &self,
-    ) -> crate::core::util::error::lucene_error::Result<&[Arc<LeafReaderContext<Self::LeafReader>>]>
+    ) -> crate::core::util::error::lucene_error::Result<&[LeafReaderContext<Self::LeafReader>]>
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

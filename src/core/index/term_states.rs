@@ -348,7 +348,6 @@ where
         let mut pending_term_lookups = Vec::new();
 
         for ctx in context.leaves()? {
-            let ctx = ctx.as_ref();
             // TODO: Important 这里跟Java Lucene 不同, 空的Term总是返回空的 为什么要加载Term呢
             // let terms = terms_util::get_terms(ctx.reader(), term.field())?;
             let terms = ctx.reader().terms(term.field())?;

@@ -21,7 +21,6 @@ use crate::core::index::index_reader_context::{
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
-use std::sync::Arc;
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
 pub struct LeafReaderContext<LR>
@@ -86,7 +85,7 @@ where
 
     type LeafReader = LR;
 
-    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
         Err(LuceneError::unsupported_operation(
             "This is a leaf reader context",
         ))

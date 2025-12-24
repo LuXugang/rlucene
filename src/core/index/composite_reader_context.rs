@@ -25,12 +25,11 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 /// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
-#[derive(Clone)]
 pub struct CompositeReaderContext<CR>
 where
     CR: CompositeReader,
 {
-    leaves: Vec<Arc<LeafReaderContext<CR::LeafReader>>>,
+    leaves: Vec<LeafReaderContext<CR::LeafReader>>,
     pub(crate) reader: CR,
     base: IndexReaderContextBase,
 }
@@ -62,8 +61,7 @@ where
         id: ctx.base.id().clone(),
     };
     ctx.leaves.iter_mut().for_each(|leaf| {
-        debug_assert!(Arc::strong_count(leaf) == 1);
-        Arc::get_mut(leaf).unwrap().top_parent = top_parent_meta.clone();
+        leaf.top_parent = top_parent_meta.clone();
     });
     Ok(ctx)
 }
@@ -82,7 +80,7 @@ where
 
     type LeafReader = CR::LeafReader;
 
-    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
         Ok(self.leaves.as_ref())
     }
 
@@ -96,7 +94,7 @@ where
     LR: LeafReader,
 {
     // for easy taken
-    pub(crate) leaves: Option<Vec<Arc<LeafReaderContext<LR>>>>,
+    pub(crate) leaves: Option<Vec<LeafReaderContext<LR>>>,
     pub(crate) leaf_doc_base: i32,
     pub(crate) max_doc: i32,
 }
@@ -123,14 +121,14 @@ where
         match &reader {
             IndexReaderEnum::Leaf(ar) => {
                 let leaves_size = self.leaves.as_ref().unwrap().len();
-                let atomic = Arc::new(LeafReaderContext::new(
+                let atomic = LeafReaderContext::new(
                     ar.clone(),
                     ord,
                     doc_base,
                     leaves_size,
                     self.leaf_doc_base,
                     TopParentMeta::default(),
-                ));
+                );
                 self.leaves.as_mut().unwrap().push(atomic);
                 let max_doc = ar.max_doc()?;
                 self.leaf_doc_base += max_doc;
@@ -165,7 +163,7 @@ where
 
     type LeafReader = CR::LeafReader;
 
-    fn leaves(&self) -> Result<&[Arc<LeafReaderContext<Self::LeafReader>>]> {
+    fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]> {
         Ok(self.leaves.as_ref())
     }
 

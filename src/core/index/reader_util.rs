@@ -16,7 +16,6 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
-use std::sync::Arc;
 
 pub struct ReaderUtil;
 impl ReaderUtil {
@@ -53,7 +52,7 @@ impl ReaderUtil {
         hi
     }
     /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
-    pub fn sub_index_with_leaves<LR>(n: i32, leaves: &[Arc<LeafReaderContext<LR>>]) -> usize
+    pub fn sub_index_with_leaves<LR>(n: i32, leaves: &[LeafReaderContext<LR>]) -> usize
     where
         LR: LeafReader,
     {

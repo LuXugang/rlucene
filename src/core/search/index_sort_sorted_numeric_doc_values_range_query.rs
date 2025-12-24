@@ -1699,7 +1699,7 @@ mod tests {
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
 
         let leaves = searcher.get_leaf_contexts()?;
-        let ctx0 = leaves[0].as_ref();
+        let ctx0 = &leaves[0];
 
         let scorer_opt = weight.scorer(ctx0)?;
         assert!(scorer_opt.is_none());
@@ -1799,7 +1799,7 @@ mod tests {
         let query = create_query("field", 0, 0);
         let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0, None)?;
         for ctx in searcher.get_leaf_contexts()? {
-            let mut scorer = weight.scorer(ctx.as_ref())?;
+            let mut scorer = weight.scorer(ctx)?;
             assert!(
                 scorer.as_mut().unwrap().has_two_phase_iterator() == TwoPhaseState::Yes
                     || scorer.as_mut().unwrap().two_phase_iterator()?.is_some()
@@ -1910,8 +1910,8 @@ mod tests {
         QC: QueryCache<IRC::LeafReader>,
     {
         for ctx in searcher.get_leaf_contexts()? {
-            let c1 = weight1.count(ctx.as_ref())?;
-            let c2 = weight2.count(ctx.as_ref())?;
+            let c1 = weight1.count(ctx)?;
+            let c2 = weight2.count(ctx)?;
             assert_eq!(c1, c2);
         }
         Ok(())
@@ -1968,7 +1968,7 @@ mod tests {
 
         let mut count = 0;
         for ctx in searcher.get_leaf_contexts()? {
-            count += weight.count(ctx.as_ref())?;
+            count += weight.count(ctx)?;
         }
 
         assert_eq!(2, count);
@@ -2060,7 +2060,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 9, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1400, weight.count(ctx.as_ref())?);
+                assert_eq!(1400, weight.count(ctx)?);
             }
         }
         // Both bounds do not exist in the dataset
@@ -2069,7 +2069,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 10, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1400, weight.count(ctx.as_ref())?);
+                assert_eq!(1400, weight.count(ctx)?);
             }
         }
         // Min bound exists in the dataset, not the max
@@ -2078,7 +2078,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 10, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1400, weight.count(ctx.as_ref())?);
+                assert_eq!(1400, weight.count(ctx)?);
             }
         }
         // Min bound doesn't exist in the dataset, max does
@@ -2087,7 +2087,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 9, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1400, weight.count(ctx.as_ref())?);
+                assert_eq!(1400, weight.count(ctx)?);
             }
         }
         // Min bound is the min value of the dataset
@@ -2096,7 +2096,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 5, 8, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1100, weight.count(ctx.as_ref())?);
+                assert_eq!(1100, weight.count(ctx)?);
             }
         }
         // Min bound is less than min value of the dataset
@@ -2105,7 +2105,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 4, 8, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1100, weight.count(ctx.as_ref())?);
+                assert_eq!(1100, weight.count(ctx)?);
             }
         }
         // Max bound is the max value of the dataset
@@ -2115,7 +2115,7 @@ mod tests {
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 13, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1500, weight.count(ctx.as_ref())?);
+                assert_eq!(1500, weight.count(ctx)?);
             }
         }
         // Max bound is greater than max value of the dataset
@@ -2125,7 +2125,7 @@ mod tests {
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 14, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(1500, weight.count(ctx.as_ref())?);
+                assert_eq!(1500, weight.count(ctx)?);
             }
         }
         // Everything matches
@@ -2134,7 +2134,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 14, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(3500, weight.count(ctx.as_ref())?);
+                assert_eq!(3500, weight.count(ctx)?);
             }
         }
         // Bounds equal to min/max values of the dataset, everything matches
@@ -2143,7 +2143,7 @@ mod tests {
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 3, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(0, weight.count(ctx.as_ref())?);
+                assert_eq!(0, weight.count(ctx)?);
             }
         }
         // Bounds are greater than the max value of the dataset
@@ -2153,7 +2153,7 @@ mod tests {
                 IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 14, 15, fallback);
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
-                assert_eq!(0, weight.count(ctx.as_ref())?);
+                assert_eq!(0, weight.count(ctx)?);
             }
         }
 
@@ -2218,8 +2218,8 @@ mod tests {
                 range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
             for ctx in searcher.get_leaf_contexts()? {
-                let expected = range_query_weight.count(ctx.as_ref())?;
-                let actual = index_sort_range_query_weight.count(ctx.as_ref())?;
+                let expected = range_query_weight.count(ctx)?;
+                let actual = index_sort_range_query_weight.count(ctx)?;
                 assert_eq!(expected, actual);
             }
         }
