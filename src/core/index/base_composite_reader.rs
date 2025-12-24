@@ -303,11 +303,7 @@ where
     LR: LeafReader + Clone,
     CR: CompositeReader,
 {
-    pub fn new(
-        sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: &'a [i32],
-        max_doc: i32,
-    ) -> Self {
+    pub fn new(sub_reader: &'a [IndexReaderEnum<LR, CR>], starts: &'a [i32], max_doc: i32) -> Self {
         let mut sub_term_vectors = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_term_vectors.push(None);
@@ -367,11 +363,7 @@ where
     LR: LeafReader + Clone,
     CR: CompositeReader,
 {
-    pub fn new(
-        sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: &'a [i32],
-        max_doc: i32,
-    ) -> Self {
+    pub fn new(sub_reader: &'a [IndexReaderEnum<LR, CR>], starts: &'a [i32], max_doc: i32) -> Self {
         let mut sub_stored_fields = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_stored_fields.push(None);
