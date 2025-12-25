@@ -29,7 +29,7 @@ use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
@@ -72,6 +72,7 @@ where
     doc_values_producer: Option<DocValuesProducers<D>>,
     field_infos: Arc<FieldInfos>,
     base: IndexReaderBase,
+    reader_cache_helper: CacheHelperImpl,
 }
 impl<D> SegmentReader<D>
 where
@@ -108,6 +109,7 @@ where
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
             base: IndexReaderBase::new(),
+            reader_cache_helper: CacheHelperImpl::new(),
         };
         let result = (|| {
             let si = &segment_reader.si;
@@ -198,6 +200,7 @@ where
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
             base: IndexReaderBase::new(),
+            reader_cache_helper: CacheHelperImpl::new(),
         };
         let result = (|| {
             let si = &segment_reader.si;
@@ -386,6 +389,12 @@ where
         Ok(())
     }
 
+    type ReaderCacheHelper = CacheHelperImpl;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        Ok(Some(self.reader_cache_helper.clone()))
+    }
+
     fn doc_freq(&self, term: &Term) -> Result<i32> {
         LeafReader::doc_freq(self, term)
     }
@@ -562,6 +571,22 @@ where
     fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
         self.ensure_open()?;
         Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
+    }
+}
+#[derive(Clone)]
+pub struct CacheHelperImpl {
+    cache_key: CacheKey,
+}
+impl CacheHelperImpl {
+    fn new() -> Self {
+        Self {
+            cache_key: CacheKey::new(),
+        }
+    }
+}
+impl CacheHelper for CacheHelperImpl {
+    fn get_key(&self) -> CacheKey {
+        self.cache_key.clone()
     }
 }
 

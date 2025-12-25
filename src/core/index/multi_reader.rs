@@ -22,7 +22,9 @@ use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 #[cfg(test)]
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
+use crate::core::index::index_reader::{
+    IndexReader, IndexReaderBase, IndexReaderEnum, IndexReaderEnumCacheHelperType,
+};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -147,6 +149,18 @@ where
             Err(e)
         } else {
             Ok(())
+        }
+    }
+
+    type ReaderCacheHelper =
+        IndexReaderEnumCacheHelperType<LR::ReaderCacheHelper, CR::ReaderCacheHelper>;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        let readers = self.get_sequential_sub_readers();
+        if readers.len() == 1 {
+            readers[0].get_reader_cache_helper()
+        } else {
+            Ok(None)
         }
     }
 

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
@@ -65,6 +66,12 @@ impl<LR> IndexReader for DummyCompositeReader<LR> {
     }
 
     fn do_close(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type ReaderCacheHelper = DummyCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

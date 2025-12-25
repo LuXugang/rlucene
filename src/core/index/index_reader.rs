@@ -111,6 +111,17 @@ pub trait IndexReader: Display {
 
     fn do_close(&self) -> Result<()>;
 
+    /// Optional method: Return a [`CacheHelper`] that can be used to cache based on the content of
+    /// this reader. Two readers that have different data or different sets of deleted documents will
+    /// be considered different.
+    ///
+    /// A return value of `None` indicates that this reader is not suited for caching, which
+    /// is typically the case for short-lived wrappers that alter the content of the wrapped reader.
+    ///
+    /// # lucene.experimental
+    type ReaderCacheHelper: CacheHelper;
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>>;
+
     /// Returns the number of documents containing the `term`.
     /// This method returns `0` if the term or field does not exist.
     /// This method does not take into account deleted documents that
@@ -190,6 +201,23 @@ impl IndexReaderBase {
 pub trait CacheHelper {
     fn get_key(&self) -> CacheKey;
 }
+pub enum Either2CacheHelper<A, B> {
+    A(A),
+    B(B),
+}
+impl<A, B> CacheHelper for Either2CacheHelper<A, B>
+where
+    A: CacheHelper,
+    B: CacheHelper,
+{
+    fn get_key(&self) -> CacheKey {
+        match self {
+            Either2CacheHelper::A(a) => a.get_key(),
+            Either2CacheHelper::B(b) => b.get_key(),
+        }
+    }
+}
+
 pub type CacheKey = Identity;
 
 pub type IRTermVectors<'a, LR, CR> =
@@ -198,6 +226,9 @@ pub type IRStoredFields<'a, LR, CR> = Either2StoredFields<
     <LR as IndexReader>::StoredFields<'a>,
     <CR as IndexReader>::StoredFields<'a>,
 >;
+
+pub type IndexReaderEnumCacheHelperType<A, B> = Either2CacheHelper<A, B>;
+
 pub enum IndexReaderEnum<LR, CR>
 where
     LR: LeafReader,
@@ -315,6 +346,28 @@ where
         }
     }
 
+    type ReaderCacheHelper =
+        IndexReaderEnumCacheHelperType<LR::ReaderCacheHelper, CR::ReaderCacheHelper>;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        match self {
+            IndexReaderEnum::Leaf(leaf) => {
+                if let Some(helper) = leaf.get_reader_cache_helper()? {
+                    Ok(Some(IndexReaderEnumCacheHelperType::A(helper)))
+                } else {
+                    Ok(None)
+                }
+            },
+            IndexReaderEnum::Composite(comp) => {
+                if let Some(helper) = comp.get_reader_cache_helper()? {
+                    Ok(Some(IndexReaderEnumCacheHelperType::B(helper)))
+                } else {
+                    Ok(None)
+                }
+            },
+        }
+    }
+
     fn doc_freq(&self, term: &Term) -> Result<i32> {
         match self {
             IndexReaderEnum::Leaf(leaf) => <LR as IndexReader>::doc_freq(leaf, term),
@@ -409,6 +462,12 @@ where
 
     fn do_close(&self) -> Result<()> {
         (**self).do_close()
+    }
+
+    type ReaderCacheHelper = IR::ReaderCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        (**self).get_reader_cache_helper()
     }
 
     fn doc_freq(&self, term: &Term) -> Result<i32> {

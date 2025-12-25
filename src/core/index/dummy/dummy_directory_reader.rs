@@ -17,6 +17,7 @@
 use crate::core::index::base_composite_reader::BaseCompositeReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
+use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
@@ -90,6 +91,12 @@ where
     }
 
     fn do_close(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type ReaderCacheHelper = DummyCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

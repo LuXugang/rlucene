@@ -69,6 +69,12 @@ impl IndexReader for DummyLeafReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
+    type ReaderCacheHelper = DummyCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn doc_freq(&self, _term: &Term) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

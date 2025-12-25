@@ -2042,6 +2042,12 @@ where
         self.base.do_close()
     }
 
+    type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        self.base.get_reader_cache_helper()
+    }
+
     fn doc_freq(&self, term: &Term) -> Result<i32> {
         LeafReader::doc_freq(self, term)
     }
@@ -2315,6 +2321,12 @@ where
     }
     fn do_close(&self) -> Result<()> {
         self.base.do_close()
+    }
+
+    type ReaderCacheHelper = <DocValuesLeafReader as IndexReader>::ReaderCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        self.base.get_reader_cache_helper()
     }
 
     fn doc_freq(&self, term: &Term) -> Result<i32> {

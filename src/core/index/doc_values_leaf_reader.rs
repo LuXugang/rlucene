@@ -69,6 +69,12 @@ impl IndexReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
+    type ReaderCacheHelper = DummyCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
     fn doc_freq(&self, term: &Term) -> Result<i32> {
         LeafReader::doc_freq(self, term)
     }

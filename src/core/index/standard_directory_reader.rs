@@ -23,7 +23,9 @@ use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_directory_reader::DummyDirectoryReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
+use crate::core::index::index_reader::{
+    CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
+};
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -61,6 +63,7 @@ where
     sub_reader_sorter: Option<Arc<C>>,
     base: IndexReaderBase,
     closed: Option<Arc<AtomicBool>>,
+    cache_helper: CacheHelperImpl,
 }
 impl<LR, C, D> StandardDirectoryReader<LR, C, D>
 where
@@ -89,6 +92,7 @@ where
             sub_reader_sorter: leaf_sorter,
             base: IndexReaderBase::new(),
             closed,
+            cache_helper: CacheHelperImpl::new(),
         })
     }
 
@@ -285,6 +289,12 @@ where
         todo!()
     }
 
+    type ReaderCacheHelper = CacheHelperImpl;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        Ok(Some(self.cache_helper.clone()))
+    }
+
     fn doc_freq(&self, term: &Term) -> Result<i32> {
         self.base_composite_reader_base.doc_freq(term, self)
     }
@@ -403,6 +413,22 @@ where
 
     fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
         &self.directory_reader_base
+    }
+}
+#[derive(Clone)]
+pub struct CacheHelperImpl {
+    cache_key: CacheKey,
+}
+impl CacheHelperImpl {
+    fn new() -> Self {
+        Self {
+            cache_key: CacheKey::new(),
+        }
+    }
+}
+impl CacheHelper for CacheHelperImpl {
+    fn get_key(&self) -> CacheKey {
+        self.cache_key.clone()
     }
 }
 pub struct FindSegmentsFileImpl1<D, LR, C>
