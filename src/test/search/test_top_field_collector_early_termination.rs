@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::sort::Sort;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_field_collector::can_early_terminate;
 use crate::core::util::error::lucene_error::Result;

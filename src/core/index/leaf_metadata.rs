@@ -17,7 +17,7 @@
 use derive_getters::Getters;
 use std::sync::Arc;
 
-use crate::core::index::sort::Sort;
+use crate::core::search::sort::Sort;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::version::{LATEST, Version};
 

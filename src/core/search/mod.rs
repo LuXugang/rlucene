@@ -112,6 +112,7 @@ pub(crate) mod req_excl_bulk_scorer;
 pub(crate) mod req_excl_scorer;
 pub(crate) mod req_opt_sum_scorer;
 mod scorer_util;
+pub mod sort;
 pub mod top_field_collector;
 pub mod top_field_collector_manager;
 mod top_field_docs;

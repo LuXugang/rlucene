@@ -31,9 +31,9 @@ use crate::core::index::index_writer_config::{
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::merge_policy::MergePolicy;
-use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::LATEST;

@@ -24,8 +24,8 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::live_index_writer_config::{
     LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
-use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
+use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::sort::Sort;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
 use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -50,7 +50,7 @@ where
     }
 }
 pub mod top_docs_util {
-    use crate::core::index::sort::Sort;
+    use crate::core::search::sort::Sort;
 
     use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
     use crate::core::search::score_doc::ScoreDocLike;

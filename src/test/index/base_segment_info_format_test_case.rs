@@ -26,7 +26,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::index_writer::MAX_DOCS;
 
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::sort::Sort;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;

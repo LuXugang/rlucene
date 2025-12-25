@@ -4394,7 +4394,6 @@ use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::SegmentReader;
-use crate::core::index::sort::Sort;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::{
     StandardDirectoryReaderType, open_with_reader_function,
@@ -4402,6 +4401,7 @@ use crate::core::index::standard_directory_reader::{
 use crate::core::index::term::Term;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::query::Query;
+use crate::core::search::sort::Sort;
 use crate::core::store::IOContext;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;

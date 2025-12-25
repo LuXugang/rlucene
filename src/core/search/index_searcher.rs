@@ -20,7 +20,6 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
-use crate::core::index::sort::Sort;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, terms_util};
@@ -40,6 +39,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::sort::Sort;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
 use crate::core::search::top_docs::TopDocs;

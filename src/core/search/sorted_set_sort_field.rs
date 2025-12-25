@@ -348,10 +348,10 @@ mod tests {
     use crate::core::document::string_field::StringField;
 
     use crate::core::index::multi_reader::MultiReader;
-    use crate::core::index::sort::Sort;
     use crate::core::index::stored_fields::StoredFields;
     use crate::core::index::term::Term;
     use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::MissingValueEnum::StringFirst;
     use crate::core::search::sort_field::SortFiledBase;
     use crate::core::search::sorted_set_selector::SortedSetSelectorType;

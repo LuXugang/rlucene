@@ -226,12 +226,12 @@ mod tests {
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::numeric_doc_values::NumericDocValues;
-    use crate::core::index::sort::Sort;
     use crate::core::index::sorted_doc_values::SortedDocValues;
     use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
     use crate::core::index::term::Term;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::{SortField, SortFieldType};
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;

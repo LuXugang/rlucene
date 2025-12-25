@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::sort::Sort;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::create;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
+use crate::core::search::sort::Sort;
 use crate::core::search::top_docs::top_docs_util;
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_field_collector::{

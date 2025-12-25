@@ -1393,7 +1393,7 @@ mod tests {
     use crate::core::index::segment_commit_info::SegmentCommitInfo;
     use crate::core::index::segment_info::SegmentInfo;
     use crate::core::index::segment_infos::SegmentInfos;
-    use crate::core::index::sort::Sort;
+    use crate::core::search::sort::Sort;
     use crate::core::store::directory::Directory;
     use crate::core::store::dummy::dummy_directory::DummyDirectory;
     use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};

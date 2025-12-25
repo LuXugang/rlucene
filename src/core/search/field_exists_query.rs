@@ -373,7 +373,6 @@ mod test {
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::query_timeout::QueryTimeout;
-    use crate::core::index::sort::Sort;
     use crate::core::index::term::Term;
     use crate::core::search::QueryCache;
     use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -382,6 +381,7 @@ mod test {
     use crate::core::search::query_caching_policy::QueryCachingPolicy;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::similarities_impl::similarities::Similarity;
+    use crate::core::search::sort::Sort;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
     use crate::core::util::error::lucene_error::Result;

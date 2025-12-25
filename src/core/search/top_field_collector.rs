@@ -17,7 +17,6 @@
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::sort::Sort;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
@@ -40,6 +39,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
@@ -1327,7 +1327,7 @@ mod tests {
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-    use crate::core::index::sort::Sort;
+    use crate::core::search::sort::Sort;
 
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;

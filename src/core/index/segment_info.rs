@@ -19,7 +19,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::core::index::sort::Sort;
+use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 #[cfg(test)]
 use crate::core::store::dummy::dummy_directory::DummyDirectory;

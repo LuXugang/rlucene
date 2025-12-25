@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_sorter::DocComparator;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::sort::Sort;
+use crate::core::search::sort::Sort;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;

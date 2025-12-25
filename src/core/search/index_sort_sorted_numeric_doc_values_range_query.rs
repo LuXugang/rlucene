@@ -1279,7 +1279,6 @@ mod tests {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::index::query_timeout::QueryTimeout;
-    use crate::core::index::sort::Sort;
     use crate::core::search::QueryCache;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
@@ -1288,6 +1287,7 @@ mod tests {
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::similarities_impl::similarities::Similarity;
+    use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
     use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
     use crate::core::search::top_docs::TopDocsLike;

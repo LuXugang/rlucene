@@ -68,7 +68,6 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::core::index::sort::Sort;
 use crate::core::index::sorted_doc_values_writer::{
     BufferedSortedDocValues, SortedDocValuesWriter,
 };
@@ -88,6 +87,7 @@ use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsume
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
