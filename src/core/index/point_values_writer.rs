@@ -41,6 +41,8 @@ use crate::core::util::{CoreHelper, Counter, SharedCounter, SliceCopyOps};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
 
 /// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
 pub(crate) struct PointValuesWriter {
@@ -217,6 +219,7 @@ where
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
     >,
+    taken: AtomicBool,
 }
 impl<DM> Clone for PointValuesImpl<DM>
 where
@@ -253,6 +256,7 @@ where
     ) -> Self {
         Self {
             values: RefCell::new(values),
+            taken: AtomicBool::new(false),
         }
     }
 }
@@ -295,6 +299,13 @@ where
     >;
 
     fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+        if self.taken.load(Relaxed) {
+            return Err(LuceneError::illegal_state(format!(
+                "{} get_point_tree can only be called once",
+                std::any::type_name::<Self>()
+            )));
+        }
+        self.taken.store(true, Relaxed);
         Ok(PointTreeEnum::Mutable(self.values.take()))
     }
 }
