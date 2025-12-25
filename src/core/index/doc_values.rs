@@ -37,6 +37,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
+pub type EmptySortedSet = SingletonSortedSetDocValues<EmptySorted>;
 /// This struct contains utility methods and constants for DocValues
 pub struct DocValues;
 impl DocValues {
@@ -275,7 +276,7 @@ pub type SortedSet<LR> = Either2SortedSetDocValues<
     <LR as LeafReader>::SortedSetDocValues,
     Either2SortedSetDocValues<
         SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,
-        SingletonSortedSetDocValues<EmptySorted>,
+        EmptySortedSet,
     >,
 >;
 /// An empty [`BinaryDocValues`] which returns no documents  */

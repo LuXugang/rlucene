@@ -16,6 +16,7 @@
  */
 use crate::core::index::index_reader::CacheKey;
 use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::terms_enum_index::{TermState, TermsEnumIndex};
 use crate::core::util::Sorter;
@@ -33,11 +34,11 @@ pub(crate) type SegmentToGlobalOrds =
 
 impl OrdinalMap {
     /// Create an ordinal map that uses the number of unique values of each
-    /// [`SortedSetDocValues`](crate::core::index::sorted_set_doc_values::SortedSetDocValues) instance as a weight.
+    /// [`SortedDocValues`] instance as a weight.
     ///
     /// See [`OrdinalMap::build`].
     pub fn build_from_sorted<DV>(
-        owner: CacheKey,
+        owner: Option<CacheKey>,
         values: &mut [DV],
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -56,6 +57,31 @@ impl OrdinalMap {
 
         OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
     }
+    /// Create an ordinal map that uses the number of unique values of each
+    /// [`SortedSetDocValues`] instance as a weight.
+    ///
+    /// See [`OrdinalMap::build`].
+    pub fn build_from_sorted_set<DV>(
+        owner: Option<CacheKey>,
+        values: &mut [DV],
+        acceptable_overhead_ratio: f32,
+    ) -> Result<Self>
+    where
+        DV: SortedSetDocValues,
+    {
+        let len = values.len();
+        let mut subs = Vec::with_capacity(len);
+        let mut weights = Vec::with_capacity(len);
+
+        for dv in values.iter_mut() {
+            let count = dv.get_value_count()?;
+            subs.push(Some(dv.terms_enum()?));
+            weights.push(count);
+        }
+
+        OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
+    }
+
     /// Creates an ordinal map that allows mapping ords to/from a merged space from `subs`.
     ///
     /// - `owner`: a cache key.
@@ -68,7 +94,7 @@ impl OrdinalMap {
     ///
     /// Returns an error if an I/O error occurs while building the map.
     pub fn build<TE>(
-        owner: CacheKey,
+        owner: Option<CacheKey>,
         subs: Vec<Option<TE>>,
         weights: &[i64],
         acceptable_overhead_ratio: f32,
@@ -89,7 +115,7 @@ impl OrdinalMap {
 
 pub struct OrdinalMap {
     /// Cache key of whoever asked for this awful thing
-    owner: CacheKey,
+    owner: Option<CacheKey>,
     /// number of global ordinals
     value_count: i64,
     /// globalOrd -> (globalOrd - segmentOrd) where segmentOrd is the ordinal in the first segment
@@ -158,7 +184,7 @@ impl OrdinalMap {
     ///
     /// May return an error corresponding to I/O failures (equivalent to throwing `IOException` in Java).
     fn new<TE>(
-        owner: CacheKey,
+        owner: Option<CacheKey>,
         // wrap with Option for easy taken
         mut subs: Vec<Option<TE>>,
         segment_map: SegmentMap,

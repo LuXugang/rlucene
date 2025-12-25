@@ -30,7 +30,9 @@ use crate::core::index::binary_doc_values_writer::{
     BinaryDocValuesWriter, BufferedBinaryDocValues,
 };
 use crate::core::index::buffered_updates::BufferedUpdates;
-use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
+use crate::core::index::doc_values::{
+    DocValues, EmptyBinary, EmptyNumeric, EmptySorted, EmptySortedSet,
+};
 use crate::core::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -2423,7 +2425,7 @@ where
         Ok(Some(DocValues::empty_sorted_numeric()?))
     }
 
-    type SortedSetDocValues = SingletonSortedSetDocValues<EmptySorted>;
+    type SortedSetDocValues = EmptySortedSet;
 
     fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedSet {

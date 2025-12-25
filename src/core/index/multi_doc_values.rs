@@ -20,30 +20,33 @@ use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, Either2BinaryDocValues};
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::composite_reader_context::CompositeReaderContext;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric};
+use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::index_reader::CacheHelper;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{
-    LRBinaryDocValues, LRNormNumericDocValues, LRNumericDocValues, LRSortedNumericDocValues,
-    LeafReader,
+    LRBinaryDocValues, LRNormNumericDocValues, LRNumericDocValues, LRSortedDocValues,
+    LRSortedNumericDocValues, LRSortedSetDocValues, LeafReader,
 };
 use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
     Either2SortedNumericDocValues, SortedNumericDocValues,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
+use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::ToUsizeExact;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
+use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
 
 pub struct MultiDocValues;
@@ -63,6 +66,21 @@ pub type MultiBinaryDocValues<CR> = Either2BinaryDocValues<
 pub type MultiSortedNumericDocValues<CR> = Either2SortedNumericDocValues<
     LRSortedNumericDocValues<<CR as CompositeReader>::LeafReader>,
     SortedNumericDocValuesImpl<CR>,
+>;
+pub type MultiSortedDocValuesType<CR> = Either2SortedDocValues<
+    LRSortedDocValues<<CR as CompositeReader>::LeafReader>,
+    MultiSortedDocValues<
+        Either2SortedDocValues<LRSortedDocValues<<CR as CompositeReader>::LeafReader>, EmptySorted>,
+    >,
+>;
+pub type MultiSortedSetDocValuesType<CR> = Either2SortedSetDocValues<
+    LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
+    MultiSortedSetDocValues<
+        Either2SortedSetDocValues<
+            LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
+            EmptySortedSet,
+        >,
+    >,
 >;
 
 impl MultiDocValues {
@@ -228,6 +246,131 @@ impl MultiDocValues {
         Ok(Some(MultiSortedNumericDocValues::B(
             SortedNumericDocValuesImpl::new(reader, values, field.to_string(), total_cost),
         )))
+    }
+    /// Returns a [`SortedDocValues`] for a reader's docvalues (potentially doing extremely slow things).
+    ///
+    /// This is an extremely slow way to access sorted values. Instead, access them per-segment with
+    /// [`LeafReader::get_sorted_doc_values`].
+    pub fn get_sorted_values<CR>(r: CR, field: &str) -> Result<Option<MultiSortedDocValuesType<CR>>>
+    where
+        CR: CompositeReader,
+    {
+        let max_doc = r.max_doc()?;
+        let reader = get_context(r)?;
+        let leaves = reader.leaves()?;
+        let size = leaves.len();
+
+        if size == 0 {
+            return Ok(None);
+        } else if size == 1 {
+            return match leaves[0].reader().get_sorted_doc_values(field)? {
+                Some(v) => Ok(Some(MultiSortedDocValuesType::<CR>::A(v))),
+                None => Ok(None),
+            };
+        }
+
+        let mut any_real = false;
+        let mut values = Vec::with_capacity(size);
+        let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+        let mut total_cost: i64 = 0;
+
+        for ctx in leaves.iter() {
+            let v = match ctx.reader().get_sorted_doc_values(field)? {
+                Some(s) => {
+                    any_real = true;
+                    total_cost += s.cost()?;
+                    Either2SortedDocValues::A(s)
+                },
+                None => Either2SortedDocValues::B(DocValues::empty_sorted()),
+            };
+
+            values.push(v);
+            starts.push(ctx.doc_base);
+        }
+
+        starts.push(max_doc);
+
+        if !any_real {
+            Ok(None)
+        } else {
+            let owner = reader
+                .reader()
+                .get_reader_cache_helper()?
+                .map(|helper| helper.get_key());
+
+            let mapping =
+                OrdinalMap::build_from_sorted(owner, values.as_mut_slice(), PackedInts::DEFAULT)?;
+
+            Ok(Some(MultiSortedDocValuesType::<CR>::B(
+                MultiSortedDocValues::new(starts, values, mapping, total_cost),
+            )))
+        }
+    }
+    /// Returns a [`SortedSetDocValues`] for a reader's docvalues (potentially doing extremely slow
+    /// things).
+    ///
+    /// This is an extremely slow way to access sorted values. Instead, access them per-segment with
+    /// [`LeafReader::get_sorted_set_doc_values`].
+    pub fn get_sorted_set_values<CR>(
+        r: CR,
+        field: &str,
+    ) -> Result<Option<MultiSortedSetDocValuesType<CR>>>
+    where
+        CR: CompositeReader,
+    {
+        let max_doc = r.max_doc()?;
+        let reader = get_context(r)?;
+        let leaves = reader.leaves()?;
+        let size = leaves.len();
+
+        if size == 0 {
+            return Ok(None);
+        } else if size == 1 {
+            return match leaves[0].reader().get_sorted_set_doc_values(field)? {
+                Some(v) => Ok(Some(MultiSortedSetDocValuesType::<CR>::A(v))),
+                None => Ok(None),
+            };
+        }
+
+        let mut any_real = false;
+        let mut values = Vec::with_capacity(size);
+        let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+        let mut total_cost: i64 = 0;
+
+        for ctx in leaves.iter() {
+            let v = match ctx.reader().get_sorted_set_doc_values(field)? {
+                Some(s) => {
+                    any_real = true;
+                    total_cost += s.cost()?;
+                    Either2SortedSetDocValues::A(s)
+                },
+                None => Either2SortedSetDocValues::B(DocValues::empty_sorted_set()?),
+            };
+
+            values.push(v);
+            starts.push(ctx.doc_base);
+        }
+
+        starts.push(max_doc);
+
+        if !any_real {
+            Ok(None)
+        } else {
+            let owner = reader
+                .reader()
+                .get_reader_cache_helper()?
+                .map(|helper| helper.get_key());
+
+            let mapping = OrdinalMap::build_from_sorted_set(
+                owner,
+                values.as_mut_slice(),
+                PackedInts::DEFAULT,
+            )?;
+
+            Ok(Some(MultiSortedSetDocValuesType::<CR>::B(
+                MultiSortedSetDocValues::new(values, starts, mapping, total_cost),
+            )))
+        }
     }
 }
 /// Implements SortedDocValues over n subs, using an OrdinalMap
