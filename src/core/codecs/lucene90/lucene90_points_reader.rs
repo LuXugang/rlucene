@@ -34,7 +34,7 @@ pub struct Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    index_in: Arc<Mutex<I>>,
+    index_in: Arc<I>,
     data_in: Arc<Mutex<I>>,
     readers: HashMap<i32, Arc<BKDReader<I>>>,
     field_infos: Arc<FieldInfos>,
@@ -104,9 +104,8 @@ where
 
         let mut index_length: i64 = -1;
         let mut data_length: i64 = -1;
-        let mut readers = HashMap::new();
+        let mut tmp_readers = HashMap::new();
 
-        let index_in = Arc::new(Mutex::new(index_in));
         let data_in = Arc::new(Mutex::new(data_in));
         {
             let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
@@ -130,12 +129,8 @@ where
                             "Illegal field number: {field_number}"
                         )));
                     }
-                    let reader = Arc::new(BKDReader::new(
-                        &mut meta_in,
-                        index_in.clone(),
-                        data_in.clone(),
-                    )?);
-                    readers.insert(field_number, reader);
+                    let reader = BKDReader::new(&mut meta_in, &mut index_in, data_in.clone())?;
+                    tmp_readers.insert(field_number, reader);
                 }
 
                 index_length = meta_in.read_long()?;
@@ -154,9 +149,14 @@ where
             }
         }
 
-        CodecUtil::retrieve_checksum_with_expected(&mut *index_in.lock(), index_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
         CodecUtil::retrieve_checksum_with_expected(&mut *data_in.lock(), data_length)?;
-
+        let index_in = Arc::new(index_in);
+        let mut readers = HashMap::new();
+        for mut value in tmp_readers.into_iter() {
+            value.1.init_index_in(index_in.clone())?;
+            readers.insert(value.0, Arc::new(value.1));
+        }
         Ok(Self {
             index_in,
             data_in,
@@ -184,7 +184,7 @@ where
     I: IndexInput,
 {
     fn check_integrity(&self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&*self.index_in.lock())?;
+        CodecUtil::checksum_entire_file(self.index_in.as_ref())?;
         CodecUtil::checksum_entire_file(&*self.data_in.lock())?;
         Ok(())
     }

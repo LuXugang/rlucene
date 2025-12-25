@@ -45,9 +45,8 @@ where
     I: IndexInput,
 {
     config: BKDConfig,
-    num_leaves: i32,
-    // TODO IMPORTANT 可以不使用Arc<Mutex<>>，而是直接传递IndexInput的引用吗?
-    index_in: Arc<Mutex<I>>,
+    pub(crate) num_leaves: i32,
+    index_in: Option<Arc<I>>,
     data_in: Arc<Mutex<I>>,
     min_packed_value: Vec<u8>,
     max_packed_value: Vec<u8>,
@@ -55,10 +54,13 @@ where
     doc_count: i32,
     version: i32,
     #[allow(dead_code)]
-    min_leaf_block_fp: i64,
-    index_start_pointer: i64,
+    pub(crate) min_leaf_block_fp: i64,
+    pub(crate) index_start_pointer: i64,
     num_index_bytes: i32,
-    is_tree_balanced: bool,
+    pub(crate) is_tree_balanced: bool,
+    /// index_in,data_in are the same instance
+    #[cfg(test)]
+    pub(crate) same_in: bool,
 }
 impl<I> Clone for BKDReader<I>
 where
@@ -75,11 +77,31 @@ where
 {
     /// Caller must pre-seek the provided `IndexInput` to the index location
     /// that `BKDWriter::finish()` returned. BKD tree is always stored off-heap.
-    pub fn new<I1>(
+    pub fn new<I1>(meta_in: &mut I1, index_in: &mut I, data_in: Arc<Mutex<I>>) -> Result<Self>
+    where
+        I1: IndexInput,
+    {
+        let (mut reader, version) = Self::init_with_meta(meta_in, data_in.clone())?;
+
+        let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
+            (
+                DataInput::read_long(meta_in)?,
+                DataInput::read_long(meta_in)?,
+            )
+        } else {
+            let index_start_pointer = index_in.get_file_pointer();
+            let min_leaf_block_fp = index_in.read_vlong()?;
+            index_in.seek(index_start_pointer)?;
+            (min_leaf_block_fp, index_start_pointer)
+        };
+        reader.min_leaf_block_fp = min_leaf_block_fp;
+        reader.index_start_pointer = index_start_pointer;
+        Ok(reader)
+    }
+    pub(crate) fn init_with_meta<I1>(
         meta_in: &mut I1,
-        index_in: Arc<Mutex<I>>,
         data_in: Arc<Mutex<I>>,
-    ) -> Result<Self>
+    ) -> Result<(Self, i32)>
     where
         I1: IndexInput,
     {
@@ -129,39 +151,34 @@ where
         let point_count = meta_in.read_vlong()?;
         let doc_count = meta_in.read_vint()?;
         let num_index_bytes = meta_in.read_vint()?;
-
-        let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
-            (
-                DataInput::read_long(meta_in)?,
-                DataInput::read_long(meta_in)?,
-            )
-        } else {
-            let mut index_in = index_in.lock();
-            let index_start_pointer = index_in.get_file_pointer();
-            let min_leaf_block_fp = index_in.read_vlong()?;
-            index_in.seek(index_start_pointer)?;
-            (min_leaf_block_fp, index_start_pointer)
-        };
-        let mut reader = Self {
-            config,
-            num_leaves,
-            index_in,
-            data_in,
-            min_packed_value,
-            max_packed_value,
-            point_count,
-            doc_count,
+        Ok((
+            Self {
+                config,
+                num_leaves,
+                index_in: None,
+                data_in,
+                min_packed_value,
+                max_packed_value,
+                point_count,
+                doc_count,
+                version,
+                min_leaf_block_fp: 0,
+                index_start_pointer: 0,
+                num_index_bytes,
+                is_tree_balanced: false,
+                #[cfg(test)]
+                same_in: false,
+            },
             version,
-            min_leaf_block_fp,
-            index_start_pointer,
-            num_index_bytes,
-            is_tree_balanced: false,
-        };
-        reader.is_tree_balanced = num_leaves != 1 && reader.is_tree_balanced()?;
-        Ok(reader)
+        ))
+    }
+    pub(crate) fn init_index_in(&mut self, index_in: Arc<I>) -> Result<()> {
+        self.index_in = Some(index_in);
+        self.is_tree_balanced = self.num_leaves != 1 && self.is_tree_balanced()?;
+        Ok(())
     }
     /// Checks if the tree is balanced.
-    fn is_tree_balanced(&self) -> Result<bool> {
+    pub(crate) fn is_tree_balanced(&self) -> Result<bool> {
         if self.version >= VERSION_META_FILE {
             // Since Lucene 8.6 all trees are unbalanced.
             return Ok(false);
@@ -230,11 +247,33 @@ where
     type MutablePointTree = DummyMutablePointTree;
 
     fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-        let slice = self.index_in.lock().slice(
-            "packedIndex",
-            self.index_start_pointer,
-            self.num_index_bytes as i64,
-        )?;
+        let slice = match self.index_in {
+            Some(ref index_in) => index_in.slice(
+                "packedIndex",
+                self.index_start_pointer,
+                self.num_index_bytes as i64,
+            )?,
+            None => {
+                #[cfg(test)]
+                {
+                    if !self.same_in {
+                        return Err(LuceneError::illegal_state(
+                            "index_in data_int not the same instance",
+                        ));
+                    }
+                    let data_in = &*self.data_in.lock();
+                    data_in.slice(
+                        "packedIndex",
+                        self.index_start_pointer,
+                        self.num_index_bytes as i64,
+                    )?
+                }
+                #[cfg(not(test))]
+                {
+                    return Err(LuceneError::illegal_state("index_in is None"));
+                }
+            },
+        };
         Ok(PointTreeEnum::Other(BKDPointTree::new(
             slice,
             self.data_in.clone(),

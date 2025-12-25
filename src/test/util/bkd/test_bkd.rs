@@ -24,11 +24,13 @@ use crate::core::index::point_values::{
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{DataInput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_reader::BKDReader;
-use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
+use crate::core::util::bkd::bkd_writer::{
+    BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP, VERSION_META_FILE,
+};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
@@ -51,11 +53,24 @@ use std::sync::Arc;
 struct TestBKD;
 
 fn get_point_values<I: IndexInput>(index_input: Arc<Mutex<I>>) -> Result<BKDReader<I>> {
-    BKDReader::new(
-        &mut *index_input.clone().lock(),
-        index_input.clone(),
-        index_input,
-    )
+    let meta_in = &mut *index_input.lock();
+    let (mut reader, version) = BKDReader::init_with_meta(meta_in, index_input.clone())?;
+    let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
+        (
+            DataInput::read_long(meta_in)?,
+            DataInput::read_long(meta_in)?,
+        )
+    } else {
+        let index_start_pointer = meta_in.get_file_pointer();
+        let min_leaf_block_fp = meta_in.read_vlong()?;
+        meta_in.seek(index_start_pointer)?;
+        (min_leaf_block_fp, index_start_pointer)
+    };
+    reader.same_in = true;
+    reader.min_leaf_block_fp = min_leaf_block_fp;
+    reader.index_start_pointer = index_start_pointer;
+    reader.is_tree_balanced = reader.num_leaves != 1 && reader.is_tree_balanced()?;
+    Ok(reader)
 }
 #[test]
 fn test_basic_ints_1d() -> Result<()> {
