@@ -1397,7 +1397,9 @@ mod tests {
     use crate::core::document::document::Document;
     use crate::core::document::field::FieldBase;
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
     use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+    use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
     use crate::core::index::BytesRef;
     use crate::core::index::binary_doc_values::BinaryDocValues;
     use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -1405,7 +1407,9 @@ mod tests {
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::index::sorted_doc_values::SortedDocValues;
     use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+    use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
@@ -1565,6 +1569,379 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn test_sorted() -> Result<()> {
+        let mut random = random();
+
+        let dir = new_directory_shared(&mut random)?;
+        let mut doc = Document::new();
+
+        let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
+        doc.add(field.clone());
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let s = TestUtil::random_unicode_string(&mut random);
+            let r = BytesRef::from_string(s.as_ref());
+            field.set_bytes_value(r)?;
+
+            if random.random_range(0..7) == 0 {
+                iw.add_document(Document::new())?;
+            }
+
+            iw.add_document(doc.clone())?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现force_merge 所以 我们只生成一个段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有实现force_merge 所以 我们只生成一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi =
+            MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.expect("multi should exist");
+        let mut single = merged
+            .get_sorted_doc_values("bytes")?
+            .expect("single dv should exist");
+
+        assert_eq!(single.get_value_count()?, multi.get_value_count()?);
+
+        loop {
+            assert_eq!(single.next_doc()?, multi.next_doc()?);
+            if single.doc_id() == NO_MORE_DOCS {
+                break;
+            }
+
+            let single_ord_value = single.ord_value()?;
+            let single_ord = single.lookup_ord(single_ord_value)?;
+            let expected = BytesRef::deep_copy_of(single_ord.as_ref());
+
+            let multi_ord_value = multi.ord_value()?;
+            let multi_ord = multi.lookup_ord(multi_ord_value)?;
+            let actual = multi_ord.as_ref();
+            assert_eq!(&expected, actual);
+
+            // check ord
+            assert_eq!(single.ord_value()?, multi.ord_value()?);
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
+    // tries to make more dups than testSorted
+    #[test]
+    fn test_sorted_with_lots_of_dups() -> Result<()> {
+        let mut random = random();
+
+        let dir = new_directory_shared(&mut random)?;
+        let mut doc = Document::new();
+
+        let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
+        doc.add(field.clone());
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let s = TestUtil::random_simple_string_with_len(&mut random, 2);
+            let r = BytesRef::from_string(s.as_ref());
+            field.set_bytes_value(r)?;
+            iw.add_document(doc.clone())?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现force_merge 所以 我们只生成一个段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有实现force_merge 所以 我们只生成一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi =
+            MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.expect("multi should exist");
+        let mut single = merged
+            .get_sorted_doc_values("bytes")?
+            .expect("single dv should exist");
+
+        assert_eq!(single.get_value_count()?, multi.get_value_count()?);
+
+        for i in 0..num_docs {
+            assert_eq!(i, multi.next_doc()?);
+            assert_eq!(i, single.next_doc()?);
+
+            // check ord
+            assert_eq!(single.ord_value()?, multi.ord_value()?);
+
+            // check ord value
+            let single_ord_value = single.ord_value()?;
+            let single_ord = single.lookup_ord(single_ord_value)?;
+            let expected = BytesRef::deep_copy_of(single_ord.as_ref());
+
+            let multi_ord_value = multi.ord_value()?;
+            let multi_ord = multi.lookup_ord(multi_ord_value)?;
+            let actual = multi_ord.as_ref();
+
+            assert_eq!(&expected, actual);
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_sorted_set() -> Result<()> {
+        let mut random = random();
+
+        let dir = new_directory_shared(&mut random)?;
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let num_values = random.random_range(0..5);
+            for _ in 0..num_values {
+                let s = TestUtil::random_unicode_string(&mut random);
+                let r = BytesRef::from_string(s.as_ref());
+                doc.add(SortedSetDocValuesField::new("bytes", r));
+            }
+
+            iw.add_document(doc)?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现force_merge 所以 我们只生成一个段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有实现force_merge 所以 我们只生成一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi_opt = MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?;
+        let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
+
+        match (multi_opt.as_mut(), single_opt.as_mut()) {
+            (None, None) => {},
+
+            (Some(multi), Some(single)) => {
+                assert_eq!(single.get_value_count()?, multi.get_value_count()?);
+
+                let value_count = single.get_value_count()?;
+                for i in 0..value_count {
+                    let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref());
+                    let actual = multi.lookup_ord(i)?;
+                    assert_eq!(&expected, actual.as_ref());
+                }
+
+                loop {
+                    let doc_id = single.next_doc()?;
+                    assert_eq!(doc_id, multi.next_doc()?);
+                    if doc_id == NO_MORE_DOCS {
+                        break;
+                    }
+
+                    assert_eq!(single.doc_value_count()?, multi.doc_value_count()?);
+                    let cnt = single.doc_value_count()?;
+                    for _ in 0..cnt {
+                        assert_eq!(single.next_ord()?, multi.next_ord()?);
+                    }
+                }
+            },
+            _ => {
+                unreachable!(
+                    "multi and single SortedSetDocValues mismatch: one is None and the other is Some"
+                );
+            },
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sorted_set_with_dups() -> Result<()> {
+        let mut random = random();
+
+        let dir = new_directory_shared(&mut random)?;
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            // tries to make more dups than test_sorted_set
+            let mut doc = Document::new();
+            let num_values = random.random_range(0..5);
+            for _ in 0..num_values {
+                let s = TestUtil::random_simple_string_with_len(&mut random, 2);
+                let r = BytesRef::from_string(s.as_ref());
+                doc.add(SortedSetDocValuesField::new("bytes", r));
+            }
+
+            iw.add_document(doc)?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现force_merge 所以 我们只生成一个段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有实现force_merge 所以 我们只生成一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+        // TODO force_merge未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi_opt = MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?;
+        let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
+
+        match (multi_opt.as_mut(), single_opt.as_mut()) {
+            (None, None) => {},
+
+            (Some(multi), Some(single)) => {
+                assert_eq!(single.get_value_count()?, multi.get_value_count()?);
+
+                // check values
+                let value_count = single.get_value_count()?;
+                for i in 0..value_count {
+                    let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref());
+                    let actual = multi.lookup_ord(i)?;
+                    assert_eq!(&expected, actual.as_ref());
+                }
+
+                // check ord list
+                loop {
+                    let doc_id = single.next_doc()?;
+                    assert_eq!(doc_id, multi.next_doc()?);
+                    if doc_id == NO_MORE_DOCS {
+                        break;
+                    }
+
+                    assert_eq!(single.doc_value_count()?, multi.doc_value_count()?);
+                    let cnt = single.doc_value_count()?;
+                    for _ in 0..cnt {
+                        assert_eq!(single.next_ord()?, multi.next_ord()?);
+                    }
+                }
+            },
+
+            _ => {
+                unreachable!(
+                    "multi and single SortedSetDocValues mismatch: one is None and the other is Some"
+                );
+            },
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
 
     #[test]
     fn test_sorted_numeric() -> Result<()> {
@@ -1710,5 +2087,4 @@ mod tests {
 
         Ok(())
     }
-    // TODO 还有其他test未完成
 }
