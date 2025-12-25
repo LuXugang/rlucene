@@ -42,7 +42,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{IOUtils, SliceCopyOps, ToInt};
-use std::cell::RefCell;
 use std::rc::Rc;
 /// Recursively builds a block KD-tree to assign all incoming points in N-dim
 /// space to smaller and smaller N-dim rectangles (cells) until the number of
@@ -555,11 +554,8 @@ where
         self.finished = true;
 
         self.point_writer.as_mut().unwrap().close();
-        let mut points = PathSlice::new(
-            Rc::new(RefCell::new(self.point_writer.take().unwrap())),
-            0,
-            self.point_count,
-        );
+        let mut point_writer = self.point_writer.take().unwrap();
+        let mut points = PathSlice::new(&mut point_writer, 0, self.point_count);
 
         let max_points_in_leaf_node = self.config.max_points_in_leaf_node as i64;
         let num_leaves = ((self.point_count + max_points_in_leaf_node - 1)
@@ -1675,18 +1671,16 @@ where
 
     fn compute_packed_value_bounds(
         &mut self,
-        slice: &PathSlice<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
+        slice: &mut PathSlice<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
-        let mut reader =
-            slice
-                .writer
-                .borrow_mut()
-                .get_reader(slice.start, slice.count, &self.temp_dir)?;
+        let mut reader = slice
+            .writer
+            .get_reader(slice.start, slice.count, &self.temp_dir)?;
 
         if !reader.next()? {
-            slice.writer.borrow_mut().take_data(reader.remove_points());
+            slice.writer.take_data(reader.remove_points());
             return Ok(());
         }
         {
@@ -1736,7 +1730,7 @@ where
                 }
             }
         }
-        slice.writer.borrow_mut().take_data(reader.remove_points());
+        slice.writer.take_data(reader.remove_points());
 
         Ok(())
     }
@@ -1760,14 +1754,11 @@ where
         spare_doc_ids: &mut [i32],
     ) -> Result<()> {
         if num_leaves == 1 {
-            let is_heap = {
-                let writer = points.writer.borrow();
-                matches!(*writer, PointWriterEnum::Heap(_))
-            };
+            let is_heap = { matches!(&points.writer, PointWriterEnum::Heap(_)) };
             let heap_source = if is_heap {
-                &mut *points.writer.borrow_mut()
+                &mut points.writer
             } else {
-                &mut self.switch_to_heap(&mut *points.writer.borrow_mut())?
+                &mut self.switch_to_heap(points.writer)?
             };
 
             let from = points.start as i32;
@@ -1884,8 +1875,6 @@ where
             let left_count =
                 num_left_leaf_nodes as i64 * self.config.max_points_in_leaf_node as i64;
 
-            let mut slices = Vec::with_capacity(2);
-
             let common_prefix_len = self.common_prefix_comparator.compare(
                 min_packed_value,
                 (split_dim * self.config.bytes_per_dim) as usize,
@@ -1893,9 +1882,8 @@ where
                 (split_dim * self.config.bytes_per_dim) as usize,
             );
 
-            let split_value = radix_selector.select(
+            let mut select_slice = radix_selector.select(
                 points,
-                &mut slices,
                 points.start,
                 points.start + points.count,
                 points.start + left_count,
@@ -1903,14 +1891,15 @@ where
                 common_prefix_len,
                 &self.temp_dir,
             )?;
-
             let right_offset = leaves_offset + num_left_leaf_nodes;
             let split_value_offset = right_offset - 1;
 
             split_dimension_values[split_value_offset as usize] = split_dim as u8;
             let address = (split_value_offset * self.config.bytes_per_dim) as usize;
-            split_packed_values
-                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], address);
+            split_packed_values.copy_from(
+                &select_slice.partition[0..self.config.bytes_per_dim as usize],
+                address,
+            );
 
             let mut min_split_packed_value =
                 vec![0u8; self.config.packed_index_bytes_length() as usize];
@@ -1926,17 +1915,26 @@ where
             );
 
             let start = (split_dim * self.config.bytes_per_dim) as usize;
-            min_split_packed_value
-                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], start);
-            max_split_packed_value
-                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], start);
+            min_split_packed_value.copy_from(
+                &select_slice.partition[0..self.config.bytes_per_dim as usize],
+                start,
+            );
+            max_split_packed_value.copy_from(
+                &select_slice.partition[0..self.config.bytes_per_dim as usize],
+                start,
+            );
 
             parent_splits[split_dim as usize] += 1;
-
+            let mut left_slice = match select_slice.left_writer {
+                Some(ref mut left_writer) => {
+                    PathSlice::new(left_writer, select_slice.left_from, select_slice.left_to)
+                },
+                None => PathSlice::new(points.writer, select_slice.left_from, select_slice.left_to),
+            };
             self.build(
                 leaves_offset,
                 num_left_leaf_nodes,
-                &mut slices[0],
+                &mut left_slice,
                 out,
                 radix_selector,
                 min_packed_value,
@@ -1947,11 +1945,20 @@ where
                 leaf_block_fps,
                 spare_doc_ids,
             )?;
-
+            let mut right_slice = match select_slice.right_writer {
+                Some(ref mut right_writer) => {
+                    PathSlice::new(right_writer, select_slice.right_from, select_slice.right_to)
+                },
+                None => PathSlice::new(
+                    points.writer,
+                    select_slice.right_from,
+                    select_slice.right_to,
+                ),
+            };
             self.build(
                 right_offset,
                 num_leaves - num_left_leaf_nodes,
-                &mut slices[1],
+                &mut right_slice,
                 out,
                 radix_selector,
                 &mut min_split_packed_value,

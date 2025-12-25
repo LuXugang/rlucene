@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
@@ -54,7 +52,45 @@ pub struct BKDRadixSelector {
     // BKD tree configuration
     config: BKDConfig,
 }
+pub struct SelectorSlice<D>
+where
+    D: Directory,
+{
+    pub(crate) partition: Vec<u8>,
 
+    pub(crate) left_writer: Option<PointWriterEnum<D::IndexOutput>>,
+    pub(crate) left_from: i64,
+    pub(crate) left_to: i64,
+
+    pub(crate) right_writer: Option<PointWriterEnum<D::IndexOutput>>,
+    pub(crate) right_from: i64,
+    pub(crate) right_to: i64,
+}
+impl<D> SelectorSlice<D>
+where
+    D: Directory,
+{
+    fn new(
+        partition: Vec<u8>,
+        left_writer: Option<PointWriterEnum<D::IndexOutput>>,
+        left_from: i64,
+        left_to: i64,
+
+        right_writer: Option<PointWriterEnum<D::IndexOutput>>,
+        right_from: i64,
+        right_to: i64,
+    ) -> Self {
+        Self {
+            partition,
+            left_writer,
+            left_from,
+            left_to,
+            right_writer,
+            right_from,
+            right_to,
+        }
+    }
+}
 impl BKDRadixSelector {
     // size of the histogram
     const HISTOGRAM_SIZE: usize = 256;
@@ -110,52 +146,43 @@ impl BKDRadixSelector {
     pub fn select<D: Directory>(
         &mut self,
         points: &mut PathSlice<D::IndexOutput>,
-        partition_slices: &mut Vec<PathSlice<D::IndexOutput>>,
         from: i64,
         to: i64,
         partition_point: i64,
         dim: i32,
         dim_common_prefix: i32,
         temp_dir: &D,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<SelectorSlice<D>> {
         Self::check_args(from, to, partition_point)?;
-        debug_assert!(partition_slices.len() <= 1,);
-        partition_slices.clear();
-        let is_heap = {
-            let writer = points.writer.borrow();
-            matches!(*writer, PointWriterEnum::Heap(_))
-        };
+        let is_heap = { matches!(points.writer, PointWriterEnum::Heap(_)) };
         if is_heap {
             let partition = self.heap_radix_select(
-                &mut *points.writer.borrow_mut(),
+                points.writer,
                 dim,
                 from as i32,
                 to as i32,
                 partition_point as i32,
                 dim_common_prefix,
             )?;
-            partition_slices.push(PathSlice::new(
-                points.writer.clone(),
+            Ok(SelectorSlice::new(
+                partition,
+                None,
                 from,
                 partition_point - from,
-            ));
-            partition_slices.push(PathSlice::new(
-                points.writer.clone(),
+                None,
                 partition_point,
                 to - partition_point,
-            ));
-            Ok(partition)
+            ))
         } else {
-            let mut left =
+            let mut left_writer =
                 self.get_point_writer(partition_point - from, &format!("left{dim}"), temp_dir)?;
-            let mut right =
+            let mut right_writer =
                 self.get_point_writer(to - partition_point, &format!("right{dim}"), temp_dir)?;
-            let mut writer = points.writer.borrow_mut();
-            if let PointWriterEnum::Offline(offline_point_writer) = &mut *writer {
+            if let PointWriterEnum::Offline(offline_point_writer) = points.writer {
                 let partition = self.build_histogram_and_partition(
                     offline_point_writer,
-                    &mut left,
-                    &mut right,
+                    &mut left_writer,
+                    &mut right_writer,
                     from,
                     to,
                     partition_point,
@@ -164,19 +191,18 @@ impl BKDRadixSelector {
                     dim,
                     temp_dir,
                 )?;
-                left.close();
-                right.close();
-                partition_slices.push(PathSlice::new(
-                    Rc::new(RefCell::new(left)),
+                left_writer.close();
+                right_writer.close();
+
+                Ok(SelectorSlice::new(
+                    partition,
+                    Some(left_writer),
                     0,
                     partition_point - from,
-                ));
-                partition_slices.push(PathSlice::new(
-                    Rc::new(RefCell::new(right)),
+                    Some(right_writer),
                     0,
                     to - partition_point,
-                ));
-                Ok(partition)
+                ))
             } else {
                 Err(LuceneError::illegal_state("writer is not Offline"))
             }
@@ -707,20 +733,19 @@ impl BKDRadixSelector {
     }
 }
 /// Sliced reference to points in an PointWriter.
-pub struct PathSlice<O>
+pub struct PathSlice<'a, O>
 where
     O: IndexOutput,
 {
-    // TODO IMPORTANT 这里可以不需要使用Rc<RefCell<>>封装
-    pub writer: Rc<RefCell<PointWriterEnum<O>>>,
+    pub writer: &'a mut PointWriterEnum<O>,
     pub start: i64,
     pub count: i64,
 }
-impl<O> PathSlice<O>
+impl<'a, O> PathSlice<'a, O>
 where
     O: IndexOutput,
 {
-    pub fn new(writer: Rc<RefCell<PointWriterEnum<O>>>, start: i64, count: i64) -> Self {
+    pub fn new(writer: &'a mut PointWriterEnum<O>, start: i64, count: i64) -> Self {
         PathSlice {
             writer,
             start,
@@ -1029,9 +1054,8 @@ where
 #[cfg(test)]
 mod tests {
     mod test_bkd_radix_selector {
-        use std::cell::RefCell;
+
         use std::cmp::Ordering::{Greater, Less};
-        use std::rc::Rc;
 
         use rand::Rng;
 
@@ -1340,17 +1364,19 @@ mod tests {
             let data_only_dims = config.num_dims - config.num_index_dims;
 
             for split_dim in 0..config.num_index_dims {
-                let copy = copy_points(random, config.clone(), dir, points)?;
-                let mut input_slice =
-                    PathSlice::new(Rc::new(RefCell::new(copy)), 0, points.count());
+                let mut copy = copy_points(random, config.clone(), dir, points)?;
+                let mut input_slice = PathSlice::new(&mut copy, 0, points.count());
 
-                let common_prefix_length_input =
-                    get_random_common_prefix(config.clone(), &input_slice, split_dim, random, dir)?;
-
-                let mut slices = Vec::with_capacity(2);
-                let partition_point = radix_selector.select(
+                let common_prefix_length_input = get_random_common_prefix(
+                    config.clone(),
                     &mut input_slice,
-                    &mut slices,
+                    split_dim,
+                    random,
+                    dir,
+                )?;
+
+                let mut select_slice = radix_selector.select(
+                    &mut input_slice,
                     start,
                     end,
                     middle,
@@ -1358,20 +1384,40 @@ mod tests {
                     common_prefix_length_input,
                     dir,
                 )?;
-
+                let mut left_slice = match select_slice.left_writer {
+                    Some(ref mut left_writer) => {
+                        PathSlice::new(left_writer, select_slice.left_from, select_slice.left_to)
+                    },
+                    None => PathSlice::new(
+                        input_slice.writer,
+                        select_slice.left_from,
+                        select_slice.left_to,
+                    ),
+                };
                 assert_eq!(
-                    slices[0].count,
+                    left_slice.count,
                     middle - start,
                     "Left slice count does not match"
                 );
+                let max = get_max(config.clone(), &mut left_slice, split_dim, dir)?;
+
+                let mut right_slice = match select_slice.right_writer {
+                    Some(ref mut right_writer) => {
+                        PathSlice::new(right_writer, select_slice.right_from, select_slice.right_to)
+                    },
+                    None => PathSlice::new(
+                        input_slice.writer,
+                        select_slice.right_from,
+                        select_slice.right_to,
+                    ),
+                };
                 assert_eq!(
-                    slices[1].count,
+                    right_slice.count,
                     end - middle,
                     "Right slice count does not match"
                 );
+                let min = get_min(config.clone(), &mut right_slice, split_dim, dir)?;
 
-                let max = get_max(config.clone(), &slices[0], split_dim, dir)?;
-                let min = get_min(config.clone(), &slices[1], split_dim, dir)?;
                 let cmp = compare_unsigned(
                     &max,
                     config.bytes_per_dim as usize,
@@ -1385,10 +1431,45 @@ mod tests {
                 );
 
                 if cmp == 0 {
-                    let max_data_dim =
-                        get_max_data_dimension(config.clone(), &slices[0], &max, split_dim, dir)?;
-                    let min_data_dim =
-                        get_min_data_dimension(config.clone(), &slices[1], &min, split_dim, dir)?;
+                    let mut left_slice = match select_slice.left_writer {
+                        Some(ref mut left_writer) => PathSlice::new(
+                            left_writer,
+                            select_slice.left_from,
+                            select_slice.left_to,
+                        ),
+                        None => PathSlice::new(
+                            input_slice.writer,
+                            select_slice.left_from,
+                            select_slice.left_to,
+                        ),
+                    };
+                    let max_data_dim = get_max_data_dimension(
+                        config.clone(),
+                        &mut left_slice,
+                        &max,
+                        split_dim,
+                        dir,
+                    )?;
+
+                    let mut right_slice = match select_slice.right_writer {
+                        Some(ref mut right_writer) => PathSlice::new(
+                            right_writer,
+                            select_slice.right_from,
+                            select_slice.right_to,
+                        ),
+                        None => PathSlice::new(
+                            input_slice.writer,
+                            select_slice.right_from,
+                            select_slice.right_to,
+                        ),
+                    };
+                    let min_data_dim = get_min_data_dimension(
+                        config.clone(),
+                        &mut right_slice,
+                        &min,
+                        split_dim,
+                        dir,
+                    )?;
                     let cmp = compare_unsigned(
                         &max_data_dim,
                         (data_only_dims * config.bytes_per_dim) as usize,
@@ -1401,19 +1482,43 @@ mod tests {
                         cmp
                     );
                     if cmp == 0 {
+                        let mut left_slice = match select_slice.left_writer {
+                            Some(ref mut left_writer) => PathSlice::new(
+                                left_writer,
+                                select_slice.left_from,
+                                select_slice.left_to,
+                            ),
+                            None => PathSlice::new(
+                                input_slice.writer,
+                                select_slice.left_from,
+                                select_slice.left_to,
+                            ),
+                        };
                         let max_doc_id = get_max_doc_id(
                             config.clone(),
-                            &slices[0],
+                            &mut left_slice,
                             split_dim,
-                            &partition_point,
+                            &select_slice.partition,
                             &max_data_dim,
                             dir,
                         )?;
+                        let mut right_slice = match select_slice.right_writer {
+                            Some(ref mut right_writer) => PathSlice::new(
+                                right_writer,
+                                select_slice.right_from,
+                                select_slice.right_to,
+                            ),
+                            None => PathSlice::new(
+                                input_slice.writer,
+                                select_slice.right_from,
+                                select_slice.right_to,
+                            ),
+                        };
                         let min_doc_id = get_min_doc_id(
                             config.clone(),
-                            &slices[1],
+                            &mut right_slice,
                             split_dim,
-                            &partition_point,
+                            &select_slice.partition,
                             &min_data_dim,
                             dir,
                         )?;
@@ -1426,11 +1531,31 @@ mod tests {
                     }
                 }
                 assert_eq!(
-                    partition_point, min,
+                    select_slice.partition, min,
                     "Partition point does not equal the minimum of the right slice"
                 );
-                slices[0].writer.borrow_mut().destroy(dir)?;
-                slices[1].writer.borrow_mut().destroy(dir)?;
+                let left_slice = match select_slice.left_writer {
+                    Some(ref mut left_writer) => {
+                        PathSlice::new(left_writer, select_slice.left_from, select_slice.left_to)
+                    },
+                    None => PathSlice::new(
+                        input_slice.writer,
+                        select_slice.left_from,
+                        select_slice.left_to,
+                    ),
+                };
+                left_slice.writer.destroy(dir)?;
+                let right_slice = match select_slice.right_writer {
+                    Some(ref mut right_writer) => {
+                        PathSlice::new(right_writer, select_slice.right_from, select_slice.right_to)
+                    },
+                    None => PathSlice::new(
+                        input_slice.writer,
+                        select_slice.right_from,
+                        select_slice.right_to,
+                    ),
+                };
+                right_slice.writer.destroy(dir)?;
             }
             points.destroy(dir)?;
             Ok(())
@@ -1461,7 +1586,7 @@ mod tests {
         /// returns a common prefix length equal or lower than the current one.
         fn get_random_common_prefix<D: Directory, R: Rng + ?Sized>(
             config: BKDConfig,
-            input_slice: &PathSlice<D::IndexOutput>,
+            input_slice: &mut PathSlice<D::IndexOutput>,
             split_dim: i32,
             random: &mut R,
             dir: &D,
@@ -1510,17 +1635,16 @@ mod tests {
 
         fn get_min<D: Directory>(
             config: BKDConfig,
-            path_slice: &PathSlice<D::IndexOutput>,
+            path_slice: &mut PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &D,
         ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut min = vec![0xffu8; size];
-            let mut reader = path_slice.writer.borrow_mut().get_reader(
-                path_slice.start,
-                path_slice.count,
-                dir,
-            )?;
+            let mut reader =
+                path_slice
+                    .writer
+                    .get_reader(path_slice.start, path_slice.count, dir)?;
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value = reader.point_value();
@@ -1532,23 +1656,20 @@ mod tests {
                     min.copy_from(&value, 0);
                 }
             }
-            path_slice
-                .writer
-                .borrow_mut()
-                .take_data(reader.remove_points());
+            path_slice.writer.take_data(reader.remove_points());
             Ok(min)
         }
 
         fn get_min_doc_id<D: Directory>(
             config: BKDConfig,
-            p: &PathSlice<D::IndexOutput>,
+            p: &mut PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
             dir: &D,
         ) -> Result<i32> {
             let mut doc_id = i32::MAX;
-            let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
+            let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
             while reader.next()? {
                 let point_value_ref = reader.point_value();
                 let (bytes, packed_value_offset, _) = point_value_ref.packed_value();
@@ -1576,13 +1697,13 @@ mod tests {
                     }
                 }
             }
-            p.writer.borrow_mut().take_data(reader.remove_points());
+            p.writer.take_data(reader.remove_points());
             Ok(doc_id)
         }
 
         fn get_min_data_dimension<D: Directory>(
             config: BKDConfig,
-            p: &PathSlice<D::IndexOutput>,
+            p: &mut PathSlice<D::IndexOutput>,
             min_dim: &[u8],
             split_dim: i32,
             dir: &D,
@@ -1591,7 +1712,7 @@ mod tests {
             let size = (num_data_dims * config.bytes_per_dim) as usize;
             let mut min = vec![0xffu8; size];
             let offset = split_dim * config.bytes_per_dim;
-            let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
+            let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
@@ -1611,19 +1732,19 @@ mod tests {
                     }
                 }
             }
-            p.writer.borrow_mut().take_data(reader.remove_points());
+            p.writer.take_data(reader.remove_points());
             Ok(min)
         }
 
         fn get_max<D: Directory>(
             config: BKDConfig,
-            p: &PathSlice<D::IndexOutput>,
+            p: &mut PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &D,
         ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut max = vec![0u8; size];
-            let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
+            let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
@@ -1635,13 +1756,13 @@ mod tests {
                     max.copy_from(&value, 0);
                 }
             }
-            p.writer.borrow_mut().take_data(reader.remove_points());
+            p.writer.take_data(reader.remove_points());
             Ok(max)
         }
 
         fn get_max_data_dimension<D: Directory>(
             config: BKDConfig,
-            p: &PathSlice<D::IndexOutput>,
+            p: &mut PathSlice<D::IndexOutput>,
             max_dim: &[u8],
             split_dim: i32,
             dir: &D,
@@ -1650,7 +1771,7 @@ mod tests {
             let size = (num_data_dims * config.bytes_per_dim) as usize;
             let mut max = vec![0u8; size];
             let offset = split_dim * config.bytes_per_dim;
-            let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
+            let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
@@ -1670,20 +1791,20 @@ mod tests {
                     }
                 }
             }
-            p.writer.borrow_mut().take_data(reader.remove_points());
+            p.writer.take_data(reader.remove_points());
             Ok(max)
         }
 
         fn get_max_doc_id<D: Directory>(
             config: BKDConfig,
-            p: &PathSlice<D::IndexOutput>,
+            p: &mut PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
             dir: &D,
         ) -> Result<i32> {
             let mut doc_id = i32::MIN;
-            let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
+            let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
             while reader.next()? {
                 let point_value_ref = reader.point_value();
                 let (value, packed_value_offset, _) = point_value_ref.packed_value();
@@ -1711,7 +1832,7 @@ mod tests {
                     }
                 }
             }
-            p.writer.borrow_mut().take_data(reader.remove_points());
+            p.writer.take_data(reader.remove_points());
             Ok(doc_id)
         }
 
