@@ -292,6 +292,8 @@ where
                 .as_ref()
                 .unwrap()
                 .intersect(&mut visitor)?;
+        } else {
+            return Err(LuceneError::illegal_state("point_values is None"));
         }
 
         match visitor.result.build()?.iterator()? {
