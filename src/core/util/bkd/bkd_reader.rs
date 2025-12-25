@@ -610,7 +610,12 @@ where
             )
         }
     }
-    fn add_all(&mut self, visitor: &mut impl IntersectVisitor, mut grown: bool) -> Result<()> {
+    fn add_all(
+        &mut self,
+        visitor: &mut impl IntersectVisitor,
+        mut grown: bool,
+        leaf_nodes: &mut I,
+    ) -> Result<()> {
         if !grown {
             let size = self.size()?;
             if size <= i32::MAX as i64 {
@@ -620,7 +625,6 @@ where
         }
 
         if self.is_leaf_node() {
-            let mut leaf_nodes = self.leaf_nodes.lock();
             // Leaf node
             let leaf_fp = self.get_leaf_block_fp()?;
             leaf_nodes.seek(leaf_fp)?;
@@ -629,52 +633,60 @@ where
             // No need to call grow(), it has been called up-front
             self.scratch_iterator
                 .doc_ids_writer
-                .read_ints_with_visitor(&mut *leaf_nodes, count, visitor)?;
+                .read_ints_with_visitor(leaf_nodes, count, visitor)?;
         } else {
             self.push_left()?;
-            self.add_all(visitor, grown)?;
+            self.add_all(visitor, grown, leaf_nodes)?;
             self.pop();
             self.push_right()?;
-            self.add_all(visitor, grown)?;
+            self.add_all(visitor, grown, leaf_nodes)?;
             self.pop();
         }
 
         Ok(())
     }
-    fn visit_leaves_one_by_one(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_leaves_one_by_one(
+        &mut self,
+        visitor: &mut impl IntersectVisitor,
+        leaf_node: &mut I,
+    ) -> Result<()> {
         if self.is_leaf_node() {
             let leaf_fp = self.get_leaf_block_fp()?;
-            self.visit_doc_values(visitor, leaf_fp)?;
+            self.visit_doc_values(visitor, leaf_fp, leaf_node)?;
         } else {
             self.push_left()?;
-            self.visit_leaves_one_by_one(visitor)?;
+            self.visit_leaves_one_by_one(visitor, leaf_node)?;
             self.pop();
 
             self.push_right()?;
-            self.visit_leaves_one_by_one(visitor)?;
+            self.visit_leaves_one_by_one(visitor, leaf_node)?;
             self.pop();
         }
         Ok(())
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor, fp: i64) -> Result<()> {
-        let count = self.read_doc_ids(fp)?;
+    fn visit_doc_values(
+        &mut self,
+        visitor: &mut impl IntersectVisitor,
+        fp: i64,
+        leaf_node: &mut I,
+    ) -> Result<()> {
+        let count = self.read_doc_ids(fp, leaf_node)?;
 
         if self.version >= VERSION_LOW_CARDINALITY_LEAVES {
-            self.visit_doc_values_with_cardinality(count, visitor)?;
+            self.visit_doc_values_with_cardinality(count, visitor, leaf_node)?;
         } else {
-            self.visit_doc_values_no_cardinality(count, visitor)?;
+            self.visit_doc_values_no_cardinality(count, visitor, leaf_node)?;
         }
 
         Ok(())
     }
 
-    fn read_doc_ids(&mut self, block_fp: i64) -> Result<i32> {
-        let mut index_input = self.leaf_nodes.lock();
+    fn read_doc_ids(&mut self, block_fp: i64, index_input: &mut I) -> Result<i32> {
         index_input.seek(block_fp)?;
         let count = index_input.read_vint()?;
         self.scratch_iterator.doc_ids_writer.read_ints(
-            &mut *index_input,
+            index_input,
             count,
             &mut self.scratch_iterator.doc_ids,
         )?;
@@ -777,10 +789,11 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
+        leaf_node: &mut I,
     ) -> Result<()> {
         let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
 
-        self.read_common_prefixes()?;
+        self.read_common_prefixes(leaf_node)?;
 
         if self.config.num_index_dims > 1 && self.version >= VERSION_LEAF_STORES_BOUNDS {
             self.scratch_max_index_packed_value.copy_from(
@@ -791,7 +804,7 @@ where
                 &self.scratch_min_index_packed_value[..packed_index_bytes_length],
                 0,
             );
-            self.read_min_max()?;
+            self.read_min_max(leaf_node)?;
 
             // The index gives us range of values for each dimension, but the
             // actual range of values might be much more narrow than
@@ -821,12 +834,12 @@ where
             visitor.grow(count)?;
         }
 
-        let compressed_dim = self.read_compressed_dim()?;
+        let compressed_dim = self.read_compressed_dim(leaf_node)?;
 
         if compressed_dim == -1 {
             self.visit_unique_raw_doc_values(count, visitor)?;
         } else {
-            self.visit_compressed_doc_values(count, visitor, compressed_dim)?;
+            self.visit_compressed_doc_values(count, visitor, compressed_dim, leaf_node)?;
         }
 
         Ok(())
@@ -835,10 +848,11 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
+        leaf_node: &mut I,
     ) -> Result<()> {
         let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
-        self.read_common_prefixes()?;
-        let compressed_dim = self.read_compressed_dim()?;
+        self.read_common_prefixes(leaf_node)?;
+        let compressed_dim = self.read_compressed_dim(leaf_node)?;
         if compressed_dim == -1 {
             // all values are the same
             visitor.grow(count)?;
@@ -853,7 +867,7 @@ where
                     &self.scratch_min_index_packed_value[..packed_index_bytes_length],
                     0,
                 );
-                self.read_min_max()?;
+                self.read_min_max(leaf_node)?;
 
                 // The index gives us range of values for each dimension, but
                 // the actual range of values might be much more
@@ -886,17 +900,16 @@ where
 
             if compressed_dim == -2 {
                 // low cardinality values
-                self.visit_sparse_raw_doc_values(count, visitor)?;
+                self.visit_sparse_raw_doc_values(count, visitor, leaf_node)?;
             } else {
                 // high cardinality
-                self.visit_compressed_doc_values(count, visitor, compressed_dim)?;
+                self.visit_compressed_doc_values(count, visitor, compressed_dim, leaf_node)?;
             }
         }
 
         Ok(())
     }
-    fn read_min_max(&mut self) -> Result<()> {
-        let index_input = &mut *self.leaf_nodes.lock();
+    fn read_min_max(&mut self, index_input: &mut I) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
             let prefix = self.common_prefix_lengths[dim as usize];
             DataInput::read_bytes(
@@ -921,10 +934,10 @@ where
         &mut self,
         count: i32,
         visitor: &mut impl IntersectVisitor,
+        index_input: &mut I,
     ) -> Result<()> {
         let mut i = 0;
         {
-            let index_input = &mut *self.leaf_nodes.lock();
             while i < count {
                 let length = DataInput::read_vint(index_input)?;
                 for dim in 0..self.config.num_dims {
@@ -948,9 +961,7 @@ where
         if i != count {
             return Err(LuceneError::corrupt_index(format!(
                 "Sub blocks do not add up to the expected count: {} != {}, (resource={})",
-                count,
-                i,
-                self.leaf_nodes.lock()
+                count, i, index_input
             )));
         }
 
@@ -975,6 +986,7 @@ where
         count: i32,
         visitor: &mut impl IntersectVisitor,
         compressed_dim: i32,
+        index_input: &mut I,
     ) -> Result<()> {
         let bytes_per_dim = self.config.bytes_per_dim as usize;
         let compressed_dim = compressed_dim as usize;
@@ -987,7 +999,6 @@ where
 
         let mut i = 0;
         {
-            let index_input = &mut *self.leaf_nodes.lock();
             while i < count {
                 self.scratch_data_packed_value[compressed_byte_offset] =
                     DataInput::read_byte(index_input)?;
@@ -1014,16 +1025,14 @@ where
         if i != count {
             return Err(LuceneError::corrupt_index(format!(
                 "Sub blocks do not add up to the expected count: {} != {}, (resource={})",
-                count,
-                i,
-                self.leaf_nodes.lock()
+                count, i, index_input,
             )));
         }
 
         Ok(())
     }
-    fn read_compressed_dim(&mut self) -> Result<i32> {
-        let compressed_dim = DataInput::read_byte(&mut *self.leaf_nodes.lock())? as i8 as i32;
+    fn read_compressed_dim(&mut self, leaf_node: &mut I) -> Result<i32> {
+        let compressed_dim = DataInput::read_byte(leaf_node)? as i8 as i32;
 
         if compressed_dim < -2
             || compressed_dim >= self.config.num_dims
@@ -1031,17 +1040,15 @@ where
         {
             return Err(LuceneError::corrupt_index(format!(
                 "Got compressedDim={} from input, (resource={})",
-                compressed_dim,
-                self.leaf_nodes.lock()
+                compressed_dim, leaf_node,
             )));
         }
 
         Ok(compressed_dim)
     }
 
-    pub fn read_common_prefixes(&mut self) -> Result<()> {
+    pub fn read_common_prefixes(&mut self, index_input: &mut I) -> Result<()> {
         let num_dims = self.config.num_dims;
-        let index_input = &mut *self.leaf_nodes.lock();
         for dim in 0..num_dims {
             let prefix = index_input.read_vint()?;
             self.common_prefix_lengths[dim as usize] = prefix;
@@ -1200,16 +1207,18 @@ where
     where
         IV: IntersectVisitor,
     {
+        let leaf_node = self.leaf_nodes.clone();
         self.reset_node_data_position()?;
-        self.add_all(visitor, false)
+        self.add_all(visitor, false, &mut *leaf_node.lock())
     }
 
     fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
     where
         IV: IntersectVisitor,
     {
+        let leaf_node = self.leaf_nodes.clone();
         self.reset_node_data_position()?;
-        self.visit_leaves_one_by_one(visitor)
+        self.visit_leaves_one_by_one(visitor, &mut *leaf_node.lock())
     }
 }
 /// Reusable [`DocIdSetIterator`] to handle low cardinality leaves.
