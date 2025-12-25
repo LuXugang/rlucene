@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
+use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, Either2BinaryDocValues};
 use crate::core::index::composite_reader::{CompositeReader, get_context};
@@ -28,14 +29,21 @@ use crate::core::index::leaf_reader::{
     LeafReader,
 };
 use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
+use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
+use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
     Either2SortedNumericDocValues, SortedNumericDocValues,
 };
+use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::ToUsizeExact;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::long_values::LongValues;
 use std::borrow::Cow;
 
 pub struct MultiDocValues;
@@ -221,6 +229,409 @@ impl MultiDocValues {
             SortedNumericDocValuesImpl::new(reader, values, field.to_string(), total_cost),
         )))
     }
+}
+/// Implements SortedDocValues over n subs, using an OrdinalMap
+pub struct MultiSortedDocValues<S>
+where
+    S: SortedDocValues,
+{
+    /// docbase for each leaf: parallel with [`values`]
+    pub doc_starts: Vec<i32>,
+    /// leaf values
+    pub values: Vec<S>,
+    /// ordinal map mapping ords from `values` to global ord space
+    pub mapping: OrdinalMap,
+
+    total_cost: i64,
+    next_leaf: usize,
+    current_values: Option<usize>,
+    current_doc_start: i32,
+    doc_id: i32,
+}
+
+impl<S> MultiSortedDocValues<S>
+where
+    S: SortedDocValues,
+{
+    pub fn new(doc_starts: Vec<i32>, values: Vec<S>, mapping: OrdinalMap, total_cost: i64) -> Self {
+        Self {
+            doc_starts,
+            values,
+            mapping,
+            total_cost,
+            next_leaf: 0,
+            current_values: None,
+            current_doc_start: 0,
+            doc_id: -1,
+        }
+    }
+}
+
+impl<S> DocValuesIterator for MultiSortedDocValues<S>
+where
+    S: SortedDocValues,
+{
+    fn advance_exact(&mut self, target_doc_id: i32) -> Result<bool> {
+        if target_doc_id < self.doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "can only advance beyond current document: on docID={} but targetDocID={}",
+                self.doc_id, target_doc_id
+            )));
+        }
+
+        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        if reader_index < 0 {
+            return Err(LuceneError::illegal_state("reader_index should be >= 0"));
+        }
+        let reader_index = reader_index as usize;
+        if reader_index >= self.next_leaf {
+            if reader_index == self.values.len() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Out of range: {}",
+                    target_doc_id
+                )));
+            }
+            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_values = Some(reader_index);
+            self.next_leaf = reader_index + 1;
+        }
+
+        self.doc_id = target_doc_id;
+
+        let idx = match self.current_values {
+            None => return Ok(false),
+            Some(i) => i,
+        };
+
+        // delegate to leaf-level advanceExact()
+        let exists = self.values[idx].advance_exact(target_doc_id - self.current_doc_start)?;
+
+        Ok(exists)
+    }
+}
+
+impl<S> DocIdSetIterator for MultiSortedDocValues<S>
+where
+    S: SortedDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        loop {
+            while self.current_values.is_none() {
+                if self.next_leaf == self.values.len() {
+                    self.doc_id = NO_MORE_DOCS;
+                    return Ok(self.doc_id);
+                }
+                self.current_doc_start = self.doc_starts[self.next_leaf];
+                self.current_values = Some(self.next_leaf);
+                self.next_leaf += 1;
+            }
+
+            let new_doc_id = self.values[*self.current_values.as_ref().unwrap()].next_doc()?;
+
+            if new_doc_id == NO_MORE_DOCS {
+                self.current_values = None;
+            } else {
+                self.doc_id = self.current_doc_start + new_doc_id;
+                return Ok(self.doc_id);
+            }
+        }
+    }
+
+    fn advance(&mut self, target_doc_id: i32) -> Result<i32> {
+        if target_doc_id <= self.doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "can only advance beyond current document: on docID={} but targetDocID={}",
+                self.doc_id, target_doc_id
+            )));
+        }
+
+        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        if reader_index < 0 {
+            return Err(LuceneError::illegal_state("reader_index should be >= 0"));
+        }
+        let reader_index = reader_index as usize;
+        if reader_index >= self.next_leaf {
+            if reader_index == self.values.len() {
+                self.current_values = None;
+                self.doc_id = NO_MORE_DOCS;
+                return Ok(self.doc_id);
+            }
+            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_values = Some(reader_index);
+            self.next_leaf = reader_index + 1;
+        }
+
+        let idx = *self.current_values.as_ref().unwrap();
+        let new_doc_id = self.values[idx].advance(target_doc_id - self.current_doc_start)?;
+
+        if new_doc_id == NO_MORE_DOCS {
+            self.current_values = None;
+            self.next_doc()
+        } else {
+            self.doc_id = self.current_doc_start + new_doc_id;
+            Ok(self.doc_id)
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.total_cost)
+    }
+}
+
+impl<S> SortedDocValues for MultiSortedDocValues<S>
+where
+    S: SortedDocValues,
+{
+    fn ord_value(&mut self) -> Result<i32> {
+        let seg_idx = match self.current_values {
+            Some(i) => i,
+            None => return Err(LuceneError::illegal_state("current_values is None")),
+        };
+
+        let local_ord = self.values[seg_idx].ord_value()? as i64;
+
+        let global_ord = self
+            .mapping
+            .get_global_ords((self.next_leaf - 1) as i32)
+            .get(local_ord)?;
+
+        Ok(global_ord as i32)
+    }
+
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        let sub_index = self
+            .mapping
+            .get_first_segment_number(ord as i64)?
+            .to_usize_exact()?;
+        let segment_ord = self.mapping.get_first_segment_ord(ord as i64)?.try_into()?;
+        self.values[sub_index].lookup_ord(segment_ord)
+    }
+
+    fn get_value_count(&mut self) -> Result<i32> {
+        Ok(self.mapping.get_value_count().try_into()?)
+    }
+
+    type TermsEnum<'a>
+        = SortedDocValuesTermsEnum<'a, Self>
+    where
+        S: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
+}
+
+/// Implements SortedSetDocValues over N subs, using an OrdinalMap.
+pub struct MultiSortedSetDocValues<T>
+where
+    T: SortedSetDocValues,
+{
+    /// docbase for each leaf: parallel with `values`
+    pub doc_starts: Vec<i32>,
+
+    /// leaf values
+    pub values: Vec<T>,
+
+    /// ordinal map mapping ords from `values` to global ord space
+    pub mapping: OrdinalMap,
+
+    total_cost: i64,
+    next_leaf: usize,
+    current_values: Option<usize>,
+    current_doc_start: i32,
+    doc_id: i32,
+}
+
+impl<T> MultiSortedSetDocValues<T>
+where
+    T: SortedSetDocValues,
+{
+    pub fn new(values: Vec<T>, doc_starts: Vec<i32>, mapping: OrdinalMap, total_cost: i64) -> Self {
+        debug_assert_eq!(doc_starts.len(), values.len() + 1);
+
+        Self {
+            doc_starts,
+            values,
+            mapping,
+            total_cost,
+            next_leaf: 0,
+            current_values: None,
+            current_doc_start: 0,
+            doc_id: -1,
+        }
+    }
+}
+
+impl<T> DocValuesIterator for MultiSortedSetDocValues<T>
+where
+    T: SortedSetDocValues,
+{
+    fn advance_exact(&mut self, target_doc_id: i32) -> Result<bool> {
+        if target_doc_id < self.doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "can only advance beyond current document: on docID={} but targetDocID={}",
+                self.doc_id, target_doc_id
+            )));
+        }
+
+        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        if reader_index < 0 {
+            return Err(LuceneError::illegal_state("reader_index should be >= 0"));
+        }
+        let reader_index = reader_index as usize;
+
+        if reader_index >= self.next_leaf {
+            if reader_index == self.values.len() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Out of range: {}",
+                    target_doc_id
+                )));
+            }
+            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_values = Some(reader_index);
+            self.next_leaf = reader_index + 1;
+        }
+
+        self.doc_id = target_doc_id;
+
+        let idx = match self.current_values {
+            None => return Ok(false),
+            Some(i) => i,
+        };
+
+        self.values[idx].advance_exact(target_doc_id - self.current_doc_start)
+    }
+}
+
+impl<T> DocIdSetIterator for MultiSortedSetDocValues<T>
+where
+    T: SortedSetDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        loop {
+            while self.current_values.is_none() {
+                if self.next_leaf == self.values.len() {
+                    self.doc_id = NO_MORE_DOCS;
+                    return Ok(self.doc_id);
+                }
+
+                self.current_doc_start = self.doc_starts[self.next_leaf];
+                self.current_values = Some(self.next_leaf);
+                self.next_leaf += 1;
+            }
+
+            let idx = *self.current_values.as_ref().unwrap();
+            let new_doc_id = self.values[idx].next_doc()?;
+
+            if new_doc_id == NO_MORE_DOCS {
+                self.current_values = None;
+            } else {
+                self.doc_id = self.current_doc_start + new_doc_id;
+                return Ok(self.doc_id);
+            }
+        }
+    }
+
+    fn advance(&mut self, target_doc_id: i32) -> Result<i32> {
+        if target_doc_id <= self.doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "can only advance beyond current document: on docID={} but targetDocID={}",
+                self.doc_id, target_doc_id
+            )));
+        }
+
+        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        if reader_index < 0 {
+            return Err(LuceneError::illegal_state("reader_index should be >= 0"));
+        }
+        let reader_index = reader_index as usize;
+
+        if reader_index >= self.next_leaf {
+            if reader_index == self.values.len() {
+                self.current_values = None;
+                self.doc_id = NO_MORE_DOCS;
+                return Ok(self.doc_id);
+            }
+
+            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_values = Some(reader_index);
+            self.next_leaf = reader_index + 1;
+        }
+
+        let idx = *self.current_values.as_ref().unwrap();
+        let new_doc_id = self.values[idx].advance(target_doc_id - self.current_doc_start)?;
+
+        if new_doc_id == NO_MORE_DOCS {
+            self.current_values = None;
+            self.next_doc()
+        } else {
+            self.doc_id = self.current_doc_start + new_doc_id;
+            Ok(self.doc_id)
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.total_cost)
+    }
+}
+
+impl<T> SortedSetDocValues for MultiSortedSetDocValues<T>
+where
+    T: SortedSetDocValues,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        let idx = match self.current_values {
+            Some(i) => i,
+            None => return Err(LuceneError::illegal_state("current_values is None")),
+        };
+
+        let segment_ord = self.values[idx].next_ord()?;
+        let global = self
+            .mapping
+            .get_global_ords((self.next_leaf - 1) as i32)
+            .get(segment_ord)?;
+
+        Ok(global)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        let idx = self
+            .current_values
+            .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
+        self.values[idx].doc_value_count()
+    }
+
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        let sub_index = self
+            .mapping
+            .get_first_segment_number(ord)?
+            .to_usize_exact()?;
+        let segment_ord = self.mapping.get_first_segment_ord(ord)?;
+        self.values[sub_index].lookup_ord(segment_ord)
+    }
+
+    fn get_value_count(&mut self) -> Result<i64> {
+        Ok(self.mapping.get_value_count())
+    }
+
+    type TermsEnum<'a>
+        = SortedSetDocValuesTermsEnum<'a, Self>
+    where
+        T: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        self.default_terms_enum()
+    }
+
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub struct NumericDocValuesImpl<CR>

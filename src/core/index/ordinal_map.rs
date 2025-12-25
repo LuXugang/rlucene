@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::CacheKey;
-use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::terms_enum_index::{TermState, TermsEnumIndex};
 use crate::core::util::Sorter;
@@ -36,20 +36,20 @@ impl OrdinalMap {
     /// [`SortedSetDocValues`] instance as a weight.
     ///
     /// See [`OrdinalMap::build`].
-    pub fn build_from_sorted_set<DV>(
+    pub fn build_from_sorted<DV>(
         owner: CacheKey,
-        mut values: Vec<DV>,
+        values: &mut [DV],
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
     where
-        DV: SortedSetDocValues,
+        DV: SortedDocValues,
     {
         let len = values.len();
         let mut subs = Vec::with_capacity(len);
         let mut weights = Vec::with_capacity(len);
 
         for dv in values.iter_mut() {
-            let count = dv.get_value_count()?;
+            let count = dv.get_value_count()? as i64;
             subs.push(Some(dv.terms_enum()?));
             weights.push(count);
         }
