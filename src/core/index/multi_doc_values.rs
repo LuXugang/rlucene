@@ -839,14 +839,19 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
     use crate::core::document::document::Document;
     use crate::core::document::field::FieldBase;
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+    use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+    use crate::core::index::BytesRef;
+    use crate::core::index::binary_doc_values::BinaryDocValues;
     use crate::core::index::doc_values_iterator::DocValuesIterator;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::numeric_doc_values::NumericDocValues;
+    use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::error::lucene_error::Result;
@@ -929,7 +934,178 @@ mod tests {
         )?;
         Ok(())
     }
+    #[test]
+    fn test_binary() -> Result<()> {
+        let mut random = random();
 
+        let dir = new_directory_shared(&mut random)?;
+        let mut doc = Document::new();
+
+        let mut field = BinaryDocValuesField::new("bytes", BytesRef::new());
+        doc.add(field.clone());
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let s = TestUtil::random_unicode_string(&mut random);
+            let bytes = BytesRef::from_string(&s);
+
+            field.set_bytes_value(bytes)?;
+            iw.add_document(doc.clone())?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 由于没有实现 force_merge 所以仅生成一个段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有实现 force_merge，所以最终仍然只有一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+
+        // TODO force_merge 未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi =
+            MultiDocValues::get_binary_values(ir.clone(), "bytes")?.expect("multi should exist");
+        let mut single = merged
+            .get_binary_doc_values("bytes")?
+            .expect("single should exist");
+
+        for i in 0..num_docs {
+            assert_eq!(i, multi.next_doc()?);
+            assert_eq!(i, single.next_doc()?);
+
+            let expected = single.binary_value()?.clone();
+            let actual = multi.binary_value()?.clone();
+
+            assert_eq!(expected, actual);
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_binary_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_binary_values(ir.clone(), "bytes")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_binary_doc_values("bytes")?.unwrap(),
+            &mut MultiDocValues::get_binary_values(ir.clone(), "bytes")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sorted_numeric() -> Result<()> {
+        let mut random = random();
+
+        let dir = new_directory_shared(&mut random)?;
+
+        // TODO 这里需要使用带分词器的构造方法
+        // TODO 合并策略未实现
+        let iwc = new_index_writer_config(&mut random);
+
+        let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let num_docs = if is_night_mode() {
+            at_least(&mut random, 500)
+        } else {
+            at_least(&mut random, 50)
+        };
+
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let num_values = random.random_range(0..5);
+
+            for _ in 0..num_values {
+                let v = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
+                doc.add(SortedNumericDocValuesField::new("nums", v));
+            }
+
+            iw.add_document(doc)?;
+
+            if random.random_range(0..17) == 0 {
+                // TODO 没有实现 force_merge，因此只生成单段
+                // iw.commit()?;
+            }
+        }
+
+        // TODO 由于没有 force_merge，仍然只有一个段
+        iw.commit()?;
+
+        let ir = Arc::new(iw.get_reader()?);
+
+        // TODO force_merge 未实现
+        // iw.force_merge(1)?;
+        let ir2 = Arc::new(iw.get_reader()?);
+        let merged = get_only_leaf_reader(ir2.clone())?;
+        iw.close()?;
+
+        let mut multi_opt = MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?;
+        let mut single_opt = merged.get_sorted_numeric_doc_values("nums")?;
+
+        match (multi_opt.as_mut(), single_opt.as_mut()) {
+            (None, None) => {
+                // pass
+            },
+            (Some(multi), Some(single)) => {
+                for i in 0..num_docs {
+                    if i > single.doc_id() {
+                        assert_eq!(single.next_doc()?, multi.next_doc()?);
+                    }
+
+                    if i == single.doc_id() {
+                        let single_count = single.doc_value_count()?;
+                        let multi_count = multi.doc_value_count()?;
+                        assert_eq!(single_count, multi_count);
+
+                        for _ in 0..single_count {
+                            let sv = single.next_value()?;
+                            let mv = multi.next_value()?;
+                            assert_eq!(sv, mv);
+                        }
+                    }
+                }
+            },
+            _ => {
+                unreachable!(
+                    "multi and single SortedNumericDocValues mismatch: one is None and the other is Some"
+                );
+            },
+        }
+
+        test_random_advance(
+            &mut random,
+            &mut merged.get_sorted_numeric_doc_values("nums")?.unwrap(),
+            &mut MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?.unwrap(),
+        )?;
+
+        test_random_advance_exact(
+            &mut random,
+            &mut merged.get_sorted_numeric_doc_values("nums")?.unwrap(),
+            &mut MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?.unwrap(),
+            merged.max_doc()?,
+        )?;
+
+        Ok(())
+    }
     fn test_random_advance<I1, I2, R: Rng + ?Sized>(
         random: &mut R,
         iter1: &mut I1,
