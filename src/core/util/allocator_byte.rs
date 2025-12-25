@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::core::util::{BYTE_BLOCK_SIZE, Counter, SharedCounter};
 
@@ -128,48 +123,5 @@ impl AllocatorByte for AllocatorByteEnum {
             AllocatorByteEnum::DA(da) => da.get_block_size(),
             AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
         }
-    }
-}
-
-pub(crate) trait Allocator {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize);
-    fn get_byte_block(&mut self) -> Vec<u8>;
-    fn get_block_size(&self) -> usize;
-    fn get_used(&self) -> i64;
-}
-
-impl Allocator for Rc<RefCell<AllocatorByteEnum>> {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
-        self.borrow_mut().recycle_byte_blocks(blocks, start, end)
-    }
-
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        self.borrow_mut().get_byte_block()
-    }
-
-    fn get_block_size(&self) -> usize {
-        self.borrow().get_block_size()
-    }
-
-    fn get_used(&self) -> i64 {
-        self.borrow().get_used()
-    }
-}
-
-impl Allocator for Arc<Mutex<AllocatorByteEnum>> {
-    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
-        self.lock().recycle_byte_blocks(blocks, start, end)
-    }
-
-    fn get_byte_block(&mut self) -> Vec<u8> {
-        self.lock().get_byte_block()
-    }
-
-    fn get_block_size(&self) -> usize {
-        self.lock().get_block_size()
-    }
-
-    fn get_used(&self) -> i64 {
-        self.lock().get_used()
     }
 }
