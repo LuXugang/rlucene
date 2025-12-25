@@ -511,3 +511,80 @@ impl<'a> Sorter for InPlaceMergeSorterSorter<'a> {
         Ok(())
     }
 }
+#[cfg(test)]
+mod tests {
+
+    use crate::core::util::error::lucene_error::Result;
+
+    #[allow(dead_code)] // for quick search
+    struct TestOrdinalMap;
+
+    #[test]
+    fn test_ram_bytes_used() -> Result<()> {
+        // TODO: memory calculation not implemented
+        Ok(())
+    }
+
+    /// Tests the case where one segment contains all of the global ords.
+    /// In this case, we apply a small optimization and hardcode the first segment indices and global ord deltas as all zeroes.
+    #[test]
+    fn test_one_segment_with_all_values() -> Result<()> {
+        // TODO 需要完成force_merge 才能正常运行
+        // let mut random = random();
+        //
+        // let dir = new_directory_shared(&mut random)?;
+        //
+        // // TODO 这里需要使用带分词器的构造方法
+        // // TODO NoMergePolicy 未实现/未接入
+        // let cfg = new_index_writer_config(&mut random);
+        //
+        // let iw = IndexWriter::new(dir.clone(), cfg)?;
+        //
+        // let num_terms = 1000;
+        //
+        // for i in 0..num_terms {
+        //     let mut d = Document::new();
+        //     let term = i.to_string();
+        //     d.add(SortedDocValuesField::new("sdv", BytesRef::from_string(term.as_str())));
+        //     iw.add_document(d)?;
+        // }
+        //
+        // // TODO force_merge 未实现
+        // // iw.force_merge(1)?;
+        //
+        // for _ in 0..10 {
+        //     let mut d = Document::new();
+        //     let term = random.random_range(0..num_terms).to_string();
+        //     d.add(SortedDocValuesField::new("sdv", BytesRef::from_string(term.as_str())));
+        //     iw.add_document(d)?;
+        // }
+        //
+        // iw.commit()?;
+        //
+        // let r = directory_reader_util::open_with_writer(&iw)?;
+        //
+        // let sdv = MultiDocValues::get_sorted_values(r, "sdv")?;
+        // assert!(sdv.is_some());
+        // let sdv = sdv.unwrap();
+        //
+        // // Check that the optimization kicks in.
+        // let map = match sdv {
+        //     Either2SortedDocValues::B(ref msdv) => &msdv.mapping,
+        //     _ => unreachable!("sdv should be MultiSortedDocValues"),
+        // };
+        //
+        // assert!(matches!(map.first_segments, Either2LongValues::B(_)));
+        // assert!(matches!(map.global_ord_deltas, Either2LongValues::B(_)));
+        //
+        // // Check the map's basic behavior.
+        // assert_eq!(num_terms as i64, map.get_value_count());
+        // for i in 0..num_terms {
+        //     assert_eq!(0, map.get_first_segment_number(i as i64)?);
+        //     assert_eq!(i as i64, map.get_first_segment_ord(i as i64)?);
+        // }
+        //
+        // iw.close()?;
+
+        Ok(())
+    }
+}
