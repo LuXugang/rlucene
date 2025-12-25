@@ -16,10 +16,6 @@
  */
 use crate::core::index::indexing_chain::IntBlockAllocator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
 /// # Internal
 /// A pool for int blocks similar to `ByteBlockPool`.
 pub struct IntBlockPool {
@@ -132,10 +128,6 @@ impl IntBlockPool {
         &self.buffers[buffer_index as usize]
     }
 }
-// for single thread
-pub type IntBlockPoolBorrow = Rc<RefCell<IntBlockPool>>;
-// for multi thread
-pub type IntBlockPoolLock = Arc<Mutex<IntBlockPool>>;
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {

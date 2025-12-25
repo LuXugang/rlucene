@@ -432,9 +432,6 @@ where
             self.bytes_used.add_and_get(0);
         }
     }
-    // pub fn set_bytes_start_array(&mut self, bytes_start_array:
-    // Rc<RefCell<BytesStartArrayEnum>>) {     self.bytes_start_array =
-    // bytes_start_array; }
     /// Returns the `bytesStart` offset into the internally used
     /// `SingleThreadedByteBlockPool` for the given `bytes_id`.
     ///
