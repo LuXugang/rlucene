@@ -29,8 +29,8 @@ pub(crate) struct TermsEnumIndex<TE>
 where
     TE: TermsEnum,
 {
-    sub_index: i32,
-    terms_enum: Option<TE>,
+    pub(crate) sub_index: i32,
+    pub(crate) terms_enum: Option<TE>,
     current_term: Option<BytesRef<Vec<u8>>>,
     current_term_prefix8: i64,
 }
@@ -152,12 +152,19 @@ where
         )
     }
 }
+/// Wrapper around a term that allows for quick equals comparisons.
 pub(crate) struct TermState {
     term: BytesRefBuilder<Vec<u8>>,
     pub(crate) term_prefix8: i64,
 }
 impl TermState {
-    pub fn copy_from<TE: TermsEnum>(&mut self, tei: &TermsEnumIndex<TE>) -> Result<()> {
+    pub(crate) fn new() -> Self {
+        Self {
+            term: BytesRefBuilder::new(),
+            term_prefix8: 0,
+        }
+    }
+    pub(crate) fn copy_from<TE: TermsEnum>(&mut self, tei: &TermsEnumIndex<TE>) -> Result<()> {
         match tei.term() {
             Some(t) => {
                 self.term.copy_bytes_with_ref(t);

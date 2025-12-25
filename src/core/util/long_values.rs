@@ -35,6 +35,17 @@ pub trait LongValues {
     }
 }
 
+pub struct Identity;
+impl LongValues for Identity {
+    fn get_mut(&mut self, index: i64) -> Result<i64> {
+        Ok(index)
+    }
+
+    fn get(&self, index: i64) -> Result<i64> {
+        Ok(index)
+    }
+}
+
 pub struct Zeroes;
 impl LongValues for Zeroes {
     fn get_mut(&mut self, _index: i64) -> Result<i64> {
@@ -79,5 +90,6 @@ macro_rules! either_long_values {
     };
 }
 either_long_values!(pub Either2LongValues { A: A, B: B });
+either_long_values!(pub Either3LongValues { A: A, B: B, C:C });
 either_long_values!(pub Either5LongValues { A:A,B:B,C:C,D:D,E:E });
 either_long_values!(pub Either16LongValues { A:A,B:B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K,L:L,M:M,N:N,O:O,P:P});

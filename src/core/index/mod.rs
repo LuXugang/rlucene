@@ -112,6 +112,7 @@ pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 pub(crate) mod numeric_doc_values_writer;
 pub mod ord_term_state;
+pub mod ordinal_map;
 mod parallel_postings_array;
 pub(crate) mod pending_deletes;
 pub(crate) mod pending_soft_deletes;
