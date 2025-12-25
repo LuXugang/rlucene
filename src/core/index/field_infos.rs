@@ -28,7 +28,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use once_cell::sync::Lazy;
-use parking_lot::lock_api::Mutex;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -392,6 +392,7 @@ pub(crate) struct FieldProperties {
     pub field_vector_properties: FieldVectorProperties,
 }
 
+pub(crate) type FieldNumbersLock = Arc<Mutex<FieldNumbers>>;
 pub(crate) struct FieldNumbers {
     number_to_name: HashMap<i32, String>,
     field_properties: HashMap<String, FieldProperties>,
@@ -779,9 +780,9 @@ impl FieldNumbers {
 }
 pub mod build {
     use crate::core::index::field_info::FieldInfo;
-    use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
+    use crate::core::index::field_infos::{FieldInfos, FieldNumbersLock};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use parking_lot::Mutex;
+
     use std::collections::HashMap;
 
     use std::sync::Arc;
@@ -790,11 +791,11 @@ pub mod build {
 
     pub struct Builder {
         by_name: HashMap<String, Arc<FieldInfo>>,
-        global_field_numbers: Arc<Mutex<FieldNumbers>>,
+        global_field_numbers: FieldNumbersLock,
         finished: AtomicBool,
     }
     impl Builder {
-        pub(crate) fn new(global_field_numbers: Arc<Mutex<FieldNumbers>>) -> Self {
+        pub(crate) fn new(global_field_numbers: FieldNumbersLock) -> Self {
             Self {
                 by_name: HashMap::new(),
                 global_field_numbers,

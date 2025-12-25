@@ -57,6 +57,7 @@ where
     data: I,
     merging: bool,
 
+    // reused slice while merging
     disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::Slice>>>>,
     #[allow(clippy::type_complexity)]
     disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,

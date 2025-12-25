@@ -54,7 +54,7 @@ where
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
     // TODO: IMPORTANT 必须要用Mutext封装吗
-    pub(crate) global_field_number_map: Arc<Mutex<FieldNumbers>>,
+    pub(crate) global_field_number_map: FieldNumbersLock,
     doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
     write_doc_values_lock: ReentrantMutex<()>,
@@ -4383,7 +4383,7 @@ use crate::core::index::doc_values_update::{
 };
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
-use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;

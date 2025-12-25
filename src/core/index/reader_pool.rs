@@ -534,7 +534,7 @@ mod tests {
         DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
     };
     use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-    use crate::core::index::field_infos::FieldNumbers;
+    use crate::core::index::field_infos::FieldNumbersLock;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::leaf_reader::LeafReader;
@@ -556,7 +556,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, random,
     };
-    use parking_lot::Mutex;
+
     use rand::Rng;
     use std::sync::Arc;
 
@@ -988,7 +988,7 @@ mod tests {
     fn build_index<D: Directory, R: Rng + ?Sized>(
         directory: Arc<D>,
         random: &mut R,
-    ) -> Result<(Arc<Mutex<FieldNumbers>>, i32)> {
+    ) -> Result<(FieldNumbersLock, i32)> {
         let writer = IndexWriter::new(directory, new_index_writer_config(random))?;
         for i in 0..10 {
             let mut document = Document::new();

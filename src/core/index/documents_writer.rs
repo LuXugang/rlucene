@@ -21,7 +21,7 @@ use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushCont
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
-use crate::core::index::field_infos::FieldNumbers;
+use crate::core::index::field_infos::FieldNumbersLock;
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -886,7 +886,7 @@ where
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
     pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
-    field_numbers: Arc<Mutex<FieldNumbers>>,
+    field_numbers: FieldNumbersLock,
 }
 impl<D, L> SupplierImpl2<D, L>
 where
@@ -900,7 +900,7 @@ where
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         config: Arc<L>,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
-        field_numbers: Arc<Mutex<FieldNumbers>>,
+        field_numbers: FieldNumbersLock,
         pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
     ) -> Self {
