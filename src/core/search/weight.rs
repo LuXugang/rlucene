@@ -50,7 +50,7 @@ use std::sync::Arc;
 /// so that a [`Query`] instance can be reused.
 ///
 /// - [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher)-dependent state of the query should reside in the [`Weight`].
-/// - [`LeafReader`](crate::core::index::leaf_reader::LeafReader)-dependent state should reside in the [`Scorer`].
+/// - [`LeafReader`]-dependent state should reside in the [`Scorer`].
 ///
 /// Since [`Weight`] creates [`Scorer`] instances for a given [`LeafReaderContext`]
 /// (via [`Weight::scorer`]), callers must maintain the relationship between the
@@ -72,7 +72,7 @@ where
     ///
     /// A query match that contains no position information (for example, a
     /// Point or DocValues query) will return
-    /// [`MatchesUtils::MATCH_WITH_NO_TERMS`].
+    /// [`MatchesUtils::MATCH_WITH_NO_TERMS`](crate::core::search::matches_utils::MATCH_WITH_NO_TERMS).
     ///
     /// # Parameters
     /// - `context`: the reader's context to create the [`Matches`] for
@@ -129,7 +129,7 @@ where
     /// # Notes
     ///
     /// - May return `None` if no documents will be scored by this query.
-    /// - The returned [`Scorer`] does **not** have [`LeafReader::get_live_docs`](crate::core::index::leaf_reader::LeafReader::get_live_docs)
+    /// - The returned [`Scorer`] does **not** have [`LeafReader::get_live_docs`]
     ///   applied; callers must check live docs on top.
     ///
     /// # Parameters
@@ -214,8 +214,8 @@ where
     ///
     /// - Specific query classes should override this to provide other accurate
     ///   sub-linear implementations (that actually return the count).
-    ///   For example, see how [`MatchAllDocsQuery::create_weight`] does it.
-    /// - This method is used by [`IndexSearcher::count`] to count hits.
+    ///   For example, see how [`MatchAllDocsQuery::create_weight`](crate::core::search::match_all_docs_query::MatchAllDocsQuery::create_weight) does it.
+    /// - This method is used by [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count) to count hits.
     ///
     /// # Parameters
     ///

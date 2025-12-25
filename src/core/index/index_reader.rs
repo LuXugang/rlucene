@@ -137,7 +137,7 @@ pub trait IndexReader: Display {
     /// See [`Terms::get_doc_count`](crate::core::index::terms::Terms::get_doc_count).
     fn get_doc_count(&self, field: &str) -> Result<i32>;
 
-    /// Returns the sum of [`TermsEnum::total_term_freq`] for all terms in this field.
+    /// Returns the sum of [`TermsEnum::total_term_freq`](crate::core::index::terms_enum::TermsEnum::total_term_freq) for all terms in this field.
     /// Note that, just like other term measures, this measure does not take
     /// deleted documents into account.
     ///

@@ -18,7 +18,7 @@ use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::index_searcher::LeafSlice;
 use crate::core::search::total_hit_count_collector::TotalHitCountCollector;
 
-/// Collector manager based on [`TotalHitCountCollector`](crate::core::search::total_hit_count_collector::TotalHitCountCollector) that allows users to parallelize
+/// Collector manager based on [`TotalHitCountCollector`] that allows users to parallelize
 /// counting the number of hits, expected to be used mostly wrapped in [`MultiCollectorManager`](crate::core::search::multi_collector_manager::MultiCollectorManager).
 ///
 /// For cases when this is the only collector manager used, [`IndexSearcher::count(query)`](crate::core::search::index_searcher::IndexSearcher::count)
@@ -29,7 +29,7 @@ pub struct TotalHitCountCollectorManager {
 }
 impl TotalHitCountCollectorManager {
     /// Creates a new total hit count collector manager, providing the array of leaf slices that search
-    /// targets, which can be retrieved via [`IndexSearcher::get_slices`](crate::core::search::index_searcher::IndexSearcher::get_slices_ref) for the searcher.
+    /// targets, which can be retrieved via [`IndexSearcher::get_slices`](crate::core::search::index_searcher::IndexSearcher::get_slices) for the searcher.
     ///
     /// # Parameters
     /// - `leaf_slices`: the slices that the searcher targets.

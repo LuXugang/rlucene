@@ -23,7 +23,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 
 /// Base implementation for a concrete [`Directory`] that uses a
-/// [`LockFactory`](crate::core::store::lock_factory::LockFactory) for locking.
+/// [`LockFactory`] for locking.
 ///
 /// # Note
 /// This is an experimental API.

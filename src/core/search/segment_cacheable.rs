@@ -18,7 +18,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 
-/// Interface defining whether or not an object can be cached against a [`LeafReader`](crate::core::index::leaf_reader::LeafReader)
+/// Interface defining whether or not an object can be cached against a [`LeafReader`]
 ///
 /// Objects that depend only on segment-immutable structures such as Points or postings lists can
 /// just return `Ok(true)` from [`SegmentCacheable::is_cacheable`].

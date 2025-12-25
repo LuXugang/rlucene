@@ -39,7 +39,7 @@ pub struct FieldDoc {
     ///
     /// See also:
     /// - [`Sort`]
-    /// - [`IndexSearcher::search`](`crate::core::search::IndexSearcher::search`)
+    /// - [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search)
     pub fields: Vec<FieldsValue>,
 }
 

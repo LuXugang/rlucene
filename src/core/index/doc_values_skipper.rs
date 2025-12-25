@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// A skipper has a position that can only be advanced via
 /// [`advance(target)`](DocValuesSkipper::advance). The next advance position
-/// must be greater than [`max_doc_id(0)`](DocValuesSkipper::max_doc_id).
+/// must be greater than [`max_doc_id(0)`](DocValuesSkipper::max_doc_id_with_level).
 /// A skipper's position, along with a `level`, determines the interval at which
 /// the skipper is currently situated.
 pub trait DocValuesSkipper {

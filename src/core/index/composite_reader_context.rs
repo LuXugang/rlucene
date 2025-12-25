@@ -24,7 +24,7 @@ use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
-/// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext) for CompositeReader instance.
+/// [`IndexReaderContext`] for CompositeReader instance.
 pub struct CompositeReaderContext<CR>
 where
     CR: CompositeReader,

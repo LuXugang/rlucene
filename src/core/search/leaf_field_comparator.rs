@@ -33,7 +33,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Expert: comparator that gets instantiated on each leaf from a top-level
-/// [`FieldComparator`](crate::core::search::field_comparator::FieldComparator)
+/// [`FieldComparator`]
 /// instance.
 ///
 /// A leaf comparator must define these functions:
@@ -48,14 +48,14 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///   (docID) against the "weakest" (bottom) entry in the queue.
 /// - [`compare_top`](LeafFieldComparator::compare_top) Compares a new hit
 ///   (docID) against the top value previously set by a call to
-///   [`FieldComparator::set_top_value`](crate::core::search::field_comparator::FieldComparator::set_top_value).
+///   [`FieldComparator::set_top_value`].
 /// - [`copy`](LeafFieldComparator::copy) Installs a new hit into the priority
 ///   queue. The
 ///   [`FieldValueHitQueue`](crate::core::search::field_value_hit_queue::FieldValueHitQueue)
 ///   calls this method when a new hit is competitive.
 ///
 /// # See Also
-/// - [`FieldComparator`](crate::core::search::field_comparator::FieldComparator)
+/// - [`FieldComparator`]
 ///
 /// # Lucene Experimental
 /// This API is experimental and may change in future versions.

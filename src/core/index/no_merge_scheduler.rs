@@ -25,13 +25,13 @@ use crate::core::util::error::lucene_error::Result;
 /// A [`MergeScheduler`] which never executes any merges.
 ///
 /// Use it if you want to prevent an [`IndexWriter`] from ever executing merges,
-/// regardless of the [`MergePolicy`] used.
+/// regardless of the [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) used.
 ///
-/// Note that you can achieve the same thing by using [`NoMergePolicy`].
+/// Note that you can achieve the same thing by using [`NoMergePolicy`](crate::core::index::no_merge_policy::NoMergePolicy).
 /// However, with [`NoMergeScheduler`] you also ensure that no unnecessary code
 /// of any [`MergeScheduler`] implementation is ever executed.
 ///
-/// Hence, it is recommended to use both [`NoMergePolicy`] and
+/// Hence, it is recommended to use both [`NoMergePolicy`](crate::core::index::no_merge_policy::NoMergePolicy) and
 /// [`NoMergeScheduler`] if you want to disable merges from ever happening.
 pub struct NoMergeScheduler;
 impl Default for NoMergeScheduler {

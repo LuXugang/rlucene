@@ -207,5 +207,5 @@ pub const DEFAULT_USE_COMPOUND_FILE_SYSTEM: bool = true;
 pub const DEFAULT_COMMIT_ON_CLOSE: bool = true;
 
 /// Default value for time to wait for merges on commit or getReader (when using a
-/// [`MergePolicy`] that implements [`MergePolicy::find_full_flush_merges`]).
+/// [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) that implements [`MergePolicy::find_full_flush_merges`](crate::core::index::merge_policy::MergePolicy::find_full_flush_merges)).
 pub const DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS: i64 = 500;

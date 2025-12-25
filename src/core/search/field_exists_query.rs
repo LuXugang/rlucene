@@ -56,7 +56,7 @@ pub struct FieldExistsQuery {
     field: String,
 }
 impl FieldExistsQuery {
-    /// Create a query that will match that have a value for the given [`field`].
+    /// Create a query that will match that have a value for the given `field`.
     pub fn new<T>(field: T) -> Self
     where
         T: Into<String>,

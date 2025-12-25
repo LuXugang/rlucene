@@ -24,7 +24,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::Result;
 
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
-/// and backed by a [`ByteBuffersDataInput`](ByteBuffersDataInput).
+/// and backed by a [`ByteBuffersDataInput`].
 pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
 pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 

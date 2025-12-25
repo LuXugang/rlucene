@@ -640,7 +640,7 @@ where
     /// segment in non-compound format even when using compound files (when a merge has partially succeeded).
     ///
     /// This method periodically flushes pending documents to the `Directory` (see [flush](Self::flush), and
-    /// also periodically triggers segment merges in the index according to the [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) in use.
+    /// also periodically triggers segment merges in the index according to the [`MergePolicy`] in use.
     ///
     /// Merges temporarily consume space in the directory. The amount of space required is up to 1× the
     /// size of all segments being merged when no readers/searchers are open against the index, and up
@@ -1265,7 +1265,7 @@ where
     /// Just like [`IndexWriter::force_merge`], except you can specify whether the call
     /// should block until all merging completes.
     ///
-    /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
+    /// This is only meaningful with a [`MergeScheduler`](crate::core::index::merge_scheduler::MergeScheduler) that is able to run merges
     /// in background threads.
     pub fn force_merge_with_wait(&self, max_num_segments: i32, do_wait: bool) -> Result<()> {
         self.ensure_open()?;

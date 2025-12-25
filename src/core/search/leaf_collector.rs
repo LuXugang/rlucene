@@ -24,7 +24,7 @@ pub trait LeafCollector: Display {
     /// Called before successive calls to [`LeafCollector::collect`].
     ///
     /// Implementations that need the score of the current document (passed in
-    /// to `collect`) should save the passed-in [`Scorer`] and call
+    /// to `collect`) should save the passed-in [`Scorer`](crate::core::search::scorer::Scorer) and call
     /// `scorer.score()` when needed.
     fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
     where

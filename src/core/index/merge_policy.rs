@@ -47,23 +47,23 @@ pub(crate) const DEFAULT_NO_CFS_RATIO: f64 = 1.0;
 pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
 /// Expert: a `MergePolicy` determines the sequence of primitive merge operations.
 ///
-/// Whenever the segments in an index have been altered by [`IndexWriter`], either by:
+/// Whenever the segments in an index have been altered by [`IndexWriter`](crate::core::index::index_writer::IndexWriter), either by:
 /// - the addition of a newly flushed segment,
 /// - the addition of many segments from `addIndexes*` calls, or
 /// - a previous merge that may now need to cascade,
 ///
-/// [`IndexWriter`] invokes [`Self::find_merges`] to give the `MergePolicy` a chance to
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) invokes [`Self::find_merges`] to give the `MergePolicy` a chance to
 /// select merges that are now required.
 ///
 /// This method returns a [`MergeSpecification`] describing the set of merges
 /// that should be executed, or `None` if no merges are necessary.
 ///
-/// When [`IndexWriter::force_merge`] is called, it invokes
+/// When [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) is called, it invokes
 /// [`Self::find_forced_merges`] and the `MergePolicy` should then return the merges
 /// required to satisfy that request.
 ///
 /// Note that a policy may return more than one merge at a time.
-/// - When using [`SerialMergeScheduler`], these merges are run sequentially.
+/// - When using [`SerialMergeScheduler`](crate::core::index::serial_merge_scheduler::SerialMergeScheduler), these merges are run sequentially.
 /// - When using [`ConcurrentMergeScheduler`], they may run concurrently.
 ///
 /// The default merge policy is [`TieredMergePolicy`].
@@ -71,8 +71,8 @@ pub trait MergePolicy: Display {
     fn get_base(&self) -> &MergePolicyBase;
     fn get_base_mut(&mut self) -> &mut MergePolicyBase;
     /// Determine what set of merge operations are now necessary on the index.
-    /// [`IndexWriter`] calls this whenever there is a change to the segments.
-    /// This call is always synchronized on the [`IndexWriter`] instance so only
+    /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this whenever there is a change to the segments.
+    /// This call is always synchronized on the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) instance so only
     /// one thread at a time will call this method.
     ///
     /// * `merge_trigger` — the event that triggered the merge  
@@ -110,9 +110,9 @@ pub trait MergePolicy: Display {
     // }
 
     ///   Determine what set of merge operations is necessary in order to merge to
-    ///   `<=` the specified segment count. [`IndexWriter`] calls this when its
+    ///   `<=` the specified segment count. [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this when its
     ///   `forceMerge` method is invoked. This call is always synchronized on the
-    ///   [`IndexWriter`] instance so only one thread at a time will call it.
+    ///   [`IndexWriter`](crate::core::index::index_writer::IndexWriter) instance so only one thread at a time will call it.
     ///
     /// * `segment_infos` — the total set of segments in the index  
     /// * `max_segment_count` — requested maximum number of segments  
@@ -149,12 +149,12 @@ pub trait MergePolicy: Display {
     /// [`max_full_flush_merge_size`] (the max segment size for full flushes).
     ///
     /// Any merges returned here will make:
-    /// - [`IndexWriter::commit`],
-    /// - [`IndexWriter::prepare_commit`] or
-    /// - [`IndexWriter::get_reader`]
+    /// - [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit),
+    /// - [`IndexWriter::prepare_commit`](crate::core::index::index_writer::IndexWriter::prepare_commit) or
+    /// - [`IndexWriter::get_reader`](crate::core::index::index_writer::IndexWriter::get_reader)
     ///
     /// block until the merges complete, or until
-    /// [`IndexWriterConfig::get_max_full_flush_merge_wait_millis`] has elapsed.
+    /// [`IndexWriterConfig::get_max_full_flush_merge_wait_millis`](crate::core::index::index_writer_config::IndexWriterConfig::get_max_full_flush_merge_wait_millis) has elapsed.
     ///
     /// This may be used to merge small segments that have just been flushed,
     /// reducing the number of segments in the point-in-time snapshot. If a merge
@@ -164,7 +164,7 @@ pub trait MergePolicy: Display {
     ///
     /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
     /// that is already included in a registered merge, then
-    /// [`IndexWriter::commit`] or [`IndexWriter::prepare_commit`] will throw an
+    /// [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit) or [`IndexWriter::prepare_commit`](crate::core::index::index_writer::IndexWriter::prepare_commit) will throw an
     /// error. Use [`MergeContext::get_merging_segments`] to determine which
     /// segments are currently registered to merge.
     ///
@@ -235,7 +235,7 @@ pub trait MergePolicy: Display {
     /// The default implementation returns `true` iff:
     ///
     /// - the size of the given `merged_info` is less than or equal to
-    ///   [`get_max_cfs_segment_size_mb`], **and**
+    ///   [`MergePolicyBase::get_max_cfs_segment_size_mb`], **and**
     /// - the size is less than or equal to `total_index_size * get_no_cfs_ratio()`
     ///
     /// otherwise returns `false`.

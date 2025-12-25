@@ -33,7 +33,7 @@ pub(crate) type SegmentToGlobalOrds =
 
 impl OrdinalMap {
     /// Create an ordinal map that uses the number of unique values of each
-    /// [`SortedSetDocValues`] instance as a weight.
+    /// [`SortedSetDocValues`](crate::core::index::sorted_set_doc_values::SortedSetDocValues) instance as a weight.
     ///
     /// See [`OrdinalMap::build`].
     pub fn build_from_sorted<DV>(

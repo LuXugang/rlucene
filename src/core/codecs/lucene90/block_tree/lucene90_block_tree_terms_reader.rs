@@ -46,7 +46,7 @@ use std::sync::Arc;
 /// indexing to control how much memory the terms index uses.
 ///
 /// The data structure used by this implementation is very similar to a [burst
-/// trie] (http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.18.3499), but with added logic to break
+/// trie](https://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.18.3499), but with added logic to break
 /// up too-large blocks of all terms sharing a given prefix into smaller ones.
 ///
 /// Use `CheckIndex` with the `-verbose` option to see summary statistics on the
