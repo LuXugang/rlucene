@@ -57,6 +57,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
@@ -1062,10 +1063,10 @@ impl TVFields {
     }
 }
 impl Fields for TVFields {
-    type FieldIter<'a> = std::slice::Iter<'a, String>;
+    type FieldIter<'a> = VecIter<'a>;
 
     fn iterator(&self) -> Self::FieldIter<'_> {
-        self.names.iter()
+        self.names.iter_ext()
     }
 
     type Terms = TVTerms;

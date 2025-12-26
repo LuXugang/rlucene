@@ -367,55 +367,61 @@ where
     {
         #[cfg(debug_assertions)]
         let mut last_field: Option<String> = None;
-        let field_names = fields.iterator();
-        for field in field_names {
-            #[cfg(debug_assertions)]
-            {
-                debug_assert!({
-                    let v = last_field.is_none()
-                        || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
-                    last_field = Some(field.clone());
-                    v
-                });
-            }
+        let mut field_names = fields.iterator();
+        while field_names.has_next()? {
+            match field_names.next()? {
+                Some(field) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        debug_assert!({
+                            let v = last_field.is_none()
+                                || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
+                            last_field = Some(field.clone());
+                            v
+                        });
+                    }
 
-            let field_info = self.field_infos.field_info_by_name(field);
-            if field_info.is_none() {
-                return Err(LuceneError::illegal_state(format!(
-                    "Missing fields:{field}"
-                )));
-            }
-            let terms_opt = fields.terms(field)?;
-            if terms_opt.is_none() {
-                continue;
-            }
-            let terms = terms_opt.unwrap();
-            let mut terms_enum = terms.iterator()?;
-            //
+                    let field_info = self.field_infos.field_info_by_name(field);
+                    if field_info.is_none() {
+                        return Err(LuceneError::illegal_state(format!(
+                            "Missing fields:{field}"
+                        )));
+                    }
+                    let terms_opt = fields.terms(field)?;
+                    if terms_opt.is_none() {
+                        continue;
+                    }
+                    let terms = terms_opt.unwrap();
+                    let mut terms_enum = terms.iterator()?;
+                    //
 
-            let mut terms_writer = TermsWriter::new(
-                field_info.as_ref().unwrap().clone(),
-                self.max_doc,
-                &mut self.postings_writer,
-                self.min_items_in_block,
-                self.max_items_in_block,
-                self.version,
-                &mut self.terms_out,
-            );
-            let mut reuse = None;
-            loop {
-                let text = terms_enum.next()?;
-                if text.is_none() {
-                    break;
-                }
-                let byte_ref = text.as_ref().unwrap();
-                // clone here is Ok, then we do not clone while init PendingTerm;
-                let text = BytesRef::from_bytes(
-                    byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length].to_vec(),
-                );
-                reuse = terms_writer.write(text, &mut terms_enum, norms, reuse)?;
+                    let mut terms_writer = TermsWriter::new(
+                        field_info.as_ref().unwrap().clone(),
+                        self.max_doc,
+                        &mut self.postings_writer,
+                        self.min_items_in_block,
+                        self.max_items_in_block,
+                        self.version,
+                        &mut self.terms_out,
+                    );
+                    let mut reuse = None;
+                    loop {
+                        let text = terms_enum.next()?;
+                        if text.is_none() {
+                            break;
+                        }
+                        let byte_ref = text.as_ref().unwrap();
+                        // clone here is Ok, then we do not clone while init PendingTerm;
+                        let text = BytesRef::from_bytes(
+                            byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length]
+                                .to_vec(),
+                        );
+                        reuse = terms_writer.write(text, &mut terms_enum, norms, reuse)?;
+                    }
+                    terms_writer.finish(&mut self.fields, &mut self.index_out)?;
+                },
+                None => break,
             }
-            terms_writer.finish(&mut self.fields, &mut self.index_out)?;
         }
         Ok(())
     }
@@ -1324,6 +1330,7 @@ enum PendingEntryEnum {
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
     OUTPUT_FLAG_HAS_TERMS, OUTPUT_FLAG_IS_FLOOR,
 };
+use crate::core::util::iterator::IteratorExt;
 
 pub(crate) const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
 pub(crate) const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;

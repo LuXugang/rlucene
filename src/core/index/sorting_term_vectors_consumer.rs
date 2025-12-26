@@ -39,6 +39,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::{IOUtils, ToInt};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -85,8 +86,14 @@ where
         let mut num_fields = vectors.size()?;
         if num_fields == -1 {
             // count manually! TODO: Maybe enforce that Fields.size() returns something valid?
-            for _ in vectors.iterator() {
-                num_fields += 1;
+            let mut iter = vectors.iterator();
+            while iter.has_next()? {
+                match iter.next()? {
+                    Some(_) => {
+                        num_fields += 1;
+                    },
+                    None => break,
+                }
             }
         }
         writer.start_document(num_fields)?;
@@ -94,93 +101,99 @@ where
         let mut docs_and_positions = None;
         let mut field_count = 0;
         let mut terms_enum;
-        for field_name in vectors.iterator() {
-            field_count += 1;
-            let field_info = match field_infos.field_info_by_name(field_name) {
-                Some(fi) => fi,
-                None => {
-                    return Err(LuceneError::illegal_state(format!(
-                        "Field '{field_name}' not found in FieldInfos"
-                    )));
-                },
-            };
-
-            debug_assert!({
-                let v = last_field_name.is_none()
-                    || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
-                last_field_name = Some(field_name.clone());
-                v
-            });
-
-            let terms = match vectors.terms(field_name)? {
-                Some(t) => t,
-                None => continue,
-            };
-
-            let has_positions = terms.has_positions();
-            let has_offsets = terms.has_offsets();
-            let has_payloads = terms.has_payloads();
-            debug_assert!(!has_payloads || has_positions);
-
-            let mut num_terms = terms.size()?;
-            if num_terms == -1 {
-                // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
-                // function
-                num_terms = 0;
-                terms_enum = terms.iterator()?;
-                while terms_enum.next()?.is_some() {
-                    num_terms += 1;
-                }
-            }
-            writer.start_field(
-                &field_info,
-                num_terms as usize,
-                has_positions,
-                has_offsets,
-                has_payloads,
-            )?;
-            terms_enum = terms.iterator()?;
-            let mut term_count = 0;
-            while terms_enum.next()?.is_some() {
-                term_count += 1;
-
-                let freq = terms_enum.total_term_freq()? as i32;
-                writer.start_term(&*terms_enum.term()?, freq)?;
-
-                if has_positions || has_offsets {
-                    docs_and_positions = Some(
-                        terms_enum
-                            .postings_with_flags(docs_and_positions, (OFFSETS | PAYLOADS) as i32)?,
-                    );
-                    match docs_and_positions {
-                        Some(ref mut dap) => {
-                            let doc_id = dap.next_doc()?;
-                            debug_assert!(doc_id != NO_MORE_DOCS);
-                            debug_assert!(dap.freq()? == freq);
-
-                            for _ in 0..freq {
-                                let pos = dap.next_position()?;
-                                let start_offset = dap.start_offset()?;
-                                let end_offset = dap.end_offset()?;
-                                let payload = dap.get_payload()?;
-                                debug_assert!(!has_positions || pos >= 0);
-                                writer.add_position(
-                                    pos,
-                                    start_offset,
-                                    end_offset,
-                                    payload.as_ref().map(Cow::as_ref),
-                                )?;
-                            }
-                        },
+        let mut iter = vectors.iterator();
+        while iter.has_next()? {
+            match iter.next()? {
+                Some(field_name) => {
+                    field_count += 1;
+                    let field_info = match field_infos.field_info_by_name(field_name) {
+                        Some(fi) => fi,
                         None => {
-                            debug_assert!(false, "docs_and_positions is None");
+                            return Err(LuceneError::illegal_state(format!(
+                                "Field '{field_name}' not found in FieldInfos"
+                            )));
                         },
+                    };
+
+                    debug_assert!({
+                        let v = last_field_name.is_none()
+                            || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
+                        last_field_name = Some(field_name.clone());
+                        v
+                    });
+
+                    let terms = match vectors.terms(field_name)? {
+                        Some(t) => t,
+                        None => continue,
+                    };
+
+                    let has_positions = terms.has_positions();
+                    let has_offsets = terms.has_offsets();
+                    let has_payloads = terms.has_payloads();
+                    debug_assert!(!has_payloads || has_positions);
+
+                    let mut num_terms = terms.size()?;
+                    if num_terms == -1 {
+                        // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
+                        // function
+                        num_terms = 0;
+                        terms_enum = terms.iterator()?;
+                        while terms_enum.next()?.is_some() {
+                            num_terms += 1;
+                        }
                     }
-                }
-                writer.finish_term()?;
+                    writer.start_field(
+                        &field_info,
+                        num_terms as usize,
+                        has_positions,
+                        has_offsets,
+                        has_payloads,
+                    )?;
+                    terms_enum = terms.iterator()?;
+                    let mut term_count = 0;
+                    while terms_enum.next()?.is_some() {
+                        term_count += 1;
+
+                        let freq = terms_enum.total_term_freq()? as i32;
+                        writer.start_term(&*terms_enum.term()?, freq)?;
+
+                        if has_positions || has_offsets {
+                            docs_and_positions = Some(terms_enum.postings_with_flags(
+                                docs_and_positions,
+                                (OFFSETS | PAYLOADS) as i32,
+                            )?);
+                            match docs_and_positions {
+                                Some(ref mut dap) => {
+                                    let doc_id = dap.next_doc()?;
+                                    debug_assert!(doc_id != NO_MORE_DOCS);
+                                    debug_assert!(dap.freq()? == freq);
+
+                                    for _ in 0..freq {
+                                        let pos = dap.next_position()?;
+                                        let start_offset = dap.start_offset()?;
+                                        let end_offset = dap.end_offset()?;
+                                        let payload = dap.get_payload()?;
+                                        debug_assert!(!has_positions || pos >= 0);
+                                        writer.add_position(
+                                            pos,
+                                            start_offset,
+                                            end_offset,
+                                            payload.as_ref().map(Cow::as_ref),
+                                        )?;
+                                    }
+                                },
+                                None => {
+                                    debug_assert!(false, "docs_and_positions is None");
+                                },
+                            }
+                        }
+                        writer.finish_term()?;
+                    }
+                    debug_assert!(term_count == num_terms);
+                    writer.finish_field()?;
+                },
+                None => break,
             }
-            debug_assert!(term_count == num_terms);
-            writer.finish_field()?;
         }
         debug_assert!(field_count == num_fields);
         writer.finish_document()?;

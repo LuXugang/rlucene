@@ -18,10 +18,11 @@ use crate::core::index::fields::Fields;
 use crate::core::index::multi_terms::MultiTerms;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::iterator::VecIter;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::iter;
 use std::rc::Rc;
+
 /// Provides a single [`Fields`] term index view over an [`IndexReader`](crate::core::index::index_reader::IndexReader).
 ///
 /// This is useful when interacting with an [`IndexReader`](crate::core::index::index_reader::IndexReader) implementation that consists of
@@ -58,7 +59,7 @@ where
     F: Fields,
 {
     type FieldIter<'a>
-        = iter::Empty<&'a String>
+        = VecIter<'a>
     where
         Self: 'a;
 

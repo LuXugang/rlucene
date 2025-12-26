@@ -16,6 +16,8 @@
  */
 use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::iterator::IteratorExt;
+
 /// Provides a [`Terms`] index for fields that have it, and lists which fields
 /// do.
 ///
@@ -25,7 +27,7 @@ use crate::core::util::error::lucene_error::Result;
 pub trait Fields {
     /// Returns an iterator that will step through all field names.
     /// This will not return `None`.
-    type FieldIter<'a>: Iterator<Item = &'a String>
+    type FieldIter<'a>: IteratorExt<Item = &'a String>
     where
         Self: 'a;
 
@@ -44,31 +46,24 @@ pub trait Fields {
 /// Iterator used by [`FieldsEnum2`].
 pub enum FieldIterEnum2<'a, A, B>
 where
-    A: Iterator<Item = &'a String>,
-    B: Iterator<Item = &'a String>,
+    A: IteratorExt<Item = &'a String>,
+    B: IteratorExt<Item = &'a String>,
 {
     A(A),
     B(B),
 }
 
-impl<'a, A, B> Iterator for FieldIterEnum2<'a, A, B>
+impl<'a, A, B> IteratorExt for FieldIterEnum2<'a, A, B>
 where
-    A: Iterator<Item = &'a String>,
-    B: Iterator<Item = &'a String>,
+    A: IteratorExt<Item = &'a String>,
+    B: IteratorExt<Item = &'a String>,
 {
     type Item = &'a String;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Result<Option<Self::Item>> {
         match self {
             FieldIterEnum2::A(it) => it.next(),
             FieldIterEnum2::B(it) => it.next(),
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            FieldIterEnum2::A(it) => it.size_hint(),
-            FieldIterEnum2::B(it) => it.size_hint(),
         }
     }
 }

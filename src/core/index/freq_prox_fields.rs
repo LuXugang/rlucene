@@ -40,6 +40,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
+use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use crate::core::util::{ByteBlockPool, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -78,12 +79,12 @@ impl FreqProxFields {
 }
 impl Fields for FreqProxFields {
     type FieldIter<'a>
-        = std::slice::Iter<'a, String>
+        = VecIter<'a>
     where
         Self: 'a;
 
     fn iterator(&self) -> Self::FieldIter<'_> {
-        self.keys.iter()
+        self.keys.iter_ext()
     }
 
     type Terms = FreqProxTerms;

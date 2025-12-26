@@ -161,7 +161,7 @@ where
             Some(_) => Ok(self.current.clone()),
         }
     }
-    fn has_next(&mut self) -> Result<bool> {
+    fn has_next(&self) -> Result<bool> {
         if self.queue.size() > 0 {
             return Ok(true);
         }
@@ -232,12 +232,12 @@ mod tests {
 
     #[test]
     fn test_merge_empty() -> Result<()> {
-        let mut merged: MergedIterator<EmptyIter<i32>> =
+        let merged: MergedIterator<EmptyIter<i32>> =
             MergedIterator::with_remove_duplicates(true, Vec::new())?;
         assert!(!merged.has_next()?);
 
         let empty = EmptyIter::<i32>::new();
-        let mut merged = MergedIterator::with_remove_duplicates(true, vec![empty])?;
+        let merged = MergedIterator::with_remove_duplicates(true, vec![empty])?;
         assert!(!merged.has_next()?);
 
         let mut random = random();
@@ -247,7 +247,7 @@ mod tests {
             iters.push(EmptyIter::<i32>::new());
         }
 
-        let mut merged = MergedIterator::with_remove_duplicates(true, iters)?;
+        let merged = MergedIterator::with_remove_duplicates(true, iters)?;
         assert!(!merged.has_next()?);
 
         Ok(())
@@ -452,7 +452,7 @@ mod tests {
             Ok(None)
         }
 
-        fn has_next(&mut self) -> Result<bool> {
+        fn has_next(&self) -> Result<bool> {
             Ok(false)
         }
     }
@@ -481,7 +481,7 @@ mod tests {
             }
         }
 
-        fn has_next(&mut self) -> Result<bool> {
+        fn has_next(&self) -> Result<bool> {
             Ok(self.pos < self.data.len())
         }
     }

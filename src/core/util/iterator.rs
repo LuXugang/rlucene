@@ -18,7 +18,7 @@ use crate::core::util::error::lucene_error::Result;
 pub trait IteratorExt {
     type Item;
     fn next(&mut self) -> Result<Option<Self::Item>>;
-    fn has_next(&mut self) -> Result<bool> {
+    fn has_next(&self) -> Result<bool> {
         Ok(true)
     }
 }
@@ -39,7 +39,7 @@ impl<'a> IteratorExt for VecIter<'a> {
             Ok(None)
         }
     }
-    fn has_next(&mut self) -> Result<bool> {
+    fn has_next(&self) -> Result<bool> {
         Ok(self.pos < self.data.len())
     }
 }

@@ -293,13 +293,13 @@ where
     PR: PostingsReaderBase<TermState = BlockTermStateEnum>,
 {
     type FieldIter<'a>
-        = std::slice::Iter<'a, String>
+        = VecIter<'a>
     where
         I: 'a,
         PR: 'a;
 
     fn iterator(&self) -> Self::FieldIter<'_> {
-        self.field_list.iter()
+        self.field_list.iter_ext()
     }
 
     type Terms = FieldReader<I, PR>;
@@ -358,6 +358,7 @@ where
 use crate::core::index::BytesRef;
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::outputs::Outputs;
+use crate::core::util::iterator::{VecIter, VecIteratorExt};
 
 pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
 pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;

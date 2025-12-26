@@ -17,14 +17,14 @@
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::fields::Fields;
 use crate::core::util::error::lucene_error::Result;
-use std::iter;
+use crate::core::util::iterator::VecIter;
 
 pub struct DummyFields;
 impl Fields for DummyFields {
-    type FieldIter<'a> = iter::Empty<&'a String>;
+    type FieldIter<'a> = VecIter<'a>;
 
     fn iterator(&self) -> Self::FieldIter<'_> {
-        iter::empty()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Terms = DummyTerms;
