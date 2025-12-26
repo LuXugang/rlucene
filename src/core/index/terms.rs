@@ -51,13 +51,13 @@ pub trait Terms {
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter>;
 
     fn default_intersect(
         &self,
         compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
     where
         Self: Sized,
@@ -230,7 +230,7 @@ impl Terms for EmptyTerms {
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)
     }
@@ -295,7 +295,7 @@ macro_rules! either_terms {
             fn intersect(
                 &self,
                 ca: &mut CompiledAutomaton,
-                start: Option<BytesRef<Vec<u8>>>
+                start: Option<&BytesRef<Vec<u8>>>
             ) -> Result<Self::IntersectIter> {
                 match self {
                     $(

@@ -83,7 +83,7 @@ where
     fn intersect(
         &self,
         _compiled: &mut CompiledAutomaton,
-        _start_term: Option<BytesRef<Vec<u8>>>,
+        _start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         todo!()
     }

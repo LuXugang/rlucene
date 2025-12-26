@@ -71,7 +71,7 @@ impl AutomatonTermsEnum {
     }
     pub fn with_start_term(
         compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
         if compiled.automaton_type != AutomatonType::Normal {
             return Err(LuceneError::illegal_argument(
@@ -99,7 +99,7 @@ impl AutomatonTermsEnum {
             linear_upper_bound: BytesRef::new(),
             transition: Transition::default(),
             saved_states: IntsRefBuilder::new(),
-            start_term,
+            start_term: start_term.cloned(),
         })
     }
 

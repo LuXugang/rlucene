@@ -321,7 +321,7 @@ where
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
-        start_term: Option<BytesRef<Vec<u8>>>,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
         let base = FilterTermsEnum::new(self.base.intersect(compiled, start_term)?);
         Ok(SortingTermsEnum::new(
