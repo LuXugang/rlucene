@@ -3079,18 +3079,6 @@ where
 {
     type AttributeSource = DummyAttributeSource;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        Err(LuceneError::not_implemented(""))
-    }
-
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
@@ -3140,14 +3128,6 @@ where
             self.next()?;
         }
         Ok(())
-    }
-
-    fn seek_exact_with_state(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        _state: &Self::TermState,
-    ) -> Result<()> {
-        Err(LuceneError::not_implemented(""))
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {

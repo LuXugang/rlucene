@@ -578,10 +578,6 @@ where
 {
     type AttributeSource = DummyAttributeSource;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        Err(LuceneError::not_implemented(""))
-    }
-
     fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self.prepare_seek_exact(target, false)? {
             Some(_) => self.get_prepare_seek_exact_status(target),

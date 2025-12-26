@@ -56,7 +56,8 @@ where
         Self { sub }
     }
 }
-
+pub type BaseTermsEnumAttributeSource<S> =
+    Either2AttributeSource<<S as TermsEnum>::AttributeSource, DummyAttributeSource>;
 impl<S> BytesRefIterator for BaseTermsEnum<S>
 where
     S: TermsEnum,
@@ -70,7 +71,7 @@ impl<S> TermsEnum for BaseTermsEnum<S>
 where
     S: TermsEnum,
 {
-    type AttributeSource = Either2AttributeSource<S::AttributeSource, DummyAttributeSource>;
+    type AttributeSource = BaseTermsEnumAttributeSource<S>;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
         match self.sub.attributes() {
@@ -190,6 +191,7 @@ where
         }
     }
 }
+// BaseTermsEnum's sub
 impl From<FreqProxTermsEnum> for BaseTermsEnum<FreqProxTermsEnum> {
     fn from(value: FreqProxTermsEnum) -> Self {
         BaseTermsEnum::new(value)
@@ -222,6 +224,7 @@ impl From<EmptyTermsEnum> for BaseTermsEnum<EmptyTermsEnum> {
         BaseTermsEnum::new(value)
     }
 }
+
 #[derive(Debug, Clone, Default)]
 pub struct TermStateImpl1;
 impl Display for TermStateImpl1 {

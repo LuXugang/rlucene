@@ -46,14 +46,14 @@ pub trait TermsEnum: BytesRefIterator {
     type AttributeSource: AttributeSource;
     /// Returns the related attribute source.
     fn attributes(&self) -> Result<Self::AttributeSource> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     /// Attempts to seek to the exact term.
     ///
     /// Returns `true` if the term is found; `false` if the enum is
     /// unpositioned.
     fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
     /// typically calls [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput) on the right range of bytes
@@ -83,14 +83,14 @@ pub trait TermsEnum: BytesRefIterator {
     /// The target term may be before or after the current term.
     /// If this returns `SeekStatus::End`, the enum is unpositioned.
     fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Seeks to the specified term by ordinal (position) as previously returned
     /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
     /// after the current ordinal, and must be within bounds.
     fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     /// Expert: Seeks a specific position by [`TermState`] previously obtained
     /// from [`term_state()`](TermsEnum::term_state). Callers should
@@ -118,25 +118,25 @@ pub trait TermsEnum: BytesRefIterator {
         _term: &BytesRef<Vec<u8>>,
         _state: &Self::TermState,
     ) -> Result<()> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns current term. Do not call this when the enum is unpositioned.
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate
     /// unsupported). Do not call this when the enum is unpositioned.
     fn ord(&self) -> Result<i64> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns the number of documents containing the current term.
     /// Do not call this when the enum is unpositioned.
     /// Equivalent to [`SeekStatus::End`] when exhausted.
     fn doc_freq(&mut self) -> Result<i32> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     /// Returns the total number of occurrences of this term across all
@@ -145,7 +145,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// Note: like other term measures, this does not take deleted documents
     /// into account.
     fn total_term_freq(&mut self) -> Result<i64> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     type PostingsEnum: PostingsEnum;
@@ -181,14 +181,14 @@ pub trait TermsEnum: BytesRefIterator {
         _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
     type ImpactsEnum: ImpactsEnum;
     /// Return an `ImpactsEnum`.
     ///
     /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 
     type TermState: TermState;
@@ -202,7 +202,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// See also: [`TermState`],
     /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
     fn term_state(&mut self) -> Result<Self::TermState> {
-        Err(LuceneError::need_implemented(""))
+        Err(LuceneError::not_implemented(""))
     }
 }
 /// Represents returned result from `seek_ceil`.
@@ -233,32 +233,12 @@ impl BytesRefIterator for EmptyTermsEnum {
 impl TermsEnum for EmptyTermsEnum {
     type AttributeSource = DummyAttributeSource;
 
-    fn attributes(&self) -> Result<Self::AttributeSource> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        Err(LuceneError::not_implemented(""))
-    }
-
     fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Ok(SeekStatus::End)
     }
 
     fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         Ok(())
-    }
-
-    fn seek_exact_with_state(
-        &mut self,
-        _term: &BytesRef<Vec<u8>>,
-        _state: &Self::TermState,
-    ) -> Result<()> {
-        Err(LuceneError::not_implemented(""))
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
