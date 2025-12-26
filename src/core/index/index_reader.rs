@@ -410,7 +410,7 @@ where
 }
 impl<IR> IndexReader for &IR
 where
-    IR: IndexReader + ?Sized,
+    IR: IndexReader,
 {
     type TermVectors<'a>
         = IR::TermVectors<'a>
@@ -494,7 +494,7 @@ where
 }
 impl<IR> IndexReader for Arc<IR>
 where
-    IR: IndexReader + ?Sized,
+    IR: IndexReader,
 {
     type TermVectors<'a>
         = IR::TermVectors<'a>

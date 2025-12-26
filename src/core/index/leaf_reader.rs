@@ -224,7 +224,7 @@ pub type LRBits<LR> = <LR as LeafReader>::Bits;
 
 impl<LR> LeafReader for Arc<LR>
 where
-    LR: LeafReader + ?Sized,
+    LR: LeafReader,
 {
     type CacheHelper = LR::CacheHelper;
 

@@ -324,7 +324,7 @@ where
 
 impl<CR> CodecReader for Arc<CR>
 where
-    CR: CodecReader + ?Sized,
+    CR: CodecReader,
 {
     type StoredFieldsReader = CR::StoredFieldsReader;
     type TermVectorsReader = CR::TermVectorsReader;
