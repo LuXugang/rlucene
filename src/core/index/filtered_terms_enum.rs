@@ -235,6 +235,8 @@ pub trait FilteredTermsEnumBase {
     fn accept(&mut self, term: &BytesRef<Vec<u8>>) -> Result<AcceptStatus>;
     fn next_seek_term(
         &mut self,
-        current: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Option<BytesRef<Vec<u8>>>>;
+        _current: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<Option<BytesRef<Vec<u8>>>> {
+        Err(LuceneError::not_implemented(""))
+    }
 }
