@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// must be performed via this wrapper, not directly on the wrapped [`TermsEnum`].
 ///
 /// This follows the behavior of Lucene's `TermsEnumIndex`.
-pub(crate) struct TermsEnumIndex<TE>
+pub struct TermsEnumIndex<TE>
 where
     TE: TermsEnum,
 {

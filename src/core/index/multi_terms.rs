@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum_index::TermsEnumIndex;
+use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
+use std::rc::Rc;
 
+/// Exposes flex API, merged from flex API of sub-segments.
 pub struct MultiTerms<T>
 where
     T: Terms,
 {
     subs: Vec<T>,
-    sub_slices: Vec<ReaderSlice>,
+    sub_slices: Vec<Rc<ReaderSlice>>,
     has_freqs: bool,
     has_offsets: bool,
     has_positions: bool,
@@ -37,7 +42,12 @@ impl<T> MultiTerms<T>
 where
     T: Terms,
 {
-    pub fn new(subs: Vec<T>, sub_slices: Vec<ReaderSlice>) -> Result<Self> {
+    /// Sole constructor. Use [`Self::get_terms`] instead if possible.
+    ///
+    /// # Parameters
+    /// * `subs` – The [`Terms`] instances of all sub-readers.
+    /// * `sub_slices` – A parallel array (matching `subs`) describing the sub-reader slices.
+    pub fn new(subs: Vec<T>, sub_slices: Vec<Rc<ReaderSlice>>) -> Result<Self> {
         debug_assert!(
             !subs.is_empty(),
             "inefficient: don't use MultiTerms over one sub"
@@ -68,24 +78,51 @@ where
         })
     }
 }
+pub type IntersectIterType<T> =
+    TermsEnumEnum2<MultiTermsEnumType<<T as Terms>::IntersectIter>, EmptyTermsEnum>;
+pub type IteratorType<T> =
+    TermsEnumEnum2<MultiTermsEnumType<<T as Terms>::TermsEnum>, EmptyTermsEnum>;
 impl<T> Terms for MultiTerms<T>
 where
     T: Terms,
 {
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = IteratorType<T>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        todo!()
+        let mut terms_enums = Vec::new();
+
+        for (i, sub) in self.subs.iter().enumerate() {
+            let terms_enum = sub.iterator()?;
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_into()?));
+        }
+
+        if !terms_enums.is_empty() {
+            let v = MultiTermsEnum::new(self.sub_slices.clone())?;
+            Ok(TermsEnumEnum2::A(v.reset(terms_enums)?))
+        } else {
+            Ok(TermsEnumEnum2::B(EmptyTermsEnum))
+        }
     }
 
-    type IntersectIter = DummyTermsEnum;
+    type IntersectIter = IntersectIterType<T>;
 
     fn intersect(
         &self,
-        _compiled: &mut CompiledAutomaton,
-        _start_term: Option<&BytesRef<Vec<u8>>>,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        todo!()
+        let mut terms_enums = Vec::new();
+
+        for (i, sub) in self.subs.iter().enumerate() {
+            let terms_enum = sub.intersect(compiled, start_term)?;
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_into()?));
+        }
+        if !terms_enums.is_empty() {
+            let v = MultiTermsEnum::new(self.sub_slices.clone())?;
+            Ok(TermsEnumEnum2::A(v.reset(terms_enums)?))
+        } else {
+            Ok(TermsEnumEnum2::B(EmptyTermsEnum))
+        }
     }
 
     fn size(&self) -> Result<i64> {
@@ -139,10 +176,40 @@ where
     }
 
     fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        todo!()
+        let mut min_term = None;
+
+        for terms in &self.subs {
+            if let Some(term) = terms.get_min()? {
+                match &min_term {
+                    None => min_term = Some(term),
+                    Some(cur) => {
+                        if term.as_ref().cmp(cur.as_ref()).to_int() < 0 {
+                            min_term = Some(term);
+                        }
+                    },
+                }
+            }
+        }
+
+        Ok(min_term)
     }
 
     fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        todo!()
+        let mut max_term = None;
+
+        for terms in &self.subs {
+            if let Some(term) = terms.get_max()? {
+                match &max_term {
+                    None => max_term = Some(term),
+                    Some(cur) => {
+                        if term.as_ref().cmp(cur.as_ref()).to_int() > 0 {
+                            max_term = Some(term);
+                        }
+                    },
+                }
+            }
+        }
+
+        Ok(max_term)
     }
 }

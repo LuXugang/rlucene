@@ -56,15 +56,15 @@ impl<TE> MultiTermsEnum<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(slices: Vec<Rc<ReaderSlice>>, parent: Identity) -> Result<Self> {
+    pub fn new(slices: Vec<Rc<ReaderSlice>>) -> Result<Self> {
         let len = slices.len();
         let subs = Vec::with_capacity(len);
         let current_subs = vec![0usize; len];
         let top = vec![0usize; len];
         let mut sub_docs = Vec::with_capacity(len);
         let mut all_terms_enum_with_slice = Vec::with_capacity(len);
-        for slice in slices.into_iter() {
-            all_terms_enum_with_slice.push(TermsEnumWithSlice::new(0, slice.clone()));
+        for (i, slice) in slices.into_iter().enumerate() {
+            all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i.try_into()?, slice.clone()));
             sub_docs.push(EnumWithSlice::with_slice(slice));
         }
         let queue = TermMergeQueue::new(len.try_into()?, all_terms_enum_with_slice)?;
@@ -80,7 +80,7 @@ where
             num_top: 0,
             num_subs: 0,
             current: None,
-            parent,
+            parent: Identity::new(),
         })
     }
 
