@@ -17,7 +17,6 @@
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::core::index::multi_postings_enum::EnumWithSlice;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms_enum::{Either2TermsEnum, EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
@@ -39,8 +38,6 @@ where
     /// Current subs that have at least one term for this field
     current_subs: Vec<usize>,
     top: Vec<usize>,
-    /// Per-sub postings enums
-    sub_docs: Vec<EnumWithSlice<TE::PostingsEnum>>,
     /// Last seek term
     last_seek: Option<BytesRef<Vec<u8>>>,
     last_seek_exact: bool,

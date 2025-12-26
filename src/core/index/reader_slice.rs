@@ -32,4 +32,3 @@ impl ReaderSlice {
         }
     }
 }
-// for padding
