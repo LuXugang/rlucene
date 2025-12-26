@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
@@ -24,6 +22,8 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
+use std::rc::Rc;
 
 /// Trait representing base term statistics and access.
 pub trait Terms {
@@ -185,6 +185,82 @@ pub trait Terms {
         ))
     }
 }
+impl<T> Terms for Rc<T>
+where
+    T: Terms,
+{
+    type TermsEnum = T::TermsEnum;
+
+    fn iterator(&self) -> Result<Self::TermsEnum> {
+        (**self).iterator()
+    }
+
+    type IntersectIter = T::IntersectIter;
+
+    fn intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<Self::IntersectIter> {
+        (**self).intersect(compiled, start_term)
+    }
+
+    fn default_intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
+    where
+        Self: Sized,
+    {
+        (**self).default_intersect(compiled, start_term)
+    }
+
+    fn size(&self) -> Result<i64> {
+        (**self).size()
+    }
+
+    fn get_sum_total_term_freq(&self) -> Result<i64> {
+        (**self).get_sum_total_term_freq()
+    }
+
+    fn get_sum_doc_freq(&self) -> Result<i64> {
+        (**self).get_sum_doc_freq()
+    }
+
+    fn get_doc_count(&self) -> Result<i32> {
+        (**self).get_doc_count()
+    }
+
+    fn has_freqs(&self) -> bool {
+        (**self).has_freqs()
+    }
+
+    fn has_offsets(&self) -> bool {
+        (**self).has_offsets()
+    }
+
+    fn has_positions(&self) -> bool {
+        (**self).has_positions()
+    }
+
+    fn has_payloads(&self) -> bool {
+        (**self).has_payloads()
+    }
+
+    fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        (**self).get_min()
+    }
+
+    fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        (**self).get_max()
+    }
+
+    fn get_stats(&self) -> Result<String> {
+        (**self).get_stats()
+    }
+}
+
 pub mod terms_util {
     use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::terms::{EmptyTerms, TermsEnum2, TermsEnum2Type};
