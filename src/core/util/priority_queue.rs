@@ -368,7 +368,7 @@ where
     ///
     /// # Note
     /// This is an internal API.
-    pub(crate) fn get_heap_array(&self) -> &Vec<Option<T>> {
+    pub(crate) fn get_heap_array(&self) -> &[Option<T>] {
         &self.heap
     }
     pub(crate) fn take_heap_array(&mut self) -> Vec<T> {

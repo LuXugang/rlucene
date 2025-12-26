@@ -99,9 +99,9 @@ where
 
         Ok(found)
     }
-    pub(crate) fn reset(&mut self, mut other: Self) {
+    pub(crate) fn reset(&mut self, other: Self) {
         self.terms_enum = other.terms_enum;
-        self.current_term = other.current_term.take();
+        self.current_term = other.current_term;
         self.current_term_prefix8 = other.current_term_prefix8;
     }
     pub(crate) fn compare_term_to(&self, that: &Self) -> Result<i32> {
