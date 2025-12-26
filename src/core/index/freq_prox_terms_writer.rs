@@ -246,7 +246,7 @@ where
         F: 'a,
         D: 'a;
 
-    fn iterator(&self) -> Self::FieldIter<'_> {
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
         self.base.iterator()
     }
 

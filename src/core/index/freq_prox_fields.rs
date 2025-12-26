@@ -83,8 +83,8 @@ impl Fields for FreqProxFields {
     where
         Self: 'a;
 
-    fn iterator(&self) -> Self::FieldIter<'_> {
-        self.keys.iter_ext()
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+        Ok(self.keys.iter_ext())
     }
 
     type Terms = FreqProxTerms;

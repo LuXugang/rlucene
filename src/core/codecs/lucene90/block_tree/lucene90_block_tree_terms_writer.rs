@@ -367,7 +367,7 @@ where
     {
         #[cfg(debug_assertions)]
         let mut last_field: Option<String> = None;
-        let mut field_names = fields.iterator();
+        let mut field_names = fields.iterator()?;
         while field_names.has_next()? {
             match field_names.next()? {
                 Some(field) => {

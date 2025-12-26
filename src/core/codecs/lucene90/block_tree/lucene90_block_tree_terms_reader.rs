@@ -298,8 +298,8 @@ where
         I: 'a,
         PR: 'a;
 
-    fn iterator(&self) -> Self::FieldIter<'_> {
-        self.field_list.iter_ext()
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+        Ok(self.field_list.iter_ext())
     }
 
     type Terms = FieldReader<I, PR>;

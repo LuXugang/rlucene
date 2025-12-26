@@ -86,7 +86,7 @@ where
         let mut num_fields = vectors.size()?;
         if num_fields == -1 {
             // count manually! TODO: Maybe enforce that Fields.size() returns something valid?
-            let mut iter = vectors.iterator();
+            let mut iter = vectors.iterator()?;
             while iter.has_next()? {
                 match iter.next()? {
                     Some(_) => {
@@ -101,7 +101,7 @@ where
         let mut docs_and_positions = None;
         let mut field_count = 0;
         let mut terms_enum;
-        let mut iter = vectors.iterator();
+        let mut iter = vectors.iterator()?;
         while iter.has_next()? {
             match iter.next()? {
                 Some(field_name) => {

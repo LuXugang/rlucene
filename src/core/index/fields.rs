@@ -31,7 +31,7 @@ pub trait Fields {
     where
         Self: 'a;
 
-    fn iterator(&self) -> Self::FieldIter<'_>;
+    fn iterator(&self) -> Result<Self::FieldIter<'_>>;
 
     type Terms: Terms;
     /// Get the [`Terms`] for this field. This will return `None` if the field
@@ -66,10 +66,21 @@ where
             FieldIterEnum2::B(it) => it.next(),
         }
     }
+
+    fn has_next(&self) -> Result<bool> {
+        match self {
+            FieldIterEnum2::A(it) => it.has_next(),
+            FieldIterEnum2::B(it) => it.has_next(),
+        }
+    }
 }
 
 macro_rules! either_fields {
-    ($vis:vis $name:ident => { fi: $fi:ident, te: $te:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+    (
+        $vis:vis $name:ident
+        => { fi: $fi:ident, te: $te:ident }
+        { $( $Variant:ident : $T:ident ),+ $(,)? }
+    ) => {
         $vis enum $name<$( $T ),+> {
             $( $Variant($T), )+
         }
@@ -78,28 +89,39 @@ macro_rules! either_fields {
         where
             $( $T: Fields ),+
         {
-            type FieldIter<'a> = $fi<'a, $( <$T as Fields>::FieldIter<'a> ),+>
+            type FieldIter<'a> =
+                $fi<'a, $( <$T as Fields>::FieldIter<'a> ),+>
             where
                 $( $T: 'a ),+;
+
             type Terms = $te<$( <$T as Fields>::Terms ),+>;
 
-            fn iterator(&self) -> Self::FieldIter<'_> {
+            fn iterator(&self) -> Result<Self::FieldIter<'_>> {
                 match self {
-                    $( Self::$Variant(inner) => $fi::$Variant(inner.iterator()), )+
+                    $(
+                        Self::$Variant(inner) => {
+                            let it = inner.iterator()?;
+                            Ok($fi::$Variant(it))
+                        }
+                    ),+
                 }
             }
 
             fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
                 match self {
-                    $( Self::$Variant(inner) => {
-                        let terms = inner.terms(field)?;
-                        Ok(terms.map($te::$Variant))
-                    } ),+
+                    $(
+                        Self::$Variant(inner) => {
+                            let terms = inner.terms(field)?;
+                            Ok(terms.map($te::$Variant))
+                        }
+                    ),+
                 }
             }
 
             fn size(&self) -> Result<i32> {
-                match self { $( Self::$Variant(inner) => inner.size(), )+ }
+                match self {
+                    $( Self::$Variant(inner) => inner.size(), )+
+                }
             }
         }
     };

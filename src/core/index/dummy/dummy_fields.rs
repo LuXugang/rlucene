@@ -23,7 +23,7 @@ pub struct DummyFields;
 impl Fields for DummyFields {
     type FieldIter<'a> = VecIter<'a>;
 
-    fn iterator(&self) -> Self::FieldIter<'_> {
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -18,7 +18,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::multi_terms::MultiTerms;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::iterator::VecIter;
+use crate::core::util::merged_iterator::MergedIterator;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -59,12 +59,16 @@ where
     F: Fields,
 {
     type FieldIter<'a>
-        = VecIter<'a>
+        = MergedIterator<<F as Fields>::FieldIter<'a>>
     where
         Self: 'a;
 
-    fn iterator(&self) -> Self::FieldIter<'_> {
-        todo!()
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+        let mut sub_iterators = Vec::new();
+        for sub in &self.subs {
+            sub_iterators.push(sub.iterator()?);
+        }
+        MergedIterator::new(sub_iterators)
     }
 
     type Terms = Rc<MultiTerms<<F as Fields>::Terms>>;
