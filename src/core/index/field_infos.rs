@@ -351,6 +351,28 @@ where
 
     Ok(the_field)
 }
+/// Returns a set of field names that have a terms index.
+/// The order is undefined.
+pub fn get_indexed_fields<CR>(reader: CR) -> Result<HashSet<String>>
+where
+    CR: CompositeReader,
+{
+    let reader = get_context(reader)?;
+    let leaves = reader.leaves()?;
+
+    let mut fields = HashSet::new();
+
+    for leaf in leaves {
+        let field_infos = leaf.reader().get_field_infos()?;
+        for fi in field_infos.iter() {
+            if *fi.get_index_options() != IndexOptions::None {
+                fields.insert(fi.name.clone());
+            }
+        }
+    }
+
+    Ok(fields)
+}
 
 impl<'a> IntoIterator for &'a FieldInfos {
     type Item = &'a Arc<FieldInfo>;

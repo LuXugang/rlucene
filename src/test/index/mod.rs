@@ -24,6 +24,7 @@ pub mod doc_helper;
 pub mod random_index_writer;
 mod test_binary_terms;
 mod test_consistent_field_numbers;
+mod test_doc_count;
 pub(crate) mod test_doc_values_indexing;
 mod test_docs_and_positions;
 mod test_exceed_max_term_length;
