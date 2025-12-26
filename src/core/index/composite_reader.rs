@@ -56,3 +56,4 @@ where
 }
 
 pub type CompositeReaderBits<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Bits;
+pub type CompositeReaderTerms<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Terms;

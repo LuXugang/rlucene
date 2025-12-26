@@ -320,6 +320,7 @@ where
     }
 }
 
+pub type TermsEnumPostingsEnumType<A, B> = PostingsEnumEnum2<A, B>;
 impl<A, B> TermsEnum for TermsEnumEnum2<A, B>
 where
     A: TermsEnum,
@@ -411,7 +412,7 @@ where
         }
     }
 
-    type PostingsEnum = PostingsEnumEnum2<A::PostingsEnum, B::PostingsEnum>;
+    type PostingsEnum = TermsEnumPostingsEnumType<A::PostingsEnum, B::PostingsEnum>;
 
     fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
         match self {

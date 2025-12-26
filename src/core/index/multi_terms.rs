@@ -15,10 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::index::composite_reader::{CompositeReader, CompositeReaderTerms, get_context};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
+use crate::core::index::postings_enum::ALL;
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnumEnum2};
+use crate::core::index::terms::{Terms, TermsEnum2};
+use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -212,4 +216,84 @@ where
 
         Ok(max_term)
     }
+}
+
+pub type TermsType<CR> = TermsEnum2<CompositeReaderTerms<CR>, MultiTerms<CompositeReaderTerms<CR>>>;
+pub type TermsPostingType<CR> = <<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
+/// This method may return `None` if the field does not exist or if it has no terms.
+pub fn get_terms<CR>(reader: CR, field: &str) -> Result<Option<TermsType<CR>>>
+where
+    CR: CompositeReader,
+{
+    let max_doc = reader.max_doc()?;
+    let reader = get_context(reader)?;
+    let leaves = reader.leaves()?;
+
+    if leaves.len() == 1 {
+        return match leaves[0].reader().terms(field)? {
+            Some(terms) => Ok(Some(TermsEnum2::A(terms))),
+            None => return Ok(None),
+        };
+    }
+
+    let mut terms_per_leaf = Vec::with_capacity(leaves.len());
+    let mut slice_per_leaf = Vec::with_capacity(leaves.len());
+
+    for (leaf_idx, ctx) in leaves.iter().enumerate() {
+        if let Some(sub_terms) = ctx.reader().terms(field)? {
+            terms_per_leaf.push(sub_terms);
+            slice_per_leaf.push(Rc::new(ReaderSlice::new(
+                ctx.doc_base,
+                max_doc,
+                leaf_idx.try_into()?,
+            )));
+        }
+    }
+
+    if terms_per_leaf.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(TermsEnum2::B(MultiTerms::new(
+            terms_per_leaf,
+            slice_per_leaf,
+        )?)))
+    }
+}
+/// Returns `PostingsEnum` for the specified field and term.
+///
+/// This returns `None` if the field or term does not exist, or if positions were not indexed.
+///
+/// See `get_term_postings_enum` with flags.
+pub fn get_term_postings_enum_default<CR>(
+    reader: CR,
+    field: &str,
+    term: &BytesRef<Vec<u8>>,
+) -> Result<Option<TermsPostingType<CR>>>
+where
+    CR: CompositeReader,
+{
+    get_term_postings_enum(reader, field, term, ALL as i32)
+}
+
+/// Returns `PostingsEnum` for the specified field and term, with control over whether freqs,
+/// positions, offsets or payloads are required.
+///
+/// This returns `None` if the field or term does not exist.
+/// See `TermsEnum::postings`.
+pub fn get_term_postings_enum<CR>(
+    reader: CR,
+    field: &str,
+    term: &BytesRef<Vec<u8>>,
+    flags: i32,
+) -> Result<Option<TermsPostingType<CR>>>
+where
+    CR: CompositeReader,
+{
+    if let Some(terms) = get_terms(reader, field)? {
+        let mut terms_enum = terms.iterator()?;
+        if terms_enum.seek_exact(term)? {
+            return Ok(Some(terms_enum.postings_with_flags(None, flags)?));
+        }
+    }
+    Ok(None)
 }
