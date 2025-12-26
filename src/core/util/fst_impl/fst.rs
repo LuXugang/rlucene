@@ -1512,11 +1512,11 @@ mod tests {
         dir: Rc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
     }
     impl TestFSTs {
-        fn new<R: Rng>(random: &mut R) -> Result<Self> {
+        fn new<R: Rng + ?Sized>(random: &mut R) -> Result<Self> {
             let dir = new_directory(random)?;
             Ok(Self { dir: Rc::new(dir) })
         }
-        fn do_test<R: Rng>(
+        fn do_test<R: Rng + ?Sized>(
             &self,
             random: &mut R,
             input_mode: i32,
@@ -1658,7 +1658,7 @@ mod tests {
 
             Ok(())
         }
-        fn test_random_words_impl<R: Rng>(
+        fn test_random_words_impl<R: Rng + ?Sized>(
             &self,
             random: &mut R,
             max_num_words: usize,
@@ -1800,7 +1800,7 @@ mod tests {
             test.test_random_words_impl(&mut random, 100, 1)
         }
     }
-    fn test_random_words_limit<R: Rng>(
+    fn test_random_words_limit<R: Rng + ?Sized>(
         random: &mut R,
         max_num_words: usize,
         num_iter: usize,

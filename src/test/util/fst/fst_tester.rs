@@ -841,14 +841,14 @@ pub fn get_bytes_ref<AV: SharedAccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec
         length: len,
     }
 }
-pub fn get_random_string<R: Rng>(random: &mut R) -> String {
+pub fn get_random_string<R: Rng + ?Sized>(random: &mut R) -> String {
     if random.random_bool(0.5) {
         TestUtil::random_realistic_unicode_string(random)
     } else {
         simple_random_string(random)
     }
 }
-pub fn simple_random_string<R: Rng>(rng: &mut R) -> String {
+pub fn simple_random_string<R: Rng + ?Sized>(rng: &mut R) -> String {
     let end = rng.random_range(0..11);
     if end == 10 {
         // allow 0 length
