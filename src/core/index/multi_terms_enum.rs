@@ -14,20 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
+use crate::core::index::index_reader::Identity;
+use crate::core::index::multi_postings_enum::{EnumWithSlice, MultiPostingsEnum};
 use crate::core::index::reader_slice::ReaderSlice;
+use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::ToInt;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::{Comparator, ToInt};
 use std::borrow::Cow;
-
+use std::rc::Rc;
+/// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
+/// merge sort, by term text, of the sub-readers.
 pub struct MultiTermsEnum<TE>
 where
     TE: TermsEnum,
@@ -40,16 +44,46 @@ where
     top: Vec<usize>,
     /// Last seek term
     last_seek: Option<BytesRef<Vec<u8>>>,
+    sub_docs: Vec<EnumWithSlice>,
     last_seek_exact: bool,
     last_seek_scratch: BytesRefBuilder<Vec<u8>>,
     num_top: i32,
     num_subs: i32,
     current: Option<BytesRef<Vec<u8>>>,
+    parent: Identity,
 }
 impl<TE> MultiTermsEnum<TE>
 where
     TE: TermsEnum,
 {
+    pub fn new(slices: Vec<Rc<ReaderSlice>>, parent: Identity) -> Result<Self> {
+        let len = slices.len();
+        let subs = Vec::with_capacity(len);
+        let current_subs = vec![0usize; len];
+        let top = vec![0usize; len];
+        let mut sub_docs = Vec::with_capacity(len);
+        let mut all_terms_enum_with_slice = Vec::with_capacity(len);
+        for slice in slices.into_iter() {
+            all_terms_enum_with_slice.push(TermsEnumWithSlice::new(0, slice.clone()));
+            sub_docs.push(EnumWithSlice::with_slice(slice));
+        }
+        let queue = TermMergeQueue::new(len.try_into()?, all_terms_enum_with_slice)?;
+        Ok(Self {
+            queue,
+            subs,
+            current_subs,
+            top,
+            last_seek: None,
+            sub_docs,
+            last_seek_exact: false,
+            last_seek_scratch: BytesRefBuilder::new(),
+            num_top: 0,
+            num_subs: 0,
+            current: None,
+            parent,
+        })
+    }
+
     /// The terms array must be newly created TermsEnum, ie [`TermsEnum.next`](TermsEnum::next) has not yet been called.
     pub fn reset(
         mut self,
@@ -143,8 +177,6 @@ where
 
         // gather equal top fields
         if self.queue.q.size() > 0 {
-            // TODO: we could maybe defer this somewhat costly operation until one of the APIs that
-            // needs to see the top is invoked (doc_freq, postings, etc.)
             self.pull_top()?;
         } else {
             self.current = None;
@@ -356,24 +388,92 @@ where
         Ok(sum)
     }
 
-    type PostingsEnum = DummyPostingsEnum;
+    type PostingsEnum = MultiPostingsEnum<TE::PostingsEnum>;
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<Self::PostingsEnum>,
-        _flags: i32,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        todo!()
+        let mut docs_enum = match reuse {
+            Some(reuse) => {
+                if reuse.can_reuse(&self.parent) {
+                    reuse
+                } else {
+                    MultiPostingsEnum::new(self.parent.clone(), self.subs.len())
+                }
+            },
+            None => MultiPostingsEnum::new(self.parent.clone(), self.subs.len()),
+        };
+        let mut upto: usize = 0;
+        let cmp = TopTermsEnumWithSliceCmp::new(
+            self.queue.q.compare.all_terms_enum_with_slice.as_slice(),
+        );
+        ArrayUtil::do_tim_sort(self.top.as_mut(), 0, self.num_top, cmp)?;
+
+        for i in 0..(self.num_top as usize) {
+            let entry_idx = self.top[i];
+            let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+
+            let sub_index = entry.base.sub_index as usize;
+            debug_assert!(
+                sub_index < docs_enum.sub_postings_enums.len(),
+                "{} vs {}; {}",
+                sub_index,
+                docs_enum.sub_postings_enums.len(),
+                self.subs.len()
+            );
+
+            let sub_postings_enum = entry
+                .base
+                .terms_enum
+                .as_mut()
+                .unwrap()
+                .postings_with_flags(docs_enum.sub_postings_enums[sub_index].take(), flags)?;
+            docs_enum.sub_postings_enums[sub_index] = Some(sub_postings_enum);
+            self.sub_docs[upto].postings_enum = sub_index;
+            self.sub_docs[upto].slice = entry.sub_slice.clone();
+            upto += 1;
+        }
+        docs_enum.reset(&self.sub_docs, upto as i32);
+        Ok(docs_enum)
     }
 
-    type ImpactsEnum = DummyImpactsEnum;
+    type ImpactsEnum = SlowImpactsEnum<MultiPostingsEnum<TE::PostingsEnum>>;
 
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        todo!()
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        Ok(SlowImpactsEnum::new(self.postings_with_flags(None, flags)?))
     }
 
     type TermState = DummyTermState;
 }
+struct TopTermsEnumWithSliceCmp<'a, TE>
+where
+    TE: TermsEnum,
+{
+    terms_enums: &'a [TermsEnumWithSlice<TE>],
+}
+impl<'a, TE> TopTermsEnumWithSliceCmp<'a, TE>
+where
+    TE: TermsEnum,
+{
+    pub fn new(terms_enums: &'a [TermsEnumWithSlice<TE>]) -> Self {
+        Self { terms_enums }
+    }
+}
+impl<TE> Comparator<usize> for TopTermsEnumWithSliceCmp<'_, TE>
+where
+    TE: TermsEnum,
+{
+    const TYPE: &'static str = "TopTermsEnumWithSliceCmp";
+
+    fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
+        self.terms_enums[*a]
+            .base
+            .compare_term_to(&self.terms_enums[*b].base)
+    }
+}
+
 pub type MultiTermsEnumType<TE> = TermsEnumEnum2<MultiTermsEnum<TE>, EmptyTermsEnum>;
 
 struct TermsEnumWithSlice<TE>
@@ -381,13 +481,13 @@ where
     TE: TermsEnum,
 {
     base: TermsEnumIndex<TE>,
-    sub_slice: ReaderSlice,
+    sub_slice: Rc<ReaderSlice>,
 }
 impl<TE> TermsEnumWithSlice<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(index: i32, sub_slice: ReaderSlice) -> Self {
+    pub fn new(index: i32, sub_slice: Rc<ReaderSlice>) -> Self {
         debug_assert!(sub_slice.length >= 0, "length={}", sub_slice.length);
 
         Self {

@@ -30,7 +30,7 @@ where
     PE: PostingsEnum,
 {
     parent: Identity,
-    sub_postings_enums: Vec<PE>,
+    pub(crate) sub_postings_enums: Vec<Option<PE>>,
     subs: Vec<EnumWithSlice>,
     num_subs: i32,
     upto: i32,
@@ -42,6 +42,24 @@ impl<PE> MultiPostingsEnum<PE>
 where
     PE: PostingsEnum,
 {
+    pub fn new(parent: Identity, sub_reader_count: usize) -> Self {
+        let mut subs = Vec::with_capacity(sub_reader_count);
+        let mut sub_postings_enums = Vec::with_capacity(sub_reader_count);
+        for _ in 0..sub_reader_count {
+            subs.push(EnumWithSlice::new());
+            sub_postings_enums.push(None);
+        }
+        Self {
+            parent,
+            sub_postings_enums,
+            subs,
+            num_subs: 0,
+            upto: -1,
+            current: None,
+            current_base: 0,
+            doc: -1,
+        }
+    }
     /// Returns `true` if this instance can be reused by the provided [`MultiTermsEnum`](crate::core::index::multi_terms_enum::MultiTermsEnum).
     pub fn can_reuse(&self, other: &Identity) -> bool {
         self.parent == *other
@@ -94,7 +112,7 @@ where
             }
 
             let idx = self.current.unwrap();
-            let doc = self.sub_postings_enums[idx].next_doc()?;
+            let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
             if doc != NO_MORE_DOCS {
                 self.doc = self.current_base + doc;
                 return Ok(self.doc);
@@ -110,9 +128,12 @@ where
             if let Some(idx) = self.current {
                 let doc = if target < self.current_base {
                     // target was in the previous slice but there was no matching doc after it
-                    self.sub_postings_enums[idx].next_doc()?
+                    self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?
                 } else {
-                    self.sub_postings_enums[idx].advance(target - self.current_base)?
+                    self.sub_postings_enums[idx]
+                        .as_mut()
+                        .unwrap()
+                        .advance(target - self.current_base)?
                 };
 
                 if doc == NO_MORE_DOCS {
@@ -137,7 +158,7 @@ where
         let mut cost: i64 = 0;
         for i in 0..(self.num_subs as usize) {
             let pe_idx = self.subs[i].postings_enum;
-            cost += self.sub_postings_enums[pe_idx].cost()?;
+            cost += self.sub_postings_enums[pe_idx].as_ref().unwrap().cost()?;
         }
         Ok(cost)
     }
@@ -149,35 +170,41 @@ where
 {
     fn freq(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].freq(),
+            Some(idx) => self.sub_postings_enums[idx].as_mut().unwrap().freq(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn next_position(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].next_position(),
+            Some(idx) => self.sub_postings_enums[idx]
+                .as_mut()
+                .unwrap()
+                .next_position(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn start_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].start_offset(),
+            Some(idx) => self.sub_postings_enums[idx]
+                .as_ref()
+                .unwrap()
+                .start_offset(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn end_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].end_offset(),
+            Some(idx) => self.sub_postings_enums[idx].as_ref().unwrap().end_offset(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].get_payload(),
+            Some(idx) => self.sub_postings_enums[idx].as_ref().unwrap().get_payload(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
@@ -201,9 +228,9 @@ where
 /// Holds a [`PostingsEnum`] along with the corresponding [`ReaderSlice`].
 pub struct EnumWithSlice {
     /// [`PostingsEnum`]'s idx for this sub-reader
-    postings_enum: usize,
+    pub(crate) postings_enum: usize,
     /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
-    slice: Rc<ReaderSlice>,
+    pub(crate) slice: Rc<ReaderSlice>,
 }
 impl EnumWithSlice {
     /// Creates a new `EnumWithSlice`.
@@ -211,6 +238,12 @@ impl EnumWithSlice {
         Self {
             postings_enum: 0,
             slice: Rc::new(ReaderSlice::default()),
+        }
+    }
+    pub fn with_slice(slice: Rc<ReaderSlice>) -> Self {
+        Self {
+            postings_enum: 0,
+            slice,
         }
     }
 }
