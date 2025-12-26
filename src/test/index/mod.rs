@@ -34,3 +34,4 @@ mod test_index_writer_commit;
 mod test_index_writer_delete;
 mod test_index_writer_max_docs;
 mod test_many_fields;
+mod test_sum_doc_freq;
