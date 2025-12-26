@@ -17,8 +17,8 @@
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::filter_numeric_doc_values::FilterNumericDocValues;
-use crate::core::index::numeric_doc_values::Either3NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::NumericDocValuesEnum3;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -55,26 +55,26 @@ impl SortedNumericSelector {
             },
         }
         let view = if sorted_numeric.is_single_valued() {
-            Either3NumericDocValues::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
+            NumericDocValuesEnum3::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
         } else {
             match selector {
                 SortedNumericSelectorType::Min => {
-                    Either3NumericDocValues::B(MinValue::new(sorted_numeric))
+                    NumericDocValuesEnum3::B(MinValue::new(sorted_numeric))
                 },
                 SortedNumericSelectorType::Max => {
-                    Either3NumericDocValues::C(MaxValue::new(sorted_numeric))
+                    NumericDocValuesEnum3::C(MaxValue::new(sorted_numeric))
                 },
             }
         };
 
         match numeric_type {
-            SortFieldType::Float => Ok(Either3NumericDocValues::A(
-                FilterNumericDocValuesImpl1::new(view),
-            )),
-            SortFieldType::Double => Ok(Either3NumericDocValues::B(
+            SortFieldType::Float => Ok(NumericDocValuesEnum3::A(FilterNumericDocValuesImpl1::new(
+                view,
+            ))),
+            SortFieldType::Double => Ok(NumericDocValuesEnum3::B(
                 FilterNumericDocValuesImpl2::new(view),
             )),
-            _ => Ok(Either3NumericDocValues::C(view)),
+            _ => Ok(NumericDocValuesEnum3::C(view)),
         }
     }
 }
@@ -353,22 +353,22 @@ where
     }
 }
 
-pub type SortedNumericSelectorWrap<S> = Either3NumericDocValues<
+pub type SortedNumericSelectorWrap<S> = NumericDocValuesEnum3<
     FilterNumericDocValuesImpl1<
-        Either3NumericDocValues<
+        NumericDocValuesEnum3<
             <S as SortedNumericDocValues>::NumericDocValues,
             MinValue<S>,
             MaxValue<S>,
         >,
     >,
     FilterNumericDocValuesImpl2<
-        Either3NumericDocValues<
+        NumericDocValuesEnum3<
             <S as SortedNumericDocValues>::NumericDocValues,
             MinValue<S>,
             MaxValue<S>,
         >,
     >,
-    Either3NumericDocValues<
+    NumericDocValuesEnum3<
         <S as SortedNumericDocValues>::NumericDocValues,
         MinValue<S>,
         MaxValue<S>,

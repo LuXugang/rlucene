@@ -25,7 +25,7 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
+    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, EmptyDISI,
 };
 
 use crate::core::search::dummy::dummy_disi::DummyDISI;
@@ -37,8 +37,8 @@ use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Either2Scorer;
-use crate::core::search::scorer_supplier::{Either3ScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer::ScorerEnum2;
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum3};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::accountable::Accountable;
@@ -855,7 +855,7 @@ where
                 let Some(disi) = cached.iterator()? else {
                     return Ok(None);
                 };
-                Ok(Some(Either3ScorerSupplier::C(ScorerSupplierImpl2::new(
+                Ok(Some(ScorerSupplierEnum3::C(ScorerSupplierImpl2::new(
                     disi,
                 )?)))
             },
@@ -950,7 +950,7 @@ where
     }
 }
 #[allow(clippy::upper_case_acronyms)]
-pub type DISI = Either2DocIdSetIterator<EmptyDISI, CacheAndCountDISI>;
+pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
 impl<S, C, P, LR> ScorerSupplier<LR> for ScorerSupplierImpl1<S, C, P, LR>
 where
     LR: LeafReader,
@@ -958,7 +958,7 @@ where
     C: CacheHelper,
     P: Predicate<LeafReaderContext<LR>>,
 {
-    type Scorer = Either2Scorer<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
+    type Scorer = ScorerEnum2<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
     fn get(
@@ -968,7 +968,7 @@ where
     ) -> Result<Option<Self::Scorer>> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
             return match self.supplier.get(lead_cost, context)? {
-                Some(scorer) => Ok(Some(Either2Scorer::A(scorer))),
+                Some(scorer) => Ok(Some(ScorerEnum2::A(scorer))),
                 None => Ok(None),
             };
         };
@@ -984,7 +984,7 @@ where
             Some(disi) => DISI::B(disi),
             None => DISI::A(EmptyDISI::default()),
         };
-        Ok(Some(Either2Scorer::B(ConstantScoreScorer::with_disi(
+        Ok(Some(ScorerEnum2::B(ConstantScoreScorer::with_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             disi,
@@ -1037,7 +1037,7 @@ where
         Ok(self.cost)
     }
 }
-pub type CachingWrapperWeightSupplier<W, P, LR> = Either3ScorerSupplier<
+pub type CachingWrapperWeightSupplier<W, P, LR> = ScorerSupplierEnum3<
     <W as Weight<LR>>::ScorerSupplier,
     ScorerSupplierImpl1<<W as Weight<LR>>::ScorerSupplier, <LR as LeafReader>::CacheHelper, P, LR>,
     ScorerSupplierImpl2,
@@ -1195,9 +1195,9 @@ impl CacheAndCountEnum {
     }
     pub(crate) fn iterator(&self) -> Result<Option<CacheAndCountDISI>> {
         match self {
-            CacheAndCountEnum::BitSet(c) => Ok(c.iterator()?.map(Either3DocIdSetIterator::B)),
-            CacheAndCountEnum::Roaring(c) => Ok(c.iterator()?.map(Either3DocIdSetIterator::C)),
-            CacheAndCountEnum::Empty(c) => Ok(c.iterator()?.map(Either3DocIdSetIterator::A)),
+            CacheAndCountEnum::BitSet(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::B)),
+            CacheAndCountEnum::Roaring(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::C)),
+            CacheAndCountEnum::Empty(c) => Ok(c.iterator()?.map(DocIdSetIteratorEnum3::A)),
         }
     }
 }
@@ -1210,7 +1210,7 @@ impl Accountable for CacheAndCountEnum {
         }
     }
 }
-pub type CacheAndCountDISI = Either3DocIdSetIterator<
+pub type CacheAndCountDISI = DocIdSetIteratorEnum3<
     <EmptyDocIdSet as DocIdSet>::DocIdSetIterator,
     <BitDocIdSet<FixedBitSet> as DocIdSet>::DocIdSetIterator,
     <RoaringDocIdSet as DocIdSet>::DocIdSetIterator,
@@ -1218,7 +1218,7 @@ pub type CacheAndCountDISI = Either3DocIdSetIterator<
 // for std::mem::take
 impl Default for CacheAndCountDISI {
     fn default() -> Self {
-        Either3DocIdSetIterator::A(EmptyDISI::default())
+        DocIdSetIteratorEnum3::A(EmptyDISI::default())
     }
 }
 /// Default cache implementation: uses [`RoaringDocIdSet`] for sets that have a density < 1%,

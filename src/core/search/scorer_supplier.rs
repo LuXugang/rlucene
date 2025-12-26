@@ -17,12 +17,12 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
-    BulkScorer, Either2BulkScorer, Either3BulkScorer, Either4BulkScorer, Either5BulkScorer,
-    Either6BulkScorer, Either7BulkScorer, Either8BulkScorer, Either9BulkScorer, Either10BulkScorer,
+    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum5,
+    BulkScorerEnum6, BulkScorerEnum7, BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10,
 };
 use crate::core::search::scorer::{
-    Either2Scorer, Either3Scorer, Either4Scorer, Either5Scorer, Either6Scorer, Either7Scorer,
-    Either8Scorer, Either9Scorer, Either10Scorer, Scorer,
+    Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum5, ScorerEnum6, ScorerEnum7,
+    ScorerEnum8, ScorerEnum9, ScorerEnum10,
 };
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -167,49 +167,49 @@ macro_rules! either_scorer_supplier {
 }
 
 either_scorer_supplier!(
-    pub Either2ScorerSupplier
-    => { bulk: Either2BulkScorer, scorer: Either2Scorer }
+    pub ScorerSupplierEnum2
+    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
     { A: A, B: B }
 );
 
 either_scorer_supplier!(
-    pub Either3ScorerSupplier
-    => { bulk: Either3BulkScorer, scorer: Either3Scorer }
+    pub ScorerSupplierEnum3
+    => { bulk: BulkScorerEnum3, scorer: ScorerEnum3 }
     { A: A, B: B ,C:C}
 );
 
 either_scorer_supplier!(
-    pub Either4ScorerSupplier
-    => { bulk: Either4BulkScorer, scorer: Either4Scorer }
+    pub ScorerSupplierEnum4
+    => { bulk: BulkScorerEnum4, scorer: ScorerEnum4 }
     { A: A, B: B ,C:C,D:D}
 );
 either_scorer_supplier!(
-    pub Either5ScorerSupplier
-    => { bulk: Either5BulkScorer, scorer: Either5Scorer }
+    pub ScorerSupplierEnum5
+    => { bulk: BulkScorerEnum5, scorer: ScorerEnum5 }
     { A: A, B: B ,C:C, D:D,E:E }
 );
 either_scorer_supplier!(
-    pub Either6ScorerSupplier
-    => { bulk: Either6BulkScorer, scorer: Either6Scorer }
+    pub ScorerSupplierEnum6
+    => { bulk: BulkScorerEnum6, scorer: ScorerEnum6 }
     { A: A, B: B ,C:C, D:D,E:E,F:F }
 );
 either_scorer_supplier!(
-    pub Either7ScorerSupplier
-    => { bulk: Either7BulkScorer, scorer: Either7Scorer }
+    pub ScorerSupplierEnum7
+    => { bulk: BulkScorerEnum7, scorer: ScorerEnum7 }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G }
 );
 either_scorer_supplier!(
-    pub Either8ScorerSupplier
-    => { bulk: Either8BulkScorer, scorer: Either8Scorer }
+    pub ScorerSupplierEnum8
+    => { bulk: BulkScorerEnum8, scorer: ScorerEnum8 }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H }
 );
 either_scorer_supplier!(
-    pub Either9ScorerSupplier
-    => { bulk: Either9BulkScorer, scorer: Either9Scorer }
+    pub ScorerSupplierEnum9
+    => { bulk: BulkScorerEnum9, scorer: ScorerEnum9 }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I }
 );
 either_scorer_supplier!(
-    pub Either10ScorerSupplier
-    => { bulk: Either10BulkScorer, scorer: Either10Scorer }
+    pub ScorerSupplierEnum10
+    => { bulk: BulkScorerEnum10, scorer: ScorerEnum10 }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I,J:J }
 );

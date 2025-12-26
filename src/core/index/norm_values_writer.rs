@@ -19,8 +19,8 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::numeric_doc_values::Either2NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::numeric_doc_values_writer::{
     NumericDVs, SortingNumericDocValues, sort_doc_values,
 };
@@ -160,14 +160,14 @@ impl Clone for NormsProducerImpl {
 
 impl NormsProducer for NormsProducerImpl {
     type NumericDocValues =
-        Either2NumericDocValues<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
+        NumericDocValuesEnum2<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
 
     fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match &self.sorted {
-            Some(sorted) => Ok(Either2NumericDocValues::B(SortingNumericDocValues::new(
+            Some(sorted) => Ok(NumericDocValuesEnum2::B(SortingNumericDocValues::new(
                 sorted.clone(),
             ))),
-            None => Ok(Either2NumericDocValues::A(BufferedNorms::new(
+            None => Ok(NumericDocValuesEnum2::A(BufferedNorms::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
             ))),

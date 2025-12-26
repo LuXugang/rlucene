@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::random_access_input::{
-    Either2RandomAccessInput, Either3RandomAccessInput, RandomAccessInput,
+    RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
 };
 use crate::core::store::{DataInput, ReadAdvice};
 use crate::core::util::clone::TryClone;
@@ -435,8 +435,8 @@ macro_rules! either_index_input {
         }
     };
 }
-either_index_input!(pub Either2IndexInput, Either2RandomAccessInput { A: A, B: B });
-either_index_input!(pub Either3IndexInput, Either3RandomAccessInput { A: A, B: B, C: C });
+either_index_input!(pub IndexInputEnum2, RandomAccessInputEnum2 { A: A, B: B });
+either_index_input!(pub IndexInputEnum3, RandomAccessInputEnum3 { A: A, B: B, C: C });
 #[cfg(test)]
 mod tests {
     use crate::core::store::directory::Directory;

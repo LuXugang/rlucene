@@ -60,46 +60,46 @@ impl TermState for TermStateEnum {
     }
 }
 // TermState
-pub enum Either2TermState<A, B> {
+pub enum TermStateEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> Display for Either2TermState<A, B>
+impl<A, B> Display for TermStateEnum2<A, B>
 where
     A: TermState,
     B: TermState,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Either2TermState::A(t) => write!(f, "EitherTermState::A({t})"),
-            Either2TermState::B(s) => write!(f, "EitherTermState::B({s})"),
+            TermStateEnum2::A(t) => write!(f, "TermStateEnum::A({t})"),
+            TermStateEnum2::B(s) => write!(f, "TermStateEnum::B({s})"),
         }
     }
 }
 
-impl<A, B> Clone for Either2TermState<A, B>
+impl<A, B> Clone for TermStateEnum2<A, B>
 where
     A: TermState,
     B: TermState,
 {
     fn clone(&self) -> Self {
         match self {
-            Either2TermState::A(t) => Either2TermState::A(t.clone()),
-            Either2TermState::B(s) => Either2TermState::B(s.clone()),
+            TermStateEnum2::A(t) => TermStateEnum2::A(t.clone()),
+            TermStateEnum2::B(s) => TermStateEnum2::B(s.clone()),
         }
     }
 }
 
-impl<A, B> TermState for Either2TermState<A, B>
+impl<A, B> TermState for TermStateEnum2<A, B>
 where
     A: TermState,
     B: TermState,
 {
     fn copy_from(&mut self, other: &Self) -> Result<()> {
         match (self, other) {
-            (Either2TermState::A(t), Either2TermState::A(o)) => t.copy_from(o),
-            (Either2TermState::B(s), Either2TermState::B(o)) => s.copy_from(o),
+            (TermStateEnum2::A(t), TermStateEnum2::A(o)) => t.copy_from(o),
+            (TermStateEnum2::B(s), TermStateEnum2::B(o)) => s.copy_from(o),
             _ => Err(LuceneError::illegal_state(
                 "TermState variants must match when copying",
             )),

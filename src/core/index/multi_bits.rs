@@ -18,7 +18,7 @@ use crate::core::index::composite_reader::{CompositeReader, CompositeReaderBits,
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::reader_util::ReaderUtil;
-use crate::core::util::bits::{Bits, Either2Bits};
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
@@ -138,7 +138,7 @@ where
 
     if size == 1 {
         return match leaves[0].reader().get_live_docs()? {
-            Some(bits) => Ok(Some(Either2Bits::A(bits))),
+            Some(bits) => Ok(Some(BitsEnum2::A(bits))),
             None => Ok(None),
         };
     }
@@ -158,4 +158,4 @@ where
         live_docs, starts, true,
     ))))
 }
-pub type BitsType<CR> = Either2Bits<CompositeReaderBits<CR>, MultiBits<CompositeReaderBits<CR>>>;
+pub type BitsType<CR> = BitsEnum2<CompositeReaderBits<CR>, MultiBits<CompositeReaderBits<CR>>>;

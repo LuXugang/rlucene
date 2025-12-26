@@ -21,7 +21,7 @@ use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
-use crate::core::store::directory::{Directory, Either2Directory};
+use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -127,7 +127,7 @@ impl MergeScheduler for MergeSchedulerEnum {
         }
     }
 
-    type Directory = Either2Directory<
+    type Directory = DirectoryEnum2<
         <SerialMergeScheduler as MergeScheduler>::Directory,
         <NoMergeScheduler as MergeScheduler>::Directory,
     >;
@@ -145,14 +145,14 @@ impl MergeScheduler for MergeSchedulerEnum {
             MergeSchedulerEnum::Serial(s) => {
                 let v = s.wrap_for_merge(merge, in_)?;
                 match v {
-                    Some(e) => Ok(Some(Either2Directory::A(e))),
+                    Some(e) => Ok(Some(DirectoryEnum2::A(e))),
                     None => Ok(None),
                 }
             },
             MergeSchedulerEnum::No(n) => {
                 let v = n.wrap_for_merge(merge, in_)?;
                 match v {
-                    Some(e) => Ok(Some(Either2Directory::B(e))),
+                    Some(e) => Ok(Some(DirectoryEnum2::B(e))),
                     None => Ok(None),
                 }
             },

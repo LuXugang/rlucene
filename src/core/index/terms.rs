@@ -19,7 +19,7 @@ use std::borrow::Cow;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
-use crate::core::index::terms_enum::{Either2TermsEnum, EmptyTermsEnum, SeekStatus, TermsEnum};
+use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -187,7 +187,7 @@ pub trait Terms {
 }
 pub mod terms_util {
     use crate::core::index::leaf_reader::LeafReader;
-    use crate::core::index::terms::{EitherEmptyTerms, EmptyTerms};
+    use crate::core::index::terms::{EmptyTerms, TermsEnum2, TermsEnum2Type};
     use crate::core::util::error::lucene_error::Result;
 
     /// Returns the [`Terms`] index for this field, or [`crate::core::index::terms::Terms::EMPTY`] if it
@@ -199,18 +199,18 @@ pub mod terms_util {
     ///
     /// Errors:
     /// - Returns an error if an I/O error occurs.
-    pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<EitherEmptyTerms<LR::Terms>>
+    pub(crate) fn get_terms<LR>(reader: &LR, field: &str) -> Result<TermsEnum2Type<LR::Terms>>
     where
         LR: LeafReader,
     {
         let terms = reader.terms(field)?;
         match terms {
-            Some(t) => Ok(EitherEmptyTerms::A(t)),
-            None => Ok(EitherEmptyTerms::B(EmptyTerms)),
+            Some(t) => Ok(TermsEnum2::A(t)),
+            None => Ok(TermsEnum2::B(EmptyTerms)),
         }
     }
 }
-pub type EitherEmptyTerms<T> = Either2Terms<T, EmptyTerms>;
+pub type TermsEnum2Type<T> = TermsEnum2<T, EmptyTerms>;
 
 #[derive(Default)]
 pub struct EmptyTerms;
@@ -344,7 +344,7 @@ macro_rules! either_terms {
     };
 }
 either_terms!(
-    pub Either2Terms
-    => { te: Either2TermsEnum, ie: Either2TermsEnum }
+    pub TermsEnum2
+    => { te: TermsEnumEnum2, ie: TermsEnumEnum2 }
     { A:A,B:B}
 );

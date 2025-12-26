@@ -49,7 +49,7 @@ pub trait Impacts {
 }
 
 // Impacts
-pub enum Either2Impacts<A, B>
+pub enum ImpactsEnum2<A, B>
 where
     A: Impacts,
     B: Impacts,
@@ -58,29 +58,29 @@ where
     B(B),
 }
 
-impl<A, B> Impacts for Either2Impacts<A, B>
+impl<A, B> Impacts for ImpactsEnum2<A, B>
 where
     A: Impacts,
     B: Impacts,
 {
     fn num_levels(&self) -> i32 {
         match self {
-            Either2Impacts::A(t) => t.num_levels(),
-            Either2Impacts::B(s) => s.num_levels(),
+            ImpactsEnum2::A(t) => t.num_levels(),
+            ImpactsEnum2::B(s) => s.num_levels(),
         }
     }
 
     fn get_doc_id_upto(&self, level: i32) -> i32 {
         match self {
-            Either2Impacts::A(t) => t.get_doc_id_upto(level),
-            Either2Impacts::B(s) => s.get_doc_id_upto(level),
+            ImpactsEnum2::A(t) => t.get_doc_id_upto(level),
+            ImpactsEnum2::B(s) => s.get_doc_id_upto(level),
         }
     }
 
     fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>> {
         match self {
-            Either2Impacts::A(t) => t.get_impacts(level),
-            Either2Impacts::B(s) => s.get_impacts(level),
+            ImpactsEnum2::A(t) => t.get_impacts(level),
+            ImpactsEnum2::B(s) => s.get_impacts(level),
         }
     }
 }

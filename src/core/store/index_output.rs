@@ -246,5 +246,5 @@ macro_rules! either_index_output {
         }
     };
 }
-either_index_output!(pub Either2IndexOutput { A: A, B: B });
-either_index_output!(pub Either3IndexOutput { A: A, B: B, C: C });
+either_index_output!(pub IndexOutputEnum2 { A: A, B: B });
+either_index_output!(pub IndexOutputEnum3 { A: A, B: B, C: C });

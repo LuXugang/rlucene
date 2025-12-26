@@ -84,5 +84,5 @@ macro_rules! either_lock {
         }
     };
 }
-either_lock!(pub Either2Lock { A: A, B: B });
-either_lock!(pub Either3Lock { A: A, B: B, C: C });
+either_lock!(pub LockEnum2 { A: A, B: B });
+either_lock!(pub LockEnum3 { A: A, B: B, C: C });

@@ -48,7 +48,7 @@ use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
-use crate::core::search::weight::{Either2Weight, Weight};
+use crate::core::search::weight::{Weight, WeightEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -536,12 +536,12 @@ where
         let query = query.into();
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         if !score_mode.needs_scores() {
-            Ok(Either2Weight::A(
+            Ok(WeightEnum2::A(
                 self.query_cache
                     .do_cache(weight, self.query_caching_policy.clone()),
             ))
         } else {
-            Ok(Either2Weight::B(weight))
+            Ok(WeightEnum2::B(weight))
         }
     }
     /// Returns [`TermStatistics`] for a term.
@@ -607,7 +607,7 @@ where
         self.reader_context.reader()
     }
 }
-pub type IndexSearcherWeight<S, IRC, QCP, QC> = Either2Weight<
+pub type IndexSearcherWeight<S, IRC, QCP, QC> = WeightEnum2<
     <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<QueryWeight<S, IRC>, QCP>,
     QueryWeight<S, IRC>,
 >;

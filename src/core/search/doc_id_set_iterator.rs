@@ -330,16 +330,16 @@ macro_rules! either_docidsetiterator_named {
         }
     };
 }
-either_docidsetiterator_named!(pub Either2DocIdSetIterator { A: A, B: B});
-either_docidsetiterator_named!(pub Either3DocIdSetIterator { A: A, B: B,C:C});
-either_docidsetiterator_named!(pub Either4DocIdSetIterator { A: A, B: B,C:C,D:D});
-either_docidsetiterator_named!(pub Either5DocIdSetIterator { A: A, B: B, C: C, D: D, E: E });
-either_docidsetiterator_named!(pub Either6DocIdSetIterator { A: A, B: B, C: C, D: D, E: E, F: F });
-either_docidsetiterator_named!(pub Either7DocIdSetIterator { A: A, B: B, C: C, D: D, E: E, F: F, G: G });
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum2 { A: A, B: B});
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum3 { A: A, B: B,C:C});
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum4 { A: A, B: B,C:C,D:D});
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum5 { A: A, B: B, C: C, D: D, E: E });
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum6 { A: A, B: B, C: C, D: D, E: E, F: F });
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum7 { A: A, B: B, C: C, D: D, E: E, F: F, G: G });
 either_docidsetiterator_named!(
-    pub Either8DocIdSetIterator { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
+    pub DocIdSetIteratorEnum8 { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
-either_docidsetiterator_named!(pub Either9DocIdSetIterator {
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum9 {
     A: A,
     B: B,
     C: C,
@@ -350,7 +350,7 @@ either_docidsetiterator_named!(pub Either9DocIdSetIterator {
     H: H,
     I: I
 });
-either_docidsetiterator_named!(pub Either10DocIdSetIterator {
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum10 {
     A: A,
     B: B,
     C: C,
@@ -362,7 +362,7 @@ either_docidsetiterator_named!(pub Either10DocIdSetIterator {
     I: I,
     J: J
 });
-pub type EitherEmpty<DISI> = Either2DocIdSetIterator<DISI, EmptyDISI>;
+pub type EmptyEnum<DISI> = DocIdSetIteratorEnum2<DISI, EmptyDISI>;
 
 #[cfg(test)]
 mod tests {

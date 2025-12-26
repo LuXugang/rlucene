@@ -21,7 +21,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
-    Either2TwoPhaseIterator, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+    TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -52,13 +52,13 @@ where
         };
 
         let two_phase_iterator = if check_req {
-            Either2TwoPhaseIterator::A(TwoPhaseIteratorImpl1::new(
+            TwoPhaseIteratorEnum2::A(TwoPhaseIteratorImpl1::new(
                 req_scorer,
                 excl_scorer,
                 match_cost,
             ))
         } else {
-            Either2TwoPhaseIterator::B(TwoPhaseIteratorImpl2::new(
+            TwoPhaseIteratorEnum2::B(TwoPhaseIteratorImpl2::new(
                 req_scorer,
                 excl_scorer,
                 match_cost,
@@ -76,8 +76,8 @@ where
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi.two_phase_iterator {
-            Either2TwoPhaseIterator::A(ref mut tpi) => Ok(tpi.req_scorer.score()?),
-            Either2TwoPhaseIterator::B(ref mut tpi) => Ok(tpi.req_scorer.score()?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.score()?),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.score()?),
         }
     }
 
@@ -110,8 +110,8 @@ where
 
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi.two_phase_iterator {
-            Either2TwoPhaseIterator::A(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
-            Either2TwoPhaseIterator::B(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
         }
     }
 
@@ -144,19 +144,15 @@ where
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         match self.disi.two_phase_iterator {
-            Either2TwoPhaseIterator::A(ref mut tpi) => {
-                Ok(tpi.req_scorer.advance_shallow(target)?)
-            },
-            Either2TwoPhaseIterator::B(ref mut tpi) => {
-                Ok(tpi.req_scorer.advance_shallow(target)?)
-            },
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.advance_shallow(target)?),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.advance_shallow(target)?),
         }
     }
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
         match self.disi.two_phase_iterator {
-            Either2TwoPhaseIterator::A(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
-            Either2TwoPhaseIterator::B(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(up_to)?),
         }
     }
 
@@ -334,7 +330,7 @@ where
     }
 }
 pub type Tpi<S1, S2> =
-    Either2TwoPhaseIterator<TwoPhaseIteratorImpl1<S1, S2>, TwoPhaseIteratorImpl2<S1, S2>>;
+    TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl1<S1, S2>, TwoPhaseIteratorImpl2<S1, S2>>;
 /// Estimation of the number of operations required to call DISI.advance.
 /// This is likely completely wrong,
 /// especially given that the cost of this method usually depends on how far you want to advance,

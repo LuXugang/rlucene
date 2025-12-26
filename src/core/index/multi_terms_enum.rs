@@ -18,7 +18,7 @@ use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::index::terms_enum::{Either2TermsEnum, EmptyTermsEnum, SeekStatus, TermsEnum};
+use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::ToInt;
@@ -76,9 +76,9 @@ where
         }
 
         if self.queue.q.size() == 0 {
-            Ok(Either2TermsEnum::B(EmptyTermsEnum))
+            Ok(TermsEnumEnum2::B(EmptyTermsEnum))
         } else {
-            Ok(Either2TermsEnum::A(self))
+            Ok(TermsEnumEnum2::A(self))
         }
     }
     fn pull_top(&mut self) -> Result<()> {
@@ -374,7 +374,7 @@ where
 
     type TermState = DummyTermState;
 }
-pub type MultiTermsEnumType<TE> = Either2TermsEnum<MultiTermsEnum<TE>, EmptyTermsEnum>;
+pub type MultiTermsEnumType<TE> = TermsEnumEnum2<MultiTermsEnum<TE>, EmptyTermsEnum>;
 
 struct TermsEnumWithSlice<TE>
 where

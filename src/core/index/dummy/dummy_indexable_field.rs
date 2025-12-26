@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -52,7 +52,7 @@ impl IndexableField for DummyIndexableField {
     fn token_stream<'a>(
         &'a mut self,
         _token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

@@ -157,29 +157,29 @@ macro_rules! either_scorable {
     };
 }
 either_scorable!(
-    pub Either2Scorable { A: A, B: B }
+    pub ScorableEnum2 { A: A, B: B }
 );
 either_scorable!(
-    pub Either3Scorable { A: A, B: B , C: C }
+    pub ScorableEnum3 { A: A, B: B , C: C }
 );
 either_scorable!(
-    pub Either4Scorable { A: A, B: B , C: C ,D:D}
+    pub ScorableEnum4 { A: A, B: B , C: C ,D:D}
 );
 either_scorable!(
-    pub Either5Scorable { A: A, B: B , C: C, D: D, E: E }
+    pub ScorableEnum5 { A: A, B: B , C: C, D: D, E: E }
 );
 either_scorable!(
-    pub Either6Scorable { A: A, B: B , C: C, D: D, E: E, F: F }
+    pub ScorableEnum6 { A: A, B: B , C: C, D: D, E: E, F: F }
 );
 either_scorable!(
-    pub Either7Scorable { A: A, B: B , C: C, D: D, E: E, F: F, G: G }
+    pub ScorableEnum7 { A: A, B: B , C: C, D: D, E: E, F: F, G: G }
 );
 either_scorable!(
-    pub Either8Scorable { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H }
+    pub ScorableEnum8 { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H }
 );
 either_scorable!(
-    pub Either9Scorable { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I }
+    pub ScorableEnum9 { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I }
 );
 either_scorable!(
-    pub Either10Scorable { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
+    pub ScorableEnum10 { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

@@ -37,7 +37,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
+use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
@@ -170,7 +170,7 @@ where
     type ScorerSupplier = DefaultScorerSupplier<
         ConstantScoreScorer<
             DummyDISI,
-            Either2TwoPhaseIterator<
+            TwoPhaseIteratorEnum2<
                 TwoPhaseIterator1<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
                 TwoPhaseIterator2<SortedNumeric<LR>>,
             >,
@@ -192,9 +192,9 @@ where
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
         let iterator = if values.is_single_valued() {
             let singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
-            Either2TwoPhaseIterator::A(TwoPhaseIterator1::new(singleton, self.query.clone()))
+            TwoPhaseIteratorEnum2::A(TwoPhaseIterator1::new(singleton, self.query.clone()))
         } else {
-            Either2TwoPhaseIterator::B(TwoPhaseIterator2::new(values, self.query.clone()))
+            TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
         };
         let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
         Ok(Some(DefaultScorerSupplier::new(scorer)))

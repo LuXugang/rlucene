@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{
@@ -29,7 +29,7 @@ use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::field_value_hit_queue::{
     Entry, FieldValueHitQueueComparator, TopFieldScoreDoc,
 };
-use crate::core::search::leaf_collector::{Either2LeafCollector, LeafCollector};
+use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2};
 use crate::core::search::leaf_field_comparator::{
     LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
 };
@@ -978,12 +978,12 @@ where
     }
 }
 
-type SimpleLeafCollector<'a, LR> = Either2LeafCollector<
+type SimpleLeafCollector<'a, LR> = LeafCollectorEnum2<
     SimpleFieldLeafCollector<'a, LR>,
     ScoreCachingWrappingLeafCollector<SimpleFieldLeafCollector<'a, LR>>,
 >;
 
-type PagingLeafCollector<'a, LR> = Either2LeafCollector<
+type PagingLeafCollector<'a, LR> = LeafCollectorEnum2<
     PagingFieldLeafCollector<'a, LR>,
     ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
 >;
@@ -1026,7 +1026,7 @@ where
     LR: LeafReader,
 {
     type DocIdSetIteratorRef<'b>
-        = Either2DocIdSetIterator<
+        = DocIdSetIteratorEnum2<
         <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
         <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
     >
@@ -1067,10 +1067,10 @@ where
         match self {
             Self::Simple(inner) => inner
                 .competitive_iterator()
-                .map(|opt| opt.map(Either2DocIdSetIterator::A)),
+                .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
             Self::Paging(inner) => inner
                 .competitive_iterator()
-                .map(|opt| opt.map(Either2DocIdSetIterator::B)),
+                .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
         }
     }
 
@@ -1293,10 +1293,10 @@ where
         match self {
             Self::Multi(inner) => inner
                 .competitive_iterator(comparators)
-                .map(|opt| opt.map(Either2DocIdSetIterator::A)),
+                .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
             Self::Single(inner) => inner
                 .competitive_iterator(&mut comparators[0])
-                .map(|opt| opt.map(Either2DocIdSetIterator::B)),
+                .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
         }
     }
 
@@ -1310,7 +1310,7 @@ where
         }
     }
 }
-pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = Either2DocIdSetIterator<
+pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = DocIdSetIteratorEnum2<
     LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
     <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;

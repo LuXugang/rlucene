@@ -102,11 +102,11 @@ macro_rules! either_bulk_scorer {
         }
     };
 }
-either_bulk_scorer!(pub Either2BulkScorer { A: A1, B: B1});
-either_bulk_scorer!(pub Either3BulkScorer { A: A1, B: B1, C: C1});
-either_bulk_scorer!(pub Either4BulkScorer { A: A1, B: B1, C: C1, D: D1});
-either_bulk_scorer!(pub Either5BulkScorer { A: A1, B: B1, C: C1, D: D1, E: E1});
-either_bulk_scorer!(pub Either6BulkScorer {
+either_bulk_scorer!(pub BulkScorerEnum2 { A: A1, B: B1});
+either_bulk_scorer!(pub BulkScorerEnum3 { A: A1, B: B1, C: C1});
+either_bulk_scorer!(pub BulkScorerEnum4 { A: A1, B: B1, C: C1, D: D1});
+either_bulk_scorer!(pub BulkScorerEnum5 { A: A1, B: B1, C: C1, D: D1, E: E1});
+either_bulk_scorer!(pub BulkScorerEnum6 {
     A: A1,
     B: B1,
     C: C1,
@@ -114,7 +114,7 @@ either_bulk_scorer!(pub Either6BulkScorer {
     E: E1,
     F: F1
 });
-either_bulk_scorer!(pub Either7BulkScorer {
+either_bulk_scorer!(pub BulkScorerEnum7 {
     A: A1,
     B: B1,
     C: C1,
@@ -123,7 +123,7 @@ either_bulk_scorer!(pub Either7BulkScorer {
     F: F1,
     G: G1
 });
-either_bulk_scorer!(pub Either8BulkScorer {
+either_bulk_scorer!(pub BulkScorerEnum8 {
     A: A1,
     B: B1,
     C: C1,
@@ -133,7 +133,7 @@ either_bulk_scorer!(pub Either8BulkScorer {
     G: G1,
     H: H1
 });
-either_bulk_scorer!(pub Either9BulkScorer {
+either_bulk_scorer!(pub BulkScorerEnum9 {
     A: A1,
     B: B1,
     C: C1,
@@ -144,7 +144,7 @@ either_bulk_scorer!(pub Either9BulkScorer {
     H: H1,
     I: I1
 });
-either_bulk_scorer!(pub Either10BulkScorer {
+either_bulk_scorer!(pub BulkScorerEnum10 {
     A: A1,
     B: B1,
     C: C1,

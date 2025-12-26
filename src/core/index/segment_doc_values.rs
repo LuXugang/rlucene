@@ -24,7 +24,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_core_readers::CfsOrBaseInput;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::IOContext;
-use crate::core::store::directory::{Directory, Either2Directory};
+use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ref_count::RefCount;
 use num_bigint::BigInt;
@@ -68,14 +68,14 @@ where
         D: Directory,
     {
         let mut dv_dir = match dir {
-            Some(d) => Either2Directory::A(d),
-            None => Either2Directory::B(si.info.dir.as_ref()),
+            Some(d) => DirectoryEnum2::A(d),
+            None => DirectoryEnum2::B(si.info.dir.as_ref()),
         };
         let mut segment_suffix = "".to_string();
 
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
-            dv_dir = Either2Directory::B(si.info.dir.as_ref());
+            dv_dir = DirectoryEnum2::B(si.info.dir.as_ref());
             let v = BigInt::from(r#gen).to_str_radix(36);
             segment_suffix = v.to_string();
         }

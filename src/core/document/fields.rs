@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
@@ -324,7 +324,7 @@ impl IndexableField for Fields {
     fn token_stream<'a>(
         &'a mut self,
         token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
     {
         match self {
             Fields::Field(f) => f.token_stream(token_stream),

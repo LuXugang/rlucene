@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::comparators::min_doc_iterator::MinDocIterator;
 use crate::core::search::doc_id_set_iterator::{
-    AllDISI, DocIdSetIterator, Either3DocIdSetIterator, EmptyDISI,
+    AllDISI, DocIdSetIterator, DocIdSetIteratorEnum3, EmptyDISI,
 };
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
@@ -244,7 +244,7 @@ impl LeafFieldComparator for DocLeafComparator {
 }
 
 pub type DocComparatorCompetitiveIterator =
-    Either3DocIdSetIterator<AllDISI, EmptyDISI, MinDocIterator>;
+    DocIdSetIteratorEnum3<AllDISI, EmptyDISI, MinDocIterator>;
 pub struct DocComparatorIterator {
     competitive_iterator: DocComparatorCompetitiveIterator,
     doc_id: i32,

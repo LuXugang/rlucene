@@ -146,5 +146,5 @@ macro_rules! either_stored_fields {
     };
 }
 either_stored_fields!(
-    pub Either2StoredFields { A: A, B: B}
+    pub StoredFieldsEnum2 { A: A, B: B}
 );

@@ -27,8 +27,8 @@ use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::sorted_doc_values::Either2SortedDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set::DocIdSet;
@@ -301,7 +301,7 @@ impl Clone for DocValuesProducerImpl {
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = Either2SortedDocValues<
+    type SortedDocValues = SortedDocValuesEnum2<
         BufferedSortedDocValues<DocsWithFieldSetDISI>,
         SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
     >;
@@ -318,9 +318,9 @@ impl DocValuesProducer for DocValuesProducerImpl {
             self.docs_with_field.iterator()?.unwrap(),
         );
         if self.sorted.is_none() {
-            return Ok(Either2SortedDocValues::A(buf));
+            return Ok(SortedDocValuesEnum2::A(buf));
         }
-        Ok(Either2SortedDocValues::B(SortingSortedDocValues::new(
+        Ok(SortedDocValuesEnum2::B(SortingSortedDocValues::new(
             buf,
             self.sorted.as_ref().unwrap().clone(),
         )))

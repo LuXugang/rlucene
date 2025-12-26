@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -63,7 +63,7 @@ impl IndexableField for FloatDocValuesField {
     fn token_stream<'a>(
         &'a mut self,
         token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
     {
         self.parent_field.token_stream(token_stream)
     }

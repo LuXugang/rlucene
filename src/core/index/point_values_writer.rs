@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::mutable_point_tree::Either2MutablePointTree;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
+use crate::core::codecs::mutable_point_tree::MutablePointTreeEnum2;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::BytesRef;
@@ -138,9 +138,9 @@ impl PointValuesWriter {
         );
         let values = match sort_map {
             Some(doc_map) => {
-                Either2MutablePointTree::B(MutableSortingPointValues::new(points, doc_map))
+                MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map))
             },
-            None => Either2MutablePointTree::A(points),
+            None => MutablePointTreeEnum2::A(points),
         };
         let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
 
@@ -152,7 +152,7 @@ where
     DM: DocMap,
 {
     values: RefCell<
-        Either2MutablePointTree<
+        MutablePointTreeEnum2<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -164,7 +164,7 @@ where
     DM: DocMap,
 {
     pub(crate) fn new(
-        values: Either2MutablePointTree<
+        values: MutablePointTreeEnum2<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -214,7 +214,7 @@ where
     DM: DocMap,
 {
     values: RefCell<
-        Either2MutablePointTree<
+        MutablePointTreeEnum2<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -232,7 +232,7 @@ where
 
 // for padding
 impl<DM> Default
-    for Either2MutablePointTree<
+    for MutablePointTreeEnum2<
         MutablePointTreeImpl,
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >
@@ -240,7 +240,7 @@ where
     DM: DocMap,
 {
     fn default() -> Self {
-        Either2MutablePointTree::A(MutablePointTreeImpl::default())
+        MutablePointTreeEnum2::A(MutablePointTreeImpl::default())
     }
 }
 
@@ -249,7 +249,7 @@ where
     DM: DocMap,
 {
     pub(crate) fn new(
-        values: Either2MutablePointTree<
+        values: MutablePointTreeEnum2<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -293,7 +293,7 @@ where
     }
 
     type PointTree = DummyPointTree;
-    type MutablePointTree = Either2MutablePointTree<
+    type MutablePointTree = MutablePointTreeEnum2<
         MutablePointTreeImpl,
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >;

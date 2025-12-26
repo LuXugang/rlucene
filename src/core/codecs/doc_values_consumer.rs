@@ -24,7 +24,7 @@ use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocVa
 use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
 };
-use crate::core::index::binary_doc_values::{BinaryDocValues, Either3BinaryDocValues};
+use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -32,8 +32,8 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{DocMapEnum, MergeState};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -331,7 +331,7 @@ where
 {
     fn default() -> Self {
         BinaryDocValuesSub {
-            values: Either3BinaryDocValues::C(Default::default()),
+            values: BinaryDocValuesEnum3::C(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -616,7 +616,7 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = Either2SortedNumericDocValues<
+    type SortedNumericDocValues = SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<NumericDocValuesMerge<I>>,
         SortedNumericDocValuesMerge<I>,
     >;
@@ -683,12 +683,12 @@ where
                 )));
             }
             let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort)?;
-            return Ok(Either2SortedNumericDocValues::A(
+            return Ok(SortedNumericDocValuesEnum2::A(
                 DocValues::singleton_numeric(dv)?,
             ));
         }
         let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
-        Ok(Either2SortedNumericDocValues::B(
+        Ok(SortedNumericDocValuesEnum2::B(
             SortedNumericDocValuesMerge {
                 doc_id: -1,
                 current_sub: None,

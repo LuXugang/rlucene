@@ -28,7 +28,7 @@ use crate::core::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::core::index::base_terms_enum::BaseTermsEnum;
-use crate::core::index::binary_doc_values::{BinaryDocValues, Either3BinaryDocValues};
+use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
 use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -39,17 +39,17 @@ use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::numeric_doc_values::{Either3NumericDocValues, NumericDocValues};
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum3};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::{
-    Either4SortedNumericDocValues, SortedNumericDocValues,
+    SortedNumericDocValues, SortedNumericDocValuesEnum4,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -822,7 +822,7 @@ where
         match entry {
             Some(entry) => {
                 if entry.docs_with_field_offset == -2 {
-                    return Ok(Either3BinaryDocValues::C(DocValues::empty_binary()));
+                    return Ok(BinaryDocValuesEnum3::C(DocValues::empty_binary()));
                 }
                 let mut bytes_slice = self
                     .data
@@ -872,7 +872,7 @@ where
                             },
                         }
                     };
-                    Ok(Either3BinaryDocValues::A(DenseBinaryDocValues::new(
+                    Ok(BinaryDocValuesEnum3::A(DenseBinaryDocValues::new(
                         dense,
                         self.max_doc,
                     )))
@@ -926,7 +926,7 @@ where
                             addresses,
                         })
                     };
-                    Ok(Either3BinaryDocValues::B(SparseBinaryDocValues::new(
+                    Ok(BinaryDocValuesEnum3::B(SparseBinaryDocValues::new(
                         sub, disi,
                     )))
                 }
@@ -975,7 +975,7 @@ where
                 if let Some(ref single_value_entry) = entry.single_value_entry {
                     let singleton =
                         DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
-                    return Ok(Either2SortedSetDocValues::A(singleton));
+                    return Ok(SortedSetDocValuesEnum2::A(singleton));
                 }
                 // Specialize the common case for ordinals: single block of
                 // packed integers.
@@ -1044,7 +1044,7 @@ where
                                     SparseBaseSortedSetDocValues::new(disi, values, addresses),
                                 )
                             };
-                            return Ok(Either2SortedSetDocValues::B(BaseSortedSetDocValues::new(
+                            return Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
                                 &self.data,
                                 sub,
@@ -1055,7 +1055,7 @@ where
                         let ords = self.get_sorted_numeric(&ords_entry_clone)?;
                         let sub =
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-                        Ok(Either2SortedSetDocValues::B(BaseSortedSetDocValues::new(
+                        Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
                             entry_clone,
                             &self.data,
                             sub,
@@ -3354,27 +3354,27 @@ where
 }
 
 // 1. NumericDocValues
-pub type Lucene90NumericDocValuesEnum<I> = Either3NumericDocValues<
+pub type Lucene90NumericDocValuesEnum<I> = NumericDocValuesEnum3<
     DenseNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
     SparseNumericDocValues<I>,
     EmptyNumeric,
 >;
 // 2.SortedNumericDocValues
-pub type Lucene90SortedNumericDocValuesEnum<I> = Either4SortedNumericDocValues<
+pub type Lucene90SortedNumericDocValuesEnum<I> = SortedNumericDocValuesEnum4<
     DenseSortedNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
     SpareSortedNumericDocValues<I>,
     SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
     SingletonSortedNumericDocValues<EmptyNumeric>,
 >;
 // 3. BinaryDocValues
-pub type Lucene90BinaryDocValuesEnum<I> = Either3BinaryDocValues<
+pub type Lucene90BinaryDocValuesEnum<I> = BinaryDocValuesEnum3<
     DenseBinaryDocValues<<I as IndexInput>::RandomAccessSlice>,
     SparseBinaryDocValues<I>,
     EmptyBinary,
 >;
 
 // 4. SortedSetDocValues
-pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
+pub type Lucene90SortedSetDocValuesEnum<I> = SortedSetDocValuesEnum2<
     SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
     BaseSortedSetDocValues<I>,
 >;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -24,7 +24,7 @@ use crate::core::search::two_phase_iterator::{
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-pub type BlockMaxConjunctionScorerDisi<S> = Either2DocIdSetIterator<
+pub type BlockMaxConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
     DocIdSetIteratorImpl<S>,
     TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>,
 >;
@@ -95,8 +95,8 @@ where
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi {
-            Either2DocIdSetIterator::A(ref mut disi) => Self::do_score(disi.scorers.as_mut()),
-            Either2DocIdSetIterator::B(ref mut tpi_disi) => {
+            DocIdSetIteratorEnum2::A(ref mut disi) => Self::do_score(disi.scorers.as_mut()),
+            DocIdSetIteratorEnum2::B(ref mut tpi_disi) => {
                 Self::do_score(tpi_disi.two_phase_iterator.approx.scorers.as_mut())
             },
         }
@@ -104,8 +104,8 @@ where
 
     fn set_min_competitive_score(&mut self, score: f32) -> Result<()> {
         match self.disi {
-            Either2DocIdSetIterator::A(ref mut disi) => disi.min_score = score,
-            Either2DocIdSetIterator::B(ref mut tpi_disi) => {
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.min_score = score,
+            DocIdSetIteratorEnum2::B(ref mut tpi_disi) => {
                 tpi_disi.two_phase_iterator.approx.min_score = score
             },
         }
@@ -140,8 +140,8 @@ where
 
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi {
-            Either2DocIdSetIterator::A(ref mut v) => v.scorer_doc_id(),
-            Either2DocIdSetIterator::B(ref mut v) => v.two_phase_iterator.approx.scorer_doc_id(),
+            DocIdSetIteratorEnum2::A(ref mut v) => v.scorer_doc_id(),
+            DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approx.scorer_doc_id(),
         }
     }
 
@@ -161,10 +161,10 @@ where
         match self.two_phase_state {
             TwoPhaseState::No => Ok(None),
             _ => match self.disi {
-                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                Either2DocIdSetIterator::B(ref v) => Ok(Some(&v.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(ref v) => Ok(Some(&v.two_phase_iterator)),
             },
         }
     }
@@ -173,10 +173,10 @@ where
         match self.two_phase_state {
             TwoPhaseState::No => Ok(None),
             _ => match self.disi {
-                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                Either2DocIdSetIterator::B(ref mut v) => Ok(Some(&mut v.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(ref mut v) => Ok(Some(&mut v.two_phase_iterator)),
             },
         }
     }
@@ -188,18 +188,18 @@ where
         match self.two_phase_state {
             TwoPhaseState::No => Ok(None),
             _ => match self.disi {
-                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                Either2DocIdSetIterator::B(v) => Ok(Some(v.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(v) => Ok(Some(v.two_phase_iterator)),
             },
         }
     }
 
     fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
         match self.disi {
-            Either2DocIdSetIterator::A(ref mut disi) => disi.advance_shallow(_target),
-            Either2DocIdSetIterator::B(ref mut tpi_disi) => {
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.advance_shallow(_target),
+            DocIdSetIteratorEnum2::B(ref mut tpi_disi) => {
                 tpi_disi.two_phase_iterator.approx.advance_shallow(_target)
             },
         }
@@ -207,8 +207,8 @@ where
 
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
         match self.disi {
-            Either2DocIdSetIterator::A(ref mut disi) => disi.get_max_score(up_to),
-            Either2DocIdSetIterator::B(ref mut tpi_disi) => {
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.get_max_score(up_to),
+            DocIdSetIteratorEnum2::B(ref mut tpi_disi) => {
                 tpi_disi.two_phase_iterator.approx.get_max_score(up_to)
             },
         }

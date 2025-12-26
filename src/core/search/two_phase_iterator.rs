@@ -16,9 +16,9 @@
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, Either4DocIdSetIterator,
-    Either5DocIdSetIterator, Either6DocIdSetIterator, Either7DocIdSetIterator,
-    Either8DocIdSetIterator, Either9DocIdSetIterator, Either10DocIdSetIterator,
+    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
+    DocIdSetIteratorEnum5, DocIdSetIteratorEnum6, DocIdSetIteratorEnum7, DocIdSetIteratorEnum8,
+    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -275,47 +275,47 @@ macro_rules! either_two_phase_iterator_gat {
     };
 }
 either_two_phase_iterator_gat!(
-    pub Either2TwoPhaseIterator
-    => { disi: Either2DocIdSetIterator }
+    pub TwoPhaseIteratorEnum2
+    => { disi: DocIdSetIteratorEnum2 }
     { A: A, B: B}
 );
 either_two_phase_iterator_gat!(
-    pub Either3TwoPhaseIterator
-    => { disi: Either3DocIdSetIterator }
+    pub TwoPhaseIteratorEnum3
+    => { disi: DocIdSetIteratorEnum3 }
     { A: A, B: B, C: C}
 );
 either_two_phase_iterator_gat!(
-    pub Either4TwoPhaseIterator
-    => { disi: Either4DocIdSetIterator }
+    pub TwoPhaseIteratorEnum4
+    => { disi: DocIdSetIteratorEnum4 }
     { A: A, B: B, C: C,D:D}
 );
 either_two_phase_iterator_gat!(
-    pub Either5TwoPhaseIterator
-    => { disi: Either5DocIdSetIterator }
+    pub TwoPhaseIteratorEnum5
+    => { disi: DocIdSetIteratorEnum5 }
     { A: A, B: B, C: C, D: D, E: E }
 );
 either_two_phase_iterator_gat!(
-    pub Either6TwoPhaseIterator
-    => { disi: Either6DocIdSetIterator }
+    pub TwoPhaseIteratorEnum6
+    => { disi: DocIdSetIteratorEnum6 }
     { A: A, B: B, C: C, D: D, E: E, F: F }
 );
 either_two_phase_iterator_gat!(
-    pub Either7TwoPhaseIterator
-    => { disi: Either7DocIdSetIterator }
+    pub TwoPhaseIteratorEnum7
+    => { disi: DocIdSetIteratorEnum7 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
 );
 either_two_phase_iterator_gat!(
-    pub Either8TwoPhaseIterator
-    => { disi: Either8DocIdSetIterator }
+    pub TwoPhaseIteratorEnum8
+    => { disi: DocIdSetIteratorEnum8 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
 either_two_phase_iterator_gat!(
-    pub Either9TwoPhaseIterator
-    => { disi: Either9DocIdSetIterator }
+    pub TwoPhaseIteratorEnum9
+    => { disi: DocIdSetIteratorEnum9 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
 );
 either_two_phase_iterator_gat!(
-    pub Either10TwoPhaseIterator
-    => { disi: Either10DocIdSetIterator }
+    pub TwoPhaseIteratorEnum10
+    => { disi: DocIdSetIteratorEnum10 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::numeric_doc_values::{
-    Either2NumericDocValues, Either4NumericDocValues, NumericDocValues,
+    NumericDocValues, NumericDocValuesEnum2, NumericDocValuesEnum4,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -117,8 +117,8 @@ macro_rules! either_sorted_numeric_docvalues {
     };
 }
 either_sorted_numeric_docvalues!(
-    pub Either2SortedNumericDocValues
-    => Either2NumericDocValues
+    pub SortedNumericDocValuesEnum2
+    => NumericDocValuesEnum2
     {
         A: A,
         B: B
@@ -126,8 +126,8 @@ either_sorted_numeric_docvalues!(
 );
 
 either_sorted_numeric_docvalues!(
-    pub Either4SortedNumericDocValues
-    => Either4NumericDocValues
+    pub SortedNumericDocValuesEnum4
+    => NumericDocValuesEnum4
     {
         A: A,
         B: B,

@@ -18,10 +18,9 @@ use crate::core::index::IndexFileNames;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
-use crate::core::store::lock::{Either2Lock, Either3Lock, Lock};
+use crate::core::store::lock::{Lock, LockEnum2, LockEnum3};
 use crate::core::store::{
-    Either2IndexInput, Either2IndexOutput, Either3IndexInput, Either3IndexOutput, IOContext,
-    IndexOutput,
+    IOContext, IndexInputEnum2, IndexInputEnum3, IndexOutput, IndexOutputEnum2, IndexOutputEnum3,
 };
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -414,16 +413,16 @@ macro_rules! either_directory {
     };
 }
 either_directory!(
-    pub Either2Directory,
-    Either2IndexOutput,
-    Either2IndexInput,
-    Either2Lock { A: A, B: B }
+    pub DirectoryEnum2,
+    IndexOutputEnum2,
+    IndexInputEnum2,
+    LockEnum2 { A: A, B: B }
 );
 either_directory!(
-    pub Either3Directory,
-    Either3IndexOutput,
-    Either3IndexInput,
-    Either3Lock { A: A, B: B, C: C }
+    pub DirectoryEnum3,
+    IndexOutputEnum3,
+    IndexInputEnum3,
+    LockEnum3 { A: A, B: B, C: C }
 );
 impl<D: Directory> Directory for &D {
     fn list_all(&self) -> Result<Vec<String>> {

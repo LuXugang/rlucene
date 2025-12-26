@@ -53,89 +53,89 @@ pub trait PostingsEnum: DocIdSetIterator {
 }
 
 // PostingsEnum
-pub enum Either2PostingsEnum<A, B> {
+pub enum PostingsEnumEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> DocIdSetIterator for Either2PostingsEnum<A, B>
+impl<A, B> DocIdSetIterator for PostingsEnumEnum2<A, B>
 where
     A: PostingsEnum,
     B: PostingsEnum,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            Either2PostingsEnum::A(t) => t.doc_id(),
-            Either2PostingsEnum::B(s) => s.doc_id(),
+            PostingsEnumEnum2::A(t) => t.doc_id(),
+            PostingsEnumEnum2::B(s) => s.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.next_doc(),
-            Either2PostingsEnum::B(s) => s.next_doc(),
+            PostingsEnumEnum2::A(t) => t.next_doc(),
+            PostingsEnumEnum2::B(s) => s.next_doc(),
         }
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.advance(target),
-            Either2PostingsEnum::B(s) => s.advance(target),
+            PostingsEnumEnum2::A(t) => t.advance(target),
+            PostingsEnumEnum2::B(s) => s.advance(target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.slow_advance(target),
-            Either2PostingsEnum::B(s) => s.slow_advance(target),
+            PostingsEnumEnum2::A(t) => t.slow_advance(target),
+            PostingsEnumEnum2::B(s) => s.slow_advance(target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            Either2PostingsEnum::A(t) => t.cost(),
-            Either2PostingsEnum::B(s) => s.cost(),
+            PostingsEnumEnum2::A(t) => t.cost(),
+            PostingsEnumEnum2::B(s) => s.cost(),
         }
     }
 }
 
-impl<A, B> PostingsEnum for Either2PostingsEnum<A, B>
+impl<A, B> PostingsEnum for PostingsEnumEnum2<A, B>
 where
     A: PostingsEnum,
     B: PostingsEnum,
 {
     fn freq(&mut self) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.freq(),
-            Either2PostingsEnum::B(s) => s.freq(),
+            PostingsEnumEnum2::A(t) => t.freq(),
+            PostingsEnumEnum2::B(s) => s.freq(),
         }
     }
 
     fn next_position(&mut self) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.next_position(),
-            Either2PostingsEnum::B(s) => s.next_position(),
+            PostingsEnumEnum2::A(t) => t.next_position(),
+            PostingsEnumEnum2::B(s) => s.next_position(),
         }
     }
 
     fn start_offset(&self) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.start_offset(),
-            Either2PostingsEnum::B(s) => s.start_offset(),
+            PostingsEnumEnum2::A(t) => t.start_offset(),
+            PostingsEnumEnum2::B(s) => s.start_offset(),
         }
     }
 
     fn end_offset(&self) -> Result<i32> {
         match self {
-            Either2PostingsEnum::A(t) => t.end_offset(),
-            Either2PostingsEnum::B(s) => s.end_offset(),
+            PostingsEnumEnum2::A(t) => t.end_offset(),
+            PostingsEnumEnum2::B(s) => s.end_offset(),
         }
     }
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self {
-            Either2PostingsEnum::A(t) => t.get_payload(),
-            Either2PostingsEnum::B(s) => s.get_payload(),
+            PostingsEnumEnum2::A(t) => t.get_payload(),
+            PostingsEnumEnum2::B(s) => s.get_payload(),
         }
     }
 }

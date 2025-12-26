@@ -26,7 +26,7 @@ use crate::core::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
 use crate::core::util::fst_impl::fst::{
     ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING,
     BIT_ARC_HAS_FINAL_OUTPUT, BIT_ARC_HAS_OUTPUT, BIT_FINAL_ARC, BIT_LAST_ARC, BIT_STOP_NODE,
-    BIT_TARGET_NEXT, Either2BytesReader, FINAL_END_NODE, FST, FSTMetadata, InputType,
+    BIT_TARGET_NEXT, BytesReaderEnum2, FINAL_END_NODE, FST, FSTMetadata, InputType,
     NON_FINAL_END_NODE, VERSION_90, VERSION_CONTINUOUS_ARCS, VERSION_CURRENT,
     get_num_presence_bytes,
 };
@@ -1225,7 +1225,7 @@ impl<D> FstReader for DataOutputEnum<D>
 where
     D: Directory,
 {
-    type FstBytesReader = Either2BytesReader<BytesReaderImpl, ReverseBytesReader>;
+    type FstBytesReader = BytesReaderEnum2<BytesReaderImpl, ReverseBytesReader>;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         match self {

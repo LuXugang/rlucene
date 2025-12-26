@@ -40,7 +40,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::Either5LongValues;
+use crate::core::util::long_values::LongValuesEnum5;
 use std::borrow::Cow;
 
 pub enum BaseSortedDocValuesEnum<I>
@@ -268,7 +268,7 @@ where
         }
     }
 }
-pub type LongValuesEnums<R> = Either5LongValues<
+pub type LongValuesEnums<R> = LongValuesEnum5<
     LongValuesImpl,
     LongValuesImpl1<R>,
     LongValuesImpl2<R>,

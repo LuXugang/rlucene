@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fst_impl::fst::{BytesReader, Either2BytesReader};
+use crate::core::util::fst_impl::fst::{BytesReader, BytesReaderEnum2};
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
@@ -71,7 +71,7 @@ impl Accountable for ReadWriteDataOutput {
 }
 
 impl FstReader for ReadWriteDataOutput {
-    type FstBytesReader = Either2BytesReader<BytesReaderImpl, ReverseBytesReader>;
+    type FstBytesReader = BytesReaderEnum2<BytesReaderImpl, ReverseBytesReader>;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if !self.finish {
@@ -81,7 +81,7 @@ impl FstReader for ReadWriteDataOutput {
         }
         if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
             let buffers = self.byte_buffers.as_ref().unwrap().clone();
-            Ok(Either2BytesReader::A(BytesReaderImpl::new(
+            Ok(BytesReaderEnum2::A(BytesReaderImpl::new(
                 buffers,
                 self.block_bits,
                 self.block_size,
@@ -89,7 +89,7 @@ impl FstReader for ReadWriteDataOutput {
             )))
         } else if self.byte_buffer.is_some() && self.byte_buffers.is_none() {
             let buffer = self.byte_buffer.as_ref().unwrap().clone();
-            Ok(Either2BytesReader::B(ReverseBytesReader::new(buffer)))
+            Ok(BytesReaderEnum2::B(ReverseBytesReader::new(buffer)))
         } else {
             Err(LuceneError::illegal_state("Only one buffer is some"))
         }

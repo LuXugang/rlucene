@@ -512,7 +512,7 @@ macro_rules! either_compare {
         }
     };
 }
-either_compare!(pub Either2Compare { A: A, B: B });
+either_compare!(pub CompareEnum2 { A: A, B: B });
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;

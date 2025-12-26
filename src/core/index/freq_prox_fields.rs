@@ -26,7 +26,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::postings_enum::{
-    Either2PostingsEnum, FREQS, OFFSETS, POSITIONS, feature_requested,
+    FREQS, OFFSETS, POSITIONS, PostingsEnumEnum2, feature_requested,
 };
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -385,7 +385,7 @@ impl TermsEnum for FreqProxTermsEnum {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnum = Either2PostingsEnum<FreqProxPostingsEnum, FreqProxDocsEnum>;
+    type PostingsEnum = PostingsEnumEnum2<FreqProxPostingsEnum, FreqProxDocsEnum>;
 
     fn postings_with_flags(
         &mut self,
@@ -413,7 +413,7 @@ impl TermsEnum for FreqProxTermsEnum {
             }
 
             let mut pos_enum = match reuse {
-                Some(Either2PostingsEnum::A(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
+                Some(PostingsEnumEnum2::A(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
                 _ => FreqProxPostingsEnum::new(
                     self.terms.clone(),
                     self.int_pool.clone(),
@@ -421,7 +421,7 @@ impl TermsEnum for FreqProxTermsEnum {
                 ),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
-            return Ok(Either2PostingsEnum::A(pos_enum));
+            return Ok(PostingsEnumEnum2::A(pos_enum));
         }
 
         if has_freq && !feature_requested(flags, FREQS) {
@@ -430,7 +430,7 @@ impl TermsEnum for FreqProxTermsEnum {
             return Err(LuceneError::illegal_state("did not index freq"));
         };
         let mut docs_enum = match reuse {
-            Some(Either2PostingsEnum::B(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
+            Some(PostingsEnumEnum2::B(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
             _ => FreqProxDocsEnum::new(
                 self.terms.clone(),
                 self.int_pool.clone(),
@@ -438,7 +438,7 @@ impl TermsEnum for FreqProxTermsEnum {
             ),
         };
         docs_enum.reset(sorted_term_ids[self.ord as usize]);
-        Ok(Either2PostingsEnum::B(docs_enum))
+        Ok(PostingsEnumEnum2::B(docs_enum))
     }
 
     type ImpactsEnum = DummyImpactsEnum;

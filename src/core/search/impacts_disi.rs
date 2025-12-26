@@ -16,7 +16,7 @@
  */
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::error::lucene_error::Result;
@@ -78,8 +78,8 @@ where
         }
         let (mut impacts_source, max_score_cache) = {
             match self.in_ {
-                Either2DocIdSetIterator::A(_) => (None, &mut self.max_score_cache),
-                Either2DocIdSetIterator::B(ref mut s) => (Some(s), &mut self.max_score_cache),
+                DocIdSetIteratorEnum2::A(_) => (None, &mut self.max_score_cache),
+                DocIdSetIteratorEnum2::B(ref mut s) => (Some(s), &mut self.max_score_cache),
             }
         };
         self.up_to = max_score_cache.advance_shallow(target, &mut impacts_source)?;
@@ -140,4 +140,4 @@ where
     }
 }
 
-type Disi<I, IE> = Either2DocIdSetIterator<I, IE>;
+type Disi<I, IE> = DocIdSetIteratorEnum2<I, IE>;

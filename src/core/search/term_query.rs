@@ -26,7 +26,7 @@ use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{EitherEmptyTermState, PrepareState, TermStates, build};
+use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::QueryCache;
@@ -41,12 +41,10 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Either2Scorer, Scorer};
+use crate::core::search::scorer::{Scorer, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{
-    Either2SimScorer, SimScorer, Similarity,
-};
+use crate::core::search::similarities_impl::similarities::{SimScorer, SimScorerEnum2, Similarity};
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -264,11 +262,11 @@ where
             .unwrap()
             .iterator()?;
         match state.as_ref() {
-            EitherEmptyTermState::A(s) => {
+            EmptyTermStateEnum::A(s) => {
                 terms_enum.seek_exact_with_state(parent_query.term.bytes(), s)?;
                 Ok(Some(terms_enum))
             },
-            EitherEmptyTermState::B(_) => Err(LuceneError::illegal_argument(
+            EmptyTermStateEnum::B(_) => Err(LuceneError::illegal_argument(
                 "should never get empty term state here",
             )),
         }
@@ -316,8 +314,8 @@ where
             let new_doc = scorer.iterator_mut().advance(doc)?;
             if new_doc == doc {
                 let freq = match scorer {
-                    Either2Scorer::A(s) => s.freq()?,
-                    Either2Scorer::B(_) => {
+                    ScorerEnum2::A(s) => s.freq()?,
+                    ScorerEnum2::B(_) => {
                         return Err(LuceneError::illegal_state("should TermScorer here"));
                     },
                 };
@@ -466,7 +464,7 @@ where
             match state_opt {
                 None => return Ok(None),
                 Some(s) => match s.as_ref() {
-                    EitherEmptyTermState::A(s) => {
+                    EmptyTermStateEnum::A(s) => {
                         let mut terms_enum = match context.reader().terms(self.term.field())? {
                             Some(term) => term.iterator()?,
                             None => {
@@ -479,7 +477,7 @@ where
                         terms_enum.seek_exact_with_state(self.term.bytes(), s)?;
                         self.terms_enum = Some(terms_enum);
                     },
-                    EitherEmptyTermState::B(_) => {
+                    EmptyTermStateEnum::B(_) => {
                         return Err(LuceneError::illegal_argument(
                             "should never get empty term state here",
                         ));
@@ -584,9 +582,9 @@ impl SimScorer for SimScorerImpl {
         0f32
     }
 }
-pub(crate) type TermQuerySimScorer<S> = Either2SimScorer<S, SimScorerImpl>;
+pub(crate) type TermQuerySimScorer<S> = SimScorerEnum2<S, SimScorerImpl>;
 
-pub type TermScorerEnum<LR, SS, DISI, TPI> = Either2Scorer<
+pub type TermScorerEnum<LR, SS, DISI, TPI> = ScorerEnum2<
     TermScorer<
         LRPosting<LR>,
         TermQuerySimScorer<SS>,

@@ -22,7 +22,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LRTermsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
-use crate::core::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -817,4 +817,4 @@ where
     }
 }
 pub type TermOrdValDocValues<LR> =
-    Either2SortedDocValues<SortedDocValuesWrap<SortedSet<LR>>, Sorted<LR>>;
+    SortedDocValuesEnum2<SortedDocValuesWrap<SortedSet<LR>>, Sorted<LR>>;

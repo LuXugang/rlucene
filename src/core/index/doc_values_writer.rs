@@ -28,16 +28,16 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values_writer::{
     BufferedSortedDocValues, SortedDocValuesWriter,
 };
-use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
     BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
-use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::{
     BufferedSortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::core::index::sorter::DocMap;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either5DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum5};
 use crate::core::store::directory::Directory;
 use crate::core::util::ByteBlockPool;
 use crate::core::util::error::lucene_error::Result;
@@ -116,19 +116,19 @@ impl DocValuesWriter for DocValuesWriterEnum {
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         match self {
             DocValuesWriterEnum::Binary(writer) => {
-                Ok(Either5DocIdSetIterator::A(writer.get_doc_values()?))
+                Ok(DocIdSetIteratorEnum5::A(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::Numeric(writer) => {
-                Ok(Either5DocIdSetIterator::B(writer.get_doc_values()?))
+                Ok(DocIdSetIteratorEnum5::B(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::SortedNumeric(writer) => {
-                Ok(Either5DocIdSetIterator::C(writer.get_doc_values()?))
+                Ok(DocIdSetIteratorEnum5::C(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::Sorted(writer) => {
-                Ok(Either5DocIdSetIterator::D(writer.get_doc_values()?))
+                Ok(DocIdSetIteratorEnum5::D(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::SortedSet(writer) => {
-                Ok(Either5DocIdSetIterator::E(writer.get_doc_values()?))
+                Ok(DocIdSetIteratorEnum5::E(writer.get_doc_values()?))
             },
         }
     }
@@ -143,15 +143,15 @@ impl DocValuesWriter for DocValuesWriterEnum {
         }
     }
 }
-pub(crate) type DocValuesWriterDISI = Either5DocIdSetIterator<
+pub(crate) type DocValuesWriterDISI = DocIdSetIteratorEnum5<
     BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
     BufferedNumericDocValues,
-    Either2SortedNumericDocValues<
+    SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
         BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >,
     BufferedSortedDocValues<DocsWithFieldSetDISI>,
-    Either2SortedSetDocValues<
+    SortedSetDocValuesEnum2<
         SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
         BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >,

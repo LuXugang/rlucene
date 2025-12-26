@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, REUSE_STRATEGY, ReuseStrategy};
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
@@ -48,7 +48,7 @@ use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
-use crate::core::index::index_sorter::Either2DocComparator;
+use crate::core::index::index_sorter::DocComparatorEnum2;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use std::borrow::Cow;
 
@@ -73,12 +73,12 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values_writer::{
     BufferedSortedDocValues, SortedDocValuesWriter,
 };
-use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
     BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
 use crate::core::index::sorted_set_doc_values_writer::{
-    BufferedSortedSetDocValues, Either2SortedSetDocValues, SortedSetDocValuesWriter,
+    BufferedSortedSetDocValues, SortedSetDocValuesEnum2, SortedSetDocValuesWriter,
 };
 use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
@@ -98,7 +98,7 @@ use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::bit_set::{Either2BitSet, of};
+use crate::core::util::bit_set::{BitSetEnum2, of};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -273,11 +273,11 @@ where
             })?;
             let doc_comparator = sorter.get_doc_comparator(&doc_values_reader, max_doc)?;
             let v = match &parent_bit_set {
-                Some(parent_bit_set) => Either2DocComparator::A(DocComparatorImpl::new(
+                Some(parent_bit_set) => DocComparatorEnum2::A(DocComparatorImpl::new(
                     parent_bit_set.clone(),
                     doc_comparator,
                 )),
-                None => Either2DocComparator::B(doc_comparator),
+                None => DocComparatorEnum2::B(doc_comparator),
             };
             comparators.push(v);
         }
@@ -2167,7 +2167,7 @@ where
         }
     }
 
-    type SortedNumericDocValues = Either2SortedNumericDocValues<
+    type SortedNumericDocValues = SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
         BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >;
@@ -2197,7 +2197,7 @@ where
         }
     }
 
-    type SortedSetDocValues = Either2SortedSetDocValues<
+    type SortedSetDocValues = SortedSetDocValuesEnum2<
         SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
         BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >;
@@ -2477,14 +2477,14 @@ struct DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    parents: Rc<Either2BitSet<SparseFixedBitSet, FixedBitSet>>,
+    parents: Rc<BitSetEnum2<SparseFixedBitSet, FixedBitSet>>,
     doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn new(parents: Rc<Either2BitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+    fn new(parents: Rc<BitSetEnum2<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
         DocComparatorImpl {
             parents,
             doc_comparator,
@@ -2557,7 +2557,7 @@ where
     fn token_stream<'a>(
         &'a mut self,
         token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
     {
         self.delegate.token_stream(token_stream)
     }

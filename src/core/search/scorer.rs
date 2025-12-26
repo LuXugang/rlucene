@@ -16,18 +16,18 @@
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator, Either4DocIdSetIterator,
-    Either5DocIdSetIterator, Either6DocIdSetIterator, Either7DocIdSetIterator,
-    Either8DocIdSetIterator, Either9DocIdSetIterator, Either10DocIdSetIterator,
+    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
+    DocIdSetIteratorEnum5, DocIdSetIteratorEnum6, DocIdSetIteratorEnum7, DocIdSetIteratorEnum8,
+    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10,
 };
 use crate::core::search::scorable::{
-    ChildScorable, Either2Scorable, Either3Scorable, Either4Scorable, Either5Scorable,
-    Either6Scorable, Either7Scorable, Either8Scorable, Either9Scorable, Either10Scorable, Scorable,
+    ChildScorable, Scorable, ScorableEnum2, ScorableEnum3, ScorableEnum4, ScorableEnum5,
+    ScorableEnum6, ScorableEnum7, ScorableEnum8, ScorableEnum9, ScorableEnum10,
 };
 use crate::core::search::two_phase_iterator::{
-    Either2TwoPhaseIterator, Either3TwoPhaseIterator, Either4TwoPhaseIterator,
-    Either5TwoPhaseIterator, Either6TwoPhaseIterator, Either7TwoPhaseIterator,
-    Either8TwoPhaseIterator, Either9TwoPhaseIterator, Either10TwoPhaseIterator, TwoPhaseIterator,
+    TwoPhaseIterator, TwoPhaseIteratorEnum2, TwoPhaseIteratorEnum3, TwoPhaseIteratorEnum4,
+    TwoPhaseIteratorEnum5, TwoPhaseIteratorEnum6, TwoPhaseIteratorEnum7, TwoPhaseIteratorEnum8,
+    TwoPhaseIteratorEnum9, TwoPhaseIteratorEnum10,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -318,74 +318,74 @@ macro_rules! either_scorer {
     };
 }
 either_scorer!(
-    pub Either2Scorer {
-        iter = Either2DocIdSetIterator,
-        two_phase = Either2TwoPhaseIterator,
-        scorable = Either2Scorable;
+    pub ScorerEnum2 {
+        iter = DocIdSetIteratorEnum2,
+        two_phase = TwoPhaseIteratorEnum2,
+        scorable = ScorableEnum2;
         A: A, B: B,
     }
 );
 either_scorer!(
-    pub Either3Scorer {
-        iter = Either3DocIdSetIterator,
-        two_phase = Either3TwoPhaseIterator,
-        scorable = Either3Scorable;
+    pub ScorerEnum3 {
+        iter = DocIdSetIteratorEnum3,
+        two_phase = TwoPhaseIteratorEnum3,
+        scorable = ScorableEnum3;
         A: A, B: B,C: C,
     }
 );
 either_scorer!(
-    pub Either4Scorer {
-        iter = Either4DocIdSetIterator,
-        two_phase = Either4TwoPhaseIterator,
-        scorable = Either4Scorable;
+    pub ScorerEnum4 {
+        iter = DocIdSetIteratorEnum4,
+        two_phase = TwoPhaseIteratorEnum4,
+        scorable = ScorableEnum4;
         A: A, B: B,C: C,D:D
     }
 );
 either_scorer!(
-    pub Either5Scorer {
-        iter = Either5DocIdSetIterator,
-        two_phase = Either5TwoPhaseIterator,
-        scorable = Either5Scorable;
+    pub ScorerEnum5 {
+        iter = DocIdSetIteratorEnum5,
+        two_phase = TwoPhaseIteratorEnum5,
+        scorable = ScorableEnum5;
         A: A, B: B,C: C, D: D,E: E,
     }
 );
 either_scorer!(
-    pub Either6Scorer {
-        iter = Either6DocIdSetIterator,
-        two_phase = Either6TwoPhaseIterator,
-        scorable = Either6Scorable;
+    pub ScorerEnum6 {
+        iter = DocIdSetIteratorEnum6,
+        two_phase = TwoPhaseIteratorEnum6,
+        scorable = ScorableEnum6;
         A: A, B: B,C: C, D: D,E: E,F: F,
     }
 );
 either_scorer!(
-    pub Either7Scorer {
-        iter = Either7DocIdSetIterator,
-        two_phase = Either7TwoPhaseIterator,
-        scorable = Either7Scorable;
+    pub ScorerEnum7 {
+        iter = DocIdSetIteratorEnum7,
+        two_phase = TwoPhaseIteratorEnum7,
+        scorable = ScorableEnum7;
         A: A, B: B,C: C, D: D,E: E,F: F,G: G,
     }
 );
 either_scorer!(
-    pub Either8Scorer {
-        iter = Either8DocIdSetIterator,
-        two_phase = Either8TwoPhaseIterator,
-        scorable = Either8Scorable;
+    pub ScorerEnum8 {
+        iter = DocIdSetIteratorEnum8,
+        two_phase = TwoPhaseIteratorEnum8,
+        scorable = ScorableEnum8;
         A: A, B: B,C: C, D: D,E: E,F: F,G: G,H: H,
     }
 );
 either_scorer!(
-    pub Either9Scorer {
-        iter = Either9DocIdSetIterator,
-        two_phase = Either9TwoPhaseIterator,
-        scorable = Either9Scorable;
+    pub ScorerEnum9 {
+        iter = DocIdSetIteratorEnum9,
+        two_phase = TwoPhaseIteratorEnum9,
+        scorable = ScorableEnum9;
         A: A, B: B,C: C, D: D,E: E,F: F,G: G,H: H,I: I,
     }
 );
 either_scorer!(
-    pub Either10Scorer {
-        iter = Either10DocIdSetIterator,
-        two_phase = Either10TwoPhaseIterator,
-        scorable = Either10Scorable;
+    pub ScorerEnum10 {
+        iter = DocIdSetIteratorEnum10,
+        two_phase = TwoPhaseIteratorEnum10,
+        scorable = ScorableEnum10;
         A: A, B: B,C: C, D: D,E: E,F: F,G: G,H: H,I: I,J: J,
     }
 );

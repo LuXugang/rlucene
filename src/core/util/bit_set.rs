@@ -95,137 +95,137 @@ pub trait BitSet: Bits + Accountable {
 }
 
 // BitSet
-pub enum Either2BitSet<A, B> {
+pub enum BitSetEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> Bits for Either2BitSet<A, B>
+impl<A, B> Bits for BitSetEnum2<A, B>
 where
     A: BitSet,
     B: BitSet,
 {
     fn get(&self, index: i32) -> bool {
         match self {
-            Either2BitSet::A(t) => t.get(index),
-            Either2BitSet::B(s) => s.get(index),
+            BitSetEnum2::A(t) => t.get(index),
+            BitSetEnum2::B(s) => s.get(index),
         }
     }
 
     fn length(&self) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.length(),
-            Either2BitSet::B(s) => s.length(),
+            BitSetEnum2::A(t) => t.length(),
+            BitSetEnum2::B(s) => s.length(),
         }
     }
 
     fn copy_of(&self) -> FixedBitSet {
         match self {
-            Either2BitSet::A(t) => t.copy_of(),
-            Either2BitSet::B(s) => s.copy_of(),
+            BitSetEnum2::A(t) => t.copy_of(),
+            BitSetEnum2::B(s) => s.copy_of(),
         }
     }
 }
 
-impl<A, B> Accountable for Either2BitSet<A, B>
+impl<A, B> Accountable for BitSetEnum2<A, B>
 where
     A: BitSet,
     B: BitSet,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         match self {
-            Either2BitSet::A(t) => t.ram_bytes_used(),
-            Either2BitSet::B(s) => s.ram_bytes_used(),
+            BitSetEnum2::A(t) => t.ram_bytes_used(),
+            BitSetEnum2::B(s) => s.ram_bytes_used(),
         }
     }
 }
 
-impl<A, B> BitSet for Either2BitSet<A, B>
+impl<A, B> BitSet for BitSetEnum2<A, B>
 where
     A: BitSet,
     B: BitSet,
 {
     fn clear(&mut self) {
         match self {
-            Either2BitSet::A(t) => t.clear(),
-            Either2BitSet::B(s) => s.clear(),
+            BitSetEnum2::A(t) => t.clear(),
+            BitSetEnum2::B(s) => s.clear(),
         }
     }
 
     fn set(&mut self, i: i32) {
         match self {
-            Either2BitSet::A(t) => t.set(i),
-            Either2BitSet::B(s) => s.set(i),
+            BitSetEnum2::A(t) => t.set(i),
+            BitSetEnum2::B(s) => s.set(i),
         }
     }
 
     fn get_and_set(&mut self, i: i32) -> bool {
         match self {
-            Either2BitSet::A(t) => t.get_and_set(i),
-            Either2BitSet::B(s) => s.get_and_set(i),
+            BitSetEnum2::A(t) => t.get_and_set(i),
+            BitSetEnum2::B(s) => s.get_and_set(i),
         }
     }
 
     fn clear_with_index(&mut self, i: i32) {
         match self {
-            Either2BitSet::A(t) => t.clear_with_index(i),
-            Either2BitSet::B(s) => s.clear_with_index(i),
+            BitSetEnum2::A(t) => t.clear_with_index(i),
+            BitSetEnum2::B(s) => s.clear_with_index(i),
         }
     }
 
     fn clear_range(&mut self, start_index: i32, end_index: i32) {
         match self {
-            Either2BitSet::A(t) => t.clear_range(start_index, end_index),
-            Either2BitSet::B(s) => s.clear_range(start_index, end_index),
+            BitSetEnum2::A(t) => t.clear_range(start_index, end_index),
+            BitSetEnum2::B(s) => s.clear_range(start_index, end_index),
         }
     }
 
     fn cardinality(&self) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.cardinality(),
-            Either2BitSet::B(s) => s.cardinality(),
+            BitSetEnum2::A(t) => t.cardinality(),
+            BitSetEnum2::B(s) => s.cardinality(),
         }
     }
 
     fn approximate_cardinality(&self) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.approximate_cardinality(),
-            Either2BitSet::B(s) => s.approximate_cardinality(),
+            BitSetEnum2::A(t) => t.approximate_cardinality(),
+            BitSetEnum2::B(s) => s.approximate_cardinality(),
         }
     }
 
     fn prev_set_bit(&self, index: i32) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.prev_set_bit(index),
-            Either2BitSet::B(s) => s.prev_set_bit(index),
+            BitSetEnum2::A(t) => t.prev_set_bit(index),
+            BitSetEnum2::B(s) => s.prev_set_bit(index),
         }
     }
 
     fn next_set_bit(&self, index: i32) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.next_set_bit(index),
-            Either2BitSet::B(s) => s.next_set_bit(index),
+            BitSetEnum2::A(t) => t.next_set_bit(index),
+            BitSetEnum2::B(s) => s.next_set_bit(index),
         }
     }
 
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
         match self {
-            Either2BitSet::A(t) => t.next_set_bit_range(start, end),
-            Either2BitSet::B(s) => s.next_set_bit_range(start, end),
+            BitSetEnum2::A(t) => t.next_set_bit_range(start, end),
+            BitSetEnum2::B(s) => s.next_set_bit_range(start, end),
         }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         match self {
-            Either2BitSet::A(t) => t.or(iter),
-            Either2BitSet::B(s) => s.or(iter),
+            BitSetEnum2::A(t) => t.or(iter),
+            BitSetEnum2::B(s) => s.or(iter),
         }
     }
 
     fn ensure_capacity(&mut self, _num_bits: i32) {
         match self {
-            Either2BitSet::A(t) => t.ensure_capacity(_num_bits),
-            Either2BitSet::B(s) => s.ensure_capacity(_num_bits),
+            BitSetEnum2::A(t) => t.ensure_capacity(_num_bits),
+            BitSetEnum2::B(s) => s.ensure_capacity(_num_bits),
         }
     }
 }
@@ -383,15 +383,15 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 pub fn of(
     it: &mut impl DocIdSetIterator,
     max_doc: i32,
-) -> Result<Either2BitSet<SparseFixedBitSet, FixedBitSet>> {
+) -> Result<BitSetEnum2<SparseFixedBitSet, FixedBitSet>> {
     let cost = it.cost()?;
     let threshold = max_doc >> 7;
     let mut set;
     if cost < (threshold as i64) {
-        set = Either2BitSet::A(SparseFixedBitSet::new(max_doc)?);
+        set = BitSetEnum2::A(SparseFixedBitSet::new(max_doc)?);
     } else {
         let result = FixedBitSet::new(max_doc);
-        set = Either2BitSet::B(result);
+        set = BitSetEnum2::B(result);
     };
     let _ = set.or(it);
     Ok(set)

@@ -929,7 +929,7 @@ where
         inner.peak_net_bytes
     }
 }
-pub(crate) type EitherDWPT<D> = (
+pub(crate) type DWPTEnum<D> = (
     Option<DocumentsWriterPerThread<D>>,
     Option<DocumentsWriterPerThread<D>>,
 );

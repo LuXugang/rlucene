@@ -31,7 +31,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::IOUtils;
-use crate::core::util::bits::{Bits, Either2Bits};
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use std::fmt;
@@ -107,22 +107,20 @@ impl PendingDeletes {
         if !self.writeable_live_docs {
             self.writeable_live_docs = true;
             self.live_docs = Some(match self.live_docs.take() {
-                Some(Either2Bits::A(b)) => Either2Bits::B(Either2Bits::B(b.copy_of())),
-                Some(Either2Bits::B(Either2Bits::A(fb))) => {
-                    Either2Bits::B(Either2Bits::B(fb.copy_of()))
-                },
-                Some(Either2Bits::B(Either2Bits::B(_))) => {
+                Some(BitsEnum2::A(b)) => BitsEnum2::B(BitsEnum2::B(b.copy_of())),
+                Some(BitsEnum2::B(BitsEnum2::A(fb))) => BitsEnum2::B(BitsEnum2::B(fb.copy_of())),
+                Some(BitsEnum2::B(BitsEnum2::B(_))) => {
                     return Err(LuceneError::illegal_state("should not be here"));
                 },
                 None => {
                     let mut v = FixedBitSet::new(self.max_doc);
                     v.set_with_range(0, self.max_doc);
-                    Either2Bits::B(Either2Bits::B(v))
+                    BitsEnum2::B(BitsEnum2::B(v))
                 },
             });
         }
         match self.live_docs.as_mut() {
-            Some(Either2Bits::B(Either2Bits::B(v))) => Ok(v),
+            Some(BitsEnum2::B(BitsEnum2::B(v))) => Ok(v),
             _ => Err(LuceneError::illegal_state(
                 "live_docs should be FixedBitSet",
             )),
@@ -196,18 +194,18 @@ impl PendingDeletesBase for PendingDeletes {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         self.live_docs.take().map(|bits| match bits {
-            Either2Bits::A(b) => {
+            BitsEnum2::A(b) => {
                 self.live_docs = Some(DocBits::A(b.clone()));
-                Either2Bits::A(b)
+                BitsEnum2::A(b)
             },
-            Either2Bits::B(Either2Bits::A(fb)) => {
-                self.live_docs = Some(DocBits::B(Either2Bits::A(fb.clone())));
-                Either2Bits::B(Either2Bits::A(fb))
+            BitsEnum2::B(BitsEnum2::A(fb)) => {
+                self.live_docs = Some(DocBits::B(BitsEnum2::A(fb.clone())));
+                BitsEnum2::B(BitsEnum2::A(fb))
             },
-            Either2Bits::B(Either2Bits::B(fbs)) => {
+            BitsEnum2::B(BitsEnum2::B(fbs)) => {
                 let fix_bit = Arc::new(fbs.to_read_only_bits());
-                self.live_docs = Some(DocBits::B(Either2Bits::A(fix_bit.clone())));
-                Either2Bits::B(Either2Bits::A(fix_bit))
+                self.live_docs = Some(DocBits::B(BitsEnum2::A(fix_bit.clone())));
+                BitsEnum2::B(BitsEnum2::A(fix_bit))
             },
         })
     }
@@ -237,7 +235,7 @@ impl PendingDeletesBase for PendingDeletes {
                 );
                 self.live_docs = reader.get_live_docs()?;
 
-                if let Some(Either2Bits::A(bits)) = &self.live_docs {
+                if let Some(BitsEnum2::A(bits)) = &self.live_docs {
                     let max_doc = info.info.max_doc()?;
                     let del_count = info.get_del_count();
                     debug_assert!(self.assert_check_live_docs(&**bits, max_doc, del_count));
@@ -340,9 +338,9 @@ impl PendingDeletesBase for PendingDeletes {
         false
     }
 }
-pub(crate) type DocBits = Either2Bits<
+pub(crate) type DocBits = BitsEnum2<
     Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>,
-    Either2Bits<Arc<FixedBit>, FixedBitSet>,
+    BitsEnum2<Arc<FixedBit>, FixedBitSet>,
 >;
 impl fmt::Display for PendingDeletes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -401,12 +399,12 @@ pub(crate) trait PendingDeletesBase: Display {
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
             (None, None) => true,
             (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
-                (Either2Bits::A(r_bits), Either2Bits::A(c_bits)) => Arc::ptr_eq(&r_bits, &c_bits),
-                (Either2Bits::B(r_bits), Either2Bits::B(c_bits)) => match (r_bits, c_bits) {
-                    (Either2Bits::A(r_fixed), Either2Bits::A(c_fixed)) => {
+                (BitsEnum2::A(r_bits), BitsEnum2::A(c_bits)) => Arc::ptr_eq(&r_bits, &c_bits),
+                (BitsEnum2::B(r_bits), BitsEnum2::B(c_bits)) => match (r_bits, c_bits) {
+                    (BitsEnum2::A(r_fixed), BitsEnum2::A(c_fixed)) => {
                         Arc::ptr_eq(&r_fixed, &c_fixed)
                     },
-                    (Either2Bits::B(_), Either2Bits::B(_)) => {
+                    (BitsEnum2::B(_), BitsEnum2::B(_)) => {
                         return Err(LuceneError::illegal_state(
                             "live docs should be FixedBitSet",
                         ));
@@ -502,34 +500,34 @@ pub(crate) trait PendingDeletesBase: Display {
     fn must_init_on_delete(&self) -> bool;
 }
 
-pub(crate) type PendingDeletesEnum = Either2PendingDeletes<PendingDeletes, PendingSoftDeletes>;
-pub(crate) enum Either2PendingDeletes<A, B> {
+pub(crate) type PendingDeletesEnum = PendingDeletesEnum2<PendingDeletes, PendingSoftDeletes>;
+pub(crate) enum PendingDeletesEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> Display for Either2PendingDeletes<A, B>
+impl<A, B> Display for PendingDeletesEnum2<A, B>
 where
     A: PendingDeletesBase,
     B: PendingDeletesBase,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Either2PendingDeletes::A(a) => a.fmt(f),
-            Either2PendingDeletes::B(b) => b.fmt(f),
+            PendingDeletesEnum2::A(a) => a.fmt(f),
+            PendingDeletesEnum2::B(b) => b.fmt(f),
         }
     }
 }
 
-impl<A, B> PendingDeletesBase for Either2PendingDeletes<A, B>
+impl<A, B> PendingDeletesBase for PendingDeletesEnum2<A, B>
 where
     A: PendingDeletesBase,
     B: PendingDeletesBase,
 {
     fn get_info_id(&self) -> &str {
         match self {
-            Either2PendingDeletes::A(a) => a.get_info_id(),
-            Either2PendingDeletes::B(b) => b.get_info_id(),
+            PendingDeletesEnum2::A(a) => a.get_info_id(),
+            PendingDeletesEnum2::B(b) => b.get_info_id(),
         }
     }
 
@@ -538,29 +536,29 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.delete(doc_id, info),
-            Either2PendingDeletes::B(b) => b.delete(doc_id, info),
+            PendingDeletesEnum2::A(a) => a.delete(doc_id, info),
+            PendingDeletesEnum2::B(b) => b.delete(doc_id, info),
         }
     }
 
     fn get_hard_live_docs(&mut self) -> Option<DocBits> {
         match self {
-            Either2PendingDeletes::A(a) => a.get_hard_live_docs(),
-            Either2PendingDeletes::B(b) => b.get_hard_live_docs(),
+            PendingDeletesEnum2::A(a) => a.get_hard_live_docs(),
+            PendingDeletesEnum2::B(b) => b.get_hard_live_docs(),
         }
     }
 
     fn get_live_docs(&mut self) -> Option<DocBits> {
         match self {
-            Either2PendingDeletes::A(a) => a.get_live_docs(),
-            Either2PendingDeletes::B(b) => b.get_live_docs(),
+            PendingDeletesEnum2::A(a) => a.get_live_docs(),
+            PendingDeletesEnum2::B(b) => b.get_live_docs(),
         }
     }
 
     fn num_pending_deletes(&self) -> i32 {
         match self {
-            Either2PendingDeletes::A(a) => a.num_pending_deletes(),
-            Either2PendingDeletes::B(b) => b.num_pending_deletes(),
+            PendingDeletesEnum2::A(a) => a.num_pending_deletes(),
+            PendingDeletesEnum2::B(b) => b.num_pending_deletes(),
         }
     }
 
@@ -573,15 +571,15 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.on_new_reader(reader, info),
-            Either2PendingDeletes::B(b) => b.on_new_reader(reader, info),
+            PendingDeletesEnum2::A(a) => a.on_new_reader(reader, info),
+            PendingDeletesEnum2::B(b) => b.on_new_reader(reader, info),
         }
     }
 
     fn drop_changes(&mut self) {
         match self {
-            Either2PendingDeletes::A(a) => a.drop_changes(),
-            Either2PendingDeletes::B(b) => b.drop_changes(),
+            PendingDeletesEnum2::A(a) => a.drop_changes(),
+            PendingDeletesEnum2::B(b) => b.drop_changes(),
         }
     }
 
@@ -594,8 +592,8 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.write_live_docs(dir, info),
-            Either2PendingDeletes::B(b) => b.write_live_docs(dir, info),
+            PendingDeletesEnum2::A(a) => a.write_live_docs(dir, info),
+            PendingDeletesEnum2::B(b) => b.write_live_docs(dir, info),
         }
     }
 
@@ -604,8 +602,8 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.is_fully_deleted(reader_io_supplier),
-            Either2PendingDeletes::B(b) => b.is_fully_deleted(reader_io_supplier),
+            PendingDeletesEnum2::A(a) => a.is_fully_deleted(reader_io_supplier),
+            PendingDeletesEnum2::B(b) => b.is_fully_deleted(reader_io_supplier),
         }
     }
 
@@ -618,8 +616,8 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.needs_refresh(reader, info),
-            Either2PendingDeletes::B(b) => b.needs_refresh(reader, info),
+            PendingDeletesEnum2::A(a) => a.needs_refresh(reader, info),
+            PendingDeletesEnum2::B(b) => b.needs_refresh(reader, info),
         }
     }
 
@@ -628,8 +626,8 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.get_del_count(info),
-            Either2PendingDeletes::B(b) => b.get_del_count(info),
+            PendingDeletesEnum2::A(a) => a.get_del_count(info),
+            PendingDeletesEnum2::B(b) => b.get_del_count(info),
         }
     }
 
@@ -638,8 +636,8 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.num_docs(info),
-            Either2PendingDeletes::B(b) => b.num_docs(info),
+            PendingDeletesEnum2::A(a) => a.num_docs(info),
+            PendingDeletesEnum2::B(b) => b.num_docs(info),
         }
     }
 
@@ -652,15 +650,15 @@ where
         D: Directory,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.verify_doc_counts(reader, info),
-            Either2PendingDeletes::B(b) => b.verify_doc_counts(reader, info),
+            PendingDeletesEnum2::A(a) => a.verify_doc_counts(reader, info),
+            PendingDeletesEnum2::B(b) => b.verify_doc_counts(reader, info),
         }
     }
 
     fn max_doc(&self) -> i32 {
         match self {
-            Either2PendingDeletes::A(a) => a.max_doc(),
-            Either2PendingDeletes::B(b) => b.max_doc(),
+            PendingDeletesEnum2::A(a) => a.max_doc(),
+            PendingDeletesEnum2::B(b) => b.max_doc(),
         }
     }
 
@@ -670,15 +668,15 @@ where
         iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     ) {
         match self {
-            Either2PendingDeletes::A(a) => a.on_doc_values_update(info, iterator),
-            Either2PendingDeletes::B(b) => b.on_doc_values_update(info, iterator),
+            PendingDeletesEnum2::A(a) => a.on_doc_values_update(info, iterator),
+            PendingDeletesEnum2::B(b) => b.on_doc_values_update(info, iterator),
         }
     }
 
     fn must_init_on_delete(&self) -> bool {
         match self {
-            Either2PendingDeletes::A(a) => a.must_init_on_delete(),
-            Either2PendingDeletes::B(b) => b.must_init_on_delete(),
+            PendingDeletesEnum2::A(a) => a.must_init_on_delete(),
+            PendingDeletesEnum2::B(b) => b.must_init_on_delete(),
         }
     }
 }
@@ -690,7 +688,7 @@ mod tests {
     use crate::core::codecs::{Codec, get_default_code};
     use crate::core::index::field_infos::FieldInfos;
     use crate::core::index::pending_deletes::{
-        Either2PendingDeletes, PendingDeletes, PendingDeletesBase,
+        PendingDeletes, PendingDeletesBase, PendingDeletesEnum2,
     };
     use crate::core::index::segment_commit_info::SegmentCommitInfo;
     use crate::core::index::segment_info::SegmentInfo;
@@ -716,11 +714,11 @@ mod tests {
 
     fn new_pending_deletes<D>(
         commit_info: &SegmentCommitInfo<D>,
-    ) -> Result<Either2PendingDeletes<PendingDeletes, PendingSoftDeletes>>
+    ) -> Result<PendingDeletesEnum2<PendingDeletes, PendingSoftDeletes>>
     where
         D: Directory,
     {
-        Ok(Either2PendingDeletes::A(PendingDeletes::new(commit_info)?))
+        Ok(PendingDeletesEnum2::A(PendingDeletes::new(commit_info)?))
     }
     #[test]
     fn test_delete_doc() -> Result<()> {

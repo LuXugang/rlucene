@@ -41,11 +41,11 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Either5Scorer;
+use crate::core::search::scorer::ScorerEnum5;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
+use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
@@ -445,17 +445,17 @@ where
                             );
                             return Ok(Some(ScorerType::<LR>::C(v)));
                         },
-                        None => Either2TwoPhaseIterator::A(TwoPhaseIterator5::new(
+                        None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator5::new(
                             singleton, min_ord, max_ord,
                         )),
                     }
                 },
                 None => {
-                    Either2TwoPhaseIterator::A(TwoPhaseIterator5::new(singleton, min_ord, max_ord))
+                    TwoPhaseIteratorEnum2::A(TwoPhaseIterator5::new(singleton, min_ord, max_ord))
                 },
             }
         } else {
-            Either2TwoPhaseIterator::B(TwoPhaseIterator6::new(values, min_ord, max_ord))
+            TwoPhaseIteratorEnum2::B(TwoPhaseIterator6::new(values, min_ord, max_ord))
         };
         match skipper_opt {
             Some(skipper) => {
@@ -478,11 +478,11 @@ where
         Ok(self.cost)
     }
 }
-pub type TPI1<LR> = Either2TwoPhaseIterator<
+pub type TPI1<LR> = TwoPhaseIteratorEnum2<
     TwoPhaseIterator5<<SortedSet<LR> as SortedSetDocValues>::SortedDocValues>,
     TwoPhaseIterator6<SortedSet<LR>>,
 >;
-pub type ScorerType<LR> = Either5Scorer<
+pub type ScorerType<LR> = ScorerEnum5<
     ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
     ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>,
     ConstantScoreScorer<DISI, DummyTwoPhaseIterator>,

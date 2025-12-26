@@ -102,5 +102,5 @@ macro_rules! either_random_access_input {
         }
     };
 }
-either_random_access_input!(pub Either2RandomAccessInput { A: A, B: B });
-either_random_access_input!(pub Either3RandomAccessInput { A: A, B: B, C: C });
+either_random_access_input!(pub RandomAccessInputEnum2 { A: A, B: B });
+either_random_access_input!(pub RandomAccessInputEnum3 { A: A, B: B, C: C });

@@ -16,18 +16,18 @@
  */
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::binary_doc_values::Either2BinaryDocValues;
+use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::doc_values_skipper::Either2DocValuesSkipper;
+use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::numeric_doc_values::Either2NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::sorted_doc_values::Either2SortedDocValues;
+use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
+use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -176,36 +176,36 @@ macro_rules! either_docvaluesproducer {
             $B: DocValuesProducer,
         {
             type NumericDocValues =
-                Either2NumericDocValues<$A::NumericDocValues, $B::NumericDocValues>;
+                NumericDocValuesEnum2<$A::NumericDocValues, $B::NumericDocValues>;
 
             fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_numeric(field).map(Either2NumericDocValues::A),
-                    $name::B(inner) => inner.get_numeric(field).map(Either2NumericDocValues::B),
+                    $name::A(inner) => inner.get_numeric(field).map(NumericDocValuesEnum2::A),
+                    $name::B(inner) => inner.get_numeric(field).map(NumericDocValuesEnum2::B),
                 }
             }
 
             type BinaryDocValues =
-                Either2BinaryDocValues<$A::BinaryDocValues, $B::BinaryDocValues>;
+                BinaryDocValuesEnum2<$A::BinaryDocValues, $B::BinaryDocValues>;
 
             fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_binary(field).map(Either2BinaryDocValues::A),
-                    $name::B(inner) => inner.get_binary(field).map(Either2BinaryDocValues::B),
+                    $name::A(inner) => inner.get_binary(field).map(BinaryDocValuesEnum2::A),
+                    $name::B(inner) => inner.get_binary(field).map(BinaryDocValuesEnum2::B),
                 }
             }
 
             type SortedDocValues =
-                Either2SortedDocValues<$A::SortedDocValues, $B::SortedDocValues>;
+                SortedDocValuesEnum2<$A::SortedDocValues, $B::SortedDocValues>;
 
             fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_sorted(field).map(Either2SortedDocValues::A),
-                    $name::B(inner) => inner.get_sorted(field).map(Either2SortedDocValues::B),
+                    $name::A(inner) => inner.get_sorted(field).map(SortedDocValuesEnum2::A),
+                    $name::B(inner) => inner.get_sorted(field).map(SortedDocValuesEnum2::B),
                 }
             }
 
-            type SortedNumericDocValues = Either2SortedNumericDocValues<
+            type SortedNumericDocValues = SortedNumericDocValuesEnum2<
                 $A::SortedNumericDocValues,
                 $B::SortedNumericDocValues,
             >;
@@ -217,30 +217,30 @@ macro_rules! either_docvaluesproducer {
                 match self {
                     $name::A(inner) => inner
                         .get_sorted_numeric(field)
-                        .map(Either2SortedNumericDocValues::A),
+                        .map(SortedNumericDocValuesEnum2::A),
                     $name::B(inner) => inner
                         .get_sorted_numeric(field)
-                        .map(Either2SortedNumericDocValues::B),
+                        .map(SortedNumericDocValuesEnum2::B),
                 }
             }
 
             type SortedSetDocValues =
-                Either2SortedSetDocValues<$A::SortedSetDocValues, $B::SortedSetDocValues>;
+                SortedSetDocValuesEnum2<$A::SortedSetDocValues, $B::SortedSetDocValues>;
 
             fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_sorted_set(field).map(Either2SortedSetDocValues::A),
-                    $name::B(inner) => inner.get_sorted_set(field).map(Either2SortedSetDocValues::B),
+                    $name::A(inner) => inner.get_sorted_set(field).map(SortedSetDocValuesEnum2::A),
+                    $name::B(inner) => inner.get_sorted_set(field).map(SortedSetDocValuesEnum2::B),
                 }
             }
 
             type DocValuesSkipper =
-                Either2DocValuesSkipper<$A::DocValuesSkipper, $B::DocValuesSkipper>;
+                DocValuesSkipperEnum2<$A::DocValuesSkipper, $B::DocValuesSkipper>;
 
             fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
                 match self {
-                    $name::A(inner) => inner.get_skipper(field).map(Either2DocValuesSkipper::A),
-                    $name::B(inner) => inner.get_skipper(field).map(Either2DocValuesSkipper::B),
+                    $name::A(inner) => inner.get_skipper(field).map(DocValuesSkipperEnum2::A),
+                    $name::B(inner) => inner.get_skipper(field).map(DocValuesSkipperEnum2::B),
                 }
             }
 
@@ -269,4 +269,4 @@ macro_rules! either_docvaluesproducer {
         }
     };
 }
-either_docvaluesproducer!(pub Either2DocValuesProducer { A: A, B: B });
+either_docvaluesproducer!(pub DocValuesProducerEnum2 { A: A, B: B });

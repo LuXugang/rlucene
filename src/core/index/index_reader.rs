@@ -16,9 +16,9 @@
  */
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::stored_fields::{Either2StoredFields, StoredFields};
+use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors::{Either2TermVectors, TermVectors};
+use crate::core::index::term_vectors::{TermVectors, TermVectorsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -201,19 +201,19 @@ impl IndexReaderBase {
 pub trait CacheHelper {
     fn get_key(&self) -> CacheKey;
 }
-pub enum Either2CacheHelper<A, B> {
+pub enum CacheHelperEnum2<A, B> {
     A(A),
     B(B),
 }
-impl<A, B> CacheHelper for Either2CacheHelper<A, B>
+impl<A, B> CacheHelper for CacheHelperEnum2<A, B>
 where
     A: CacheHelper,
     B: CacheHelper,
 {
     fn get_key(&self) -> CacheKey {
         match self {
-            Either2CacheHelper::A(a) => a.get_key(),
-            Either2CacheHelper::B(b) => b.get_key(),
+            CacheHelperEnum2::A(a) => a.get_key(),
+            CacheHelperEnum2::B(b) => b.get_key(),
         }
     }
 }
@@ -221,13 +221,11 @@ where
 pub type CacheKey = Identity;
 
 pub type IRTermVectors<'a, LR, CR> =
-    Either2TermVectors<<LR as IndexReader>::TermVectors<'a>, <CR as IndexReader>::TermVectors<'a>>;
-pub type IRStoredFields<'a, LR, CR> = Either2StoredFields<
-    <LR as IndexReader>::StoredFields<'a>,
-    <CR as IndexReader>::StoredFields<'a>,
->;
+    TermVectorsEnum2<<LR as IndexReader>::TermVectors<'a>, <CR as IndexReader>::TermVectors<'a>>;
+pub type IRStoredFields<'a, LR, CR> =
+    StoredFieldsEnum2<<LR as IndexReader>::StoredFields<'a>, <CR as IndexReader>::StoredFields<'a>>;
 
-pub type IndexReaderEnumCacheHelperType<A, B> = Either2CacheHelper<A, B>;
+pub type IndexReaderEnumCacheHelperType<A, B> = CacheHelperEnum2<A, B>;
 
 pub enum IndexReaderEnum<LR, CR>
 where
@@ -272,8 +270,8 @@ where
 
     fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         match self {
-            IndexReaderEnum::Leaf(leaf) => Ok(Either2TermVectors::A(leaf.term_vectors()?)),
-            IndexReaderEnum::Composite(comp) => Ok(Either2TermVectors::B(comp.term_vectors()?)),
+            IndexReaderEnum::Leaf(leaf) => Ok(TermVectorsEnum2::A(leaf.term_vectors()?)),
+            IndexReaderEnum::Composite(comp) => Ok(TermVectorsEnum2::B(comp.term_vectors()?)),
         }
     }
 
@@ -327,8 +325,8 @@ where
 
     fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         match self {
-            IndexReaderEnum::Leaf(leaf) => Ok(Either2StoredFields::A(leaf.stored_fields()?)),
-            IndexReaderEnum::Composite(comp) => Ok(Either2StoredFields::B(comp.stored_fields()?)),
+            IndexReaderEnum::Leaf(leaf) => Ok(StoredFieldsEnum2::A(leaf.stored_fields()?)),
+            IndexReaderEnum::Composite(comp) => Ok(StoredFieldsEnum2::B(comp.stored_fields()?)),
         }
     }
 

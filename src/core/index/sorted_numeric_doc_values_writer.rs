@@ -26,15 +26,15 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::numeric_doc_values::Either2NumericDocValues;
+use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::numeric_doc_values_writer::{
     BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues,
     get_doc_values_producer,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -166,7 +166,7 @@ impl SortedNumericDocValuesWriter {
         value_counts: &Option<PackedLongValues>,
         docs_with_field: &DocsWithFieldSet,
     ) -> Result<
-        Either2SortedNumericDocValues<
+        SortedNumericDocValuesEnum2<
             SingletonSortedNumericDocValues<BufferedNumericDocValues>,
             BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
         >,
@@ -178,13 +178,13 @@ impl SortedNumericDocValuesWriter {
         match value_counts {
             None => {
                 let dv = BufferedNumericDocValues::new(values, iter);
-                Ok(Either2SortedNumericDocValues::A(
+                Ok(SortedNumericDocValuesEnum2::A(
                     DocValues::singleton_numeric(dv)?,
                 ))
             },
             Some(value_counts) => {
                 let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter);
-                Ok(Either2SortedNumericDocValues::B(dv))
+                Ok(SortedNumericDocValuesEnum2::B(dv))
             },
         }
     }
@@ -262,7 +262,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         dv_consumer.add_sorted_numeric_field(&self.field_info, &producer)
     }
 
-    type DocIdSetIterator = Either2SortedNumericDocValues<
+    type DocIdSetIterator = SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
         BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >;
@@ -320,7 +320,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<
-        Either2NumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>,
+        NumericDocValuesEnum2<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>,
     >;
 
     fn get_sorted_numeric(
@@ -374,13 +374,13 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = Either2SortedNumericDocValues<
-        Either2SortedNumericDocValues<
+    type SortedNumericDocValues = SortedNumericDocValuesEnum2<
+        SortedNumericDocValuesEnum2<
             SingletonSortedNumericDocValues<BufferedNumericDocValues>,
             BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
         >,
         SortingSortedNumericDocValues<
-            Either2SortedNumericDocValues<
+            SortedNumericDocValuesEnum2<
                 SingletonSortedNumericDocValues<BufferedNumericDocValues>,
                 BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
             >,
@@ -400,10 +400,10 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
             &self.docs_with_field,
         )?;
         match &self.sorted {
-            Some(sorted) => Ok(Either2SortedNumericDocValues::B(
+            Some(sorted) => Ok(SortedNumericDocValuesEnum2::B(
                 SortingSortedNumericDocValues::new(buf, sorted.clone()),
             )),
-            None => Ok(Either2SortedNumericDocValues::A(buf)),
+            None => Ok(SortedNumericDocValuesEnum2::A(buf)),
         }
     }
 

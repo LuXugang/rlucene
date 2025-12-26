@@ -31,8 +31,8 @@ use crate::core::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
-use crate::core::store::directory::{Directory, Either2Directory};
-use crate::core::store::{Either2IndexInput, IOContext, IndexInput};
+use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::{IOContext, IndexInput, IndexInputEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
@@ -41,7 +41,7 @@ use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
-pub(crate) type CfsOrBaseInput<D> = Either2IndexInput<
+pub(crate) type CfsOrBaseInput<D> = IndexInputEnum2<
     <<D as Directory>::IndexInput as IndexInput>::Slice,
     <D as Directory>::IndexInput,
 >;
@@ -82,8 +82,8 @@ where
             };
 
             let cfs_dir = match cfs_reader.as_ref() {
-                Some(reader) => Either2Directory::A(reader),
-                None => Either2Directory::B(dir),
+                Some(reader) => DirectoryEnum2::A(reader),
+                None => DirectoryEnum2::B(dir),
             };
 
             let segment = si.info.name.to_string();

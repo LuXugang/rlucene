@@ -17,7 +17,7 @@
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::index::BytesRef;
-use crate::core::index::binary_doc_values::{BinaryDocValues, Either2BinaryDocValues};
+use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum2};
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
@@ -29,18 +29,18 @@ use crate::core::index::leaf_reader::{
     LRBinaryDocValues, LRNormNumericDocValues, LRNumericDocValues, LRSortedDocValues,
     LRSortedNumericDocValues, LRSortedSetDocValues, LeafReader,
 };
-use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
-    Either2SortedNumericDocValues, SortedNumericDocValues,
+    SortedNumericDocValues, SortedNumericDocValuesEnum2,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
-use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::ToUsizeExact;
@@ -51,32 +51,32 @@ use std::borrow::Cow;
 
 pub struct MultiDocValues;
 
-pub type MultiNormNumericDocValues<CR> = Either2NumericDocValues<
+pub type MultiNormNumericDocValues<CR> = NumericDocValuesEnum2<
     LRNormNumericDocValues<<CR as CompositeReader>::LeafReader>,
     NumericDocValuesImpl<CR>,
 >;
-pub type MultiNumericDocValues<CR> = Either2NumericDocValues<
+pub type MultiNumericDocValues<CR> = NumericDocValuesEnum2<
     LRNumericDocValues<<CR as CompositeReader>::LeafReader>,
     NumericDocValuesImpl1<CR>,
 >;
-pub type MultiBinaryDocValues<CR> = Either2BinaryDocValues<
+pub type MultiBinaryDocValues<CR> = BinaryDocValuesEnum2<
     LRBinaryDocValues<<CR as CompositeReader>::LeafReader>,
     BinaryDocValuesImpl<CR>,
 >;
-pub type MultiSortedNumericDocValues<CR> = Either2SortedNumericDocValues<
+pub type MultiSortedNumericDocValues<CR> = SortedNumericDocValuesEnum2<
     LRSortedNumericDocValues<<CR as CompositeReader>::LeafReader>,
     SortedNumericDocValuesImpl<CR>,
 >;
-pub type MultiSortedDocValuesType<CR> = Either2SortedDocValues<
+pub type MultiSortedDocValuesType<CR> = SortedDocValuesEnum2<
     LRSortedDocValues<<CR as CompositeReader>::LeafReader>,
     MultiSortedDocValues<
-        Either2SortedDocValues<LRSortedDocValues<<CR as CompositeReader>::LeafReader>, EmptySorted>,
+        SortedDocValuesEnum2<LRSortedDocValues<<CR as CompositeReader>::LeafReader>, EmptySorted>,
     >,
 >;
-pub type MultiSortedSetDocValuesType<CR> = Either2SortedSetDocValues<
+pub type MultiSortedSetDocValuesType<CR> = SortedSetDocValuesEnum2<
     LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
     MultiSortedSetDocValues<
-        Either2SortedSetDocValues<
+        SortedSetDocValuesEnum2<
             LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
             EmptySortedSet,
         >,
@@ -230,9 +230,9 @@ impl MultiDocValues {
             let dv = match v {
                 Some(v) => {
                     any_real = true;
-                    Either2SortedNumericDocValues::B(v)
+                    SortedNumericDocValuesEnum2::B(v)
                 },
-                None => Either2SortedNumericDocValues::A(DocValues::empty_sorted_numeric()?),
+                None => SortedNumericDocValuesEnum2::A(DocValues::empty_sorted_numeric()?),
             };
 
             total_cost += dv.cost()?;
@@ -279,9 +279,9 @@ impl MultiDocValues {
                 Some(s) => {
                     any_real = true;
                     total_cost += s.cost()?;
-                    Either2SortedDocValues::A(s)
+                    SortedDocValuesEnum2::A(s)
                 },
-                None => Either2SortedDocValues::B(DocValues::empty_sorted()),
+                None => SortedDocValuesEnum2::B(DocValues::empty_sorted()),
             };
 
             values.push(v);
@@ -342,9 +342,9 @@ impl MultiDocValues {
                 Some(s) => {
                     any_real = true;
                     total_cost += s.cost()?;
-                    Either2SortedSetDocValues::A(s)
+                    SortedSetDocValuesEnum2::A(s)
                 },
-                None => Either2SortedSetDocValues::B(DocValues::empty_sorted_set()?),
+                None => SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?),
             };
 
             values.push(v);
@@ -1224,7 +1224,7 @@ where
     next_leaf: i32,
     current_values_index: Option<usize>,
     values: Vec<
-        Either2SortedNumericDocValues<
+        SortedNumericDocValuesEnum2<
             SingletonSortedNumericDocValues<EmptyNumeric>,
             LRSortedNumericDocValues<CR::LeafReader>,
         >,
@@ -1242,7 +1242,7 @@ where
     pub fn new(
         reader: CompositeReaderContext<CR>,
         values: Vec<
-            Either2SortedNumericDocValues<
+            SortedNumericDocValuesEnum2<
                 SingletonSortedNumericDocValues<EmptyNumeric>,
                 LRSortedNumericDocValues<CR::LeafReader>,
             >,

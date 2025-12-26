@@ -19,8 +19,8 @@ use std::borrow::Cow;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
-use crate::core::index::terms_enum::Either2TermsEnum;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::terms_enum::TermsEnumEnum2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -195,7 +195,7 @@ macro_rules! either_sorted_docvalues {
     };
 }
 either_sorted_docvalues!(
-    pub Either2SortedDocValues
-    => Either2TermsEnum
+    pub SortedDocValuesEnum2
+    => TermsEnumEnum2
     { A: A, B: B }
 );

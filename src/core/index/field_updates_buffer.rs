@@ -24,7 +24,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bits::{Bits, Either2Bits, MatchAllBits};
+use crate::core::util::bits::{Bits, BitsEnum2, MatchAllBits};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -585,7 +585,7 @@ impl BufferedUpdate {
     }
 }
 
-type UpdateBits<'a> = Either2Bits<MatchAllBits, &'a FixedBitSet>;
+type UpdateBits<'a> = BitsEnum2<MatchAllBits, &'a FixedBitSet>;
 
 #[cfg(test)]
 mod tests {

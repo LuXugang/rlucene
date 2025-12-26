@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, EitherEmpty, EmptyDISI,
+    DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, EmptyEnum,
 };
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
@@ -24,7 +24,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
-    Either2TwoPhaseIterator, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+    TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A constant-scoring Scorer.
@@ -52,14 +52,14 @@ where
     pub fn with_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
         let approximation = match score_mode {
             ScoreMode::TopScores => {
-                ConstantDISI::A(DocIdSetIteratorWrapper::new(EitherEmpty::A(disi)))
+                ConstantDISI::A(DocIdSetIteratorWrapper::new(EmptyEnum::A(disi)))
             },
             _ => ConstantDISI::B(disi),
         };
         Self {
             score,
             score_mode,
-            disi: Either2DocIdSetIterator::A(approximation),
+            disi: DocIdSetIteratorEnum2::A(approximation),
             tpi_state: TwoPhaseState::No,
         }
     }
@@ -83,7 +83,7 @@ where
         Self {
             score,
             score_mode,
-            disi: Either2DocIdSetIterator::B(TwoPhaseIteratorAsDocIdSetIterator::new(
+            disi: DocIdSetIteratorEnum2::B(TwoPhaseIteratorAsDocIdSetIterator::new(
                 two_phase_iterator,
             )),
             tpi_state: TwoPhaseState::Yes,
@@ -104,10 +104,10 @@ where
         if min_score > self.score && matches!(self.score_mode, ScoreMode::TopScores) {
             match self.disi {
                 ConstantDISI_::A(ref mut v) => match v {
-                    Either2DocIdSetIterator::A(v) => {
-                        v.delegate = EitherEmpty::B(EmptyDISI::new());
+                    DocIdSetIteratorEnum2::A(v) => {
+                        v.delegate = EmptyEnum::B(EmptyDISI::new());
                     },
-                    Either2DocIdSetIterator::B(_) => {
+                    DocIdSetIteratorEnum2::B(_) => {
                         return Err(LuceneError::illegal_state("not DocIdSetIteratorWrapper"));
                     },
                 },
@@ -135,7 +135,7 @@ where
     where
         Self: 'a;
     type DocIdSetIteratorMut<'a>
-        = EitherEmpty<&'a mut ConstantDISI_<DISI, TPI>>
+        = EmptyEnum<&'a mut ConstantDISI_<DISI, TPI>>
     where
         Self: 'a;
 
@@ -158,7 +158,7 @@ where
     }
 
     fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        EitherEmpty::A(&mut self.disi)
+        EmptyEnum::A(&mut self.disi)
     }
 
     fn take_iterator(self) -> Self::DocIdSetIterator {
@@ -268,15 +268,12 @@ where
 }
 
 // used for Constructor from DISI
-pub type ConstantDISI<DISI> =
-    Either2DocIdSetIterator<DocIdSetIteratorWrapper<EitherEmpty<DISI>>, DISI>;
+pub type ConstantDISI<DISI> = DocIdSetIteratorEnum2<DocIdSetIteratorWrapper<EmptyEnum<DISI>>, DISI>;
 // used Constructor from TwoPhaseIterator
-pub type ConstantTPI<TPI> = Either2TwoPhaseIterator<TwoPhaseIteratorImpl<TPI>, TPI>;
+pub type ConstantTPI<TPI> = TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<TPI>, TPI>;
 
-pub type ConstantDISI_<DISI, TPI> = Either2DocIdSetIterator<
-    ConstantDISI<DISI>,
-    TwoPhaseIteratorAsDocIdSetIterator<ConstantTPI<TPI>>,
->;
+pub type ConstantDISI_<DISI, TPI> =
+    DocIdSetIteratorEnum2<ConstantDISI<DISI>, TwoPhaseIteratorAsDocIdSetIterator<ConstantTPI<TPI>>>;
 
 pub struct DocIdSetIteratorWrapper<D>
 where

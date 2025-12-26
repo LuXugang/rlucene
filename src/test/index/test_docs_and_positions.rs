@@ -23,7 +23,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
-use crate::core::index::postings_enum::{ALL, Either2PostingsEnum, PostingsEnum};
+use crate::core::index::postings_enum::{ALL, PostingsEnum, PostingsEnumEnum2};
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -405,7 +405,7 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
 
     assert!(te.seek_exact(&new_bytes_ref_from_string(&mut random, "bar")?)?);
     match disi {
-        Either2PostingsEnum::A(v) => {
+        PostingsEnumEnum2::A(v) => {
             let mut disi = te.postings_with_flags(Some(v), ALL as i32)?;
 
             let docid = disi.doc_id();
@@ -414,7 +414,7 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
             let next2 = disi.next_doc()?;
             assert_ne!(next2, NO_MORE_DOCS);
         },
-        Either2PostingsEnum::B(_v) => {
+        PostingsEnumEnum2::B(_v) => {
             unreachable!("should not happen");
         },
     }

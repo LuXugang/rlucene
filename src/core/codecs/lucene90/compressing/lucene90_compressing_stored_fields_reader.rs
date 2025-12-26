@@ -38,7 +38,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{
-    ByteArrayDataInput, DataInput, Either2DataInput, IOContext, IndexInput, ReadAdvice,
+    ByteArrayDataInput, DataInput, DataInputEnum2, IOContext, IndexInput, ReadAdvice,
 };
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
@@ -746,9 +746,9 @@ where
         };
 
         let document_input = if length == 0 {
-            Either2DataInput::A(ByteArrayDataInput::new())
+            DataInputEnum2::A(ByteArrayDataInput::new())
         } else if self.merging {
-            Either2DataInput::A(ByteArrayDataInput::with_range(
+            DataInputEnum2::A(ByteArrayDataInput::with_range(
                 std::mem::take(&mut bytes.bytes),
                 bytes.offset + offset as usize,
                 length,
@@ -764,7 +764,7 @@ where
                     min(length as i32, self.chunk_size - offset),
                     &mut bytes,
                 )?;
-                Either2DataInput::B(DataInputImpl::new(
+                DataInputEnum2::B(DataInputImpl::new(
                     &mut self.decompressor,
                     self.chunk_size,
                     &mut self.fields_stream,
@@ -780,7 +780,7 @@ where
                     &mut bytes,
                 )?;
                 debug_assert_eq!(bytes.length, length);
-                Either2DataInput::A(ByteArrayDataInput::with_range(
+                DataInputEnum2::A(ByteArrayDataInput::with_range(
                     std::mem::take(&mut bytes.bytes),
                     bytes.offset,
                     bytes.length,
@@ -796,7 +796,7 @@ where
     }
 }
 
-type DataInputs<'a, I> = Either2DataInput<ByteArrayDataInput<Vec<u8>>, DataInputImpl<'a, I>>;
+type DataInputs<'a, I> = DataInputEnum2<ByteArrayDataInput<Vec<u8>>, DataInputImpl<'a, I>>;
 /// A serialized document. You need to decode its input to get an actual
 /// `Document`.
 pub struct SerializedDocument<'a, I>

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -181,7 +181,7 @@ macro_rules! either_leaf_collector {
     };
 }
 either_leaf_collector!(
-    pub Either2LeafCollector
-    => { disi: Either2DocIdSetIterator }
+    pub LeafCollectorEnum2
+    => { disi: DocIdSetIteratorEnum2 }
     { A: A, B: B }
 );

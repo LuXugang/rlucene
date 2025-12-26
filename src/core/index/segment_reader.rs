@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::compound_directory::CompoundDirectoryBase;
-use crate::core::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
+use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
@@ -42,7 +42,7 @@ use crate::core::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::core::index::term::Term;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::bits::{Bits, Either2Bits};
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -235,20 +235,18 @@ where
                 match (hard_live_docs, live_docs) {
                     (None, None) => true,
                     (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
-                        (Either2Bits::A(r_bits), Either2Bits::A(c_bits)) =>
-                            Arc::ptr_eq(r_bits, c_bits),
-                        (Either2Bits::B(r_bits), Either2Bits::B(c_bits)) =>
-                            match (r_bits, c_bits) {
-                                (Either2Bits::A(r_fixed), Either2Bits::A(c_fixed)) => {
-                                    Arc::ptr_eq(r_fixed, c_fixed)
-                                },
-                                (Either2Bits::B(_), Either2Bits::B(_)) => {
-                                    return Err(LuceneError::illegal_state(
-                                        "live docs should be FixedBitSet",
-                                    ));
-                                },
-                                _ => false,
+                        (BitsEnum2::A(r_bits), BitsEnum2::A(c_bits)) => Arc::ptr_eq(r_bits, c_bits),
+                        (BitsEnum2::B(r_bits), BitsEnum2::B(c_bits)) => match (r_bits, c_bits) {
+                            (BitsEnum2::A(r_fixed), BitsEnum2::A(c_fixed)) => {
+                                Arc::ptr_eq(r_fixed, c_fixed)
                             },
+                            (BitsEnum2::B(_), BitsEnum2::B(_)) => {
+                                return Err(LuceneError::illegal_state(
+                                    "live docs should be FixedBitSet",
+                                ));
+                            },
+                            _ => false,
+                        },
                         _ => false,
                     },
                     _ => false,
@@ -271,7 +269,7 @@ where
         let dir = &core.cfs_reader;
 
         let producer = match si.has_field_updates() {
-            true => Either2DocValuesProducer::A(SegmentDocValuesProducer::new(
+            true => DocValuesProducerEnum2::A(SegmentDocValuesProducer::new(
                 si,
                 dir,
                 Arc::clone(&core.core_field_infos),
@@ -279,7 +277,7 @@ where
                 seg_doc_values,
             )?),
             // simple case, no DocValues updates
-            false => Either2DocValuesProducer::B(seg_doc_values.get_doc_values_producer(
+            false => DocValuesProducerEnum2::B(seg_doc_values.get_doc_values_producer(
                 -1,
                 si,
                 dir,
@@ -327,7 +325,7 @@ where
         &self.original_si_id
     }
 }
-pub type DocValuesProducers<D> = Either2DocValuesProducer<
+pub type DocValuesProducers<D> = DocValuesProducerEnum2<
     SegmentDocValuesProducer<D>,
     Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
 >;
@@ -379,8 +377,8 @@ where
             && let Some(dv) = &self.doc_values_producer
         {
             match dv {
-                Either2DocValuesProducer::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens)?,
-                Either2DocValuesProducer::B(_) => {
+                DocValuesProducerEnum2::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens)?,
+                DocValuesProducerEnum2::B(_) => {
                     let gens = vec![-1_i64, 1];
                     self.seg_doc_values.dec_ref(&gens)?
                 },
@@ -501,8 +499,8 @@ where
         match &self.live_docs {
             Some(DocBits::A(a)) => Ok(Some(DocBits::A(Arc::clone(a)))),
             Some(DocBits::B(b)) => match b {
-                Either2Bits::A(a) => Ok(Some(DocBits::B(Either2Bits::A(Arc::clone(a))))),
-                Either2Bits::B(_) => Err(LuceneError::illegal_state(
+                BitsEnum2::A(a) => Ok(Some(DocBits::B(BitsEnum2::A(Arc::clone(a))))),
+                BitsEnum2::B(_) => Err(LuceneError::illegal_state(
                     "live docs should be FixedBitSet",
                 )),
             },

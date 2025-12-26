@@ -38,8 +38,8 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Either2Scorer;
-use crate::core::search::scorer_supplier::{Either2ScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer::ScorerEnum2;
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -552,7 +552,7 @@ where
     }
 }
 pub type PointRangeWeightScorerSupplier<PV> =
-    Either2ScorerSupplier<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
+    ScorerSupplierEnum2<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
 pub(crate) fn matches(
     query: &PointRangeQuery,
     comparator: &ByteArrayComparatorEnum,
@@ -645,7 +645,7 @@ where
         }
     }
 }
-pub type PointRangeWeightScorer = Either2Scorer<
+pub type PointRangeWeightScorer = ScorerEnum2<
     ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
     ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
 >;

@@ -258,8 +258,8 @@ macro_rules! either_similarity {
     };
 }
 either_similarity!(
-    pub Either2Similarity
-    => { scorer: Either2SimScorer }
+    pub SimilarityEnum2
+    => { scorer: SimScorerEnum2 }
     { A: A, B: B}
 );
 
@@ -287,4 +287,4 @@ macro_rules! either_sim_scorer {
         }
     };
 }
-either_sim_scorer!(pub Either2SimScorer { A: A, B: B});
+either_sim_scorer!(pub SimScorerEnum2 { A: A, B: B});

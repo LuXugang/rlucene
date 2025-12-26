@@ -17,7 +17,7 @@
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::{Either16LongValues, LongValues, Zeroes};
+use crate::core::util::long_values::{LongValues, LongValuesEnum16, Zeroes};
 
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
@@ -859,7 +859,7 @@ where
     }
 }
 
-pub(crate) type DirectPackedEnum<R> = Either16LongValues<
+pub(crate) type DirectPackedEnum<R> = LongValuesEnum16<
     DirectPackedReader1<R>,
     DirectPackedReader2<R>,
     DirectPackedReader4<R>,

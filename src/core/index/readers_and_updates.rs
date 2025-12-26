@@ -46,7 +46,7 @@ use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::Either2DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -881,7 +881,7 @@ where
     update_doc_id: i32,
 
     on_disk_doc_values: Option<DI>,
-    update_doc_values: Either2DocIdSetIterator<
+    update_doc_values: DocIdSetIteratorEnum2<
         BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
         NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
     >,
@@ -893,7 +893,7 @@ where
 {
     pub fn new(
         on_disk_doc_values: Option<DI>,
-        update_doc_values: Either2DocIdSetIterator<
+        update_doc_values: DocIdSetIteratorEnum2<
             BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
             NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
         >,
@@ -945,8 +945,8 @@ where
                 if self.doc_id_out != NO_MORE_DOCS {
                     self.current_values_supplier = Some(CurrentSource::Update);
                     has_value = match self.update_doc_values {
-                        Either2DocIdSetIterator::A(ref mut dv) => dv.iterator.has_value(),
-                        Either2DocIdSetIterator::B(ref mut dv) => dv.iterator.has_value(),
+                        DocIdSetIteratorEnum2::A(ref mut dv) => dv.iterator.has_value(),
+                        DocIdSetIteratorEnum2::B(ref mut dv) => dv.iterator.has_value(),
                     };
                 } else {
                     has_value = true;
@@ -1037,8 +1037,8 @@ where
                 }
             },
             Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                Either2DocIdSetIterator::A(ref mut dv) => dv.binary_value(),
-                Either2DocIdSetIterator::B(_) => Err(LuceneError::illegal_state(
+                DocIdSetIteratorEnum2::A(ref mut dv) => dv.binary_value(),
+                DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
                     "update doc values should be BinaryDocValuesDVFU",
                 )),
             },
@@ -1110,10 +1110,10 @@ where
                 }
             },
             Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
+                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "update doc values should be BinaryDocValuesDVFU",
                 )),
-                Either2DocIdSetIterator::B(ref mut dv) => dv.long_value(),
+                DocIdSetIteratorEnum2::B(ref mut dv) => dv.long_value(),
             },
             None => Err(LuceneError::illegal_state("no current values supplier set")),
         }
@@ -1179,7 +1179,7 @@ where
         };
         let merged_doc_values = MergedDocValues::new(
             self.reader.get_binary_doc_values(self.field)?,
-            Either2DocIdSetIterator::A(BinaryDocValuesDVFU::new(iterator)),
+            DocIdSetIteratorEnum2::A(BinaryDocValuesDVFU::new(iterator)),
         );
         Ok(BinaryDocValuesImpl::new(merged_doc_values))
     }
@@ -1248,7 +1248,7 @@ where
 
         let merged_doc_values = MergedDocValues::new(
             self.reader.get_numeric_doc_values(self.field)?,
-            Either2DocIdSetIterator::B(NumericDocValuesDVFU::new(iterator)),
+            DocIdSetIteratorEnum2::B(NumericDocValuesDVFU::new(iterator)),
         );
         // Merge sort of the original doc values with updated doc values:
         Ok(NumericDocValuesImpl::new(merged_doc_values))

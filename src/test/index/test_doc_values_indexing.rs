@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStreamEnum2};
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
@@ -958,7 +958,7 @@ impl IndexableField for FieldImpl {
     fn token_stream<'a>(
         &'a mut self,
         _token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>
     {
         Err(LuceneError::unsupported_operation(""))
     }

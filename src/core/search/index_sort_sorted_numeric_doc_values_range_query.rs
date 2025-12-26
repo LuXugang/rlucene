@@ -38,7 +38,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    AllDISI, DocIdSetIterator, Either4DocIdSetIterator, EmptyDISI, RangeDISI,
+    AllDISI, DocIdSetIterator, DocIdSetIteratorEnum4, EmptyDISI, RangeDISI,
 };
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
@@ -54,12 +54,12 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::{Either2ScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::weight::{DefaultBulkScorer, Either4Weight, Weight};
+use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum4};
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -248,7 +248,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = Either2ScorerSupplier<
+    type ScorerSupplier = ScorerSupplierEnum2<
         ScorerSupplierImpl<Disi<LR>>,
         <FallbackQueryWeight<LR> as Weight<LR>>::ScorerSupplier,
     >;
@@ -273,10 +273,10 @@ where
                     self.query.field.clone(),
                     self.base.score(),
                 )?;
-                Ok(Some(Either2ScorerSupplier::A(scorer_supplier)))
+                Ok(Some(ScorerSupplierEnum2::A(scorer_supplier)))
             },
             None => match self.fallback_query_weight.scorer_supplier(context)? {
-                Some(v) => Ok(Some(Either2ScorerSupplier::B(v))),
+                Some(v) => Ok(Some(ScorerSupplierEnum2::B(v))),
                 None => Ok(None),
             },
         }
@@ -1200,35 +1200,35 @@ where
     }
 
     fn empty() -> Self {
-        IteratorAndCount::new(Either4DocIdSetIterator::A(EmptyDISI::default()), 0)
+        IteratorAndCount::new(DocIdSetIteratorEnum4::A(EmptyDISI::default()), 0)
     }
 
     fn all(max_doc: i32) -> Self {
-        IteratorAndCount::new(Either4DocIdSetIterator::B(AllDISI::new(max_doc)), max_doc)
+        IteratorAndCount::new(DocIdSetIteratorEnum4::B(AllDISI::new(max_doc)), max_doc)
     }
 
     fn dense_range(min_doc: i32, max_doc: i32) -> Result<Self> {
         Ok(IteratorAndCount::new(
-            Either4DocIdSetIterator::C(RangeDISI::new(min_doc, max_doc)?),
+            DocIdSetIteratorEnum4::C(RangeDISI::new(min_doc, max_doc)?),
             max_doc - min_doc,
         ))
     }
 
     fn sparse_range(min_doc: i32, max_doc: i32, delegate: D) -> IteratorAndCount<D> {
         let v = BoundedDocIdSetIterator::new(min_doc, max_doc, delegate);
-        IteratorAndCount::new(Either4DocIdSetIterator::D(v), -1)
+        IteratorAndCount::new(DocIdSetIteratorEnum4::D(v), -1)
     }
 }
 
 pub type IteratorAndCountDisi<D> =
-    Either4DocIdSetIterator<EmptyDISI, AllDISI, RangeDISI, BoundedDocIdSetIterator<D>>;
+    DocIdSetIteratorEnum4<EmptyDISI, AllDISI, RangeDISI, BoundedDocIdSetIterator<D>>;
 // for std::mem::take
 impl<D> Default for IteratorAndCountDisi<D>
 where
     D: DocIdSetIterator,
 {
     fn default() -> Self {
-        Either4DocIdSetIterator::A(EmptyDISI::default())
+        DocIdSetIteratorEnum4::A(EmptyDISI::default())
     }
 }
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -1258,7 +1258,7 @@ impl From<SortedSetDocValuesRangeQuery> for FallbackQuery {
         FallbackQuery::SortedSetDocValuesRange(value)
     }
 }
-pub type FallbackQueryWeight<LR> = Either4Weight<
+pub type FallbackQueryWeight<LR> = WeightEnum4<
     PointRangeWeight<LR>,
     SortedNumericDocValuesSetQueryWeight<LR>,
     SortedNumericDocValuesRangeQueryWeight<LR>,

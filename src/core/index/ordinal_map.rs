@@ -23,14 +23,14 @@ use crate::core::util::Sorter;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
-use crate::core::util::long_values::{Either2LongValues, Either3LongValues, LongValues, Zeroes};
+use crate::core::util::long_values::{LongValues, LongValuesEnum2, LongValuesEnum3, Zeroes};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
 pub(crate) type SegmentToGlobalOrds =
-    Either3LongValues<crate::core::util::long_values::Identity, LongValuesImpl, LongValuesImpl1>;
+    LongValuesEnum3<crate::core::util::long_values::Identity, LongValuesImpl, LongValuesImpl1>;
 
 impl OrdinalMap {
     /// Create an ordinal map that uses the number of unique values of each
@@ -120,9 +120,9 @@ pub struct OrdinalMap {
     value_count: i64,
     /// globalOrd -> (globalOrd - segmentOrd) where segmentOrd is the ordinal in the first segment
     /// that contains this term
-    global_ord_deltas: Either2LongValues<PackedLongValues, Zeroes>,
+    global_ord_deltas: LongValuesEnum2<PackedLongValues, Zeroes>,
     /// globalOrd -> first segment container
-    first_segments: Either2LongValues<PackedLongValues, Zeroes>,
+    first_segments: LongValuesEnum2<PackedLongValues, Zeroes>,
     segment_to_global_ords: Vec<SegmentToGlobalOrds>,
     /// the map from/to segment ids
     segment_map: SegmentMap,
@@ -289,18 +289,15 @@ impl OrdinalMap {
         // and hardcode the first segment indices and global ord deltas as all zeroes.
         let (first_segments_lv, global_ord_deltas_lv) =
             if ord_delta_bits_has_value && ord_delta_bits[0] == 0 && first_segment_bits == 0 {
-                (
-                    Either2LongValues::B(Zeroes {}),
-                    Either2LongValues::B(Zeroes {}),
-                )
+                (LongValuesEnum2::B(Zeroes {}), LongValuesEnum2::B(Zeroes {}))
             } else {
                 let packed_first_segments = first_segments.build()?;
                 let packed_global_ord_deltas = global_ord_deltas.build()?;
                 ram_bytes_used += packed_first_segments.ram_bytes_used()?
                     + packed_global_ord_deltas.ram_bytes_used()?;
                 (
-                    Either2LongValues::A(packed_first_segments),
-                    Either2LongValues::A(packed_global_ord_deltas),
+                    LongValuesEnum2::A(packed_first_segments),
+                    LongValuesEnum2::A(packed_global_ord_deltas),
                 )
             };
 
@@ -313,9 +310,8 @@ impl OrdinalMap {
             if ord_delta_bits[i] == 0 {
                 // segment ords perfectly match global ordinals
                 // likely in case of low cardinalities and large segments
-                segment_to_global_ords.push(Either3LongValues::A(
-                    crate::core::util::long_values::Identity,
-                ));
+                segment_to_global_ords
+                    .push(LongValuesEnum3::A(crate::core::util::long_values::Identity));
             } else {
                 let bits_required = if ord_delta_bits[i] < 0 {
                     64
@@ -343,10 +339,10 @@ impl OrdinalMap {
                     debug_assert!(!it.has_next());
                     ram_bytes_used += new_deltas.ram_bytes_used()?;
                     segment_to_global_ords
-                        .push(Either3LongValues::B(LongValuesImpl::new(new_deltas)));
+                        .push(LongValuesEnum3::B(LongValuesImpl::new(new_deltas)));
                 } else {
                     ram_bytes_used += deltas.ram_bytes_used()?;
-                    segment_to_global_ords.push(Either3LongValues::C(LongValuesImpl1::new(deltas)));
+                    segment_to_global_ords.push(LongValuesEnum3::C(LongValuesImpl1::new(deltas)));
                 }
                 // TODO: memory calculation not implemented
                 // ram_bytes_used += 0;
@@ -569,12 +565,12 @@ mod tests {
         //
         // // Check that the optimization kicks in.
         // let map = match sdv {
-        //     Either2SortedDocValues::B(ref msdv) => &msdv.mapping,
+        //     SortedDocValuesEnum2::B(ref msdv) => &msdv.mapping,
         //     _ => unreachable!("sdv should be MultiSortedDocValues"),
         // };
         //
-        // assert!(matches!(map.first_segments, Either2LongValues::B(_)));
-        // assert!(matches!(map.global_ord_deltas, Either2LongValues::B(_)));
+        // assert!(matches!(map.first_segments, LongValuesEnum2::B(_)));
+        // assert!(matches!(map.global_ord_deltas, LongValuesEnum2::B(_)));
         //
         // // Check the map's basic behavior.
         // assert_eq!(num_terms as i64, map.get_value_count());

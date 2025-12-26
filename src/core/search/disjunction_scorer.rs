@@ -17,7 +17,7 @@
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, Either2DocIdSetIterator};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -28,7 +28,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
-pub type Disi<S> = Either2DocIdSetIterator<
+pub type Disi<S> = DocIdSetIteratorEnum2<
     DisjunctionDISIApproximation<S>,
     TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
 >;

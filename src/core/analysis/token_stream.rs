@@ -119,10 +119,10 @@ macro_rules! either_token_stream {
         }
     };
 }
-either_token_stream!(pub EitherTokenStream { Whitespace: A, Dummy: B });
-either_token_stream!(pub Either2TokenStream { A: A, B: B });
+either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
+either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
 
-pub type InnerTokenStreams = EitherTokenStream<WhitespaceAnalyzerTS, DummyTokenStream>;
+pub type InnerTokenStreams = TokenStreamEnum<WhitespaceAnalyzerTS, DummyTokenStream>;
 
 impl<T> TokenStream for &mut T
 where

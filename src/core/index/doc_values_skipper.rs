@@ -182,4 +182,4 @@ macro_rules! either_docvalues_skipper {
         }
     };
 }
-either_docvalues_skipper!(pub Either2DocValuesSkipper { A: A, B: B });
+either_docvalues_skipper!(pub DocValuesSkipperEnum2 { A: A, B: B });

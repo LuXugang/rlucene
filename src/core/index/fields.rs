@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::terms::{Either2Terms, Terms};
+use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::util::error::lucene_error::Result;
 /// Provides a [`Terms`] index for fields that have it, and lists which fields
 /// do.
@@ -41,8 +41,8 @@ pub trait Fields {
     fn size(&self) -> Result<i32>;
 }
 
-/// Iterator used by [`Either2Fields`].
-pub enum Either2FieldIter<'a, A, B>
+/// Iterator used by [`FieldsEnum2`].
+pub enum FieldIterEnum2<'a, A, B>
 where
     A: Iterator<Item = &'a String>,
     B: Iterator<Item = &'a String>,
@@ -51,7 +51,7 @@ where
     B(B),
 }
 
-impl<'a, A, B> Iterator for Either2FieldIter<'a, A, B>
+impl<'a, A, B> Iterator for FieldIterEnum2<'a, A, B>
 where
     A: Iterator<Item = &'a String>,
     B: Iterator<Item = &'a String>,
@@ -60,15 +60,15 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Either2FieldIter::A(it) => it.next(),
-            Either2FieldIter::B(it) => it.next(),
+            FieldIterEnum2::A(it) => it.next(),
+            FieldIterEnum2::B(it) => it.next(),
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
-            Either2FieldIter::A(it) => it.size_hint(),
-            Either2FieldIter::B(it) => it.size_hint(),
+            FieldIterEnum2::A(it) => it.size_hint(),
+            FieldIterEnum2::B(it) => it.size_hint(),
         }
     }
 }
@@ -111,6 +111,6 @@ macro_rules! either_fields {
 }
 
 either_fields!(
-    pub Either2Fields => { fi: Either2FieldIter, te: Either2Terms }
+    pub FieldsEnum2 => { fi: FieldIterEnum2, te: TermsEnum2 }
     { A: A, B: B }
 );

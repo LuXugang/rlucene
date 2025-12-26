@@ -18,7 +18,7 @@
 
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream, TokenStreamEnum2};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -59,7 +59,7 @@ pub trait IndexableField: Display {
     fn token_stream<'a>(
         &'a mut self,
         token_stream: Option<&'a mut InnerTokenStreams>,
-    ) -> Result<Option<Either2TokenStream<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>;
+    ) -> Result<Option<TokenStreamEnum2<&'a mut InnerTokenStreams, &'a mut Self::TokenStream>>>;
     /// Non-null if this field has a binary value.
     fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
     fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;

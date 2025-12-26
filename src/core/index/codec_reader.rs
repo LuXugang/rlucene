@@ -29,7 +29,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
-use crate::core::index::term_vectors::{Either2TermVectors, EmptyTermVectors};
+use crate::core::index::term_vectors::{EmptyTermVectors, TermVectorsEnum2};
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
@@ -76,9 +76,9 @@ pub trait CodecReader: LeafReader {
         match reader {
             Some(r) => {
                 debug_assert!(matches!(r, Cow::Owned(_)));
-                Ok(Either2TermVectors::B(r.into_owned()))
+                Ok(TermVectorsEnum2::B(r.into_owned()))
             },
-            None => Ok(Either2TermVectors::A(EmptyTermVectors {})),
+            None => Ok(TermVectorsEnum2::A(EmptyTermVectors {})),
         }
     }
     fn terms(
@@ -291,7 +291,7 @@ pub trait CodecReader: LeafReader {
     }
 }
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
-pub type TermVectorsType<TVR> = Either2TermVectors<EmptyTermVectors, TVR>;
+pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 
 pub struct StoredFieldsImpl<SF>
 where

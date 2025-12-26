@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::search::matches_iterator::{
-    Either2MatchesIterator, Either3MatchesIterator, Either4MatchesIterator, Either5MatchesIterator,
-    Either6MatchesIterator, Either7MatchesIterator, Either8MatchesIterator, Either9MatchesIterator,
-    Either10MatchesIterator, MatchesIterator,
+    MatchesIterator, MatchesIteratorEnum2, MatchesIteratorEnum3, MatchesIteratorEnum4,
+    MatchesIteratorEnum5, MatchesIteratorEnum6, MatchesIteratorEnum7, MatchesIteratorEnum8,
+    MatchesIteratorEnum9, MatchesIteratorEnum10,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -95,47 +95,47 @@ macro_rules! either_matches {
     };
 }
 either_matches!(
-    pub Either2Matches
-    => { mi: Either2MatchesIterator }
+    pub MatchesEnum2
+    => { mi: MatchesIteratorEnum2 }
     { A: A, B: B }
 );
 either_matches!(
-    pub Either3Matches
-    => { mi: Either3MatchesIterator }
+    pub MatchesEnum3
+    => { mi: MatchesIteratorEnum3 }
     { A: A, B: B,C:C }
 );
 either_matches!(
-    pub Either4Matches
-    => { mi: Either4MatchesIterator }
+    pub MatchesEnum4
+    => { mi: MatchesIteratorEnum4 }
     { A: A, B: B,C:C,D:D }
 );
 either_matches!(
-    pub Either5Matches
-    => { mi: Either5MatchesIterator }
+    pub MatchesEnum5
+    => { mi: MatchesIteratorEnum5 }
     { A: A, B: B, C: C, D: D, E: E }
 );
 either_matches!(
-    pub Either6Matches
-    => { mi: Either6MatchesIterator }
+    pub MatchesEnum6
+    => { mi: MatchesIteratorEnum6 }
     { A: A, B: B, C: C, D: D, E: E, F: F }
 );
 either_matches!(
-    pub Either7Matches
-    => { mi: Either7MatchesIterator }
+    pub MatchesEnum7
+    => { mi: MatchesIteratorEnum7 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
 );
 either_matches!(
-    pub Either8Matches
-    => { mi: Either8MatchesIterator }
+    pub MatchesEnum8
+    => { mi: MatchesIteratorEnum8 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
 either_matches!(
-    pub Either9Matches
-    => { mi: Either9MatchesIterator }
+    pub MatchesEnum9
+    => { mi: MatchesIteratorEnum9 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
 );
 either_matches!(
-    pub Either10Matches
-    => { mi: Either10MatchesIterator }
+    pub MatchesEnum10
+    => { mi: MatchesIteratorEnum10 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

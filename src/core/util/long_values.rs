@@ -89,7 +89,7 @@ macro_rules! either_long_values {
         }
     };
 }
-either_long_values!(pub Either2LongValues { A: A, B: B });
-either_long_values!(pub Either3LongValues { A: A, B: B, C:C });
-either_long_values!(pub Either5LongValues { A:A,B:B,C:C,D:D,E:E });
-either_long_values!(pub Either16LongValues { A:A,B:B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K,L:L,M:M,N:N,O:O,P:P});
+either_long_values!(pub LongValuesEnum2 { A: A, B: B });
+either_long_values!(pub LongValuesEnum3 { A: A, B: B, C:C });
+either_long_values!(pub LongValuesEnum5 { A:A,B:B,C:C,D:D,E:E });
+either_long_values!(pub LongValuesEnum16 { A:A,B:B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K,L:L,M:M,N:N,O:O,P:P});

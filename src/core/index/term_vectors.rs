@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::dummy::dummy_fields::DummyFields;
-use crate::core::index::fields::{Either2Fields, Fields};
+use crate::core::index::fields::{Fields, FieldsEnum2};
 use crate::core::util::error::lucene_error::Result;
 /// API for reading term vectors.
 ///
@@ -98,7 +98,7 @@ macro_rules! either_term_vectors {
 }
 
 either_term_vectors!(
-    pub Either2TermVectors => { fe: Either2Fields } { A: A, B: B }
+    pub TermVectorsEnum2 => { fe: FieldsEnum2 } { A: A, B: B }
 );
 
 #[cfg(test)]

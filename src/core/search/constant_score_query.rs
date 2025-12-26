@@ -20,7 +20,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
@@ -38,11 +38,11 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Either2Scorer, Scorer, TwoPhaseState};
+use crate::core::search::scorer::{Scorer, ScorerEnum2, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::weight::{DefaultBulkScorer, Either2Weight, Weight};
+use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum2};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
@@ -88,7 +88,7 @@ impl Hash for ConstantScoreQuery {
     }
 }
 pub type ConstantScoreQueryWeight<S, IRC, QCP, QC> =
-    Either2Weight<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
+    WeightEnum2<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
 impl QueryBase for ConstantScoreQuery {
     fn as_string(&self, field: &str) -> String {
         let inner = self.query.as_string(field);
@@ -265,11 +265,11 @@ pub type Disi<S, IRC, QCP, QC> = <<ScorerSupplierAlias<S, IRC, QCP, QC> as Score
 pub type BS<S, IRC, QCP, QC> = <ScorerSupplierAlias<S, IRC, QCP, QC> as ScorerSupplier<
     <IRC as IndexReaderContext>::LeafReader,
 >>::BulkScorer;
-pub type ConstantScoreScorerEnum<S, IRC, QCP, QC> = Either2Scorer<
+pub type ConstantScoreScorerEnum<S, IRC, QCP, QC> = ScorerEnum2<
     ConstantScoreScorer<Disi<S, IRC, QCP, QC>, DummyTwoPhaseIterator>,
     ConstantScoreScorer<DummyDISI, Tpi<S, IRC, QCP, QC>>,
 >;
-pub type BulkScorerEnum<S, IRC, QCP, QC> = Either2BulkScorer<
+pub type BulkScorerEnum<S, IRC, QCP, QC> = BulkScorerEnum2<
     DefaultBulkScorer<ConstantScoreScorerEnum<S, IRC, QCP, QC>>,
     ConstantBulkScorer<
         BS<S, IRC, QCP, QC>,

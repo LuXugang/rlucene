@@ -20,7 +20,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::bulk_scorer::{BulkScorer, Either2BulkScorer};
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::AllDISI;
@@ -277,7 +277,7 @@ impl BulkScorer for MatchAllBulkScorer {
         Ok(self.max_doc as i64)
     }
 }
-pub type MatchAllBulkScorerEnum<T> = Either2BulkScorer<MatchAllBulkScorer, DefaultBulkScorer<T>>;
+pub type MatchAllBulkScorerEnum<T> = BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<T>>;
 
 #[cfg(test)]
 mod tests {

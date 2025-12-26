@@ -22,14 +22,14 @@ use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
-use crate::core::index::postings_enum::{Either2PostingsEnum, FREQS};
+use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2};
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, terms_util};
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::doc_id_set_iterator::Either5DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -183,7 +183,7 @@ pub trait LeafReader: IndexReader {
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum
 type LeafPostingsEnum<T> =
-    Either2PostingsEnum<<<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum, DummyPostingsEnum>;
+    PostingsEnumEnum2<<<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum, DummyPostingsEnum>;
 
 // TermsEnum
 pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;
@@ -212,7 +212,7 @@ pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
 // PointValues
 pub type LRPointValues<LR> = <LR as LeafReader>::PointValues;
 
-pub type LRDisis<LR> = Either5DocIdSetIterator<
+pub type LRDisis<LR> = DocIdSetIteratorEnum5<
     LRNumericDocValues<LR>,
     LRBinaryDocValues<LR>,
     LRSortedDocValues<LR>,

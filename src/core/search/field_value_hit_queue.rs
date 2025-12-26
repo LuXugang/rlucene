@@ -26,7 +26,7 @@ use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::priority_queue::{Compare, Either2Compare, PriorityQueue};
+use crate::core::util::priority_queue::{Compare, CompareEnum2, PriorityQueue};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -62,9 +62,9 @@ impl FieldValueHitQueue {
         }
         let reverse_mul = Rc::new(reverse_mul);
         let comparator = if num_comparators == 1 {
-            Either2Compare::A(OneComparatorComparator::new(comparators, reverse_mul))
+            CompareEnum2::A(OneComparatorComparator::new(comparators, reverse_mul))
         } else {
-            Either2Compare::B(MultiComparatorsComparator::new(comparators, reverse_mul))
+            CompareEnum2::B(MultiComparatorsComparator::new(comparators, reverse_mul))
         };
         PriorityQueue::new(size, comparator)
     }
@@ -201,7 +201,7 @@ impl Compare<TopFieldScoreDoc> for MultiComparatorsComparator {
     }
 }
 pub type FieldValueHitQueueComparator =
-    Either2Compare<OneComparatorComparator, MultiComparatorsComparator>;
+    CompareEnum2<OneComparatorComparator, MultiComparatorsComparator>;
 
 impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     pub fn get_leaf_comparator<LR>(
@@ -212,12 +212,12 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
         LR: LeafReader,
     {
         match &mut self.compare {
-            Either2Compare::A(one_comp) => {
+            CompareEnum2::A(one_comp) => {
                 debug_assert!(one_comp.one_comparator.len() == 1);
                 let comp = &mut one_comp.one_comparator[0];
                 Ok(vec![comp.get_leaf_comparator(context)?])
             },
-            Either2Compare::B(multi_comp) => {
+            CompareEnum2::B(multi_comp) => {
                 let mut v = Vec::new();
                 for x in &mut multi_comp.comparators {
                     v.push(x.get_leaf_comparator(context)?);
@@ -228,26 +228,26 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
     }
     pub fn get_reverse_mul(&self) -> &[i32] {
         match &self.compare {
-            Either2Compare::A(one_comp) => one_comp.one_reverse_mul.as_slice(),
-            Either2Compare::B(multi_comp) => multi_comp.reverse_mul.as_slice(),
+            CompareEnum2::A(one_comp) => one_comp.one_reverse_mul.as_slice(),
+            CompareEnum2::B(multi_comp) => multi_comp.reverse_mul.as_slice(),
         }
     }
     pub fn get_reverse_mul_shared(&self) -> Rc<Vec<i32>> {
         match &self.compare {
-            Either2Compare::A(one_comp) => one_comp.one_reverse_mul.clone(),
-            Either2Compare::B(multi_comp) => multi_comp.reverse_mul.clone(),
+            CompareEnum2::A(one_comp) => one_comp.one_reverse_mul.clone(),
+            CompareEnum2::B(multi_comp) => multi_comp.reverse_mul.clone(),
         }
     }
     pub fn get_comparators(&self) -> &[FieldComparatorEnum] {
         match &self.compare {
-            Either2Compare::A(one_comp) => &one_comp.one_comparator,
-            Either2Compare::B(multi_comp) => &multi_comp.comparators,
+            CompareEnum2::A(one_comp) => &one_comp.one_comparator,
+            CompareEnum2::B(multi_comp) => &multi_comp.comparators,
         }
     }
     pub fn get_comparators_mut(&mut self) -> &mut [FieldComparatorEnum] {
         match &mut self.compare {
-            Either2Compare::A(one_comp) => &mut one_comp.one_comparator,
-            Either2Compare::B(multi_comp) => &mut multi_comp.comparators,
+            CompareEnum2::A(one_comp) => &mut one_comp.one_comparator,
+            CompareEnum2::B(multi_comp) => &mut multi_comp.comparators,
         }
     }
     /// Given a queue [`Entry`], creates a corresponding [`FieldDoc`] that contains the values used to sort the

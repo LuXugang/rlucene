@@ -18,15 +18,13 @@ use crate::core::index::doc_values::{Numeric, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::point_values::{
     IntersectVisitor, PointTreeEnum, PointValues, Relation,
     is_estimated_point_count_greater_than_or_equal_to,
 };
 use crate::core::search::doc_id_set::DocIdSet;
-use crate::core::search::doc_id_set_iterator::{
-    AllDISI, DocIdSetIterator, Either3DocIdSetIterator,
-};
+use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, DocIdSetIteratorEnum3};
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
@@ -607,7 +605,7 @@ where
         Ok(())
     }
 }
-pub type CompetitiveIteratorType<T> = Either3DocIdSetIterator<AllDISI, T, DocIdSetBuilderIterator>;
+pub type CompetitiveIteratorType<T> = DocIdSetIteratorEnum3<AllDISI, T, DocIdSetBuilderIterator>;
 pub trait ToLong {
     type V: PartialOrd + Copy;
     fn value_to_long(&self, v: Self::V) -> i64;
@@ -615,6 +613,6 @@ pub trait ToLong {
 }
 
 pub type NumericLeafComparatorDocValues<LR> =
-    Either2NumericDocValues<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>>;
+    NumericDocValuesEnum2<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>>;
 pub type NumericCompetitiveIterator<LR> =
     CompetitiveIterator<CompetitiveIteratorType<NumericLeafComparatorDocValues<LR>>>;

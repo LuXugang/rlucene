@@ -28,7 +28,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-    AllDISI, DocIdSetIterator, Either2DocIdSetIterator, EmptyDISI, RangeDISI,
+    AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, RangeDISI,
 };
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
@@ -41,10 +41,10 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::Either4ScorerSupplier;
+use crate::core::search::scorer_supplier::ScorerSupplierEnum4;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::two_phase_iterator::{Either2TwoPhaseIterator, TwoPhaseIterator};
+use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use std::marker::PhantomData;
@@ -303,7 +303,7 @@ where
                 let iter = AllDISI::new(skipper.doc_count());
                 let scorer =
                     ConstantScoreScorer::with_disi(self.base.score(), self.score_mode, iter);
-                return Ok(Some(Either4ScorerSupplier::A(DefaultScorerSupplier::new(
+                return Ok(Some(ScorerSupplierEnum4::A(DefaultScorerSupplier::new(
                     scorer,
                 ))));
             }
@@ -324,21 +324,20 @@ where
                             self.score_mode,
                             ps_iterator,
                         ));
-                        return Ok(Some(Either4ScorerSupplier::B(v)));
+                        return Ok(Some(ScorerSupplierEnum4::B(v)));
                     } else {
-                        Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
+                        TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(
                             singleton,
                             self.query.clone(),
                         ))
                     }
                 },
-                None => Either2TwoPhaseIterator::A(TwoPhaseIterator3::new(
-                    singleton,
-                    self.query.clone(),
-                )),
+                None => {
+                    TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
+                },
             }
         } else {
-            Either2TwoPhaseIterator::B(TwoPhaseIterator4::new(values, self.query.clone()))
+            TwoPhaseIteratorEnum2::B(TwoPhaseIterator4::new(values, self.query.clone()))
         };
         match skipper_opt {
             Some(skipper) => {
@@ -351,24 +350,24 @@ where
                 );
                 let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Either4ScorerSupplier::C(v)))
+                Ok(Some(ScorerSupplierEnum4::C(v)))
             },
             None => {
                 let scorer =
                     ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Either4ScorerSupplier::D(v)))
+                Ok(Some(ScorerSupplierEnum4::D(v)))
             },
         }
     }
 }
-pub type DISI = Either2DocIdSetIterator<EmptyDISI, RangeDISI>;
-pub type TPI<LR> = Either2TwoPhaseIterator<
+pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, RangeDISI>;
+pub type TPI<LR> = TwoPhaseIteratorEnum2<
     TwoPhaseIterator3<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
     TwoPhaseIterator4<SortedNumeric<LR>>,
 >;
 
-pub type ScorerSupplierAlias1<LR> = Either4ScorerSupplier<
+pub type ScorerSupplierAlias1<LR> = ScorerSupplierEnum4<
     DefaultScorerSupplier<ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>>,
     DefaultScorerSupplier<ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>,
     DefaultScorerSupplier<

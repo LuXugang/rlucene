@@ -94,5 +94,5 @@ macro_rules! either_binary_docvalues {
         }
     };
 }
-either_binary_docvalues!(pub Either2BinaryDocValues { A: A, B: B });
-either_binary_docvalues!(pub Either3BinaryDocValues { A: A, B: B, C:C });
+either_binary_docvalues!(pub BinaryDocValuesEnum2 { A: A, B: B });
+either_binary_docvalues!(pub BinaryDocValuesEnum3 { A: A, B: B, C:C });

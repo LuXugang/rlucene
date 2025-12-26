@@ -43,7 +43,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Either9Weight, Weight};
+use crate::core::search::weight::{Weight, WeightEnum9};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -373,7 +373,7 @@ impl QueryBase for Query {
         todo!()
     }
 }
-pub type QueryWeight<S, IRC> = Either9Weight<
+pub type QueryWeight<S, IRC> = WeightEnum9<
     TermWeight<S, IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,

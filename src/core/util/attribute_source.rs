@@ -382,83 +382,83 @@ impl AttributeSource for EmptyAttributeSource {
 }
 
 // AttributeSource
-pub enum Either2AttributeSource<A, B> {
+pub enum AttributeSourceEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> AttributeSource for Either2AttributeSource<A, B>
+impl<A, B> AttributeSource for AttributeSourceEnum2<A, B>
 where
     A: AttributeSource,
     B: AttributeSource,
 {
     fn start_offset(&self) -> Option<i32> {
         match self {
-            Either2AttributeSource::A(t) => t.start_offset(),
-            Either2AttributeSource::B(s) => s.start_offset(),
+            AttributeSourceEnum2::A(t) => t.start_offset(),
+            AttributeSourceEnum2::B(s) => s.start_offset(),
         }
     }
 
     fn end_offset(&self) -> Option<i32> {
         match self {
-            Either2AttributeSource::A(t) => t.end_offset(),
-            Either2AttributeSource::B(s) => s.end_offset(),
+            AttributeSourceEnum2::A(t) => t.end_offset(),
+            AttributeSourceEnum2::B(s) => s.end_offset(),
         }
     }
 
     fn set_bytes_ref(&mut self, _bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
         match self {
-            Either2AttributeSource::A(t) => t.set_bytes_ref(_bytes),
-            Either2AttributeSource::B(s) => s.set_bytes_ref(_bytes),
+            AttributeSourceEnum2::A(t) => t.set_bytes_ref(_bytes),
+            AttributeSourceEnum2::B(s) => s.set_bytes_ref(_bytes),
         }
     }
 
     fn get_position_increment(&self) -> Option<i32> {
         match self {
-            Either2AttributeSource::A(t) => t.get_position_increment(),
-            Either2AttributeSource::B(s) => s.get_position_increment(),
+            AttributeSourceEnum2::A(t) => t.get_position_increment(),
+            AttributeSourceEnum2::B(s) => s.get_position_increment(),
         }
     }
 
     fn set_position_increment(&mut self, _position_increment: i32) -> Result<()> {
         match self {
-            Either2AttributeSource::A(t) => t.set_position_increment(_position_increment),
-            Either2AttributeSource::B(s) => s.set_position_increment(_position_increment),
+            AttributeSourceEnum2::A(t) => t.set_position_increment(_position_increment),
+            AttributeSourceEnum2::B(s) => s.set_position_increment(_position_increment),
         }
     }
 
     fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
         match self {
-            Either2AttributeSource::A(t) => t.get_payload(),
-            Either2AttributeSource::B(s) => s.get_payload(),
+            AttributeSourceEnum2::A(t) => t.get_payload(),
+            AttributeSourceEnum2::B(s) => s.get_payload(),
         }
     }
 
     fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
-            Either2AttributeSource::A(t) => t.get_bytes_ref(),
-            Either2AttributeSource::B(s) => s.get_bytes_ref(),
+            AttributeSourceEnum2::A(t) => t.get_bytes_ref(),
+            AttributeSourceEnum2::B(s) => s.get_bytes_ref(),
         }
     }
 
     fn get_term_frequency(&self) -> Option<i32> {
         match self {
-            Either2AttributeSource::A(t) => t.get_term_frequency(),
-            Either2AttributeSource::B(s) => s.get_term_frequency(),
+            AttributeSourceEnum2::A(t) => t.get_term_frequency(),
+            AttributeSourceEnum2::B(s) => s.get_term_frequency(),
         }
     }
 
     fn end_attributes(&mut self) {
         match self {
-            Either2AttributeSource::A(t) => t.end_attributes(),
-            Either2AttributeSource::B(s) => s.end_attributes(),
+            AttributeSourceEnum2::A(t) => t.end_attributes(),
+            AttributeSourceEnum2::B(s) => s.end_attributes(),
         }
     }
 
     fn clear_attributes(&mut self) {
         match self {
-            Either2AttributeSource::A(t) => t.clear_attributes(),
-            Either2AttributeSource::B(s) => s.clear_attributes(),
+            AttributeSourceEnum2::A(t) => t.clear_attributes(),
+            AttributeSourceEnum2::B(s) => s.clear_attributes(),
         }
     }
 }

@@ -140,47 +140,47 @@ macro_rules! either_matches_iterator {
     };
 }
 either_matches_iterator!(
-    pub Either2MatchesIterator
-    => { sub: Either2MatchesIterator }
+    pub MatchesIteratorEnum2
+    => { sub: MatchesIteratorEnum2 }
     { A: A, B: B }
 );
 either_matches_iterator!(
-    pub Either3MatchesIterator
-    => { sub: Either3MatchesIterator }
+    pub MatchesIteratorEnum3
+    => { sub: MatchesIteratorEnum3 }
     { A: A, B: B,C:C }
 );
 either_matches_iterator!(
-    pub Either4MatchesIterator
-    => { sub: Either4MatchesIterator }
+    pub MatchesIteratorEnum4
+    => { sub: MatchesIteratorEnum4 }
     { A: A, B: B,C:C,D:D }
 );
 either_matches_iterator!(
-    pub Either5MatchesIterator
-    => { sub: Either5MatchesIterator }
+    pub MatchesIteratorEnum5
+    => { sub: MatchesIteratorEnum5 }
     { A: A, B: B,C:C,D:D,E:E }
 );
 either_matches_iterator!(
-    pub Either6MatchesIterator
-    => { sub: Either6MatchesIterator }
+    pub MatchesIteratorEnum6
+    => { sub: MatchesIteratorEnum6 }
     { A: A, B: B,C:C,D:D,E:E,F:F }
 );
 either_matches_iterator!(
-    pub Either7MatchesIterator
-    => { sub: Either7MatchesIterator }
+    pub MatchesIteratorEnum7
+    => { sub: MatchesIteratorEnum7 }
     { A: A, B: B,C:C,D:D,E:E,F:F,G:G }
 );
 either_matches_iterator!(
-    pub Either8MatchesIterator
-    => { sub: Either8MatchesIterator }
+    pub MatchesIteratorEnum8
+    => { sub: MatchesIteratorEnum8 }
     { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H }
 );
 either_matches_iterator!(
-    pub Either9MatchesIterator
-    => { sub: Either9MatchesIterator }
+    pub MatchesIteratorEnum9
+    => { sub: MatchesIteratorEnum9 }
     { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I }
 );
 either_matches_iterator!(
-    pub Either10MatchesIterator
-    => { sub: Either10MatchesIterator }
+    pub MatchesIteratorEnum10
+    => { sub: MatchesIteratorEnum10 }
     { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J }
 );

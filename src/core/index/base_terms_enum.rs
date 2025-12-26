@@ -21,10 +21,10 @@ use crate::core::codecs::lucene90_doc_values_producer::TermsDict;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::freq_prox_fields::FreqProxTermsEnum;
-use crate::core::index::term_state::{Either2TermState, TermState};
+use crate::core::index::term_state::{TermState, TermStateEnum2};
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::store::IndexInput;
-use crate::core::util::attribute_source::Either2AttributeSource;
+use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -57,7 +57,7 @@ where
     }
 }
 pub type BaseTermsEnumAttributeSource<S> =
-    Either2AttributeSource<<S as TermsEnum>::AttributeSource, DummyAttributeSource>;
+    AttributeSourceEnum2<<S as TermsEnum>::AttributeSource, DummyAttributeSource>;
 impl<S> BytesRefIterator for BaseTermsEnum<S>
 where
     S: TermsEnum,
@@ -75,11 +75,9 @@ where
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
         match self.sub.attributes() {
-            Ok(v) => Ok(Either2AttributeSource::A(v)),
+            Ok(v) => Ok(AttributeSourceEnum2::A(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => {
-                    Ok(Either2AttributeSource::B(DummyAttributeSource))
-                },
+                LuceneError::NotImplemented(_) => Ok(AttributeSourceEnum2::B(DummyAttributeSource)),
                 _ => Err(e),
             },
         }
@@ -124,8 +122,8 @@ where
         state: &Self::TermState,
     ) -> Result<()> {
         let result = match state {
-            Either2TermState::A(_) => Err(LuceneError::not_implemented("")),
-            Either2TermState::B(sub_state) => self.sub.seek_exact_with_state(term, sub_state),
+            TermStateEnum2::A(_) => Err(LuceneError::not_implemented("")),
+            TermStateEnum2::B(sub_state) => self.sub.seek_exact_with_state(term, sub_state),
         };
         match result {
             Ok(v) => Ok(v),
@@ -179,13 +177,13 @@ where
         self.sub.impacts(flags)
     }
 
-    type TermState = Either2TermState<TermStateImpl1, S::TermState>;
+    type TermState = TermStateEnum2<TermStateImpl1, S::TermState>;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         match self.sub.term_state() {
-            Ok(v) => Ok(Either2TermState::B(v)),
+            Ok(v) => Ok(TermStateEnum2::B(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(Either2TermState::A(TermStateImpl1)),
+                LuceneError::NotImplemented(_) => Ok(TermStateEnum2::A(TermStateImpl1)),
                 _ => Err(e),
             },
         }

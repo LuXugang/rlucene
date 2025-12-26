@@ -28,7 +28,7 @@ use crate::core::index::terms::Terms;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::Either3DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -182,7 +182,7 @@ where
     }
 }
 
-pub type Disi<LR> = Either3DocIdSetIterator<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
+pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
 impl<LR> Weight<LR> for FieldExistsWeight<LR>
 where
     LR: LeafReader,

@@ -17,26 +17,26 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
-    BulkScorer, Either2BulkScorer, Either3BulkScorer, Either4BulkScorer, Either7BulkScorer,
-    Either8BulkScorer, Either9BulkScorer, Either10BulkScorer,
+    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum7,
+    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
-    Either2Matches, Either3Matches, Either4Matches, Either7Matches, Either8Matches, Either9Matches,
-    Either10Matches, Matches,
+    Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4, MatchesEnum7, MatchesEnum8, MatchesEnum9,
+    MatchesEnum10,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::{
-    Either2Scorer, Either3Scorer, Either4Scorer, Either7Scorer, Either8Scorer, Either9Scorer,
-    Either10Scorer, Scorer, TwoPhaseState,
+    Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
+    ScorerEnum10, TwoPhaseState,
 };
 use crate::core::search::scorer_supplier::{
-    Either2ScorerSupplier, Either3ScorerSupplier, Either4ScorerSupplier, Either7ScorerSupplier,
-    Either8ScorerSupplier, Either9ScorerSupplier, Either10ScorerSupplier, ScorerSupplier,
+    ScorerSupplier, ScorerSupplierEnum2, ScorerSupplierEnum3, ScorerSupplierEnum4,
+    ScorerSupplierEnum7, ScorerSupplierEnum8, ScorerSupplierEnum9, ScorerSupplierEnum10,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -676,72 +676,72 @@ macro_rules! either_weight {
 }
 
 either_weight!(
-    pub Either2Weight
+    pub WeightEnum2
     => {
-        matches: Either2Matches,
-        supplier: Either2ScorerSupplier,
-        scorer: Either2Scorer,
-        bulk: Either2BulkScorer
+        matches: MatchesEnum2,
+        supplier: ScorerSupplierEnum2,
+        scorer: ScorerEnum2,
+        bulk: BulkScorerEnum2
     }
     { A: A, B: B }
 );
 either_weight!(
-    pub Either3Weight
+    pub WeightEnum3
     => {
-        matches: Either3Matches,
-        supplier: Either3ScorerSupplier,
-        scorer: Either3Scorer,
-        bulk: Either3BulkScorer
+        matches: MatchesEnum3,
+        supplier: ScorerSupplierEnum3,
+        scorer: ScorerEnum3,
+        bulk: BulkScorerEnum3
     }
     { A: A, B: B, C: C }
 );
 either_weight!(
-    pub Either4Weight
+    pub WeightEnum4
     => {
-        matches: Either4Matches,
-        supplier: Either4ScorerSupplier,
-        scorer: Either4Scorer,
-        bulk: Either4BulkScorer
+        matches: MatchesEnum4,
+        supplier: ScorerSupplierEnum4,
+        scorer: ScorerEnum4,
+        bulk: BulkScorerEnum4
     }
     { A: A, B: B, C: C ,D:D}
 );
 either_weight!(
-    pub Either7Weight
+    pub WeightEnum7
     => {
-        matches: Either7Matches,
-        supplier: Either7ScorerSupplier,
-        scorer: Either7Scorer,
-        bulk: Either7BulkScorer
+        matches: MatchesEnum7,
+        supplier: ScorerSupplierEnum7,
+        scorer: ScorerEnum7,
+        bulk: BulkScorerEnum7
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
 );
 either_weight!(
-    pub Either8Weight
+    pub WeightEnum8
     => {
-        matches: Either8Matches,
-        supplier: Either8ScorerSupplier,
-        scorer: Either8Scorer,
-        bulk: Either8BulkScorer
+        matches: MatchesEnum8,
+        supplier: ScorerSupplierEnum8,
+        scorer: ScorerEnum8,
+        bulk: BulkScorerEnum8
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
 either_weight!(
-    pub Either9Weight
+    pub WeightEnum9
     => {
-        matches: Either9Matches,
-        supplier: Either9ScorerSupplier,
-        scorer: Either9Scorer,
-        bulk: Either9BulkScorer
+        matches: MatchesEnum9,
+        supplier: ScorerSupplierEnum9,
+        scorer: ScorerEnum9,
+        bulk: BulkScorerEnum9
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
 );
 either_weight!(
-    pub Either10Weight
+    pub WeightEnum10
     => {
-        matches: Either10Matches,
-        supplier: Either10ScorerSupplier,
-        scorer: Either10Scorer,
-        bulk: Either10BulkScorer
+        matches: MatchesEnum10,
+        supplier: ScorerSupplierEnum10,
+        scorer: ScorerEnum10,
+        bulk: BulkScorerEnum10
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );

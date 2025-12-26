@@ -20,11 +20,11 @@ use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::core::index::impacts_enum::{Either2ImpactsEnum, ImpactsEnum};
-use crate::core::index::postings_enum::{Either2PostingsEnum, FREQS, PostingsEnum};
-use crate::core::index::term_state::{Either2TermState, TermState};
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
+use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
+use crate::core::index::term_state::{TermState, TermStateEnum2};
 use crate::core::util::attribute_source::AttributeSource;
-use crate::core::util::attribute_source::Either2AttributeSource;
+use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -295,70 +295,70 @@ impl TermsEnum for EmptyTermsEnum {
 }
 
 // TermsEnum
-pub enum Either2TermsEnum<A, B> {
+pub enum TermsEnumEnum2<A, B> {
     A(A),
     B(B),
 }
 
-impl<A, B> BytesRefIterator for Either2TermsEnum<A, B>
+impl<A, B> BytesRefIterator for TermsEnumEnum2<A, B>
 where
     A: TermsEnum,
     B: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self {
-            Either2TermsEnum::A(t) => t.next(),
-            Either2TermsEnum::B(s) => s.next(),
+            TermsEnumEnum2::A(t) => t.next(),
+            TermsEnumEnum2::B(s) => s.next(),
         }
     }
 
     fn set_next(&mut self) -> Result<bool> {
         match self {
-            Either2TermsEnum::A(t) => t.set_next(),
-            Either2TermsEnum::B(s) => s.set_next(),
+            TermsEnumEnum2::A(t) => t.set_next(),
+            TermsEnumEnum2::B(s) => s.set_next(),
         }
     }
 }
 
-impl<A, B> TermsEnum for Either2TermsEnum<A, B>
+impl<A, B> TermsEnum for TermsEnumEnum2<A, B>
 where
     A: TermsEnum,
     B: TermsEnum,
 {
-    type AttributeSource = Either2AttributeSource<A::AttributeSource, B::AttributeSource>;
+    type AttributeSource = AttributeSourceEnum2<A::AttributeSource, B::AttributeSource>;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
         match self {
-            Either2TermsEnum::A(t) => Ok(Either2AttributeSource::A(t.attributes()?)),
-            Either2TermsEnum::B(s) => Ok(Either2AttributeSource::B(s.attributes()?)),
+            TermsEnumEnum2::A(t) => Ok(AttributeSourceEnum2::A(t.attributes()?)),
+            TermsEnumEnum2::B(s) => Ok(AttributeSourceEnum2::B(s.attributes()?)),
         }
     }
 
     fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self {
-            Either2TermsEnum::A(t) => t.seek_exact(_term),
-            Either2TermsEnum::B(s) => s.seek_exact(_term),
+            TermsEnumEnum2::A(t) => t.seek_exact(_term),
+            TermsEnumEnum2::B(s) => s.seek_exact(_term),
         }
     }
 
     fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
         match self {
-            Either2TermsEnum::A(t) => t.prepare_seek_exact(_text),
-            Either2TermsEnum::B(s) => s.prepare_seek_exact(_text),
+            TermsEnumEnum2::A(t) => t.prepare_seek_exact(_text),
+            TermsEnumEnum2::B(s) => s.prepare_seek_exact(_text),
         }
     }
 
     fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         match self {
-            Either2TermsEnum::A(t) => t.seek_ceil(_term),
-            Either2TermsEnum::B(s) => s.seek_ceil(_term),
+            TermsEnumEnum2::A(t) => t.seek_ceil(_term),
+            TermsEnumEnum2::B(s) => s.seek_ceil(_term),
         }
     }
 
     fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         match self {
-            Either2TermsEnum::A(t) => t.seek_exact_with_ord(_ord),
-            Either2TermsEnum::B(s) => s.seek_exact_with_ord(_ord),
+            TermsEnumEnum2::A(t) => t.seek_exact_with_ord(_ord),
+            TermsEnumEnum2::B(s) => s.seek_exact_with_ord(_ord),
         }
     }
 
@@ -368,16 +368,16 @@ where
         _state: &Self::TermState,
     ) -> Result<()> {
         match self {
-            Either2TermsEnum::A(t) => match _state {
-                Either2TermState::A(state) => t.seek_exact_with_state(_term, state),
+            TermsEnumEnum2::A(t) => match _state {
+                TermStateEnum2::A(state) => t.seek_exact_with_state(_term, state),
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::A expected EitherTermState::A",
+                    "TermsEnumEnum::A expected TermStateEnum::A",
                 )),
             },
-            Either2TermsEnum::B(s) => match _state {
-                Either2TermState::B(state) => s.seek_exact_with_state(_term, state),
+            TermsEnumEnum2::B(s) => match _state {
+                TermStateEnum2::B(state) => s.seek_exact_with_state(_term, state),
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::B expected EitherTermState::B",
+                    "TermsEnumEnum::B expected TermStateEnum::B",
                 )),
             },
         }
@@ -385,60 +385,60 @@ where
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
-            Either2TermsEnum::A(t) => t.term(),
-            Either2TermsEnum::B(s) => s.term(),
+            TermsEnumEnum2::A(t) => t.term(),
+            TermsEnumEnum2::B(s) => s.term(),
         }
     }
 
     fn ord(&self) -> Result<i64> {
         match self {
-            Either2TermsEnum::A(t) => t.ord(),
-            Either2TermsEnum::B(s) => s.ord(),
+            TermsEnumEnum2::A(t) => t.ord(),
+            TermsEnumEnum2::B(s) => s.ord(),
         }
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
         match self {
-            Either2TermsEnum::A(t) => t.doc_freq(),
-            Either2TermsEnum::B(s) => s.doc_freq(),
+            TermsEnumEnum2::A(t) => t.doc_freq(),
+            TermsEnumEnum2::B(s) => s.doc_freq(),
         }
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
         match self {
-            Either2TermsEnum::A(t) => t.total_term_freq(),
-            Either2TermsEnum::B(s) => s.total_term_freq(),
+            TermsEnumEnum2::A(t) => t.total_term_freq(),
+            TermsEnumEnum2::B(s) => s.total_term_freq(),
         }
     }
 
-    type PostingsEnum = Either2PostingsEnum<A::PostingsEnum, B::PostingsEnum>;
+    type PostingsEnum = PostingsEnumEnum2<A::PostingsEnum, B::PostingsEnum>;
 
     fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
         match self {
-            Either2TermsEnum::A(t) => match reuse {
-                Some(Either2PostingsEnum::A(v)) => {
+            TermsEnumEnum2::A(t) => match reuse {
+                Some(PostingsEnumEnum2::A(v)) => {
                     let postings_enum = t.postings(Some(v))?;
-                    Ok(Either2PostingsEnum::A(postings_enum))
+                    Ok(PostingsEnumEnum2::A(postings_enum))
                 },
                 None => {
                     let postings_enum = t.postings(None)?;
-                    Ok(Either2PostingsEnum::A(postings_enum))
+                    Ok(PostingsEnumEnum2::A(postings_enum))
                 },
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse",
+                    "TermsEnumEnum::F expected PostingsEnumEnum::F for reuse",
                 )),
             },
-            Either2TermsEnum::B(s) => match reuse {
-                Some(Either2PostingsEnum::B(v)) => {
+            TermsEnumEnum2::B(s) => match reuse {
+                Some(PostingsEnumEnum2::B(v)) => {
                     let postings_enum = s.postings(Some(v))?;
-                    Ok(Either2PostingsEnum::B(postings_enum))
+                    Ok(PostingsEnumEnum2::B(postings_enum))
                 },
                 None => {
                     let postings_enum = s.postings(None)?;
-                    Ok(Either2PostingsEnum::B(postings_enum))
+                    Ok(PostingsEnumEnum2::B(postings_enum))
                 },
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse",
+                    "TermsEnumEnum::S expected PostingsEnumEnum::S for reuse",
                 )),
             },
         }
@@ -450,61 +450,61 @@ where
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
         match self {
-            Either2TermsEnum::A(t) => match reuse {
-                Some(Either2PostingsEnum::A(v)) => {
+            TermsEnumEnum2::A(t) => match reuse {
+                Some(PostingsEnumEnum2::A(v)) => {
                     let postings_enum = t.postings_with_flags(Some(v), flags)?;
-                    Ok(Either2PostingsEnum::A(postings_enum))
+                    Ok(PostingsEnumEnum2::A(postings_enum))
                 },
                 None => {
                     let postings_enum = t.postings_with_flags(None, flags)?;
-                    Ok(Either2PostingsEnum::A(postings_enum))
+                    Ok(PostingsEnumEnum2::A(postings_enum))
                 },
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse",
+                    "TermsEnumEnum::F expected PostingsEnumEnum::F for reuse",
                 )),
             },
-            Either2TermsEnum::B(s) => match reuse {
-                Some(Either2PostingsEnum::B(v)) => {
+            TermsEnumEnum2::B(s) => match reuse {
+                Some(PostingsEnumEnum2::B(v)) => {
                     let postings_enum = s.postings_with_flags(Some(v), flags)?;
-                    Ok(Either2PostingsEnum::B(postings_enum))
+                    Ok(PostingsEnumEnum2::B(postings_enum))
                 },
                 None => {
                     let postings_enum = s.postings_with_flags(None, flags)?;
-                    Ok(Either2PostingsEnum::B(postings_enum))
+                    Ok(PostingsEnumEnum2::B(postings_enum))
                 },
                 _ => Err(LuceneError::illegal_state(
-                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse",
+                    "TermsEnumEnum::S expected PostingsEnumEnum::S for reuse",
                 )),
             },
         }
     }
 
-    type ImpactsEnum = Either2ImpactsEnum<A::ImpactsEnum, B::ImpactsEnum>;
+    type ImpactsEnum = ImpactsEnumEnum2<A::ImpactsEnum, B::ImpactsEnum>;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         match self {
-            Either2TermsEnum::A(t) => {
+            TermsEnumEnum2::A(t) => {
                 let impacts_enum = t.impacts(flags)?;
-                Ok(Either2ImpactsEnum::A(impacts_enum))
+                Ok(ImpactsEnumEnum2::A(impacts_enum))
             },
-            Either2TermsEnum::B(s) => {
+            TermsEnumEnum2::B(s) => {
                 let impacts_enum = s.impacts(flags)?;
-                Ok(Either2ImpactsEnum::B(impacts_enum))
+                Ok(ImpactsEnumEnum2::B(impacts_enum))
             },
         }
     }
 
-    type TermState = Either2TermState<A::TermState, B::TermState>;
+    type TermState = TermStateEnum2<A::TermState, B::TermState>;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         match self {
-            Either2TermsEnum::A(t) => {
+            TermsEnumEnum2::A(t) => {
                 let term_state = t.term_state()?;
-                Ok(Either2TermState::A(term_state))
+                Ok(TermStateEnum2::A(term_state))
             },
-            Either2TermsEnum::B(s) => {
+            TermsEnumEnum2::B(s) => {
                 let term_state = s.term_state()?;
-                Ok(Either2TermState::B(term_state))
+                Ok(TermStateEnum2::B(term_state))
             },
         }
     }

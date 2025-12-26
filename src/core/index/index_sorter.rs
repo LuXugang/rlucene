@@ -504,9 +504,9 @@ macro_rules! either_doc_comparator {
         }
     };
 }
-either_doc_comparator!(pub Either2DocComparator { A: A, B: B });
-either_doc_comparator!(pub Either5DocComparator { Int: A, Long: B, Float: C, Double: D, String: E });
-pub type DocComparatorImpl = Either5DocComparator<
+either_doc_comparator!(pub DocComparatorEnum2 { A: A, B: B });
+either_doc_comparator!(pub DocComparatorEnum5 { Int: A, Long: B, Float: C, Double: D, String: E });
+pub type DocComparatorImpl = DocComparatorEnum5<
     DocComparatorImplInt,
     DocComparatorImplLong,
     DocComparatorImplFloat,

@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::impacts_enum::{Either2ImpactsEnum, ImpactsEnum};
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::search::constant_score_scorer::ConstantTPI;
 use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, Either2DocIdSetIterator, Either3DocIdSetIterator,
+    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3,
 };
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -64,10 +64,10 @@ where
     fn freq(&mut self) -> Result<i32> {
         match self {
             TermScorerPostings::Disi(disi) => match &mut disi.in_ {
-                Either2DocIdSetIterator::A(_) => {
+                DocIdSetIteratorEnum2::A(_) => {
                     Err(LuceneError::illegal_state("should not be here"))
                 },
-                Either2DocIdSetIterator::B(s) => s.freq(),
+                DocIdSetIteratorEnum2::B(s) => s.freq(),
             },
             TermScorerPostings::Cache(impacts) => impacts.freq(),
         }
@@ -76,10 +76,10 @@ where
     fn doc_id(&mut self) -> Result<i32> {
         match self {
             TermScorerPostings::Disi(disi) => match &mut disi.in_ {
-                Either2DocIdSetIterator::A(_) => {
+                DocIdSetIteratorEnum2::A(_) => {
                     Err(LuceneError::illegal_state("should not be here"))
                 },
-                Either2DocIdSetIterator::B(s) => Ok(s.doc_id()),
+                DocIdSetIteratorEnum2::B(s) => Ok(s.doc_id()),
             },
             TermScorerPostings::Cache(impacts) => Ok(impacts.doc_id()),
         }
@@ -96,7 +96,7 @@ where
     pub fn with_postings(postings_enum: PE, scorer: Arc<SS>, norms: Option<N>) -> Self {
         let impacts_enum = SlowImpactsEnum::new(postings_enum);
 
-        let max_score_cache = MaxScoreCache::new(Some(Either2ImpactsEnum::B(impacts_enum)), scorer);
+        let max_score_cache = MaxScoreCache::new(Some(ImpactsEnumEnum2::B(impacts_enum)), scorer);
 
         Self {
             norms,
@@ -113,11 +113,11 @@ where
     ) -> Self {
         let (impacts_disi, max_score_cache) = if top_level_scoring_clause {
             let max_score_cache = MaxScoreCache::new(None, scorer);
-            let disi = ImpactsDISI::new(Either2DocIdSetIterator::B(impacts_enum), max_score_cache);
+            let disi = ImpactsDISI::new(DocIdSetIteratorEnum2::B(impacts_enum), max_score_cache);
             (Some(disi), None)
         } else {
             let max_score_cache =
-                MaxScoreCache::new(Some(Either2ImpactsEnum::A(impacts_enum)), scorer);
+                MaxScoreCache::new(Some(ImpactsEnumEnum2::A(impacts_enum)), scorer);
             (None, Some(max_score_cache))
         };
 
@@ -258,8 +258,8 @@ where
                 .expect("impacts_source should exist when impacts_disi is None");
 
             match impacts_source {
-                Either2ImpactsEnum::A(impacts_enum) => TermScorerDisiRefConst::A(impacts_enum),
-                Either2ImpactsEnum::B(slow_impacts_enum) => {
+                ImpactsEnumEnum2::A(impacts_enum) => TermScorerDisiRefConst::A(impacts_enum),
+                ImpactsEnumEnum2::B(slow_impacts_enum) => {
                     TermScorerDisiRefConst::B(&slow_impacts_enum.delegate)
                 },
             }
@@ -287,8 +287,8 @@ where
                 .as_mut()
                 .unwrap()
             {
-                Either2ImpactsEnum::A(t) => TermScorerDisiRef::A(t),
-                Either2ImpactsEnum::B(s) => TermScorerDisiRef::B(&mut s.delegate),
+                ImpactsEnumEnum2::A(t) => TermScorerDisiRef::A(t),
+                ImpactsEnumEnum2::B(s) => TermScorerDisiRef::B(&mut s.delegate),
             }
         }
     }
@@ -303,8 +303,8 @@ where
             let mut max_score_cache = self.max_score_cache.take().unwrap();
             let impacts_source = max_score_cache.impacts_source.take().unwrap();
             match impacts_source {
-                Either2ImpactsEnum::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
-                Either2ImpactsEnum::B(slow_impacts) => {
+                ImpactsEnumEnum2::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
+                ImpactsEnumEnum2::B(slow_impacts) => {
                     let SlowImpactsEnum { delegate } = slow_impacts;
                     TermScorerDisi::B(delegate)
                 },
@@ -319,10 +319,10 @@ where
                 Some(ref mut disi) => {
                     let (mut impacts_source, max_score_cache) = {
                         match disi.in_ {
-                            Either2DocIdSetIterator::A(_) => {
+                            DocIdSetIteratorEnum2::A(_) => {
                                 return Err(LuceneError::illegal_state("should not be here"));
                             },
-                            Either2DocIdSetIterator::B(ref mut s) => {
+                            DocIdSetIteratorEnum2::B(ref mut s) => {
                                 (Some(s), &mut disi.max_score_cache)
                             },
                         }
@@ -343,10 +343,10 @@ where
                 Some(ref mut disi) => {
                     let (mut impacts_source, max_score_cache) = {
                         match disi.in_ {
-                            Either2DocIdSetIterator::A(_) => {
+                            DocIdSetIteratorEnum2::A(_) => {
                                 return Err(LuceneError::illegal_state("should not be here"));
                             },
-                            Either2DocIdSetIterator::B(ref mut s) => {
+                            DocIdSetIteratorEnum2::B(ref mut s) => {
                                 (Some(s), &mut disi.max_score_cache)
                             },
                         }
@@ -364,10 +364,10 @@ where
         TwoPhaseState::No
     }
 }
-pub type ImpactsEnums<IE, PE> = Either2ImpactsEnum<IE, SlowImpactsEnum<PE>>;
+pub type ImpactsEnums<IE, PE> = ImpactsEnumEnum2<IE, SlowImpactsEnum<PE>>;
 
-pub type TermScorerDisi<IE, PE, SS> = Either3DocIdSetIterator<IE, PE, ImpactsDISI<IE, IE, SS>>;
+pub type TermScorerDisi<IE, PE, SS> = DocIdSetIteratorEnum3<IE, PE, ImpactsDISI<IE, IE, SS>>;
 pub type TermScorerDisiRef<'a, IE, PE, SS> =
-    Either3DocIdSetIterator<&'a mut IE, &'a mut PE, &'a mut ImpactsDISI<IE, IE, SS>>;
+    DocIdSetIteratorEnum3<&'a mut IE, &'a mut PE, &'a mut ImpactsDISI<IE, IE, SS>>;
 pub type TermScorerDisiRefConst<'a, IE, PE, SS> =
-    Either3DocIdSetIterator<&'a IE, &'a PE, &'a ImpactsDISI<IE, IE, SS>>;
+    DocIdSetIteratorEnum3<&'a IE, &'a PE, &'a ImpactsDISI<IE, IE, SS>>;
