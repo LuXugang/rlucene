@@ -426,7 +426,7 @@ mod tests {
     fn do_search<R: Rng + ?Sized>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector> {
         let query = MatchAllDocsQuery::new();
         let dir = new_directory_shared(random)?;
-        let reader = Arc::new(get_reader(dir)?);
+        let reader = get_reader(dir)?;
         let searcher = new_searcher_with_reader(reader)?;
         let cm = MyTopDocsCollectorMananger::new(num_results);
         searcher.search_with_collector_manager(query, &cm)
@@ -718,15 +718,15 @@ mod tests {
         writer.add_documents(vec![Document::new(), Document::new()])?;
         writer.flush()?;
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&writer)?);
-        let v = get_context(reader.clone())?;
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let v = get_context(&reader)?;
         assert_eq!(v.leaves()?.len(), 2);
         writer.close()?;
 
         let query = MatchAllDocsQuery::new();
-        let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), reader.clone())?;
+        let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), &reader)?;
         let query = MatchAllDocsQuery::new();
-        let tdc2 = do_search_with_threshold(5, 10, query.into(), reader.clone())?;
+        let tdc2 = do_search_with_threshold(5, 10, query.into(), &reader)?;
 
         let query = MatchAllDocsQuery::new();
         CheckHits::check_equal(&query.into(), &tdc.score_docs, &tdc2.score_docs)?;

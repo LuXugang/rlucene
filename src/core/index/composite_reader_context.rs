@@ -41,7 +41,6 @@ where
         &self.reader
     }
 }
-
 pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
     CR: CompositeReader,

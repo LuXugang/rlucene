@@ -35,7 +35,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Tests the Terms.docCount statistic
 #[allow(dead_code)] // for quick search
@@ -53,15 +52,15 @@ fn test_simple() -> Result<()> {
     }
 
     {
-        let ir = Arc::new(iw.get_reader()?);
-        verify_count(ir, &mut random)?;
+        let ir = iw.get_reader()?;
+        verify_count(&ir, &mut random)?;
     }
     // TODO force_merge未实现
     // iw.force_merge(1)?;
 
     {
-        let ir = Arc::new(iw.get_reader()?);
-        verify_count(ir, &mut random)?;
+        let ir = iw.get_reader()?;
+        verify_count(&ir, &mut random)?;
     }
 
     iw.close()?;
@@ -91,15 +90,15 @@ fn doc<R: Rng + ?Sized>(
     Ok(doc)
 }
 
-fn verify_count<CR, R: Rng + ?Sized>(reader: CR, random: &mut R) -> Result<()>
+fn verify_count<CR, R: Rng + ?Sized>(reader: &CR, random: &mut R) -> Result<()>
 where
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     let max_doc = reader.max_doc()?;
-    let fields = get_indexed_fields(reader.clone())?;
+    let fields = get_indexed_fields(reader)?;
 
     for field in fields {
-        let Some(terms) = get_terms(reader.clone(), &field)? else {
+        let Some(terms) = get_terms(reader, &field)? else {
             continue;
         };
 

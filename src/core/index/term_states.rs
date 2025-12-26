@@ -407,7 +407,7 @@ mod tests {
         let dir = new_directory_shared(&mut random)?;
         let w = RandomIndexWriter::new(&mut random, dir);
         w.add_document(Document::new())?;
-        let reader = Arc::new(w.get_reader()?);
+        let reader = w.get_reader()?;
         let reader = get_context(reader)?;
         let searcher = IndexSearcher::new(reader)?;
         let term = Term::from_text("foo", "bar");

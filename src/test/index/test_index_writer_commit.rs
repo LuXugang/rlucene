@@ -25,7 +25,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterCommit;
@@ -55,13 +54,13 @@ fn test_commit_on_close() -> Result<()> {
     let search_term = Term::from_text("content", "aaa");
 
     {
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
         let searcher = new_searcher_with_reader(reader)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(14, hits.score_docs.len(), "first number of hits");
     }
 
-    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+    let reader = directory_reader_util::open(dir.clone())?;
     // TODO: 未实现MockAnalyzer
     let iwc2 = new_index_writer_config(&mut random);
     let writer = IndexWriter::new(dir.clone(), iwc2)?;
@@ -71,8 +70,8 @@ fn test_commit_on_close() -> Result<()> {
             add_doc(&writer, &mut field_types)?;
         }
 
-        let r = Arc::new(directory_reader_util::open(dir.clone())?);
-        let searcher = new_searcher_with_reader(r.clone())?;
+        let r = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(&r)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(
             14,
@@ -94,8 +93,8 @@ fn test_commit_on_close() -> Result<()> {
     );
 
     {
-        let r = Arc::new(directory_reader_util::open(dir.clone())?);
-        let searcher = new_searcher_with_reader(r.clone())?;
+        let r = directory_reader_util::open(dir.clone())?;
+        let searcher = new_searcher_with_reader(&r)?;
         let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
         assert_eq!(
             47,
@@ -165,7 +164,7 @@ fn test_prepare_commit_no_changes() -> Result<()> {
     writer.commit()?;
     writer.close()?;
 
-    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+    let reader = directory_reader_util::open(dir.clone())?;
     assert_eq!(0, reader.num_docs()?);
 
     Ok(())

@@ -145,7 +145,6 @@ mod tests {
     };
     use rand::Rng;
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     #[allow(dead_code)]
     struct TestTermVectorsWriter;
@@ -179,7 +178,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field0 = tv_reader.get(0)?;
@@ -253,7 +252,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -308,7 +307,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -367,7 +366,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -422,7 +421,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -482,7 +481,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -541,7 +540,7 @@ mod tests {
         w.add_document(doc)?;
         w.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut tv_reader = reader.term_vectors()?;
         let field = tv_reader.get(0)?;
@@ -623,7 +622,7 @@ mod tests {
             // writer.force_merge(1)?;
             writer.close()?;
 
-            let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+            let reader = directory_reader_util::open(dir.clone())?;
             let mut tv_reader = reader.term_vectors()?;
 
             assert!(tv_reader.get(0)?.is_none());
@@ -680,7 +679,7 @@ mod tests {
         // writer.force_merge(1)?;
         writer.close()?;
 
-        let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+        let reader = directory_reader_util::open(dir.clone())?;
 
         let mut stored_fields = reader.stored_fields()?;
         let mut term_vectors = reader.term_vectors()?;
@@ -865,7 +864,7 @@ mod tests {
             _ => unreachable!("unexpected error: {:?}", err),
         }
 
-        let reader = Arc::new(directory_reader_util::open_with_writer(&iw)?);
+        let reader = directory_reader_util::open_with_writer(&iw)?;
         // Make sure the exc didn't lose our first document:
         assert_eq!(1, reader.num_docs()?);
 

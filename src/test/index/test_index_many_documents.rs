@@ -90,7 +90,7 @@ fn test_threaded_indexing() -> Result<()> {
 
     writer.close()?;
 
-    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+    let reader = directory_reader_util::open(dir.clone())?;
     assert_eq!(num_docs, reader.max_doc()?);
 
     Ok(())

@@ -30,7 +30,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 };
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestManyFields;
@@ -186,7 +185,7 @@ fn test_diverse_docs() -> Result<()> {
 
     writer.close()?;
 
-    let reader = Arc::new(directory_reader_util::open(dir.clone())?);
+    let reader = directory_reader_util::open(dir.clone())?;
     let searcher = new_searcher_with_reader(reader)?;
     let total_hits = searcher.count(TermQuery::new(Term::from_text("field", "aaa")))?;
     assert_eq!(n * 100, total_hits);

@@ -34,7 +34,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     random,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
@@ -60,10 +59,10 @@ fn test_exactly_at_true_limit() -> Result<()> {
 
     // first unoptimized, then optimized
     for _iter in 0..2 {
-        let ir = Arc::new(directory_reader_util::open(dir.clone())?);
+        let ir = directory_reader_util::open(dir.clone())?;
         assert_eq!(MAX_DOCS, ir.max_doc()?);
         assert_eq!(MAX_DOCS, ir.num_docs()?);
-        let ir = get_context(ir.clone())?;
+        let ir = get_context(&ir)?;
 
         let searcher = IndexSearcher::new(ir)?;
         let collector_manager = TopScoreDocCollectorManager::with_after(10, None, i32::MAX)?;

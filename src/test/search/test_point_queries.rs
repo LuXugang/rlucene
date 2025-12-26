@@ -17,14 +17,13 @@
 use crate::core::document::document::Document;
 use crate::core::document::int_point::IntPoint;
 use crate::core::index::composite_reader::get_context;
+use crate::core::index::directory_reader::directory_reader_util;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory, new_index_writer_config, random,
+    new_directory_shared, new_index_writer_config, random,
 };
-use std::sync::Arc;
-use crate::core::document::int_point;
 
 #[allow(dead_code)] // for quick search
 pub struct TestPointQueries;
@@ -32,7 +31,7 @@ pub struct TestPointQueries;
 #[test]
 fn test_basic_ints() -> Result<()> {
     let mut random = random();
-    let dir = new_directory(&mut random)?;
+    let dir = new_directory_shared(&mut random)?;
     // TODO: 未实现MockAnalyzer
     let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
@@ -54,27 +53,27 @@ fn test_basic_ints() -> Result<()> {
         w.add_document(doc)?;
     }
 
-    let r = Arc::new(crate::core::index::directory_reader::directory_reader_util::open_with_writer(&w)?);
-    let  searcher = IndexSearcher::new(get_context(r.clone())?)?;
+    let r = directory_reader_util::open_with_writer(&w)?;
+    let searcher = IndexSearcher::new(get_context(&r)?)?;
 
     assert_eq!(
         2,
-        searcher.count(int_point::new_point_range_query("point", [-8], [1])?)?
+        searcher.count(IntPoint::new_point_range_query("point", [-8], [1])?)?
     );
 
     assert_eq!(
         3,
-        searcher.count(int_point::new_point_range_query("point", [-7], [3])?)?
+        searcher.count(IntPoint::new_point_range_query("point", [-7], [3])?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(int_point::new_exact_query("point", [-7])?)?
+        searcher.count(IntPoint::new_exact_query("point", [-7])?)?
     );
 
     assert_eq!(
         0,
-        searcher.count(int_point::new_exact_query("point", [-6])?)?
+        searcher.count(IntPoint::new_exact_query("point", [-6])?)?
     );
     w.close()?;
     Ok(())

@@ -37,6 +37,23 @@ where
 {
     create(composite_reader)
 }
+impl<CR> CompositeReader for &CR
+where
+    CR: CompositeReader,
+{
+    type LeafReader = CR::LeafReader;
+    type SubCompositeReader = CR::SubCompositeReader;
+
+    fn get_sequential_sub_readers(
+        &self,
+    ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+        (**self).get_sequential_sub_readers()
+    }
+
+    fn to_string(&self) -> String {
+        (**self).to_string()
+    }
+}
 impl<CR> CompositeReader for Arc<CR>
 where
     CR: CompositeReader,

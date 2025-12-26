@@ -408,14 +408,14 @@ where
         }
     }
 }
-impl<IR> IndexReader for Arc<IR>
+impl<IR> IndexReader for &IR
 where
     IR: IndexReader + ?Sized,
 {
     type TermVectors<'a>
         = IR::TermVectors<'a>
     where
-        IR: 'a;
+        Self: 'a;
 
     fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
         (**self).term_vectors()
@@ -448,7 +448,91 @@ where
     type StoredFields<'a>
         = IR::StoredFields<'a>
     where
-        IR: 'a;
+        Self: 'a;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+        (**self).stored_fields()
+    }
+
+    fn has_deletions(&self) -> Result<bool> {
+        (**self).has_deletions()
+    }
+
+    fn do_close(&self) -> Result<()> {
+        (**self).do_close()
+    }
+
+    type ReaderCacheHelper = IR::ReaderCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        (**self).get_reader_cache_helper()
+    }
+
+    fn doc_freq(&self, term: &Term) -> Result<i32> {
+        (**self).doc_freq(term)
+    }
+
+    fn total_term_freq(&self, term: &Term) -> Result<i64> {
+        (**self).total_term_freq(term)
+    }
+
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+        (**self).get_sum_doc_freq(field)
+    }
+
+    fn get_doc_count(&self, field: &str) -> Result<i32> {
+        (**self).get_doc_count(field)
+    }
+
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+        (**self).get_sum_total_term_freq(field)
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        (**self).base()
+    }
+}
+impl<IR> IndexReader for Arc<IR>
+where
+    IR: IndexReader + ?Sized,
+{
+    type TermVectors<'a>
+        = IR::TermVectors<'a>
+    where
+        Self: 'a;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+        (**self).term_vectors()
+    }
+
+    fn max_doc(&self) -> Result<i32> {
+        (**self).max_doc()
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        (**self).num_docs()
+    }
+
+    fn num_deleted_docs(&self) -> Result<i32> {
+        (**self).num_deleted_docs()
+    }
+
+    fn inc_ref(&self) -> Result<()> {
+        (**self).inc_ref()
+    }
+
+    fn dec_ref(&self) -> Result<()> {
+        (**self).dec_ref()
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        (**self).ensure_open()
+    }
+
+    type StoredFields<'a>
+        = IR::StoredFields<'a>
+    where
+        Self: 'a;
 
     fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
         (**self).stored_fields()

@@ -1420,7 +1420,6 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestMultiDocValues;
@@ -1459,15 +1458,15 @@ mod tests {
         // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         // TODO force_merge未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
         let mut multi =
-            MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.expect("multi should exist");
+            MultiDocValues::get_numeric_values(&ir, "numbers")?.expect("multi should exist");
         let mut single = merged
             .get_numeric_doc_values("numbers")?
             .expect("single dv should exist");
@@ -1481,13 +1480,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_numeric_doc_values("numbers")?.unwrap(),
-            &mut MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.unwrap(),
+            &mut MultiDocValues::get_numeric_values(&ir, "numbers")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_numeric_doc_values("numbers")?.unwrap(),
-            &mut MultiDocValues::get_numeric_values(ir.clone(), "numbers")?.unwrap(),
+            &mut MultiDocValues::get_numeric_values(&ir, "numbers")?.unwrap(),
             merged.max_doc()?,
         )?;
         Ok(())
@@ -1530,16 +1529,16 @@ mod tests {
         // TODO 由于没有实现 force_merge，所以最终仍然只有一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
 
         // TODO force_merge 未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
         let mut multi =
-            MultiDocValues::get_binary_values(ir.clone(), "bytes")?.expect("multi should exist");
+            MultiDocValues::get_binary_values(&ir, "bytes")?.expect("multi should exist");
         let mut single = merged
             .get_binary_doc_values("bytes")?
             .expect("single should exist");
@@ -1557,13 +1556,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_binary_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_binary_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_binary_values(&ir, "bytes")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_binary_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_binary_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_binary_values(&ir, "bytes")?.unwrap(),
             merged.max_doc()?,
         )?;
 
@@ -1610,15 +1609,15 @@ mod tests {
         // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         // TODO force_merge未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
         let mut multi =
-            MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.expect("multi should exist");
+            MultiDocValues::get_sorted_values(&ir, "bytes")?.expect("multi should exist");
         let mut single = merged
             .get_sorted_doc_values("bytes")?
             .expect("single dv should exist");
@@ -1647,13 +1646,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(&ir, "bytes")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(&ir, "bytes")?.unwrap(),
             merged.max_doc()?,
         )?;
 
@@ -1696,15 +1695,15 @@ mod tests {
         // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         // TODO force_merge未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
         let mut multi =
-            MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.expect("multi should exist");
+            MultiDocValues::get_sorted_values(&ir, "bytes")?.expect("multi should exist");
         let mut single = merged
             .get_sorted_doc_values("bytes")?
             .expect("single dv should exist");
@@ -1733,13 +1732,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(&ir, "bytes")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_sorted_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_values(&ir, "bytes")?.unwrap(),
             merged.max_doc()?,
         )?;
 
@@ -1782,14 +1781,14 @@ mod tests {
         // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         // TODO force_merge未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
-        let mut multi_opt = MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?;
+        let mut multi_opt = MultiDocValues::get_sorted_set_values(&ir, "bytes")?;
         let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
 
         match (multi_opt.as_mut(), single_opt.as_mut()) {
@@ -1829,13 +1828,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(&ir, "bytes")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(&ir, "bytes")?.unwrap(),
             merged.max_doc()?,
         )?;
 
@@ -1880,14 +1879,14 @@ mod tests {
         // TODO 由于没有实现force_merge 所以 我们只生成一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         // TODO force_merge未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
-        let mut multi_opt = MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?;
+        let mut multi_opt = MultiDocValues::get_sorted_set_values(&ir, "bytes")?;
         let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
 
         match (multi_opt.as_mut(), single_opt.as_mut()) {
@@ -1930,13 +1929,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(&ir, "bytes")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_sorted_set_doc_values("bytes")?.unwrap(),
-            &mut MultiDocValues::get_sorted_set_values(ir.clone(), "bytes")?.unwrap(),
+            &mut MultiDocValues::get_sorted_set_values(&ir, "bytes")?.unwrap(),
             merged.max_doc()?,
         )?;
 
@@ -1981,15 +1980,15 @@ mod tests {
         // TODO 由于没有 force_merge，仍然只有一个段
         iw.commit()?;
 
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
 
         // TODO force_merge 未实现
         // iw.force_merge(1)?;
-        let ir2 = Arc::new(iw.get_reader()?);
-        let merged = get_only_leaf_reader(ir2.clone())?;
+        let ir2 = iw.get_reader()?;
+        let merged = get_only_leaf_reader(&ir2)?;
         iw.close()?;
 
-        let mut multi_opt = MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?;
+        let mut multi_opt = MultiDocValues::get_sorted_numeric_values(&ir, "nums")?;
         let mut single_opt = merged.get_sorted_numeric_doc_values("nums")?;
 
         match (multi_opt.as_mut(), single_opt.as_mut()) {
@@ -2025,13 +2024,13 @@ mod tests {
         test_random_advance(
             &mut random,
             &mut merged.get_sorted_numeric_doc_values("nums")?.unwrap(),
-            &mut MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?.unwrap(),
+            &mut MultiDocValues::get_sorted_numeric_values(&ir, "nums")?.unwrap(),
         )?;
 
         test_random_advance_exact(
             &mut random,
             &mut merged.get_sorted_numeric_doc_values("nums")?.unwrap(),
-            &mut MultiDocValues::get_sorted_numeric_values(ir.clone(), "nums")?.unwrap(),
+            &mut MultiDocValues::get_sorted_numeric_values(&ir, "nums")?.unwrap(),
             merged.max_doc()?,
         )?;
 

@@ -50,7 +50,6 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use rand::RngCore;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestDocValuesIndexing;
@@ -257,7 +256,7 @@ fn test_mixed_types_same_document() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&w)?);
+    let ir = directory_reader_util::open_with_writer(&w)?;
     assert_eq!(1, ir.num_docs()?);
 
     w.close()?;
@@ -290,7 +289,7 @@ fn test_mixed_types_different_documents() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&w)?);
+    let ir = directory_reader_util::open_with_writer(&w)?;
     assert_eq!(1, ir.num_docs()?);
 
     w.close()?;
@@ -326,7 +325,7 @@ fn test_add_sorted_twice() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&iwriter)?);
+    let ir = directory_reader_util::open_with_writer(&iwriter)?;
     assert_eq!(1, ir.num_docs()?);
     iwriter.close()?;
 
@@ -361,7 +360,7 @@ fn test_add_binary_twice() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&iwriter)?);
+    let ir = directory_reader_util::open_with_writer(&iwriter)?;
     assert_eq!(1, ir.num_docs()?);
 
     iwriter.close()?;
@@ -391,7 +390,7 @@ fn test_add_numeric_twice() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&iwriter)?);
+    let ir = directory_reader_util::open_with_writer(&iwriter)?;
     assert_eq!(1, ir.num_docs()?);
 
     iwriter.close()?;
@@ -426,7 +425,7 @@ fn test_too_large_sorted_bytes() -> Result<()> {
     let res = iwriter.add_document(huge_doc);
     assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&iwriter)?);
+    let ir = directory_reader_util::open_with_writer(&iwriter)?;
     assert_eq!(1, ir.num_docs()?);
 
     iwriter.close()?;
@@ -466,7 +465,7 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
         res
     );
 
-    let ir = Arc::new(directory_reader_util::open_with_writer(&iwriter)?);
+    let ir = directory_reader_util::open_with_writer(&iwriter)?;
     assert_eq!(1, ir.num_docs()?);
 
     iwriter.close()?;

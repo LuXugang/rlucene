@@ -1436,11 +1436,11 @@ mod tests {
             let doc = Document::new();
             iw.add_document(doc)?;
         }
-        let ir = Arc::new(iw.get_reader()?);
+        let ir = iw.get_reader()?;
         iw.close()?;
 
-        let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
-        let single_threaded_searcher = new_searcher_with_threads(ir, true, true, false)?;
+        let concurrent_searcher = new_searcher_with_threads(&ir, true, true, true)?;
+        let single_threaded_searcher = new_searcher_with_threads(&ir, true, true, false)?;
 
         // Two Sort criteria to instantiate the multi/single comparators.
         let sorts = [
