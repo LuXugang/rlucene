@@ -14,22 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use derive_getters::Getters;
+use crate::core::index::postings_enum::PostingsEnum;
+use crate::core::index::reader_slice::ReaderSlice;
+use std::rc::Rc;
 
-/// Subreader slice from a parent composite reader.
-#[derive(Debug, Clone, PartialEq, Eq, Getters, Default)]
-pub struct ReaderSlice {
-    pub start: i32,
-    pub length: i32,
-    pub reader_index: i32,
+pub struct MultiPostingsEnum;
+/// Holds a [`PostingsEnum`] along with the corresponding [`ReaderSlice`].
+pub struct EnumWithSlice<PE>
+where
+    PE: PostingsEnum,
+{
+    /// [`PostingsEnum`] for this sub-reader
+    postings_enum: Option<PE>,
+    /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
+    slice: Rc<ReaderSlice>,
 }
-impl ReaderSlice {
-    pub fn new(start: i32, length: i32, reader_index: i32) -> Self {
+impl<PE> EnumWithSlice<PE>
+where
+    PE: PostingsEnum,
+{
+    /// Creates a new `EnumWithSlice`.
+    pub fn new() -> Self {
         Self {
-            start,
-            length,
-            reader_index,
+            postings_enum: None,
+            slice: Rc::new(ReaderSlice::default()),
         }
     }
 }
-// for padding
+impl<PE> Default for EnumWithSlice<PE>
+where
+    PE: PostingsEnum,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
