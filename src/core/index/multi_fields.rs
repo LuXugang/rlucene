@@ -104,3 +104,102 @@ where
         Ok(-1)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store::No;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::index::BytesRef;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::multi_terms::get_term_postings_enum;
+    use crate::core::index::postings_enum::{FREQS, NONE};
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_index_writer_config, new_string_field, random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use std::collections::HashMap;
+
+    #[allow(dead_code)] // for quick search
+    struct TestMultiFields;
+
+    #[test]
+    fn test_random() -> Result<()> {
+        // TODO keepFullyDeletedSegment  未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_separate_enums() -> Result<()> {
+        let mut random = random();
+        // TODO: 未实现 MockAnalyzer
+        let dir = new_directory_shared(&mut random)?;
+        let iw = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_string_field("f", "j", No, &mut field_to_type)?);
+
+        iw.add_document(doc.clone())?;
+        iw.commit()?;
+        iw.add_document(doc)?;
+
+        let reader = directory_reader_util::open_with_writer(&iw)?;
+        iw.close()?;
+
+        let mut d1 = TestUtil::docs_with_reader(
+            &mut random,
+            &reader,
+            "f",
+            &BytesRef::from_string("j"),
+            None,
+            NONE as i32,
+        )?
+        .unwrap();
+
+        let mut d2 = TestUtil::docs_with_reader(
+            &mut random,
+            &reader,
+            "f",
+            &BytesRef::from_string("j"),
+            None,
+            NONE as i32,
+        )?
+        .unwrap();
+
+        assert_eq!(0, d1.next_doc()?);
+        assert_eq!(0, d2.next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_term_docs_enum() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO: 未实现 MockAnalyzer
+        let iw = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_string_field("f", "j", No, &mut field_to_type)?);
+        iw.add_document(doc.clone())?;
+        iw.commit()?;
+        iw.add_document(doc)?;
+
+        let reader = directory_reader_util::open_with_writer(&iw)?;
+        iw.close()?;
+
+        let mut de =
+            get_term_postings_enum(&reader, "f", &BytesRef::from_string("j"), FREQS as i32)?
+                .unwrap();
+
+        assert_eq!(0, de.next_doc()?);
+        assert_eq!(1, de.next_doc()?);
+        assert_eq!(NO_MORE_DOCS, de.next_doc()?);
+        Ok(())
+    }
+}

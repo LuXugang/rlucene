@@ -48,7 +48,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
-
+/// A wrapper for `CompositeIndexReader` providing access to `DocValues`.
+///
+/// **NOTE**: for multi readers, you'll get better performance by gathering the
+/// sub readers using [`IndexReader::get_context`] to get the atomic leaves and
+/// then operate per-`LeafReader`, instead of using this class.
+///
+/// **NOTE**: This is very costly.
 pub struct MultiDocValues;
 
 pub type MultiNormNumericDocValues<CR> = NumericDocValuesEnum2<
@@ -84,6 +90,7 @@ pub type MultiSortedSetDocValuesType<CR> = SortedSetDocValuesEnum2<
 >;
 
 impl MultiDocValues {
+    ///  Returns a NumericDocValues for a reader's norms (potentially merging on-the-fly).
     pub fn get_norm_values<CR>(
         reader: CR,
         field: &str,
@@ -122,6 +129,7 @@ impl MultiDocValues {
         )))
     }
 
+    /// Returns a NumericDocValues for a reader's docvalues (potentially merging on-the-fly)
     pub fn get_numeric_values<CR>(
         reader: CR,
         field: &str,
@@ -162,6 +170,7 @@ impl MultiDocValues {
         ))))
     }
 
+    /// Returns a BinaryDocValues for a reader's docvalues (potentially merging on-the-fly)
     pub fn get_binary_values<CR>(
         reader: CR,
         field: &str,

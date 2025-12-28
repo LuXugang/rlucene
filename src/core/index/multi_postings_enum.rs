@@ -111,7 +111,7 @@ where
                 }
             }
 
-            let idx = self.current.unwrap();
+            let idx = self.subs[self.current.unwrap()].postings_enum;
             let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
             if doc != NO_MORE_DOCS {
                 self.doc = self.current_base + doc;
@@ -128,9 +128,12 @@ where
             if let Some(idx) = self.current {
                 let doc = if target < self.current_base {
                     // target was in the previous slice but there was no matching doc after it
-                    self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?
+                    self.sub_postings_enums[self.subs[idx].postings_enum]
+                        .as_mut()
+                        .unwrap()
+                        .next_doc()?
                 } else {
-                    self.sub_postings_enums[idx]
+                    self.sub_postings_enums[self.subs[idx].postings_enum]
                         .as_mut()
                         .unwrap()
                         .advance(target - self.current_base)?
@@ -170,14 +173,17 @@ where
 {
     fn freq(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].as_mut().unwrap().freq(),
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+                .as_mut()
+                .unwrap()
+                .freq(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn next_position(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
                 .as_mut()
                 .unwrap()
                 .next_position(),
@@ -187,7 +193,7 @@ where
 
     fn start_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
                 .as_ref()
                 .unwrap()
                 .start_offset(),
@@ -197,14 +203,20 @@ where
 
     fn end_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].as_ref().unwrap().end_offset(),
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+                .as_ref()
+                .unwrap()
+                .end_offset(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[idx].as_ref().unwrap().get_payload(),
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+                .as_ref()
+                .unwrap()
+                .get_payload(),
             None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
         }
     }

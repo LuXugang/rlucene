@@ -22,7 +22,10 @@ use rand::prelude::IndexedRandom;
 use rand::{Rng, random_range};
 
 use crate::core::index::BytesRef;
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
+use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::Result;
@@ -487,6 +490,30 @@ impl TestUtil {
             Self::randomly_recase_codepoints(random, &s)
         } else {
             s
+        }
+    }
+    pub fn docs_with_reader<R, CR>(
+        random: &mut R,
+        r: &CR,
+        field: &str,
+        term: &BytesRef<Vec<u8>>,
+        reuse: Option<<<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Option<<<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>>
+    where
+        R: Rng + ?Sized,
+        CR: CompositeReader,
+    {
+        match get_terms(r, field)? {
+            Some(terms) => {
+                let mut terms_enum = terms.iterator()?;
+                if !terms_enum.seek_exact(term)? {
+                    return Ok(None);
+                }
+                let v = Self::docs(random, &mut terms_enum, reuse, flags)?;
+                Ok(Some(v))
+            },
+            None => Ok(None),
         }
     }
 

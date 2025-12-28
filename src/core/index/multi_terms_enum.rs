@@ -58,7 +58,7 @@ where
 {
     pub fn new(slices: Vec<Rc<ReaderSlice>>) -> Result<Self> {
         let len = slices.len();
-        let subs = Vec::with_capacity(len);
+        let mut subs = vec![0usize; len];
         let current_subs = vec![0usize; len];
         let top = vec![0usize; len];
         let mut sub_docs = Vec::with_capacity(len);
@@ -66,6 +66,7 @@ where
         for (i, slice) in slices.into_iter().enumerate() {
             all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i.try_into()?, slice.clone()));
             sub_docs.push(EnumWithSlice::with_slice(slice));
+            subs[i] = i;
         }
         let queue = TermMergeQueue::new(len.try_into()?, all_terms_enum_with_slice)?;
         Ok(Self {
