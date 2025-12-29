@@ -104,6 +104,7 @@ mod multi_doc_values;
 mod multi_fields;
 pub mod multi_postings_enum;
 pub mod multi_reader;
+mod multi_sorter;
 pub mod multi_terms;
 mod multi_terms_enum;
 pub mod no_deletion_policy;
