@@ -165,12 +165,12 @@ where
             let mode = conf.get_open_mode();
             let (index_exists, create) = match mode {
                 OpenMode::Create => {
-                    let exists = directory_reader_util::index_exists(&*directory)?;
+                    let exists = directory_reader_util::index_exists(directory.as_ref())?;
                     (exists, true)
                 },
                 OpenMode::Append => (true, false),
                 OpenMode::CreateOrAppend => {
-                    let exists = directory_reader_util::index_exists(&*directory)?;
+                    let exists = directory_reader_util::index_exists(directory.as_ref())?;
                     (exists, !exists)
                 },
             };
@@ -309,8 +309,6 @@ where
                 segment_infos.get_index_created_version_major(),
                 enable_test_points,
                 &conf,
-                directory_orig.clone(),
-                directory.clone(),
             )?;
 
             let reader_pool = ReaderPool::new(

@@ -96,8 +96,6 @@ where
     pub(crate) inner: Mutex<Inner>,
     flush_control: DocumentsWriterFlushControl<D>,
     index_created_version_major: i32,
-    directory: Arc<IndexWriterDir<D>>,
-    directory_orig: Arc<D>,
     enable_test_points: bool,
     flush_notifications: FN,
 }
@@ -116,8 +114,6 @@ where
         index_created_version_major: i32,
         enable_test_points: bool,
         config: &L,
-        directory_orig: Arc<D>,
-        directory: Arc<IndexWriterDir<D>>,
     ) -> Result<Self>
     where
         L: LiveIndexWriterConfig,
@@ -136,8 +132,6 @@ where
             }),
             flush_control: DocumentsWriterFlushControl::new(config)?,
             index_created_version_major,
-            directory,
-            directory_orig,
             enable_test_points,
             flush_notifications,
         })
