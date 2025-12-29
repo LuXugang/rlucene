@@ -97,18 +97,16 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
-use crate::core::util::bit_set::BitSet;
-use crate::core::util::bit_set::{BitSetEnum2, of};
+use crate::core::util::bit_set::of;
+use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
     AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
 };
 use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
-use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{
     AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, SliceCopyOps,
 };
@@ -2477,14 +2475,14 @@ struct DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    parents: Rc<BitSetEnum2<SparseFixedBitSet, FixedBitSet>>,
+    parents: Rc<SparseFixedBitSetBitSet>,
     doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn new(parents: Rc<BitSetEnum2<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+    fn new(parents: Rc<SparseFixedBitSetBitSet>, doc_comparator: DC) -> Self {
         DocComparatorImpl {
             parents,
             doc_comparator,

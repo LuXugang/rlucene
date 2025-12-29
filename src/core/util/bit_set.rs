@@ -380,10 +380,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 /// Builds a [`BitSet`] from the content of the provided
 /// [`DocIdSetIterator`]. **Note**: This will fully consume the
 /// [`DocIdSetIterator`].
-pub fn of(
-    it: &mut impl DocIdSetIterator,
-    max_doc: i32,
-) -> Result<BitSetEnum2<SparseFixedBitSet, FixedBitSet>> {
+pub fn of(it: &mut impl DocIdSetIterator, max_doc: i32) -> Result<SparseFixedBitSetBitSet> {
     let cost = it.cost()?;
     let threshold = max_doc >> 7;
     let mut set;
@@ -406,3 +403,5 @@ pub(crate) fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<()> {
     }
     Ok(())
 }
+
+pub type SparseFixedBitSetBitSet = BitSetEnum2<SparseFixedBitSet, FixedBitSet>;
