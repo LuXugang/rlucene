@@ -60,27 +60,6 @@ impl<T> MutAccess<T> for Arc<Mutex<T>> {
         f(&*guard)
     }
 }
-pub trait SharedReadOnly<T>: Clone {
-    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R;
-}
-
-impl<T> SharedReadOnly<T> for Rc<T> {
-    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        f(self.as_ref())
-    }
-}
-
-impl<T> SharedReadOnly<T> for Arc<T> {
-    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        f(self.as_ref())
-    }
-}
-
-impl<T> SharedReadOnly<T> for &T {
-    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        f(self)
-    }
-}
 
 pub trait SharedAccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> R
