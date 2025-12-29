@@ -349,7 +349,7 @@ where
     pub fn get_id(&self) -> &[u8; StringHelper::ID_LENGTH] {
         &self.id
     }
-    // TODO: IMPORTANT 不应该每次调用时生成
+    // TODO IMPORTANT 不应该每次调用时生成
     pub fn get_id_str(&self) -> String {
         StringHelper::id_to_string(Some(&self.id))
     }

@@ -14,41 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
-use crate::core::util::access::SharedReadOnly;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 /// A delegating Directory that records which files were written to and deleted.
-pub struct TrackingDirectoryWrapper<D, A = Arc<D>>
+pub struct TrackingDirectoryWrapper<D>
 where
     D: Directory,
-    A: SharedReadOnly<D>,
 {
-    pub(crate) base: FilterDirectory<D, A>,
+    pub(crate) base: FilterDirectory<D>,
     inner: Mutex<Inner>,
+    id: Identity,
 }
 pub struct Inner {
     pub(crate) created_filenames: HashSet<String>,
 }
-impl<D, A> TrackingDirectoryWrapper<D, A>
+impl<D> TrackingDirectoryWrapper<D>
 where
     D: Directory,
-    A: SharedReadOnly<D>,
 {
-    pub fn new(input: A) -> Self {
+    pub fn new(input: D) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
         });
         TrackingDirectoryWrapper {
             base: FilterDirectory::new(input),
             inner: lock,
+            id: Identity::new(),
         }
     }
 
@@ -64,20 +63,18 @@ where
     }
 }
 
-impl<D, A> Display for TrackingDirectoryWrapper<D, A>
+impl<D> Display for TrackingDirectoryWrapper<D>
 where
     D: Directory,
-    A: SharedReadOnly<D>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "TrackingDirectoryWrapper({})", self.base)
     }
 }
 
-impl<D, A> Closeable for TrackingDirectoryWrapper<D, A>
+impl<D> Closeable for TrackingDirectoryWrapper<D>
 where
     D: Directory,
-    A: SharedReadOnly<D>,
 {
     fn close(&mut self) -> Result<()> {
         // TODO
@@ -85,10 +82,18 @@ where
     }
 }
 
-impl<D, A> Directory for TrackingDirectoryWrapper<D, A>
+impl<D> SameInstance for TrackingDirectoryWrapper<D>
 where
     D: Directory,
-    A: SharedReadOnly<D>,
+{
+    fn same_instance(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<D> Directory for TrackingDirectoryWrapper<D>
+where
+    D: Directory,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         self.base.list_all()
@@ -110,7 +115,7 @@ where
         Ok(output)
     }
 
-    type IndexOutput = <FilterDirectory<D, A> as Directory>::IndexOutput;
+    type IndexOutput = <FilterDirectory<D> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -141,13 +146,13 @@ where
         Ok(())
     }
 
-    type IndexInput = <FilterDirectory<D, A> as Directory>::IndexInput;
+    type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
     }
 
-    type Lock = <FilterDirectory<D, A> as Directory>::Lock;
+    type Lock = <FilterDirectory<D> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)
@@ -188,11 +193,10 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_io_context, random,
+        new_directory, new_io_context, random,
     };
     use std::collections::HashSet;
     use std::path::PathBuf;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestTrackingDirectoryWrapper;
@@ -203,7 +207,7 @@ mod tests {
         fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
             // TODO: ByteBuffersDirectory 没有实现
             let sub_directory = NIOFSDirectory::new();
-            let dir = Arc::new(FSDirectory::new(path, sub_directory)?);
+            let dir = FSDirectory::new(path, sub_directory)?;
             Ok(TrackingDirectoryWrapper::new(dir))
         }
     }
@@ -529,7 +533,7 @@ mod tests {
     fn test_track_empty() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
             HashSet::new()
@@ -539,7 +543,7 @@ mod tests {
     #[test]
     fn test_track_create() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -551,7 +555,7 @@ mod tests {
     #[test]
     fn test_track_delete() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -568,7 +572,7 @@ mod tests {
     #[test]
     fn test_track_rename() -> Result<()> {
         let mut random = random();
-        let dir = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
         dir.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(
             dir.get_created_files().lock().created_filenames,
@@ -585,8 +589,8 @@ mod tests {
     #[test]
     fn test_track_copy_from() -> Result<()> {
         let mut random = random();
-        let source = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
-        let dest = TrackingDirectoryWrapper::new(new_directory_shared(&mut random)?);
+        let source = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+        let dest = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
 
         source.create_output("foo", &new_io_context(&mut random)?)?;
         assert_eq!(

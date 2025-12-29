@@ -25,10 +25,8 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
-use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes {
     pub(crate) field: String,
@@ -193,13 +191,10 @@ impl PendingDeletesBase for PendingSoftDeletes {
         self.hard_deletes.drop_changes()
     }
 
-    fn write_live_docs<D>(
-        &mut self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         // we need to set this here to make sure our stats in SCI are up-to-date otherwise we might hit
         // an assertion

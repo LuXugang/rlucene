@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
-
+use crate::core::index::index_reader::SameInstance;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
@@ -24,6 +22,8 @@ use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
@@ -34,8 +34,13 @@ impl Display for DummyDirectory {
 
 impl Closeable for DummyDirectory {
     fn close(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl SameInstance for DummyDirectory {
+    fn same_instance(&self, _other: &Self) -> bool {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 

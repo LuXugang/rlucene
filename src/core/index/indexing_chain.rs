@@ -777,7 +777,7 @@ where
                     index_writer_config.get_similarity(),
                 )?;
             }
-            // TODO: IMPORTANT: 这里没有使用abortingExceptionConsumer
+            // TODO IMPORTANT: 这里没有使用abortingExceptionConsumer
             self.finish_stored_fields()?;
             self.terms_hash.finish_document(
                 doc_id,

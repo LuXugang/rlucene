@@ -48,12 +48,12 @@ where
     // original user directory
     pub(crate) directory_orig: Arc<D>,
     // wrapped with additional checks
-    pub(crate) directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    pub(crate) directory: Arc<IndexWriterDir<D>>,
     // last changeCount that was committed
     last_commit_change_count: AtomicI64,
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
-    // TODO: IMPORTANT 必须要用Mutext封装吗
+    // TODO IMPORTANT 必须要用Mutext封装吗
     pub(crate) global_field_number_map: FieldNumbersLock,
     doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
@@ -81,6 +81,8 @@ where
     commit_lock: Mutex<CommitInner<D>>,
     full_flush_lock: Mutex<()>,
 }
+pub type IndexWriterDir<D> = LockValidatingDirectoryWrapper<Arc<D>>;
+
 pub struct Inner<D>
 where
     D: Directory,
@@ -88,7 +90,7 @@ where
     pub(crate) segment_infos: SegmentInfos<D>,
     // After SegmentCommitInfo removed from `segment_infos`,
     // It's ownership move to `dropped_segment_commit_infos` for some uses,
-    // TODO: IMPORTANT 这个字段什么时候释放比较合适呢？
+    // TODO IMPORTANT 这个字段什么时候释放比较合适呢？
     dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
     deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fallback to if the commit fails
@@ -182,7 +184,7 @@ where
             let commit = conf.get_index_commit();
             let reader = commit.as_ref().map(|c| c.get_reader());
             let mut change_count = 0;
-            // TODO: IMPORTANT 这里的SegmentInfos 这里不需要初始哈
+            // TODO IMPORTANT 这里的SegmentInfos 这里不需要初始哈
             let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
             let is_reader_some = reader.is_some();
             let is_commit_some = commit.is_some();
@@ -1944,7 +1946,7 @@ where
         })();
         let tragic_res = match tragic_res {
             Err(e) => {
-                // TODO: IMPORTANT 这里没有处理好嵌套错误
+                // TODO IMPORTANT 这里没有处理好嵌套错误
                 self.tragic_event(&e, "prepareCommit");
                 Err(e)
             },
@@ -1985,7 +1987,7 @@ where
                         match inner.deleter.dec_ref(files_to_commit.iter()) {
                             Ok(()) => Err(t),
                             Err(e) => {
-                                // TODO: IMPORTANT 这里没有处理好嵌套错误
+                                // TODO IMPORTANT 这里没有处理好嵌套错误
                                 Err(LuceneError::illegal_state(format!("{}, {}", t, e)))
                             },
                         }
@@ -2133,7 +2135,7 @@ where
                             }
 
                             if rld.write_field_updates(
-                                self.directory.clone(),
+                                &self.directory,
                                 &self.global_field_number_map.lock(),
                                 self.buffered_updates_stream.get_completed_del_gen(),
                                 self.info_stream.as_ref(),
@@ -2341,7 +2343,7 @@ where
                     body_res = match inner.deleter.dec_ref(files.iter()) {
                         Ok(()) => body_res,
                         Err(e) => {
-                            // TODO: IMPORTANT 这里没有处理好嵌套错误
+                            // TODO IMPORTANT 这里没有处理好嵌套错误
                             Err(LuceneError::illegal_state(format!("{:?}, {}", body_res, e)))
                         },
                     }
@@ -3041,7 +3043,7 @@ where
                         match inner.deleter.dec_ref(files.iter()) {
                             Ok(()) => Err(t),
                             Err(e) => {
-                                // TODO: IMPORTANT 这里没有正确的嵌套错误
+                                // TODO IMPORTANT 这里没有正确的嵌套错误
                                 Err(LuceneError::illegal_state(format!("{} {}", e, t)))
                             },
                         }
@@ -3830,7 +3832,7 @@ where
             return if errors.is_empty() {
                 Err(e)
             } else {
-                // TODO: IMPORTANT 这里没有正确的嵌套error
+                // TODO IMPORTANT 这里没有正确的嵌套error
                 Err(LuceneError::illegal_state(format!("{} {:?}", e, errors)))
             };
         }

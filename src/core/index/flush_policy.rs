@@ -16,7 +16,7 @@
  */
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThreadType;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use parking_lot::MutexGuard;
 use std::sync::Arc;
+
 /// [`FlushPolicy`] controls when segments are flushed from a RAM resident internal
 /// data structure to the [`IndexWriter`](crate::core::index::index_writer::IndexWriter)'s [`Directory`](crate::core::store::directory::Directory).
 ///
@@ -55,7 +56,9 @@ pub trait FlushPolicy {
         &self,
         control: &DocumentsWriterFlushControl<D>,
         inner: &mut Inner<D>,
-        per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+        #[allow(clippy::type_complexity)] per_thread: Option<
+            &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        >,
         delete_queue: &DocumentsWriterDeleteQueue,
         config: &L,
     ) -> Result<()>
@@ -69,7 +72,7 @@ pub trait FlushPolicy {
     fn find_largest_non_pending_writer_for_thread<D>(
         &self,
         control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
+        per_thread: &DocumentsWriterPerThreadType<D>,
     ) -> Option<Arc<DwptWrapper<D>>>
     where
         D: Directory,

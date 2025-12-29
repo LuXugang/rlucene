@@ -14,30 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::lock::Lock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
+
 /// This class makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
 pub struct LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    base: FilterDirectory<D, Arc<D>>,
+    base: FilterDirectory<D>,
     write_lock: D::Lock,
+    id: Identity,
 }
 
 impl<D> LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub fn new(delegate: Arc<D>, write_lock: D::Lock) -> Self {
+    pub fn new(delegate: D, write_lock: D::Lock) -> Self {
         Self {
             base: FilterDirectory::new(delegate),
             write_lock,
+            id: Identity::new(),
         }
     }
 }
@@ -61,6 +64,15 @@ where
     }
 }
 
+impl<D> SameInstance for LockValidatingDirectoryWrapper<D>
+where
+    D: Directory,
+{
+    fn same_instance(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl<D> Directory for LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
@@ -81,7 +93,7 @@ where
         self.base.delegate.create_output(name, context)
     }
 
-    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
+    type IndexOutput = <FilterDirectory<D> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -112,12 +124,12 @@ where
         self.base.delegate.rename(source, dest)
     }
 
-    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
+    type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
     }
-    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
+    type Lock = <FilterDirectory<D> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)

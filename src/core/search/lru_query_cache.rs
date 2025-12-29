@@ -353,7 +353,7 @@ where
                     0,
                     std::sync::atomic::Ordering::Relaxed,
                 );
-                // TODO: IMPORTANT 这里没有调用add_close_listener
+                // TODO IMPORTANT 这里没有调用add_close_listener
                 lc_ref
             },
         };
@@ -602,7 +602,7 @@ where
         QCP: QueryCachingPolicy,
         LR: LeafReader,
     {
-        // TODO: IMPORTANT 这里没有处理weight是CachingWrapperWeight的情况
+        // TODO IMPORTANT 这里没有处理weight是CachingWrapperWeight的情况
         CachingWrapperWeight::new(weight, policy, self.clone())
     }
 }

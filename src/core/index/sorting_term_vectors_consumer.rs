@@ -49,9 +49,11 @@ where
     D: Directory,
 {
     pub(crate) writer: Option<
-        TermVectorsWriterEnum<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
+        TermVectorsWriterEnum<
+            <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
+        >,
     >,
-    tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
+    tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
     stored_fields_format: Option<Lucene90CompressingTermVectorsFormat>,
 }
 impl<D> SortingTermVectorsConsumer<D>

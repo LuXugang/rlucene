@@ -51,7 +51,6 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -368,23 +367,20 @@ where
     // Commit live docs (writes new _X_N.del files) and field updates (writes new
     // _X_N updates files) to the directory; returns true if it wrote any file
     // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs(
-        &self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    pub fn write_live_docs<D1>(&self, dir: &D1, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
+        D1: Directory,
     {
         let mut inner = self.inner.lock();
         inner.pending_deletes.write_live_docs(dir, info)
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn handle_dv_updates<F>(
+    pub fn handle_dv_updates<D1, F>(
         &self,
         infos: &FieldInfos,
-        dir: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
+        dir: D1,
         dv_format: &F,
         inner: &mut Inner<D>,
         field_files: &mut HashMap<i32, HashSet<String>>,
@@ -394,6 +390,7 @@ where
     ) -> Result<()>
     where
         F: DocValuesFormat,
+        D1: Directory,
     {
         for (field, updates) in inner.pending_dv_updates.iter() {
             let ty = updates[0].type_;
@@ -446,7 +443,7 @@ where
 
             let field_infos = Arc::new(FieldInfos::new(vec![field_info.clone()])?);
 
-            let tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
+            let tracking_dir = TrackingDirectoryWrapper::new(&dir);
 
             let state = SegmentWriteState::with_suffix(
                 None,
@@ -498,15 +495,16 @@ where
         Ok(())
     }
 
-    fn write_field_infos_gen<F>(
+    fn write_field_infos_gen<D1, F>(
         &self,
         field_infos: &FieldInfos,
-        dir: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
+        dir: D1,
         infos_format: &F,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<HashSet<String>>
     where
         F: FieldInfosFormat,
+        D1: Directory,
     {
         let next_field_infos_gen = info.get_next_field_infos_gen();
         let segment_suffix = num_bigint::BigInt::from(next_field_infos_gen).to_str_radix(36);
@@ -529,14 +527,17 @@ where
         info.advance_field_infos_gen();
         Ok(tracking_dir.take_created_files())
     }
-    pub fn write_field_updates(
+    pub fn write_field_updates<D1>(
         &self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        dir: D1,
         field_numbers: &FieldNumbers,
         max_del_gen: i64,
         info_stream: &impl InfoStream,
         info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D1: Directory,
+    {
         let mut inner = self.inner.lock();
         let start_time_ns = std::time::Instant::now();
 
@@ -560,7 +561,7 @@ where
 
         // Do this so we can delete any created files on
         // exception; this saves all codecs from having to do it:
-        let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(dir.clone()));
+        let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
 
         let is_reader_none = inner.reader.is_none();
         let result = (|| -> Result<()> {
@@ -648,7 +649,7 @@ where
             info.advance_next_write_field_infos_gen();
             info.advance_next_write_doc_values_gen();
             IOUtils::delete_files_ignoring_exceptions(
-                dir.as_ref(),
+                &dir,
                 &tracking_dir.get_created_files().lock().created_filenames,
             );
 

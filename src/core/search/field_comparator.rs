@@ -957,7 +957,7 @@ impl FieldComparator for TermValComparator {
     }
 
     fn value(&self, slot: i32) -> Option<Self::V> {
-        // TODO: IMPORTANT - avoid clone here
+        // TODO IMPORTANT - avoid clone here
         self.values[slot as usize].clone()
     }
 

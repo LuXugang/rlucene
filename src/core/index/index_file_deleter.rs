@@ -74,13 +74,13 @@ where
 
     info_stream: InfoStreamMT,
     directory_orig: Arc<D>,
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
 
     /// Whether the starting commit was deleted.
     pub(crate) starting_commit_deleted: bool,
 
     verbose_ref_counts: bool,
-    file_deleter: FileDeleter<D, MessengerImpl>,
+    file_deleter: FileDeleter<Arc<D>, MessengerImpl>,
 }
 impl<D> IndexFileDeleter<D>
 where
@@ -92,7 +92,7 @@ where
     pub fn new<P>(
         files: impl IntoIterator<Item = String>,
         directory_orig: Arc<D>,
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
         policy: &P,
         segment_infos: &mut SegmentInfos<D>,
         info_stream: InfoStreamMT,

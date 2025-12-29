@@ -77,7 +77,7 @@ pub struct Field {
     pub(crate) name: String,
     /// Field's value.
     pub(crate) fields_data: FieldDataEnum,
-    // TODO: IMPORTANT 在这里定义没有无法实现复用
+    // TODO IMPORTANT 在这里定义没有无法实现复用
     ts: Option<TokenStreamEnum2<BinaryTokenStream, StringTokenStream>>,
 }
 #[cfg(test)]

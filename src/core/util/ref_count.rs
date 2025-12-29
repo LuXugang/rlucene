@@ -39,7 +39,7 @@ where
         let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
 
         if rc == 0 {
-            // TODO: IMPORTANT 目前没有实现字段的close 但是rust中的自动释放资源能满足我们的close吗
+            // TODO IMPORTANT 目前没有实现字段的close 但是rust中的自动释放资源能满足我们的close吗
             Ok(true)
         } else if rc < 0 {
             Err(LuceneError::illegal_state(format!(

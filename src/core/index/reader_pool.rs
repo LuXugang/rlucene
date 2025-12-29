@@ -47,7 +47,7 @@ where
     D: Directory,
     F: LongSupplier,
 {
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
     original_directory: Arc<D>,
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<String>,
@@ -81,7 +81,7 @@ where
     F: LongSupplier,
 {
     pub(crate) fn new<S, LR, C, D1>(
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
         original_directory: Arc<D>,
         info_stream: InfoStreamMT,
         soft_deletes_field: Option<S>,
@@ -205,7 +205,7 @@ where
             {
                 // This is the last ref to this RLD, and we're not
                 // pooling, so remove it:
-                if rld.write_live_docs(self.directory.clone(), info)? {
+                if rld.write_live_docs(&self.directory, info)? {
                     // Make sure we only write del docs for a live segment:
                     // TODO
                     // debug_assert!(
@@ -219,7 +219,7 @@ where
                     changed = true;
                 }
                 if rld.write_field_updates(
-                    self.directory.clone(),
+                    &self.directory,
                     global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),
@@ -278,7 +278,7 @@ where
                 None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
             };
             any |= rld.write_field_updates(
-                self.directory.clone(),
+                &self.directory,
                 global_field_number,
                 self.completed_del_gen_supplier.get_as_long(),
                 self.info_stream.as_ref(),
@@ -304,7 +304,7 @@ where
             })?;
             if let Some(rld) = self.get(info, false, None)? {
                 any |= rld.write_field_updates(
-                    self.directory.clone(),
+                    &self.directory,
                     global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),
@@ -384,9 +384,9 @@ where
             if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
                 debug_assert_eq!(rld.info_id, info.info.get_id_str());
 
-                let mut changed = rld.write_live_docs(self.directory.clone(), info)?;
+                let mut changed = rld.write_live_docs(&self.directory, info)?;
                 changed |= rld.write_field_updates(
-                    self.directory.clone(),
+                    &self.directory,
                     global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),

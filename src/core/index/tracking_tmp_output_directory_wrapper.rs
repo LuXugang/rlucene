@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::{IOContext, IndexOutput};
@@ -22,14 +23,14 @@ use crate::core::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 pub(crate) struct TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
     pub(crate) inner: RefCell<Inner>,
-    base: FilterDirectory<D, Arc<D>>,
+    base: FilterDirectory<D>,
+    id: Identity,
 }
 pub(crate) struct Inner {
     pub(crate) file_names: HashMap<String, String>,
@@ -38,13 +39,14 @@ impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(input: Arc<D>) -> Self {
+    pub(crate) fn new(input: D) -> Self {
         let inner = RefCell::new(Inner {
             file_names: HashMap::new(),
         });
         TrackingTmpOutputDirectoryWrapper {
             inner,
             base: FilterDirectory::new(input),
+            id: Identity::new(),
         }
     }
     pub(crate) fn get_temporary_files(&self) -> &RefCell<Inner> {
@@ -68,6 +70,15 @@ where
     fn close(&mut self) -> Result<()> {
         // TODO
         Ok(())
+    }
+}
+
+impl<D> SameInstance for TrackingTmpOutputDirectoryWrapper<D>
+where
+    D: Directory,
+{
+    fn same_instance(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 

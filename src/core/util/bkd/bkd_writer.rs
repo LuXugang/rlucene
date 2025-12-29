@@ -60,14 +60,14 @@ use std::rc::Rc;
 ///
 /// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node
 /// / config.bytes_per_dim` total points.
-pub struct BKDWriter<'a, D>
+pub struct BKDWriter<D>
 where
     D: Directory,
 {
     config: BKDConfig,
     comparator: ByteArrayComparatorEnum,
     common_prefix_comparator: ByteArrayComparatorEnum,
-    temp_dir: TrackingDirectoryWrapper<D, &'a D>,
+    temp_dir: TrackingDirectoryWrapper<D>,
     temp_file_name_prefix: String,
 
     max_mb_sort_in_heap: f64,
@@ -77,8 +77,7 @@ where
     scratch_bytes_ref2: BytesRef<Vec<u8>>,
     common_prefix_lengths: Vec<i32>,
     docs_seen: FixedBitSet,
-    point_writer:
-        Option<PointWriterEnum<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>>,
+    point_writer: Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>>,
     finished: bool,
     max_points_sort_in_heap: i32,
     /// Minimum per-dim values, packed.
@@ -94,13 +93,13 @@ where
     doc_ids_writer: DocIdsWriter,
 }
 
-impl<'a, D> BKDWriter<'a, D>
+impl<D> BKDWriter<D>
 where
     D: Directory,
 {
     pub fn new(
         max_doc: i32,
-        temp_dir: &'a D,
+        temp_dir: D,
         temp_file_name_prefix: &str,
         config: BKDConfig,
         max_mb_sort_in_heap: f64,
@@ -540,7 +539,7 @@ where
     /// has been added, or `None` otherwise.
     pub fn finish(
         &mut self,
-        data_out: &mut <TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput,
+        data_out: &mut <TrackingDirectoryWrapper<D> as Directory>::IndexOutput,
     ) -> Result<Option<IORunnable>> {
         if self.finished {
             return Err(LuceneError::illegal_state("already finished"));
@@ -1277,7 +1276,7 @@ where
     fn verify_checksum(
         &self,
         prior_exception: LuceneError,
-        writer: &PointWriterEnum<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
+        writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
     ) -> Result<()> {
         if let PointWriterEnum::Offline(writer) = writer {
             // We are reading from a temp file; go verify the checksum:
@@ -1366,11 +1365,8 @@ where
     /// recursing.
     fn switch_to_heap(
         &mut self,
-        source: &mut PointWriterEnum<
-            <TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput,
-        >,
-    ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>>
-    {
+        source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
+    ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>> {
         let source_count = source.count();
         let count = source_count.try_into()?;
         let mut reader = source.get_reader(0, source_count, &self.temp_dir)?;
@@ -1671,7 +1667,7 @@ where
 
     fn compute_packed_value_bounds(
         &mut self,
-        slice: &mut PathSlice<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
+        slice: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
@@ -1742,7 +1738,7 @@ where
         &mut self,
         leaves_offset: i32,
         num_leaves: i32,
-        points: &mut PathSlice<<TrackingDirectoryWrapper<D, &'a D> as Directory>::IndexOutput>,
+        points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
         out: &mut impl IndexOutput,
         radix_selector: &mut BKDRadixSelector,
         min_packed_value: &mut [u8],
@@ -2027,7 +2023,7 @@ where
     }
 }
 
-pub struct OneDimensionBKDWriter<'b, 'a, D, O>
+pub struct OneDimensionBKDWriter<'b, D, O>
 where
     D: Directory,
     O: IndexOutput,
@@ -2044,15 +2040,15 @@ where
     // for asserts
     last_packed_value: Vec<u8>,
     last_doc_id: i32,
-    bkd_writer: &'b mut BKDWriter<'a, D>,
+    bkd_writer: &'b mut BKDWriter<D>,
 }
 
-impl<'b, 'a, D, O> OneDimensionBKDWriter<'b, 'a, D, O>
+impl<'b, D, O> OneDimensionBKDWriter<'b, D, O>
 where
     D: Directory,
     O: IndexOutput,
 {
-    pub fn new(data_out: &'b mut O, bkd_writer: &'b mut BKDWriter<'a, D>) -> Result<Self> {
+    pub fn new(data_out: &'b mut O, bkd_writer: &'b mut BKDWriter<D>) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {
             return Err(LuceneError::unsupported_operation(format!(
                 "config.numIndexDims() must be 1 but got {}",
@@ -2698,14 +2694,14 @@ pub struct IORunnable {
     data_start_fp: i64,
 }
 
-struct IntersectVisitorImpl<'b, 'a, D, O>
+struct IntersectVisitorImpl<'b, D, O>
 where
     D: Directory,
     O: IndexOutput,
 {
-    pub one_dim_writer: OneDimensionBKDWriter<'b, 'a, D, O>,
+    pub one_dim_writer: OneDimensionBKDWriter<'b, D, O>,
 }
-impl<D, O> IntersectVisitor for IntersectVisitorImpl<'_, '_, D, O>
+impl<D, O> IntersectVisitor for IntersectVisitorImpl<'_, D, O>
 where
     D: Directory,
     O: IndexOutput,

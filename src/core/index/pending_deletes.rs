@@ -28,7 +28,6 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::IOUtils;
 use crate::core::util::bits::{Bits, BitsEnum2};
@@ -250,13 +249,10 @@ impl PendingDeletesBase for PendingDeletes {
         self.pending_delete_count = 0;
     }
 
-    fn write_live_docs<D>(
-        &mut self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         if self.pending_delete_count == 0 {
             return Ok(false);
@@ -298,7 +294,7 @@ impl PendingDeletesBase for PendingDeletes {
             info.advance_next_write_del_gen();
             // Delete any partially created file(s):
             IOUtils::delete_files_ignoring_exceptions(
-                tracking_dir.base.delegate.as_ref(),
+                &tracking_dir.base.delegate,
                 &tracking_dir.get_created_files().lock().created_filenames,
             );
             return Err(err);
@@ -377,13 +373,14 @@ pub(crate) trait PendingDeletesBase: Display {
         D: Directory;
     fn drop_changes(&mut self);
     /// Writes the live docs to disk and returns `true` if any new docs were written.
-    fn write_live_docs<D>(
+    fn write_live_docs<D1, D2>(
         &mut self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
+        dir: D1,
+        info: &mut SegmentCommitInfo<D2>,
     ) -> Result<bool>
     where
-        D: Directory;
+        D1: Directory,
+        D2: Directory;
     fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
         D: Directory;
@@ -583,13 +580,10 @@ where
         }
     }
 
-    fn write_live_docs<D>(
-        &mut self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         match self {
             PendingDeletesEnum2::A(a) => a.write_live_docs(dir, info),

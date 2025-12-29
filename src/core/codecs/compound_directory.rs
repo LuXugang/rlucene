@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
-
+use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 /// A read-only [`Directory`] that provides a view over a compound file.
 ///
 /// # See Also
@@ -33,6 +33,7 @@ where
     D: Directory,
 {
     pub(crate) sub_compound_dir: D,
+    id: Identity,
 }
 
 impl<D> CompoundDirectory<D>
@@ -40,7 +41,10 @@ where
     D: Directory,
 {
     pub fn new(sub_compound_dir: D) -> Self {
-        CompoundDirectory { sub_compound_dir }
+        CompoundDirectory {
+            sub_compound_dir,
+            id: Identity::new(),
+        }
     }
 }
 
@@ -60,6 +64,15 @@ where
     fn close(&mut self) -> Result<()> {
         // TODO
         Ok(())
+    }
+}
+
+impl<D> SameInstance for CompoundDirectory<D>
+where
+    D: Directory,
+{
+    fn same_instance(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 

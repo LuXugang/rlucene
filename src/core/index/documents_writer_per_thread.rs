@@ -29,8 +29,8 @@ use crate::core::index::field_infos::build::Builder;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::core::index::index_writer::{
-    ACTUAL_MAX_DOCS, IndexWriter, IndexWriterBase, SOURCE_FLUSH, create_compound_file,
-    set_diagnostics,
+    ACTUAL_MAX_DOCS, IndexWriter, IndexWriterBase, IndexWriterDir, SOURCE_FLUSH,
+    create_compound_file, set_diagnostics,
 };
 use crate::core::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -43,7 +43,6 @@ use crate::core::index::sorter::{DocMap, DocMapImpl};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
@@ -63,12 +62,14 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
-pub(crate) struct DocumentsWriterPerThread<D>
+pub type DocumentsWriterPerThreadType<D> = DocumentsWriterPerThread<D, Arc<IndexWriterDir<D>>>;
+pub(crate) struct DocumentsWriterPerThread<D, D1>
 where
     D: Directory,
+    D1: Directory,
 {
-    pub(crate) directory: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
+    pub(crate) directory: Arc<TrackingDirectoryWrapper<D1>>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D1>>,
     pending_updates: BufferedUpdates,
     pub(crate) segment_info: SegmentInfo<D>,
     field_infos: Builder,
@@ -155,9 +156,10 @@ impl Lock for State {
     }
 }
 
-impl<D> DocumentsWriterPerThread<D>
+impl<D, D1> DocumentsWriterPerThread<D, D1>
 where
     D: Directory,
+    D1: Directory,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
         debug_assert!(
@@ -196,7 +198,7 @@ where
         index_major_version_created: i32,
         segment_name: &str,
         directory_orig: Arc<D>,
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: D1,
         index_writer_config: &L,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
         field_infos: Builder,
@@ -204,7 +206,7 @@ where
         enable_test_points: bool,
     ) -> Result<Self> {
         let info_stream = index_writer_config.get_info_stream();
-        let tracking_dir = TrackingDirectoryWrapper::new(directory.clone());
+        let tracking_dir = TrackingDirectoryWrapper::new(directory);
         let directory_wrapped = Arc::new(tracking_dir);
         let pending_updates = BufferedUpdates::new(segment_name);
         let delete_slice = Some(delete_queue.new_slice());
@@ -967,9 +969,10 @@ where
     }
 }
 
-impl<D> Accountable for DocumentsWriterPerThread<D>
+impl<D, D1> Accountable for DocumentsWriterPerThread<D, D1>
 where
     D: Directory,
+    D1: Directory,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO
@@ -983,9 +986,10 @@ where
         todo!()
     }
 }
-impl<D> Display for DocumentsWriterPerThread<D>
+impl<D, D1> Display for DocumentsWriterPerThread<D, D1>
 where
     D: Directory,
+    D1: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

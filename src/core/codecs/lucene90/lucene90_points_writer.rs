@@ -212,13 +212,13 @@ struct IntersectVisitorImpl<'a, D>
 where
     D: Directory,
 {
-    writer: &'a mut BKDWriter<'a, D>,
+    writer: &'a mut BKDWriter<D>,
 }
 impl<'a, D> IntersectVisitorImpl<'a, D>
 where
     D: Directory,
 {
-    pub fn new(writer: &'a mut BKDWriter<'a, D>) -> Self {
+    pub fn new(writer: &'a mut BKDWriter<D>) -> Self {
         Self { writer }
     }
 }

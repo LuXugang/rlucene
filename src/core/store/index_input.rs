@@ -628,7 +628,7 @@ mod tests {
     #[test]
     fn test_byte_array_data_input() -> Result<()> {
         {
-            // TODO: IMPORTANT  ByteArrayDataInput支持引用后 这里就不需要使用to_vec了
+            // TODO IMPORTANT  ByteArrayDataInput支持引用后 这里就不需要使用to_vec了
             let mut input = ByteArrayDataInput::with_bytes(READ_TEST_BYTES.to_vec());
             check_reads(&mut input)?;
         }

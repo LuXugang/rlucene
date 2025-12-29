@@ -19,7 +19,9 @@ use crate::core::index::doc_values_update::DocValuesUpdate;
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::core::index::documents_writer_per_thread::{
+    DocumentsWriterPerThread, DocumentsWriterPerThreadType,
+};
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::field_infos::FieldNumbersLock;
 use crate::core::index::field_infos::build::Builder;
@@ -97,7 +99,7 @@ where
     pub(crate) inner: Mutex<Inner>,
     flush_control: DocumentsWriterFlushControl<D>,
     index_created_version_major: i32,
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
     directory_orig: Arc<D>,
     enable_test_points: bool,
     flush_notifications: FN,
@@ -118,7 +120,7 @@ where
         enable_test_points: bool,
         config: &L,
         directory_orig: Arc<D>,
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
     ) -> Result<Self>
     where
         L: LiveIndexWriterConfig,
@@ -854,13 +856,13 @@ struct SupplierImpl1<'a, D>
 where
     D: Directory,
 {
-    dwpt: &'a mut DocumentsWriterPerThread<D>,
+    dwpt: &'a mut DocumentsWriterPerThreadType<D>,
 }
 impl<'a, D> SupplierImpl1<'a, D>
 where
     D: Directory,
 {
-    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D>) -> Self {
+    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThreadType<D>) -> Self {
         SupplierImpl1 { dwpt }
     }
 }
@@ -881,7 +883,7 @@ where
 {
     index_major_version_created: i32,
     directory_orig: Arc<D>,
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
     config: Arc<L>,
     delete_queue: Arc<DocumentsWriterDeleteQueue>,
     pending_num_docs: Arc<AtomicI64>,
@@ -897,7 +899,7 @@ where
     pub(crate) fn new(
         index_major_version_created: i32,
         directory_orig: Arc<D>,
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
         config: Arc<L>,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
         field_numbers: FieldNumbersLock,
@@ -916,16 +918,16 @@ where
         }
     }
 }
-impl<D, L> Supplier<DocumentsWriterPerThread<D>> for SupplierImpl2<D, L>
+impl<D, L> Supplier<DocumentsWriterPerThreadType<D>> for SupplierImpl2<D, L>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
 {
-    fn get_mut(&mut self) -> Result<DocumentsWriterPerThread<D>> {
+    fn get_mut(&mut self) -> Result<DocumentsWriterPerThreadType<D>> {
         self.get()
     }
 
-    fn get(&self) -> Result<DocumentsWriterPerThread<D>> {
+    fn get(&self) -> Result<DocumentsWriterPerThreadType<D>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
             self.index_major_version_created,

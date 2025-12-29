@@ -21,6 +21,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::compound_directory::CompoundDirectoryBase;
 use crate::core::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::core::index::IndexFileNames;
+use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IO_CONTEXT_DEFAULT, IOContext, IndexInput, ReadAdvice};
@@ -49,6 +50,7 @@ where
 
     version: i32,
     dir_fmt: String,
+    id: Identity,
 }
 impl<D> Lucene90CompoundReader<D>
 where
@@ -112,6 +114,7 @@ where
             handle,
             version,
             dir_fmt,
+            id: Identity::new(),
         })
     }
     /// Helper method that reads CFS entries from an input stream.
@@ -157,6 +160,15 @@ where
             mapping.insert(id, FileEntry { offset, length });
         }
         Ok(mapping)
+    }
+}
+
+impl<D> SameInstance for Lucene90CompoundReader<D>
+where
+    D: Directory,
+{
+    fn same_instance(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 

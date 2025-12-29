@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 use crate::core::index::IndexFileNames;
+use crate::core::index::index_reader::SameInstance;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
-use crate::core::store::lock::{Lock, LockEnum2, LockEnum3};
-use crate::core::store::{
-    IOContext, IndexInputEnum2, IndexInputEnum3, IndexOutput, IndexOutputEnum2, IndexOutputEnum3,
-};
+use crate::core::store::lock::{Lock, LockEnum2};
+use crate::core::store::{IOContext, IndexInputEnum2, IndexOutput, IndexOutputEnum2};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no subfolder hierarchy).
@@ -50,7 +50,7 @@ use std::fmt::{Display, Formatter};
 /// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Closeable {
+pub trait Directory: Display + Closeable + SameInstance {
     /// Returns the names of all files stored in this directory. The output must
     /// be sorted in UTF-8 order (using `str::cmp` for comparison).
     ///
@@ -271,6 +271,15 @@ macro_rules! either_directory {
                 }
             }
         }
+        impl<$( $T ),+> SameInstance for $name<$( $T ),+>
+        where
+            $( $T: Directory ),+
+        {
+            fn same_instance(&self, _other: &Self) -> bool {
+                // TODO IMPORTANT
+              todo!()
+            }
+        }
 
         impl<$( $T ),+> Directory for $name<$( $T ),+>
         where
@@ -410,6 +419,7 @@ macro_rules! either_directory {
                 Ok(())
             }
         }
+
     };
 }
 either_directory!(
@@ -417,12 +427,6 @@ either_directory!(
     IndexOutputEnum2,
     IndexInputEnum2,
     LockEnum2 { A: A, B: B }
-);
-either_directory!(
-    pub DirectoryEnum3,
-    IndexOutputEnum3,
-    IndexInputEnum3,
-    LockEnum3 { A: A, B: B, C: C }
 );
 impl<D: Directory> Directory for &D {
     fn list_all(&self) -> Result<Vec<String>> {
@@ -493,5 +497,87 @@ impl<D: Directory> Closeable for &D {
     fn close(&mut self) -> Result<()> {
         // TODO
         Ok(())
+    }
+}
+impl<D: Directory> SameInstance for &D {
+    fn same_instance(&self, other: &Self) -> bool {
+        (**self).same_instance(&(**other))
+    }
+}
+
+impl<D: Directory> Directory for Arc<D> {
+    fn list_all(&self) -> Result<Vec<String>> {
+        (**self).list_all()
+    }
+    fn delete_file(&self, name: &str) -> Result<()> {
+        (**self).delete_file(name)
+    }
+    fn file_length(&self, name: &str) -> Result<i64> {
+        (**self).file_length(name)
+    }
+
+    fn create_output(&self, name: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
+        (**self).create_output(name, ctx)
+    }
+    type IndexOutput = D::IndexOutput;
+    fn create_temp_output(&self, p: &str, s: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
+        (**self).create_temp_output(p, s, ctx)
+    }
+
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
+        (**self).sync(names)
+    }
+
+    fn sync_metadata(&self) -> Result<()> {
+        (**self).sync_metadata()
+    }
+    fn rename(&self, src: &str, dst: &str) -> Result<()> {
+        (**self).rename(src, dst)
+    }
+    type IndexInput = D::IndexInput;
+    fn open_input(&self, name: &str, ctx: &IOContext) -> Result<Self::IndexInput> {
+        (**self).open_input(name, ctx)
+    }
+    type Lock = D::Lock;
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+        (**self).obtain_lock(name)
+    }
+    fn copy_from(
+        &self,
+        from: &impl Directory,
+        src: &str,
+        dst: &str,
+        ctx: &IOContext,
+    ) -> Result<()> {
+        (**self).copy_from(from, src, dst, ctx)
+    }
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+        (**self).delete_files_ignoring_exceptions(files)
+    }
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+        (**self).get_pending_deletions()
+    }
+    #[cfg(debug_assertions)]
+    fn is_fs_directory(&self) -> bool {
+        (**self).is_fs_directory()
+    }
+
+    fn ensure_open(&self) -> Result<()> {
+        (**self).ensure_open()
+    }
+}
+
+impl<D: Directory> Closeable for Arc<D> {
+    fn close(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
+    }
+}
+impl<D: Directory> SameInstance for Arc<D> {
+    fn same_instance(&self, other: &Self) -> bool {
+        (**self).same_instance(&(**other))
     }
 }

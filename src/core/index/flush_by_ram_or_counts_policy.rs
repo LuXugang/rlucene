@@ -16,7 +16,7 @@
  */
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThreadType;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -25,6 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStream;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
+
 /// Default [`FlushPolicy`] implementation that flushes new segments based on RAM usage and
 /// document count, depending on the `IndexWriter`'s [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig).
 /// It also applies pending deletes based on the number of buffered delete terms.
@@ -77,7 +78,7 @@ impl FlushByRamOrCountsPolicy {
     fn flush_active_bytes<D, L>(
         &self,
         control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
+        per_thread: &DocumentsWriterPerThreadType<D>,
         delete_queue: &DocumentsWriterDeleteQueue,
         inner: &mut Inner<D>,
         config: &L,
@@ -105,7 +106,7 @@ impl FlushByRamOrCountsPolicy {
     pub(crate) fn mark_largest_writer_pending<D, L>(
         &self,
         control: &DocumentsWriterFlushControl<D>,
-        per_thread: &DocumentsWriterPerThread<D>,
+        per_thread: &DocumentsWriterPerThreadType<D>,
         inner: &mut Inner<D>,
         config: &L,
     ) -> Result<()>
@@ -149,7 +150,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
         &self,
         control: &DocumentsWriterFlushControl<D>,
         inner: &mut Inner<D>,
-        per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
+        per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThreadType<D>>>,
         delete_queue: &DocumentsWriterDeleteQueue,
         config: &L,
     ) -> Result<()>

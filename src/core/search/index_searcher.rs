@@ -106,7 +106,7 @@ impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
 {
-    // TODO: IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
+    // TODO IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
     pub fn new(context: IRC) -> Result<Self> {
         debug_assert!(
             context.base().is_top_level,
@@ -338,7 +338,7 @@ where
         }
 
         let capped_num_hits = std::cmp::min(num_hits, limit);
-        // TODO: IMPORTANT
+        // TODO IMPORTANT
         // let rewritten_sort = sort.rewrite(self)?;
         let manager = TopFieldCollectorManager::with_after(
             sort,
@@ -423,7 +423,7 @@ where
                 collectors.push(Some(collector));
             }
             let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-            // TODO: IMPORTANT： 这里需要使用多线程,但是设计较大改动 暂时不懂
+            // TODO IMPORTANT： 这里需要使用多线程,但是设计较大改动 暂时不懂
             for i in 0..leaf_slices.len() {
                 let leaves = leaf_slices[i].partitions.as_slice();
                 let mut collector = collectors[i].take().unwrap();

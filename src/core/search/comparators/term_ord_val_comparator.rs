@@ -136,7 +136,7 @@ impl FieldComparator for TermOrdValComparator {
     }
 
     fn value(&self, slot: i32) -> Option<Self::V> {
-        // TODO: IMPORTANT: avoid the clone here
+        // TODO IMPORTANT: avoid the clone here
         self.values[slot as usize].clone()
     }
 
