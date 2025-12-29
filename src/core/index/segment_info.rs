@@ -16,7 +16,6 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::core::search::sort::Sort;
@@ -458,26 +457,7 @@ where
         write!(f, "{}", self.to_string(0))
     }
 }
-impl<D> PartialEq for SegmentInfo<D>
-where
-    D: Directory,
-{
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.dir, &other.dir) && self.name == other.name
-    }
-}
-
-impl<D> Eq for SegmentInfo<D> where D: Directory {}
-impl<D> Hash for SegmentInfo<D>
-where
-    D: Directory,
-{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let dir_address = Arc::as_ptr(&self.dir) as usize;
-        state.write_usize(dir_address);
-        self.name.hash(state);
-    }
-}
+#[cfg(test)]
 impl<D> Clone for SegmentInfo<D>
 where
     D: Directory,
