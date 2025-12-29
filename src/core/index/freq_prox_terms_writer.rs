@@ -209,24 +209,24 @@ where
     }
 }
 
-pub(crate) struct FilterFieldsImpl<F, D>
+pub(crate) struct FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    D: DocMap,
+    DM: DocMap,
 {
     base: FilterFields<F>,
     field_infos: Arc<FieldInfos>,
-    doc_map: Arc<D>,
+    doc_map: Arc<DM>,
 }
-impl<F, D> FilterFieldsImpl<F, D>
+impl<F, DM> FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    D: DocMap,
+    DM: DocMap,
 {
     pub(crate) fn new(
         base: FilterFields<F>,
         field_infos: Arc<FieldInfos>,
-        doc_map: Arc<D>,
+        doc_map: Arc<DM>,
     ) -> Self {
         Self {
             base,
@@ -235,22 +235,22 @@ where
         }
     }
 }
-impl<F, D> Fields for FilterFieldsImpl<F, D>
+impl<F, DM> Fields for FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    D: DocMap,
+    DM: DocMap,
 {
     type FieldIter<'a>
         = F::FieldIter<'a>
     where
         F: 'a,
-        D: 'a;
+        DM: 'a;
 
     fn iterator(&self) -> Result<Self::FieldIter<'_>> {
         self.base.iterator()
     }
 
-    type Terms = SortingTerms<F::Terms, D>;
+    type Terms = SortingTerms<F::Terms, DM>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         match self.base.terms(field)? {
@@ -278,21 +278,21 @@ where
 }
 
 // SortingTerms
-pub(crate) struct SortingTerms<T, D>
+pub(crate) struct SortingTerms<T, DM>
 where
     T: Terms,
-    D: DocMap,
+    DM: DocMap,
 {
     base: FilterTerms<T>,
     index_options: IndexOptions,
-    doc_map: Arc<D>,
+    doc_map: Arc<DM>,
 }
-impl<T, D> SortingTerms<T, D>
+impl<T, DM> SortingTerms<T, DM>
 where
     T: Terms,
-    D: DocMap,
+    DM: DocMap,
 {
-    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Arc<D>) -> Self {
+    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Arc<DM>) -> Self {
         Self {
             base,
             index_options,
@@ -300,12 +300,12 @@ where
         }
     }
 }
-impl<T, D> Terms for SortingTerms<T, D>
+impl<T, DM> Terms for SortingTerms<T, DM>
 where
     T: Terms,
-    D: DocMap,
+    DM: DocMap,
 {
-    type TermsEnum = SortingTermsEnum<T::TermsEnum, D>;
+    type TermsEnum = SortingTermsEnum<T::TermsEnum, DM>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
         let base = FilterTermsEnum::new(self.base.iterator()?);
@@ -316,7 +316,7 @@ where
         ))
     }
 
-    type IntersectIter = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum, AutomatonTermsEnum>, D>;
+    type IntersectIter = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum, AutomatonTermsEnum>, DM>;
 
     fn intersect(
         &self,
@@ -377,24 +377,24 @@ where
 }
 
 // SortingTermsEnum
-pub(crate) struct SortingTermsEnum<T, D>
+pub(crate) struct SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    D: DocMap,
+    DM: DocMap,
 {
     base: FilterTermsEnum<T>,
     index_options: IndexOptions,
-    doc_map: Arc<D>,
+    doc_map: Arc<DM>,
 }
-impl<T, D> SortingTermsEnum<T, D>
+impl<T, DM> SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    D: DocMap,
+    DM: DocMap,
 {
     pub(crate) fn new(
         base: FilterTermsEnum<T>,
         index_options: IndexOptions,
-        doc_map: Arc<D>,
+        doc_map: Arc<DM>,
     ) -> Self {
         Self {
             base,
@@ -404,9 +404,9 @@ where
     }
 }
 
-impl<T, D> BytesRefIterator for SortingTermsEnum<T, D>
+impl<T, DM> BytesRefIterator for SortingTermsEnum<T, DM>
 where
-    D: DocMap,
+    DM: DocMap,
     T: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
@@ -414,10 +414,10 @@ where
     }
 }
 
-impl<T, D> TermsEnum for SortingTermsEnum<T, D>
+impl<T, DM> TermsEnum for SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    D: DocMap,
+    DM: DocMap,
 {
     type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
 
@@ -764,15 +764,15 @@ where
             buffer: ByteBuffersDataOutput::new_resettable_instance(),
         }
     }
-    pub fn reset<D>(
+    pub fn reset<DM>(
         &mut self,
-        doc_map: &D,
+        doc_map: &DM,
         mut postings_enum: P,
         store_positions: bool,
         store_offsets: bool,
     ) -> Result<()>
     where
-        D: DocMap,
+        DM: DocMap,
     {
         self.store_positions = store_positions;
         self.store_offsets = store_offsets;

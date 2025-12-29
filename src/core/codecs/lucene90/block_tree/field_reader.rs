@@ -22,8 +22,9 @@ use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
+use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
+use crate::core::index::filtered_terms_enum::FilteredTermsEnumBase;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
@@ -182,16 +183,16 @@ where
     }
 
     type IntersectIter
-        = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
+        = DummyTermsEnum
     where
         Self::TermsEnum: BytesRefIterator,
         AutomatonTermsEnum: FilteredTermsEnumBase;
     fn intersect(
         &self,
-        compiled: &mut CompiledAutomaton,
-        start_term: Option<&BytesRef<Vec<u8>>>,
+        _compiled: &mut CompiledAutomaton,
+        _start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        self.default_intersect(compiled, start_term)
+        todo!()
     }
 
     fn size(&self) -> Result<i64> {

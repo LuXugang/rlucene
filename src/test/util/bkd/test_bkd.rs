@@ -830,11 +830,11 @@ fn verify_full<R: Rng + ?Sized>(
     num_bytes_per_dim: i32,
     max_points_in_leaf_node: i32,
 ) -> Result<()> {
-    let dir = new_directory_shared(random)?;
+    let dir = new_directory(random)?;
     let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
     verify_with_max_mb(
         random,
-        dir,
+        &dir,
         doc_values,
         doc_ids,
         num_data_dims,
@@ -847,7 +847,7 @@ fn verify_full<R: Rng + ?Sized>(
 #[allow(clippy::too_many_arguments)]
 fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     random: &mut R,
-    dir: Arc<D>,
+    dir: &D,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
@@ -886,7 +886,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     let mut writer = BKDWriter::new(
         num_values as i32,
-        dir.as_ref(),
+        dir,
         &format!("_{}", seg),
         BKDConfig::new(
             num_data_dims,
@@ -964,7 +964,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
             writer = BKDWriter::new(
                 num_values as i32,
-                dir.as_ref(),
+                dir,
                 &format!("_{}", seg),
                 BKDConfig::new(
                     num_data_dims,
@@ -1000,7 +1000,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         seg += 1;
         writer = BKDWriter::new(
             num_values as i32,
-            dir.as_ref(),
+            dir,
             &format!("_{}", seg),
             BKDConfig::new(
                 num_data_dims,
