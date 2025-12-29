@@ -145,8 +145,8 @@ impl CharTermAttribute for CharTermAttributeImpl {
         let s = s.unwrap();
         let len = s.len();
         self.resize_buffer(self.term_length + len);
-        self.term_buffer
-            .copy_from(&s.chars().collect::<Vec<char>>()[0..len], self.term_length);
+        let chars: Vec<char> = s.chars().collect();
+        self.term_buffer.copy_from(&chars, self.term_length);
         self.term_length += len;
         self
     }

@@ -559,16 +559,16 @@ mod tests {
         terms: &mut Vec<String>,
         term_to_id: &mut HashMap<BytesRef<Vec<u8>>, i32>,
         id: i32,
+        field_to_type: &mut HashMap<String, FieldType>,
     ) -> Result<()>
     where
         D: Directory,
     {
         let mut doc = Document::new();
         doc.add(NumericDocValuesField::new("id", id as i64));
-        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
         for s in terms.iter() {
-            doc.add(new_string_field("f", s, No, &mut field_to_type)?);
+            doc.add(new_string_field("f", s, No, field_to_type)?);
             term_to_id.insert(new_bytes_ref_from_string(random, s.as_ref())?, id);
         }
 
@@ -600,7 +600,7 @@ mod tests {
         let mut pending_terms: Vec<String> = Vec::new();
         let mut term_to_id: HashMap<BytesRef<Vec<u8>>, i32> = HashMap::new();
         let mut id: i32 = 0;
-
+        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
         while terms.len() != num_terms as usize {
             let s = get_random_string(&mut random);
             if !terms.contains(&s) {
@@ -613,6 +613,7 @@ mod tests {
                         &mut pending_terms,
                         &mut term_to_id,
                         id,
+                        &mut field_to_type,
                     )?;
                     id += 1;
                 }
@@ -625,6 +626,7 @@ mod tests {
             &mut pending_terms,
             &mut term_to_id,
             id,
+            &mut field_to_type,
         )?;
 
         let mut terms_array: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(terms.len());
@@ -637,12 +639,12 @@ mod tests {
         }
         terms_array.sort_unstable();
 
-        let reader = writer.get_reader()?;
+        let r = writer.get_reader()?;
         writer.close()?;
 
-        let max_doc = reader.max_doc()?;
+        let max_doc = r.max_doc()?;
         let mut doc_id_to_id = vec![0i32; max_doc as usize];
-        let mut values = MultiDocValues::get_numeric_values(&reader, "id")?.unwrap();
+        let mut values = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
 
         for i in 0..max_doc {
             assert_eq!(i, values.next_doc()?);
@@ -685,7 +687,7 @@ mod tests {
             }
             accept_terms_array.sort();
 
-            for _iter2 in 0..100 {
+            for _ in 0..100 {
                 let start_term = if accept_terms_array.is_empty() || random.random_bool(0.5) {
                     None
                 } else {
@@ -702,9 +704,7 @@ mod tests {
                     }
                 }
 
-                let mut te = get_terms(&reader, "f")?
-                    .unwrap()
-                    .intersect(&mut c, start_term)?;
+                let mut te = get_terms(&r, "f")?.unwrap().intersect(&mut c, start_term)?;
                 let mut loc = if let Some(st) = start_term {
                     match terms_array.binary_search(st) {
                         Ok(p) => p + 1,

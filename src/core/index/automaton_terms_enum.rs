@@ -26,6 +26,7 @@ use crate::core::util::automation::transition_accessor::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::{SliceCopyOps, StringHelper, ToInt};
+use std::rc::Rc;
 
 /// A [`FilteredTermsEnum`](crate::core::index::filtered_terms_enum::FilteredTermsEnum) that enumerates terms based on what is accepted by a
 /// DFA.
@@ -44,7 +45,7 @@ pub struct AutomatonTermsEnum {
     /// A tableized array-based form of the DFA.
     byte_runnable: ByteRunnableEnum,
     /// Common suffix of the automaton.
-    common_suffix_ref: Option<BytesRef<Vec<u8>>>,
+    common_suffix_ref: Option<Rc<BytesRef<Vec<u8>>>>,
     // true if the automaton accepts a finite language
     finite: bool,
     // array of sorted transitions for each state, indexed by state number
@@ -90,7 +91,7 @@ impl AutomatonTermsEnum {
             // FilteredTermsEnum parent initialization — you'd handle this separately
             byte_runnable,
             transition_accessor: compiled.get_transition_accessor(),
-            common_suffix_ref: compiled.common_suffix_ref.take(),
+            common_suffix_ref: compiled.common_suffix_ref.clone(),
             finite: compiled.finite,
             visited,
             cur_gen: 0,

@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -40,7 +41,7 @@ where
 {
     initial_seek_term: Option<BytesRef<Vec<u8>>>,
     do_seek: bool,
-    pub actual_term: BytesRef<Vec<u8>>,
+    pub actual_term: Option<BytesRef<Vec<u8>>>,
     pub tenum: T,
     sub: F,
 }
@@ -58,7 +59,7 @@ where
         FilteredTermsEnum {
             initial_seek_term: None,
             do_seek: start_with_seek,
-            actual_term: BytesRef::default(),
+            actual_term: None,
             tenum,
             sub,
         }
@@ -94,29 +95,40 @@ where
             if self.do_seek {
                 self.do_seek = false;
                 let t = self.next_seek_term()?;
-
+                debug_assert!(
+                    self.actual_term.is_none()
+                        || t.is_none()
+                        || t.as_ref()
+                            .unwrap()
+                            .cmp(self.actual_term.as_ref().unwrap())
+                            .to_int()
+                            > 0
+                );
                 if t.is_none() || self.tenum.seek_ceil(t.as_ref().unwrap())? == SeekStatus::End {
                     return Ok(None);
                 }
                 // TODO: avoid copy here?
-                self.actual_term = self.tenum.term()?.into_owned();
+                self.actual_term = Option::from(self.tenum.term()?.into_owned());
             } else {
                 match self.tenum.next()? {
                     Some(term) => {
-                        self.actual_term = term.into_owned();
+                        self.actual_term = Option::from(term.into_owned());
                     },
-                    None => return Ok(None),
+                    None => {
+                        self.actual_term = None;
+                        return Ok(None);
+                    },
                 };
             }
             // check if term is accepted
-            match self.sub.accept(&self.actual_term)? {
+            match self.sub.accept(self.actual_term.as_ref().unwrap())? {
                 AcceptStatus::YesAndSeek => {
                     self.do_seek = true;
-                    return Ok(Some(Cow::Borrowed(&self.actual_term)));
+                    return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
                 },
                 // term accepted, but we need to seek so fall-through
                 AcceptStatus::Yes => {
-                    return Ok(Some(Cow::Borrowed(&self.actual_term)));
+                    return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
                 },
                 AcceptStatus::NoAndSeek => {
                     // invalid term, seek next time

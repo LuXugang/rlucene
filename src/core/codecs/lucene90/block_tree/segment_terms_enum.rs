@@ -615,7 +615,12 @@ where
 
         let mut target_upto;
 
-        self.target_before_current_length = self.stack[self.current_frame_idx].ord;
+        let current_frame = if self.current_frame_idx == self.static_frame_idx {
+            &mut self.static_frame
+        } else {
+            &mut self.stack[self.current_frame_idx]
+        };
+        self.target_before_current_length = current_frame.ord;
         self.output_accumulator.reset();
         let mut arc_index;
         if self.current_frame_idx != self.static_frame_idx {

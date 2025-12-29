@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::StringHelper;
 use crate::core::util::automation::automaton::Automaton;
@@ -30,6 +28,8 @@ use crate::core::util::automation::transition_accessor::{
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::unicode_util::UnicodeUtil;
+use std::borrow::Cow;
+use std::rc::Rc;
 
 /// Automata are compiled into different internal forms for the most efficient
 /// execution depending upon the language they accept.
@@ -43,7 +43,7 @@ pub struct CompiledAutomaton {
 
     /// Matcher for quickly determining if a byte[] is accepted. Only valid for
     /// [`AutomatonType::Normal`].
-    pub run_automaton: Option<ByteRunAutomaton>,
+    pub run_automaton: Option<Rc<ByteRunAutomaton>>,
 
     /// Matcher directly run on a NFA, it will determinize the state on need and
     /// caches it, note that this field and
@@ -51,13 +51,13 @@ pub struct CompiledAutomaton {
     /// time.
     ///
     /// TODO: merge this with run_automaton
-    nfa_run_automaton: Option<NFARunAutomaton>,
+    nfa_run_automaton: Option<Rc<NFARunAutomaton>>,
 
     /// Shared common suffix accepted by the automaton. Only valid for
     /// [`AutomatonType::Normal`], and only when the automaton accepts an
     /// infinite language. This will be `None` if the common prefix is
     /// length 0.
-    pub common_suffix_ref: Option<BytesRef<Vec<u8>>>,
+    pub common_suffix_ref: Option<Rc<BytesRef<Vec<u8>>>>,
 
     /// Indicates if the automaton accepts a finite set of strings.
     /// Only valid for [`AutomatonType::Normal`].
@@ -207,7 +207,7 @@ impl CompiledAutomaton {
                 if suffix.length == 0 {
                     None
                 } else {
-                    Some(suffix)
+                    Some(Rc::new(suffix))
                 }
             };
 
@@ -217,7 +217,7 @@ impl CompiledAutomaton {
                 term,
                 run_automaton: None,
 
-                nfa_run_automaton: Some(NFARunAutomaton::with_alphabet_size(binary, 0xff)),
+                nfa_run_automaton: Some(Rc::new(NFARunAutomaton::with_alphabet_size(binary, 0xff))),
                 common_suffix_ref,
                 finite,
                 sink_state: -1,
@@ -236,7 +236,7 @@ impl CompiledAutomaton {
             Ok(Self {
                 automaton_type,
                 term,
-                run_automaton: Some(run_automaton),
+                run_automaton: Some(Rc::new(run_automaton)),
                 nfa_run_automaton: None,
                 common_suffix_ref,
                 finite,
@@ -383,9 +383,9 @@ impl CompiledAutomaton {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_none());
 
         if self.nfa_run_automaton.is_some() {
-            ByteRunnableEnum::NFA(self.nfa_run_automaton.take().unwrap())
+            ByteRunnableEnum::NFA(self.nfa_run_automaton.as_ref().unwrap().clone())
         } else {
-            ByteRunnableEnum::Byte(self.run_automaton.take().unwrap())
+            ByteRunnableEnum::Byte(self.run_automaton.as_ref().unwrap().clone())
         }
     }
     /// Returns a [`TransitionAccessor`] instance, which varies depending on
@@ -395,9 +395,9 @@ impl CompiledAutomaton {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_some());
 
         if self.nfa_run_automaton.is_some() {
-            TransitionAccessorEnum::Nfa(self.nfa_run_automaton.take().unwrap())
+            TransitionAccessorEnum::Nfa(self.nfa_run_automaton.as_ref().unwrap().clone())
         } else {
-            TransitionAccessorEnum::Byte(self.run_automaton.take().unwrap())
+            TransitionAccessorEnum::Byte(self.run_automaton.as_ref().unwrap().clone())
         }
     }
 }

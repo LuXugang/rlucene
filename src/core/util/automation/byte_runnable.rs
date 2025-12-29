@@ -16,6 +16,7 @@
  */
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
+use std::rc::Rc;
 
 /// A runnable automaton accepting byte array as input
 pub trait ByteRunnable {
@@ -72,8 +73,8 @@ pub trait ByteRunnable {
 }
 
 pub enum ByteRunnableEnum {
-    Byte(ByteRunAutomaton),
-    NFA(NFARunAutomaton),
+    Byte(Rc<ByteRunAutomaton>),
+    NFA(Rc<NFARunAutomaton>),
 }
 impl ByteRunnable for ByteRunnableEnum {
     fn step(&self, state: i32, c: i32) -> i32 {
