@@ -576,9 +576,23 @@ where
         (**self).base()
     }
 }
-
+/// A lightweight identity marker used to distinguish instances by identity,
+/// not by value.
+///
+/// This type itself carries no semantic data. Its sole purpose is to provide
+/// a stable allocation whose address can be used as an identity token.
 #[derive(Debug)]
 struct IdentityTag(u8);
+/// An identity wrapper whose equality and hashing are based on pointer identity.
+///
+/// Two `Identity` values are considered equal **if and only if** they point to
+/// the same underlying allocation (i.e. they represent the same instance),
+/// regardless of any external semantics.
+///
+/// This is commonly used to model Lucene-style *instance identity*:
+/// - whether two objects originate from the same underlying reader
+/// - whether two wrappers refer to the same logical component
+/// - whether two enum variants wrap the same inner instance
 #[derive(Debug, Clone)]
 pub struct Identity(Arc<IdentityTag>);
 
@@ -586,7 +600,10 @@ impl Identity {
     pub(crate) fn new() -> Self {
         Identity(Arc::new(IdentityTag(0)))
     }
-
+    /// Returns the raw pointer to the underlying identity allocation.
+    ///
+    /// This pointer is used exclusively for identity comparison and hashing.
+    /// Its value must never be dereferenced.
     #[inline]
     fn ptr(&self) -> *const IdentityTag {
         Arc::as_ptr(&self.0)

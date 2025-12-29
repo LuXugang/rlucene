@@ -2023,12 +2023,12 @@ where
     }
 }
 
-pub struct OneDimensionBKDWriter<'b, D, O>
+pub struct OneDimensionBKDWriter<'a, D, O>
 where
     D: Directory,
     O: IndexOutput,
 {
-    data_out: &'b mut O,
+    data_out: &'a mut O,
     data_start_fp: i64,
     leaf_block_fps: Vec<i64>,
     leaf_block_start_values: Vec<Vec<u8>>,
@@ -2040,15 +2040,15 @@ where
     // for asserts
     last_packed_value: Vec<u8>,
     last_doc_id: i32,
-    bkd_writer: &'b mut BKDWriter<D>,
+    bkd_writer: &'a mut BKDWriter<D>,
 }
 
-impl<'b, D, O> OneDimensionBKDWriter<'b, D, O>
+impl<'a, D, O> OneDimensionBKDWriter<'a, D, O>
 where
     D: Directory,
     O: IndexOutput,
 {
-    pub fn new(data_out: &'b mut O, bkd_writer: &'b mut BKDWriter<D>) -> Result<Self> {
+    pub fn new(data_out: &'a mut O, bkd_writer: &'a mut BKDWriter<D>) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {
             return Err(LuceneError::unsupported_operation(format!(
                 "config.numIndexDims() must be 1 but got {}",
@@ -2694,12 +2694,12 @@ pub struct IORunnable {
     data_start_fp: i64,
 }
 
-struct IntersectVisitorImpl<'b, D, O>
+struct IntersectVisitorImpl<'a, D, O>
 where
     D: Directory,
     O: IndexOutput,
 {
-    pub one_dim_writer: OneDimensionBKDWriter<'b, D, O>,
+    pub one_dim_writer: OneDimensionBKDWriter<'a, D, O>,
 }
 impl<D, O> IntersectVisitor for IntersectVisitorImpl<'_, D, O>
 where

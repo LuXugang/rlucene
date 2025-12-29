@@ -79,7 +79,7 @@ where
     pub(crate) starting_commit_deleted: bool,
 
     verbose_ref_counts: bool,
-    file_deleter: FileDeleter<Arc<D>, MessengerImpl>,
+    file_deleter: FileDeleter<D, MessengerImpl>,
 }
 impl<D> IndexFileDeleter<D>
 where

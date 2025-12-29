@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::IndexFileNames;
+use crate::core::index::index_writer::IndexWriterDir;
 use crate::core::store::directory::Directory;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -31,7 +31,7 @@ where
     M: Messenger,
 {
     ref_counts: HashMap<String, RefCount>,
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory: Arc<IndexWriterDir<D>>,
     ///  user specified message consumer, first argument will be message type second argument will be the actual message
     messenger: Option<M>,
 }
@@ -41,7 +41,7 @@ where
     M: Messenger,
 {
     pub(crate) fn new(
-        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        directory: Arc<IndexWriterDir<D>>,
         messenger: Option<M>,
     ) -> FileDeleter<D, M> {
         FileDeleter {
