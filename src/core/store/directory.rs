@@ -50,7 +50,7 @@ use std::fmt::{Display, Formatter};
 /// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Closeable + Sized {
+pub trait Directory: Display + Closeable {
     /// Returns the names of all files stored in this directory. The output must
     /// be sorted in UTF-8 order (using `str::cmp` for comparison).
     ///
