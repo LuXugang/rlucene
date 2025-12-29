@@ -16,15 +16,30 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
 use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::long_values::LongValues;
+use crate::core::util::numeric_utils::NumericUtils;
+use crate::core::util::packed::PackedInts;
+use std::rc::Rc;
 
 pub trait IndexSorter {
     fn get_provider_name(&self) -> &str;
+
+    type ComparableProvider<LR>: ComparableProvider
+    where
+        LR: LeafReader;
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader;
 
     type DocComparator: DocComparator;
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
@@ -78,6 +93,29 @@ where
         &self.provider_name
     }
 
+    type ComparableProvider<LR>
+        = DoubleComparableProvider<ProviderNumeric<NP, LR>>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let mut providers = Vec::with_capacity(readers.len());
+        let missing_value_bits: i64 = (self.missing_value.unwrap_or(0.0)).to_bits() as i64;
+
+        for reader in readers {
+            let values = self.values_provider.get(reader)?;
+            providers.push(DoubleComparableProvider::new(values, missing_value_bits));
+        }
+
+        Ok(providers)
+    }
+
     type DocComparator = DocComparatorImplDouble;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
@@ -119,6 +157,39 @@ impl DocComparator for DocComparatorImplDouble {
                 .to_int()
     }
 }
+pub struct DoubleComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    values: N,
+    missing_value_bits: i64,
+}
+
+impl<N> DoubleComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    pub fn new(values: N, missing_value_bits: i64) -> Self {
+        Self {
+            values,
+            missing_value_bits,
+        }
+    }
+}
+
+impl<N> ComparableProvider for DoubleComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+        let v = if self.values.advance_exact(doc_id)? {
+            self.values.long_value()?
+        } else {
+            self.missing_value_bits
+        };
+        Ok(NumericUtils::sortable_double_bits(v))
+    }
+}
 
 // IntSorter
 /// Sorts documents based on integer values from a NumericDocValues instance  */
@@ -158,12 +229,37 @@ where
         })
     }
 }
+
 impl<NP> IndexSorter for IntSorter<NP>
 where
     NP: NumericDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
+    }
+
+    type ComparableProvider<LR>
+        = IntComparableProvider<ProviderNumeric<NP, LR>>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let mut providers = Vec::with_capacity(readers.len());
+        let missing_value = self.missing_value.unwrap_or(0) as i64;
+
+        for reader in readers {
+            let values = self.values_provider.get(reader)?;
+
+            providers.push(IntComparableProvider::new(values, missing_value));
+        }
+
+        Ok(providers)
     }
 
     type DocComparator = DocComparatorImplInt;
@@ -205,6 +301,36 @@ impl DocComparator for DocComparatorImplInt {
             * self.values[doc_id1 as usize]
                 .cmp(&self.values[doc_id2 as usize])
                 .to_int()
+    }
+}
+pub struct IntComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    values: N,
+    missing_value: i64,
+}
+impl<N> IntComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    pub fn new(values: N, missing_value: i64) -> Self {
+        Self {
+            values,
+            missing_value,
+        }
+    }
+}
+impl<N> ComparableProvider for IntComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+        if self.values.advance_exact(doc_id)? {
+            Ok(self.values.long_value()?)
+        } else {
+            Ok(self.missing_value)
+        }
     }
 }
 
@@ -255,6 +381,29 @@ where
         &self.provider_name
     }
 
+    type ComparableProvider<LR>
+        = LongComparableProvider<ProviderNumeric<NP, LR>>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let mut providers = Vec::with_capacity(readers.len());
+        let missing_value = self.missing_value.unwrap_or(0);
+
+        for reader in readers {
+            let values = self.values_provider.get(reader)?;
+            providers.push(LongComparableProvider::new(values, missing_value));
+        }
+
+        Ok(providers)
+    }
+
     type DocComparator = DocComparatorImplLong;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
@@ -297,6 +446,38 @@ impl DocComparator for DocComparatorImplLong {
             * self.values[doc_id1 as usize]
                 .cmp(&self.values[doc_id2 as usize])
                 .to_int()
+    }
+}
+pub struct LongComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    values: N,
+    missing_value: i64,
+}
+
+impl<N> LongComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    pub fn new(values: N, missing_value: i64) -> Self {
+        Self {
+            values,
+            missing_value,
+        }
+    }
+}
+
+impl<N> ComparableProvider for LongComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+        if self.values.advance_exact(doc_id)? {
+            Ok(self.values.long_value()?)
+        } else {
+            Ok(self.missing_value)
+        }
     }
 }
 
@@ -348,6 +529,29 @@ where
         &self.provider_name
     }
 
+    type ComparableProvider<LR>
+        = FloatComparableProvider<ProviderNumeric<NP, LR>>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let mut providers = Vec::with_capacity(readers.len());
+        let missing_value_bits: i32 = (self.missing_value.unwrap_or(0.0)).to_bits() as i32;
+
+        for reader in readers {
+            let values = self.values_provider.get(reader)?;
+            providers.push(FloatComparableProvider::new(values, missing_value_bits));
+        }
+
+        Ok(providers)
+    }
+
     type DocComparator = DocComparatorImplFloat;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
@@ -393,6 +597,39 @@ impl DocComparator for DocComparatorImplFloat {
         self.reverse_mul * ord
     }
 }
+pub struct FloatComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    values: N,
+    missing_value_bits: i32,
+}
+
+impl<N> FloatComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    pub fn new(values: N, missing_value_bits: i32) -> Self {
+        Self {
+            values,
+            missing_value_bits,
+        }
+    }
+}
+
+impl<N> ComparableProvider for FloatComparableProvider<N>
+where
+    N: NumericDocValues,
+{
+    fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+        let v = if self.values.advance_exact(doc_id)? {
+            self.values.long_value()?.try_into()?
+        } else {
+            self.missing_value_bits
+        };
+        Ok(NumericUtils::sortable_float_bits(v) as i64)
+    }
+}
 
 // StringSorter
 /// Sorts documents based on short values from a NumericDocValues instance
@@ -430,6 +667,46 @@ where
         &self.provider_name
     }
 
+    type ComparableProvider<LR>
+        = StringComparableProvider<ProviderString<SP, LR>>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        let mut values = Vec::with_capacity(readers.len());
+        for reader in readers {
+            values.push(self.values_provider.get(reader)?);
+        }
+
+        let ordinal_map =
+            OrdinalMap::build_from_sorted(None, values.as_mut(), PackedInts::DEFAULT)?;
+
+        let missing_ord: i32 = match self.missing_value {
+            Some(MissingValueEnum::StringLast) => i32::MAX,
+            _ => i32::MIN,
+        };
+
+        let mut providers = Vec::with_capacity(readers.len());
+
+        for (reader_index, reader_values) in values.into_iter().enumerate() {
+            let global_ords = ordinal_map.get_global_ords(reader_index as i32).clone();
+
+            providers.push(StringComparableProvider {
+                reader_values,
+                global_ords,
+                missing_ord,
+            });
+        }
+
+        Ok(providers)
+    }
+
     type DocComparator = DocComparatorImplString;
 
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
@@ -452,6 +729,28 @@ where
             ords[doc_id as usize] = sorted.ord_value()?;
         }
         Ok(DocComparatorImplString::new(ords, self.reverse_mul))
+    }
+}
+pub struct StringComparableProvider<SDV>
+where
+    SDV: SortedDocValues,
+{
+    reader_values: SDV,
+    global_ords: Rc<SegmentToGlobalOrds>,
+    missing_ord: i32,
+}
+
+impl<SDV> ComparableProvider for StringComparableProvider<SDV>
+where
+    SDV: SortedDocValues,
+{
+    fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+        if self.reader_values.advance_exact(doc_id)? {
+            let seg_ord = self.reader_values.ord_value()?;
+            Ok(self.global_ords.get(seg_ord as i64)?)
+        } else {
+            Ok(self.missing_ord as i64)
+        }
     }
 }
 
@@ -480,6 +779,41 @@ pub trait ComparableProvider {
     /// Returns a long so that the natural ordering of long values matches the ordering of doc IDs for the given comparator
     fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64>;
 }
+macro_rules! either_comparable_provider {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> ComparableProvider for $name<$( $T ),+>
+        where
+            $( $T: ComparableProvider ),+
+        {
+            #[inline]
+            fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_as_comparable_long(doc_id), )+
+                }
+            }
+        }
+    };
+}
+either_comparable_provider!(pub ComparableProviderEnum5 { Int: A, Long: B, Float: C, Double: D, String: E });
+either_comparable_provider!(pub ComparableProviderEnum4 { Int: A, Long: B, Float: C, Double: D});
+pub type CPEnumType1<NP, LR, SP> = ComparableProviderEnum5<
+    IntComparableProvider<ProviderNumeric<NP, LR>>,
+    LongComparableProvider<ProviderNumeric<NP, LR>>,
+    FloatComparableProvider<ProviderNumeric<NP, LR>>,
+    DoubleComparableProvider<ProviderNumeric<NP, LR>>,
+    StringComparableProvider<ProviderString<SP, LR>>,
+>;
+pub type CPEnumType2<NP, LR> = ComparableProviderEnum4<
+    IntComparableProvider<ProviderNumeric<NP, LR>>,
+    LongComparableProvider<ProviderNumeric<NP, LR>>,
+    FloatComparableProvider<ProviderNumeric<NP, LR>>,
+    DoubleComparableProvider<ProviderNumeric<NP, LR>>,
+>;
+
 /// A comparator of doc IDs, used for sorting documents within a segment
 pub trait DocComparator {
     /// Compare docID1 against docID2.
@@ -513,6 +847,8 @@ pub type DocComparatorImpl = DocComparatorEnum5<
     DocComparatorImplDouble,
     DocComparatorImplString,
 >;
+pub type ProviderNumeric<N, LR> = <N as NumericDocValuesProvider>::NumericDocValues<LR>;
+pub type ProviderString<S, LR> = <S as SortedDocValuesProvider>::SortedDocValues<LR>;
 /// Provide a NumericDocValues instance for a LeafReader
 pub trait NumericDocValuesProvider {
     /// Returns the numeric value for the given doc ID.

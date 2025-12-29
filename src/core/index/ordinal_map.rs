@@ -28,6 +28,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use std::rc::Rc;
 
 pub(crate) type SegmentToGlobalOrds =
     LongValuesEnum3<crate::core::util::long_values::Identity, LongValuesImpl, LongValuesImpl1>;
@@ -123,7 +124,7 @@ pub struct OrdinalMap {
     global_ord_deltas: LongValuesEnum2<PackedLongValues, Zeroes>,
     /// globalOrd -> first segment container
     first_segments: LongValuesEnum2<PackedLongValues, Zeroes>,
-    segment_to_global_ords: Vec<SegmentToGlobalOrds>,
+    segment_to_global_ords: Vec<Rc<SegmentToGlobalOrds>>,
     /// the map from/to segment ids
     segment_map: SegmentMap,
     /// ram usage
@@ -310,8 +311,9 @@ impl OrdinalMap {
             if ord_delta_bits[i] == 0 {
                 // segment ords perfectly match global ordinals
                 // likely in case of low cardinalities and large segments
-                segment_to_global_ords
-                    .push(LongValuesEnum3::A(crate::core::util::long_values::Identity));
+                segment_to_global_ords.push(Rc::new(LongValuesEnum3::A(
+                    crate::core::util::long_values::Identity,
+                )));
             } else {
                 let bits_required = if ord_delta_bits[i] < 0 {
                     64
@@ -339,10 +341,11 @@ impl OrdinalMap {
                     debug_assert!(!it.has_next());
                     ram_bytes_used += new_deltas.ram_bytes_used()?;
                     segment_to_global_ords
-                        .push(LongValuesEnum3::B(LongValuesImpl::new(new_deltas)));
+                        .push(Rc::new(LongValuesEnum3::B(LongValuesImpl::new(new_deltas))));
                 } else {
                     ram_bytes_used += deltas.ram_bytes_used()?;
-                    segment_to_global_ords.push(LongValuesEnum3::C(LongValuesImpl1::new(deltas)));
+                    segment_to_global_ords
+                        .push(Rc::new(LongValuesEnum3::C(LongValuesImpl1::new(deltas))));
                 }
                 // TODO: memory calculation not implemented
                 // ram_bytes_used += 0;
@@ -360,7 +363,7 @@ impl OrdinalMap {
     }
     /// Given a segment number, return a [`LongValues`] instance that maps segment ordinals
     /// to global ordinals.
-    pub(crate) fn get_global_ords(&self, segment_index: i32) -> &SegmentToGlobalOrds {
+    pub(crate) fn get_global_ords(&self, segment_index: i32) -> &Rc<SegmentToGlobalOrds> {
         let mapped = self.segment_map.old_to_new(segment_index as usize) as usize;
         &self.segment_to_global_ords[mapped]
     }

@@ -232,7 +232,7 @@ impl SortFieldProvider for SetProvider {
                 debug_assert!(value == 0);
             },
         }
-        Ok(SortFieldEnum::SortedSet(sorted_set_sort_field))
+        Ok(sorted_set_sort_field.into())
     }
 
     fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {

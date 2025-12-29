@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_comparable_provider::DummyComparableProvider;
 use crate::core::index::index_sorter::{DocComparatorImpl, IndexSorter, StringSorter};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::field_comparator::FieldComparatorEnum;
@@ -177,6 +178,21 @@ impl IndexSorter for IndexSortEnum {
             IndexSortEnum::SortedSet(sorter) => sorter.get_provider_name(),
             IndexSortEnum::Sorter(sorter) => sorter.get_provider_name(),
         }
+    }
+
+    type ComparableProvider<LR>
+        = DummyComparableProvider
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        _readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        todo!()
     }
 
     type DocComparator = DocComparatorImpl;

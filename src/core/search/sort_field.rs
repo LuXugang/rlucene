@@ -18,8 +18,9 @@
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
-    DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
-    NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
+    CPEnumType1, ComparableProviderEnum5, DocComparatorImpl, DoubleSorter, FloatSorter,
+    IndexSorter, IntSorter, LongSorter, NumericDocValuesProvider, SortedDocValuesProvider,
+    StringSorter,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
@@ -375,7 +376,7 @@ impl SortFiledBase for SortField {
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         debug_assert!(self.field.is_some());
         let field = self.field.as_ref().unwrap();
-        let get_value = NumericDocValuesProviderImpl1::new(field.to_string());
+        let get_value = NPImpl::new(field.to_string());
         let v1 = SortedDocValuesProviderImpl::new(field.to_string());
         match self.type_ {
             SortFieldType::String => Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
@@ -669,35 +670,6 @@ impl Hash for SortField {
         self.missing_value.hash(state);
     }
 }
-// int
-pub(crate) struct NumericDocValuesProviderImpl {
-    field: String,
-}
-impl NumericDocValuesProviderImpl {
-    pub fn new(field: String) -> Self {
-        NumericDocValuesProviderImpl { field }
-    }
-}
-impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
-    type NumericDocValues<LR>
-        = NumericDocValuesEnum2<LR::NumericDocValues, EmptyNumeric>
-    where
-        LR: LeafReader;
-    fn get<LR>(&self, leaf_reader: &LR) -> Result<Self::NumericDocValues<LR>>
-    where
-        LR: LeafReader,
-    {
-        DocValues::get_numeric(leaf_reader, &self.field)
-    }
-}
-
-pub(crate) enum IndexSorterEnum {
-    Int(IntSorter<NumericDocValuesProviderImpl>),
-    Long(LongSorter<NumericDocValuesProviderImpl>),
-    Double(DoubleSorter<NumericDocValuesProviderImpl>),
-    Float(FloatSorter<NumericDocValuesProviderImpl>),
-}
-
 pub struct Provider;
 impl Provider {
     /// The name this Provider is registered under.
@@ -747,7 +719,7 @@ impl SortFieldProvider for Provider {
             }
         }
 
-        Ok(SortFieldEnum::Sorter(sort_field))
+        Ok(sort_field.into())
     }
 
     fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
@@ -1036,17 +1008,18 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
         DocValues::get_sorted(leaf_reader, self.field.as_str())
     }
 }
-pub struct NumericDocValuesProviderImpl1 {
+pub struct NPImpl {
     field: String,
 }
-impl NumericDocValuesProviderImpl1 {
+impl NPImpl {
     pub fn new(field: String) -> Self {
-        NumericDocValuesProviderImpl1 { field }
+        NPImpl { field }
     }
 }
-impl NumericDocValuesProvider for NumericDocValuesProviderImpl1 {
+pub type NDVType<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
+impl NumericDocValuesProvider for NPImpl {
     type NumericDocValues<LR>
-        = NumericDocValuesEnum2<LR::NumericDocValues, EmptyNumeric>
+        = NDVType<LR>
     where
         LR: LeafReader;
 
@@ -1059,10 +1032,10 @@ impl NumericDocValuesProvider for NumericDocValuesProviderImpl1 {
 }
 pub enum IndexSorterEnumSorter {
     String(StringSorter<SortedDocValuesProviderImpl>),
-    Int(IntSorter<NumericDocValuesProviderImpl1>),
-    Long(LongSorter<NumericDocValuesProviderImpl1>),
-    Double(DoubleSorter<NumericDocValuesProviderImpl1>),
-    Float(FloatSorter<NumericDocValuesProviderImpl1>),
+    Int(IntSorter<NPImpl>),
+    Long(LongSorter<NPImpl>),
+    Double(DoubleSorter<NPImpl>),
+    Float(FloatSorter<NPImpl>),
 }
 impl IndexSorter for IndexSorterEnumSorter {
     fn get_provider_name(&self) -> &str {
@@ -1072,6 +1045,62 @@ impl IndexSorter for IndexSorterEnumSorter {
             IndexSorterEnumSorter::Long(_) => "NumericDocValuesProviderImpl1",
             IndexSorterEnumSorter::Double(_) => "NumericDocValuesProviderImpl1",
             IndexSorterEnumSorter::Float(_) => "NumericDocValuesProviderImpl1",
+        }
+    }
+
+    type ComparableProvider<LR>
+        = CPEnumType1<NPImpl, LR, SortedDocValuesProviderImpl>
+    where
+        LR: LeafReader;
+
+    fn get_comparable_providers<LR>(
+        &self,
+        readers: &[LR],
+    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSorterEnumSorter::Int(i) => {
+                let int_provider = i.get_comparable_providers(readers)?;
+                let mut provider = Vec::with_capacity(int_provider.len());
+                for p in int_provider {
+                    provider.push(ComparableProviderEnum5::Int(p));
+                }
+                Ok(provider)
+            },
+            IndexSorterEnumSorter::Long(l) => {
+                let long_provider = l.get_comparable_providers(readers)?;
+                let mut provider = Vec::with_capacity(long_provider.len());
+                for p in long_provider {
+                    provider.push(ComparableProviderEnum5::Long(p));
+                }
+                Ok(provider)
+            },
+            IndexSorterEnumSorter::Double(d) => {
+                let double_provider = d.get_comparable_providers(readers)?;
+                let mut provider = Vec::with_capacity(double_provider.len());
+                for p in double_provider {
+                    provider.push(ComparableProviderEnum5::Double(p));
+                }
+                Ok(provider)
+            },
+            IndexSorterEnumSorter::Float(f) => {
+                let float_provider = f.get_comparable_providers(readers)?;
+                let mut provider = Vec::with_capacity(float_provider.len());
+                for p in float_provider {
+                    provider.push(ComparableProviderEnum5::Float(p));
+                }
+                Ok(provider)
+            },
+            IndexSorterEnumSorter::String(s) => {
+                let string_provider = s.get_comparable_providers(readers)?;
+                let mut provider = Vec::with_capacity(string_provider.len());
+                for p in string_provider {
+                    provider.push(ComparableProviderEnum5::String(p));
+                }
+                Ok(provider)
+            },
         }
     }
 

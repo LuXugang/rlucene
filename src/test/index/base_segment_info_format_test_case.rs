@@ -325,7 +325,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<i32>())?;
                 }
-                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             1 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
@@ -336,7 +336,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<i32>())?;
                 }
-                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             2 => {
                 let mut sort_field = SortField::with_reverse(
@@ -347,7 +347,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<i64>())?;
                 }
-                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             3 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
@@ -358,7 +358,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<i64>())?;
                 }
-                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             4 => {
                 let mut sort_field = SortField::with_reverse(
@@ -369,7 +369,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<f32>())?;
                 }
-                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             5 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
@@ -380,7 +380,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<f32>())?;
                 }
-                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             6 => {
                 let mut sort_field = SortField::with_reverse(
@@ -391,7 +391,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<f64>())?;
                 }
-                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             7 => {
                 let mut sort_field = SortedNumericSortField::with_reverse(
@@ -402,7 +402,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(random.random::<f64>())?;
                 }
-                Ok(Some(SortFieldEnum::SortedNumeric(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             8 => {
                 let mut sort_field = SortField::with_reverse(
@@ -413,7 +413,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(MissingValueEnum::StringLast)?;
                 }
-                Ok(Some(SortFieldEnum::Sorter(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             9 => {
                 let mut sort_field =
@@ -421,7 +421,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 if random.random_bool(0.5) {
                     sort_field.set_missing_value(MissingValueEnum::StringLast)?;
                 }
-                Ok(Some(SortFieldEnum::SortedSet(sort_field)))
+                Ok(Some(sort_field.into()))
             },
             _ => Ok(None),
         }
