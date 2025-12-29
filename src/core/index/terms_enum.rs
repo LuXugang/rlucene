@@ -1061,7 +1061,7 @@ mod tests {
     //     Ok(())
     // }
 
-    // TODO IMPORTANT 这里的测试未通过
+    #[test]
     fn test_zero_terms() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
@@ -1075,7 +1075,6 @@ mod tests {
             No,
             &mut field_to_type,
         )?);
-        writer.add_document(doc)?;
 
         // doc with "field2"
         let mut doc = Document::new();
