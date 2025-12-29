@@ -17,7 +17,8 @@
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThreadType;
+
+use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::{
     DocumentsWriterPerThreadPool, DwptWrapper,
 };
@@ -269,7 +270,7 @@ where
     }
     pub(crate) fn do_after_document<L>(
         &self,
-        per_thread: &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
         delete_queue: &DocumentsWriterDeleteQueue,
         config: &L,
     ) -> Result<Option<Arc<DwptWrapper<D>>>>
@@ -333,7 +334,7 @@ where
     fn checkout<L>(
         &self,
         inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
-        per_thread: &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
         mark_pending: bool,
         config: &L,
     ) -> Result<Option<Arc<DwptWrapper<D>>>>
@@ -442,7 +443,7 @@ where
     /// The [`DocumentsWriterPerThread`] must have indexed at least on Document and must not be already pending.
     pub fn set_flush_pending<L>(
         &self,
-        per_thread: &DocumentsWriterPerThreadType<D>,
+        per_thread: &DocumentsWriterPerThread<D>,
         inner: Option<&mut Inner<D>>,
         config: &L,
     ) -> Result<()>
@@ -487,7 +488,7 @@ where
     /// To be called only by the owner of this object's monitor lock
     fn checkout_and_block(
         &self,
-        per_thread: &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
         inner: &mut Inner<D>,
     ) {
         let id = &per_thread.state.id;
@@ -509,7 +510,7 @@ where
     }
     fn check_out_for_flush<L>(
         &self,
-        per_thread: &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
         inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
         config: &L,
     ) -> Result<Arc<DwptWrapper<D>>>
@@ -930,8 +931,8 @@ where
     }
 }
 pub(crate) type DWPTEnum<D> = (
-    Option<DocumentsWriterPerThreadType<D>>,
-    Option<DocumentsWriterPerThreadType<D>>,
+    Option<DocumentsWriterPerThread<D>>,
+    Option<DocumentsWriterPerThread<D>>,
 );
 impl<D> Drop for DocumentsWriterFlushControl<D>
 where

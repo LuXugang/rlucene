@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::field_infos::FieldNumbers;
+use crate::core::index::index_writer::IndexWriterDir;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
@@ -25,7 +26,6 @@ use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
@@ -47,7 +47,7 @@ where
     D: Directory,
     F: LongSupplier,
 {
-    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
+    directory: Arc<IndexWriterDir<D>>,
     original_directory: Arc<D>,
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<String>,
@@ -81,7 +81,7 @@ where
     F: LongSupplier,
 {
     pub(crate) fn new<S, LR, C, D1>(
-        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
+        directory: Arc<IndexWriterDir<D>>,
         original_directory: Arc<D>,
         info_stream: InfoStreamMT,
         soft_deletes_field: Option<S>,

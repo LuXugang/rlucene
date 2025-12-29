@@ -16,9 +16,7 @@
  */
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-use crate::core::index::documents_writer_per_thread::{
-    DocumentsWriterPerThread, DocumentsWriterPerThreadType, State,
-};
+use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -250,7 +248,7 @@ where
     /// `true` if the DWPT was removed; `false` otherwise.
     pub(crate) fn checkout(
         &self,
-        per_thread: &MutexGuard<'_, DocumentsWriterPerThreadType<D>>,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
     ) -> Option<Arc<DwptWrapper<D>>> {
         debug_assert!(per_thread.state.is_locked());
         let mut inner = self.inner.lock();
@@ -285,14 +283,14 @@ pub struct DwptWrapper<D>
 where
     D: Directory,
 {
-    pub(crate) dwpt: Mutex<DocumentsWriterPerThreadType<D>>,
+    pub(crate) dwpt: Mutex<DocumentsWriterPerThread<D>>,
     pub(crate) state: Arc<State>,
 }
 impl<D> DwptWrapper<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(dwpt: DocumentsWriterPerThreadType<D>) -> Self {
+    pub(crate) fn new(dwpt: DocumentsWriterPerThread<D>) -> Self {
         let state = dwpt.state.clone();
         Self {
             dwpt: Mutex::new(dwpt),

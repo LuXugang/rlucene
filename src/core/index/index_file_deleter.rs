@@ -17,11 +17,10 @@
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase, IndexWriterDir};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -74,7 +73,7 @@ where
 
     info_stream: InfoStreamMT,
     directory_orig: Arc<D>,
-    directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
+    directory: Arc<IndexWriterDir<D>>,
 
     /// Whether the starting commit was deleted.
     pub(crate) starting_commit_deleted: bool,
@@ -92,7 +91,7 @@ where
     pub fn new<P>(
         files: impl IntoIterator<Item = String>,
         directory_orig: Arc<D>,
-        directory: Arc<LockValidatingDirectoryWrapper<Arc<D>>>,
+        directory: Arc<IndexWriterDir<D>>,
         policy: &P,
         segment_infos: &mut SegmentInfos<D>,
         info_stream: InfoStreamMT,

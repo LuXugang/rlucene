@@ -62,14 +62,12 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
-pub type DocumentsWriterPerThreadType<D> = DocumentsWriterPerThread<D, Arc<IndexWriterDir<D>>>;
-pub(crate) struct DocumentsWriterPerThread<D, D1>
+pub(crate) struct DocumentsWriterPerThread<D>
 where
     D: Directory,
-    D1: Directory,
 {
-    pub(crate) directory: Arc<TrackingDirectoryWrapper<D1>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D1>>,
+    pub(crate) directory: Arc<TrackingDirectoryWrapper<Arc<IndexWriterDir<D>>>>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<Arc<IndexWriterDir<D>>>>,
     pending_updates: BufferedUpdates,
     pub(crate) segment_info: SegmentInfo<D>,
     field_infos: Builder,
@@ -156,10 +154,9 @@ impl Lock for State {
     }
 }
 
-impl<D, D1> DocumentsWriterPerThread<D, D1>
+impl<D> DocumentsWriterPerThread<D>
 where
     D: Directory,
-    D1: Directory,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
         debug_assert!(
@@ -198,7 +195,7 @@ where
         index_major_version_created: i32,
         segment_name: &str,
         directory_orig: Arc<D>,
-        directory: D1,
+        directory: Arc<IndexWriterDir<D>>,
         index_writer_config: &L,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
         field_infos: Builder,
@@ -969,10 +966,9 @@ where
     }
 }
 
-impl<D, D1> Accountable for DocumentsWriterPerThread<D, D1>
+impl<D> Accountable for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    D1: Directory,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO
@@ -986,10 +982,9 @@ where
         todo!()
     }
 }
-impl<D, D1> Display for DocumentsWriterPerThread<D, D1>
+impl<D> Display for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    D1: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

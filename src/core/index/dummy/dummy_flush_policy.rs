@@ -16,7 +16,8 @@
  */
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThreadType;
+
+use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
@@ -29,7 +30,7 @@ impl FlushPolicy for DummyFlushPolicy {
         &self,
         _control: &DocumentsWriterFlushControl<D>,
         _inner: &mut Inner<D>,
-        _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThreadType<D>>>,
+        _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
         _delete_queue: &DocumentsWriterDeleteQueue,
         _config: &L,
     ) -> Result<()>
