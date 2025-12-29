@@ -27,7 +27,8 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
 use std::rc::Rc;
-
+/// Handles how documents should be sorted in an index, both within a segment
+/// and between segments.
 pub trait IndexSorter {
     fn get_provider_name(&self) -> &str;
 
@@ -64,6 +65,20 @@ pub trait IndexSorter {
     }
     fn get_missing_value(&self) -> MissingValueEnum;
     type DocComparator: DocComparator;
+    /// Get a comparator that determines the sort order of documents within a single reader.
+    ///
+    /// **NB**: We cannot simply use the `FieldComparator` API because it requires
+    /// document IDs to be provided in-order. The default implementations allocate
+    /// an array of size `max_doc` to store native values for comparison, but:
+    ///
+    /// 1. They are transient, only living while sorting a single segment.
+    /// 2. In typical index-sorting scenarios, they are only used to sort newly
+    ///    flushed segments, which are usually much smaller than merged segments.
+    ///
+    /// # Parameters
+    ///
+    /// - `reader`: the reader whose documents should be sorted.
+    /// - `max_doc`: the number of documents in the reader.
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
         LR: LeafReader;
