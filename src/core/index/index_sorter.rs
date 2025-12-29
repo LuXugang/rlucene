@@ -36,11 +36,33 @@ pub trait IndexSorter {
         LR: LeafReader;
     fn get_comparable_providers<LR>(
         &self,
-        readers: &[LR],
+        _readers: &[LR],
     ) -> Result<Vec<Self::ComparableProvider<LR>>>
     where
-        LR: LeafReader;
+        LR: LeafReader,
+    {
+        Err(LuceneError::unsupported_operation(""))
+    }
+    fn get_comparable_providers_per_reader<LR>(
+        &self,
+        _reader: &LR,
+        _reader_index: usize,
+        _formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
+    where
+        LR: LeafReader,
+    {
+        Err(LuceneError::unsupported_operation(""))
+    }
 
+    fn get_ordinal_map<LR>(&self, _readers: &[LR]) -> Result<Option<OrdinalMap>>
+    where
+        LR: LeafReader,
+    {
+        Ok(None)
+    }
+    fn get_missing_value(&self) -> MissingValueEnum;
     type DocComparator: DocComparator;
     fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
     where
@@ -98,22 +120,30 @@ where
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        _reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
-        let mut providers = Vec::with_capacity(readers.len());
-        let missing_value_bits: i64 = (self.missing_value.unwrap_or(0.0)).to_bits() as i64;
+        let missing_value_bits = match formated_missing_value {
+            MissingValueEnum::Long(value) => value,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "formated Missing value type mismatch for i64.",
+                ));
+            },
+        };
+        let values = self.values_provider.get(reader)?;
+        Ok(DoubleComparableProvider::new(values, *missing_value_bits))
+    }
 
-        for reader in readers {
-            let values = self.values_provider.get(reader)?;
-            providers.push(DoubleComparableProvider::new(values, missing_value_bits));
-        }
-
-        Ok(providers)
+    fn get_missing_value(&self) -> MissingValueEnum {
+        (self.missing_value.unwrap_or(0.0).to_bits() as i64).into()
     }
 
     type DocComparator = DocComparatorImplDouble;
@@ -243,23 +273,30 @@ where
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        _reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
-        let mut providers = Vec::with_capacity(readers.len());
-        let missing_value = self.missing_value.unwrap_or(0) as i64;
+        let missing_value = match formated_missing_value {
+            MissingValueEnum::Long(value) => value,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "formated Missing value type mismatch for i64.",
+                ));
+            },
+        };
+        let values = self.values_provider.get(reader)?;
+        Ok(IntComparableProvider::new(values, *missing_value))
+    }
 
-        for reader in readers {
-            let values = self.values_provider.get(reader)?;
-
-            providers.push(IntComparableProvider::new(values, missing_value));
-        }
-
-        Ok(providers)
+    fn get_missing_value(&self) -> MissingValueEnum {
+        (self.missing_value.unwrap_or(0) as i64).into()
     }
 
     type DocComparator = DocComparatorImplInt;
@@ -386,22 +423,30 @@ where
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        _reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
-        let mut providers = Vec::with_capacity(readers.len());
-        let missing_value = self.missing_value.unwrap_or(0);
+        let missing_value = match formated_missing_value {
+            MissingValueEnum::Long(value) => value,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "formated Missing value type mismatch for i64.",
+                ));
+            },
+        };
+        let values = self.values_provider.get(reader)?;
+        Ok(LongComparableProvider::new(values, *missing_value))
+    }
 
-        for reader in readers {
-            let values = self.values_provider.get(reader)?;
-            providers.push(LongComparableProvider::new(values, missing_value));
-        }
-
-        Ok(providers)
+    fn get_missing_value(&self) -> MissingValueEnum {
+        (self.missing_value.unwrap_or(0)).into()
     }
 
     type DocComparator = DocComparatorImplLong;
@@ -534,22 +579,30 @@ where
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        _reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
-        let mut providers = Vec::with_capacity(readers.len());
-        let missing_value_bits: i32 = (self.missing_value.unwrap_or(0.0)).to_bits() as i32;
+        let missing_value_bits = match formated_missing_value {
+            MissingValueEnum::Int(value) => value,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "formated Missing value type mismatch for i32.",
+                ));
+            },
+        };
+        let values = self.values_provider.get(reader)?;
+        Ok(FloatComparableProvider::new(values, *missing_value_bits))
+    }
 
-        for reader in readers {
-            let values = self.values_provider.get(reader)?;
-            providers.push(FloatComparableProvider::new(values, missing_value_bits));
-        }
-
-        Ok(providers)
+    fn get_missing_value(&self) -> MissingValueEnum {
+        (self.missing_value.unwrap_or(0.0).to_bits() as i32).into()
     }
 
     type DocComparator = DocComparatorImplFloat;
@@ -672,10 +725,41 @@ where
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
+    where
+        LR: LeafReader,
+    {
+        let missing_ord = match formated_missing_value {
+            MissingValueEnum::Int(value) => value,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "formated Missing value type mismatch for i32.",
+                ));
+            },
+        };
+        match ordinal_map {
+            Some(omap) => {
+                let global_ords = omap.get_global_ords(reader_index as i32).clone();
+                let reader_values = self.values_provider.get(reader)?;
+                Ok(StringComparableProvider {
+                    reader_values,
+                    global_ords,
+                    missing_ord: *missing_ord,
+                })
+            },
+            None => Err(LuceneError::illegal_state(
+                "ordinal_map is required for StringSorter.",
+            )),
+        }
+    }
+
+    fn get_ordinal_map<LR>(&self, readers: &[LR]) -> Result<Option<OrdinalMap>>
     where
         LR: LeafReader,
     {
@@ -683,28 +767,18 @@ where
         for reader in readers {
             values.push(self.values_provider.get(reader)?);
         }
+        Ok(Some(OrdinalMap::build_from_sorted(
+            None,
+            values.as_mut(),
+            PackedInts::DEFAULT,
+        )?))
+    }
 
-        let ordinal_map =
-            OrdinalMap::build_from_sorted(None, values.as_mut(), PackedInts::DEFAULT)?;
-
-        let missing_ord: i32 = match self.missing_value {
-            Some(MissingValueEnum::StringLast) => i32::MAX,
-            _ => i32::MIN,
-        };
-
-        let mut providers = Vec::with_capacity(readers.len());
-
-        for (reader_index, reader_values) in values.into_iter().enumerate() {
-            let global_ords = ordinal_map.get_global_ords(reader_index as i32).clone();
-
-            providers.push(StringComparableProvider {
-                reader_values,
-                global_ords,
-                missing_ord,
-            });
+    fn get_missing_value(&self) -> MissingValueEnum {
+        match self.missing_value {
+            Some(MissingValueEnum::StringLast) => i32::MAX.into(),
+            _ => i32::MIN.into(),
         }
-
-        Ok(providers)
     }
 
     type DocComparator = DocComparatorImplString;
@@ -798,6 +872,7 @@ macro_rules! either_comparable_provider {
         }
     };
 }
+either_comparable_provider!(pub ComparableProviderEnum3 { SortedNumeric: A, SortedSet: B, Sorter: C});
 either_comparable_provider!(pub ComparableProviderEnum5 { Int: A, Long: B, Float: C, Double: D, String: E });
 either_comparable_provider!(pub ComparableProviderEnum4 { Int: A, Long: B, Float: C, Double: D});
 pub type CPEnumType1<NP, LR, SP> = ComparableProviderEnum5<

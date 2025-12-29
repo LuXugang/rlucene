@@ -24,6 +24,7 @@ use crate::core::index::index_sorter::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
+use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
@@ -376,8 +377,8 @@ impl SortFiledBase for SortField {
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         debug_assert!(self.field.is_some());
         let field = self.field.as_ref().unwrap();
-        let get_value = NPImpl::new(field.to_string());
-        let v1 = SortedDocValuesProviderImpl::new(field.to_string());
+        let get_value = NPImpl1::new(field.to_string());
+        let v1 = SProviderImpl2::new(field.to_string());
         match self.type_ {
             SortFieldType::String => Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
                 NumericProvider::NAME.to_string(),
@@ -987,15 +988,15 @@ impl Hash for MissingValueEnum {
     }
 }
 
-pub struct SortedDocValuesProviderImpl {
+pub struct SProviderImpl2 {
     field: String,
 }
-impl SortedDocValuesProviderImpl {
+impl SProviderImpl2 {
     pub fn new(field: String) -> Self {
-        SortedDocValuesProviderImpl { field }
+        SProviderImpl2 { field }
     }
 }
-impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
+impl SortedDocValuesProvider for SProviderImpl2 {
     type SortedDocValues<LR>
         = SortedDocValuesEnum2<LR::SortedDocValues, EmptySorted>
     where
@@ -1008,16 +1009,16 @@ impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
         DocValues::get_sorted(leaf_reader, self.field.as_str())
     }
 }
-pub struct NPImpl {
+pub struct NPImpl1 {
     field: String,
 }
-impl NPImpl {
+impl NPImpl1 {
     pub fn new(field: String) -> Self {
-        NPImpl { field }
+        NPImpl1 { field }
     }
 }
 pub type NDVType<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
-impl NumericDocValuesProvider for NPImpl {
+impl NumericDocValuesProvider for NPImpl1 {
     type NumericDocValues<LR>
         = NDVType<LR>
     where
@@ -1031,11 +1032,11 @@ impl NumericDocValuesProvider for NPImpl {
     }
 }
 pub enum IndexSorterEnumSorter {
-    String(StringSorter<SortedDocValuesProviderImpl>),
-    Int(IntSorter<NPImpl>),
-    Long(LongSorter<NPImpl>),
-    Double(DoubleSorter<NPImpl>),
-    Float(FloatSorter<NPImpl>),
+    String(StringSorter<SProviderImpl2>),
+    Int(IntSorter<NPImpl1>),
+    Long(LongSorter<NPImpl1>),
+    Double(DoubleSorter<NPImpl1>),
+    Float(FloatSorter<NPImpl1>),
 }
 impl IndexSorter for IndexSorterEnumSorter {
     fn get_provider_name(&self) -> &str {
@@ -1049,58 +1050,81 @@ impl IndexSorter for IndexSorterEnumSorter {
     }
 
     type ComparableProvider<LR>
-        = CPEnumType1<NPImpl, LR, SortedDocValuesProviderImpl>
+        = CPEnumType1<NPImpl1, LR, SProviderImpl2>
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
         match self {
-            IndexSorterEnumSorter::Int(i) => {
-                let int_provider = i.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(int_provider.len());
-                for p in int_provider {
-                    provider.push(ComparableProviderEnum5::Int(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterEnumSorter::Long(l) => {
-                let long_provider = l.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(long_provider.len());
-                for p in long_provider {
-                    provider.push(ComparableProviderEnum5::Long(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterEnumSorter::Double(d) => {
-                let double_provider = d.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(double_provider.len());
-                for p in double_provider {
-                    provider.push(ComparableProviderEnum5::Double(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterEnumSorter::Float(f) => {
-                let float_provider = f.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(float_provider.len());
-                for p in float_provider {
-                    provider.push(ComparableProviderEnum5::Float(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterEnumSorter::String(s) => {
-                let string_provider = s.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(string_provider.len());
-                for p in string_provider {
-                    provider.push(ComparableProviderEnum5::String(p));
-                }
-                Ok(provider)
-            },
+            IndexSorterEnumSorter::Int(v) => Ok(ComparableProviderEnum5::Int(
+                v.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterEnumSorter::Long(v) => Ok(ComparableProviderEnum5::Long(
+                v.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterEnumSorter::Double(v) => Ok(ComparableProviderEnum5::Double(
+                v.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterEnumSorter::Float(v) => Ok(ComparableProviderEnum5::Float(
+                v.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterEnumSorter::String(v) => Ok(ComparableProviderEnum5::String(
+                v.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    ordinal_map,
+                )?,
+            )),
+        }
+    }
+
+    fn get_ordinal_map<LR>(&self, _readers: &[LR]) -> Result<Option<OrdinalMap>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSorterEnumSorter::String(s) => s.get_ordinal_map(_readers),
+            _ => Ok(None),
+        }
+    }
+
+    fn get_missing_value(&self) -> MissingValueEnum {
+        match self {
+            IndexSorterEnumSorter::Int(i) => i.get_missing_value(),
+            IndexSorterEnumSorter::Long(l) => l.get_missing_value(),
+            IndexSorterEnumSorter::Double(d) => d.get_missing_value(),
+            IndexSorterEnumSorter::Float(f) => f.get_missing_value(),
+            IndexSorterEnumSorter::String(s) => s.get_missing_value(),
         }
     }
 

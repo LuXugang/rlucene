@@ -18,6 +18,7 @@ use crate::core::index::dummy::doc_comparator::DummyDocComparator;
 use crate::core::index::dummy::dummy_comparable_provider::DummyComparableProvider;
 use crate::core::index::index_sorter::IndexSorter;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::search::sort_field::MissingValueEnum;
 
 pub struct DummyIndexSorter;
 impl IndexSorter for DummyIndexSorter {
@@ -37,6 +38,10 @@ impl IndexSorter for DummyIndexSorter {
     where
         LR: LeafReader,
     {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_missing_value(&self) -> MissingValueEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

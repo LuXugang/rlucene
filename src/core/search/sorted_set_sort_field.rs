@@ -149,7 +149,7 @@ impl SortFiledBase for SortedSetSortField {
         self.base.needs_scores()
     }
 
-    type IndexSort = StringSorter<SortedDocValuesProviderImpl>;
+    type IndexSort = StringSorter<SProviderImpl1>;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         debug_assert!(self.base.get_field().is_some());
@@ -158,10 +158,7 @@ impl SortFiledBase for SortedSetSortField {
             SetProvider::NAME.to_string(),
             missing_value,
             self.base.reverse,
-            SortedDocValuesProviderImpl::new(
-                self.selector,
-                self.base.get_field().unwrap().to_string(),
-            ),
+            SProviderImpl1::new(self.selector, self.base.get_field().unwrap().to_string()),
         )))
     }
 
@@ -249,16 +246,16 @@ impl PartialEq for SortedSetSortField {
 }
 impl Eq for SortedSetSortField {}
 
-pub struct SortedDocValuesProviderImpl {
+pub struct SProviderImpl1 {
     selector: SortedSetSelectorType,
     field: String,
 }
-impl SortedDocValuesProviderImpl {
+impl SProviderImpl1 {
     pub fn new(selector: SortedSetSelectorType, field: String) -> Self {
-        SortedDocValuesProviderImpl { selector, field }
+        SProviderImpl1 { selector, field }
     }
 }
-impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
+impl SortedDocValuesProvider for SProviderImpl1 {
     type SortedDocValues<LR>
         = SortedDocValuesWrap<SortedSet<LR>>
     where

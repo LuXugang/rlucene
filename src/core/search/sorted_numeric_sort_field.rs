@@ -22,6 +22,7 @@ use crate::core::index::index_sorter::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::search::comparators::double_comparator::{DoubleComparator, DoubleLeafComparator};
 use crate::core::search::comparators::float_comparator::{FloatComparator, FloatLeafComparator};
@@ -154,7 +155,7 @@ impl SortFiledBase for SortedNumericSortField {
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         debug_assert!(self.base.get_field().is_some());
-        let get_value = NPImpl1::new(
+        let get_value = NPImpl2::new(
             self.selector,
             self.type_,
             self.base.get_field().unwrap().to_string(),
@@ -401,12 +402,12 @@ impl PartialEq for SortedNumericSortField {
 }
 impl Eq for SortedNumericSortField {}
 
-pub struct NPImpl1 {
+pub struct NPImpl2 {
     selector: SortedNumericSelectorType,
     sort_field_type: SortFieldType,
     field: String,
 }
-impl NPImpl1 {
+impl NPImpl2 {
     pub fn new(
         selector: SortedNumericSelectorType,
         sort_field_type: SortFieldType,
@@ -420,7 +421,7 @@ impl NPImpl1 {
     }
 }
 pub type NPImpl1Type<LR> = SortedNumericSelectorWrap<SortedNumeric<LR>>;
-impl NumericDocValuesProvider for NPImpl1 {
+impl NumericDocValuesProvider for NPImpl2 {
     type NumericDocValues<LR>
         = NPImpl1Type<LR>
     where
@@ -439,10 +440,10 @@ impl NumericDocValuesProvider for NPImpl1 {
 }
 
 pub enum IndexSorterNumeric {
-    Int(IntSorter<NPImpl1>),
-    Long(LongSorter<NPImpl1>),
-    Double(DoubleSorter<NPImpl1>),
-    Float(FloatSorter<NPImpl1>),
+    Int(IntSorter<NPImpl2>),
+    Long(LongSorter<NPImpl2>),
+    Double(DoubleSorter<NPImpl2>),
+    Float(FloatSorter<NPImpl2>),
 }
 impl IndexSorter for IndexSorterNumeric {
     fn get_provider_name(&self) -> &str {
@@ -455,50 +456,62 @@ impl IndexSorter for IndexSorterNumeric {
     }
 
     type ComparableProvider<LR>
-        = CPEnumType2<NPImpl1, LR>
+        = CPEnumType2<NPImpl2, LR>
     where
         LR: LeafReader;
 
-    fn get_comparable_providers<LR>(
+    fn get_comparable_providers_per_reader<LR>(
         &self,
-        readers: &[LR],
-    ) -> Result<Vec<Self::ComparableProvider<LR>>>
+        reader: &LR,
+        reader_index: usize,
+        formated_missing_value: &MissingValueEnum,
+        _ordinal_map: Option<&OrdinalMap>,
+    ) -> Result<Self::ComparableProvider<LR>>
     where
         LR: LeafReader,
     {
         match self {
-            IndexSorterNumeric::Int(i) => {
-                let int_provider = i.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(int_provider.len());
-                for p in int_provider {
-                    provider.push(ComparableProviderEnum4::Int(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterNumeric::Long(l) => {
-                let long_provider = l.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(long_provider.len());
-                for p in long_provider {
-                    provider.push(ComparableProviderEnum4::Long(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterNumeric::Double(d) => {
-                let double_provider = d.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(double_provider.len());
-                for p in double_provider {
-                    provider.push(ComparableProviderEnum4::Double(p));
-                }
-                Ok(provider)
-            },
-            IndexSorterNumeric::Float(f) => {
-                let float_provider = f.get_comparable_providers(readers)?;
-                let mut provider = Vec::with_capacity(float_provider.len());
-                for p in float_provider {
-                    provider.push(ComparableProviderEnum4::Float(p));
-                }
-                Ok(provider)
-            },
+            IndexSorterNumeric::Int(i) => Ok(ComparableProviderEnum4::Int(
+                i.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterNumeric::Long(l) => Ok(ComparableProviderEnum4::Long(
+                l.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterNumeric::Double(d) => Ok(ComparableProviderEnum4::Double(
+                d.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+            IndexSorterNumeric::Float(f) => Ok(ComparableProviderEnum4::Float(
+                f.get_comparable_providers_per_reader(
+                    reader,
+                    reader_index,
+                    formated_missing_value,
+                    None,
+                )?,
+            )),
+        }
+    }
+
+    fn get_missing_value(&self) -> MissingValueEnum {
+        match self {
+            IndexSorterNumeric::Int(i) => i.get_missing_value(),
+            IndexSorterNumeric::Long(l) => l.get_missing_value(),
+            IndexSorterNumeric::Double(d) => d.get_missing_value(),
+            IndexSorterNumeric::Float(f) => f.get_missing_value(),
         }
     }
 

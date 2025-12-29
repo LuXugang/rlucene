@@ -14,16 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_comparable_provider::DummyComparableProvider;
-use crate::core::index::index_sorter::{DocComparatorImpl, IndexSorter, StringSorter};
+use crate::core::index::doc_values::SortedSet;
+use crate::core::index::index_sorter::{
+    CPEnumType1, CPEnumType2, ComparableProviderEnum3, DocComparatorImpl, IndexSorter,
+    StringComparableProvider, StringSorter,
+};
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field::{
-    IndexSorterEnumSorter, MissingValueEnum, SortField, SortFieldType, SortFiledBase,
+    IndexSorterEnumSorter, MissingValueEnum, NPImpl1, SProviderImpl2, SortField, SortFieldType,
+    SortFiledBase,
 };
-use crate::core::search::sorted_numeric_sort_field::{IndexSorterNumeric, SortedNumericSortField};
-use crate::core::search::sorted_set_sort_field::{SortedDocValuesProviderImpl, SortedSetSortField};
+use crate::core::search::sorted_numeric_sort_field::{
+    IndexSorterNumeric, NPImpl2, SortedNumericSortField,
+};
+use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
+use crate::core::search::sorted_set_sort_field::{SProviderImpl1, SortedSetSortField};
 use crate::core::store::DataOutput;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
@@ -165,10 +173,14 @@ impl From<SortedSetSortField> for SortFieldEnum {
         SortFieldEnum::SortedSet(sort_field)
     }
 }
-
+pub type CPType<LR> = ComparableProviderEnum3<
+    CPEnumType2<NPImpl2, LR>,
+    StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>,
+    CPEnumType1<NPImpl1, LR, SProviderImpl2>,
+>;
 pub enum IndexSortEnum {
     SortedNumeric(IndexSorterNumeric),
-    SortedSet(StringSorter<SortedDocValuesProviderImpl>),
+    SortedSet(StringSorter<SProviderImpl1>),
     Sorter(IndexSorterEnumSorter),
 }
 impl IndexSorter for IndexSortEnum {
@@ -181,18 +193,77 @@ impl IndexSorter for IndexSortEnum {
     }
 
     type ComparableProvider<LR>
-        = DummyComparableProvider
+        = CPType<LR>
     where
         LR: LeafReader;
 
     fn get_comparable_providers<LR>(
         &self,
-        _readers: &[LR],
+        readers: &[LR],
     ) -> Result<Vec<Self::ComparableProvider<LR>>>
     where
         LR: LeafReader,
     {
-        todo!()
+        let missing_value = self.get_missing_value();
+        let ordinal_map = self.get_ordinal_map(readers)?;
+        let mut provider = Vec::with_capacity(readers.len());
+        match self {
+            IndexSortEnum::SortedNumeric(sorter) => {
+                for (idx, reader) in readers.iter().enumerate() {
+                    let v = sorter.get_comparable_providers_per_reader(
+                        reader,
+                        idx,
+                        &missing_value,
+                        ordinal_map.as_ref(),
+                    )?;
+                    provider.push(ComparableProviderEnum3::SortedNumeric(v))
+                }
+                Ok(provider)
+            },
+            IndexSortEnum::SortedSet(sorter) => {
+                for (idx, reader) in readers.iter().enumerate() {
+                    let v = sorter.get_comparable_providers_per_reader(
+                        reader,
+                        idx,
+                        &missing_value,
+                        ordinal_map.as_ref(),
+                    )?;
+                    provider.push(ComparableProviderEnum3::SortedSet(v))
+                }
+                Ok(provider)
+            },
+            IndexSortEnum::Sorter(sorter) => {
+                for (idx, reader) in readers.iter().enumerate() {
+                    let v = sorter.get_comparable_providers_per_reader(
+                        reader,
+                        idx,
+                        &missing_value,
+                        ordinal_map.as_ref(),
+                    )?;
+                    provider.push(ComparableProviderEnum3::Sorter(v))
+                }
+                Ok(provider)
+            },
+        }
+    }
+
+    fn get_ordinal_map<LR>(&self, readers: &[LR]) -> Result<Option<OrdinalMap>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSortEnum::SortedNumeric(sorter) => sorter.get_ordinal_map(readers),
+            IndexSortEnum::SortedSet(sorter) => sorter.get_ordinal_map(readers),
+            IndexSortEnum::Sorter(sorter) => sorter.get_ordinal_map(readers),
+        }
+    }
+
+    fn get_missing_value(&self) -> MissingValueEnum {
+        match self {
+            IndexSortEnum::SortedNumeric(sorter) => sorter.get_missing_value(),
+            IndexSortEnum::SortedSet(sorter) => sorter.get_missing_value(),
+            IndexSortEnum::Sorter(sorter) => sorter.get_missing_value(),
+        }
     }
 
     type DocComparator = DocComparatorImpl;
