@@ -19,7 +19,7 @@ use std::process::{self, Command};
 
 pub(crate) fn run() {
     log(&colorize(
-        "Running uncommitted changes",
+        "Running Checking uncommitted changes",
         LogColor::Green,
         true,
     ));
@@ -29,7 +29,7 @@ pub(crate) fn run() {
         .expect("failed to execute git");
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
-        println!("✅ ✅ ✅ Working directory clean. All changes committed.");
+        log("✅ ✅ ✅ Working directory clean. All changes committed.")
     } else {
         log(
             "❌ ❌ ❌ Uncommitted changes detected after code check. Please run `Cargo tidy` then commit your work again.",
