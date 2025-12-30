@@ -29,10 +29,10 @@ use crate::core::util::error::{
     CollectionTerminatedError, CorruptIndexError, Eof, IllegalArgumentError, IllegalStateError,
     IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
     LockHeldByOtherError, LockObtainFailedError, MaxBytesLengthExceededError, MergeAbortedError,
-    MergeError, NeedImplementedError, NoSuchElementError, NotFoundError, NotImplementedError,
-    NumberFormatError, NumberOverflow, TimeExceededError, TooComplexToDeterminizeError,
-    TooManyClausesError, TooManyNestedClausesError, UncheckedIOError, UnreachableError,
-    UnsupportedOperationError,
+    MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError, NotFoundError,
+    NotImplementedError, NumberFormatError, NumberOverflow, TimeExceededError,
+    TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, UncheckedIOError,
+    UnreachableError, UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -119,6 +119,8 @@ pub enum LuceneError {
     TimeExceeded(#[from] TimeExceededError),
     #[error("{0}")]
     LockObtainFailed(#[from] LockObtainFailedError),
+    #[error("{0}")]
+    NoMoreTerms(#[from] NoMoreTermsError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $fn_name_with_source:ident, $variant:ident, $error_type:ident) => {
@@ -325,6 +327,12 @@ impl LuceneError {
         lock_obtain_failed_with_source,
         LockObtainFailed,
         LockObtainFailedError
+    );
+    error_ctor!(
+        no_more_terms,
+        no_more_terms_with_source,
+        NoMoreTerms,
+        NoMoreTermsError
     );
 }
 

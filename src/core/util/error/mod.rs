@@ -104,3 +104,4 @@ message_error!(TooManyClausesError);
 message_error!(TooManyNestedClausesError);
 message_error!(TimeExceededError);
 message_error!(LockObtainFailedError);
+message_error!(NoMoreTermsError);
