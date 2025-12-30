@@ -38,7 +38,7 @@ pub(crate) fn run() {
         process::exit(1);
     }
     log(&colorize(
-        "Finished uncommitted changes",
+        "Finished Checking uncommitted changes",
         LogColor::Green,
         true,
     ));
