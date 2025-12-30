@@ -1356,3 +1356,196 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests2 {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store::Yes;
+    use crate::core::index::BytesRef;
+    use crate::core::index::composite_reader_context::CompositeReaderContext;
+    use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+    use crate::core::index::multi_terms::get_terms;
+    use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+    use crate::core::index::terms::Terms;
+    use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+    use crate::core::search::index_searcher::DefaultIndexSearcher;
+    use crate::core::util::automation::automata::Automata;
+    use crate::core::util::automation::automaton::Automaton;
+    use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+    use crate::core::util::automation::operations::Operations;
+    use crate::core::util::automation::reg_exp::RegExp;
+    use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        DirType, at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+        new_string_field, random,
+    };
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    use rand::prelude::SliceRandom;
+    use std::borrow::Cow;
+    use std::collections::{BTreeSet, HashMap};
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTermsEnum2;
+
+    #[allow(clippy::type_complexity)]
+    fn set_up<R: Rng + ?Sized>(
+        random: &mut R,
+    ) -> Result<(
+        i32,
+        Arc<DirType>,
+        BTreeSet<BytesRef<Vec<u8>>>,
+        Automaton,
+        Arc<StandardDirectoryReaderType<DirType>>,
+        DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>,
+    )> {
+        let num_iterations = at_least(random, 50);
+
+        let dir = new_directory_shared(random)?;
+
+        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
+        let mut iwc = new_index_writer_config(random);
+        iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
+        let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+
+        let mut doc = Document::new();
+        let mut field = new_string_field("field", "", Yes, &mut HashMap::new())?;
+        doc.add(field.clone());
+
+        let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
+
+        let num = at_least(random, 200);
+        for _ in 0..num {
+            let s = TestUtil::random_unicode_string(random);
+            field.set_string_value(&s)?;
+            terms.insert(BytesRef::from_string(&s));
+            writer.add_document(doc.clone())?;
+        }
+        let v: Vec<BytesRef<Vec<u8>>> = terms.iter().cloned().collect();
+        let terms_automaton = Automata::make_string_union(v.as_slice())?;
+
+        let reader = Arc::new(writer.get_reader()?);
+        let searcher = new_searcher_with_reader(reader.clone())?;
+        writer.close()?;
+
+        Ok((
+            num_iterations,
+            dir.clone(),
+            terms,
+            terms_automaton,
+            reader,
+            searcher,
+        ))
+    }
+    #[test]
+    fn test_finite_versus_infinite() -> Result<()> {
+        // TODO AutomatonQuery未实现
+        Ok(())
+    }
+    fn test_seeking() -> Result<()> {
+        let mut random = random();
+        let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) =
+            set_up(&mut random)?;
+
+        for _ in 0..num_iterations {
+            // for _ in 0..1{
+            let reg = AutomatonTestUtil::random_regexp(&mut random)?;
+            let automaton = RegExp::from_str_with_flags(&reg, RegExp::NONE)?.to_automaton()?;
+            let vv =
+                Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            let v = match vv {
+                Cow::Borrowed(_) => automaton,
+                Cow::Owned(v1) => v1,
+            };
+
+            let mut te = get_terms(&reader, "field")?.unwrap().iterator()?;
+
+            let mut unsorted_terms: Vec<&BytesRef<Vec<u8>>> = terms.iter().collect();
+            unsorted_terms.shuffle(&mut random);
+
+            for term in unsorted_terms {
+                if Operations::run_str(&v, &term.utf8_to_string()?) {
+                    // assert!(te.seek_exact(&term)?);
+                    if random.random_bool(0.5) {
+                        assert!(te.seek_exact(term)?);
+                    } else {
+                        let status = te.seek_ceil(term)?;
+                        assert_eq!(SeekStatus::Found, status);
+                        assert_eq!(term, te.term()?.as_ref());
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+    fn test_seeking_and_nexting() -> Result<()> {
+        let mut random = random();
+        let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) =
+            set_up(&mut random)?;
+
+        for _ in 0..num_iterations {
+            let mut te = get_terms(&reader, "field")?.unwrap().iterator()?;
+
+            for term in terms.iter() {
+                let c = random.random_range(0..3);
+                if c == 0 {
+                    assert_eq!(term, te.next()?.unwrap().as_ref());
+                } else if c == 1 {
+                    let status = te.seek_ceil(term)?;
+                    assert_eq!(SeekStatus::Found, status);
+                    assert_eq!(term, te.term()?.as_ref());
+                } else {
+                    assert!(te.seek_exact(term)?);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn test_intersect() -> Result<()> {
+        let mut random = random();
+        let (num_iterations, _dir, _terms, terms_automaton, reader, _searcher) =
+            set_up(&mut random)?;
+
+        for _ in 0..num_iterations {
+            let reg = AutomatonTestUtil::random_regexp(&mut random)?;
+            let automaton = RegExp::from_str_with_flags(&reg, RegExp::NONE)?.to_automaton()?;
+            let automaton =
+                Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+                    .into_owned();
+
+            let mut ca = CompiledAutomaton::from_automaton(automaton.clone())?;
+
+            let mut te = get_terms(&reader, "field")?
+                .unwrap()
+                .intersect(&mut ca, None)?;
+            let v = Operations::intersection(&terms_automaton, &automaton)?.into_owned();
+            let expected =
+                match Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+                    Cow::Borrowed(_) => v,
+                    Cow::Owned(v1) => v1,
+                };
+            let mut found: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
+            while let Some(term) = te.next()? {
+                found.insert(BytesRef::deep_copy_of(&term));
+            }
+
+            let v: Vec<BytesRef<Vec<u8>>> = found.iter().cloned().collect();
+            let actual = Operations::determinize(
+                &Automata::make_string_union(v.as_slice())?,
+                Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+            )?
+            .into_owned();
+
+            assert!(AutomatonTestUtil::same_language(&expected, &actual)?);
+        }
+
+        Ok(())
+    }
+}
