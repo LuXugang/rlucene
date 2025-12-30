@@ -1419,11 +1419,13 @@ mod tests2 {
         let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
 
         let num = at_least(random, 200);
-        for _ in 0..num {
+        for _i in 0..num {
             let s = TestUtil::random_unicode_string(random);
             field.set_string_value(&s)?;
             terms.insert(BytesRef::from_string(&s));
-            writer.add_document(doc.clone())?;
+            let mut doc = Document::new();
+            doc.add(field.clone());
+            writer.add_document(doc)?;
         }
         let v: Vec<BytesRef<Vec<u8>>> = terms.iter().cloned().collect();
         let terms_automaton = Automata::make_string_union(v.as_slice())?;
@@ -1446,13 +1448,13 @@ mod tests2 {
         // TODO AutomatonQuery未实现
         Ok(())
     }
+    #[test]
     fn test_seeking() -> Result<()> {
         let mut random = random();
         let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) =
             set_up(&mut random)?;
 
         for _ in 0..num_iterations {
-            // for _ in 0..1{
             let reg = AutomatonTestUtil::random_regexp(&mut random)?;
             let automaton = RegExp::from_str_with_flags(&reg, RegExp::NONE)?.to_automaton()?;
             let vv =
@@ -1469,7 +1471,6 @@ mod tests2 {
 
             for term in unsorted_terms {
                 if Operations::run_str(&v, &term.utf8_to_string()?) {
-                    // assert!(te.seek_exact(&term)?);
                     if random.random_bool(0.5) {
                         assert!(te.seek_exact(term)?);
                     } else {
@@ -1483,6 +1484,7 @@ mod tests2 {
 
         Ok(())
     }
+    #[test]
     fn test_seeking_and_nexting() -> Result<()> {
         let mut random = random();
         let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) =
@@ -1507,7 +1509,7 @@ mod tests2 {
 
         Ok(())
     }
-
+    // TODO IMPORTANT 测试未通过
     fn test_intersect() -> Result<()> {
         let mut random = random();
         let (num_iterations, _dir, _terms, terms_automaton, reader, _searcher) =
@@ -1520,7 +1522,7 @@ mod tests2 {
                 Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
                     .into_owned();
 
-            let mut ca = CompiledAutomaton::from_automaton(automaton.clone())?;
+            let mut ca = CompiledAutomaton::new(automaton.clone(), false, false)?;
 
             let mut te = get_terms(&reader, "field")?
                 .unwrap()

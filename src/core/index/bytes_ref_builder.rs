@@ -206,32 +206,36 @@ mod tests {
 
     fn assert_case(chars: &[char], expected_len: usize) {
         let mut b: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
-        b.copy_chars_with_chars(chars, 0, chars.len());
+        let len = chars.len();
+        b.copy_chars_with_chars(chars, 0, len);
         let br = b.get_bytes_ref();
+
+        let s: String = chars.iter().collect();
+        assert_eq!(s.len(), expected_len);
+
         assert_eq!(br.length, expected_len);
-        let expected_bytes = chars.iter().collect::<String>().into_bytes();
+
+        let expected_bytes = s.into_bytes();
         br.bytes.access(|bytes| {
-            assert_eq!(&bytes[0..br.length], &expected_bytes);
+            assert_eq!(
+                &bytes[br.offset..br.offset + br.length],
+                expected_bytes.as_slice()
+            );
         });
+
         assert_eq!(br.offset, 0);
     }
+
     /// Extra test: Rust Lucene-only, not in upstream Lucene
     #[test]
     fn test_copy_chars_with_chars_lengths_0_to_4() {
-        //
-        let empty: [char; 0] = [];
-        assert_case(&empty, 0);
-        // 1: one bytes ('a')
-        let one = ['a'];
-        assert_case(&one, 1);
-        // 2: two bytes ('é')
-        let two = ['é'];
-        assert_case(&two, 2);
-        // 3: three bytes ('中')
-        let han = ['中'];
-        assert_case(&han, 3);
-        // 4: four bytes ('🦀')
-        let crab = ['🦀'];
-        assert_case(&crab, 4);
+        let mut expected_len = 'a'.len_utf8();
+        assert_case(&['a'], expected_len); // 1 byte
+        expected_len = 'é'.len_utf8();
+        assert_case(&['é'], expected_len); // 2 bytes
+        expected_len = '中'.len_utf8();
+        assert_case(&['中'], expected_len); // 3 bytes
+        expected_len = '🦀'.len_utf8();
+        assert_case(&['🦀'], expected_len); // 4 bytes
     }
 }

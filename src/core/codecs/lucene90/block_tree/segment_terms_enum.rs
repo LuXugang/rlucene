@@ -282,7 +282,7 @@ where
                 self.output_accumulator.push(arc.output());
 
                 if arc.is_final() {
-                    last_frame = (1 + self.stack[last_frame].ord + 1) as usize;
+                    last_frame = (1 + self.stack[last_frame].ord) as usize;
                 }
 
                 target_upto += 1;

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::store::{DataInput, DataOutput};
-use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, ToUsizeExact};
 
 /// LZ4 compression and decompression routines.
 ///
@@ -77,11 +77,9 @@ impl LZ4 {
         compressed: &mut impl DataInput,
         decompressed_len: i32,
         dest: &mut [u8],
-        d_off: i32,
+        mut d_off: i32,
     ) -> Result<i32> {
         let dest_end = d_off + decompressed_len;
-        let mut d_off = d_off;
-
         loop {
             let token = compressed.read_byte()? as i32;
             let mut literal_len = (token as u32 >> 4) as i32;
@@ -128,7 +126,7 @@ impl LZ4 {
             let fast_len = (match_len + 7) & 0xFFF8;
 
             if match_dec < match_len || d_off + fast_len > dest_end {
-                let mut start = (d_off - match_dec) as usize;
+                let mut start = (d_off - match_dec).to_usize_exact()?;
                 let end = d_off + match_len;
 
                 while d_off < end {

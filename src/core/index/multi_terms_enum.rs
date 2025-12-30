@@ -30,8 +30,10 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{Comparator, ToInt};
 use std::borrow::Cow;
 use std::rc::Rc;
+
 /// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
 /// merge sort, by term text, of the sub-readers.
+// TODO IMPORTANT 应该继承BaseTermsEnum
 pub struct MultiTermsEnum<TE>
 where
     TE: TermsEnum,
@@ -351,6 +353,13 @@ where
 
     fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        match self.current {
+            None => Err(LuceneError::illegal_state("current is None in term() call")),
+            Some(ref v) => Ok(Cow::Borrowed(v)),
+        }
     }
 
     fn ord(&self) -> Result<i64> {

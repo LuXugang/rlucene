@@ -106,9 +106,8 @@ where
     }
     pub(crate) fn compare_term_to(&self, that: &Self) -> Result<i32> {
         if self.current_term_prefix8 != that.current_term_prefix8 {
-            let cmp = self
-                .current_term_prefix8
-                .cmp(&that.current_term_prefix8)
+            let cmp = (self.current_term_prefix8 as u64)
+                .cmp(&(that.current_term_prefix8 as u64))
                 .to_int();
 
             debug_assert_eq!(
@@ -195,35 +194,36 @@ pub fn prefix8_to_comparable_unsigned_long(term: &BytesRef<Vec<u8>>) -> u64 {
         return BitUtil::get_i64_be(bytes, offset) as u64;
     }
 
-    let mut l = 0;
+    let mut l: u64 = 0;
     let mut o = 0;
 
     if len >= BitUtil::INT_BYTES {
-        l = BitUtil::get_i32_be(bytes, offset) as u64;
+        l = (BitUtil::get_i32_be(bytes, offset) as u32) as u64;
         o = BitUtil::INT_BYTES;
     }
 
     if o + BitUtil::SHORT_BYTES <= len {
-        let v = BitUtil::get_i16_be(bytes, offset + o) as u64;
-        l = (l << i16::BITS) | v;
+        let v = (BitUtil::get_i16_be(bytes, offset + o) as u16) as u64;
+        l = (l << u16::BITS) | v;
         o += BitUtil::SHORT_BYTES;
     }
 
     if o < len {
         let v = bytes[offset + o] as u64;
-        l = (l << i8::BITS) | v;
+        l = (l << u8::BITS) | v;
     }
 
     let pad_bits = (BitUtil::LONG_BYTES - len) << 3;
     l << pad_bits
 }
+
 #[cfg(test)]
 mod tests {
     use crate::core::index::BytesRef;
     use crate::core::index::terms_enum_index::prefix8_to_comparable_unsigned_long;
 
     #[allow(dead_code)] // for quick search
-    struct TermsEnumIndex;
+    struct TestTermsEnumIndex;
 
     #[test]
     fn test_prefix8_to_comparable_unsigned_long() {

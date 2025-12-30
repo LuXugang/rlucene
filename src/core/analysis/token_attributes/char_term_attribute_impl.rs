@@ -143,11 +143,10 @@ impl CharTermAttribute for CharTermAttributeImpl {
             return self.append_null();
         }
         let s = s.unwrap();
-        let len = s.len();
-        self.resize_buffer(self.term_length + len);
         let chars: Vec<char> = s.chars().collect();
+        self.resize_buffer(self.term_length + chars.len());
         self.term_buffer.copy_from(&chars, self.term_length);
-        self.term_length += len;
+        self.term_length += chars.len();
         self
     }
 
