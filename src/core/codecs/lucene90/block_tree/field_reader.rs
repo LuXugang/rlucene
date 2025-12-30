@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::BlockTermStateEnum;
+use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::VERSION_MSB_VLONG_OUTPUT;
 use crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::TermsReader;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
-use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnum;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::filtered_terms_enum::FilteredTermsEnumBase;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::ToInt;
-use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::fst::{FST, FSTMetadata, read_metadata};
@@ -182,17 +179,25 @@ where
         SegmentTermsEnum::new(self.clone())
     }
 
-    type IntersectIter
-        = DummyTermsEnum
-    where
-        Self::TermsEnum: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase;
+    type IntersectIter = IntersectTermsEnum<I, PR>;
+
     fn intersect(
         &self,
-        _compiled: &mut CompiledAutomaton,
-        _start_term: Option<&BytesRef<Vec<u8>>>,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        todo!()
+        if compiled.automaton_type != AutomatonType::Normal {
+            return Err(LuceneError::illegal_state(
+                "please use CompiledAutomaton.getTermsEnum instead",
+            ));
+        }
+        IntersectTermsEnum::new(
+            self.clone(),
+            compiled.get_transition_accessor(),
+            compiled.get_byte_runnable(),
+            compiled.common_suffix_ref.clone(),
+            start_term,
+        )
     }
 
     fn size(&self) -> Result<i64> {
