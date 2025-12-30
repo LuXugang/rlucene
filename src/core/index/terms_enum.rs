@@ -517,6 +517,7 @@ mod tests {
     use crate::core::document::field_type::FieldType;
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
     use crate::core::index::BytesRef;
+    use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::leaf_reader::LeafReader;
@@ -528,16 +529,17 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::index::term_state::TermState;
     use crate::core::index::terms::Terms;
-    use crate::core::index::terms_enum::TermsEnum;
+    use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum};
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::store::directory::Directory;
     use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::byte_runnable::ByteRunnable;
     use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+    use crate::core::util::automation::operations::Operations;
     use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         DirType, at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
@@ -545,6 +547,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
+    use std::borrow::Cow;
     use std::collections::{BTreeSet, HashMap, HashSet};
 
     #[allow(dead_code)] // for quick search
@@ -1174,6 +1177,182 @@ mod tests {
         assert!(te.next()?.is_none());
         Ok(())
     }
+    #[test]
+    fn test_intersect_start_term() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
 
-    // TODO 还有好几个测试
+        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
+        let iwc = IndexWriterConfig::new();
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "abd", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "acd", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "bcd", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        // TODO: force_merge
+        // writer.force_merge(1)?;
+
+        let reader = writer.get_reader()?;
+        writer.close()?;
+
+        let sub = get_only_leaf_reader(&reader)?;
+        let terms = sub.terms("field")?.expect("terms must exist");
+
+        let automaton = RegExp::from_str_with_flags(".*d", RegExp::NONE)?.to_automaton()?;
+        let v = match Operations::determinize(
+            &automaton,
+            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+        )? {
+            Cow::Borrowed(_) => automaton,
+            Cow::Owned(v) => v,
+        };
+
+        let mut ca = CompiledAutomaton::new(v, false, false)?;
+
+        // should seek to startTerm
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("aad")))?;
+        assert_eq!("abd", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("acd", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("bcd", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(3, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert!(te.next()?.is_none());
+
+        // should fail to find ceil label on second arc, rewind
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("add")))?;
+        assert_eq!("bcd", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(3, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert!(te.next()?.is_none());
+
+        // should reach end
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("bcd")))?;
+        assert!(te.next()?.is_none());
+
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("ddd")))?;
+        assert!(te.next()?.is_none());
+
+        Ok(())
+    }
+    #[test]
+    fn test_intersect_empty_string() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        // TODO: 未实现 MockAnalyzer / LogDocMergePolicy
+        let iwc = IndexWriterConfig::new();
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let mut field_to_type = HashMap::new();
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "", No, &mut field_to_type)?);
+        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "abc", No, &mut field_to_type)?);
+        doc.add(new_string_field("field", "", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        // TODO: force_merge
+        // writer.force_merge(1)?;
+
+        let reader = writer.get_reader()?;
+        writer.close()?;
+
+        let sub = get_only_leaf_reader(&reader)?;
+        let terms = sub.terms("field")?.expect("terms must exist");
+
+        let automaton = RegExp::from_str_with_flags(".*", RegExp::NONE)?.to_automaton()?;
+        let mut ca = CompiledAutomaton::new(automaton, false, false)?;
+
+        let mut te = terms.intersect(&mut ca, None)?;
+        let mut de;
+
+        assert_eq!("", te.next()?.unwrap().utf8_to_string()?);
+        de = te.postings_with_flags(None, NONE.into())?;
+        assert_eq!(0, de.next_doc()?);
+        assert_eq!(1, de.next_doc()?);
+
+        assert_eq!("abc", te.next()?.unwrap().utf8_to_string()?);
+        de = te.postings_with_flags(None, NONE.into())?;
+        assert_eq!(0, de.next_doc()?);
+        assert_eq!(1, de.next_doc()?);
+
+        assert!(te.next()?.is_none());
+
+        // pass empty string as start term
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("")))?;
+        assert_eq!("abc", te.next()?.unwrap().utf8_to_string()?);
+        de = te.postings_with_flags(None, NONE.into())?;
+        assert_eq!(0, de.next_doc()?);
+        assert_eq!(1, de.next_doc()?);
+
+        assert!(te.next()?.is_none());
+
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_terms() -> Result<()> {
+        // TODO PerThreadPKLookup未实现
+        Ok(())
+    }
+    #[test]
+    fn test_varying_terms_per_segment() -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    #[test]
+    fn test_intersect_regexp() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+
+        let mut field_to_type = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_string_field("field", "foobar", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let reader = writer.get_reader()?;
+        let terms = get_terms(&reader, "field")?.expect("terms must exist");
+
+        let automaton = RegExp::from_string("do_not_match_anything")?.to_automaton()?;
+        let mut ca = CompiledAutomaton::from_automaton(automaton)?;
+
+        let err = terms.intersect(&mut ca, None);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+        if let Err(LuceneError::IllegalArgument(msg)) = err {
+            assert_eq!(
+                "please use CompiledAutomaton.getTermsEnum instead",
+                msg.to_string()
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_invalid_automaton_terms_enum() -> Result<()> {
+        let automaton = Automata::make_string("foo")?;
+        let mut ca = CompiledAutomaton::from_automaton(automaton)?;
+
+        let err = AutomatonTermsEnum::new(EmptyTermsEnum, &mut ca);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+        Ok(())
+    }
 }

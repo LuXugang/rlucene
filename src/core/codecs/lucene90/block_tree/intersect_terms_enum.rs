@@ -236,9 +236,9 @@ where
         }
 
         IntersectTermsEnumFrame::load_from_output_accumulator(self, new_ord)?;
-
+        let frame = &self.stack[new_ord];
         self.output_accumulator
-            .pop(&self.arcs[new_ord].next_final_output());
+            .pop(&self.arcs[frame.arc].next_final_output());
 
         self.current_frame = new_ord;
 
@@ -392,7 +392,7 @@ where
                 self.output_accumulator.pop_n(output_num.try_into()?);
 
                 self.current_frame = (ord - 1) as usize;
-                self.current_transition = self.stack[self.current_frame].transition_index as usize;
+                self.current_transition = self.current_frame;
 
                 debug_assert!(self.stack[self.current_frame].last_sub_fp == last_fp);
             }
@@ -495,15 +495,14 @@ where
                             continue 'next_term;
                         }
 
-                        let len_in_prefix = common_suffix.length - frame.suffix;
-
                         let mut suffix_bytes_pos: usize;
                         let mut common_suffix_bytes_pos: usize = 0;
 
-                        if len_in_prefix > 0 {
+                        if common_suffix.length > frame.suffix {
                             // A prefix of the common suffix overlaps with
                             // the suffix of the block prefix so we first
                             // test whether the prefix part matches:
+                            let len_in_prefix = common_suffix.length - frame.suffix;
                             let mut term_bytes_pos = frame.prefix - len_in_prefix;
                             let term_bytes_end = frame.prefix;
                             while term_bytes_pos < term_bytes_end {

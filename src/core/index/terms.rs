@@ -63,12 +63,11 @@ pub trait Terms {
         Self: Sized,
     {
         let terms_enum = self.iterator()?;
-        let automaton_terms_enum = if start_term.is_some() {
-            AutomatonTermsEnum::with_start_term(compiled, start_term)?
+        if start_term.is_some() {
+            AutomatonTermsEnum::with_start_term(terms_enum, compiled, start_term)
         } else {
-            AutomatonTermsEnum::new(compiled)?
-        };
-        Ok(FilteredTermsEnum::new(terms_enum, automaton_terms_enum))
+            AutomatonTermsEnum::new(terms_enum, compiled)
+        }
     }
     /// Returns the number of terms for this field, or `-1` if this measure
     /// isn't stored by the codec.

@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::filtered_terms_enum::{AcceptStatus, FilteredTermsEnumBase};
+use crate::core::index::filtered_terms_enum::{
+    AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
+};
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
@@ -67,13 +70,23 @@ pub struct AutomatonTermsEnum {
     start_term: Option<BytesRef<Vec<u8>>>,
 }
 impl AutomatonTermsEnum {
-    pub fn new(compiled: &mut CompiledAutomaton) -> Result<Self> {
-        Self::with_start_term(compiled, None)
+    pub fn new<TE>(
+        tenum: TE,
+        compiled: &mut CompiledAutomaton,
+    ) -> Result<FilteredTermsEnum<TE, Self>>
+    where
+        TE: TermsEnum,
+    {
+        Self::with_start_term(tenum, compiled, None)
     }
-    pub fn with_start_term(
+    pub fn with_start_term<TE>(
+        tenum: TE,
         compiled: &mut CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
-    ) -> Result<Self> {
+    ) -> Result<FilteredTermsEnum<TE, Self>>
+    where
+        TE: TermsEnum,
+    {
         if compiled.automaton_type != AutomatonType::Normal {
             return Err(LuceneError::illegal_argument(
                 "please use CompiledAutomaton.get_terms_enum instead",
@@ -86,8 +99,7 @@ impl AutomatonTermsEnum {
         } else {
             vec![0u16; byte_runnable.get_size() as usize]
         };
-
-        Ok(Self {
+        let sub = Self {
             // FilteredTermsEnum parent initialization — you'd handle this separately
             byte_runnable,
             transition_accessor: compiled.get_transition_accessor(),
@@ -101,7 +113,8 @@ impl AutomatonTermsEnum {
             transition: Transition::default(),
             saved_states: IntsRefBuilder::new(),
             start_term: start_term.cloned(),
-        })
+        };
+        Ok(FilteredTermsEnum::new(tenum, sub))
     }
 
     /// Records the given state has been visited.
