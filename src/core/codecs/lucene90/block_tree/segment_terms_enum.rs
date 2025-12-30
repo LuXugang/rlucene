@@ -349,18 +349,16 @@ where
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             let next_arc_idx = self.get_arc(1 + target_upto);
-            let v = {
-                let fr_index = self.fr.index.as_ref().unwrap();
-                let reader = self.fst_reader.as_mut().unwrap();
+            let fr_index = self.fr.index.as_ref().unwrap();
+            let reader = self.fst_reader.as_mut().unwrap();
 
-                fr_index.find_target_arc(
-                    target_label,
-                    // clone here is acceptable
-                    &self.arcs[arc_index].clone(),
-                    &mut self.arcs[next_arc_idx],
-                    reader,
-                )?
-            };
+            let v = fr_index.find_target_arc(
+                target_label,
+                // TODO IMPORTANT avoid clone here
+                &self.arcs[arc_index].clone(),
+                &mut self.arcs[next_arc_idx],
+                reader,
+            )?;
 
             if v.is_none() {
                 // index exhausted
@@ -710,19 +708,17 @@ where
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             next_arc_idx = self.get_arc(1 + target_upto);
-            let v = {
-                let fr_index = self.fr.index.as_ref().unwrap();
+            let fr_index = self.fr.index.as_ref().unwrap();
 
-                let reader = self.fst_reader.as_mut().unwrap();
+            let reader = self.fst_reader.as_mut().unwrap();
 
-                fr_index.find_target_arc(
-                    target_label,
-                    // clone here is acceptable
-                    &self.arcs[arc_index].clone(),
-                    &mut self.arcs[next_arc_idx],
-                    reader,
-                )?
-            };
+            let v = fr_index.find_target_arc(
+                target_label,
+                // TODO IMPORTANT avoid clone here through clone here is acceptable
+                &self.arcs[arc_index].clone(),
+                &mut self.arcs[next_arc_idx],
+                reader,
+            )?;
 
             if v.is_none() {
                 let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -887,7 +883,7 @@ where
 
         let v = postings_reader
             .postings(field_info, &current_frame.state, reuse, flags)?
-            .unwrap();
+            .ok_or_else(|| LuceneError::illegal_state("could not get postings enum"))?;
         Ok(v)
     }
 
