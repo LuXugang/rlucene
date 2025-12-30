@@ -197,7 +197,7 @@ where
         } else {
             f.next_ent = -1;
             f.prefix_length = length;
-            f.state.get_block_term_state().term_block_ord = 0;
+            f.state.get_block_term_state_mut().term_block_ord = 0;
             f.fp_orig = fp;
             f.fp = fp;
             f.last_sub_fp = -1;
@@ -847,7 +847,7 @@ where
             &mut self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame.state.get_block_term_state().doc_freq)
+        Ok(current_frame.state.get_block_term_state_mut().doc_freq)
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
@@ -860,7 +860,10 @@ where
             &mut self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame.state.get_block_term_state().total_term_freq)
+        Ok(current_frame
+            .state
+            .get_block_term_state_mut()
+            .total_term_freq)
     }
 
     type PostingsEnum = P::PostingsEnum;

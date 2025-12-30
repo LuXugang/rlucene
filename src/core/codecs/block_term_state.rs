@@ -71,9 +71,15 @@ pub enum BlockTermStateEnum {
     Block(BlockTermState),
 }
 impl BlockTermStateEnum {
-    pub fn get_block_term_state(&mut self) -> &mut BlockTermState {
+    pub fn get_block_term_state_mut(&mut self) -> &mut BlockTermState {
         match self {
             BlockTermStateEnum::Int(int) => &mut int.base,
+            BlockTermStateEnum::Block(block) => block,
+        }
+    }
+    pub fn get_block_term_state(&self) -> &BlockTermState {
+        match self {
+            BlockTermStateEnum::Int(int) => &int.base,
             BlockTermStateEnum::Block(block) => block,
         }
     }

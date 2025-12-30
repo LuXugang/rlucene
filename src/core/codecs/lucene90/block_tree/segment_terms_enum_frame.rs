@@ -105,7 +105,7 @@ impl SegmentTermsEnumFrame {
             .unwrap()
             .postings_reader
             .new_term_state()?;
-        state.get_block_term_state().total_term_freq = -1;
+        state.get_block_term_state_mut().total_term_freq = -1;
         let suffix_bytes = vec![0u8; 32];
         let suffixes_reader = ByteArrayDataInput::with_bytes(suffix_bytes);
         let suffix_length_bytes = vec![0u8; 32];
@@ -171,7 +171,7 @@ impl SegmentTermsEnumFrame {
         if self.is_leaf_block {
             self.next_ent
         } else {
-            self.state.get_block_term_state().term_block_ord
+            self.state.get_block_term_state_mut().term_block_ord
         }
     }
     pub(crate) fn load_next_floor_block<I, P>(
@@ -337,7 +337,7 @@ impl SegmentTermsEnumFrame {
         frame.stats_singleton_run_length = 0;
         frame.meta_data_upto = 0;
 
-        frame.state.get_block_term_state().term_block_ord = 0;
+        frame.state.get_block_term_state_mut().term_block_ord = 0;
         frame.next_ent = 0;
         frame.last_sub_fp = -1;
         // metadata
@@ -496,7 +496,7 @@ impl SegmentTermsEnumFrame {
                 // Normal term
                 ste.term_exists = true;
                 frame.sub_code = 0;
-                frame.state.get_block_term_state().term_block_ord += 1;
+                frame.state.get_block_term_state_mut().term_block_ord += 1;
                 Ok(false)
             } else {
                 // A sub-block; make sub-FP absolute:
@@ -592,7 +592,7 @@ impl SegmentTermsEnumFrame {
         debug_assert!(limit > 0);
 
         while frame.meta_data_upto < limit {
-            let state = frame.state.get_block_term_state();
+            let state = frame.state.get_block_term_state_mut();
 
             if frame.stats_singleton_run_length > 0 {
                 state.doc_freq = 1;
@@ -631,7 +631,7 @@ impl SegmentTermsEnumFrame {
             absolute = false;
         }
 
-        frame.state.get_block_term_state().term_block_ord = frame.meta_data_upto;
+        frame.state.get_block_term_state_mut().term_block_ord = frame.meta_data_upto;
 
         Ok(())
     }
@@ -699,7 +699,7 @@ impl SegmentTermsEnumFrame {
                     return Ok(());
                 }
             } else {
-                frame.state.get_block_term_state().term_block_ord += 1;
+                frame.state.get_block_term_state_mut().term_block_ord += 1;
             }
         }
     }
@@ -1000,7 +1000,7 @@ impl SegmentTermsEnumFrame {
                     ste.term_exists
                 };
                 if exists {
-                    frame.state.get_block_term_state().term_block_ord += 1;
+                    frame.state.get_block_term_state_mut().term_block_ord += 1;
                     frame.sub_code = 0;
                 } else {
                     frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
