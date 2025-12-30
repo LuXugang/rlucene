@@ -609,7 +609,10 @@ where
         match self.next_() {
             Ok(Some(v)) => Ok(Option::from(Cow::Borrowed(v))),
             Ok(None) => Ok(None),
-            Err(e) => Err(e),
+            Err(e) => match e {
+                LuceneError::NoMoreTerms(_) => Ok(None),
+                _ => Err(e),
+            },
         }
     }
 }

@@ -284,9 +284,9 @@ impl IntersectTermsEnumFrame {
         frame.is_leaf_block = (code_l & 0x04) != 0;
         let num_suffix_bytes = (code_l as u64 >> 3) as usize;
 
-        if frame.suffix_lengths_reader.bytes.len() < num_suffix_bytes {
+        if frame.suffixes_reader.bytes.len() < num_suffix_bytes {
             let new_len = ArrayUtil::oversize(num_suffix_bytes, 1);
-            frame.suffix_lengths_reader.bytes = vec![0u8; new_len];
+            frame.suffixes_reader.bytes = vec![0u8; new_len];
         }
 
         let compression_alg = match CompressionAlgorithm::by_code((code_l & 0x03).try_into()?) {
@@ -301,7 +301,7 @@ impl IntersectTermsEnumFrame {
 
         compression_alg.read(
             input,
-            &mut frame.suffix_lengths_reader.bytes,
+            &mut frame.suffixes_reader.bytes,
             num_suffix_bytes.try_into()?,
         )?;
 

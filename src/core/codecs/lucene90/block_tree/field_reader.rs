@@ -16,7 +16,9 @@
  */
 use crate::core::codecs::block_term_state::BlockTermStateEnum;
 use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
-use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::VERSION_MSB_VLONG_OUTPUT;
+use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
+    OUTPUT_FLAG_HAS_TERMS, VERSION_MSB_VLONG_OUTPUT,
+};
 use crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::TermsReader;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
@@ -136,7 +138,8 @@ where
             tmp_data.root_code.offset,
             tmp_data.root_code.length,
         );
-        reader.root_block_fp = reader.read_vlong_output(&mut input)?;
+        reader.root_block_fp =
+            ((reader.read_vlong_output(&mut input)? as u64) >> OUTPUT_FLAG_HAS_TERMS).try_into()?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
             bytes: Arc::new(input.bytes),

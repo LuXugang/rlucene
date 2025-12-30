@@ -518,6 +518,8 @@ mod tests {
     use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
     use crate::core::index::BytesRef;
     use crate::core::index::index_reader::IndexReader;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::leaf_reader::LeafReader;
     use crate::core::index::multi_doc_values::MultiDocValues;
     use crate::core::index::multi_terms::get_terms;
     use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -533,16 +535,18 @@ mod tests {
     use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::byte_runnable::ByteRunnable;
     use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+    use crate::core::util::automation::reg_exp::RegExp;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, at_least, new_bytes_ref_from_string, new_directory_shared,
+        DirType, at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
         new_index_writer_config, new_string_field, new_text_field, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::collections::{BTreeSet, HashMap, HashSet};
+
     #[allow(dead_code)] // for quick search
     struct TestTermsEnum;
 
@@ -1114,8 +1118,62 @@ mod tests {
     }
     #[test]
     fn test_intersect_basic() -> Result<()> {
-        // TODO force_merge未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        // TODO: 未实现MockAnalyzer/LogDocMergePolicy
+        let iwc = IndexWriterConfig::new();
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+        let mut field_to_type = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_text_field("field", "aaa", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_text_field("field", "bbb", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_text_field("field", "ccc", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        // TODO: force_merge
+        // writer.force_merge(1)?;
+
+        let reader = writer.get_reader()?;
+        writer.close()?;
+
+        let sub = get_only_leaf_reader(&reader)?;
+        let terms = sub.terms("field")?.expect("terms must exist");
+
+        let automaton = RegExp::from_str_with_flags(".*", RegExp::NONE)?.to_automaton()?;
+        let mut ca = CompiledAutomaton::new(automaton, false, false)?;
+
+        let mut te = terms.intersect(&mut ca, None)?;
+        assert_eq!("aaa", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(0, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert!(te.next()?.is_none());
+
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("abc")))?;
+        assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert!(te.next()?.is_none());
+
+        let mut te = terms.intersect(&mut ca, Some(&BytesRef::from_string("aaa")))?;
+        assert_eq!("bbb", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(1, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
+        assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
+        assert!(te.next()?.is_none());
         Ok(())
     }
+
     // TODO 还有好几个测试
 }
