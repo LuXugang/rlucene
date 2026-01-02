@@ -140,18 +140,18 @@ where
     fn get_max_score_for_level(
         &mut self,
         level: i32,
-        impacts_source: &mut Option<&mut IS>,
+        impacts_source: &Option<&mut IS>,
     ) -> Result<f32> {
+        self.ensure_cache_size((level + 1) as usize)?;
         let impacts_source = match self.impacts_source {
-            Some(ref mut is) => {
+            Some(ref is) => {
                 debug_assert!(impacts_source.is_none());
                 is
             },
-            None => impacts_source.as_mut().unwrap(),
+            None => impacts_source.as_ref().unwrap(),
         };
         debug_assert!(level >= 0, "level must not be negative; got {}", level);
         let mut impacts = impacts_source.get_impacts()?;
-        self.ensure_cache_size((level + 1) as usize)?;
 
         let level_up_to = impacts.get_doc_id_upto(level);
         if self.max_score_cache_upto[level as usize] < level_up_to {
@@ -168,7 +168,7 @@ where
         &mut self,
         impacts: &I,
         min_score: f32,
-        impacts_source: &mut Option<&mut IS>,
+        impacts_source: &Option<&mut IS>,
     ) -> Result<i32>
     where
         I: Impacts,
@@ -189,7 +189,7 @@ where
         min_score: f32,
         impacts_source: &mut Option<&mut IS>,
     ) -> Result<i32> {
-        let impacts = impacts_source.as_mut().unwrap().get_impacts()?;
+        let impacts = impacts_source.as_ref().unwrap().get_impacts()?;
         let level = self.get_skip_level(&impacts, min_score, impacts_source)?;
         if level == -1 {
             Ok(-1)

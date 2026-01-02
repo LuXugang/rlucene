@@ -42,11 +42,11 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
+use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VECTOR_UTIL;
-use crate::core::util::{CoreHelper, SliceCopyOps};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -450,7 +450,6 @@ where
     level0_block_pos_upto: i32,
     level0_pay_end_fp: i64,
     level0_block_pay_upto: i32,
-    // TODO: 调用get_impacts时，暂时移除所有权，如果该值为空 说明Java Lucene中有重复的读取
     level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
     #[allow(dead_code)]
     level0_impacts: Option<MutableImpactList>,
@@ -1417,31 +1416,23 @@ where
         Ok(())
     }
 
-    type Impacts = ImpactsImpl;
+    type Impacts<'a>
+        = ImpactsImpl<'a>
+    where
+        I: 'a;
 
-    fn get_impacts(&mut self) -> Result<Self::Impacts> {
+    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
         let max_num_impacts_at_level0 = self.max_num_impacts_at_level0 as usize;
         let max_num_impacts_at_level1 = self.max_num_impacts_at_level1 as usize;
-        let level0_serialized_impacts =
-            CoreHelper::take_and_reset(&mut self.level0_serialized_impacts, |_| {
-                Some(BytesRef::with_capacity(
-                    self.max_impact_num_bytes_at_level0 as usize,
-                ))
-            })
-            .unwrap();
-        let level1_serialized_impacts =
-            CoreHelper::take_and_reset(&mut self.level1_serialized_impacts, |_| {
-                Some(BytesRef::with_capacity(
-                    self.max_impact_num_bytes_at_level1 as usize,
-                ))
-            })
-            .unwrap();
+        if self.level0_serialized_impacts.is_none() || self.level1_serialized_impacts.is_none() {
+            return Err(LuceneError::illegal_state("impacts data not loaded"));
+        }
         Ok(ImpactsImpl {
             index_has_freq: self.index_has_freq,
             level0_last_doc_id: self.level0_last_doc_id,
             level1_last_doc_id: self.level1_last_doc_id,
-            level0_serialized_impacts,
-            level1_serialized_impacts,
+            level0_serialized_impacts: self.level0_serialized_impacts.as_ref().unwrap(),
+            level1_serialized_impacts: self.level1_serialized_impacts.as_ref().unwrap(),
             max_num_impacts_at_level0,
             max_num_impacts_at_level1,
         })
@@ -1449,16 +1440,16 @@ where
 }
 impl<I> ImpactsEnum for BlockPostingsEnum<I> where I: IndexInput {}
 
-pub struct ImpactsImpl {
+pub struct ImpactsImpl<'a> {
     index_has_freq: bool,
     level0_last_doc_id: i32,
     level1_last_doc_id: i32,
-    level0_serialized_impacts: BytesRef<Vec<u8>>,
-    level1_serialized_impacts: BytesRef<Vec<u8>>,
+    level0_serialized_impacts: &'a BytesRef<Vec<u8>>,
+    level1_serialized_impacts: &'a BytesRef<Vec<u8>>,
     max_num_impacts_at_level0: usize,
     max_num_impacts_at_level1: usize,
 }
-impl ImpactsImpl {
+impl ImpactsImpl<'_> {
     fn read_impacts(serialized: &[u8], level_impacts_len: usize) -> Result<MutableImpactList> {
         let len = serialized.len();
         let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
@@ -1467,7 +1458,7 @@ impl ImpactsImpl {
         Ok(level_impacts)
     }
 }
-impl Impacts for ImpactsImpl {
+impl Impacts for ImpactsImpl<'_> {
     fn num_levels(&self) -> i32 {
         if !self.index_has_freq || self.level1_last_doc_id == NO_MORE_DOCS {
             1

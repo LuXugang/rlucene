@@ -24,6 +24,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
+
 /// [`ImpactsEnum`] that doesn't index impacts but implements the API in a legal way.
 /// This is typically used for short postings that do not need skipping.
 pub struct SlowImpactsEnum<P>
@@ -91,9 +92,12 @@ where
         Ok(())
     }
 
-    type Impacts = DummyImpacts;
+    type Impacts<'a>
+        = DummyImpacts
+    where
+        Self: 'a;
 
-    fn get_impacts(&mut self) -> Result<Self::Impacts> {
+    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
         Ok(DummyImpacts::new())
     }
 }

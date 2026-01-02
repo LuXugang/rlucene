@@ -62,9 +62,12 @@ impl ImpactsSource for DummyImpactsEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Impacts = DummyImpacts;
+    type Impacts<'a>
+        = DummyImpacts
+    where
+        Self: 'a;
 
-    fn get_impacts(&mut self) -> Result<Self::Impacts> {
+    fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -125,9 +125,12 @@ where
         }
     }
 
-    type Impacts = ImpactsEnum2<A::Impacts, B::Impacts>;
+    type Impacts<'a>
+        = ImpactsEnum2<A::Impacts<'a>, B::Impacts<'a>>
+    where
+        Self: 'a;
 
-    fn get_impacts(&mut self) -> lucene_error::Result<Self::Impacts> {
+    fn get_impacts(&self) -> lucene_error::Result<Self::Impacts<'_>> {
         match self {
             ImpactsEnumEnum2::A(t) => {
                 let impacts = t.get_impacts()?;
