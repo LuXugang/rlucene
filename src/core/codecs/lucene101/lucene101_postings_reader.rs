@@ -46,7 +46,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VECTOR_UTIL;
-use crate::core::util::{CoreHelper, SliceCopyOps, ToUsizeExact};
+use crate::core::util::{CoreHelper, SliceCopyOps};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -509,12 +509,8 @@ where
                     Some(BytesRef::with_capacity(
                         reader.max_impact_num_bytes_at_level1 as usize,
                     )),
-                    MutableImpactList::with_capacity(
-                        reader.max_num_impacts_at_level0.to_usize_exact()?,
-                    ),
-                    MutableImpactList::with_capacity(
-                        reader.max_num_impacts_at_level1.to_usize_exact()?,
-                    ),
+                    MutableImpactList::with_capacity(reader.max_num_impacts_at_level0.try_into()?),
+                    MutableImpactList::with_capacity(reader.max_num_impacts_at_level1.try_into()?),
                 )
             } else {
                 (

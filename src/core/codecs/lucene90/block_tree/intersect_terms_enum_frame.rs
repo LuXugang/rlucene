@@ -23,7 +23,7 @@ use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::index_options::IndexOptions::Docs;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
-use crate::core::util::ToUsizeExact;
+
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::transition::Transition;
@@ -385,7 +385,7 @@ impl IntersectTermsEnumFrame {
             self.fp
         );
         self.next_ent += 1;
-        self.suffix = self.suffix_lengths_reader.read_vint()?.to_usize_exact()?;
+        self.suffix = self.suffix_lengths_reader.read_vint()?.try_into()?;
         self.start_byte_pos = self.suffixes_reader.get_position();
         self.suffixes_reader.skip_bytes(self.suffix as i64)?;
         Ok(())

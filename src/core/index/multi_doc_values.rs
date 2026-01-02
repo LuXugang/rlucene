@@ -43,7 +43,7 @@ use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTerm
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::ToUsizeExact;
+
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
@@ -555,10 +555,10 @@ where
     }
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let sub_index = self
+        let sub_index: usize = self
             .mapping
             .get_first_segment_number(ord as i64)?
-            .to_usize_exact()?;
+            .try_into()?;
         let segment_ord = self.mapping.get_first_segment_ord(ord as i64)?.try_into()?;
         self.values[sub_index].lookup_ord(segment_ord)
     }
@@ -762,10 +762,7 @@ where
     }
 
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let sub_index = self
-            .mapping
-            .get_first_segment_number(ord)?
-            .to_usize_exact()?;
+        let sub_index: usize = self.mapping.get_first_segment_number(ord)?.try_into()?;
         let segment_ord = self.mapping.get_first_segment_ord(ord)?;
         self.values[sub_index].lookup_ord(segment_ord)
     }

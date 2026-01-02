@@ -150,69 +150,6 @@ impl<T> OptionTakeExt<T> for Option<T> {
         res
     }
 }
-
-/// Converts a signed integer to `usize` with overflow checking.
-///
-/// This trait ensures safe conversion from signed integers (`i16`, `i32`,
-/// `i64`) to `usize`, explicitly rejecting negative values to prevent
-/// unintended behavior.
-///
-/// **Important:** In Rust, casting a negative value using `as` (e.g., `-1_i32
-/// as usize`) will not panic. Instead, it wraps around and produces a large
-/// `usize` value (e.g., `usize::MAX` on most platforms). This trait avoids that
-/// risk by returning an error.
-///
-/// # Examples
-///
-/// ```
-/// use rlucene::core::util::ToUsizeExact;
-/// use rlucene::core::util::error::lucene_error::LuceneError;
-///
-/// let x: i32 = 10;
-/// let u = x.to_usize_exact();
-/// assert!(u.is_ok());
-///
-/// let x: i32 = -5;
-/// let u = x.to_usize_exact();
-/// assert!(matches!(u.unwrap_err(), LuceneError::IllegalState(_)));
-/// // Without this trait:
-/// let bad: usize = -1_i32 as usize; // 18446744073709551615 on 64-bit platforms not we expected
-/// ```
-///
-/// # Errors
-///
-/// Returns `LuceneError::number_overflow` if the value is negative.
-///
-/// # See Also
-///
-/// - [`TryFrom<i32> for usize`](https://doc.rust-lang.org/std/convert/trait.TryFrom.html)
-/// - [`as` casting pitfalls](https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions)
-pub trait ToUsizeExact {
-    /// Performs a checked conversion to `usize`, returning an error if the
-    /// value is negative.
-    fn to_usize_exact(self) -> Result<usize>;
-}
-
-macro_rules! impl_to_usize_exact {
-    ($($t:ty),+) => {
-        $(
-            impl ToUsizeExact for $t {
-                fn to_usize_exact(self) -> Result<usize> {
-                    if self < 0 {
-                        Err(LuceneError::illegal_state(format!(
-                            "negative value cannot be converted to usize: {}", self
-                        )))
-                    } else {
-                        Ok(self as usize)
-                    }
-                }
-            }
-        )+
-    };
-}
-
-impl_to_usize_exact!(i16, i32, i64);
-
 pub trait BitSetExt {
     fn next_set_bit(&self, from: usize) -> i32;
 }
