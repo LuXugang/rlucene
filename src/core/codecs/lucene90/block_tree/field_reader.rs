@@ -134,7 +134,7 @@ where
         reader.index = Some(Arc::new(index));
         // ownership to ByteArrayDataInput
         let mut input = ByteArrayDataInput::with_range(
-            tmp_data.root_code.bytes,
+            tmp_data.root_code.bytes.as_slice(),
             tmp_data.root_code.offset,
             tmp_data.root_code.length,
         );
@@ -142,7 +142,7 @@ where
             ((reader.read_vlong_output(&mut input)? as u64) >> OUTPUT_FLAG_HAS_TERMS).try_into()?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
-            bytes: Arc::new(input.bytes),
+            bytes: Arc::new(tmp_data.root_code.bytes),
             offset: tmp_data.root_code.offset,
             length: tmp_data.root_code.length,
         };

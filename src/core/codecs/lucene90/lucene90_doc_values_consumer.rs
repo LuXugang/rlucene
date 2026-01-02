@@ -209,7 +209,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
 
     fn write_levels(&mut self, accumulators: Vec<SkipAccumulator>) -> Result<()> {
-        let mut accumulators_levels: Vec<Vec<SkipAccumulator>> =
+        let mut accumulators_levels =
             Vec::with_capacity(Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL);
         let accumulators_len = accumulators.len();
         accumulators_levels.push(accumulators);

@@ -215,3 +215,25 @@ impl ByteSource for &[u8] {
         self
     }
 }
+pub trait ByteSourceMut {
+    fn as_slice_mut(&mut self) -> &mut [u8];
+    fn as_slice(&self) -> &[u8];
+}
+impl ByteSourceMut for Vec<u8> {
+    fn as_slice_mut(&mut self) -> &mut [u8] {
+        self
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}
+impl ByteSourceMut for &mut [u8] {
+    fn as_slice_mut(&mut self) -> &mut [u8] {
+        self
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}

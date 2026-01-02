@@ -16,7 +16,7 @@
  */
 use crate::core::store::data_output::DataOutput;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::util::access::ByteSourceMut;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 
@@ -29,28 +29,24 @@ use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// This is an experimental API.
 #[derive(Default)]
-pub struct ByteArrayDataOutput<AV>
+pub struct ByteArrayDataOutput<B>
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSourceMut,
 {
-    pub bytes: AV,
+    pub bytes: B,
     pos: usize,
     limit: usize,
 }
 
-impl<AV> ByteArrayDataOutput<AV>
+impl<B> ByteArrayDataOutput<B>
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSourceMut,
 {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_bytes(bytes: AV) -> Self {
-        let len = bytes.access(|bytes| bytes.len());
+    pub fn with_bytes(bytes: B) -> Self {
+        let len = bytes.as_slice().len();
         Self::with_range(bytes, 0, len)
     }
-    pub fn with_range(bytes: AV, offset: usize, length: usize) -> Self {
+    pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
         Self {
             bytes,
             pos: offset,
@@ -58,7 +54,7 @@ where
         }
     }
     pub fn reset(&mut self) -> Result<()> {
-        let len = self.bytes.access(|bytes| bytes.len());
+        let len = self.bytes.as_slice().len();
         let offset = 0;
         self.reset_with_range(offset, len)
     }
@@ -71,20 +67,15 @@ where
     pub fn get_position(&self) -> usize {
         self.pos
     }
-    pub fn take_bytes(&mut self) -> AV {
-        std::mem::take(&mut self.bytes)
-    }
 }
 
-impl<AV> DataOutput for ByteArrayDataOutput<AV>
+impl<B> DataOutput for ByteArrayDataOutput<B>
 where
-    AV: SharedAccessVec<u8> + WritableVec<u8>,
+    B: ByteSourceMut,
 {
     fn write_byte(&mut self, b: u8) -> Result<()> {
         debug_assert!(self.pos < self.limit);
-        self.bytes.access_mut(|bytes| {
-            bytes[self.pos] = b;
-        });
+        self.bytes.as_slice_mut()[self.pos] = b;
         self.pos += 1;
         Ok(())
     }
@@ -97,9 +88,9 @@ where
             length,
             self.limit
         );
-        self.bytes.access_mut(|bytes| {
-            bytes.copy_from(&b[offset as usize..(offset + length) as usize], self.pos);
-        });
+        self.bytes
+            .as_slice_mut()
+            .copy_from(&b[offset as usize..(offset + length) as usize], self.pos);
         self.pos += length as usize;
         Ok(())
     }
@@ -109,9 +100,7 @@ where
             self.pos + BitUtil::INT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        self.bytes.access_mut(|bytes| {
-            BitUtil::set_i32_le(bytes, self.pos, i);
-        });
+        BitUtil::set_i32_le(self.bytes.as_slice_mut(), self.pos, i);
         self.pos += BitUtil::INT_BYTES;
         Ok(())
     }
@@ -121,9 +110,7 @@ where
             self.pos + BitUtil::SHORT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        self.bytes.access_mut(|bytes| {
-            BitUtil::set_i16_le(bytes, self.pos, i);
-        });
+        BitUtil::set_i16_le(self.bytes.as_slice_mut(), self.pos, i);
         self.pos += BitUtil::SHORT_BYTES;
         Ok(())
     }
@@ -133,9 +120,7 @@ where
             self.pos + BitUtil::LONG_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        self.bytes.access_mut(|bytes| {
-            BitUtil::set_i64_le(bytes, self.pos, i);
-        });
+        BitUtil::set_i64_le(self.bytes.as_slice_mut(), self.pos, i);
         self.pos += BitUtil::LONG_BYTES;
         Ok(())
     }

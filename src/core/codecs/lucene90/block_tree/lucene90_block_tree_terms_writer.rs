@@ -39,7 +39,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{ByteSourceMut, SharedAccessVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -1106,10 +1106,8 @@ where
             self.spare_bytes = v
         }
         {
-            let mut data_output =
-                ByteArrayDataOutput::with_bytes(std::mem::take(&mut self.spare_bytes));
+            let mut data_output = ByteArrayDataOutput::with_bytes(self.spare_bytes.as_slice_mut());
             self.suffix_lengths_writer.copy_to(&mut data_output)?;
-            self.spare_bytes = std::mem::take(&mut data_output.bytes);
         }
         self.suffix_lengths_writer.reset();
 

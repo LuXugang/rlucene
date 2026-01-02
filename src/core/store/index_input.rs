@@ -444,6 +444,7 @@ mod tests {
     use crate::core::store::{
         ByteArrayDataInput, ByteArrayDataOutput, DataInput, DataOutput, IndexInput,
     };
+    use crate::core::util::access::ByteSourceMut;
     use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -471,9 +472,9 @@ mod tests {
         let mut ints: Vec<i32> = vec![0; count];
         let mut longs: Vec<i64> = vec![0; count];
 
-        let random_test_bytes = vec![0u8; count * (5 + 4 + 9 + 8)];
+        let mut random_test_bytes = vec![0u8; count * (5 + 4 + 9 + 8)];
 
-        let mut bdo = ByteArrayDataOutput::with_bytes(random_test_bytes);
+        let mut bdo = ByteArrayDataOutput::with_bytes(random_test_bytes.as_slice_mut());
 
         for i in 0..count {
             let i1: i32 = random.random();
@@ -495,7 +496,7 @@ mod tests {
             bdo.write_long(l1)?;
         }
 
-        Ok((ints, longs, bdo.take_bytes()))
+        Ok((ints, longs, random_test_bytes))
     }
     fn check_reads<D>(input: &mut D) -> Result<()>
     where
