@@ -2084,7 +2084,7 @@ mod tests {
             fst.save_with_same_data_out(&mut out)?;
         }
         // Load it back using split input (force FSTStore path)
-        let mut input = ByteArrayDataInput::with_bytes(bytes);
+        let mut input = ByteArrayDataInput::with_bytes(bytes.as_slice());
         let metadata = read_metadata(&mut input, outputs.clone())?;
         let mut loaded_fst = FST::from_on_heap_store(metadata, &mut input)?;
 
@@ -2098,8 +2098,8 @@ mod tests {
         }
 
         // Load again using split inputs
-        let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os);
-        let mut data_in = ByteArrayDataInput::with_bytes(data_os_os);
+        let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os.as_slice());
+        let mut data_in = ByteArrayDataInput::with_bytes(data_os_os.as_slice());
         let metadata = read_metadata(&mut meta_in, outputs.clone())?;
         let loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 

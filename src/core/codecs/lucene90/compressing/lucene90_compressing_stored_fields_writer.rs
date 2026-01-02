@@ -913,7 +913,7 @@ mod tests {
             let f = i as f32;
             write_zfloat(&mut output, f)?;
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let g = read_zfloat(&mut input)?;
 
             assert!(input.eof());
@@ -939,7 +939,7 @@ mod tests {
         for &f in &special {
             write_zfloat(&mut output, f)?;
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let g = read_zfloat(&mut input)?;
             assert!(input.eof());
             assert_eq!(f.to_bits(), g.to_bits());
@@ -961,7 +961,7 @@ mod tests {
             );
 
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let g = read_zfloat(&mut input)?;
             assert!(input.eof());
             assert_eq!(f.to_bits(), g.to_bits());
@@ -981,7 +981,7 @@ mod tests {
             let x = i as f64;
             write_zdouble(&mut output, x)?;
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let y = read_zdouble(&mut input)?;
             assert!(input.eof());
             assert_eq!(x.to_bits(), y.to_bits());
@@ -1008,7 +1008,7 @@ mod tests {
         for &x in &special {
             write_zdouble(&mut output, x)?;
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let y = read_zdouble(&mut input)?;
             assert!(input.eof());
             assert_eq!(x.to_bits(), y.to_bits());
@@ -1029,7 +1029,7 @@ mod tests {
             );
 
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let y = read_zdouble(&mut input)?;
             assert!(input.eof());
             assert_eq!(x.to_bits(), y.to_bits());
@@ -1045,7 +1045,7 @@ mod tests {
             let len = output.get_position();
             assert!(len <= 5, "length={}, d={}", len, x);
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let y = read_zdouble(&mut input)?;
             assert!(input.eof());
             assert_eq!(x.to_bits(), y.to_bits());
@@ -1065,8 +1065,11 @@ mod tests {
             for &mul in &[SECOND, HOUR, DAY] {
                 let l1 = i as i64 * mul;
                 write_tlong(&mut output, l1)?;
-                let mut input =
-                    ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                let mut input = ByteArrayDataInput::with_range(
+                    output.bytes.as_slice(),
+                    0,
+                    output.get_position(),
+                );
                 let l2 = read_tlong(&mut input)?;
                 assert!(input.eof());
                 assert_eq!(l1, l2);
@@ -1100,7 +1103,7 @@ mod tests {
 
             write_tlong(&mut output, l1)?;
             let mut input =
-                ByteArrayDataInput::with_range(output.bytes.clone(), 0, output.get_position());
+                ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, output.get_position());
             let l2 = read_tlong(&mut input)?;
             assert!(input.eof());
             assert_eq!(l1, l2);

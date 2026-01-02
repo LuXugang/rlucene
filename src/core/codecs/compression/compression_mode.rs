@@ -525,14 +525,14 @@ mod tests {
             Ok(result)
         }
 
-        fn decompress(&self, compressed: Vec<u8>, original_length: i32) -> Result<Vec<u8>> {
+        fn decompress(&self, compressed: &[u8], original_length: i32) -> Result<Vec<u8>> {
             let mut decompressor = self.get_mode().new_decompressor();
             Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
         }
 
         fn decompress_with_decompressor(
             decompressor: &mut impl Decompressor,
-            compressed: Vec<u8>,
+            compressed: &[u8],
             original_length: i32,
         ) -> Result<Vec<u8>> {
             let mut bytes = BytesRef::default();
@@ -542,7 +542,7 @@ mod tests {
         }
         fn decompress_with_range(
             &self,
-            compressed: Vec<u8>,
+            compressed: &[u8],
             original_length: i32,
             offset: i32,
             length: i32,
@@ -572,7 +572,7 @@ mod tests {
                     TestUtil::next_int(random, 0, limit - off)
                 };
                 let compressed = self.compress(decompressed.as_slice(), off, len, limit)?;
-                let restored = self.decompress(compressed, len)?;
+                let restored = self.decompress(&compressed, len)?;
                 assert_eq!(
                     ArrayUtil::copy_of_sub_array(&decompressed, off as usize, (off + len) as usize),
                     restored
@@ -602,7 +602,8 @@ mod tests {
                         random.random_range(0..valid_len - offset_inner),
                     )
                 };
-                let restored = self.decompress_with_range(compressed, valid_len, offset, length)?;
+                let restored =
+                    self.decompress_with_range(&compressed, valid_len, offset, length)?;
                 assert_eq!(
                     ArrayUtil::copy_of_sub_array(
                         &decompressed,
@@ -629,8 +630,7 @@ mod tests {
             assert!(off <= limit);
             assert!(limit <= len);
             let compressed = self.compress(decompressed, off, std::cmp::min(len, limit), limit)?;
-            let compressed_copy = compressed.clone();
-            let restored = self.decompress(compressed, limit)?;
+            let restored = self.decompress(&compressed, limit)?;
             assert_eq!(limit as usize, restored.len());
             assert_eq!(
                 ArrayUtil::copy_of_sub_array(
@@ -640,7 +640,7 @@ mod tests {
                 ),
                 restored
             );
-            Ok(compressed_copy)
+            Ok(compressed)
         }
 
         fn test_empty_sequence(&self) -> Result<()> {

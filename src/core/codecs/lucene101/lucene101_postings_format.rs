@@ -465,7 +465,7 @@ mod tests {
         for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
             out.reset()?;
             write_vint15(&mut out, i)?;
-            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
+            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
             let v = read_vint15(&mut inp)?;
             assert_eq!(v, i);
             assert_eq!(inp.get_position(), out.get_position());
@@ -479,7 +479,7 @@ mod tests {
         for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
             out.reset()?;
             write_vlong15(&mut out, i)?;
-            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
+            let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
             let v = read_vlong15(&mut inp)?;
             assert_eq!(v, i);
             assert_eq!(inp.get_position(), out.get_position());
@@ -551,7 +551,7 @@ mod tests {
         let mut buffer = vec![0u8; len as usize];
         input.read_bytes(&mut buffer, 0, len as i32)?;
 
-        let mut data_in = ByteArrayDataInput::with_bytes(buffer);
+        let mut data_in = ByteArrayDataInput::with_bytes(buffer.as_slice());
         let mut mutable_impacts_list =
             MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
         read_impacts(&mut data_in, &mut mutable_impacts_list)?;

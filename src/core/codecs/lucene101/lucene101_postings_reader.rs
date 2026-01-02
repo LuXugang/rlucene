@@ -1427,13 +1427,15 @@ where
                 Some(BytesRef::with_capacity(
                     self.max_impact_num_bytes_at_level0 as usize,
                 ))
-            });
+            })
+            .unwrap();
         let level1_serialized_impacts =
             CoreHelper::take_and_reset(&mut self.level1_serialized_impacts, |_| {
                 Some(BytesRef::with_capacity(
                     self.max_impact_num_bytes_at_level1 as usize,
                 ))
-            });
+            })
+            .unwrap();
         Ok(ImpactsImpl {
             index_has_freq: self.index_has_freq,
             level0_last_doc_id: self.level0_last_doc_id,
@@ -1451,21 +1453,18 @@ pub struct ImpactsImpl {
     index_has_freq: bool,
     level0_last_doc_id: i32,
     level1_last_doc_id: i32,
-    level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
-    level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
+    level0_serialized_impacts: BytesRef<Vec<u8>>,
+    level1_serialized_impacts: BytesRef<Vec<u8>>,
     max_num_impacts_at_level0: usize,
     max_num_impacts_at_level1: usize,
 }
 impl ImpactsImpl {
-    fn read_impacts(
-        serialized: Vec<u8>,
-        level_impacts_len: usize,
-    ) -> Result<(MutableImpactList, Vec<u8>)> {
+    fn read_impacts(serialized: &[u8], level_impacts_len: usize) -> Result<MutableImpactList> {
         let len = serialized.len();
         let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
         let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len);
         read_impacts(&mut scratch, &mut level_impacts)?;
-        Ok((level_impacts, std::mem::take(&mut scratch.bytes)))
+        Ok(level_impacts)
     }
 }
 impl Impacts for ImpactsImpl {
@@ -1493,26 +1492,16 @@ impl Impacts for ImpactsImpl {
         if self.index_has_freq {
             // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
             if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
-                let mut v = self.level0_serialized_impacts.take().unwrap();
-                let (level0_impacts, bytes) = ImpactsImpl::read_impacts(
-                    // take ownership
-                    std::mem::take(&mut v.bytes),
+                let level0_impacts = ImpactsImpl::read_impacts(
+                    self.level0_serialized_impacts.bytes.as_slice(),
                     self.max_num_impacts_at_level0,
                 )?;
-                // return ownership
-                v.bytes = bytes;
-                self.level0_serialized_impacts = Some(v);
                 Ok(Cow::Owned(level0_impacts.impacts))
             } else {
-                let mut v = self.level1_serialized_impacts.take().unwrap();
-                let (level1_impacts, bytes) = ImpactsImpl::read_impacts(
-                    // take ownership
-                    std::mem::take(&mut v.bytes),
+                let level1_impacts = ImpactsImpl::read_impacts(
+                    self.level1_serialized_impacts.bytes.as_slice(),
                     self.max_num_impacts_at_level1,
                 )?;
-                // return ownership
-                v.bytes = bytes;
-                self.level1_serialized_impacts = Some(v);
                 Ok(Cow::Owned(level1_impacts.impacts))
             }
         } else {
@@ -1578,7 +1567,7 @@ pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
     }
 }
 pub(crate) fn read_impacts(
-    input: &mut ByteArrayDataInput<Vec<u8>>,
+    input: &mut ByteArrayDataInput<&[u8]>,
     reuse: &mut MutableImpactList,
 ) -> Result<()> {
     let mut freq = 0;

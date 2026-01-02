@@ -189,3 +189,29 @@ macro_rules! with_other {
         $x.access(|$ia| $y.access(|$ib| $body))
     };
 }
+pub trait ByteSource: Default {
+    fn as_slice(&self) -> &[u8];
+}
+impl ByteSource for Vec<u8> {
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}
+
+impl ByteSource for Rc<Vec<u8>> {
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}
+
+impl ByteSource for Arc<Vec<u8>> {
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}
+
+impl ByteSource for &[u8] {
+    fn as_slice(&self) -> &[u8] {
+        self
+    }
+}

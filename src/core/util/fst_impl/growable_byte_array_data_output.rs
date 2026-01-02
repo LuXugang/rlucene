@@ -220,14 +220,13 @@ mod tests {
         let offset = TestUtil::next_int(&mut random, 0, 100) as usize;
         let len = bytes.len() - offset;
 
-        let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
+        let mut input = ByteArrayDataInput::with_range(bytes.as_slice(), offset, len);
         let mut o = GrowableByteArrayDataOutput::new();
 
         o.copy_bytes(&mut input, len as i64)?;
         o.write_to(0, &mut bytes_out, 0, len as i32);
 
-        let expected = &bytes_clone[offset..(offset + len)];
+        let expected = &bytes[offset..(offset + len)];
         let actual = &bytes_out[..len];
 
         assert_eq!(actual, expected);

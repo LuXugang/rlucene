@@ -899,7 +899,7 @@ mod tests {
             let mut out = ByteBuffersDataOutput::new();
             LZ4::compress(data, offset, length, &mut out, &mut hash_table.ht)?;
 
-            let mut compressed = out.try_get_array_ownership();
+            let compressed = out.try_get_array_ownership();
             let mut off = 0;
             let mut decompressed_off = 0;
 
@@ -969,9 +969,8 @@ mod tests {
 
             // Now restore and compare bytes
             let mut restored = vec![0; length as usize + random.random_range(0..10)];
-            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
             LZ4::decompress(&mut input, length, &mut restored, 0)?;
-            compressed = std::mem::take(&mut input.bytes);
 
             assert!(off <= i32::MAX as usize);
             let left =
@@ -983,7 +982,7 @@ mod tests {
             let restore_offset: i32 = random.random_range(1..10);
             restored =
                 vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
-            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
             LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
 
             let left =
@@ -1079,7 +1078,7 @@ mod tests {
                 restore_offset as usize,
             );
 
-            let mut input = ByteArrayDataInput::with_bytes(compressed);
+            let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
             LZ4::decompress(&mut input, length, &mut restored, dict_len + restore_offset)?;
 
             let left = ArrayUtil::copy_of_sub_array(

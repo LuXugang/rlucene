@@ -692,8 +692,7 @@ mod tests {
         random.fill(&mut bytes[..]);
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
-        let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
+        let mut input = ByteArrayDataInput::with_range(bytes.as_slice(), offset, len);
 
         let mut o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -701,7 +700,7 @@ mod tests {
             false,
         )?;
         o.copy_bytes(&mut input, len as i64)?;
-        let expected = bytes_clone[offset..offset + len].to_vec();
+        let expected = bytes[offset..offset + len].to_vec();
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(o.get_array_copy(), expected);
@@ -719,15 +718,14 @@ mod tests {
         random.fill(&mut bytes[..]);
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
-        let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
+        let mut input = ByteArrayDataInput::with_range(bytes.as_slice(), offset, len);
         let mut o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
             false,
         )?;
         o.copy_bytes(&mut input, len as i64)?;
-        let expected = bytes_clone[offset..offset + len].to_vec();
+        let expected = bytes[offset..offset + len].to_vec();
         match random.random_bool(0.5) {
             true => {
                 assert_eq!(o.get_array_copy(), expected);

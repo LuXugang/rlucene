@@ -2395,7 +2395,7 @@ mod tests {
             }
             // test in2
             {
-                let in2 = ByteArrayDataInput::with_bytes(buf);
+                let in2 = ByteArrayDataInput::with_bytes(buf.as_slice());
                 let mut in_ref = in2;
                 let mut it = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,

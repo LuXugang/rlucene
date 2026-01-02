@@ -1393,9 +1393,8 @@ mod tests {
         let buffer = vec![0u8; 10];
         let mut output = ByteArrayDataOutput::with_bytes(buffer);
         write_msb_vlong(&mut output, l)?;
-        let buffer = output.bytes.clone();
         let len = output.get_position();
-        let mut input = ByteArrayDataInput::with_range(buffer, 0, len);
+        let mut input = ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, len);
         let recovered = read_msb_vlong(&mut input)?;
         assert_eq!(
             recovered, l,

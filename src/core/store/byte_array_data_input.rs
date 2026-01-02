@@ -19,11 +19,10 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::data_input::DataInput;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 
-#[derive(Default)]
 /// `DataInput` backed by a byte array.
 ///
 /// # Warning
@@ -31,28 +30,29 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// # Note
 /// This is an experimental API.
-pub struct ByteArrayDataInput<AV>
+#[derive(Default)]
+pub struct ByteArrayDataInput<B>
 // TODO: 这里可以考虑改成引用bytes或者所有权
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSource,
 {
-    pub(crate) bytes: AV,
+    pub(crate) bytes: B,
     pos: usize,
     limit: usize,
 }
-impl<AV> ByteArrayDataInput<AV>
+impl<B> ByteArrayDataInput<B>
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSource,
 {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_bytes(bytes: AV) -> Self {
-        let len = bytes.access(|bytes| bytes.len());
+    pub fn with_bytes(bytes: B) -> Self {
+        let len = bytes.as_slice().len();
         Self::with_range(bytes, 0, len)
     }
-    pub fn with_range(bytes: AV, offset: usize, length: usize) -> Self {
+    pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
@@ -61,11 +61,7 @@ where
         self.pos = offset;
         self.limit = offset + length;
     }
-    pub fn reset(&mut self, bytes: AV) {
-        let len = bytes.access(|bytes| bytes.len());
-        self.reset_with_range(bytes, 0, len);
-    }
-    pub fn reset_with_range(&mut self, bytes: AV, offset: usize, length: usize) {
+    pub fn reset_with_range(&mut self, bytes: B, offset: usize, length: usize) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -93,9 +89,9 @@ where
     }
 }
 
-impl<AV> Display for ByteArrayDataInput<AV>
+impl<B> Display for ByteArrayDataInput<B>
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSource,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let address = self as *const Self as usize;
@@ -103,48 +99,41 @@ where
     }
 }
 
-impl<AV> DataInput for ByteArrayDataInput<AV>
+impl<B> DataInput for ByteArrayDataInput<B>
 where
-    AV: SharedAccessVec<u8>,
+    B: ByteSource,
 {
     fn read_byte(&mut self) -> Result<u8> {
-        self.bytes.access(|bytes| {
-            let value = bytes[self.pos];
-            self.pos += 1;
-            Ok(value)
-        })
+        let value = self.bytes.as_slice()[self.pos];
+        self.pos += 1;
+        Ok(value)
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        self.bytes.access(|bytes| {
-            b.copy_from(&bytes[self.pos..self.pos + len as usize], offset as usize);
-        });
+        b.copy_from(
+            &self.bytes.as_slice()[self.pos..self.pos + len as usize],
+            offset as usize,
+        );
         self.pos += len as usize;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
-        self.bytes.access(|bytes| {
-            let result = BitUtil::get_i16_le(bytes, self.pos);
-            self.pos += 2;
-            Ok(result)
-        })
+        let result = BitUtil::get_i16_le(self.bytes.as_slice(), self.pos);
+        self.pos += 2;
+        Ok(result)
     }
 
     fn read_int(&mut self) -> Result<i32> {
-        self.bytes.access(|bytes| {
-            let value = BitUtil::get_i32_le(bytes, self.pos);
-            self.pos += 4;
-            Ok(value)
-        })
+        let value = BitUtil::get_i32_le(self.bytes.as_slice(), self.pos);
+        self.pos += 4;
+        Ok(value)
     }
 
     fn read_long(&mut self) -> Result<i64> {
-        self.bytes.access(|bytes| {
-            let value = BitUtil::get_i64_le(bytes, self.pos);
-            self.pos += 8;
-            Ok(value)
-        })
+        let value = BitUtil::get_i64_le(self.bytes.as_slice(), self.pos);
+        self.pos += 8;
+        Ok(value)
     }
 
     fn skip_bytes(&mut self, count: i64) -> Result<()> {
@@ -171,7 +160,7 @@ mod tests {
     #[test]
     fn test_basic() -> Result<()> {
         let bytes = vec![1, 65];
-        let mut data_input = ByteArrayDataInput::with_bytes(bytes);
+        let mut data_input = ByteArrayDataInput::with_bytes(bytes.as_slice());
         assert_eq!(data_input.read_string()?, "A");
         assert!(data_input.eof());
         Ok(())
@@ -200,7 +189,7 @@ mod tests {
         assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
         // read the primitives using ByteArrayDataInput:
-        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size);
+        let mut data_input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, size);
         assert_eq!(data_input.read_byte()?, 43);
         assert_eq!(data_input.read_short()?, 12345);
         assert_eq!(data_input.read_int()?, 1234567890);
