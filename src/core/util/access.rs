@@ -60,19 +60,37 @@ impl<T> MutAccess<T> for Arc<Mutex<T>> {
         f(&*guard)
     }
 }
+pub trait WritableVec<T>: SharedAccessVec<T> {
+    fn access_mut<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut Vec<T>) -> R;
+
+    fn copy(&mut self, src: &[T], offset: usize);
+}
+impl<T> WritableVec<T> for Vec<T>
+where
+    T: Clone + Default,
+{
+    fn access_mut<F, R>(&mut self, f: F) -> R
+    where
+        F: FnOnce(&mut Vec<T>) -> R,
+    {
+        f(self)
+    }
+
+    fn copy(&mut self, src: &[T], offset: usize) {
+        self.copy_from(src, offset)
+    }
+}
 
 pub trait SharedAccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Vec<T>) -> R;
-    fn access_mut<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R;
     fn slice_clone(&self, offset: usize, length: usize) -> Self;
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
-    fn copy(&mut self, src: &[T], offset: usize);
 }
 
 // Vec<T>
@@ -83,13 +101,6 @@ where
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Vec<T>) -> R,
-    {
-        f(self)
-    }
-
-    fn access_mut<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R,
     {
         f(self)
     }
@@ -109,10 +120,6 @@ where
     fn from_vec(v: Vec<T>) -> Self {
         v
     }
-
-    fn copy(&mut self, src: &[T], offset: usize) {
-        self.copy_from(src, offset)
-    }
 }
 // Rc<Vec<T>>
 impl<T> SharedAccessVec<T> for Rc<Vec<T>>
@@ -124,13 +131,6 @@ where
         F: FnOnce(&Vec<T>) -> R,
     {
         f(self)
-    }
-
-    fn access_mut<F, R>(&mut self, _f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R,
-    {
-        panic!("access_mut is not supported for Rc<Vec<T>>");
     }
 
     fn slice_clone(&self, offset: usize, length: usize) -> Self {
@@ -149,10 +149,6 @@ where
     fn from_vec(v: Vec<T>) -> Self {
         Rc::new(v)
     }
-
-    fn copy(&mut self, _src: &[T], _offset: usize) {
-        panic!("copy is not supported for Rc<Vec<T>>");
-    }
 }
 // Arc<Vec<T>>
 impl<T> SharedAccessVec<T> for Arc<Vec<T>>
@@ -164,13 +160,6 @@ where
         F: FnOnce(&Vec<T>) -> R,
     {
         f(self)
-    }
-
-    fn access_mut<F, R>(&mut self, _f: F) -> R
-    where
-        F: FnOnce(&mut Vec<T>) -> R,
-    {
-        panic!("access_mut is not supported for Rc<Vec<T>>");
     }
 
     fn slice_clone(&self, offset: usize, length: usize) -> Self {
@@ -188,10 +177,6 @@ where
 
     fn from_vec(v: Vec<T>) -> Self {
         Arc::new(v)
-    }
-
-    fn copy(&mut self, _src: &[T], _offset: usize) {
-        panic!("copy is not supported for Rc<Vec<T>>");
     }
 }
 

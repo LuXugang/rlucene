@@ -23,7 +23,7 @@ use rand::Rng;
 
 use crate::core::index::BytesRef;
 use crate::core::util::CoreHelper;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
@@ -297,7 +297,10 @@ impl StringHelper {
     ///
     /// Throws an [`IllegalArgument`](crate::core::util::error::IllegalArgumentError)
     /// if any int value is out of bounds for a byte.
-    pub fn ints_ref_to_bytes_ref<AV: SharedAccessVec<i32>, AV1: SharedAccessVec<u8>>(
+    pub fn ints_ref_to_bytes_ref<
+        AV: SharedAccessVec<i32>,
+        AV1: SharedAccessVec<u8> + WritableVec<u8>,
+    >(
         ints: &IntsRef<AV>,
     ) -> Result<BytesRef<AV1>> {
         let mut bytes = AV1::with_capacity(ints.length);

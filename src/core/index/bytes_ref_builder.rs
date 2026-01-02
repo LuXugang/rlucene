@@ -16,19 +16,19 @@
  */
 use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
 
 /// A builder for {@link BytesRef} instances.
 pub struct BytesRefBuilder<AV>
 where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
 {
     pub(crate) bytes_ref: BytesRef<AV>,
 }
 impl<AV> Default for BytesRefBuilder<AV>
 where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
 {
     fn default() -> Self {
         Self::new()
@@ -37,7 +37,7 @@ where
 
 impl<AV> BytesRefBuilder<AV>
 where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
 {
     pub fn new() -> BytesRefBuilder<AV> {
         BytesRefBuilder {
@@ -200,6 +200,7 @@ where
         BytesRef::from_bytes(self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length))
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

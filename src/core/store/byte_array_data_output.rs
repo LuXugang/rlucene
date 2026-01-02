@@ -16,7 +16,7 @@
  */
 use crate::core::store::data_output::DataOutput;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 
@@ -78,7 +78,7 @@ where
 
 impl<AV> DataOutput for ByteArrayDataOutput<AV>
 where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + WritableVec<u8>,
 {
     fn write_byte(&mut self, b: u8) -> Result<()> {
         debug_assert!(self.pos < self.limit);

@@ -17,7 +17,7 @@
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -139,7 +139,7 @@ impl ByteBlockPool {
     /// However, we still retain the interface definitions from Java Lucene to
     /// maintain consistency with the original implementation as much as
     /// possible.
-    pub fn set_bytes_ref<AV: SharedAccessVec<u8>>(
+    pub fn set_bytes_ref<AV: SharedAccessVec<u8> + WritableVec<u8>>(
         &self,
         _builder: &mut BytesRefBuilder<AV>,
         result: &mut BytesRef<AV>,

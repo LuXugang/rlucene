@@ -57,7 +57,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::compress::lz4::LZ4;

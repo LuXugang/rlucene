@@ -16,7 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::ints_ref::IntsRef;
 
@@ -28,13 +28,13 @@ use crate::core::util::ints_ref::IntsRef;
 #[derive(Clone, Debug)]
 pub struct IntsRefBuilder<AV>
 where
-    AV: SharedAccessVec<i32>,
+    AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
     ints_ref: IntsRef<AV>,
 }
 impl<AV> Default for IntsRefBuilder<AV>
 where
-    AV: SharedAccessVec<i32>,
+    AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
     fn default() -> Self {
         Self::new()
@@ -43,7 +43,7 @@ where
 
 impl<AV> IntsRefBuilder<AV>
 where
-    AV: SharedAccessVec<i32>,
+    AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
     pub fn new() -> Self {
         Self {

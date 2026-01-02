@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::bit_util::BitUtil;
@@ -109,7 +109,7 @@ impl BytesRefArray {
     /// Used only by the sorting function below to set a [`BytesRef`] with the
     /// specified slice, avoiding copying bytes in the common case when the
     /// slice is contained in a single block in the byte block pool.
-    fn set_bytes_ref<AV: SharedAccessVec<u8>>(
+    fn set_bytes_ref<AV: SharedAccessVec<u8> + WritableVec<u8>>(
         &self,
         spare: &mut BytesRefBuilder<AV>,
         result: &mut BytesRef<AV>,
