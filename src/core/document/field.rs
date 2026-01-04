@@ -1027,6 +1027,7 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::util::TryIntoInt;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::number::Number;
     use crate::core::util::numeric_utils::NumericUtils;
@@ -1750,7 +1751,7 @@ mod tests {
 
             match field.numeric_value() {
                 Ok(Some(Number::I64(bits))) => {
-                    let v = NumericUtils::sortable_int_to_float(bits.try_into()?);
+                    let v = NumericUtils::sortable_int_to_float(bits.try_convert()?);
                     assert!((v + 28.8).abs() < f32::EPSILON);
                 },
                 _ => unreachable!(),

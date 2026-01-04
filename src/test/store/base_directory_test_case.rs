@@ -34,11 +34,11 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataOutput, IOContext};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, is_night_mode, new_directory,
 };
@@ -1010,7 +1010,7 @@ pub trait BaseDirectoryTestCase {
             output.write_bytes_range(&bytes, 0, byte_upto as i32)?;
             assert_eq!(size as i64, output.get_file_pointer());
         }
-        assert_eq!(size as i64, dir.file_length("test")?.try_into()?);
+        assert_eq!(size as i64, dir.file_length("test")?.try_convert()?);
 
         {
             let mut input = dir.open_input("test", &io_context)?;

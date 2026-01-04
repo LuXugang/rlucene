@@ -29,8 +29,8 @@ where
     arr: &'a mut [T],
     tmp: Vec<T>,
     comparator: C,
-    pivot_index: i32,
-    max_temp_slots: i32,
+    pivot_index: usize,
+    max_temp_slots: usize,
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
@@ -39,10 +39,10 @@ where
     pub fn new(
         arr: &'a mut [T],
         comparator: C,
-        max_temp_slots: i32,
+        max_temp_slots: usize,
     ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
         let tmp = if max_temp_slots > 0 {
-            Vec::with_capacity(max_temp_slots as usize)
+            Vec::with_capacity(max_temp_slots)
         } else {
             vec![]
         };
@@ -60,9 +60,8 @@ impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
     T: Copy,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize])
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        self.comparator.compare(&self.arr[i], &self.arr[j])
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -70,12 +69,12 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         self.compare(self.pivot_index, j)
     }
 }
@@ -83,27 +82,25 @@ impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
     T: Copy,
 {
-    fn copy(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.arr[src as usize];
+    fn copy(&mut self, src: usize, dest: usize) {
+        self.arr[dest] = self.arr[src];
     }
 
-    fn save(&mut self, start: i32, len: i32) {
+    fn save(&mut self, start: usize, len: usize) {
         let tmp_len = self.tmp.len();
-        if tmp_len < self.max_temp_slots as usize {
-            for _ in 0..(self.max_temp_slots as usize - tmp_len) {
-                self.tmp.push(self.arr[start as usize]);
+        if tmp_len < self.max_temp_slots {
+            for _ in 0..(self.max_temp_slots - tmp_len) {
+                self.tmp.push(self.arr[start]);
             }
         }
-        self.tmp
-            .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
+        self.tmp.copy_from(&self.arr[start..start + len], 0);
     }
 
-    fn restore(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.tmp[src as usize];
+    fn restore(&mut self, src: usize, dest: usize) {
+        self.arr[dest] = self.tmp[src];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
-        self.comparator
-            .compare(&self.tmp[i as usize], &self.arr[j as usize])
+    fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
+        self.comparator.compare(&self.tmp[i], &self.arr[j])
     }
 }

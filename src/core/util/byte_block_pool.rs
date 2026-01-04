@@ -16,11 +16,11 @@
  */
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 /// This struct enables the allocation of fixed-size buffers and their
 /// management as part of a buffer array. Allocation is done through the use of
@@ -290,7 +290,7 @@ impl ByteBlockPool {
         bytes_length: i32,
     ) -> Result<()> {
         let mut bytes_left = bytes_length;
-        let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_into()?;
+        let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
         let mut buffer_index = buffer_index as usize;
         let mut pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         while bytes_left > 0 {

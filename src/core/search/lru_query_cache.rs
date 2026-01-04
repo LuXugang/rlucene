@@ -41,6 +41,7 @@ use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum3};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
@@ -1257,7 +1258,7 @@ where
         }
         let top_level_context = ReaderUtil::get_top_level_context(context);
         let doc = top_level_context.max_doc;
-        let size: i32 = top_level_context.leaves_num.try_into()?;
+        let size: i32 = top_level_context.leaves_num.try_convert()?;
         let average_total_docs = doc / size;
         Ok((max_doc * 2) > average_total_docs)
     }

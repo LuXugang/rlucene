@@ -18,6 +18,7 @@ use crate::core::index::point_values::PointValues;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
@@ -54,7 +55,7 @@ impl DocIdSetBuilder {
     where
         PV: PointValues,
     {
-        let v: i64 = values.size()?.try_into()?;
+        let v: i64 = values.size()?.try_convert()?;
         Ok(Self::with_count(max_doc, values.get_doc_count()?, v))
     }
 

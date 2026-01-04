@@ -44,10 +44,12 @@ use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
+
 /// A wrapper for `CompositeIndexReader` providing access to `DocValues`.
 ///
 /// **NOTE**: for multi readers, you'll get better performance by gathering the
@@ -558,13 +560,16 @@ where
         let sub_index: usize = self
             .mapping
             .get_first_segment_number(ord as i64)?
-            .try_into()?;
-        let segment_ord = self.mapping.get_first_segment_ord(ord as i64)?.try_into()?;
+            .try_convert()?;
+        let segment_ord = self
+            .mapping
+            .get_first_segment_ord(ord as i64)?
+            .try_convert()?;
         self.values[sub_index].lookup_ord(segment_ord)
     }
 
     fn get_value_count(&mut self) -> Result<i32> {
-        Ok(self.mapping.get_value_count().try_into()?)
+        self.mapping.get_value_count().try_convert()
     }
 
     type TermsEnum<'a>
@@ -762,7 +767,7 @@ where
     }
 
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let sub_index: usize = self.mapping.get_first_segment_number(ord)?.try_into()?;
+        let sub_index: usize = self.mapping.get_first_segment_number(ord)?.try_convert()?;
         let segment_ord = self.mapping.get_first_segment_ord(ord)?;
         self.values[sub_index].lookup_ord(segment_ord)
     }

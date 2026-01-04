@@ -23,6 +23,7 @@ use crate::core::document::float_point::FloatPoint;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -91,7 +92,7 @@ impl FloatField {
                 "field does not have a numeric value",
             )),
             Some(n) => match n {
-                Number::I64(v) => Ok(NumericUtils::sortable_int_to_float(v.try_into()?)),
+                Number::I64(v) => Ok(NumericUtils::sortable_int_to_float(v.try_convert()?)),
                 _ => Err(LuceneError::illegal_state(
                     "numeric value is not a sortable int float",
                 )),

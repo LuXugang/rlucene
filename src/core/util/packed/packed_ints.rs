@@ -1065,7 +1065,6 @@ mod tests {
     use crate::core::store::{
         ByteArrayDataInput, DataInput, DataOutput, IO_CONTEXT_DEFAULT, IndexInput, IndexOutput,
     };
-    use crate::core::util::SliceCopyOps;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::long_values::LongValues;
     use crate::core::util::packed::Format::{Packed, PackedSingleBlock};
@@ -1088,6 +1087,7 @@ mod tests {
         NullReader, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
         create, is_supported,
     };
+    use crate::core::util::{SliceCopyOps, TryIntoInt};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, random_from_seed,
     };
@@ -1597,7 +1597,7 @@ mod tests {
         // must be > 10 for the bulk reads below
         let size = TestUtil::next_int(&mut random, 11, 256);
         let packed_ints = NullReader::for_count(size);
-        let random_index = TestUtil::next_int(&mut random, 0, size - 1).try_into()?;
+        let random_index = TestUtil::next_int(&mut random, 0, size - 1).try_convert()?;
         assert_eq!(
             packed_ints.get(random_index),
             0,
@@ -1757,7 +1757,7 @@ mod tests {
                         let m = format!("{}, i={}", msg, i);
                         if i >= off2 && i < off2 + len {
                             assert_eq!(
-                                r1.get((i - off2 + off1).try_into()?),
+                                r1.get((i - off2 + off1).try_convert()?),
                                 r2.get(i as usize),
                                 "{}: Values mismatch at index {}",
                                 m,
@@ -1791,22 +1791,22 @@ mod tests {
         wrt.set(value_count - 10, 99);
         wrt.set(99, 999);
         wrt.set(value_count - 1, 1 << 10);
-        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
 
         wrt.set(99, (1 << 23) - 1);
-        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
 
         wrt.set(1, i64::MAX);
         wrt.set(2, -3);
         assert_eq!(wrt.get_bits_per_value(), 64);
-        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
         assert_eq!(wrt.get(1), i64::MAX);
         assert_eq!(wrt.get(2), -3);
         assert_eq!(wrt.get(4), 2);
         assert_eq!(wrt.get(99), (1 << 23) - 1);
         assert_eq!(wrt.get(7), 10);
-        assert_eq!(wrt.get((value_count - 10).try_into()?), 99);
-        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
+        assert_eq!(wrt.get((value_count - 10).try_convert()?), 99);
+        assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
 
         // TODO:
         // Check memory usage

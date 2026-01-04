@@ -249,7 +249,12 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn do_intro_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
+    pub fn do_intro_sort<T, C>(
+        a: &mut [T],
+        from_index: usize,
+        to_index: usize,
+        comp: C,
+    ) -> Result<()>
     where
         C: Comparator<T>,
     {
@@ -264,15 +269,15 @@ impl ArrayUtil {
     where
         C: Comparator<T>,
     {
-        Self::do_intro_sort(a, 0, a.len() as i32, comp)
+        Self::do_intro_sort(a, 0, a.len(), comp)
     }
     /// Sorts the given slice in natural order using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
+    pub fn intro_sort_with_range<T>(a: &mut [T], from_index: usize, to_index: usize) -> Result<()>
     where
         T: Ord,
     {
-        if to_index - from_index <= 1 {
+        if to_index <= 1 + from_index {
             return Ok(());
         }
         Self::do_intro_sort(a, from_index, to_index, NaturalOrder::new())
@@ -283,21 +288,21 @@ impl ArrayUtil {
     where
         T: Ord,
     {
-        Self::intro_sort_with_range(a, 0, a.len() as i32)
+        Self::intro_sort_with_range(a, 0, a.len())
     }
     /// Sorts the given slice using the Tim sort algorithm
     /// falling back to binary sort for small arrays.
-    pub fn do_tim_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
+    pub fn do_tim_sort<T, C>(a: &mut [T], from_index: usize, to_index: usize, comp: C) -> Result<()>
     where
         T: Copy,
         C: Comparator<T>,
     {
-        if to_index - from_index <= 1 {
+        if to_index <= 1 + from_index {
             return Ok(());
         }
         let max_temp_slots = a.len() / 64;
         debug_assert!(max_temp_slots <= i32::MAX as usize);
-        ArrayTimSorter::new(a, comp, max_temp_slots as i32).sort(from_index, to_index)
+        ArrayTimSorter::new(a, comp, max_temp_slots).sort(from_index, to_index)
     }
     /// Sorts the given slice using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
@@ -306,16 +311,16 @@ impl ArrayUtil {
         T: Copy,
         C: Comparator<T>,
     {
-        let len = a.len() as i32;
+        let len = a.len();
         Self::do_tim_sort(a, 0, len, comp)
     }
     /// Sorts the given slice in natural order using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
+    pub fn tim_sort_with_range<T>(a: &mut [T], from_index: usize, to_index: usize) -> Result<()>
     where
         T: Copy + Ord,
     {
-        if to_index - from_index <= 1 {
+        if to_index <= 1 + from_index {
             return Ok(());
         }
         Self::do_tim_sort(a, from_index, to_index, NaturalOrder::new())
@@ -326,7 +331,7 @@ impl ArrayUtil {
     where
         T: Copy + Ord,
     {
-        let len = a.len() as i32;
+        let len = a.len();
         Self::tim_sort_with_range(a, 0, len)
     }
 
@@ -346,7 +351,13 @@ impl ArrayUtil {
     /// - `k`: The index of the element to sort from. Value must be less than
     ///   `to` and greater than or equal to `from`.
     /// - `comparator`: A comparator to use for sorting.
-    pub fn select<T, C>(arr: &mut [T], from: i32, to: i32, k: i32, comparator: &mut C) -> Result<()>
+    pub fn select<T, C>(
+        arr: &mut [T],
+        from: usize,
+        to: usize,
+        k: usize,
+        comparator: &mut C,
+    ) -> Result<()>
     where
         C: Comparator<T>,
     {
@@ -403,7 +414,7 @@ struct IntroSelectorImpl<'a, T, C>
 where
     C: Comparator<T>,
 {
-    pivot: i32,
+    pivot: usize,
     arr: &'a mut [T],
     comparator: &'a C,
 }
@@ -424,14 +435,13 @@ impl<T, C> IntroSelectorBaseDefault for IntroSelectorImpl<'_, T, C>
 where
     C: Comparator<T>,
 {
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        self.comparator
-            .compare(&self.arr[self.pivot as usize], &self.arr[j as usize])
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+        self.comparator.compare(&self.arr[self.pivot], &self.arr[j])
     }
 }
 
@@ -440,7 +450,7 @@ impl<T, C> Selector for IntroSelectorImpl<'_, T, C>
 where
     C: Comparator<T>,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
@@ -448,7 +458,7 @@ where
         if self.pivot == i || self.pivot == j {
             self.pivot = if self.pivot == i { j } else { i };
         }
-        self.arr.swap(i as usize, j as usize);
+        self.arr.swap(i, j);
         Ok(())
     }
 }
@@ -902,13 +912,7 @@ mod tests {
         expected[from..to].sort();
 
         let mut actual = arr.clone();
-        ArrayUtil::select(
-            &mut actual,
-            from as i32,
-            to as i32,
-            k as i32,
-            &mut NaturalOrder::new(),
-        )?;
+        ArrayUtil::select(&mut actual, from, to, k, &mut NaturalOrder::new())?;
 
         assert_eq!(expected[k], actual[k]);
 

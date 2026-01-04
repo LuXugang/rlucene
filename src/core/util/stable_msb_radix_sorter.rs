@@ -25,7 +25,7 @@ where
     T: StableMSBRadixSorterBase,
 {
     delegate: T,
-    fixed_start_offsets: Vec<i32>,
+    fixed_start_offsets: Vec<usize>,
     max_length: usize,
 }
 
@@ -48,12 +48,12 @@ impl<T> MSBRadixSorterBase for StableMSBRadixSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         self.delegate.byte_at(i, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        let delegate = MergeSorterImpl::new(k as usize, self.max_length, &mut self.delegate);
+    fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
+        let delegate = MergeSorterImpl::new(k, self.max_length, &mut self.delegate);
         MergeSorter {
             delegate,
             pivot_index: 0,
@@ -62,11 +62,11 @@ where
 
     fn reorder(
         &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
+        from: usize,
+        to: usize,
+        start_offsets: &mut [usize],
+        end_offsets: &mut [usize],
+        k: usize,
     ) -> Result<()> {
         // Copy start_offsets to fixed_start_offsets
         self.fixed_start_offsets.copy_from(start_offsets, 0);
@@ -89,10 +89,10 @@ where
 
 pub trait StableMSBRadixSorterBase: MSBRadixSorterBase {
     /// Save the i-th value into the j-th position in temporary storage.
-    fn save(&mut self, i: i32, j: i32);
+    fn save(&mut self, i: usize, j: usize);
     /// Restore values between i-th and j-th(excluding) in temporary storage
     /// into original storage.
-    fn restore(&mut self, i: i32, j: i32);
+    fn restore(&mut self, i: usize, j: usize);
 }
 
 pub struct MergeSorter<T>
@@ -100,14 +100,14 @@ where
     T: StableMSBRadixSorterBase,
 {
     pub(crate) delegate: T,
-    pub(crate) pivot_index: i32,
+    pub(crate) pivot_index: usize,
 }
 
 impl<T> MergeSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn merge_sort(&mut self, from: usize, to: usize) -> Result<()> {
         if to - from < BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
@@ -120,12 +120,12 @@ where
     /// We tried to expose this to implementations to get a bulk copy
     /// optimization. However, it did not bring a noticeable improvement in
     /// benchmarks as `len` is usually small.
-    fn bulk_save(&mut self, from: i32, tmp_from: i32, len: i32) {
+    fn bulk_save(&mut self, from: usize, tmp_from: usize, len: usize) {
         for i in 0..len {
             self.delegate.save(from + i, tmp_from + i);
         }
     }
-    fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<()> {
+    fn merge(&mut self, from: usize, to: usize, mid: usize) -> Result<()> {
         debug_assert!(
             to > mid && mid > from,
             "Invalid indices: to={to}, mid={mid}, from={from}"
@@ -176,7 +176,7 @@ impl<T> Sorter for MergeSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.delegate.compare(i, j)
     }
 
@@ -184,16 +184,16 @@ where
         self.delegate.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, i: usize) -> Result<i32> {
         self.compare(self.pivot_index, i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         check_range(from, to)?;
         self.merge_sort(from, to)?;
         Ok(())
@@ -227,10 +227,10 @@ impl<T> Sorter for MergeSorterImpl<'_, T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         for o in self.k..self.max_length {
-            let b1 = self.delegate.byte_at(i, o.try_into()?)?;
-            let b2 = self.delegate.byte_at(j, o.try_into()?)?;
+            let b1 = self.delegate.byte_at(i, o)?;
+            let b2 = self.delegate.byte_at(j, o)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             } else if b1 == -1 {
@@ -253,11 +253,11 @@ impl<T> StableMSBRadixSorterBase for MergeSorterImpl<'_, T>
 where
     T: StableMSBRadixSorterBase,
 {
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, i: usize, j: usize) {
         self.delegate.save(i, j);
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, i: usize, j: usize) {
         self.delegate.restore(i, j);
     }
 }
@@ -287,22 +287,21 @@ mod tests {
 
         let mut max_length = 0;
         for ref_item in &refs[..len] {
-            max_length = max_length.max(ref_item.length as i32);
+            max_length = max_length.max(ref_item.length);
         }
 
         match random.random_range(0..3) {
-            0 => max_length += TestUtil::next_int(random, 1, 5),
-            1 => max_length = i32::MAX,
+            0 => max_length += TestUtil::next_usize(random, 1, 5),
+            1 => max_length = i32::MAX as usize,
             _ => {},
         }
 
         let final_max_length = max_length;
         let mut actual = refs[..len].to_vec();
         let delegate = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
-        let stable_msb_radix_sorter =
-            StableMSBRadixSorter::new(delegate, final_max_length.try_into()?);
+        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, final_max_length);
         let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
-        msb_radix_sorter.sort(0, len as i32)?;
+        msb_radix_sorter.sort(0, len)?;
 
         assert_vecs_equal(&expected, &actual);
         Ok(())
@@ -458,11 +457,11 @@ mod tests {
 
     struct StableMSBRadixSorterTestImpl<'a> {
         temp: Vec<BytesRef<Vec<u8>>>,
-        final_max_length: i32,
+        final_max_length: usize,
         refs: &'a mut [BytesRef<Vec<u8>>],
     }
     impl<'a> StableMSBRadixSorterTestImpl<'a> {
-        fn new(final_max_length: i32, refs: &'a mut Vec<BytesRef<Vec<u8>>>) -> Self {
+        fn new(final_max_length: usize, refs: &'a mut Vec<BytesRef<Vec<u8>>>) -> Self {
             StableMSBRadixSorterTestImpl {
                 temp: vec![BytesRef::default(); refs.len()],
                 final_max_length,
@@ -479,25 +478,25 @@ mod tests {
     }
 
     impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
-        fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+        fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
             assert!(k < self.final_max_length, "k is out of bounds");
-            let ref_item = &self.refs[i as usize];
+            let ref_item = &self.refs[i];
 
-            if ref_item.length as i32 <= k {
+            if ref_item.length <= k {
                 return Ok(-1);
             }
 
-            Ok(ref_item.bytes[ref_item.offset + k as usize] as i32)
+            Ok(ref_item.bytes[ref_item.offset + k] as i32)
         }
     }
     impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
-        fn save(&mut self, i: i32, j: i32) {
-            self.temp[j as usize] = self.refs[i as usize].clone();
+        fn save(&mut self, i: usize, j: usize) {
+            self.temp[j] = self.refs[i].clone();
         }
 
-        fn restore(&mut self, i: i32, j: i32) {
+        fn restore(&mut self, i: usize, j: usize) {
             for idx in i..j {
-                self.refs[idx as usize] = self.temp[idx as usize].clone();
+                self.refs[idx] = self.temp[idx].clone();
             }
         }
     }

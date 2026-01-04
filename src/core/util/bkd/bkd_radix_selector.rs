@@ -606,15 +606,9 @@ impl BKDRadixSelector {
         };
 
         debug_assert!(self.bytes_sorted >= common_prefix_length);
-        let mut radix_selector = RadixSelector::new(
-            (self.bytes_sorted - common_prefix_length).try_into()?,
-            sub_selector,
-        );
-        radix_selector.select(
-            from.try_into()?,
-            to.try_into()?,
-            partition_point.try_into()?,
-        )?;
+        let mut radix_selector =
+            RadixSelector::new(self.bytes_sorted - common_prefix_length, sub_selector);
+        radix_selector.select(from, to, partition_point)?;
 
         let mut partition = vec![0u8; bytes_per_dim];
 
@@ -660,8 +654,8 @@ impl BKDRadixSelector {
             bytes_per_dim,
             bytes_sorted: self.bytes_sorted,
         };
-        let mut msb_radix_sorter = MSBRadixSorter::new(max_length.try_into()?, delegate);
-        msb_radix_sorter.sort(from.try_into()?, to.try_into()?)
+        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
+        msb_radix_sorter.sort(from, to)
     }
 
     fn get_delta_point_writer<D: Directory>(
@@ -785,10 +779,7 @@ impl<O> MSBRadixSorterBase for MSBRadixSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        let i = i as usize;
-        debug_assert!(k >= 0, "negative prefix {k}");
-        let k = k as usize;
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
         } else {
@@ -800,11 +791,10 @@ where
         }
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter
+    fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter
     where
         Self: Sized,
     {
-        let k = k as usize;
         let skyped_bytes = k + self.common_prefix_length;
         let dim_start = self.dim * self.bytes_per_dim;
         IntroSorterImpl {
@@ -832,9 +822,7 @@ impl<O> Sorter for IntroSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let i = i as usize;
-        let j = j as usize;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -856,8 +844,7 @@ where
         }
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
-        let i = i as usize;
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -869,8 +856,7 @@ where
         }
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let j = j as usize;
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -889,7 +875,7 @@ where
             _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
         }
     }
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -915,9 +901,7 @@ impl<O> Selector for RadixSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let i = i as usize;
-        let j = j as usize;
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
             _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
@@ -929,10 +913,7 @@ impl<O> RadixSelectorBase for RadixSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        debug_assert!(k >= 0, "negative prefix {k}");
-        let i = i as usize;
-        let k = k as usize;
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
         } else {
@@ -944,11 +925,10 @@ where
         }
     }
 
-    fn get_fallback_selector(&mut self, d: i32, _max_length: i32) -> impl Selector
+    fn get_fallback_selector(&mut self, d: usize, _max_length: usize) -> impl Selector
     where
         Self: Sized,
     {
-        let d = d as usize;
         let skyped_bytes = d + self.common_prefix_length;
         let dim_start = self.dim * self.bytes_per_dim;
         let sub_selector = IntroSelectorImpl {
@@ -977,8 +957,7 @@ impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
-        let i = i as usize;
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -990,8 +969,7 @@ where
         }
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let j = j as usize;
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {
@@ -1016,9 +994,7 @@ impl<O> Selector for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let i = i as usize;
-        let j = j as usize;
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
             _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
@@ -1030,9 +1006,7 @@ impl<O> IntroSelectorBase for IntroSelectorImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let i = i as usize;
-        let j = j as usize;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
                 if self.skyped_bytes < self.bytes_per_dim {

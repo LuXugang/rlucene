@@ -18,8 +18,10 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_scorer::DisjunctionScorerBase;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::scorer::Scorer;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::math_util::MathUtil;
+
 /// A Scorer for OR like queries, counterpart of [`ConjunctionScorer`](crate::core::search::conjunction_scorer::ConjunctionScorer).
 #[derive(Default)]
 pub struct DisjunctionSumScorer;
@@ -80,7 +82,7 @@ impl DisjunctionScorerBase for DisjunctionSumScorer {
             }
         }
 
-        let result = MathUtil::sum_upper_bound(sum, disi_wrapper.len().try_into()?);
+        let result = MathUtil::sum_upper_bound(sum, disi_wrapper.len().try_convert()?);
 
         Ok(result as f32)
     }

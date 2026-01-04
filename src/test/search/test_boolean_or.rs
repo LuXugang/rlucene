@@ -25,6 +25,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
@@ -41,7 +42,7 @@ fn scorer(mut matches: Vec<i32>) -> Result<ScorerImpl> {
     ArrayUtil::grow_exact(&mut matches, len + 1)?;
     len = matches.len();
     matches[len - 1] = NO_MORE_DOCS;
-    let it = IntArrayDocIdSet::new(matches, (len - 1).try_into()?)?
+    let it = IntArrayDocIdSet::new(matches, (len - 1).try_convert()?)?
         .iterator()?
         .unwrap();
     Ok(ScorerImpl::new(it))

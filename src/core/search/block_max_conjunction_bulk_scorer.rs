@@ -21,9 +21,11 @@ use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::math_util::MathUtil;
+
 /// BulkScorer implementation of [`BlockMaxConjunctionScorer`](crate::core::search::block_max_conjunction_scorer) that focuses on top-level
 /// conjunctions over clauses that do not have two-phase iterators. Use a [`DefaultBulkScorer`](crate::core::search::weight::DefaultBulkScorer)
 /// around a [`BlockMaxConjunctionScorer`](crate::core::search::block_max_conjunction_scorer) if you need two-phase support. Another difference with
@@ -103,7 +105,7 @@ where
             // no hits are competitive
             return Ok(());
         }
-        let scorers_len: i32 = self.scorers.len().try_into()?;
+        let scorers_len: i32 = self.scorers.len().try_convert()?;
         let lead1_doc = {
             let mut lead1_iter = self.scorers[0].iterator_mut();
 

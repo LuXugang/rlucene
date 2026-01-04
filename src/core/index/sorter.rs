@@ -22,7 +22,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::sorter::Sorter as ASorter;
-use crate::core::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt};
+use crate::core::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt, TryIntoInt};
 use std::fmt::{Display, Formatter};
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
@@ -90,7 +90,7 @@ impl Sorter {
         let mut sorter = DocValueSorter::new(&mut docs, comparator);
         // It can be common to sort a reader, add docs, sort it again, ... and in
         // that case timSort can save a lot of time
-        sorter.sort(0, max_doc)?; // docs is now the newToOld mapping
+        sorter.sort(0, max_doc as usize)?; // docs is now the newToOld mapping
 
         // The reason why we use MonotonicAppendingLongBuffer here is that it
         // wastes very little memory if the index is in random order but can save
@@ -167,7 +167,7 @@ where
     docs: &'a mut [i32],
     comparator: DC,
     tmp: Vec<i32>,
-    pivot_index: i32,
+    pivot_index: usize,
 }
 impl<'a, DC> DocValueSorter<'a, DC>
 where
@@ -182,40 +182,35 @@ where
             tmp,
             pivot_index: 0,
         };
-        TimSorter::new(max_temp_slots as i32, sub)
+        TimSorter::new(max_temp_slots, sub)
     }
 }
 impl<'a, DC> TimSorterBase for DocValueSorter<'a, DC>
 where
     DC: DocComparator,
 {
-    fn copy(&mut self, src: i32, dest: i32) {
-        self.docs[dest as usize] = self.docs[src as usize];
+    fn copy(&mut self, src: usize, dest: usize) {
+        self.docs[dest] = self.docs[src];
     }
 
-    fn save(&mut self, i: i32, len: i32) {
-        self.tmp
-            .copy_from(&self.docs[i as usize..(i + len) as usize], 0);
+    fn save(&mut self, i: usize, len: usize) {
+        self.tmp.copy_from(&self.docs[i..(i + len)], 0);
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
-        self.docs[j as usize] = self.tmp[i as usize];
+    fn restore(&mut self, i: usize, j: usize) {
+        self.docs[j] = self.tmp[i];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
-        Ok(self
-            .comparator
-            .compare(self.tmp[i as usize], self.docs[j as usize]))
+    fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
+        Ok(self.comparator.compare(self.tmp[i], self.docs[j]))
     }
 }
 impl<'a, DC> crate::core::util::Sorter for DocValueSorter<'a, DC>
 where
     DC: DocComparator,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        Ok(self
-            .comparator
-            .compare(self.docs[i as usize], self.docs[j as usize]))
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        Ok(self.comparator.compare(self.docs[i], self.docs[j]))
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -223,12 +218,12 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         self.compare(self.pivot_index, j)
     }
 }
@@ -248,12 +243,12 @@ impl DocMapImpl {
 }
 impl DocMap for DocMapImpl {
     fn old_to_new(&self, doc_id: i32) -> Result<i32> {
-        let v = self.old_to_new.get(doc_id as i64)?.try_into()?;
+        let v = self.old_to_new.get(doc_id as i64)?.try_convert()?;
         Ok(v)
     }
 
     fn new_to_old(&self, doc_id: i32) -> Result<i32> {
-        let v = self.new_to_old.get(doc_id as i64)?.try_into()?;
+        let v = self.new_to_old.get(doc_id as i64)?.try_convert()?;
         Ok(v)
     }
 

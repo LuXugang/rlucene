@@ -24,6 +24,7 @@ use crate::core::index::doc_values_field_updates::{
 };
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -73,13 +74,13 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         self.lengths_iter = Some(Arc::new(std::mem::take(&mut self.lengths)));
     }
 
-    fn add_value(&mut self, _doc: i32, _value: i64, _index: i32) -> Result<()> {
+    fn add_value(&mut self, _doc: i32, _value: i64, _index: usize) -> Result<()> {
         Err(LuceneError::unreachable(
             "BinaryDocValuesFieldUpdates does not support add_value",
         ))
     }
 
-    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
         let _guard = self.lock.lock();
         self.offsets.set(index as i64, self.values.length() as i64);
         self.lengths.set(index as i64, value.length as i64);
@@ -113,8 +114,8 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         ))
     }
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        let i = i.try_into()?;
-        let j = j.try_into()?;
+        let i = i.try_convert()?;
+        let j = j.try_convert()?;
         let temp_offset = self.offsets.get(j)?;
         let value = self.offsets.get(i)?;
         self.offsets.set(j, value);

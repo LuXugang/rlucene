@@ -26,7 +26,7 @@ use crate::core::util::sorter::Sorter;
 pub(crate) struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
     pub arr: &'a mut [T],
     comparator: C,
-    pivot: i32,
+    pivot: usize,
 }
 
 impl<'a, T, C> ArrayIntroSorter<'a, T, C>
@@ -46,9 +46,8 @@ impl<T, C> Sorter for ArrayIntroSorter<'_, T, C>
 where
     C: Comparator<T>,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.comparator
-            .compare(&self.arr[i as usize], &self.arr[j as usize])
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        self.comparator.compare(&self.arr[i], &self.arr[j])
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -56,25 +55,24 @@ where
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
         // To avoid Copying the value, we just swap the pivot index.
-        let pivot = self.pivot as usize;
+        let pivot = self.pivot;
         if pivot == i || pivot == j {
-            self.pivot = if pivot == i { j } else { i } as i32;
+            self.pivot = if pivot == i { j } else { i };
         }
         self.arr.swap(i, j);
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
-        self.comparator
-            .compare(&self.arr[self.pivot as usize], &self.arr[i as usize])
+    fn compare_pivot(&mut self, i: usize) -> Result<i32> {
+        self.comparator.compare(&self.arr[self.pivot], &self.arr[i])
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

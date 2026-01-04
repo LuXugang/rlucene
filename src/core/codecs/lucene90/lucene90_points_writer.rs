@@ -28,6 +28,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -168,7 +169,7 @@ where
             &segment_info.name,
             config,
             self.max_mb_sort_in_heap,
-            values.size()?.try_into()?,
+            values.size()?.try_convert()?,
         )?;
         match values {
             PointTreeEnum::Mutable(ref mut mutable_tree) => {

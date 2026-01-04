@@ -1418,7 +1418,7 @@ impl PointTransitionSet {
                 })
             }
 
-            ArrayUtil::tim_sort_with_range(&mut cost, 0, self.count as i32)?;
+            ArrayUtil::tim_sort_with_range(&mut cost, 0, self.count)?;
             let mut new_points = Vec::with_capacity(cost.len());
             for x in cost {
                 new_points.push(std::mem::take(&mut self.points[x.idx]));

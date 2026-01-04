@@ -22,6 +22,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -99,7 +100,7 @@ impl Lucene90CompoundFormat {
                     let file_length = directory.file_length(filename)?;
                     pq.add(SizedFile::new(
                         filename.to_string(),
-                        file_length.try_into()?,
+                        file_length.try_convert()?,
                     ))?;
                 }
             }

@@ -27,7 +27,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::core::util::{
     ByteBlockPool, BytesRefComparator, Counter, MSBRadixSorterBase, SharedCounter, SliceCopyOps,
-    Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase,
+    Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase, TryIntoInt,
 };
 
 /// A simple append-only random-access array that stores full copies of the
@@ -157,14 +157,14 @@ impl BytesRefArray {
             };
             let stable_string_sorter = StableStringSorter::new(delegate);
             let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
-            string_sorter.sort(0, size)?;
+            string_sorter.sort(0, size.try_convert()?)?;
         } else {
             let delegate = StringSorterImpl {
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
             let mut string_sorter = StringSorter::new(delegate, comp);
-            string_sorter.sort(0, size)?;
+            string_sorter.sort(0, size.try_convert()?)?;
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
@@ -338,20 +338,19 @@ impl StringSorterBase for StableStringSorterImpl<'_> {
         &mut self,
         builder: &mut BytesRefBuilder<Vec<u8>>,
         result: &mut BytesRef<Vec<u8>>,
-        i: i32,
+        i: usize,
     ) -> Result<()> {
         self.bytes_ref_array
-            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
+            .set_bytes_ref(builder, result, self.ordered_entries[i])
     }
 }
 
 impl StableStringSorterBase for StableStringSorterImpl<'_> {
-    fn save(&mut self, i: i32, j: i32) {
-        self.tmp[j as usize] = self.ordered_entries[i as usize];
+    fn save(&mut self, i: usize, j: usize) {
+        self.tmp[j] = self.ordered_entries[i];
     }
-    fn restore(&mut self, i: i32, j: i32) {
-        self.ordered_entries
-            .copy_from(&self.tmp[i as usize..j as usize], i as usize);
+    fn restore(&mut self, i: usize, j: usize) {
+        self.ordered_entries.copy_from(&self.tmp[i..j], i);
     }
 }
 impl MSBRadixSorterBase for StableStringSorterImpl<'_> {}
@@ -371,10 +370,10 @@ impl StringSorterBase for StringSorterImpl<'_> {
         &mut self,
         builder: &mut BytesRefBuilder<Vec<u8>>,
         result: &mut BytesRef<Vec<u8>>,
-        i: i32,
+        i: usize,
     ) -> Result<()> {
         self.bytes_ref_array
-            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
+            .set_bytes_ref(builder, result, self.ordered_entries[i])
     }
 }
 

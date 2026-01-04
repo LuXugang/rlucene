@@ -21,11 +21,11 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
-use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
+use crate::core::util::{ToInt, TryIntoInt};
 use std::rc::Rc;
 /// Handles how documents should be sorted in an index, both within a segment
 /// and between segments.
@@ -691,7 +691,7 @@ where
 {
     fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
         let v = if self.values.advance_exact(doc_id)? {
-            self.values.long_value()?.try_into()?
+            self.values.long_value()?.try_convert()?
         } else {
             self.missing_value_bits
         };
@@ -996,7 +996,7 @@ mod tests {
         expected.sort();
         let delegate = StringSorterTestImpl::new(refs.clone());
         let mut string_sorter = StringSorter::new(delegate, comparator);
-        string_sorter.sort(0, len as i32)?;
+        string_sorter.sort(0, len)?;
 
         assert_vecs_equal(&expected, &string_sorter.get_delegate().refs);
         Ok(())
@@ -1021,7 +1021,7 @@ mod tests {
         };
         let string_sorter = StableStringSorter::new(delegate);
         let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
-        stable_string_sorter.sort(0, len as i32)?;
+        stable_string_sorter.sort(0, len)?;
         // `actual` is not sorted, but `ord` is sorted
         assert_vecs_equal(&actual_before_sorted, &actual);
         for i in 0..len {
@@ -1146,9 +1146,9 @@ mod tests {
             &mut self,
             _builder: &mut BytesRefBuilder<Vec<u8>>,
             result: &mut BytesRef<Vec<u8>>,
-            i: i32,
+            i: usize,
         ) -> Result<()> {
-            let ref_item = &self.refs[i as usize];
+            let ref_item = &self.refs[i];
             result.offset = ref_item.offset;
             result.length = ref_item.length;
             result.bytes = ref_item.bytes.clone();
@@ -1167,9 +1167,9 @@ mod tests {
             &mut self,
             _builder: &mut BytesRefBuilder<Vec<u8>>,
             result: &mut BytesRef<Vec<u8>>,
-            i: i32,
+            i: usize,
         ) -> Result<()> {
-            let ref_item = &self.refs[self.ord[i as usize] as usize];
+            let ref_item = &self.refs[self.ord[i] as usize];
             result.offset = ref_item.offset;
             result.length = ref_item.length;
             result.bytes = ref_item.bytes.clone();
@@ -1178,13 +1178,12 @@ mod tests {
     }
 
     impl StableStringSorterBase for StableStringSorterTestImpl<'_> {
-        fn save(&mut self, i: i32, j: i32) {
-            self.tmp[j as usize] = self.ord[i as usize];
+        fn save(&mut self, i: usize, j: usize) {
+            self.tmp[j] = self.ord[i];
         }
 
-        fn restore(&mut self, i: i32, j: i32) {
-            self.ord
-                .copy_from(&self.tmp[i as usize..j as usize], i as usize);
+        fn restore(&mut self, i: usize, j: usize) {
+            self.ord.copy_from(&self.tmp[i..j], i);
         }
     }
     impl Sorter for StableStringSorterTestImpl<'_> {

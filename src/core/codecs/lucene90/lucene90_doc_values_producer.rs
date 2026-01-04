@@ -68,7 +68,7 @@ use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
-use crate::core::util::{SliceCopyOps, ToInt};
+use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1557,7 +1557,7 @@ where
                         1 << self.shift,
                         self.entry.num_values - (block << self.shift),
                     )
-                    .try_into()?;
+                    .try_convert()?;
 
                     let mut values = if bits_per_value == 0 {
                         DirectPackedEnum::P(Zeroes)
@@ -2333,18 +2333,18 @@ where
     }
 
     fn get_value_count(&mut self) -> Result<i32> {
-        let v: i32 = self.entry.terms_dict_entry.terms_dict_size.try_into()?;
+        let v: i32 = self.entry.terms_dict_entry.terms_dict_size.try_convert()?;
         Ok(v)
     }
 
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         match self.terms_enum.seek_ceil(key)? {
             SeekStatus::Found => {
-                let v = self.terms_enum.ord()?.try_into()?;
+                let v = self.terms_enum.ord()?.try_convert()?;
                 Ok(v)
             },
             SeekStatus::NotFound | SeekStatus::End => {
-                let v = (-1 - self.terms_enum.ord()?).try_into()?;
+                let v = (-1 - self.terms_enum.ord()?).try_convert()?;
                 Ok(v)
             },
         }

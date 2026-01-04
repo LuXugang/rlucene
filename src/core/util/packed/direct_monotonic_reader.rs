@@ -72,7 +72,7 @@ where
     /// Get lower/upper bounds for the value at a given index without hitting
     /// the direct reader.
     fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
-        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_into()?;
+        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_convert()?;
         let block = block as usize;
         let block_index = index & self.block_mask;
         let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
@@ -205,6 +205,7 @@ pub mod direct_monotonic {
 }
 
 use crate::core::store::IndexInput;
+use crate::core::util::TryIntoInt;
 
 /// Load metadata from the given [`IndexInput`].
 ///

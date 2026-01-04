@@ -34,7 +34,7 @@ impl CollectionUtil {
         if size <= 1 {
             return Ok(());
         }
-        ListIntroSorter::new(list, comp).sort(0, size as i32)?;
+        ListIntroSorter::new(list, comp).sort(0, size)?;
         Ok(())
     }
     pub fn intro_sort<T>(list: &mut [T]) -> Result<()>
@@ -56,7 +56,7 @@ impl CollectionUtil {
         if size <= 1 {
             return Ok(());
         }
-        ListTimSorter::new(list, comp, size as i32 / 64).sort(0, size as i32)?;
+        ListTimSorter::new(list, comp, size / 64).sort(0, size)?;
         Ok(())
     }
     pub fn tim_sort<T>(list: &mut [T]) -> Result<()>
@@ -78,8 +78,8 @@ where
     arr: &'a mut [T],
     tmp: Vec<T>,
     comp: C,
-    pivot: i32,
-    max_temp_slots: i32,
+    pivot: usize,
+    max_temp_slots: usize,
 }
 impl<'a, T, C: Comparator<T>> ListTimSorter<'a, T, C>
 where
@@ -88,10 +88,10 @@ where
     pub fn new(
         arr: &'a mut [T],
         comp: C,
-        max_temp_slots: i32,
+        max_temp_slots: usize,
     ) -> TimSorter<ListTimSorter<'a, T, C>> {
         let tmp = if max_temp_slots > 0 {
-            Vec::with_capacity(max_temp_slots as usize)
+            Vec::with_capacity(max_temp_slots)
         } else {
             vec![]
         };
@@ -109,9 +109,8 @@ impl<T, C: Comparator<T>> Sorter for ListTimSorter<'_, T, C>
 where
     T: Copy,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.comp
-            .compare(&self.arr[i as usize], &self.arr[j as usize])
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        self.comp.compare(&self.arr[i], &self.arr[j])
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -119,12 +118,12 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         self.compare(self.pivot, j)
     }
 }
@@ -132,28 +131,26 @@ impl<T, C: Comparator<T>> TimSorterBase for ListTimSorter<'_, T, C>
 where
     T: Copy,
 {
-    fn copy(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.arr[src as usize];
+    fn copy(&mut self, src: usize, dest: usize) {
+        self.arr[dest] = self.arr[src];
     }
 
-    fn save(&mut self, start: i32, len: i32) {
+    fn save(&mut self, start: usize, len: usize) {
         let tmp_len = self.tmp.len();
-        if tmp_len < self.max_temp_slots as usize {
-            for _ in 0..(self.max_temp_slots as usize - tmp_len) {
-                self.tmp.push(self.arr[start as usize]);
+        if tmp_len < self.max_temp_slots {
+            for _ in 0..(self.max_temp_slots - tmp_len) {
+                self.tmp.push(self.arr[start]);
             }
         }
-        self.tmp
-            .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
+        self.tmp.copy_from(&self.arr[start..start + len], 0);
     }
 
-    fn restore(&mut self, src: i32, dest: i32) {
-        self.arr[dest as usize] = self.tmp[src as usize];
+    fn restore(&mut self, src: usize, dest: usize) {
+        self.arr[dest] = self.tmp[src];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
-        self.comp
-            .compare(&self.tmp[i as usize], &self.arr[j as usize])
+    fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
+        self.comp.compare(&self.tmp[i], &self.arr[j])
     }
 }
 
@@ -161,7 +158,7 @@ where
 struct ListIntroSorter<'a, T, C: Comparator<T>> {
     pub list: &'a mut [T],
     comp: C,
-    pivot: i32,
+    pivot: usize,
 }
 impl<'a, T, C> ListIntroSorter<'a, T, C>
 where
@@ -177,9 +174,8 @@ where
 }
 
 impl<T, C: Comparator<T>> Sorter for ListIntroSorter<'_, T, C> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        self.comp
-            .compare(&self.list[i as usize], &self.list[j as usize])
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        self.comp.compare(&self.list[i], &self.list[j])
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -187,25 +183,23 @@ impl<T, C: Comparator<T>> Sorter for ListIntroSorter<'_, T, C> {
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
         // To avoid Copying the value, we just swap the pivot index.
-        let pivot = self.pivot as usize;
-        if pivot == i || pivot == j {
-            self.pivot = if pivot == i { j } else { i } as i32;
+        if self.pivot == i || self.pivot == j {
+            self.pivot = if self.pivot == i { j } else { i };
         }
         self.list.swap(i, j);
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
-        self.comp
-            .compare(&self.list[self.pivot as usize], &self.list[i as usize])
+    fn compare_pivot(&mut self, i: usize) -> Result<i32> {
+        self.comp.compare(&self.list[self.pivot], &self.list[i])
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }

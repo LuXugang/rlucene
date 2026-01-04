@@ -46,12 +46,12 @@ where
         &mut self,
         builder: &mut BytesRefBuilder<Vec<u8>>,
         result: &mut BytesRef<Vec<u8>>,
-        i: i32,
+        i: usize,
     ) -> Result<()> {
         self.delegate.get(builder, result, i)
     }
 
-    fn fall_back_sorter<'a, C1>(&'a mut self, cmp: &'a mut C1, k: Option<i32>) -> impl Sorter + 'a
+    fn fall_back_sorter<'a, C1>(&'a mut self, cmp: &'a mut C1, k: Option<usize>) -> impl Sorter + 'a
     where
         C1: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     {
@@ -69,7 +69,7 @@ where
             scratch1: BytesRefBuilder::new(),
             scratch_bytes1: BytesRef::default(),
         };
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, length as usize);
+        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, length);
         MSBRadixSorter::new(length, stable_msb_radix_sorter)
     }
 }
@@ -98,13 +98,13 @@ where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.cmp.byte_at(&self.scratch_bytes1, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
         fall_back_sorter_stable(self.cmp, self.delegate, Some(k))
     }
 }
@@ -114,11 +114,11 @@ where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, i: usize, j: usize) {
         self.delegate.save(i, j)
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, i: usize, j: usize) {
         self.delegate.restore(i, j)
     }
 }
@@ -134,14 +134,14 @@ where
     scratch_bytes2: BytesRef<Vec<u8>>,
     cmp: &'a mut C,
     delegate: &'a mut T,
-    k: Option<i32>,
+    k: Option<usize>,
 }
 impl<T, C> Sorter for MergeSorterStableImpl<'_, T, C>
 where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.delegate
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate
@@ -171,7 +171,7 @@ where
         &mut self,
         builder: &mut BytesRefBuilder<Vec<u8>>,
         result: &mut BytesRef<Vec<u8>>,
-        i: i32,
+        i: usize,
     ) -> Result<()> {
         self.delegate.get(builder, result, i)
     }
@@ -182,11 +182,11 @@ where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, i: usize, j: usize) {
         self.delegate.save(i, j)
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, i: usize, j: usize) {
         self.delegate.restore(i, j)
     }
 }
@@ -196,11 +196,11 @@ where
     C: BytesRefComparator,
     T: StableStringSorterBase + MSBRadixSorterBase,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         self.delegate.byte_at(i, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: usize, length: usize) -> impl Sorter {
         self.delegate.get_fallback_sorter(k, length)
     }
 }
@@ -210,27 +210,27 @@ where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, i: usize, j: usize) {
         self.delegate.save(i, j)
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, i: usize, j: usize) {
         self.delegate.restore(i, j)
     }
 }
 
 pub trait StableStringSorterBase: StringSorterBase {
     /// Save the i-th value into the j-th position in temporary storage.
-    fn save(&mut self, i: i32, j: i32);
+    fn save(&mut self, i: usize, j: usize);
     /// Restore values between i-th and j-th(excluding) in temporary storage
     /// into original storage.
-    fn restore(&mut self, i: i32, j: i32);
+    fn restore(&mut self, i: usize, j: usize);
 }
 
 fn fall_back_sorter_stable<'a, T, C>(
     cmp: &'a mut C,
     sorter: &'a mut T,
-    k: Option<i32>,
+    k: Option<usize>,
 ) -> impl Sorter + use<'a, T, C>
 where
     T: StableStringSorterBase + MSBRadixSorterBase,

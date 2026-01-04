@@ -17,9 +17,11 @@
 use rand::Rng;
 use rand::rngs::ThreadRng;
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::intro_sorter::SINGLE_MEDIAN_THRESHOLD;
 use crate::core::util::selector::Selector;
+
 /// Adaptive selection algorithm based on the introspective quick select
 /// algorithm. The quick select algorithm uses an interpolation variant of
 /// Tukey's ninther median-of-medians for pivot, and Bentley-McIlroy 3-way
@@ -49,7 +51,13 @@ where
             sub_selector,
         }
     }
-    pub fn select(&mut self, mut from: i32, mut to: i32, k: i32, mut max_depth: i32) -> Result<()> {
+    pub fn select(
+        &mut self,
+        mut from: usize,
+        mut to: usize,
+        k: usize,
+        mut max_depth: i32,
+    ) -> Result<()> {
         // This code is inspired from IntroSorter#sort, adapted to loop on a
         // single partition.
 
@@ -108,9 +116,9 @@ where
             self.sub_selector.swap(from, pivot)?;
 
             let mut i = from;
-            let mut j = to;
+            let mut j: i32 = to as i32;
             let mut p = from + 1;
-            let mut q = last;
+            let mut q: i32 = last as i32;
 
             loop {
                 let mut left_cmp;
@@ -123,41 +131,41 @@ where
                 } {}
 
                 while {
-                    right_cmp = self.sub_selector.compare_pivot(j - 1)?;
+                    right_cmp = self.sub_selector.compare_pivot(j.try_convert()? - 1)?;
                     j -= 1;
                     right_cmp < 0
                 } {}
-
-                if i >= j {
-                    if i == j && right_cmp == 0 {
+                let v: i32 = i.try_convert()?;
+                if v >= j {
+                    if v == j && right_cmp == 0 {
                         self.sub_selector.swap(i, p)?;
                     }
                     break;
                 }
 
-                self.sub_selector.swap(i, j)?;
+                self.sub_selector.swap(i, j.try_convert()?)?;
                 if right_cmp == 0 {
                     self.sub_selector.swap(i, p)?;
                     p += 1;
                 }
 
                 if left_cmp == 0 {
-                    self.sub_selector.swap(j, q)?;
+                    self.sub_selector.swap(j.try_convert()?, q.try_convert()?)?;
                     q -= 1;
                 }
             }
-            i = j + 1;
+            i = (j + 1).try_convert()?;
             for l in from..p {
-                self.sub_selector.swap(l, j)?;
+                self.sub_selector.swap(l, j.try_convert()?)?;
                 j -= 1;
             }
-            for l in last..q {
+            for l in last..q.try_convert()? {
                 self.sub_selector.swap(l, i)?;
                 i += 1;
             }
-
-            if k <= j {
-                to = j + 1;
+            let v: i32 = k.try_convert()?;
+            if v <= j {
+                to = (j + 1).try_convert()?;
             } else if k >= i {
                 from = i;
             } else {
@@ -182,7 +190,7 @@ where
 
     /// Returns the index of the min element among three elements at provided
     /// indices.
-    pub fn min(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+    pub fn min(&mut self, i: usize, j: usize, k: usize) -> Result<usize> {
         if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? <= 0 {
             if IntroSelectorBase::compare(&mut self.sub_selector, i, k)? <= 0 {
                 Ok(i)
@@ -198,7 +206,7 @@ where
 
     /// Returns the index of the max element among three elements at provided
     /// indices.
-    pub fn max(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+    pub fn max(&mut self, i: usize, j: usize, k: usize) -> Result<usize> {
         if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? <= 0 {
             if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? < 0 {
                 Ok(k)
@@ -212,7 +220,7 @@ where
         }
     }
 
-    pub fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+    pub fn median(&mut self, i: usize, j: usize, k: usize) -> Result<usize> {
         if IntroSelectorBase::compare(&mut self.sub_selector, i, j)? < 0 {
             if IntroSelectorBase::compare(&mut self.sub_selector, j, k)? <= 0 {
                 return Ok(j);
@@ -234,7 +242,7 @@ where
     }
     /// Sorts 3 entries starting at from (inclusive). This specialized method is
     /// more efficient than calling `insertionSort(int, int)`.
-    pub fn sort3(&mut self, from: i32) -> Result<()> {
+    pub fn sort3(&mut self, from: usize) -> Result<()> {
         let mid = from + 1;
         let last = from + 2;
 
@@ -257,7 +265,7 @@ where
     }
     /// Shuffles the entries between from (inclusive) and to (exclusive) with
     /// Durstenfeld's algorithm.
-    pub fn shuffle(&mut self, from: i32, to: i32) -> Result<()> {
+    pub fn shuffle(&mut self, from: usize, to: usize) -> Result<()> {
         if self.random.is_none() {
             self.random = Some(rand::rng());
         }
@@ -275,7 +283,7 @@ impl<T> Selector for IntroSelector<T>
 where
     T: IntroSelectorBase,
 {
-    fn select(&mut self, from: i32, to: i32, k: i32) -> Result<()> {
+    fn select(&mut self, from: usize, to: usize, k: usize) -> Result<()> {
         self.check_args(from, to, k)?;
         let max_depth = 2 * (f64::log2((to - from) as f64) as i32);
         self.select(from, to, k, max_depth)?;
@@ -285,16 +293,16 @@ where
 
 pub trait IntroSelectorBase: IntroSelectorBaseDefault + Selector {
     /// Compare entries found in slots `i` and `j`.
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         IntroSelectorBaseDefault::compare(self, i, j)
     }
 }
 pub trait IntroSelectorBaseDefault {
     /// Save the value at slot `i` so that it can later be used as a pivot.
-    fn set_pivot(&mut self, i: i32) -> Result<()>;
+    fn set_pivot(&mut self, i: usize) -> Result<()>;
     /// Compare the pivot with the slot at `j`, similarly to `compare(i, j)`.
-    fn compare_pivot(&mut self, j: i32) -> Result<i32>;
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32>;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.set_pivot(i)?;
         self.compare_pivot(j)
     }
@@ -324,26 +332,26 @@ mod tests {
     }
 
     pub fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
-        let from: i32 = random.random_range(0..5);
-        let to: i32 = from + TestUtil::next_int(random, 1, 10000);
-        let max: i32 = if random.random_bool(0.5) {
+        let from = random.random_range(0..5);
+        let to = from + TestUtil::next_usize(random, 1, 10000);
+        let max = if random.random_bool(0.5) {
             random.random_range(0..100)
         } else {
             random.random_range(0..100000)
         };
 
         let arr: Vec<i32> = if max == 0 {
-            vec![0; to as usize + random.random_range(0..5)]
+            vec![0; to + random.random_range(0..5)]
         } else {
             (0..(to + random.random_range(0..5)))
                 .map(|_| TestUtil::next_int(random, 0, max))
                 .collect()
         };
 
-        let k = TestUtil::next_int(random, from, to - 1);
+        let k = TestUtil::next_usize(random, from, to - 1);
         let mut expected = arr.clone();
         let mut actual = arr.clone();
-        expected[from as usize..to as usize].sort();
+        expected[from..to].sort();
         let sub_selector = IntroSelectorMock::new(&mut actual);
         let mut selector = IntroSelector::new(sub_selector);
         if random.random_bool(0.5) {
@@ -351,14 +359,14 @@ mod tests {
         } else {
             IntroSelector::select(&mut selector, from, to, k, random.random_range(0..3))?;
         }
-        assert_eq!(expected[k as usize], actual[k as usize]);
+        assert_eq!(expected[k], actual[k]);
         for i in 0..actual.len() {
-            if i < from as usize || i >= to as usize {
+            if i < from || i >= to {
                 assert_eq!(arr[i], actual[i]);
-            } else if i <= k as usize {
-                assert!(actual[i] <= actual[k as usize]);
+            } else if i <= k {
+                assert!(actual[i] <= actual[k]);
             } else {
-                assert!(actual[i] >= actual[k as usize]);
+                assert!(actual[i] >= actual[k]);
             }
         }
         Ok(())
@@ -374,20 +382,20 @@ mod tests {
         }
     }
     impl Selector for IntroSelectorMock<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-            self.actual.swap(i as usize, j as usize);
+        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+            self.actual.swap(i, j);
             Ok(())
         }
     }
 
     impl IntroSelectorBaseDefault for IntroSelectorMock<'_> {
-        fn set_pivot(&mut self, i: i32) -> Result<()> {
-            self.pivot = self.actual[i as usize];
+        fn set_pivot(&mut self, i: usize) -> Result<()> {
+            self.pivot = self.actual[i];
             Ok(())
         }
 
-        fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-            Ok(self.pivot.cmp(&self.actual[j as usize]).to_int())
+        fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+            Ok(self.pivot.cmp(&self.actual[j]).to_int())
         }
     }
 

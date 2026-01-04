@@ -20,10 +20,10 @@ use std::cmp::{max, min};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{Sorter, sorter};
 
-const MIN_RUN: i32 = 32;
-const THRESHOLD: i32 = 64;
-const STACK_SIZE: i32 = 49; // depends on MINRUN
-const MIN_GALLOP: i32 = 7;
+const MIN_RUN: usize = 32;
+const THRESHOLD: usize = 64;
+const STACK_SIZE: usize = 49; // depends on MINRUN
+const MIN_GALLOP: usize = 7;
 
 /// [`Sorter`] implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
 /// sorts small arrays with a binary sort.
@@ -47,25 +47,25 @@ pub struct TimSorter<T>
 where
     T: TimSorterBase,
 {
-    max_temp_slots: i32,
-    min_run: i32,
-    to: i32,
-    stack_size: i32,
-    run_ends: Vec<i32>,
+    max_temp_slots: usize,
+    min_run: usize,
+    to: usize,
+    stack_size: usize,
+    run_ends: Vec<usize>,
     delegate: T,
 }
 impl<T: TimSorterBase> TimSorter<T> {
-    pub fn new(max_temp_slots: i32, delegate: T) -> TimSorter<T> {
+    pub fn new(max_temp_slots: usize, delegate: T) -> TimSorter<T> {
         TimSorter {
             max_temp_slots,
             min_run: 0,
             to: 0,
             stack_size: 0,
-            run_ends: vec![0; STACK_SIZE as usize + 1],
+            run_ends: vec![0; STACK_SIZE + 1],
             delegate,
         }
     }
-    fn min_run(&self, length: i32) -> i32 {
+    fn min_run(&self, length: usize) -> usize {
         debug_assert!(length >= MIN_RUN);
         let mut n = length;
         let mut r = 0;
@@ -77,27 +77,26 @@ impl<T: TimSorterBase> TimSorter<T> {
         debug_assert!((MIN_RUN..=THRESHOLD).contains(&min_run));
         min_run
     }
-    fn run_len(&self, i: i32) -> i32 {
+    fn run_len(&self, i: usize) -> usize {
         let off = self.stack_size - i;
-        self.run_ends[off as usize] - self.run_ends[(off - 1) as usize]
+        self.run_ends[off] - self.run_ends[off - 1]
     }
-    fn run_base(&self, i: i32) -> i32 {
-        self.run_ends[(self.stack_size - i - 1) as usize]
+    fn run_base(&self, i: usize) -> usize {
+        self.run_ends[self.stack_size - i - 1]
     }
-    fn run_end(&self, i: i32) -> i32 {
-        self.run_ends[(self.stack_size - i) as usize]
+    fn run_end(&self, i: usize) -> usize {
+        self.run_ends[self.stack_size - i]
     }
-    fn set_run_end(&mut self, i: i32, run_end: i32) {
-        self.run_ends[(self.stack_size - i) as usize] = run_end;
+    fn set_run_end(&mut self, i: usize, run_end: usize) {
+        self.run_ends[self.stack_size - i] = run_end;
     }
-    fn push_run_len(&mut self, len: i32) {
-        self.run_ends[(self.stack_size + 1) as usize] =
-            self.run_ends[self.stack_size as usize] + len;
+    fn push_run_len(&mut self, len: usize) {
+        self.run_ends[self.stack_size + 1] = self.run_ends[self.stack_size] + len;
         self.stack_size += 1;
     }
     // Compute the length of the next run, make the run sorted and return its
     // length.
-    fn next_run(&mut self) -> Result<i32> {
+    fn next_run(&mut self) -> Result<usize> {
         let run_base = self.run_end(0);
         debug_assert!(run_base < self.to);
 
@@ -154,7 +153,7 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn reset(&mut self, from: i32, to: i32) {
+    pub fn reset(&mut self, from: usize, to: usize) {
         self.stack_size = 0;
         self.run_ends.fill(0);
         self.run_ends[0] = from;
@@ -167,7 +166,7 @@ impl<T: TimSorterBase> TimSorter<T> {
         };
     }
 
-    pub fn merge_at(&mut self, n: i32) -> Result<()> {
+    pub fn merge_at(&mut self, n: usize) -> Result<()> {
         debug_assert!(self.stack_size >= 2);
         self.merge(self.run_base(n + 1), self.run_base(n), self.run_end(n))?;
 
@@ -179,7 +178,7 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge(&mut self, mut lo: i32, mid: i32, mut hi: i32) -> Result<()> {
+    fn merge(&mut self, mut lo: usize, mid: usize, mut hi: usize) -> Result<()> {
         if self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         }
@@ -196,7 +195,7 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    fn merge_lo(&mut self, lo: i32, mid: i32, hi: i32) -> Result<()> {
+    fn merge_lo(&mut self, lo: usize, mid: usize, hi: usize) -> Result<()> {
         debug_assert!(self.delegate.compare(lo, mid)? > 0);
 
         let len1 = mid - lo;
@@ -247,29 +246,29 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn merge_hi(&mut self, lo: i32, mid: i32, hi: i32) -> Result<()> {
+    pub fn merge_hi(&mut self, lo: usize, mid: usize, hi: usize) -> Result<()> {
         debug_assert!(self.compare(mid - 1, hi - 1)? > 0);
 
         let len2 = hi - mid;
         self.delegate.save(mid, len2);
         self.delegate.copy(mid - 1, hi - 1);
 
-        let mut i = mid - 2;
-        let mut j: i32 = len2 - 1;
-        let mut dest = hi - 2;
+        let mut i: i32 = mid as i32 - 2;
+        let mut j: i32 = len2 as i32 - 1;
+        let mut dest: i32 = hi as i32 - 2;
 
         'outer: loop {
             let mut count = 0;
             while count < MIN_GALLOP {
-                if i < lo || j < 0 {
+                if i < lo as i32 || j < 0 {
                     break 'outer;
-                } else if self.delegate.compare_saved(j, i)? >= 0 {
-                    self.delegate.restore(j, dest);
+                } else if self.delegate.compare_saved(j as usize, i as usize)? >= 0 {
+                    self.delegate.restore(j as usize, dest as usize);
                     j -= 1;
                     dest -= 1;
                     count = 0;
                 } else {
-                    self.delegate.copy(i, dest);
+                    self.delegate.copy(i as usize, dest as usize);
                     i -= 1;
                     dest -= 1;
                     count += 1;
@@ -277,19 +276,19 @@ impl<T: TimSorterBase> TimSorter<T> {
             }
 
             // Galloping phase
-            let next = self.upper_saved3(lo, i + 1, j)?;
-            while i >= next {
-                self.delegate.copy(i, dest);
+            let next = self.upper_saved3(lo, (i + 1) as usize, j as usize)?;
+            while i >= next as i32 {
+                self.delegate.copy(i as usize, dest as usize);
                 i -= 1;
                 dest -= 1;
             }
-            self.delegate.restore(j, dest);
+            self.delegate.restore(j as usize, dest as usize);
             j -= 1;
             dest -= 1;
         }
 
         while j >= 0 {
-            self.delegate.restore(j, dest);
+            self.delegate.restore(j as usize, dest as usize);
             j -= 1;
             dest -= 1;
         }
@@ -298,12 +297,16 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(())
     }
 
-    pub fn lower_saved(&self, mut from: i32, to: i32, val: i32) -> Result<i32> {
-        let mut len = to - from;
+    pub fn lower_saved(&self, mut from: usize, to: usize, val: usize) -> Result<usize> {
+        let mut len: i32 = if to >= from {
+            (to - from) as i32
+        } else {
+            return Ok(from);
+        };
 
         while len > 0 {
             let half = len >> 1;
-            let mid = from + half;
+            let mid = from + half as usize;
             if self.delegate.compare_saved(val, mid)? > 0 {
                 from = mid + 1;
                 len -= half + 1;
@@ -314,12 +317,16 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(from)
     }
 
-    pub fn upper_saved(&self, mut from: i32, to: i32, val: i32) -> Result<i32> {
-        let mut len = to - from;
+    pub fn upper_saved(&self, mut from: usize, to: usize, val: usize) -> Result<usize> {
+        let mut len: i32 = if to >= from {
+            (to - from) as i32
+        } else {
+            return Ok(from);
+        };
 
         while len > 0 {
             let half = len >> 1;
-            let mid = from + half;
+            let mid = from + half as usize;
             if self.delegate.compare_saved(val, mid)? < 0 {
                 len = half;
             } else {
@@ -330,7 +337,7 @@ impl<T: TimSorterBase> TimSorter<T> {
         Ok(from)
     }
 
-    pub fn lower_saved3(&self, from: i32, to: i32, val: i32) -> Result<i32> {
+    pub fn lower_saved3(&self, from: usize, to: usize, val: usize) -> Result<usize> {
         let mut f = from;
         let mut t = f + 1;
 
@@ -345,17 +352,18 @@ impl<T: TimSorterBase> TimSorter<T> {
         self.lower_saved(f, to, val)
     }
 
-    pub fn upper_saved3(&self, from: i32, to: i32, val: i32) -> Result<i32> {
-        let mut f = to - 1;
+    pub fn upper_saved3(&self, from: usize, to: usize, val: usize) -> Result<usize> {
+        let mut f: i32 = to as i32 - 1;
         let mut t = to;
 
-        while f > from {
-            if self.delegate.compare_saved(val, f)? >= 0 {
-                return self.upper_saved(f, t, val);
+        while f > from as i32 {
+            let v = f as usize;
+            if self.delegate.compare_saved(val, v)? >= 0 {
+                return self.upper_saved(v, t, val);
             }
-            let delta = t - f;
-            t = f;
-            f -= delta * 2
+            let delta = t - v;
+            t = v;
+            f -= delta as i32 * 2
         }
         self.upper_saved(from, t, val)
     }
@@ -364,7 +372,7 @@ impl<T> Sorter for TimSorter<T>
 where
     T: TimSorterBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.delegate.compare(i, j)
     }
 
@@ -372,15 +380,15 @@ where
         self.delegate.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.delegate.set_pivot(i)
     }
 
-    fn compare_pivot(&mut self, i: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, i: usize) -> Result<i32> {
         self.delegate.compare_pivot(i)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         sorter::check_range(from, to)?;
         if to - from <= 1 {
             return Ok(());
@@ -403,29 +411,29 @@ where
         Ok(())
     }
 
-    fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<()> {
+    fn do_rotate(&mut self, mut lo: usize, mut mid: usize, hi: usize) -> Result<()> {
         let len1 = mid - lo;
         let len2 = hi - mid;
 
         if len1 == len2 {
             while mid < hi {
-                self.swap(lo as usize, mid as usize)?;
+                self.swap(lo, mid)?;
                 lo += 1;
                 mid += 1;
             }
         } else if len2 < len1 && len2 <= self.max_temp_slots {
             self.delegate.save(mid, len2);
-            let mut i = lo + len1 - 1;
-            let mut j = hi - 1;
-            while i >= lo {
-                self.delegate.copy(i, j);
+            let mut i: i32 = (lo + len1) as i32 - 1;
+            let mut j: i32 = hi as i32 - 1;
+            while i >= lo as i32 {
+                self.delegate.copy(i as usize, j as usize);
                 i -= 1;
                 j -= 1;
             }
             i = 0;
-            j = lo;
-            while i < len2 {
-                self.delegate.restore(i, j);
+            j = lo as i32;
+            while i < len2 as i32 {
+                self.delegate.restore(i as usize, j as usize);
                 i += 1;
                 j += 1;
             }
@@ -456,17 +464,17 @@ where
 
 pub trait TimSorterBase: Sorter {
     ///Copy data from slot `src` to slot `dest`
-    fn copy(&mut self, src: i32, dest: i32);
+    fn copy(&mut self, src: usize, dest: usize);
 
     /// Save all elements between slots i and `i+len` into the temporary
     /// storage.
-    fn save(&mut self, i: i32, len: i32);
+    fn save(&mut self, i: usize, len: usize);
     /// Restore element `j` from the temporary storage into slot `i`.
-    fn restore(&mut self, i: i32, j: i32);
+    fn restore(&mut self, i: usize, j: usize);
 
     /// Compare element `i` from the temporary storage with element `j` from the
     /// slice to sort, similarly to #compare(i32, i32).
-    fn compare_saved(&self, i: i32, j: i32) -> Result<i32>;
+    fn compare_saved(&self, i: usize, j: usize) -> Result<i32>;
 }
 
 #[cfg(test)]
@@ -490,7 +498,7 @@ mod tests {
     impl BaseSortTestCase for TestTimSorter {
         fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter {
             let arr_len = arr.len();
-            let max_temp_slots = TestUtil::next_int(random, 0, arr_len as i32);
+            let max_temp_slots = TestUtil::next_usize(random, 0, arr_len);
             ArrayTimSorter::new(arr, NaturalOrder::new(), max_temp_slots)
         }
 

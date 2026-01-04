@@ -24,6 +24,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::index_options::IndexOptions::Docs;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::transition::Transition;
@@ -153,7 +154,7 @@ impl IntersectTermsEnumFrame {
         );
 
         loop {
-            let delta: i64 = (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_into()?;
+            let delta: i64 = (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_convert()?;
             frame.fp = frame.fp_orig + delta;
             frame.num_follow_floor_blocks -= 1;
             if frame.num_follow_floor_blocks != 0 {
@@ -255,7 +256,7 @@ impl IntersectTermsEnumFrame {
                         && frame.next_floor_label <= frame.transition.min
                     {
                         let delta: i64 =
-                            (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_into()?;
+                            (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_convert()?;
                         frame.fp = frame.fp_orig + delta;
                         frame.num_follow_floor_blocks -= 1;
                         if frame.num_follow_floor_blocks != 0 {
@@ -274,7 +275,7 @@ impl IntersectTermsEnumFrame {
         input.seek(frame.fp)?;
 
         let code = input.read_vint()?;
-        frame.ent_count = (code as u32 >> 1).try_into()?;
+        frame.ent_count = (code as u32 >> 1).try_convert()?;
         debug_assert!(frame.ent_count > 0);
         frame.is_last_in_floor = (code & 1) != 0;
 
@@ -289,7 +290,7 @@ impl IntersectTermsEnumFrame {
             frame.suffixes_reader.bytes = vec![0u8; new_len];
         }
 
-        let compression_alg = match CompressionAlgorithm::by_code((code_l & 0x03).try_into()?) {
+        let compression_alg = match CompressionAlgorithm::by_code((code_l & 0x03).try_convert()?) {
             Ok(alg) => alg,
             Err(e) => {
                 return Err(LuceneError::corrupt_index(format!(
@@ -302,7 +303,7 @@ impl IntersectTermsEnumFrame {
         compression_alg.read(
             input,
             &mut frame.suffixes_reader.bytes,
-            num_suffix_bytes.try_into()?,
+            num_suffix_bytes.try_convert()?,
         )?;
 
         frame.suffixes_reader.reset_meta(0, num_suffix_bytes);
@@ -385,7 +386,7 @@ impl IntersectTermsEnumFrame {
             self.fp
         );
         self.next_ent += 1;
-        self.suffix = self.suffix_lengths_reader.read_vint()?.try_into()?;
+        self.suffix = self.suffix_lengths_reader.read_vint()?.try_convert()?;
         self.start_byte_pos = self.suffixes_reader.get_position();
         self.suffixes_reader.skip_bytes(self.suffix as i64)?;
         Ok(())
@@ -446,9 +447,9 @@ impl IntersectTermsEnumFrame {
                     // singleton run
                     term_state.doc_freq = 1;
                     term_state.total_term_freq = 1;
-                    frame.stats_singleton_run_length = (token as u32 >> 1).try_into()?;
+                    frame.stats_singleton_run_length = (token as u32 >> 1).try_convert()?;
                 } else {
-                    term_state.doc_freq = (token as u32 >> 1).try_into()?;
+                    term_state.doc_freq = (token as u32 >> 1).try_convert()?;
 
                     if *ite.fr.field_info.get_index_options() == Docs {
                         term_state.total_term_freq = term_state.doc_freq as i64;

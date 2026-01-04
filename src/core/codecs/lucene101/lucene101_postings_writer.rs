@@ -40,11 +40,11 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -284,7 +284,7 @@ where
                 debug_assert!(self.level0_output.size() == 0);
                 let scratch_len = self.scratch_output.size();
                 if scratch_len > self.max_impact_num_bytes_at_level0 as i64 {
-                    self.max_impact_num_bytes_at_level0 = scratch_len.try_into()?;
+                    self.max_impact_num_bytes_at_level0 = scratch_len.try_convert()?;
                 }
                 self.level0_output.write_vlong(scratch_len)?;
                 self.scratch_output.copy_to(&mut self.level0_output)?;
@@ -369,7 +369,7 @@ where
             write_impacts(&impacts, &mut self.scratch_output)?;
             let num_impact_bytes = self.scratch_output.size();
             if num_impact_bytes > self.max_impact_num_bytes_at_level1 as i64 {
-                self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_into()?;
+                self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_convert()?;
             }
             if options.write_positions {
                 let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer();

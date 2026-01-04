@@ -27,6 +27,7 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -294,12 +295,12 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 };
                 let dv_gen = input.read_long()?;
                 let attributes = input.read_map_of_strings()?;
-                let point_data_dimension_count = input.read_vint()?.try_into()?;
+                let point_data_dimension_count = input.read_vint()?.try_convert()?;
                 let (point_index_dimension_count, point_num_bytes) =
                     if point_data_dimension_count != 0 {
                         (
-                            input.read_vint()?.try_into()?,
-                            input.read_vint()?.try_into()?,
+                            input.read_vint()?.try_convert()?,
+                            input.read_vint()?.try_convert()?,
                         )
                     } else {
                         (point_data_dimension_count, 0)

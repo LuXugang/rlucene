@@ -34,7 +34,7 @@ use crate::core::util::packed::abstract_block_packed_writer::AbstractBlockPacked
 use crate::core::util::packed::block_packed_writer::BlockPackedWriter;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
-use crate::core::util::{SliceCopyOps, StringHelper};
+use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
 
@@ -413,7 +413,7 @@ where
             writer.finish()?;
 
             self.vectors_stream
-                .write_vint(self.scratch_buffer.size().try_into()?)?;
+                .write_vint(self.scratch_buffer.size().try_convert()?)?;
             self.scratch_buffer.copy_to(&mut self.vectors_stream)?;
         } else {
             // write one flag for every field instance
@@ -467,7 +467,7 @@ where
         writer.finish()?;
 
         self.vectors_stream
-            .write_vint(self.scratch_buffer.size().try_into()?)?;
+            .write_vint(self.scratch_buffer.size().try_convert()?)?;
         self.scratch_buffer.copy_to(&mut self.vectors_stream)?;
 
         Ok(())

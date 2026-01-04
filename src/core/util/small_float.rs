@@ -16,6 +16,7 @@
  */
 use once_cell::sync::Lazy;
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 
@@ -102,12 +103,12 @@ impl SmallFloat {
         }
         let num_bits = 64 - i.leading_zeros();
         if num_bits < 4 {
-            let v = i.try_into()?;
+            let v = i.try_convert()?;
             Ok(v)
         } else {
             // normal value
             let shift = num_bits as i32 - 4;
-            let mut encoded = ((i as u64 >> shift) as i64).try_into()?;
+            let mut encoded = ((i as u64 >> shift) as i64).try_convert()?;
             // only keep the 5 most significant bits
             encoded &= 0x07;
             // encode the shift, adding 1 because 0 is reserved for subnormal
@@ -151,8 +152,8 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i)
         } else {
-            let v =
-                (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES)).try_into()?;
+            let v = (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES))
+                .try_convert()?;
             Ok(v)
         }
     }

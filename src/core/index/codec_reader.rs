@@ -30,8 +30,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term_vectors::{EmptyTermVectors, TermVectorsEnum2};
-use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -306,7 +306,7 @@ where
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id.try_into()?, self.max_doc.try_into()?)?;
+        CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
         self.reader.prefetch(doc_id)
     }
 
@@ -317,7 +317,7 @@ where
         writer: Option<&mut S>,
     ) -> Result<()> {
         // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id.try_into()?, self.max_doc.try_into()?)?;
+        CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
         self.reader.document_with_visitor(doc_id, visitor, writer)
     }
 }

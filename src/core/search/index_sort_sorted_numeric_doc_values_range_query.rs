@@ -60,6 +60,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum4};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -995,7 +996,7 @@ where
         return Ok((None, Some(delegate)));
     }
 
-    if points.size()? != points.get_doc_count()?.try_into()? {
+    if points.size()? != points.get_doc_count()?.try_convert()? {
         return Ok((None, Some(delegate)));
     }
 

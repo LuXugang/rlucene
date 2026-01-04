@@ -43,6 +43,7 @@ use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -342,7 +343,7 @@ where
             Relation::CellInsideQuery => {
                 // This cell is fully inside the query shape: return the size of the entire node as the
                 // count
-                let v: i64 = point_tree.size()?.try_into()?;
+                let v: i64 = point_tree.size()?.try_convert()?;
                 visitor.matching_node_count += v;
                 Ok(())
             },
@@ -657,7 +658,7 @@ where
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::Scorer>> {
         let reader = context.reader();
-        let v: i32 = self.values.size()?.try_into()?;
+        let v: i32 = self.values.size()?.try_convert()?;
         if self.values.get_doc_count()? == reader.max_doc()?
             && self.values.get_doc_count()? == v
             && self.cost(context)? > (reader.max_doc()? as i64 / 2)
@@ -846,7 +847,7 @@ impl IntersectVisitorImpl1 {
 
 impl IntersectVisitor for IntersectVisitorImpl1 {
     fn grow(&mut self, count: usize) -> Result<()> {
-        self.result.grow(count.try_into()?);
+        self.result.grow(count.try_convert()?);
         Ok(())
     }
 

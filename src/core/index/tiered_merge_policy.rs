@@ -22,6 +22,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -840,7 +841,7 @@ impl MergePolicy for TieredMergePolicy {
         if sorted_size_and_docs.is_empty() {
             return Ok(None);
         }
-        let sorted_size_and_docs_len: i32 = sorted_size_and_docs.len().try_into()?;
+        let sorted_size_and_docs_len: i32 = sorted_size_and_docs.len().try_convert()?;
         // We only bail if there are no deletions
         if !found_deletes {
             let info_zero = &sorted_size_and_docs[0].seg_info;

@@ -53,7 +53,9 @@ use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
-use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter};
+use crate::core::util::{
+    BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter, TryIntoInt,
+};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -563,7 +565,7 @@ where
             debug_assert!(count > 0);
             self.ord_count = count;
             for i in 0..count {
-                let raw: i32 = self.ords_iter.next_value().try_into()?;
+                let raw: i32 = self.ords_iter.next_value().try_convert()?;
                 self.current_doc[i] = self.ord_map[raw as usize];
             }
             self.current_doc[..count].sort_unstable();
@@ -606,7 +608,7 @@ where
 
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(ord >= 0 && (ord as usize) < self.ord_map.len());
-        let idx: i32 = ord.try_into()?;
+        let idx: i32 = ord.try_convert()?;
         let hash_idx = self.hash.ids[idx as usize];
         self.hash
             .get(hash_idx, &mut self.scratch, self.pool.as_ref());
@@ -660,8 +662,8 @@ where
         self.count = self
             .ords
             .doc_value_counts
-            .get(self.doc_id.try_into()?)
-            .try_into()?;
+            .get(self.doc_id.try_convert()?)
+            .try_convert()?;
         Ok(())
     }
 }

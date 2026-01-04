@@ -26,8 +26,10 @@ use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
+
 /// Implements the WAND (Weak AND) algorithm for dynamic pruning as described in
 /// “Efficient Query Evaluation using a Two-Level Retrieval Process”
 /// by Broder, Carmel, Herscovici, Soffer and Zien.
@@ -170,7 +172,7 @@ where
                 max_score_sum += scorer.get_max_score(upto)? as f64;
             }
         }
-        Ok(MathUtil::sum_upper_bound(max_score_sum, len.try_into()?) as f32)
+        Ok(MathUtil::sum_upper_bound(max_score_sum, len.try_convert()?) as f32)
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
@@ -297,7 +299,7 @@ where
         this.cost = ScorerUtil::cost_with_min_should_match(
             cost,
             num_scorers,
-            min_should_match.try_into()?,
+            min_should_match.try_convert()?,
         )?;
 
         Ok(this)

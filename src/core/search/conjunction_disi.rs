@@ -22,7 +22,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{Comparator, ToInt};
+use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
 pub struct ConjunctionDISI<D>
 where
@@ -201,7 +201,7 @@ where
         Ok(Self {
             lead,
             bit_set_iterators,
-            min_length: min_length.try_into()?,
+            min_length: min_length.try_convert()?,
         })
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {

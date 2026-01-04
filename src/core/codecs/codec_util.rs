@@ -22,9 +22,9 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{DataInput, IndexOutput};
-use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::version::MIN_SUPPORTED_MAJOR;
+use crate::core::util::{StringHelper, TryIntoInt};
 
 /// Utility struct for reading and writing versioned headers.
 ///
@@ -379,7 +379,7 @@ impl CodecUtil {
 
         let mut bytes: Vec<u8> = vec![0u8; bytes_len];
         data_input.seek(0)?;
-        data_input.read_bytes(&mut bytes, 0, bytes_len.try_into()?)?;
+        data_input.read_bytes(&mut bytes, 0, bytes_len.try_convert()?)?;
         Ok(bytes)
     }
 
@@ -396,12 +396,12 @@ impl CodecUtil {
                 data_input
             )));
         }
-        let footer_len: i64 = Self::footer_length().try_into()?;
+        let footer_len: i64 = Self::footer_length().try_convert()?;
         data_input.seek(data_input.length() - footer_len)?;
         Self::validate_footer(data_input)?;
         data_input.seek(data_input.length() - footer_len)?;
         let mut bytes: Vec<u8> = vec![0u8; Self::footer_length()];
-        data_input.read_bytes(&mut bytes, 0, Self::footer_length().try_into()?)?;
+        data_input.read_bytes(&mut bytes, 0, Self::footer_length().try_convert()?)?;
         Ok(bytes)
     }
     /// Expert: reads and verifies the object ID of an index header.

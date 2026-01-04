@@ -26,7 +26,7 @@ use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
-use crate::core::util::{BitSetExt, SliceCopyOps, Sorter};
+use crate::core::util::{BitSetExt, SliceCopyOps, Sorter, TryIntoInt};
 
 /// Struct representing an automaton and all its states and transitions. States
 /// are integers and must be created using
@@ -258,7 +258,10 @@ impl Automaton {
             transitions: &mut self.transitions,
         };
         let mut sort = InPlaceMergeSorter::new(sub);
-        sort.sort(start, start + num_transitions)?;
+        sort.sort(
+            start.try_convert()?,
+            (start + num_transitions).try_convert()?,
+        )?;
 
         // merge adjacent transitions
         let mut upto = 0;
@@ -319,7 +322,8 @@ impl Automaton {
             transitions: &mut self.transitions,
         };
         let mut sort = InPlaceMergeSorter::new(sub);
-        sort.sort(start, start + upto as i32)?;
+        let start_index: usize = start.try_convert()?;
+        sort.sort(start_index, start_index + upto)?;
 
         // check determinism
         if self.deterministic && upto > 1 {
@@ -670,7 +674,7 @@ impl Builder {
         };
         let mut sort = InPlaceMergeSorter::new(sub);
         debug_assert!(num_transitions.to_i32().is_some());
-        sort.sort(0, num_transitions)?;
+        sort.sort(0, num_transitions.try_convert()?)?;
         let mut upto = 0;
         while upto < self.next_transition as usize {
             a.add_transition(
@@ -755,9 +759,9 @@ impl<'a> InPlaceMergeSorterImpl<'a> {
     }
 }
 impl Sorter for InPlaceMergeSorterImpl<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let i_start = i as usize * 4;
-        let j_start = j as usize * 4;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        let i_start = i * 4;
+        let j_start = j * 4;
 
         // First src
         let i_src = self.transitions[i_start];
@@ -822,9 +826,9 @@ impl<'a> MinMaxDestSorter<'a> {
     }
 }
 impl Sorter for MinMaxDestSorter<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let i_start = 3 * i as usize;
-        let j_start = 3 * j as usize;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        let i_start = 3 * i;
+        let j_start = 3 * j;
 
         // First compare min
         let i_min = self.transitions[i_start + 1];
@@ -876,9 +880,9 @@ impl<'a> DestMinMaxSorter<'a> {
     }
 }
 impl Sorter for DestMinMaxSorter<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let i_start = (3 * i) as usize;
-        let j_start = (3 * j) as usize;
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        let i_start = 3 * i;
+        let j_start = 3 * j;
 
         // First dest:
         let i_dest = self.transitions[i_start];

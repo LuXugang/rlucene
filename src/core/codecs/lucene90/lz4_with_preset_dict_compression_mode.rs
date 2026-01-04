@@ -25,10 +25,10 @@ use crate::core::index::BytesRef;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 pub struct LZ4WithPresetDictCompressionMode;
 impl LZ4WithPresetDictCompressionMode {
@@ -227,7 +227,7 @@ impl LZ4WithPresetDictCompressor {
             &mut self.hash_table,
         )?;
         // Write the number of compressed bytes
-        out.write_vint((self.compressed.size() - prev_compressed_size).try_into()?)
+        out.write_vint((self.compressed.size() - prev_compressed_size).try_convert()?)
     }
 }
 impl Compressor for LZ4WithPresetDictCompressor {

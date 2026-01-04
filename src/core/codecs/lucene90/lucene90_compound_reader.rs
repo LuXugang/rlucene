@@ -25,9 +25,9 @@ use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IO_CONTEXT_DEFAULT, IOContext, IndexInput, ReadAdvice};
-use crate::core::util::StringHelper;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{StringHelper, TryIntoInt};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
@@ -199,7 +199,7 @@ where
             .entries
             .get(stripped_name)
             .ok_or_else(|| LuceneError::not_found(format!("{name} not found")))?;
-        Ok(entry.length.try_into()?)
+        entry.length.try_convert()
     }
 
     fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {

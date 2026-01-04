@@ -26,8 +26,8 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
-use crate::core::util::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{Comparator, TryIntoInt};
 use std::cmp::Ordering::Equal;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -144,7 +144,7 @@ where
                 max_allowed, max_doc
             )));
         }
-        let max_doc_i32 = max_doc.try_into()?;
+        let max_doc_i32 = max_doc.try_convert()?;
         starts[sub_readers.len()] = max_doc_i32;
 
         let sub_reader = sub_readers.into_iter().map(to_index_reader_enum).collect();

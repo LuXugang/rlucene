@@ -460,7 +460,8 @@ where
 
         self.num_stored_fields[self.num_buffered_docs as usize] = self.num_stored_fields_in_doc;
         self.num_stored_fields_in_doc = 0;
-        self.end_offsets[self.num_buffered_docs as usize] = self.buffered_docs.size().try_into()?;
+        self.end_offsets[self.num_buffered_docs as usize] =
+            self.buffered_docs.size().try_convert()?;
         self.num_buffered_docs += 1;
 
         if self.trigger_flush() {
@@ -725,6 +726,7 @@ impl Default for CompressingStoredFieldsMergeSub {
     }
 }
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 
 /// Extension of stored fields file

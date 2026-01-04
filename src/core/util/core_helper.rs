@@ -257,3 +257,31 @@ impl AsI64Slice for i64 {
         std::slice::from_ref(self)
     }
 }
+
+pub trait TryIntoInt<T> {
+    fn try_convert(self) -> Result<T>;
+}
+macro_rules! impl_try_convert {
+    ($src:ty => $dst:ty) => {
+        impl TryIntoInt<$dst> for $src {
+            #[inline]
+            fn try_convert(self) -> Result<$dst> {
+                <$dst>::try_from(self).map_err(|_| {
+                    LuceneError::illegal_state(format!(
+                        "value {} does not fit into {}",
+                        self,
+                        stringify!($dst)
+                    ))
+                })
+            }
+        }
+    };
+}
+impl_try_convert!(usize => i32);
+impl_try_convert!(usize => i64);
+impl_try_convert!(u64 => i64);
+impl_try_convert!(i64   => i32);
+impl_try_convert!(i64   => usize);
+impl_try_convert!(i32   => usize);
+impl_try_convert!(u32   => i32);
+impl_try_convert!(i64 => u8);

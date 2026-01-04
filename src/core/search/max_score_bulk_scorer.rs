@@ -23,6 +23,7 @@ use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -462,7 +463,7 @@ where
                 bits ^= 1u64 << ntz;
 
                 let index = (word_index << 6) | ntz;
-                let v: i32 = index.try_into()?;
+                let v: i32 = index.try_convert()?;
                 let doc = inner_window_min + v;
 
                 let score = self.window_scores[index];
@@ -510,7 +511,7 @@ where
             } else {
                 self.min_window_size = 1;
             }
-            let v: i32 = self.min_window_size.try_into()?;
+            let v: i32 = self.min_window_size.try_convert()?;
             let min_window_max = window_min + v;
             window_max = window_max.max(min_window_max);
         }
@@ -609,7 +610,7 @@ where
             let index = self.scratch[idx];
             let w = &self.all_scorers[index];
             let new_max_score_sum = max_score_sum + w.max_window_score as f64;
-            let v: i32 = self.first_essential_scorer.try_into()?;
+            let v: i32 = self.first_essential_scorer.try_convert()?;
             let max_score_sum_float = MathUtil::sum_upper_bound(new_max_score_sum, v + 1) as f32;
 
             if max_score_sum_float < self.scorable.min_competitive_score {

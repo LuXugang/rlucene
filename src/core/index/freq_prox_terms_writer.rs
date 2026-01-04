@@ -641,7 +641,7 @@ struct DocOffsetSorter<'a> {
     offsets: &'a mut [i64],
     tmp_docs: Vec<i32>,
     tmp_offsets: Vec<i64>,
-    pivot_index: i32,
+    pivot_index: usize,
 }
 
 impl<'a> DocOffsetSorter<'a> {
@@ -659,13 +659,13 @@ impl<'a> DocOffsetSorter<'a> {
             tmp_offsets,
             pivot_index: 0,
         };
-        TimSorter::new(max_temp_slots as i32, sorter)
+        TimSorter::new(max_temp_slots, sorter)
     }
 }
 
 impl Sorter for DocOffsetSorter<'_> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        Ok(self.docs[i as usize] - self.docs[j as usize])
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        Ok(self.docs[i] - self.docs[j])
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -674,46 +674,40 @@ impl Sorter for DocOffsetSorter<'_> {
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         self.compare(self.pivot_index, j)
     }
 }
 
 impl TimSorterBase for DocOffsetSorter<'_> {
-    fn copy(&mut self, src: i32, dest: i32) {
-        let src = src as usize;
-        let dest = dest as usize;
+    fn copy(&mut self, src: usize, dest: usize) {
         self.docs[dest] = self.docs[src];
         self.offsets[dest] = self.offsets[src];
     }
 
-    fn save(&mut self, i: i32, len: i32) {
-        if self.tmp_docs.len() < len as usize {
-            let new_len = ArrayUtil::oversize(len as usize, 0);
+    fn save(&mut self, i: usize, len: usize) {
+        if self.tmp_docs.len() < len {
+            let new_len = ArrayUtil::oversize(len, 0);
             self.tmp_docs = vec![0; new_len];
             self.tmp_offsets = vec![0; new_len];
         }
-        let i = i as usize;
-        let len = len as usize;
 
         self.tmp_docs.copy_from(&self.docs[i..i + len], 0);
         self.tmp_offsets.copy_from(&self.offsets[i..i + len], 0);
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
-        let i = i as usize;
-        let j = j as usize;
+    fn restore(&mut self, i: usize, j: usize) {
         self.docs[j] = self.tmp_docs[i];
         self.offsets[j] = self.tmp_offsets[i];
     }
 
-    fn compare_saved(&self, i: i32, j: i32) -> Result<i32> {
-        Ok(self.tmp_docs[i as usize] - self.docs[j as usize])
+    fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
+        Ok(self.tmp_docs[i] - self.docs[j])
     }
 }
 pub(crate) struct SortingPostingsEnum<P>
@@ -722,7 +716,7 @@ where
 {
     docs: Vec<i32>,
     offsets: Vec<i64>,
-    upto: i32,
+    upto: usize,
 
     posting_input: Option<ByteBuffersDataInputOwned>,
     postings_enum: Option<P>,
@@ -801,8 +795,7 @@ where
         }
         self.postings_enum = Some(postings_enum);
 
-        debug_assert!(i <= i32::MAX as usize);
-        self.upto = i as i32;
+        self.upto = i;
 
         let num_temp_slots = doc_map.size() / 8;
         let mut sorter =
@@ -861,7 +854,7 @@ where
     fn doc_id(&self) -> i32 {
         if self.doc_it < 0 {
             -1
-        } else if self.doc_it >= self.upto {
+        } else if self.doc_it as usize >= self.upto {
             NO_MORE_DOCS
         } else {
             self.docs[self.doc_it as usize]
@@ -870,7 +863,7 @@ where
 
     fn next_doc(&mut self) -> Result<i32> {
         self.doc_it += 1;
-        if self.doc_it >= self.upto {
+        if self.doc_it as usize >= self.upto {
             return Ok(NO_MORE_DOCS);
         }
 
@@ -1028,7 +1021,7 @@ mod tests {
 
         let max_temp_slots = TestUtil::next_int(&mut random, 0, len as i32);
         let mut sorter = DocOffsetSorter::new(&mut docs, &mut offsets, max_temp_slots as usize);
-        sorter.sort(0, len as i32).unwrap();
+        sorter.sort(0, len).unwrap();
 
         assert_sorted_and_synced(&docs, &offsets, &original_map);
     }

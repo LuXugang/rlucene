@@ -155,14 +155,14 @@ where
         );
         let tmp_offset = self.count;
         let sub_sorter = StringSorterImpl::new(
-            tmp_offset,
+            tmp_offset as usize,
             &mut self.ids,
             &mut self.pool,
             byte_block_pool,
             &self.bytes_start_array,
         );
         let mut sorter = StringSorter::new(sub_sorter, Natural::default());
-        sorter.sort(0, self.count)?;
+        sorter.sort(0, self.count as usize)?;
 
         length = self.ids.len();
         for i in tmp_offset as usize..length {
@@ -472,12 +472,12 @@ pub(crate) struct StringSorterImpl<'a, BSA>
 where
     BSA: BytesStartArray,
 {
-    tmp_offset: i32,
+    tmp_offset: usize,
     compact: &'a mut Vec<i32>,
     pool: &'a mut BytesRefBlockPool,
     byte_block_pool: &'a ByteBlockPool,
     bytes_start_array: &'a BSA,
-    k: i32,
+    k: usize,
     cmp: Natural,
 }
 impl<'a, BSA> StringSorterImpl<'a, BSA>
@@ -485,7 +485,7 @@ where
     BSA: BytesStartArray,
 {
     pub fn new(
-        tmp_offset: i32,
+        tmp_offset: usize,
         compact: &'a mut Vec<i32>,
         pool: &'a mut BytesRefBlockPool,
         byte_block_pool: &'a ByteBlockPool,
@@ -501,12 +501,9 @@ where
             cmp: Natural::default(),
         }
     }
-    fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<()> {
-        self.swap(i as usize, j as usize)?;
-        self.compact.swap(
-            (self.tmp_offset + i) as usize,
-            (self.tmp_offset + j) as usize,
-        );
+    fn swap_bucket_cache(&mut self, i: usize, j: usize) -> Result<()> {
+        self.swap(i, j)?;
+        self.compact.swap(self.tmp_offset + i, self.tmp_offset + j);
         Ok(())
     }
 }
@@ -514,7 +511,7 @@ impl<BSA> MSBRadixSorterBase for StringSorterImpl<'_, BSA>
 where
     BSA: BytesStartArray,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         let mut scratch = BytesRefBuilder::new();
         let mut scratch_bytes = BytesRef::new();
         self.get(&mut scratch, &mut scratch_bytes, i)?;
@@ -523,11 +520,11 @@ where
 
     fn reorder(
         &mut self,
-        from: i32,
-        _to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
+        from: usize,
+        _to: usize,
+        start_offsets: &mut [usize],
+        end_offsets: &mut [usize],
+        k: usize,
     ) -> Result<()> {
         debug_assert_eq!(self.k, k);
         for i in 0..HISTOGRAM_SIZE {
@@ -538,7 +535,7 @@ where
                     break;
                 }
 
-                let idx = (self.tmp_offset + from + h1) as usize;
+                let idx = self.tmp_offset + from + h1;
                 let b = self.compact[idx] as usize;
 
                 let h2 = start_offsets[b];
@@ -552,30 +549,29 @@ where
 
     fn build_histogram(
         &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
+        prefix_common_bucket: usize,
+        prefix_common_len: usize,
+        from: usize,
+        to: usize,
+        k: usize,
+        histogram: &mut [usize],
     ) -> Result<()> {
         self.k = k;
-        histogram[prefix_common_bucket as usize] = prefix_common_len;
-        self.compact[(self.tmp_offset + from - prefix_common_len) as usize
-            ..(self.tmp_offset + from) as usize]
-            .fill(prefix_common_bucket);
+        histogram[prefix_common_bucket] = prefix_common_len;
+        self.compact[(self.tmp_offset + from - prefix_common_len)..(self.tmp_offset + from)]
+            .fill(prefix_common_bucket as i32);
         for i in from..to {
             let b = self.get_bucket(i, k)?;
-            self.compact[(self.tmp_offset + i) as usize] = b;
+            self.compact[self.tmp_offset + i] = b;
             histogram[b as usize] += 1;
         }
         Ok(())
     }
 
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+    fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
         // We lower the fallback threshold because the bucket cache speeds up
         // the reorder
-        to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
+        to - from <= ((LEVEL_THRESHOLD) / 2) || l >= LEVEL_THRESHOLD
     }
 }
 impl<BSA> Sorter for StringSorterImpl<'_, BSA>
@@ -595,11 +591,9 @@ where
         &mut self,
         _builder: &mut BytesRefBuilder<Vec<u8>>,
         result: &mut BytesRef<Vec<u8>>,
-        i: i32,
+        i: usize,
     ) -> Result<()> {
-        let start = self
-            .bytes_start_array
-            .get_value(self.compact[i as usize] as usize);
+        let start = self.bytes_start_array.get_value(self.compact[i] as usize);
         self.pool
             .fill_bytes_ref(result, start, self.byte_block_pool);
         Ok(())
@@ -747,21 +741,21 @@ where
     T: StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         self.delegate.byte_at(i, k)
     }
 
-    fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
+    fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
         self.delegate.fall_back_sorter(self.cmp, Some(k))
     }
 
     fn reorder(
         &mut self,
-        from: i32,
-        to: i32,
-        start_offsets: &mut [i32],
-        end_offsets: &mut [i32],
-        k: i32,
+        from: usize,
+        to: usize,
+        start_offsets: &mut [usize],
+        end_offsets: &mut [usize],
+        k: usize,
     ) -> Result<()> {
         self.delegate
             .reorder(from, to, start_offsets, end_offsets, k)
@@ -769,12 +763,12 @@ where
 
     fn build_histogram(
         &mut self,
-        prefix_common_bucket: i32,
-        prefix_common_len: i32,
-        from: i32,
-        to: i32,
-        k: i32,
-        histogram: &mut [i32],
+        prefix_common_bucket: usize,
+        prefix_common_len: usize,
+        from: usize,
+        to: usize,
+        k: usize,
+        histogram: &mut [usize],
     ) -> Result<()> {
         self.delegate.build_histogram(
             prefix_common_bucket,
@@ -786,7 +780,7 @@ where
         )
     }
 
-    fn should_fallback(&self, from: i32, to: i32, l: i32) -> bool {
+    fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
         self.delegate.should_fallback(from, to, l)
     }
 }

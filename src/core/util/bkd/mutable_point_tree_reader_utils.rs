@@ -25,7 +25,7 @@ use crate::core::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::core::util::selector::Selector;
 use crate::core::util::{
     IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter, MSBRadixSorterBase,
-    Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase, ToInt,
+    Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase, ToInt, TryIntoInt,
 };
 
 /// Utility APIs for sorting and partitioning buffered points.
@@ -62,7 +62,7 @@ impl MutablePointTreeReaderUtils {
         let bits_per_doc_id: usize = if sorted_by_doc_id {
             0
         } else {
-            PackedInts::bits_required((max_doc - 1) as i64)?.try_into()?
+            PackedInts::bits_required((max_doc - 1) as i64)?.try_convert()?
         };
         let max_length = config.packed_bytes_length() + bits_per_doc_id.div_ceil(8);
         let delegate = StableMSBRadixSorterImpl {
@@ -71,8 +71,8 @@ impl MutablePointTreeReaderUtils {
             bits_per_doc_id,
         };
         let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, max_length);
-        let mut sorter = MSBRadixSorter::new(max_length.try_into()?, stable_msb_radix_sorter);
-        sorter.sort(from.try_into()?, to.try_into()?)
+        let mut sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
+        sorter.sort(from, to)
     }
 
     /// Sort points on the given dimension.
@@ -104,7 +104,7 @@ impl MutablePointTreeReaderUtils {
             comparator,
             start,
         };
-        intro_sorter.sort(from.try_into()?, to.try_into()?)?;
+        intro_sorter.sort(from, to)?;
         Ok(())
     }
     /// Partition points around `mid`. All values on the left must be less than
@@ -143,8 +143,8 @@ impl MutablePointTreeReaderUtils {
             data_cmp_bytes,
             bits_per_doc_id,
         };
-        let mut radix_selector = RadixSelector::new(max_length.try_into()?, sub_selector);
-        radix_selector.select(from.try_into()?, to.try_into()?, mid.try_into()?)
+        let mut radix_selector = RadixSelector::new(max_length, sub_selector);
+        radix_selector.select(from, to, mid)
     }
 }
 
@@ -161,22 +161,14 @@ impl<M> MSBRadixSorterBase for StableMSBRadixSorterImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        if (k as usize) < self.config.packed_bytes_length() {
-            Ok(self.reader.get_byte_at(i as usize, k as usize) as i32)
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
+        if k < self.config.packed_bytes_length() {
+            Ok(self.reader.get_byte_at(i, k) as i32)
         } else {
-            let rhs = (k - self.config.packed_bytes_length() as i32 + 1) << 3;
+            let rhs = (k - self.config.packed_bytes_length() + 1) << 3;
 
-            let shift = if rhs >= 0 {
-                self.bits_per_doc_id.checked_sub(rhs as usize)
-            } else {
-                self.bits_per_doc_id.checked_add((-rhs) as usize)
-            };
-            let effective_shift = match shift {
-                Some(s) => s as u32,
-                None => 0,
-            };
-            Ok(((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32)
+            let effective_shift = self.bits_per_doc_id.saturating_sub(rhs);
+            Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
         }
     }
 }
@@ -195,12 +187,12 @@ impl<M> StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn save(&mut self, i: i32, j: i32) {
-        self.reader.save(i as usize, j as usize);
+    fn save(&mut self, i: usize, j: usize) {
+        self.reader.save(i, j);
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
-        self.reader.restore(i as usize, j as usize);
+    fn restore(&mut self, i: usize, j: usize) {
+        self.reader.restore(i, j);
     }
 }
 
@@ -220,7 +212,7 @@ impl<M> Sorter for IntroSorterImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.set_pivot(i)?;
         self.compare_pivot(j)
     }
@@ -230,14 +222,14 @@ where
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.reader.get_value(i as usize, &mut self.pivot);
-        self.pivot_doc = self.reader.get_doc_id(i as usize);
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
+        self.reader.get_value(i, &mut self.pivot);
+        self.pivot_doc = self.reader.get_doc_id(i);
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        self.reader.get_value(j as usize, &mut self.scratch2);
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+        self.reader.get_value(j, &mut self.scratch2);
 
         let cmp = self.comparator.compare(
             &self.pivot.bytes,
@@ -258,7 +250,7 @@ where
 
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             return if cmp == 0 {
-                Ok(self.pivot_doc - self.reader.get_doc_id(j as usize))
+                Ok(self.pivot_doc - self.reader.get_doc_id(j))
             } else {
                 Ok(cmp)
             };
@@ -266,7 +258,7 @@ where
         Ok(cmp)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -291,8 +283,8 @@ impl<M> Selector for RadixSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.reader.swap(i, j);
         Ok(())
     }
 }
@@ -301,36 +293,26 @@ impl<M> RadixSelectorBase for RadixSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        let k = k as usize;
+    fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
         if k < self.dim_cmp_bytes {
-            Ok(self.reader.get_byte_at(i as usize, self.dim_offset + k) as i32)
+            Ok(self.reader.get_byte_at(i, self.dim_offset + k) as i32)
         } else if k < self.data_cmp_bytes {
             Ok(self.reader.get_byte_at(
-                i as usize,
+                i,
                 self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes,
             ) as i32)
         } else {
-            let rhs: i32 = (k as i32 - self.data_cmp_bytes as i32 + 1) << 3;
+            let rhs = (k - self.data_cmp_bytes + 1) << 3;
 
-            let shift = if rhs >= 0 {
-                self.bits_per_doc_id.checked_sub(rhs as usize)
-            } else {
-                self.bits_per_doc_id.checked_add((-rhs) as usize)
-            };
-            let effective_shift = match shift {
-                Some(s) => s as u32,
-                None => 0,
-            };
-            Ok(((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32)
+            let effective_shift = self.bits_per_doc_id.saturating_sub(rhs);
+            Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
         }
     }
 
-    fn get_fallback_selector(&mut self, k: i32, _max_length: i32) -> impl Selector
+    fn get_fallback_selector(&mut self, k: usize, _max_length: usize) -> impl Selector
     where
         Self: Sized,
     {
-        let k = k as usize;
         let dim_start = self.split_dim * self.config.bytes_per_dim;
         let data_start = if k < self.dim_cmp_bytes {
             self.config.packed_index_bytes_length()
@@ -346,7 +328,7 @@ where
             pivot: BytesRef::new(),
             reader: self.reader,
             pivot_doc: 0,
-            k: k as i32,
+            k,
             scratch2: BytesRef::new(),
             dim_comparator,
             dim_start,
@@ -366,7 +348,7 @@ where
     pivot: BytesRef<Vec<u8>>,
     reader: &'a mut M,
     pivot_doc: i32,
-    k: i32,
+    k: usize,
     scratch2: BytesRef<Vec<u8>>,
     dim_comparator: ByteArrayComparatorEnum,
     dim_start: usize,
@@ -378,16 +360,15 @@ impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.reader.get_value(i as usize, &mut self.pivot);
-        self.pivot_doc = self.reader.get_doc_id(i as usize);
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
+        self.reader.get_value(i, &mut self.pivot);
+        self.pivot_doc = self.reader.get_doc_id(i);
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let k = self.k as usize;
-        if k < self.dim_cmp_bytes {
-            self.reader.get_value(j as usize, &mut self.scratch2);
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
+        if self.k < self.dim_cmp_bytes {
+            self.reader.get_value(j, &mut self.scratch2);
             let cmp = self.dim_comparator.compare(
                 &self.pivot.bytes,
                 self.pivot.offset + self.dim_start,
@@ -398,8 +379,8 @@ where
                 return Ok(cmp);
             }
         }
-        if k < self.data_cmp_bytes {
-            self.reader.get_value(j as usize, &mut self.scratch2);
+        if self.k < self.data_cmp_bytes {
+            self.reader.get_value(j, &mut self.scratch2);
             let pivot_slice = &self.pivot.bytes
                 [self.pivot.offset + self.data_start..self.pivot.offset + self.data_end];
             let scratch_slice = &self.scratch2.bytes
@@ -409,7 +390,7 @@ where
                 return Ok(cmp);
             }
         }
-        Ok(self.pivot_doc - self.reader.get_doc_id(j as usize))
+        Ok(self.pivot_doc - self.reader.get_doc_id(j))
     }
 }
 
@@ -417,8 +398,8 @@ impl<M> Selector for IntroSelectorImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.reader.swap(i, j);
         Ok(())
     }
 }
@@ -525,7 +506,7 @@ pub(crate) mod tests {
         let config = Rc::new(create_random_config(random)?);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
-        let mut common_prefix_lengths = vec![0; config.num_dims as usize];
+        let mut common_prefix_lengths = vec![0; config.num_dims];
         let points =
             create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
         let sorted_dim = random.random_range(0..config.num_index_dims);
@@ -545,10 +526,10 @@ pub(crate) mod tests {
             let previous_value = &reader.points[i - 1].packed_value;
             let current_value = &reader.points[i].packed_value;
 
-            let dim_start_prev = previous_value.offset + offset as usize;
-            let dim_end_prev = dim_start_prev + config.bytes_per_dim as usize;
-            let dim_start_curr = current_value.offset + offset as usize;
-            let dim_end_curr = dim_start_curr + config.bytes_per_dim as usize;
+            let dim_start_prev = previous_value.offset + offset;
+            let dim_end_prev = dim_start_prev + config.bytes_per_dim;
+            let dim_start_curr = current_value.offset + offset;
+            let dim_end_curr = dim_start_curr + config.bytes_per_dim;
 
             let mut cmp = compare_unsigned(
                 &previous_value.bytes[dim_start_prev..dim_end_prev],
@@ -559,10 +540,10 @@ pub(crate) mod tests {
                 let data_dim_offset = config.packed_index_bytes_length();
                 let data_dims_length =
                     (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-                let data_start_prev = previous_value.offset + data_dim_offset as usize;
-                let data_end_prev = data_start_prev + data_dims_length as usize;
-                let data_start_curr = current_value.offset + data_dim_offset as usize;
-                let data_end_curr = data_start_curr + data_dims_length as usize;
+                let data_start_prev = previous_value.offset + data_dim_offset;
+                let data_end_prev = data_start_prev + data_dims_length;
+                let data_start_curr = current_value.offset + data_dim_offset;
+                let data_end_curr = data_start_curr + data_dims_length;
 
                 cmp = compare_unsigned(
                     &previous_value.bytes[data_start_prev..data_end_prev],
@@ -587,14 +568,14 @@ pub(crate) mod tests {
     }
     fn do_test_partition<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let config = Rc::new(create_random_config(random)?);
-        let mut common_prefix_lengths = vec![0; config.num_dims as usize];
+        let mut common_prefix_lengths = vec![0; config.num_dims];
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
         let points =
             create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
         let split_dim = random.random_range(0..config.num_index_dims);
         let mut reader = DummyPointsReader::new(&points);
-        let pivot = TestUtil::next_int(random, 0, points.len() as i32 - 1) as usize;
+        let pivot = TestUtil::next_usize(random, 0, points.len() - 1);
 
         MutablePointTreeReaderUtils::partition(
             &config,

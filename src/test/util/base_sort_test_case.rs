@@ -50,7 +50,7 @@ pub trait BaseSortTestCase {
         let arr_len = arr.len();
         {
             let mut sorter = self.new_sorter(random, &mut to_sort);
-            let result = sorter.sort(o as i32, (o + arr_len) as i32);
+            let result = sorter.sort(o, o + arr_len);
             assert!(result.is_ok());
         }
         self.assert_sorted(&mut arr, &to_sort[o..o + arr_len]);

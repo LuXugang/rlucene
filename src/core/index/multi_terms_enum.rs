@@ -27,7 +27,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{Comparator, ToInt};
+use crate::core::util::{Comparator, ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -49,7 +49,7 @@ where
     sub_docs: Vec<EnumWithSlice>,
     last_seek_exact: bool,
     last_seek_scratch: BytesRefBuilder<Vec<u8>>,
-    num_top: i32,
+    num_top: usize,
     num_subs: i32,
     current: Option<BytesRef<Vec<u8>>>,
     parent: Identity,
@@ -66,11 +66,12 @@ where
         let mut sub_docs = Vec::with_capacity(len);
         let mut all_terms_enum_with_slice = Vec::with_capacity(len);
         for (i, slice) in slices.into_iter().enumerate() {
-            all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i.try_into()?, slice.clone()));
+            all_terms_enum_with_slice
+                .push(TermsEnumWithSlice::new(i.try_convert()?, slice.clone()));
             sub_docs.push(EnumWithSlice::with_slice(slice));
             subs[i] = i;
         }
-        let queue = TermMergeQueue::new(len.try_into()?, all_terms_enum_with_slice)?;
+        let queue = TermMergeQueue::new(len.try_convert()?, all_terms_enum_with_slice)?;
         Ok(Self {
             queue,
             subs,
@@ -123,7 +124,7 @@ where
         // top term
         debug_assert_eq!(self.num_top, 0);
 
-        self.num_top = self.queue.fill_top(&mut self.top)?;
+        self.num_top = self.queue.fill_top(&mut self.top)?.try_convert()?;
 
         let top0_idx = self.top[0];
         let top0 = &self.queue.q.compare.all_terms_enum_with_slice[top0_idx];
@@ -243,7 +244,7 @@ where
             }
 
             if status {
-                self.top[self.num_top as usize] = entry_idx;
+                self.top[self.num_top] = entry_idx;
                 self.num_top += 1;
 
                 let cur = {
@@ -316,7 +317,7 @@ where
             }
 
             if status == SeekStatus::Found {
-                self.top[self.num_top as usize] = entry_idx;
+                self.top[self.num_top] = entry_idx;
                 self.num_top += 1;
 
                 let cur = {
@@ -368,7 +369,7 @@ where
 
     fn doc_freq(&mut self) -> Result<i32> {
         let mut sum: i32 = 0;
-        for i in 0..(self.num_top as usize) {
+        for i in 0..(self.num_top) {
             let idx = self.top[i];
             let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[idx];
             match entry.base.terms_enum {
@@ -383,7 +384,7 @@ where
 
     fn total_term_freq(&mut self) -> Result<i64> {
         let mut sum: i64 = 0;
-        for i in 0..(self.num_top as usize) {
+        for i in 0..(self.num_top) {
             let idx = self.top[i];
             let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[idx];
             match entry.base.terms_enum {
@@ -421,7 +422,7 @@ where
         );
         ArrayUtil::do_tim_sort(self.top.as_mut(), 0, self.num_top, cmp)?;
 
-        for i in 0..(self.num_top as usize) {
+        for i in 0..(self.num_top) {
             let entry_idx = self.top[i];
             let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
 
@@ -562,12 +563,12 @@ where
                     tops[num_top] = te_idx;
                     num_top += 1;
 
-                    self.stack[stack_len] = child.try_into()?;
+                    self.stack[stack_len] = child.try_convert()?;
                     stack_len += 1;
                 }
             }
         }
-        Ok(num_top.try_into()?)
+        num_top.try_convert()
     }
     fn get(&self, i: usize) -> Result<usize> {
         self.q.get_heap_array()[i]

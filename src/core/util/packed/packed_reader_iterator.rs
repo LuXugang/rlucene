@@ -17,6 +17,7 @@
 use std::fmt::Display;
 
 use crate::core::store::DataInput;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::longs_ref::LongsRef;
 use crate::core::util::packed::bulk_operation::{BulkOperation, of};
@@ -62,7 +63,7 @@ where
         let next_blocks =
             vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
         let next_values_long_length =
-            (iterations * bulk_operation.byte_value_count()).try_into()?;
+            (iterations * bulk_operation.byte_value_count()).try_convert()?;
         let next_values = LongsRef::from_slice(
             vec![0i64; next_values_long_length as usize],
             next_values_long_length,
@@ -131,7 +132,7 @@ where
 
         self.next_values.length =
             (self.next_values.longs.len() - self.next_values.offset).min(count as usize);
-        let v: i32 = self.next_values.length.try_into()?;
+        let v: i32 = self.next_values.length.try_convert()?;
         self.position += v;
 
         Ok(&mut self.next_values)

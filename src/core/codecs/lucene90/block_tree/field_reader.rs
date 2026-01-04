@@ -28,12 +28,12 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
-use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::fst::{FST, FSTMetadata, read_metadata};
 use crate::core::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
+use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
@@ -138,8 +138,9 @@ where
             tmp_data.root_code.offset,
             tmp_data.root_code.length,
         );
-        reader.root_block_fp =
-            ((reader.read_vlong_output(&mut input)? as u64) >> OUTPUT_FLAG_HAS_TERMS).try_into()?;
+        reader.root_block_fp = ((reader.read_vlong_output(&mut input)? as u64)
+            >> OUTPUT_FLAG_HAS_TERMS)
+            .try_convert()?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
             bytes: Arc::new(tmp_data.root_code.bytes),

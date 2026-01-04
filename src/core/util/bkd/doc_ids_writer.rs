@@ -18,13 +18,13 @@ use crate::core::index::point_values::IntersectVisitor;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::{DataOutput, IndexInput};
-use crate::core::util::CoreHelper;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::longs_ref::LongsRef;
+use crate::core::util::{CoreHelper, TryIntoInt};
 
 pub struct DocIdsWriter {
     scratch: Vec<i32>,
@@ -98,7 +98,7 @@ impl DocIdsWriter {
             max = max.max(current);
         }
 
-        let min2max: usize = (max - min + 1).try_into()?;
+        let min2max: usize = (max - min + 1).try_convert()?;
         if strictly_sorted {
             if min2max == count {
                 // continuous ids, typically happens when segment is sorted
@@ -259,7 +259,7 @@ impl DocIdsWriter {
         if (long_len) < self.scratch_longs.length as i32 {
             self.scratch_longs.longs[long_len_index..].fill(0);
         }
-        self.scratch_longs.length = long_len.try_into()?;
+        self.scratch_longs.length = long_len.try_convert()?;
         let bit_set = FixedBitSet::with_capacity(
             std::mem::take(&mut self.scratch_longs.longs),
             long_len << 6,
@@ -353,7 +353,7 @@ impl DocIdsWriter {
     }
 
     fn read_ints32(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
-        input.read_ints(doc_ids, 0, count.try_into()?)?;
+        input.read_ints(doc_ids, 0, count.try_convert()?)?;
         Ok(())
     }
     pub(crate) fn read_ints_with_visitor(
@@ -395,7 +395,7 @@ impl DocIdsWriter {
         count: usize,
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
-        let start: usize = input.read_vint()?.try_into()?;
+        let start: usize = input.read_vint()?.try_convert()?;
         let extra = start & 63;
         let offset = start - extra;
         let num_bits = count + extra;

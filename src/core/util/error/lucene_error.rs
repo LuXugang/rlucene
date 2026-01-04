@@ -17,7 +17,6 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Error;
-use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
 use thiserror::Error;
@@ -42,8 +41,6 @@ pub enum LuceneError {
     #[error("IO error: {0}")]
     Io(#[from] Error),
     #[error("conversion failed: {0}")]
-    Convert(#[from] TryFromIntError),
-    #[error("format error: {0}")]
     Fmt(#[from] fmt::Error),
     #[error("IO error on {path}: {source}")]
     IoWithPath { source: Error, path: String },

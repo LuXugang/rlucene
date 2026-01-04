@@ -49,7 +49,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{ByteBlockPool, CoreHelper, Counter, SharedCounter};
+use crate::core::util::{ByteBlockPool, CoreHelper, Counter, SharedCounter, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -465,7 +465,7 @@ where
 
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            self.value_count = self.value_counts_iter.next_value().try_into()?;
+            self.value_count = self.value_counts_iter.next_value().try_convert()?;
             self.value_upto = 0;
         }
         Ok(doc_id)
@@ -530,7 +530,7 @@ where
         self.upto = self.values.offsets[self.doc_id as usize];
 
         if self.upto > 0 {
-            self.num_values = self.values.values.get(self.upto - 1)?.try_into()?;
+            self.num_values = self.values.values.get(self.upto - 1)?.try_convert()?;
             Ok(true)
         } else {
             Ok(false)
@@ -556,7 +556,7 @@ where
             let offset = self.values.offsets[self.doc_id as usize];
             if offset > 0 {
                 self.upto = offset;
-                self.num_values = self.values.values.get(self.upto - 1)?.try_into()?;
+                self.num_values = self.values.values.get(self.upto - 1)?.try_convert()?;
                 return Ok(self.doc_id);
             }
         }

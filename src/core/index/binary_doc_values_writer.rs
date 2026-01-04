@@ -46,7 +46,7 @@ use crate::core::util::paged_bytes::{
 };
 use crate::core::util::{
     AtomicCounter, ByteBlockPool, BytesRefArray, CoreHelper, Counter, SharedCounter,
-    SortableBytesRefArray,
+    SortableBytesRefArray, TryIntoInt,
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -318,7 +318,7 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let length: i32 = self.lengths_iterator.next_value().try_into()?;
+            let length: i32 = self.lengths_iterator.next_value().try_convert()?;
             self.value.set_length(length as usize);
             self.bytes_iter
                 .read_bytes(&mut self.value.bytes_ref.bytes, 0, length)?;

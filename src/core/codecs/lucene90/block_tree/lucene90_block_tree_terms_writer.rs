@@ -57,7 +57,7 @@ use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::to_string_utils::ToStringUtils;
-use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
+use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
 use std::rc::Rc;
@@ -1054,7 +1054,7 @@ where
                 LZ4::compress(
                     self.suffix_writer.bytes_ref.bytes.as_ref(),
                     0,
-                    suffix_len.try_into()?,
+                    suffix_len.try_convert()?,
                     &mut self.spare_writer,
                     self.compression_hash_table.as_mut().unwrap(),
                 )?;
@@ -1087,12 +1087,12 @@ where
             token |= 0x04;
         }
         token |= compression_alg.code() as u64;
-        self.terms_out.write_vlong(token.try_into()?)?;
+        self.terms_out.write_vlong(token.try_convert()?)?;
 
         if compression_alg == CompressionAlgorithm::NoCompression {
             self.terms_out.write_bytes_with_len(
                 &self.suffix_writer.bytes_ref.bytes,
-                suffix_len.try_into()?,
+                suffix_len.try_convert()?,
             )?;
         } else {
             self.spare_writer.copy_to(self.terms_out)?;
@@ -1101,7 +1101,7 @@ where
         self.spare_writer.reset();
 
         // suffix lengths
-        let num_suffix_bytes = self.suffix_lengths_writer.size().try_into()?;
+        let num_suffix_bytes = self.suffix_lengths_writer.size().try_convert()?;
         if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes) {
             self.spare_bytes = v
         }

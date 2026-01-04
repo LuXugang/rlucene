@@ -20,7 +20,7 @@ use crate::core::util::sorter::{Sorter, check_range};
 
 /// Below this size threshold, the partition selection is simplified to a single
 /// median.
-pub const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
+pub const SINGLE_MEDIAN_THRESHOLD: usize = 40;
 
 /// [`Sorter`] implementation based on a variant of the quicksort algorithm
 /// called [introsort](http://en.wikipedia.org/wiki/Introsort): when the recursion level exceeds the
@@ -38,7 +38,7 @@ pub const SINGLE_MEDIAN_THRESHOLD: i32 = 40;
 /// # Note
 /// This is an internal API.
 pub trait IntroSorter: Sorter {
-    fn sort_range(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort_range(&mut self, from: usize, to: usize) -> Result<()> {
         check_range(from, to)?;
         self.sort_in_intro(from, to, (2.0 * ((to - from) as f64).log2()) as usize)?;
         Ok(())
@@ -50,11 +50,16 @@ pub trait IntroSorter: Sorter {
     /// quadratic worst case. Selects the pivot with medians and partitions
     /// using the Bentley-McIlroy fast 3-way algorithm (Engineering a Sort
     /// Function, Bentley-McIlroy).
-    fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: usize) -> Result<()> {
+    fn sort_in_intro(
+        &mut self,
+        mut from: usize,
+        mut to: usize,
+        mut max_depth: usize,
+    ) -> Result<()> {
         while to - from > INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
-                self.heap_sort(from, to)?;
+                self.heap_sort(from as i32, to as i32)?;
                 return Ok(());
             }
             max_depth -= 1;
@@ -82,7 +87,7 @@ pub trait IntroSorter: Sorter {
             };
 
             self.set_pivot(pivot)?;
-            self.swap(from as usize, pivot as usize)?;
+            self.swap(from, pivot)?;
 
             let mut i = from;
             let mut j = to;
@@ -108,18 +113,18 @@ pub trait IntroSorter: Sorter {
 
                 if i >= j {
                     if i == j && right_cmp == 0 {
-                        self.swap(i as usize, p as usize)?;
+                        self.swap(i, p)?;
                     }
                     break;
                 }
 
-                self.swap(i as usize, j as usize)?;
+                self.swap(i, j)?;
                 if right_cmp == 0 {
-                    self.swap(i as usize, p as usize)?;
+                    self.swap(i, p)?;
                     p += 1;
                 }
                 if left_cmp == 0 {
-                    self.swap(j as usize, q as usize)?;
+                    self.swap(j, q)?;
                     q -= 1;
                 }
             }
@@ -128,14 +133,14 @@ pub trait IntroSorter: Sorter {
 
             let mut k = from;
             while k < p {
-                self.swap(k as usize, j as usize)?;
+                self.swap(k, j)?;
                 k += 1;
                 j -= 1;
             }
 
             k = last;
             while k > q {
-                self.swap(k as usize, i as usize)?;
+                self.swap(k, i)?;
                 k -= 1;
                 i += 1;
             }
@@ -156,7 +161,7 @@ pub trait IntroSorter: Sorter {
 
     /// Returns the index of the median element among three elements at provided
     /// indices.
-    fn median(&mut self, i: i32, j: i32, k: i32) -> Result<i32> {
+    fn median(&mut self, i: usize, j: usize, k: usize) -> Result<usize> {
         if self.compare(i, j)? < 0 {
             if self.compare(j, k)? <= 0 {
                 return Ok(j);

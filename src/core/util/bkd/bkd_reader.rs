@@ -23,7 +23,6 @@ use crate::core::index::point_values::{
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::{DataInput, IndexInput};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_writer::{
@@ -34,6 +33,7 @@ use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -107,15 +107,15 @@ where
     {
         let version = CodecUtil::check_header(meta_in, CODEC_NAME, VERSION_START, VERSION_CURRENT)?;
 
-        let num_dims: usize = meta_in.read_vint()?.try_into()?;
+        let num_dims: usize = meta_in.read_vint()?.try_convert()?;
         let num_index_dims = if version >= VERSION_SELECTIVE_INDEXING {
-            meta_in.read_vint()?.try_into()?
+            meta_in.read_vint()?.try_convert()?
         } else {
             num_dims
         };
 
-        let max_points_in_leaf_node = meta_in.read_vint()?.try_into()?;
-        let bytes_per_dim = meta_in.read_vint()?.try_into()?;
+        let max_points_in_leaf_node = meta_in.read_vint()?.try_convert()?;
+        let bytes_per_dim = meta_in.read_vint()?.try_convert()?;
         let config = BKDConfig::new(
             num_dims,
             num_index_dims,
@@ -158,7 +158,7 @@ where
             }
         }
 
-        let point_count = meta_in.read_vlong()?.try_into()?;
+        let point_count = meta_in.read_vlong()?.try_convert()?;
         let doc_count = meta_in.read_vint()?;
         let num_index_bytes = meta_in.read_vint()?;
         Ok((
@@ -603,7 +603,7 @@ where
         let extra_points: i32 = (self.config.max_points_in_leaf_node
             * self.leaf_node_offset as usize
             - self.point_count)
-            .try_into()?;
+            .try_convert()?;
 
         debug_assert!(
             extra_points < self.leaf_node_offset,
@@ -674,7 +674,7 @@ where
             let leaf_fp = self.get_leaf_block_fp()?;
             leaf_nodes.seek(leaf_fp)?;
             // How many points are stored in this leaf cell:
-            let count: usize = leaf_nodes.read_vint()?.try_into()?;
+            let count: usize = leaf_nodes.read_vint()?.try_convert()?;
             // No need to call grow(), it has been called up-front
             self.scratch_iterator
                 .doc_ids_writer
@@ -729,7 +729,7 @@ where
 
     fn read_doc_ids(&mut self, block_fp: i64, index_input: &mut I) -> Result<usize> {
         index_input.seek(block_fp)?;
-        let count = index_input.read_vint()?.try_into()?;
+        let count = index_input.read_vint()?.try_convert()?;
         self.scratch_iterator.doc_ids_writer.read_ints(
             index_input,
             count,
@@ -781,7 +781,7 @@ where
             }
 
             // Read split dim, prefix, and firstDiffByteDelta encoded as an int
-            let mut code: usize = self.inner_nodes.read_vint()?.try_into()?;
+            let mut code: usize = self.inner_nodes.read_vint()?.try_convert()?;
             let split_dim = code % self.config.num_index_dims;
             self.split_dims_pos[level] = split_dim * self.config.bytes_per_dim;
             code /= self.config.num_index_dims;
@@ -800,7 +800,7 @@ where
                 DataInput::read_bytes(
                     &mut self.inner_nodes,
                     &mut self.split_values_stack[level],
-                    (start_pos + 1).try_into()?,
+                    (start_pos + 1).try_convert()?,
                     (suffix - 1) as i32,
                 )?;
             } else {
@@ -814,9 +814,9 @@ where
                 0
             };
             self.right_node_positions[level] =
-                (self.inner_nodes.get_file_pointer() + left_num_bytes as i64).try_into()?;
+                (self.inner_nodes.get_file_pointer() + left_num_bytes as i64).try_convert()?;
             self.read_node_data_positions[level] =
-                self.inner_nodes.get_file_pointer().try_into()?;
+                self.inner_nodes.get_file_pointer().try_convert()?;
         }
         Ok(())
     }
@@ -958,8 +958,8 @@ where
     fn read_min_max(&mut self, index_input: &mut I) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
             let prefix = self.common_prefix_lengths[dim];
-            let offset: i32 = (dim * self.config.bytes_per_dim + prefix).try_into()?;
-            let len: i32 = (self.config.bytes_per_dim - prefix).try_into()?;
+            let offset: i32 = (dim * self.config.bytes_per_dim + prefix).try_convert()?;
+            let len: i32 = (self.config.bytes_per_dim - prefix).try_convert()?;
             DataInput::read_bytes(
                 index_input,
                 &mut self.scratch_min_index_packed_value,
@@ -987,14 +987,14 @@ where
         let mut i: usize = 0;
         {
             while i < count {
-                let length = DataInput::read_vint(index_input)?.try_into()?;
+                let length = DataInput::read_vint(index_input)?.try_convert()?;
                 for dim in 0..self.config.num_dims {
                     let prefix = self.common_prefix_lengths[dim];
                     DataInput::read_bytes(
                         index_input,
                         &mut self.scratch_data_packed_value,
-                        (dim * self.config.bytes_per_dim + prefix).try_into()?,
-                        (self.config.bytes_per_dim - prefix).try_into()?,
+                        (dim * self.config.bytes_per_dim + prefix).try_convert()?,
+                        (self.config.bytes_per_dim - prefix).try_convert()?,
                     )?;
                 }
                 self.scratch_iterator.reset(i, length);
@@ -1057,8 +1057,8 @@ where
                         DataInput::read_bytes(
                             index_input,
                             &mut self.scratch_data_packed_value,
-                            (dim * self.config.bytes_per_dim + prefix).try_into()?,
-                            (self.config.bytes_per_dim - prefix).try_into()?,
+                            (dim * self.config.bytes_per_dim + prefix).try_convert()?,
+                            (self.config.bytes_per_dim - prefix).try_convert()?,
                         )?;
                     }
                     visitor.visit_with_packed_value(
@@ -1098,13 +1098,13 @@ where
     pub fn read_common_prefixes(&mut self, index_input: &mut I) -> Result<()> {
         let num_dims = self.config.num_dims;
         for dim in 0..num_dims {
-            let prefix = index_input.read_vint()?.try_into()?;
+            let prefix = index_input.read_vint()?.try_convert()?;
             self.common_prefix_lengths[dim] = prefix;
             if prefix > 0 {
                 DataInput::read_bytes(
                     index_input,
                     &mut self.scratch_data_packed_value,
-                    (dim * self.config.bytes_per_dim).try_into()?,
+                    (dim * self.config.bytes_per_dim).try_convert()?,
                     prefix as i32,
                 )?;
             }

@@ -28,9 +28,9 @@ use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, DocIdS
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
-use crate::core::util::ToInt;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{ToInt, TryIntoInt};
 
 const MIN_SKIP_INTERVAL: i32 = 32;
 const MAX_SKIP_INTERVAL: i32 = 8192;
@@ -601,7 +601,7 @@ where
     }
 
     fn grow(&mut self, count: usize) -> Result<()> {
-        self.result.grow(count.try_into()?);
+        self.result.grow(count.try_convert()?);
         Ok(())
     }
 }

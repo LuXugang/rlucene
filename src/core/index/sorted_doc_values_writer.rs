@@ -46,7 +46,9 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter};
+use crate::core::util::{
+    BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter, TryIntoInt,
+};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -387,7 +389,7 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let raw_ord: i32 = self.iter.next_value().try_into()?;
+            let raw_ord: i32 = self.iter.next_value().try_convert()?;
             let mapped = self.ord_map[raw_ord as usize];
             self.ord = mapped;
         }

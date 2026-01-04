@@ -41,7 +41,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{IOUtils, SliceCopyOps, ToInt};
+use crate::core::util::{IOUtils, SliceCopyOps, ToInt, TryIntoInt};
 use std::rc::Rc;
 /// Recursively builds a block KD-tree to assign all incoming points in N-dim
 /// space to smaller and smaller N-dim rectangles (cells) until the number of
@@ -195,7 +195,7 @@ where
         } else {
             self.point_writer = Some(PointWriterEnum::Heap(HeapPointWriter::new(
                 self.config.clone(),
-                self.total_point_count.try_into()?,
+                self.total_point_count.try_convert()?,
             )));
         }
 
@@ -353,7 +353,7 @@ where
         // Mark that we already finished:
         self.finished = true;
 
-        self.point_count = values.size()?.try_into()?;
+        self.point_count = values.size()?.try_convert()?;
 
         if self.point_count == 0 {
             return Ok(None);
@@ -368,7 +368,7 @@ where
         let mut split_dimension_values = vec![0u8; num_splits];
         let mut leaf_block_fps = vec![0i64; num_leaves];
 
-        let point_count = self.point_count.try_into()?;
+        let point_count = self.point_count.try_convert()?;
         let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
         let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
         // Compute the min/max for this slice
@@ -392,7 +392,7 @@ where
             num_leaves,
             values,
             0,
-            self.point_count.try_into()?,
+            self.point_count.try_convert()?,
             data_out,
             &mut min_packed_value,
             &mut max_packed_value,
@@ -781,7 +781,7 @@ where
                     last_split_values,
                     split_dim * self.config.bytes_per_dim,
                 )
-                .try_into()?;
+                .try_convert()?;
 
             let first_diff_byte_delta: usize = if prefix < self.config.bytes_per_dim {
                 let diff = (split_bytes[address + prefix] as i32)
@@ -850,7 +850,7 @@ where
             )?;
 
             if num_left_leaf_nodes != 1 {
-                write_buffer.write_vint(left_num_bytes.try_into()?)?;
+                write_buffer.write_vint(left_num_bytes.try_convert()?)?;
             } else {
                 debug_assert!(left_num_bytes == 0, "leftNumBytes={left_num_bytes}");
             }
@@ -911,7 +911,7 @@ where
         meta_out.write_vint(data.count_per_leaf as i32)?;
         meta_out.write_vint(self.config.bytes_per_dim as i32)?;
 
-        let num_leaves = data.leaf_nodes.num_leaves().try_into()?;
+        let num_leaves = data.leaf_nodes.num_leaves().try_convert()?;
         meta_out.write_vint(num_leaves)?;
         meta_out.write_bytes_range(
             &self.min_packed_value,
@@ -959,7 +959,7 @@ where
             "config.max_points_in_leaf_node()={}",
             self.config.max_points_in_leaf_node
         );
-        out.write_vint(count.try_into()?)?;
+        out.write_vint(count.try_convert()?)?;
         self.doc_ids_writer
             .write_doc_ids(doc_ids, start, count, out)?;
         Ok(())
@@ -1219,8 +1219,8 @@ where
                 let prefix = self.common_prefix_lengths[dim];
                 out.write_bytes_range(
                     bytes_ref,
-                    (offset + (dim * self.config.bytes_per_dim) + prefix).try_into()?,
-                    (self.config.bytes_per_dim - prefix).try_into()?,
+                    (offset + (dim * self.config.bytes_per_dim) + prefix).try_convert()?,
+                    (self.config.bytes_per_dim - prefix).try_convert()?,
                 )?;
             }
         }
@@ -1256,11 +1256,11 @@ where
             .enumerate()
             .take(self.config.num_dims)
         {
-            out.write_vint(prefix.try_into()?)?;
+            out.write_vint(prefix.try_convert()?)?;
             out.write_bytes_range(
                 packed_value,
-                (dim * self.config.bytes_per_dim).try_into()?,
-                prefix.try_into()?,
+                (dim * self.config.bytes_per_dim).try_convert()?,
+                prefix.try_convert()?,
             )?;
         }
         Ok(())
@@ -1355,7 +1355,7 @@ where
                 split_dim = dim as i32;
             }
         }
-        Ok(split_dim.try_into()?)
+        split_dim.try_convert()
     }
     /// Pull a partition back into heap once the point count is low enough while
     /// recursing.
@@ -1438,7 +1438,7 @@ where
                                 &self.scratch_bytes_ref2.bytes,
                                 self.scratch_bytes_ref2.offset + offset,
                             )
-                            .try_into()?;
+                            .try_convert()?;
                         self.common_prefix_lengths[dim] = v.min(dimension_prefix_length);
                     }
                 }
@@ -1591,7 +1591,7 @@ where
                 &self.config,
                 self.max_doc,
                 split_dim,
-                common_prefix_len.try_into()?,
+                common_prefix_len.try_convert()?,
                 reader,
                 from,
                 to,
@@ -1876,7 +1876,7 @@ where
                 points.start + points.count,
                 points.start + left_count,
                 split_dim,
-                common_prefix_len.try_into()?,
+                common_prefix_len.try_convert()?,
                 &self.temp_dir,
             )?;
             let right_offset = leaves_offset + num_left_leaf_nodes;
@@ -1994,7 +1994,7 @@ where
                             bytes,
                             offset + dim * self.config.bytes_per_dim,
                         )
-                        .try_into()?;
+                        .try_convert()?;
                     self.common_prefix_lengths[dim] = self.common_prefix_lengths[dim].min(v);
                 }
             }
@@ -2191,7 +2191,7 @@ where
                 &self.leaf_values,
                 (self.leaf_count - 1) * packed_index_bytes_length,
             )
-            .try_into()?;
+            .try_convert()?;
 
         self.bkd_writer.write_leaf_block_docs(
             self.data_out,
@@ -2516,7 +2516,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         if self.doc_ids.len() < count {
             ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
             let packed_values_size: i32 =
-                (self.doc_ids.len() * self.packed_bytes_length).try_into()?;
+                (self.doc_ids.len() * self.packed_bytes_length).try_convert()?;
             // TODO:
             // if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
             //     return Err(LuceneError::illegal_state(format!(

@@ -18,6 +18,7 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
@@ -166,8 +167,8 @@ where
         );
         self.out.as_mut().unwrap().write_bytes_range(
             value,
-            offset.try_into()?,
-            length.try_into()?,
+            offset.try_convert()?,
+            length.try_convert()?,
         )?;
         self.count += 1;
         debug_assert!(

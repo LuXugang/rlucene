@@ -24,9 +24,9 @@ use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
-use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -97,7 +97,7 @@ where
 
         for (i, sub) in self.subs.iter().enumerate() {
             let terms_enum = sub.iterator()?;
-            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_into()?));
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_convert()?));
         }
 
         if !terms_enums.is_empty() {
@@ -119,7 +119,7 @@ where
 
         for (i, sub) in self.subs.iter().enumerate() {
             let terms_enum = sub.intersect(compiled, start_term)?;
-            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_into()?));
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_convert()?));
         }
         if !terms_enums.is_empty() {
             let v = MultiTermsEnum::new(self.sub_slices.clone())?;
@@ -245,7 +245,7 @@ where
             slice_per_leaf.push(Rc::new(ReaderSlice::new(
                 ctx.doc_base,
                 max_doc,
-                leaf_idx.try_into()?,
+                leaf_idx.try_convert()?,
             )));
         }
     }

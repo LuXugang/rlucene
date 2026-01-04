@@ -23,8 +23,8 @@ use crate::core::codecs::codec::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::store::directory::Directory;
-use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{StringHelper, TryIntoInt};
 
 pub struct SegmentCommitInfo<D>
 where
@@ -231,7 +231,7 @@ where
         for file_name in self.files()? {
             sum += self.info.dir.file_length(&file_name)?;
         }
-        let v: i64 = sum.try_into()?;
+        let v: i64 = sum.try_convert()?;
         self.size_in_bytes.store(v, Ordering::SeqCst);
 
         Ok(v)

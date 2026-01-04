@@ -19,7 +19,6 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::terms_enum_index::{TermState, TermsEnumIndex};
-use crate::core::util::Sorter;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
@@ -28,6 +27,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::{Sorter, ToInt, TryIntoInt};
 use std::rc::Rc;
 
 pub(crate) type SegmentToGlobalOrds =
@@ -217,7 +217,7 @@ impl OrdinalMap {
         let mut segment_ords = vec![0i64; sub_len];
 
         //  queue of term enums
-        let mut queue = PriorityQueue::new(subs.len().try_into()?, TermsEnumPriorityQueueCmp)?;
+        let mut queue = PriorityQueue::new(subs.len().try_convert()?, TermsEnumPriorityQueueCmp)?;
         for i in 0..sub_len {
             let mapped = segment_map.new_to_old(i);
             let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i as i32);
@@ -408,7 +408,7 @@ impl LongValuesImpl {
 }
 impl LongValues for LongValuesImpl {
     fn get(&self, ord: i64) -> Result<i64> {
-        Ok(ord + self.new_deltas.get(ord.try_into()?))
+        Ok(ord + self.new_deltas.get(ord.try_convert()?))
     }
 }
 
@@ -472,7 +472,7 @@ fn map(weights: &[i64]) -> Result<Vec<i32>> {
     let mut new_to_old: Vec<i32> = (0..weights.len() as i32).collect();
     let sub = InPlaceMergeSorterSorter::new(weights, &mut new_to_old);
     let mut sorter = InPlaceMergeSorter::new(sub);
-    sorter.sort(0, weights.len().try_into()?)?;
+    sorter.sort(0, weights.len())?;
     Ok(new_to_old)
 }
 /// Inverse the map.
@@ -498,10 +498,10 @@ impl<'a> InPlaceMergeSorterSorter<'a> {
     }
 }
 impl<'a> Sorter for InPlaceMergeSorterSorter<'a> {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
-        let wi = self.weights[self.new_to_old[i as usize] as usize];
-        let wj = self.weights[self.new_to_old[j as usize] as usize];
-        Ok(wj.cmp(&wi) as i32)
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
+        let wi = self.weights[self.new_to_old[i] as usize];
+        let wj = self.weights[self.new_to_old[j] as usize];
+        Ok(wj.cmp(&wi).to_int())
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {

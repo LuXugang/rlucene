@@ -28,12 +28,12 @@ pub trait BytesRefComparator: Comparator<BytesRef<Vec<u8>>> {
     /// all bytes that are useful for comparisons are exhausted. This may
     /// only be called with a value of `i` between `0` (inclusive) and
     /// `compared_bytes_count` (exclusive).
-    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> Result<i32>;
+    fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: usize) -> Result<i32>;
     fn compare_with_offset(
         &self,
         o1: &BytesRef<Vec<u8>>,
         o2: &BytesRef<Vec<u8>>,
-        k: i32,
+        k: usize,
     ) -> Result<i32> {
         for i in k..self.compared_bytes_count() {
             let b1 = self.byte_at(o1, i)?;
@@ -46,18 +46,18 @@ pub trait BytesRefComparator: Comparator<BytesRef<Vec<u8>>> {
         }
         Ok(0)
     }
-    fn compared_bytes_count(&self) -> i32 {
+    fn compared_bytes_count(&self) -> usize {
         unimplemented!("compared_bytes_count must be implemented if it needs to be used")
     }
 }
 
 pub struct Natural {
-    compared_bytes_count: i32,
+    compared_bytes_count: usize,
 }
 impl Default for Natural {
     fn default() -> Self {
         Natural {
-            compared_bytes_count: i32::MAX,
+            compared_bytes_count: i32::MAX as usize,
         }
     }
 }
@@ -71,11 +71,11 @@ impl Comparator<BytesRef<Vec<u8>>> for Natural {
 }
 
 impl BytesRefComparator for Natural {
-    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> Result<i32> {
-        if bytes_ref.length <= i as usize {
+    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: usize) -> Result<i32> {
+        if bytes_ref.length <= i {
             Ok(-1)
         } else {
-            Ok(bytes_ref.bytes[i as usize + bytes_ref.offset] as i32)
+            Ok(bytes_ref.bytes[i + bytes_ref.offset] as i32)
         }
     }
 
@@ -83,10 +83,10 @@ impl BytesRefComparator for Natural {
         &self,
         o1: &BytesRef<Vec<u8>>,
         o2: &BytesRef<Vec<u8>>,
-        k: i32,
+        k: usize,
     ) -> Result<i32> {
-        let start1 = o1.offset + k as usize;
-        let start2 = o2.offset + k as usize;
+        let start1 = o1.offset + k;
+        let start2 = o2.offset + k;
 
         let slice1 = &o1.bytes[start1..(o1.offset + o1.length)];
         let slice2 = &o2.bytes[start2..(o2.offset + o2.length)];
@@ -99,7 +99,7 @@ impl BytesRefComparator for Natural {
         Ok((slice1.len() as i32) - (slice2.len() as i32))
     }
 
-    fn compared_bytes_count(&self) -> i32 {
+    fn compared_bytes_count(&self) -> usize {
         self.compared_bytes_count
     }
 }

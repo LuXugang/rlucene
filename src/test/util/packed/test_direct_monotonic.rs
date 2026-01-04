@@ -20,6 +20,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::store::{IOContext, IndexInput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -368,7 +369,7 @@ fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
                         };
                         let index = reader.binary_search(0, array.len() as i64, intermediate)?;
                         assert!(index < 0);
-                        let insertion_point: i32 = (-1 - index).try_into()?;
+                        let insertion_point: i32 = (-1 - index).try_convert()?;
                         assert!(insertion_point > 0 && (insertion_point as usize) < array.len());
                         assert!(array[insertion_point as usize] > intermediate);
                         assert!(array[(insertion_point - 1) as usize] < intermediate);

@@ -42,11 +42,11 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VECTOR_UTIL;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -508,8 +508,12 @@ where
                     Some(BytesRef::with_capacity(
                         reader.max_impact_num_bytes_at_level1 as usize,
                     )),
-                    MutableImpactList::with_capacity(reader.max_num_impacts_at_level0.try_into()?),
-                    MutableImpactList::with_capacity(reader.max_num_impacts_at_level1.try_into()?),
+                    MutableImpactList::with_capacity(
+                        reader.max_num_impacts_at_level0.try_convert()?,
+                    ),
+                    MutableImpactList::with_capacity(
+                        reader.max_num_impacts_at_level1.try_convert()?,
+                    ),
                 )
             } else {
                 (

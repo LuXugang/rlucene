@@ -20,12 +20,12 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -84,7 +84,7 @@ pub trait PointValues: Clone {
     fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;
-        let size: i64 = self.size()?.try_into()?;
+        let size: i64 = self.size()?.try_convert()?;
 
         if estimated_point_count >= size {
             // math all docs
@@ -123,7 +123,7 @@ where
 
     for leaf in leaves.iter() {
         if let Some(values) = leaf.reader().get_point_values(field)? {
-            let v: i64 = values.size()?.try_into()?;
+            let v: i64 = values.size()?.try_convert()?;
             size += v;
         }
     }
@@ -314,7 +314,7 @@ fn estimate_point_count_with_point_tree(
         },
         Relation::CellInsideQuery => {
             // This cell is fully inside the query shape: add all points
-            Ok(point_tree.size()?.try_into()?)
+            Ok(point_tree.size()?.try_convert()?)
         },
         Relation::CellCrossesQuery => {
             // The cell crosses the shape boundary: keep recursing
@@ -334,7 +334,7 @@ fn estimate_point_count_with_point_tree(
                 Ok(cost)
             } else {
                 // Assume half the points matched
-                let v: i64 = point_tree.size()?.try_into()?;
+                let v: i64 = point_tree.size()?.try_convert()?;
                 Ok((v + 1) / 2)
             }
         },
@@ -676,6 +676,7 @@ mod tests {
     use rand::Rng;
     use std::collections::HashMap;
 
+    use crate::core::util::TryIntoInt;
     use std::vec;
 
     #[allow(dead_code)] // for quick search
@@ -1512,7 +1513,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
                 assert_eq!(expected.get_doc_count()?, get_doc_count(&reader1, "field")?);
 
-                assert_eq!(expected.size()?, size(&reader1, "field")?.try_into()?);
+                assert_eq!(expected.size()?, size(&reader1, "field")?.try_convert()?);
             },
             None => {
                 assert_eq!(get_min_packed_value(&reader1, "field")?, None);

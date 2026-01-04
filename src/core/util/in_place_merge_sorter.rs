@@ -22,7 +22,7 @@ where
     S: Sorter,
 {
     sub: S,
-    pivot_index: i32,
+    pivot_index: usize,
 }
 impl<S> InPlaceMergeSorter<S>
 where
@@ -34,7 +34,7 @@ where
             pivot_index: 0,
         }
     }
-    fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn merge_sort(&mut self, from: usize, to: usize) -> Result<()> {
         if to - from < BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
@@ -49,7 +49,7 @@ impl<S> Sorter for InPlaceMergeSorter<S>
 where
     S: Sorter,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         self.sub.compare(i, j)
     }
 
@@ -57,16 +57,16 @@ where
         self.sub.swap(i, j)
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_index = i;
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         self.compare(self.pivot_index, j)
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         check_range(from, to)?;
         self.merge_sort(from, to)
     }

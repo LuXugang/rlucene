@@ -43,7 +43,7 @@ use crate::core::store::{
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, SliceCopyOps};
+use crate::core::util::{CoreHelper, SliceCopyOps, TryIntoInt};
 use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
@@ -670,7 +670,7 @@ where
         self.start_pointer = self.fields_stream.get_file_pointer();
 
         if self.merging {
-            let total_length = self.offsets[self.chunk_docs as usize].try_into()?;
+            let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
             // decompress eagerly
             if self.sliced {
                 if let (Some(spare), Some(bytes)) = (&mut self.spare, &mut self.bytes) {
@@ -724,10 +724,10 @@ where
         }
 
         let index = (doc_id - self.doc_base) as usize;
-        let offset = self.offsets[index].try_into()?;
-        let length = (self.offsets[index + 1] - self.offsets[index]).try_into()?;
-        let total_length = self.offsets[self.chunk_docs as usize].try_into()?;
-        let num_stored_fields = self.num_stored_fields[index].try_into()?;
+        let offset = self.offsets[index].try_convert()?;
+        let length = (self.offsets[index + 1] - self.offsets[index]).try_convert()?;
+        let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
+        let num_stored_fields = self.num_stored_fields[index].try_convert()?;
 
         let mut bytes = if self.merging {
             match self.bytes {

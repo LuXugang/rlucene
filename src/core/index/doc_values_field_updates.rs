@@ -44,7 +44,7 @@ use crate::core::util::packed::paged_mutable::PagedMutable;
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::core::util::{Sorter, ToInt};
+use crate::core::util::{Sorter, ToInt, TryIntoInt};
 
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
@@ -65,13 +65,13 @@ where
 pub(crate) struct DocValuesFieldInner {
     finished: bool,
     pub docs: AbstractPagedMutable<PagedMutable>,
-    pub(crate) size: i32,
+    pub(crate) size: usize,
     // for reused iterator
     pub docs_iter: Option<Arc<AbstractPagedMutable<PagedMutable>>>,
 }
 
 pub(crate) struct DocValuesFieldInnerIter {
-    size: i32,
+    size: usize,
     // for reused iterator
     docs: Arc<AbstractPagedMutable<PagedMutable>>,
 }
@@ -100,8 +100,8 @@ impl DocValuesFieldInner {
         Ok(())
     }
     pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        let i = i.try_into()?;
-        let j = j.try_into()?;
+        let i = i.try_convert()?;
+        let j = j.try_convert()?;
         let tmp_doc = self.docs.get(j)?;
         let value_i = self.docs.get(i)?;
         self.docs.set(j, value_i);
@@ -203,8 +203,8 @@ where
         let size = inner.size;
         // shrink wrap
         if (inner.size as i64) < inner.docs.size() {
-            inner.resize(size)?;
-            self.sub_update.resize(size)?;
+            inner.resize(size as i32)?;
+            self.sub_update.resize(size as i32)?;
         }
 
         if inner.size > 0 {
@@ -216,12 +216,12 @@ where
             // use quicksort and record ords of each update to guarantee
             // stability.
             let mut ords = PackedInts::get_mutable(
-                inner.size,
+                inner.size as i32,
                 PackedInts::bits_required((inner.size - 1) as i64)?,
                 PackedInts::DEFAULT,
             );
             for i in 0..inner.size {
-                ords.set(i, i as i64)
+                ords.set(i as i32, i as i64)
             }
             let mut sorter = IntroSorterImpl {
                 ords: &mut ords,
@@ -255,10 +255,10 @@ where
         }
     }
 
-    pub(crate) fn add(&mut self, doc: i32) -> Result<i32> {
+    pub(crate) fn add(&mut self, doc: i32) -> Result<usize> {
         self.add_internal(doc, HAS_VALUE_MASK)
     }
-    fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32> {
+    fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<usize> {
         let mut inner = self.inner.lock();
         if inner.finished {
             return Err(LuceneError::illegal_argument("already finished"));
@@ -267,22 +267,22 @@ where
         debug_assert!(doc < self.max_doc, "doc must be less than max_doc");
         // TODO: if the Sorter interface changes to take long indexes, we can
         // remove that limitation
-        if size == i32::MAX {
+        if size == i32::MAX as usize {
             return Err(LuceneError::illegal_state(
                 "cannot support more than Integer.MAX_VALUE doc/value entries",
             ));
         }
         // grow the structures to have room for more elements
         if inner.docs.size() == size as i64 {
-            inner.grow(size + 1)?;
-            self.sub_update.grow(size + 1)?;
+            inner.grow(size as i32 + 1)?;
+            self.sub_update.grow(size as i32 + 1)?;
         }
         let value = ((doc as i64) << 1) | has_value_mask;
         inner.docs.set(size as i64, value);
         inner.size += 1;
         Ok(inner.size - 1)
     }
-    // pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    // pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     //     self.sub_update.swap(i, j)?;
     //     let mut inner = self.inner.lock();
     //     inner.swap(i, j)?;
@@ -321,8 +321,8 @@ where
 
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn finish(&mut self);
-    fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()>;
+    fn add_value(&mut self, doc: i32, value: i64, index: usize) -> Result<()>;
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()>;
     fn add_iterator<T: DocValuesFieldIterator>(
         &mut self,
         doc_id: i32,
@@ -411,7 +411,7 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
         }
     }
 
-    fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()> {
+    fn add_value(&mut self, doc: i32, value: i64, index: usize) -> Result<()> {
         match self {
             DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_value(doc, value, index),
             DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_value(doc, value, index),
@@ -419,7 +419,7 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
         }
     }
 
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
         match self {
             DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_byte_ref(doc, value, index),
             DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_byte_ref(doc, value, index),
@@ -539,7 +539,7 @@ impl<D> Sorter for IntroSorterImpl<'_, D>
 where
     D: DocValuesFieldUpdatesBase,
 {
-    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+    fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
         // increasing docID order:
         // NOTE: we can have ties here, when the same docID was updated in the
         // same segment, in which case we rely on sort being
@@ -548,7 +548,7 @@ where
         let cmp = (self.inner.docs.get(i as i64)? >> 1).cmp(&(self.inner.docs.get(j as i64)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {
-            Ok((self.ords.get(i as usize) - self.ords.get(j as usize)) as i32)
+            Ok((self.ords.get(i) - self.ords.get(j)) as i32)
         } else {
             Ok(cmp.to_int())
         }
@@ -557,31 +557,31 @@ where
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         let tmp_ord = self.ords.get(i);
         let value = self.ords.get(j);
-        self.ords.set(i.try_into()?, value);
-        self.ords.set(j.try_into()?, tmp_ord);
+        self.ords.set(i.try_convert()?, value);
+        self.ords.set(j.try_convert()?, tmp_ord);
         self.inner.swap(i, j)?;
         self.sub_update.swap(i, j)?;
         Ok(())
     }
 
-    fn set_pivot(&mut self, i: i32) -> Result<()> {
+    fn set_pivot(&mut self, i: usize) -> Result<()> {
         self.pivot_doc = self.inner.docs.get(i as i64)? >> 1;
-        self.pivot_ord = self.ords.get(i as usize);
+        self.pivot_ord = self.ords.get(i);
         Ok(())
     }
 
-    fn compare_pivot(&mut self, j: i32) -> Result<i32> {
+    fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         let mut cmp = self
             .pivot_doc
             .cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
-            cmp = (self.pivot_ord - self.ords.get(j as usize)).cmp(&0);
+            cmp = (self.pivot_ord - self.ords.get(j)).cmp(&0);
         }
         Ok(cmp.to_int())
     }
 
-    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
+    fn sort(&mut self, from: usize, to: usize) -> Result<()> {
         IntroSorter::sort_range(self, from, to)?;
         Ok(())
     }
@@ -1077,7 +1077,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         }
     }
 
-    fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
+    fn add_value(&mut self, doc: i32, value: i64, _index: usize) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
         self.bit_set.set(doc);
 
@@ -1088,7 +1088,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         Ok(())
     }
 
-    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
+    fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()?.as_ref() == value);
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;

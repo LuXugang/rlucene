@@ -34,7 +34,7 @@ use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
-use crate::core::util::{AtomicCounter, ByteBlockPool, Counter};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, TryIntoInt};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -151,7 +151,11 @@ where
             return Ok(());
         }
 
-        ArrayUtil::intro_sort_with_range(&mut self.per_fields_idxs, 0, self.num_vector_fields)?;
+        ArrayUtil::intro_sort_with_range(
+            &mut self.per_fields_idxs,
+            0,
+            self.num_vector_fields.try_convert()?,
+        )?;
 
         self.init_term_vectors_writer(codec, info)?;
         self.fill(doc_id)?;

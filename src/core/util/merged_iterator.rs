@@ -16,7 +16,6 @@
  */
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
-use crate::core::util::ToInt;
 /// Provides a merged, sorted view over several sorted iterators.
 ///
 /// If built with `remove_duplicates` set to `true` and an element appears in multiple iterators,
@@ -36,6 +35,7 @@ use crate::core::util::ToInt;
 ///   undefined.
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
+use crate::core::util::{ToInt, TryIntoInt};
 
 pub struct MergedIterator<E>
 where
@@ -76,7 +76,7 @@ where
             sub_iterator: sub_iterators,
         };
 
-        let mut queue = PriorityQueue::new(len.try_into()?, cmp)?;
+        let mut queue = PriorityQueue::new(len.try_convert()?, cmp)?;
 
         for i in 0..sub_iterator_len {
             queue.add(i)?;

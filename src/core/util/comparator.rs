@@ -89,11 +89,11 @@ where
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE
 /// constant.
 impl BytesRefComparator for NaturalOrder {
-    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: i32) -> Result<i32> {
-        if bytes_ref.length <= i as usize {
+    fn byte_at(&self, bytes_ref: &BytesRef<Vec<u8>>, i: usize) -> Result<i32> {
+        if bytes_ref.length <= i {
             return Ok(-1);
         }
-        Ok(bytes_ref.bytes[bytes_ref.offset + i as usize] as i32)
+        Ok(bytes_ref.bytes[bytes_ref.offset + i] as i32)
     }
 }
 
