@@ -408,7 +408,7 @@ impl LongValuesImpl {
 }
 impl LongValues for LongValuesImpl {
     fn get(&self, ord: i64) -> Result<i64> {
-        Ok(ord + self.new_deltas.get(ord as i32))
+        Ok(ord + self.new_deltas.get(ord.try_into()?))
     }
 }
 

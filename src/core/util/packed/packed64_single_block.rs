@@ -72,8 +72,8 @@ impl<T> Reader for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get(&self, _index: i32) -> i64 {
-        self.sub_reader.get(_index, &self.blocks)
+    fn get(&self, index: usize) -> i64 {
+        self.sub_reader.get(index, &self.blocks)
     }
 
     fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
@@ -95,7 +95,7 @@ where
                 if len == 0 {
                     return index - original_index;
                 }
-                arr[off as usize] = self.sub_reader.get(index, &self.blocks);
+                arr[off as usize] = self.sub_reader.get(index as usize, &self.blocks);
                 off += 1;
                 index += 1;
                 len -= 1;
@@ -278,7 +278,7 @@ where
     }
 
     fn set(&mut self, index: i32, value: i64) {
-        self.sub_reader.set(index, value, &mut self.blocks);
+        self.sub_reader.set(index as usize, value, &mut self.blocks);
     }
 
     fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
@@ -302,7 +302,7 @@ where
                     return index - original_index;
                 }
                 self.sub_reader
-                    .set(index, arr[off as usize], &mut self.blocks);
+                    .set(index as usize, arr[off as usize], &mut self.blocks);
                 off += 1;
                 index += 1;
                 len -= 1;
@@ -408,245 +408,244 @@ where
 
 pub(crate) struct Packed64SingleBlock1 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock1 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 6;
         let b = index & 63;
         let shift = b;
-        ((blocks[o as usize] >> shift) & 1) as i64
+        ((blocks[o] >> shift) & 1) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 6;
         let b = index & 63;
         let shift = b;
-        blocks[o as usize] = (blocks[o as usize] & !(1 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(1 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock2 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock2 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 5;
         let b = index & 31;
         let shift = b << 1;
-        ((blocks[o as usize] >> shift) & 3) as i64
+        ((blocks[o] >> shift) & 3) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 5;
         let b = index & 31;
         let shift = b << 1;
-        blocks[o as usize] = (blocks[o as usize] & !(3 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(3 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock3 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock3 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 21;
         let b = index % 21;
         let shift = b * 3;
-        ((blocks[o as usize] >> shift) & 7) as i64
+        ((blocks[o] >> shift) & 7) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 21;
         let b = index % 21;
         let shift = b * 3;
-        blocks[o as usize] = (blocks[o as usize] & !(7 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(7 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock4 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock4 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 4;
         let b = index & 15;
         let shift = b << 2;
-        ((blocks[o as usize] >> shift) & 15) as i64
+        ((blocks[o] >> shift) & 15) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 4;
         let b = index & 15;
         let shift = b << 2;
-        blocks[o as usize] = (blocks[o as usize] & !(15 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(15 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock5 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock5 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 12;
         let b = index % 12;
         let shift = b * 5;
-        ((blocks[o as usize] >> shift) & 31) as i64
+        ((blocks[o] >> shift) & 31) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 12;
         let b = index % 12;
         let shift = b * 5;
-        blocks[o as usize] = (blocks[o as usize] & !(31 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(31 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock6 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock6 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 10;
         let b = index % 10;
         let shift = b * 6;
-        ((blocks[o as usize] >> shift) & 63) as i64
+        ((blocks[o] >> shift) & 63) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 10;
         let b = index % 10;
         let shift = b * 6;
-        blocks[o as usize] = (blocks[o as usize] & !(63 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(63 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock7 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock7 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 9;
         let b = index % 9;
         let shift = b * 7;
-        ((blocks[o as usize] >> shift) & 127) as i64
+        ((blocks[o] >> shift) & 127) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 9;
         let b = index % 9;
         let shift = b * 7;
-        blocks[o as usize] = (blocks[o as usize] & !(127 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(127 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock8 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock8 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 3;
         let b = index & 7;
         let shift = b << 3;
-        ((blocks[o as usize] >> shift) & 255) as i64
+        ((blocks[o] >> shift) & 255) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 3;
         let b = index & 7;
         let shift = b << 3;
-        blocks[o as usize] = (blocks[o as usize] & !(255 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(255 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock9 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock9 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 7;
         let b = index % 7;
         let shift = b * 9;
-        ((blocks[o as usize] >> shift) & 511) as i64
+        ((blocks[o] >> shift) & 511) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 7;
         let b = index % 7;
         let shift = b * 9;
-        blocks[o as usize] = (blocks[o as usize] & !(511 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(511 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock10 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock10 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 6;
         let b = index % 6;
         let shift = b * 10;
-        ((blocks[o as usize] >> shift) & 1023) as i64
+        ((blocks[o] >> shift) & 1023) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 6;
         let b = index % 6;
         let shift = b * 10;
-        blocks[o as usize] = (blocks[o as usize] & !(1023 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(1023 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock12 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock12 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 5;
         let b = index % 5;
         let shift = b * 12;
-        ((blocks[o as usize] >> shift) & 4095) as i64
+        ((blocks[o] >> shift) & 4095) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 5;
         let b = index % 5;
         let shift = b * 12;
-        blocks[o as usize] = (blocks[o as usize] & !(4095 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(4095 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock16 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock16 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 2;
         let b = index & 3;
         let shift = b << 4;
-        ((blocks[o as usize] >> shift) & 65535) as i64
+        ((blocks[o] >> shift) & 65535) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 2;
         let b = index & 3;
         let shift = b << 4;
-        blocks[o as usize] = (blocks[o as usize] & !(65535 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(65535 << shift)) | ((value as u64) << shift);
     }
 }
 pub(crate) struct Packed64SingleBlock21 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock21 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index / 3;
         let b = index % 3;
         let shift = b * 21;
-        ((blocks[o as usize] >> shift) & 2097151) as i64
+        ((blocks[o] >> shift) & 2097151) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index / 3;
         let b = index % 3;
         let shift = b * 21;
-        blocks[o as usize] = (blocks[o as usize] & !(2097151 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(2097151 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub(crate) struct Packed64SingleBlock32 {}
 impl Packed64SingleBlockBase for Packed64SingleBlock32 {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64 {
+    fn get(&self, index: usize, blocks: &[u64]) -> i64 {
         let o = index >> 1;
         let b = index & 1;
         let shift = b << 5;
-        ((blocks[o as usize] >> shift) & 4294967295) as i64
+        ((blocks[o] >> shift) & 4294967295) as i64
     }
 
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]) {
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]) {
         let o = index >> 1;
         let b = index & 1;
         let shift = b << 5;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(4294967295 << shift)) | ((value as u64) << shift);
+        blocks[o] = (blocks[o] & !(4294967295 << shift)) | ((value as u64) << shift);
     }
 }
 
 pub trait Packed64SingleBlockBase {
-    fn get(&self, index: i32, blocks: &[u64]) -> i64;
-    fn set(&self, index: i32, value: i64, blocks: &mut [u64]);
+    fn get(&self, index: usize, blocks: &[u64]) -> i64;
+    fn set(&self, index: usize, value: i64, blocks: &mut [u64]);
 }
 
 /// Checks if the given `bits_per_value` is supported.

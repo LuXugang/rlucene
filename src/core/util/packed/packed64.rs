@@ -104,7 +104,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&self, index: i32) -> i64 {
+    fn get(&self, index: usize) -> i64 {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -152,7 +152,7 @@ impl Reader for Packed64 {
                 if len == 0 {
                     return index - original_index;
                 }
-                arr[off as usize] = self.get(index);
+                arr[off as usize] = self.get(index as usize);
                 off += 1;
                 index += 1;
                 len -= 1;

@@ -307,7 +307,7 @@ impl PackedInts {
         let capacity = mem >> 3;
         if capacity == 0 {
             for i in 0..len {
-                dest.set(dest_pos + i, src.get(src_pos + i));
+                dest.set(dest_pos + i, src.get((src_pos + i) as usize));
             }
         } else if len > 0 {
             // Use bulk operations
@@ -718,7 +718,7 @@ pub trait Encoder {
 /// A read-only random access array of positive integers.
 pub trait Reader: Accountable {
     /// Get the value at the given index.
-    fn get(&self, _index: i32) -> i64 {
+    fn get(&self, _index: usize) -> i64 {
         unimplemented!("get() must be implemented if it needs to be used")
     }
 
@@ -738,7 +738,7 @@ pub trait Reader: Accountable {
 
         let gets = std::cmp::min(self.size() - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
-            arr[o as usize] = self.get(i);
+            arr[o as usize] = self.get(i as usize);
         }
         gets
     }
@@ -1000,7 +1000,7 @@ impl Accountable for NullReader {
     }
 }
 impl Reader for NullReader {
-    fn get(&self, _index: i32) -> i64 {
+    fn get(&self, _index: usize) -> i64 {
         0
     }
 
@@ -1418,7 +1418,7 @@ mod tests {
                 }
             }
 
-            for i in 0..value_count {
+            for i in 0..value_count as usize {
                 assert_eq!(
                     packed1.get(i),
                     packed2.get(i),
@@ -1491,7 +1491,7 @@ mod tests {
             };
 
             packed_int.set(i, value);
-            let retrieved_value = packed_int.get(i);
+            let retrieved_value = packed_int.get(i as usize);
 
             if value != retrieved_value {
                 assert_eq!(
@@ -1531,7 +1531,7 @@ mod tests {
             }
         }
 
-        for i in 0..value_count {
+        for i in 0..value_count as usize {
             for j in 1..length {
                 assert_eq!(
                     packed_ints[0].get(i),
@@ -1584,7 +1584,7 @@ mod tests {
                 for i in 0..packed.size() {
                     let expected_value: i64 = if i >= from && i < to { val } else { 1 };
 
-                    assert_eq!(packed.get(i), expected_value, "{}: i={}", msg, i);
+                    assert_eq!(packed.get(i as usize), expected_value, "{}: i={}", msg, i);
                 }
             }
         }
@@ -1597,7 +1597,7 @@ mod tests {
         // must be > 10 for the bulk reads below
         let size = TestUtil::next_int(&mut random, 11, 256);
         let packed_ints = NullReader::for_count(size);
-        let random_index = TestUtil::next_int(&mut random, 0, size - 1);
+        let random_index = TestUtil::next_int(&mut random, 0, size - 1).try_into()?;
         assert_eq!(
             packed_ints.get(random_index),
             0,
@@ -1667,7 +1667,7 @@ mod tests {
                     let m = format!("{}, i={}", msg, i);
                     if i >= off && i < off + gets as usize {
                         assert_eq!(
-                            ints.get((i - off + index) as i32),
+                            ints.get(i - off + index),
                             item,
                             "{}: value mismatch at index {}",
                             m,
@@ -1710,12 +1710,12 @@ mod tests {
                     "{}: gets should be less than or equal to len",
                     msg
                 );
-                for i in 0..ints.size() {
+                for i in 0..ints.size() as usize {
                     let m = format!("{}, i={}", msg, i);
-                    if i as usize >= index && (i as usize) < index + sets as usize {
+                    if i >= index && i < index + sets as usize {
                         assert_eq!(
                             ints.get(i),
-                            arr[off - index + i as usize],
+                            arr[off - index + i],
                             "{}: value mismatch at index {}",
                             m,
                             i
@@ -1757,15 +1757,15 @@ mod tests {
                         let m = format!("{}, i={}", msg, i);
                         if i >= off2 && i < off2 + len {
                             assert_eq!(
-                                r1.get(i - off2 + off1),
-                                r2.get(i),
+                                r1.get((i - off2 + off1).try_into()?),
+                                r2.get(i as usize),
                                 "{}: Values mismatch at index {}",
                                 m,
                                 i
                             );
                         } else {
                             assert_eq!(
-                                r2.get(i),
+                                r2.get(i as usize),
                                 0,
                                 "{}: Unexpected non-zero value at index {}",
                                 m,
@@ -1791,22 +1791,22 @@ mod tests {
         wrt.set(value_count - 10, 99);
         wrt.set(99, 999);
         wrt.set(value_count - 1, 1 << 10);
-        assert_eq!(wrt.get(value_count - 1), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
 
         wrt.set(99, (1 << 23) - 1);
-        assert_eq!(wrt.get(value_count - 1), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
 
         wrt.set(1, i64::MAX);
         wrt.set(2, -3);
         assert_eq!(wrt.get_bits_per_value(), 64);
-        assert_eq!(wrt.get(value_count - 1), 1 << 10);
+        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
         assert_eq!(wrt.get(1), i64::MAX);
         assert_eq!(wrt.get(2), -3);
         assert_eq!(wrt.get(4), 2);
         assert_eq!(wrt.get(99), (1 << 23) - 1);
         assert_eq!(wrt.get(7), 10);
-        assert_eq!(wrt.get(value_count - 10), 99);
-        assert_eq!(wrt.get(value_count - 1), 1 << 10);
+        assert_eq!(wrt.get((value_count - 10).try_into()?), 99);
+        assert_eq!(wrt.get((value_count - 1).try_into()?), 1 << 10);
 
         // TODO:
         // Check memory usage

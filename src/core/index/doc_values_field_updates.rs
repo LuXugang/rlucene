@@ -546,15 +546,15 @@ where
         let cmp = (self.inner.docs.get(i as i64)? >> 1).cmp(&(self.inner.docs.get(j as i64)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {
-            Ok((self.ords.get(i) - self.ords.get(j)) as i32)
+            Ok((self.ords.get(i as usize) - self.ords.get(j as usize)) as i32)
         } else {
             Ok(cmp.to_int())
         }
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let tmp_ord = self.ords.get(i);
-        let value = self.ords.get(j);
+        let tmp_ord = self.ords.get(i as usize);
+        let value = self.ords.get(j as usize);
         self.ords.set(i, value);
         self.ords.set(j, tmp_ord);
         self.inner.swap(i, j)?;
@@ -564,7 +564,7 @@ where
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
         self.pivot_doc = self.inner.docs.get(i as i64)? >> 1;
-        self.pivot_ord = self.ords.get(i);
+        self.pivot_ord = self.ords.get(i as usize);
         Ok(())
     }
 
@@ -574,7 +574,7 @@ where
             .cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
-            cmp = (self.pivot_ord - self.ords.get(j)).cmp(&0);
+            cmp = (self.pivot_ord - self.ords.get(j as usize)).cmp(&0);
         }
         Ok(cmp.to_int())
     }

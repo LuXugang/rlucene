@@ -89,7 +89,7 @@ impl Accountable for MutablePacked64Enum {
 }
 
 impl Reader for MutablePacked64Enum {
-    fn get(&self, index: i32) -> i64 {
+    fn get(&self, index: usize) -> i64 {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.get(index),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.get(index),
