@@ -1136,8 +1136,8 @@ mod tests {
         }
     }
     impl Sorter for StringSorterTestImpl {
-        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-            self.refs.swap(i as usize, j as usize);
+        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+            self.refs.swap(i, j);
             Ok(())
         }
     }
@@ -1188,8 +1188,8 @@ mod tests {
         }
     }
     impl Sorter for StableStringSorterTestImpl<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-            self.ord.swap(i as usize, j as usize);
+        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+            self.ord.swap(i, j);
             Ok(())
         }
     }

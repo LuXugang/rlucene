@@ -65,8 +65,8 @@ where
             .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.arr.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.arr.swap(i, j);
         Ok(())
     }
 

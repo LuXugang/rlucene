@@ -114,8 +114,8 @@ where
             .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.arr.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.arr.swap(i, j);
         Ok(())
     }
 
@@ -182,15 +182,16 @@ impl<T, C: Comparator<T>> Sorter for ListIntroSorter<'_, T, C> {
             .compare(&self.list[i as usize], &self.list[j as usize])
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
         // To avoid Copying the value, we just swap the pivot index.
-        if self.pivot == i || self.pivot == j {
-            self.pivot = if self.pivot == i { j } else { i };
+        let pivot = self.pivot as usize;
+        if pivot == i || pivot == j {
+            self.pivot = if pivot == i { j } else { i } as i32;
         }
-        self.list.swap(i as usize, j as usize);
+        self.list.swap(i, j);
         Ok(())
     }
 

@@ -53,7 +53,7 @@ where
         self.sub.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.sub.swap(i, j)
     }
 

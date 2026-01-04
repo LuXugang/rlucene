@@ -73,7 +73,7 @@ where
         self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 
@@ -121,7 +121,7 @@ where
     T: StringSorterBase,
     C: BytesRefComparator,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 }
@@ -197,7 +197,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 

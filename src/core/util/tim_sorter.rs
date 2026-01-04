@@ -368,7 +368,7 @@ where
         self.delegate.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 
@@ -409,7 +409,7 @@ where
 
         if len1 == len2 {
             while mid < hi {
-                self.swap(lo, mid)?;
+                self.swap(lo as usize, mid as usize)?;
                 lo += 1;
                 mid += 1;
             }

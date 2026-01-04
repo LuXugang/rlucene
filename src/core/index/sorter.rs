@@ -218,8 +218,8 @@ where
             .compare(self.docs[i as usize], self.docs[j as usize]))
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.docs.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.docs.swap(i, j);
         Ok(())
     }
 

@@ -502,7 +502,7 @@ where
         }
     }
     fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<()> {
-        self.swap(i, j)?;
+        self.swap(i as usize, j as usize)?;
         self.compact.swap(
             (self.tmp_offset + i) as usize,
             (self.tmp_offset + j) as usize,
@@ -582,8 +582,8 @@ impl<BSA> Sorter for StringSorterImpl<'_, BSA>
 where
     BSA: BytesStartArray,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.compact.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.compact.swap(i, j);
         Ok(())
     }
 }
@@ -737,7 +737,7 @@ where
     T: StringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 }

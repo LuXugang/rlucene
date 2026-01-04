@@ -117,11 +117,13 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
         ))
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let tmp_val = self.values.get(j as i64)?;
-        let value = self.values.get(i as i64)?;
-        self.values.set(j as i64, value);
-        self.values.set(i as i64, tmp_val);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        let i = i.try_into()?;
+        let j = j.try_into()?;
+        let tmp_val = self.values.get(j)?;
+        let value = self.values.get(i)?;
+        self.values.set(j, value);
+        self.values.set(i, tmp_val);
         Ok(())
     }
 

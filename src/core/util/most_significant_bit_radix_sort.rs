@@ -296,7 +296,7 @@ impl<T> Sorter for MSBRadixSorter<T>
 where
     T: MSBRadixSorterBase,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 
@@ -342,7 +342,7 @@ where
         Ok(0)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 
@@ -444,7 +444,7 @@ pub trait MSBRadixSorterBase: Sorter {
                 let b = self.get_bucket(from + h1, k)?;
                 let h2 = start_offsets[b as usize];
                 start_offsets[b as usize] += 1;
-                self.swap(from + h1, from + h2)?;
+                self.swap((from + h1) as usize, (from + h2) as usize)?;
             }
         }
         Ok(())
@@ -702,8 +702,8 @@ mod tests {
         }
     }
     impl Sorter for MSBRadixSorterImpl {
-        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-            self.refs.swap(i as usize, j as usize);
+        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+            self.refs.swap(i, j);
             Ok(())
         }
     }

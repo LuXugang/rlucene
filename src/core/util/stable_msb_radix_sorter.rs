@@ -180,7 +180,7 @@ where
         self.delegate.compare(i, j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 
@@ -239,7 +239,7 @@ where
         }
         Ok(0)
     }
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 }
@@ -471,8 +471,8 @@ mod tests {
     }
 
     impl Sorter for StableMSBRadixSorterTestImpl<'_> {
-        fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-            self.refs.swap(i as usize, j as usize);
+        fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+            self.refs.swap(i, j);
             Ok(())
         }
     }

@@ -51,15 +51,16 @@ where
             .compare(&self.arr[i as usize], &self.arr[j as usize])
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         // The data pointed to by the pivot has been swapped.
         // We need to adjust the pivot value to ensure that
         // the value corresponding to the pivot remains unchanged.
         // To avoid Copying the value, we just swap the pivot index.
-        if self.pivot == i || self.pivot == j {
-            self.pivot = if self.pivot == i { j } else { i };
+        let pivot = self.pivot as usize;
+        if pivot == i || pivot == j {
+            self.pivot = if pivot == i { j } else { i } as i32;
         }
-        self.arr.swap(i as usize, j as usize);
+        self.arr.swap(i, j);
         Ok(())
     }
 

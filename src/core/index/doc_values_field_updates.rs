@@ -99,11 +99,13 @@ impl DocValuesFieldInner {
         }
         Ok(())
     }
-    pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let tmp_doc = self.docs.get(j as i64)?;
-        let value_i = self.docs.get(i as i64)?;
-        self.docs.set(j as i64, value_i);
-        self.docs.set(i as i64, tmp_doc);
+    pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        let i = i.try_into()?;
+        let j = j.try_into()?;
+        let tmp_doc = self.docs.get(j)?;
+        let value_i = self.docs.get(i)?;
+        self.docs.set(j, value_i);
+        self.docs.set(i, tmp_doc);
         Ok(())
     }
 }
@@ -332,7 +334,7 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
         inner: DocValuesFieldInnerIter,
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum>;
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
+    fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
     fn grow(&mut self, _size: i32) -> Result<()> {
@@ -449,11 +451,11 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
         }
     }
 
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         match self {
-            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.swap(_i, _j),
-            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.swap(_i, _j),
-            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.swap(_i, _j),
+            DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.swap(i, j),
+            DocValuesFieldUpdatesBaseEnum::Binary(b) => b.swap(i, j),
+            DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.swap(i, j),
         }
     }
 
@@ -552,11 +554,11 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let tmp_ord = self.ords.get(i as usize);
-        let value = self.ords.get(j as usize);
-        self.ords.set(i, value);
-        self.ords.set(j, tmp_ord);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        let tmp_ord = self.ords.get(i);
+        let value = self.ords.get(j);
+        self.ords.set(i.try_into()?, value);
+        self.ords.set(j.try_into()?, tmp_ord);
         self.inner.swap(i, j)?;
         self.sub_update.swap(i, j)?;
         Ok(())

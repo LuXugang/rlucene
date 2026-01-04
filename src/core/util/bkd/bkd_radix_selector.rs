@@ -772,10 +772,10 @@ impl<O> Sorter for MSBRadixSorterImpl<'_, O>
 where
     O: IndexOutput,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
-                heap_writer.swap(i, j);
+                heap_writer.swap(i as i32, j as i32);
                 Ok(())
             },
             _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
@@ -846,10 +846,10 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         match self.points {
             PointWriterEnum::Heap(heap_writer) => {
-                heap_writer.swap(i, j);
+                heap_writer.swap(i as i32, j as i32);
                 Ok(())
             },
             _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),

@@ -112,16 +112,18 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
             AbstractIterator::new(inner, del_gen, base),
         ))
     }
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let temp_offset = self.offsets.get(j as i64)?;
-        let value = self.offsets.get(i as i64)?;
-        self.offsets.set(j as i64, value);
-        self.offsets.set(i as i64, temp_offset);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        let i = i.try_into()?;
+        let j = j.try_into()?;
+        let temp_offset = self.offsets.get(j)?;
+        let value = self.offsets.get(i)?;
+        self.offsets.set(j, value);
+        self.offsets.set(i, temp_offset);
 
-        let tem_length = self.lengths.get(j as i64)?;
-        let length = self.lengths.get(i as i64)?;
-        self.lengths.set(j as i64, length);
-        self.lengths.set(i as i64, tem_length);
+        let tem_length = self.lengths.get(j)?;
+        let length = self.lengths.get(i)?;
+        self.lengths.set(j, length);
+        self.lengths.set(i, tem_length);
         Ok(())
     }
 

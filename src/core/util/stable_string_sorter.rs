@@ -88,7 +88,7 @@ where
     T: StableStringSorterBase + MSBRadixSorterBase,
     C: BytesRefComparator,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 }
@@ -157,7 +157,7 @@ where
         }
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.delegate.swap(i, j)
     }
 }

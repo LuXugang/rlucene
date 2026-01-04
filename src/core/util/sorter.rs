@@ -42,7 +42,7 @@ pub trait Sorter {
     }
 
     /// Swap values at slots <code>i</code> and `j`.
-    fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
+    fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
         Err(LuceneError::illegal_state(
             "swap() must be implemented if it needs to be used",
         ))
@@ -76,7 +76,7 @@ pub trait Sorter {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
         } else if to - from == 2 {
-            self.swap(mid - 1, mid)?;
+            self.swap((mid - 1) as usize, mid as usize)?;
             return Ok(());
         }
 
@@ -174,7 +174,7 @@ pub trait Sorter {
     fn reverse(&mut self, mut from: i32, to: i32) -> Result<()> {
         let mut to = to - 1;
         while from < to {
-            self.swap(from, to)?;
+            self.swap(from as usize, to as usize)?;
             from += 1;
             to -= 1;
         }
@@ -192,7 +192,7 @@ pub trait Sorter {
     fn do_rotate(&mut self, mut lo: i32, mut mid: i32, hi: i32) -> Result<()> {
         if mid - lo == hi - mid {
             while mid < hi {
-                self.swap(lo, mid)?;
+                self.swap(lo as usize, mid as usize)?;
                 lo += 1;
                 mid += 1;
             }
@@ -232,7 +232,7 @@ pub trait Sorter {
             }
             let mut j = i;
             while j > l {
-                self.swap(j - 1, j)?;
+                self.swap((j - 1) as usize, j as usize)?;
                 j -= 1;
             }
             i += 1;
@@ -252,7 +252,7 @@ pub trait Sorter {
             loop {
                 let previous = current - 1;
                 if self.compare(previous, current)? > 0 {
-                    self.swap(previous, current)?;
+                    self.swap(previous as usize, current as usize)?;
                     if previous == from {
                         break;
                     }
@@ -275,7 +275,7 @@ pub trait Sorter {
         self.heapify(from, to)?;
         let mut end = to - 1;
         while end > from {
-            self.swap(from, end)?;
+            self.swap(from as usize, end as usize)?;
             self.sift_down(from, from, end)?;
             end -= 1;
         }
@@ -297,14 +297,14 @@ pub trait Sorter {
             let right_child = left_child + 1;
             if self.compare(i, left_child)? < 0 {
                 if right_child < to && self.compare(left_child, right_child)? < 0 {
-                    self.swap(i, right_child)?;
+                    self.swap(i as usize, right_child as usize)?;
                     i = right_child;
                 } else {
-                    self.swap(i, left_child)?;
+                    self.swap(i as usize, left_child as usize)?;
                     i = left_child;
                 }
             } else if right_child < to && self.compare(i, right_child)? < 0 {
-                self.swap(i, right_child)?;
+                self.swap(i as usize, right_child as usize)?;
                 i = right_child;
             } else {
                 break;

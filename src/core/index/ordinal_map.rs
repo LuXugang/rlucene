@@ -504,8 +504,8 @@ impl<'a> Sorter for InPlaceMergeSorterSorter<'a> {
         Ok(wj.cmp(&wi) as i32)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.new_to_old.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.new_to_old.swap(i, j);
 
         Ok(())
     }

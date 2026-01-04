@@ -668,9 +668,7 @@ impl Sorter for DocOffsetSorter<'_> {
         Ok(self.docs[i as usize] - self.docs[j as usize])
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let i = i as usize;
-        let j = j as usize;
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
         self.docs.swap(i, j);
         self.offsets.swap(i, j);
         Ok(())

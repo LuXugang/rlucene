@@ -175,8 +175,8 @@ impl<M> Sorter for StableMSBRadixSorterImpl<'_, M>
 where
     M: MutablePointTree,
 {
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.reader.swap(i, j);
         Ok(())
     }
 }
@@ -215,8 +215,8 @@ where
         self.compare_pivot(j)
     }
 
-    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i as usize, j as usize);
+    fn swap(&mut self, i: usize, j: usize) -> Result<()> {
+        self.reader.swap(i, j);
         Ok(())
     }
 

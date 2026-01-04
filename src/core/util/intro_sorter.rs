@@ -82,7 +82,7 @@ pub trait IntroSorter: Sorter {
             };
 
             self.set_pivot(pivot)?;
-            self.swap(from, pivot)?;
+            self.swap(from as usize, pivot as usize)?;
 
             let mut i = from;
             let mut j = to;
@@ -108,18 +108,18 @@ pub trait IntroSorter: Sorter {
 
                 if i >= j {
                     if i == j && right_cmp == 0 {
-                        self.swap(i, p)?;
+                        self.swap(i as usize, p as usize)?;
                     }
                     break;
                 }
 
-                self.swap(i, j)?;
+                self.swap(i as usize, j as usize)?;
                 if right_cmp == 0 {
-                    self.swap(i, p)?;
+                    self.swap(i as usize, p as usize)?;
                     p += 1;
                 }
                 if left_cmp == 0 {
-                    self.swap(j, q)?;
+                    self.swap(j as usize, q as usize)?;
                     q -= 1;
                 }
             }
@@ -128,14 +128,14 @@ pub trait IntroSorter: Sorter {
 
             let mut k = from;
             while k < p {
-                self.swap(k, j)?;
+                self.swap(k as usize, j as usize)?;
                 k += 1;
                 j -= 1;
             }
 
             k = last;
             while k > q {
-                self.swap(k, i)?;
+                self.swap(k as usize, i as usize)?;
                 k -= 1;
                 i += 1;
             }
