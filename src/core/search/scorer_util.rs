@@ -40,7 +40,7 @@ impl ScorerUtil {
         I: IntoIterator<Item = i64>,
     {
         let k = num_scorers - min_should_match + 1;
-        let mut pq = PriorityQueue::new(k as i32, MaxCostCmp)?;
+        let mut pq = PriorityQueue::new(k, MaxCostCmp)?;
         for c in costs {
             let _ = pq.insert_with_overflow(c)?;
         }

@@ -43,7 +43,7 @@ where
 {
     pub fn new(mut matches: Vec<M>) -> Result<Self> {
         debug_assert!(matches.len() <= i32::MAX as usize);
-        let size = matches.len() as i32;
+        let size = matches.len();
         let mut queue = PriorityQueue::new(
             size,
             DisjunctionMatchesIteratorPQCmp {

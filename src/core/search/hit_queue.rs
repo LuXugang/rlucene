@@ -32,7 +32,7 @@ pub struct HitQueue;
 impl HitQueue {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
-        size: i32,
+        size: usize,
         pre_populate: bool,
     ) -> Result<PriorityQueue<ScoreDoc, HitQueueComparator>> {
         PriorityQueue::with_sentinel_object(

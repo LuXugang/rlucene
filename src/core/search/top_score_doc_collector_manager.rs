@@ -20,9 +20,11 @@ use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::{TopDocs, top_docs_util};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector::TopScoreDocCollector;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
+
 /// Create a [`TopScoreDocCollectorManager`] which uses:
 /// - a shared hit counter to maintain the number of hits, and
 /// - a shared [`MaxScoreAccumulator`] to propagate the minimum score across segments.
@@ -133,7 +135,7 @@ impl CollectorManager for TopScoreDocCollectorManager {
 
     fn new_collector(&self) -> Result<Self::C> {
         TopScoreDocCollector::new(
-            self.num_hits,
+            self.num_hits.try_convert()?,
             self.after.clone(),
             self.total_hits_threshold,
             self.min_score_acc.clone(),

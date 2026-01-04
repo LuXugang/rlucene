@@ -53,7 +53,7 @@ pub struct TopScoreDocCollector {
 }
 impl TopScoreDocCollector {
     pub fn new(
-        num_hits: i32,
+        num_hits: usize,
         after: Option<ScoreDoc>,
         total_hits_threshold: i32,
         min_score_acc: Option<Arc<MaxScoreAccumulator>>,

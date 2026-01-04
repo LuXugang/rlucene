@@ -26,6 +26,7 @@ use crate::core::search::top_field_collector::{
     PagingFieldCollector, SimpleFieldCollector, TopFieldCollectorEnum,
 };
 use crate::core::search::top_field_docs::TopFieldDocs;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -154,7 +155,7 @@ impl CollectorManager for TopFieldCollectorManager {
     type T = TopFieldDocs;
 
     fn new_collector(&self) -> Result<Self::C> {
-        let mut queue = create(self.sort.get_sort(), self.num_hits)?;
+        let mut queue = create(self.sort.get_sort(), self.num_hits.try_convert()?)?;
 
         let collector = if self.after.is_none() {
             // Inform a comparator that sort is based on a single field,

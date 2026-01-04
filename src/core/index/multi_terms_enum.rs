@@ -71,7 +71,7 @@ where
             sub_docs.push(EnumWithSlice::with_slice(slice));
             subs[i] = i;
         }
-        let queue = TermMergeQueue::new(len.try_convert()?, all_terms_enum_with_slice)?;
+        let queue = TermMergeQueue::new(len, all_terms_enum_with_slice)?;
         Ok(Self {
             queue,
             subs,
@@ -519,11 +519,14 @@ impl<TE> TermMergeQueue<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(size: i32, all_terms_enum_with_slice: Vec<TermsEnumWithSlice<TE>>) -> Result<Self> {
+    pub fn new(
+        size: usize,
+        all_terms_enum_with_slice: Vec<TermsEnumWithSlice<TE>>,
+    ) -> Result<Self> {
         let cmp = TermMergeQueueCmp::new(all_terms_enum_with_slice);
         let queue = PriorityQueue::new(size, cmp)?;
         Ok(Self {
-            stack: vec![0; size as usize],
+            stack: vec![0; size],
             q: queue,
         })
     }

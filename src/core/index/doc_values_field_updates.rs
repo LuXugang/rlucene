@@ -1250,7 +1250,7 @@ where
     // }
 
     // Priority queue to sort iterators by doc_id and del_gen
-    let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
+    let mut queue = PriorityQueue::new(subs.len(), IteratorPQCmp::new())?;
 
     for mut sub in subs {
         if sub.next_doc()? != NO_MORE_DOCS {

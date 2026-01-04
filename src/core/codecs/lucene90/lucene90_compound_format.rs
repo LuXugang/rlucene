@@ -94,7 +94,7 @@ impl Lucene90CompoundFormat {
             let num_files = files.len();
             debug_assert!(num_files <= i32::MAX as usize);
             entries.write_vint(num_files as i32)?;
-            pq = PriorityQueue::new(num_files as i32, SizedFileQueueCmp)?;
+            pq = PriorityQueue::new(num_files, SizedFileQueueCmp)?;
             {
                 for filename in files {
                     let file_length = directory.file_length(filename)?;

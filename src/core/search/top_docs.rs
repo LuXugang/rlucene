@@ -113,7 +113,7 @@ pub mod top_docs_util {
         let len = shard_hits.len();
         debug_assert!(len <= i32::MAX as usize);
         let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
-        let queue = PriorityQueue::new(len as i32, &cmp)?;
+        let queue = PriorityQueue::new(len, &cmp)?;
         let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
         // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
         Ok(TopFieldDocs::new(total_hits, hits, vec![]))
@@ -162,7 +162,7 @@ pub mod top_docs_util {
         let len = shard_hits.len();
         debug_assert!(len <= i32::MAX as usize);
         let cmp = ScoreMergeSortQueueCmp::new(&shard_hits, tie_breaker);
-        let queue = PriorityQueue::new(len as i32, &cmp)?;
+        let queue = PriorityQueue::new(len, &cmp)?;
         let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
         Ok(TopDocs::new(total_hits, hits))
     }

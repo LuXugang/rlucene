@@ -217,7 +217,7 @@ impl OrdinalMap {
         let mut segment_ords = vec![0i64; sub_len];
 
         //  queue of term enums
-        let mut queue = PriorityQueue::new(subs.len().try_convert()?, TermsEnumPriorityQueueCmp)?;
+        let mut queue = PriorityQueue::new(subs.len(), TermsEnumPriorityQueueCmp)?;
         for i in 0..sub_len {
             let mapped = segment_map.new_to_old(i);
             let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i as i32);

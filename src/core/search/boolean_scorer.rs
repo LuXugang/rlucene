@@ -23,7 +23,6 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -87,8 +86,8 @@ where
         let head_size = scorers.len() - min_should_match + 1;
         let tail_size = min_should_match - 1;
 
-        let mut head = PriorityQueue::new(head_size.try_convert()?, HeadPriorityQueueCmp)?;
-        let mut tail = PriorityQueue::new(tail_size.try_convert()?, TailPriorityQueueCmp)?;
+        let mut head = PriorityQueue::new(head_size, HeadPriorityQueueCmp)?;
+        let mut tail = PriorityQueue::new(tail_size, TailPriorityQueueCmp)?;
 
         let mut cost_values: Vec<i64> = Vec::with_capacity(scorers.len());
 

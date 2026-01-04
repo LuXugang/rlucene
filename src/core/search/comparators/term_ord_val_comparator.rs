@@ -33,10 +33,10 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
-use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::{ToInt, TryIntoInt};
 use std::collections::VecDeque;
 
 /// Sorts by field's natural Term sort order, using ordinals.
@@ -689,7 +689,7 @@ where
         self.postings = VecDeque::with_capacity(size as usize);
 
         debug_assert!(self.disjunction.is_none());
-        let mut disjunction = PriorityQueue::new(size, PostingsEnumAndOrdCmp)?;
+        let mut disjunction = PriorityQueue::new(size.try_convert()?, PostingsEnumAndOrdCmp)?;
         if size > 0 {
             let min_term = doc_values.lookup_ord(min_ord)?.into_owned();
             let terms = self

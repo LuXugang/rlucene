@@ -111,7 +111,7 @@ impl<S> SortedDocIDMerger<S>
 where
     S: SubBase,
 {
-    fn new(subs: Vec<Sub<S>>, max_count: i32) -> Result<Self> {
+    fn new(subs: Vec<Sub<S>>, max_count: usize) -> Result<Self> {
         if max_count <= 1 {
             return Err(LuceneError::illegal_argument(""));
         }
@@ -331,7 +331,7 @@ where
 /// Construct this from the provided subs, specifying the maximum sub count.
 fn of_with_max_count<S: SubBase>(
     subs: Vec<Sub<S>>,
-    max_count: i32,
+    max_count: usize,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
     if index_is_sorted && max_count > 1 {
@@ -349,7 +349,7 @@ pub(crate) fn of<S: SubBase>(
     subs: Vec<Sub<S>>,
     index_is_sorted: bool,
 ) -> Result<DocIDMergerEnum<S>> {
-    let max_count = subs.len() as i32;
+    let max_count = subs.len();
     of_with_max_count(subs, max_count, index_is_sorted)
 }
 

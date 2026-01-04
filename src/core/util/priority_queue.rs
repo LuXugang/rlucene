@@ -117,7 +117,7 @@ where
     /// previously returned a non-null value, and all returned instances
     /// must be comparable using [`lessThan`](Compare::less_than).
     pub fn with_sentinel_object<F>(
-        max_size: i32,
+        max_size: usize,
         sentinel_object_supplier: F,
         compare: C,
     ) -> Result<PriorityQueue<T, C>>
@@ -129,7 +129,7 @@ where
             // We allocate 1 extra to avoid if statement in top()
             2
         } else {
-            if !(0..i32::MAX).contains(&max_size) {
+            if !(0..i32::MAX as usize).contains(&max_size) {
                 return Err(LuceneError::illegal_argument(format!(
                     "maxSize must be >= 0 and < {}; got: {}",
                     i32::MAX,
@@ -138,7 +138,7 @@ where
             }
             // NOTE: we add +1 because all access to heap is
             // 1-based not 0-based.  heap[0] is unused.
-            (max_size + 1) as usize
+            max_size + 1
         };
         let mut heap: Vec<Option<T>> = Vec::with_capacity(heap_size);
         heap.resize_with(heap_size, || None);
@@ -147,21 +147,21 @@ where
         {
             heap[1] = Some(sentinel);
             #[allow(clippy::needless_range_loop)]
-            for i in 2..=max_size as usize {
+            for i in 2..=max_size {
                 heap[i] = Some(
                     sentinel_object_supplier()
                         .expect("sentinel_object_supplier must not return None"),
                 );
             }
             return Ok(PriorityQueue {
-                max_size: max_size as usize,
-                size: max_size as usize,
+                max_size,
+                size: max_size,
                 heap,
                 compare,
             });
         }
         Ok(PriorityQueue {
-            max_size: max_size as usize,
+            max_size,
             size: 0,
             heap,
             compare,
@@ -169,7 +169,7 @@ where
     }
 
     // construct
-    pub fn new(max_size: i32, compare: C) -> Result<PriorityQueue<T, C>> {
+    pub fn new(max_size: usize, compare: C) -> Result<PriorityQueue<T, C>> {
         Self::with_sentinel_object(max_size, || None, compare)
     }
 
@@ -519,6 +519,7 @@ mod tests {
 
     use rand::Rng;
 
+    use crate::core::util::TryIntoInt;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::priority_queue::{Compare, PriorityQueue};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -614,8 +615,8 @@ mod tests {
     #[test]
     fn test_pq() -> Result<()> {
         let mut random = random();
-        let count: i32 = at_least(&mut random, 10000);
-        let pq = PriorityQueue::new(count, I32Compare);
+        let count = at_least(&mut random, 10000);
+        let pq = PriorityQueue::new(count as usize, I32Compare);
         if let Ok(mut heap) = pq {
             let mut sum: i32 = 0;
             let mut sum2: i32 = 0;
@@ -683,7 +684,7 @@ mod tests {
         assert_eq!(pq.insert_with_overflow(i4)?, None);
         assert_eq!(pq.insert_with_overflow(i5)?.unwrap(), i3);
         assert_eq!(pq.insert_with_overflow(i6)?.unwrap(), i6);
-        assert_eq!(size as usize, pq.size());
+        assert_eq!(size, pq.size());
         let mut random = random();
         match random.random_bool(0.5) {
             true => assert_eq!(
@@ -763,7 +764,7 @@ mod tests {
     #[test]
     fn test_removals_and_insertions() -> Result<()> {
         let mut random = random();
-        let num_docs_in_pq = TestUtil::next_int(&mut random, 1, 100);
+        let num_docs_in_pq = TestUtil::next_usize(&mut random, 1, 100);
         let mut pq = PriorityQueue::new(num_docs_in_pq, I32Compare)?;
         let mut last_least: Option<i32> = None;
 
@@ -889,8 +890,8 @@ mod tests {
     #[test]
     fn test_iterator_random() -> Result<()> {
         let mut random = random();
-        let max_size: usize = TestUtil::next_usize(&mut random, 1, 20);
-        let mut queue = PriorityQueue::new(max_size as i32, I32Compare)?;
+        let max_size = TestUtil::next_usize(&mut random, 1, 20);
+        let mut queue = PriorityQueue::new(max_size, I32Compare)?;
         let iters: usize = at_least(&mut random, 100) as usize;
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
@@ -920,7 +921,7 @@ mod tests {
 
     #[test]
     fn test_max_int_size() -> Result<()> {
-        let pq = PriorityQueue::new(i32::MAX, I32Compare);
+        let pq = PriorityQueue::new(i32::MAX.try_convert()?, I32Compare);
         assert!(pq.is_err());
         Ok(())
     }

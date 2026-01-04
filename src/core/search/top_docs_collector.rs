@@ -245,6 +245,7 @@ mod tests {
     use crate::core::search::total_hits::{Relation, TotalHits};
     use crate::core::search::weight::Weight;
     use crate::core::store::directory::Directory;
+    use crate::core::util::TryIntoInt;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::priority_queue::PriorityQueue;
     use crate::test::index::random_index_writer::RandomIndexWriter;
@@ -274,12 +275,12 @@ mod tests {
         type T = MyTopDocsCollector;
 
         fn new_collector(&self) -> Result<Self::C> {
-            MyTopDocsCollector::new(self.num_hits)
+            MyTopDocsCollector::new(self.num_hits.try_convert()?)
         }
 
         fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
             let mut total_hits = 0;
-            let mut my_top_docs_collector = MyTopDocsCollector::new(self.num_hits)?;
+            let mut my_top_docs_collector = MyTopDocsCollector::new(self.num_hits.try_convert()?)?;
             for collector in collectors {
                 total_hits += collector.base.total_hits;
                 for score_doc in collector.base.pq.iter() {
@@ -344,7 +345,7 @@ mod tests {
         base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
     }
     impl MyTopDocsCollector {
-        fn new(size: i32) -> Result<Self> {
+        fn new(size: usize) -> Result<Self> {
             let pq = HitQueue::new(size, true)?;
             let base = TopDocsCollectorBase::new(pq);
             Ok(Self { base })

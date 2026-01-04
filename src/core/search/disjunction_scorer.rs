@@ -313,7 +313,7 @@ where
         needs_scores: bool,
     ) -> Result<Self> {
         let cmp = DisiWrapperCmp { approximation };
-        let size: i32 = cmp.approximation.all_scores.len().try_convert()?;
+        let size = cmp.approximation.all_scores.len();
         let unverified_matches = PriorityQueue::new(size, cmp)?;
         Ok(Self {
             match_cost,

@@ -37,7 +37,7 @@ impl FieldValueHitQueue {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         fields: &[SortFieldEnum],
-        size: i32,
+        size: usize,
     ) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
         let num_comparators = fields.len();
         let mut comparators = Vec::with_capacity(num_comparators);
@@ -57,7 +57,7 @@ impl FieldValueHitQueue {
                 Pruning::None
             };
 
-            let comparator = field.get_comparator(size as usize, pruning)?;
+            let comparator = field.get_comparator(size, pruning)?;
             comparators.push(comparator);
         }
         let reverse_mul = Rc::new(reverse_mul);
@@ -82,7 +82,7 @@ impl FieldValueHitQueue {
 ///   Must be greater than zero.
 pub fn create(
     fields: &[SortFieldEnum],
-    size: i32,
+    size: usize,
 ) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
     if fields.is_empty() {
         return Err(LuceneError::illegal_state(

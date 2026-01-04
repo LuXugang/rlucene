@@ -454,11 +454,8 @@ where
     {
         let readers_len = readers.len();
         debug_assert!(doc_maps.is_none() || readers_len == doc_maps.as_ref().unwrap().len());
-        debug_assert!(readers_len <= i32::MAX as usize);
-        let mut queue = PriorityQueue::new(
-            readers_len as i32,
-            MergeReaderCmp::new(self.config.bytes_per_dim),
-        )?;
+        let mut queue =
+            PriorityQueue::new(readers_len, MergeReaderCmp::new(self.config.bytes_per_dim))?;
 
         for (i, mut point_values) in readers.into_iter().enumerate() {
             debug_assert_eq!(point_values.get_num_dimensions()?, self.config.num_dims);
