@@ -233,8 +233,8 @@ impl BlockPackedReaderIterator {
         count = count.min(self.block_size - self.off);
         count = count.min((self.value_count - self.ord) as i32);
 
-        self.values_ref.offset = self.off;
-        self.values_ref.length = count;
+        self.values_ref.offset = self.off as usize;
+        self.values_ref.length = count as usize;
         self.off += count;
         self.ord += count as i64;
         Ok(&self.values_ref)

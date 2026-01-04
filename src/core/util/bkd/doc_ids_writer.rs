@@ -256,10 +256,10 @@ impl DocIdsWriter {
         }
         input.read_longs(&mut self.scratch_longs.longs, 0, long_len)?;
         // make ghost bits clear for FixedBitSet.
-        if (long_len) < self.scratch_longs.length {
+        if (long_len) < self.scratch_longs.length as i32 {
             self.scratch_longs.longs[long_len_index..].fill(0);
         }
-        self.scratch_longs.length = long_len;
+        self.scratch_longs.length = long_len.try_into()?;
         let bit_set = FixedBitSet::with_capacity(
             std::mem::take(&mut self.scratch_longs.longs),
             long_len << 6,

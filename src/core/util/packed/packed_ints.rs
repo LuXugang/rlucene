@@ -116,13 +116,13 @@ impl PackedInts {
         value_count: i32,
         bits_per_value: i32,
         mem: i32,
-    ) -> Result<ReaderIteratorImpl<impl ReaderIterator + use<'_, T>>>
+    ) -> Result<ReaderIteratorImpl<PackedReaderIterator<'_, T>>>
     where
         T: DataInput,
     {
         check_version(version)?;
         let sub_reader =
-            PackedReaderIterator::new(format, version, value_count, bits_per_value, input, mem);
+            PackedReaderIterator::new(format, version, value_count, bits_per_value, input, mem)?;
         Ok(ReaderIteratorImpl::new(
             value_count,
             bits_per_value,
@@ -821,7 +821,7 @@ where
     fn next(&mut self) -> Result<i64> {
         let next_values = self.next_batch(1)?;
         debug_assert!(next_values.length > 0, "next_values buffer is empty");
-        let result = next_values.longs[next_values.offset as usize];
+        let result = next_values.longs[next_values.offset];
         next_values.offset += 1;
         next_values.length -= 1;
         Ok(result)
@@ -1263,7 +1263,7 @@ mod tests {
                             let next = reader.next_batch(count)?;
                             for k in 0..next.length {
                                 assert_eq!(
-                                    values[i + k as usize],
+                                    values[i + k],
                                     next.longs[(next.offset + k) as usize],
                                     "index={}, value_count={}, nbits={}",
                                     i,
@@ -2364,7 +2364,7 @@ mod tests {
                                 next_values.longs[j + next_values.offset as usize]
                             );
                         }
-                        i += next_values.length;
+                        i += next_values.length as i32;
                     }
                     assert_eq!(i as i64, it.ord());
                 }
@@ -2413,11 +2413,11 @@ mod tests {
                             it.next_batch(random.random_range(1..=1024), &mut in_ref)?;
                         for j in 0..next_values.length {
                             assert_eq!(
-                                values[i as usize + j as usize],
+                                values[i as usize + j],
                                 next_values.longs[(j + next_values.offset) as usize]
                             );
                         }
-                        i += next_values.length;
+                        i += next_values.length as i32;
                     }
                     assert_eq!(i as i64, it.ord());
                 }

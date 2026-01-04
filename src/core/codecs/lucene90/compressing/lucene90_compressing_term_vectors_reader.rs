@@ -417,8 +417,8 @@ where
                 while j < total_freq {
                     let next_positions =
                         reader.next_batch(total_freq - j, &mut self.vectors_stream)?;
-                    let slice = &next_positions.longs[next_positions.offset as usize
-                        ..next_positions.offset as usize + next_positions.length as usize];
+                    let slice = &next_positions.longs
+                        [next_positions.offset..next_positions.offset + next_positions.length];
                     for &val in slice {
                         field_positions[j as usize] = val as i32;
                         j += 1;
@@ -606,11 +606,11 @@ where
                 while j < term_count {
                     let next =
                         reader.next_batch((term_count - j) as i32, &mut self.vectors_stream)?;
-                    let src = &next.longs[next.offset as usize..][..next.length as usize];
+                    let src = &next.longs[next.offset..][..next.length];
                     for (k, &val) in src.iter().enumerate() {
                         field_prefix_lengths[j + k] = val as i32;
                     }
-                    j += next.length as usize;
+                    j += next.length;
                 }
 
                 *slot = field_prefix_lengths;
@@ -634,8 +634,8 @@ where
                 while j < term_count {
                     let next =
                         reader.next_batch((term_count - j) as i32, &mut self.vectors_stream)?;
-                    for k in 0..next.length as usize {
-                        field_suffix_lengths[j] = next.longs[(next.offset as usize) + k] as i32;
+                    for k in 0..next.length {
+                        field_suffix_lengths[j] = next.longs[next.offset + k] as i32;
                         j += 1;
                     }
                 }
@@ -664,8 +664,8 @@ where
                     ((total_terms as usize) - i) as i32,
                     &mut self.vectors_stream,
                 )?;
-                for k in 0..next.length as usize {
-                    term_freqs[i] = 1 + next.longs[next.offset as usize + k] as i32;
+                for k in 0..next.length {
+                    term_freqs[i] = 1 + next.longs[next.offset + k] as i32;
                     i += 1;
                 }
             }

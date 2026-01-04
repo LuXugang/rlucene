@@ -24,7 +24,7 @@ use crate::core::util::packed::bulk_operation_packed_enum::BulkOperationPackedEn
 use crate::core::util::packed::format_behavior::FormatBehavior;
 use crate::core::util::packed::{Decoder, Format, ReaderIterator};
 
-pub(crate) struct PackedReaderIterator<'a, D>
+pub struct PackedReaderIterator<'a, D>
 where
     D: DataInput,
 {
@@ -50,7 +50,7 @@ where
         bits_per_value: i32,
         data_input: &'a mut D,
         mem: i32,
-    ) -> Self {
+    ) -> Result<Self> {
         let bulk_operation = of(format, bits_per_value);
         let iterations = bulk_operation.compute_iterations(value_count, mem);
 
@@ -61,14 +61,15 @@ where
 
         let next_blocks =
             vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
-        let next_values_long_length = iterations * bulk_operation.byte_value_count();
+        let next_values_long_length =
+            (iterations * bulk_operation.byte_value_count()).try_into()?;
         let next_values = LongsRef::from_slice(
             vec![0i64; next_values_long_length as usize],
             next_values_long_length,
             0,
         );
 
-        Self {
+        Ok(Self {
             packed_ints_version,
             format,
             bulk_operation,
@@ -79,7 +80,7 @@ where
             value_count,
             bits_per_value,
             data_input,
-        }
+        })
     }
 }
 impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
@@ -89,8 +90,7 @@ where
     fn next_batch(&mut self, mut count: i32) -> Result<&mut LongsRef> {
         debug_assert!(count > 0);
         debug_assert!(
-            (self.next_values.offset + self.next_values.length) as usize
-                <= self.next_values.longs.len(),
+            (self.next_values.offset + self.next_values.length) <= self.next_values.longs.len(),
             "Offset and length should be within the bounds of longs"
         );
         self.next_values.offset += self.next_values.length;
@@ -102,7 +102,7 @@ where
 
         count = count.min(remaining);
 
-        if self.next_values.offset as usize == self.next_values.longs.len() {
+        if self.next_values.offset == self.next_values.longs.len() {
             let remaining_blocks =
                 self.format
                     .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
@@ -129,9 +129,10 @@ where
             self.next_values.offset = 0;
         }
 
-        self.next_values.length = (self.next_values.longs.len() - self.next_values.offset as usize)
-            .min(count as usize) as i32;
-        self.position += self.next_values.length;
+        self.next_values.length =
+            (self.next_values.longs.len() - self.next_values.offset).min(count as usize);
+        let v: i32 = self.next_values.length.try_into()?;
+        self.position += v;
 
         Ok(&mut self.next_values)
     }

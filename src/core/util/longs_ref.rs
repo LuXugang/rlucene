@@ -31,10 +31,10 @@ pub struct LongsRef {
     pub longs: Vec<i64>,
 
     /// Offset of the first valid long.
-    pub offset: i32,
+    pub offset: usize,
 
     /// Length of used longs.
-    pub length: i32,
+    pub length: usize,
 }
 
 impl Default for LongsRef {
@@ -56,9 +56,9 @@ impl LongsRef {
     /// Create a `LongsRef` pointing to a new vector of the given capacity.
     ///
     /// Offset and length will both be zero.
-    pub fn with_capacity(capacity: i32) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            longs: vec![0; capacity as usize],
+            longs: vec![0; capacity],
             offset: 0,
             length: 0,
         }
@@ -72,7 +72,7 @@ impl LongsRef {
     /// * `longs` - The vector to reference. Should not be empty.
     /// * `offset` - The offset where valid longs start.
     /// * `length` - The number of valid longs.
-    pub fn from_slice(mut longs: Vec<i64>, offset: i32, length: i32) -> Self {
+    pub fn from_slice(mut longs: Vec<i64>, offset: usize, length: usize) -> Self {
         debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
         Self {
             longs,
@@ -94,13 +94,12 @@ impl LongsRef {
     ///
     /// A new `LongsRef` that is a deep copy of the provided `other`.
     pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef> {
-        if (other.offset + other.length) as usize > other.longs.len() {
+        if (other.offset + other.length) > other.longs.len() {
             return Err(LuceneError::array_index_out_of_bounds(
                 "Offset and length exceed vector bounds",
             ));
         }
-        let copied_longs =
-            other.longs[other.offset as usize..(other.offset + other.length) as usize].to_vec();
+        let copied_longs = other.longs[other.offset..(other.offset + other.length)].to_vec();
 
         Ok(LongsRef {
             longs: copied_longs,
@@ -109,42 +108,28 @@ impl LongsRef {
         })
     }
 
-    pub fn is_valid(longs: &[i64], offset: i32, length: i32) -> Result<bool> {
+    pub fn is_valid(longs: &[i64], offset: usize, length: usize) -> Result<bool> {
         if longs.is_empty() {
             return Err(LuceneError::illegal_state("longs is empty"));
         }
-        if length < 0 {
-            return Err(LuceneError::illegal_state(format!(
-                "length is negative: {length}"
-            )));
-        }
 
-        if length as usize > longs.len() {
+        if length > longs.len() {
             return Err(LuceneError::illegal_state(format!(
                 "length is out of bounds: {}, longs.len={}",
                 length,
                 longs.len()
             )));
         }
-        if offset < 0 {
-            return Err(LuceneError::illegal_state(format!(
-                "offset is negative: {offset}"
-            )));
-        }
 
-        if offset as usize > longs.len() {
+        if offset > longs.len() {
             return Err(LuceneError::illegal_state(format!(
                 "offset is out of bounds: {}, longs.len={}",
                 offset,
                 longs.len()
             )));
         }
-        if offset + length < 0 {
-            return Err(LuceneError::illegal_state(format!(
-                "offset + length is negative: offset={offset}, length={length}"
-            )));
-        }
-        if (offset + length) as usize > longs.len() {
+
+        if offset + length > longs.len() {
             return Err(LuceneError::illegal_state(format!(
                 "offset + length out of bounds: offset={}, length={}, longs.len={}",
                 offset,
@@ -156,11 +141,11 @@ impl LongsRef {
     }
     pub fn longs_equals(&self, other: &LongsRef) -> bool {
         debug_assert!(
-            (self.offset + self.length) as usize <= self.longs.len()
-                && (other.offset + other.length) as usize <= other.longs.len()
+            (self.offset + self.length) <= self.longs.len()
+                && (other.offset + other.length) <= other.longs.len()
         );
-        self.longs[self.offset as usize..(self.offset + self.length) as usize]
-            == other.longs[other.offset as usize..(other.offset + other.length) as usize]
+        self.longs[self.offset..(self.offset + self.length)]
+            == other.longs[other.offset..(other.offset + other.length)]
     }
 }
 
@@ -179,7 +164,7 @@ impl Hash for LongsRef {
         let mut result: u64 = 0;
         let end = self.offset + self.length;
 
-        for &value in &self.longs[self.offset as usize..end as usize] {
+        for &value in &self.longs[self.offset..end] {
             result = PRIME
                 .wrapping_mul(result)
                 .wrapping_add((value ^ (value >> 32)) as u64);
@@ -201,7 +186,7 @@ impl Display for LongsRef {
             if i > self.offset {
                 write!(f, " ")?;
             }
-            write!(f, "{:x}", self.longs[i as usize])?;
+            write!(f, "{:x}", self.longs[i])?;
         }
         write!(f, "]")
     }
@@ -223,8 +208,8 @@ impl Comparator<LongsRef> for LongsRefComparator {
     /// * Zero if `a == b`.
     /// * A positive integer if `a > b`.
     fn compare(&self, a: &LongsRef, b: &LongsRef) -> Result<i32> {
-        let a_slice = &a.longs[a.offset as usize..(a.offset + a.length) as usize];
-        let b_slice = &b.longs[b.offset as usize..(b.offset + b.length) as usize];
+        let a_slice = &a.longs[a.offset..(a.offset + a.length)];
+        let b_slice = &b.longs[b.offset..(b.offset + b.length)];
         Ok(a_slice.cmp(b_slice).to_int())
     }
 }
