@@ -264,7 +264,7 @@ mod tests {
     fn test_random_compressible_ascii() -> Result<()> {
         let mut random = random();
         for _ in 0..1000 {
-            let len = TestUtil::next_int(&mut random, 8, 1000) as usize;
+            let len = TestUtil::next_usize(&mut random, 8, 1000);
             let mut bytes = vec![0u8; len + random.random_range(0..10)];
             for b in &mut bytes {
                 let mut x = random.random_range(0..32);
@@ -280,7 +280,7 @@ mod tests {
     fn test_random_compressible_ascii_with_exceptions() -> Result<()> {
         let mut random = random();
         for _ in 0..1000 {
-            let len = TestUtil::next_int(&mut random, 8, 1000) as usize;
+            let len = TestUtil::next_usize(&mut random, 8, 1000);
             let mut exceptions = 0;
             let max_exceptions = len >> 5;
             let mut bytes = vec![0u8; len + random.random_range(0..10)];

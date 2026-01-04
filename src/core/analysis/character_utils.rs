@@ -204,8 +204,8 @@ mod tests {
         let mut buf = vec![0i32; orig.len()];
         let mut restored = vec!['\0'; buf.len()];
         let o1 = TestUtil::next_int(&mut random, 0, orig.len().min(5) as i32) as usize;
-        let o2 = TestUtil::next_int(&mut random, 0, o1 as i32) as usize;
-        let o3 = TestUtil::next_int(&mut random, 0, o1 as i32) as usize;
+        let o2 = TestUtil::next_usize(&mut random, 0, o1);
+        let o3 = TestUtil::next_usize(&mut random, 0, o1);
         let code_point_count =
             CharacterUtils::get_code_points(&orig, o1, orig.len() - o1, &mut buf, o2)?;
         let char_count = CharacterUtils::get_chars(&buf, o2, code_point_count, &mut restored, o3)?;

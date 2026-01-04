@@ -599,7 +599,7 @@ mod tests {
         }
     }
     fn do_random_sets<R: Rng + ?Sized>(
-        max_size: i32,
+        max_size: usize,
         iter: i32,
         _mode: i32,
         random: &mut R,
@@ -608,7 +608,7 @@ mod tests {
         let mut b0: Option<LongBitSet> = None;
 
         for _ in 0..iter {
-            let sz = TestUtil::next_int(random, 2, max_size) as usize;
+            let sz = TestUtil::next_usize(random, 2, max_size);
 
             let mut a = BitSet::with_capacity(sz);
             let mut b = LongBitSet::new(sz as i64)?;
@@ -723,7 +723,7 @@ mod tests {
             100
         };
 
-        let size = at_least(&mut random, 1200);
+        let size = at_least(&mut random, 1200) as usize;
         do_random_sets(size, iters, 1, &mut random)?;
         do_random_sets(size, iters, 2, &mut random)?;
         Ok(())

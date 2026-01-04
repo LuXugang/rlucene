@@ -143,7 +143,7 @@ mod tests {
         max_len: usize,
     ) -> Result<()> {
         for _ in 0..10 {
-            let len = TestUtil::next_int(random, 0, max_len as i32) as usize;
+            let len = TestUtil::next_usize(random, 0, max_len);
             let tail = random.random_range(0..10);
             let mut arr = vec![0i32; len + tail];
 

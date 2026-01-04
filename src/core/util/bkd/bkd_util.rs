@@ -149,8 +149,8 @@ mod tests {
     #[test]
     fn test_equals4() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
-        let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 3);
+        let b_offset = TestUtil::next_usize(&mut random, 0, 3);
 
         let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
         let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
@@ -177,8 +177,8 @@ mod tests {
     #[test]
     fn test_equals8() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
-        let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 7);
+        let b_offset = TestUtil::next_usize(&mut random, 0, 7);
         let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
         let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
 
@@ -205,8 +205,8 @@ mod tests {
     #[test]
     fn test_common_prefix_length4() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
-        let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 3);
+        let b_offset = TestUtil::next_usize(&mut random, 0, 3);
         let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
         let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
 
@@ -237,8 +237,8 @@ mod tests {
     #[test]
     fn test_common_prefix_length8() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
-        let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 7);
+        let b_offset = TestUtil::next_usize(&mut random, 0, 7);
         let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
         let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
 
@@ -269,9 +269,9 @@ mod tests {
     #[test]
     fn test_common_prefix_length_n() {
         let mut random = random();
-        let num_bytes = TestUtil::next_int(&mut random, 2, 16) as usize;
-        let a_offset = TestUtil::next_int(&mut random, 0, num_bytes as i32 - 1) as usize;
-        let b_offset = TestUtil::next_int(&mut random, 0, num_bytes as i32 - 1) as usize;
+        let num_bytes = TestUtil::next_usize(&mut random, 2, 16);
+        let a_offset = TestUtil::next_usize(&mut random, 0, num_bytes - 1);
+        let b_offset = TestUtil::next_usize(&mut random, 0, num_bytes - 1);
         let mut a = vec![0u8; num_bytes + a_offset];
         let mut b = vec![0u8; num_bytes + b_offset];
 

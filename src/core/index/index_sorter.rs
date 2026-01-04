@@ -1110,7 +1110,7 @@ mod tests {
         let mut random = random();
         let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
-            let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix_len = TestUtil::next_usize(&mut random, 1, 30);
             test_random_impl(shared_prefix_len, 10, &mut random)?;
         }
         Ok(())
@@ -1120,7 +1120,7 @@ mod tests {
         let mut random = random();
         let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
-            let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix_len = TestUtil::next_usize(&mut random, 1, 30);
             test_random_impl(shared_prefix_len, 2, &mut random)?;
         }
         Ok(())

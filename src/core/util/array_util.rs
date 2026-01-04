@@ -885,7 +885,7 @@ mod tests {
 
     fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let from = random.random_range(0..5) as usize;
-        let to = from + TestUtil::next_int(random, 1, 10_000) as usize;
+        let to = from + TestUtil::next_usize(random, 1, 10_000);
         let max = if random.random_bool(0.5) {
             random.random_range(0..100)
         } else {
@@ -1178,9 +1178,9 @@ mod tests {
     #[test]
     fn test_compare_unsigned4() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 3);
         let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
-        let b_offset = TestUtil::next_int(&mut random, 0, 3) as usize;
+        let b_offset = TestUtil::next_usize(&mut random, 0, 3);
         let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
         for i in 0..BitUtil::INT_BYTES {
             a[a_offset + i] = random.random::<u8>();
@@ -1210,9 +1210,9 @@ mod tests {
     #[test]
     fn test_compare_unsigned8() {
         let mut random = random();
-        let a_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let a_offset = TestUtil::next_usize(&mut random, 0, 7);
         let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
-        let b_offset = TestUtil::next_int(&mut random, 0, 7) as usize;
+        let b_offset = TestUtil::next_usize(&mut random, 0, 7);
         let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
         for i in 0..BitUtil::LONG_BYTES {
             a[a_offset + i] = random.random::<u8>();

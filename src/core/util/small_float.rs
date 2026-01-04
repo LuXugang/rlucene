@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(255u8, SmallFloat::int_to_byte4(i32::MAX)?);
         let iters = at_least(&mut random, 1_000);
         for _ in 0..iters {
-            let exp = TestUtil::next_int(&mut random, 5, 30) as usize;
+            let exp = TestUtil::next_usize(&mut random, 5, 30);
             let bound = 1usize << exp;
             let i = TestUtil::next_int(&mut random, 0, bound as i32);
 

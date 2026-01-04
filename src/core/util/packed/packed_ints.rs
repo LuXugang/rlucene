@@ -1168,7 +1168,7 @@ mod tests {
         for _ in 0..num {
             for nbits in 1..=64 {
                 let max_value = PackedInts::max_value(nbits);
-                let value_count = TestUtil::next_int(&mut random, 1, 600) as usize;
+                let value_count = TestUtil::next_usize(&mut random, 1, 600);
                 let buffer_size = if random.random_bool(0.5) {
                     TestUtil::next_int(&mut random, 0, 48)
                 } else {
@@ -1192,7 +1192,7 @@ mod tests {
                     let actual_value_count = if random.random_bool(0.5) {
                         value_count
                     } else {
-                        TestUtil::next_int(&mut random, 0, value_count as i32) as usize
+                        TestUtil::next_usize(&mut random, 0, value_count) as usize
                     };
 
                     values
@@ -1636,12 +1636,12 @@ mod tests {
         let mut random = random();
         let value_count = 1111;
         let index = random.random_range(0..value_count) as usize;
-        let len = TestUtil::next_int(&mut random, 1, value_count * 2) as usize;
+        let len = TestUtil::next_usize(&mut random, 1, value_count * 2);
         let off = random.random_range(0..77);
 
         for bpv in 1..=64 {
             let mask = PackedInts::max_value(bpv);
-            let mut packed_ints = create_packed_ints(value_count, bpv)?;
+            let mut packed_ints = create_packed_ints(value_count as i32, bpv)?;
             for ints in &mut packed_ints {
                 for i in 0..ints.size() {
                     ints.set(i, (31 * i as i64 - 1099) & mask);

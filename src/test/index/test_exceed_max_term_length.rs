@@ -150,7 +150,11 @@ fn test_binary_value() -> Result<()> {
 
     // problematic field
     let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
-    let len = TestUtil::next_int(&mut random, MIN_TEST_TERM_LENGTH, MAX_TEST_TERM_LENGTH) as usize;
+    let len = TestUtil::next_usize(
+        &mut random,
+        MIN_TEST_TERM_LENGTH as usize,
+        MAX_TEST_TERM_LENGTH as usize,
+    );
     let value = TestUtil::random_binary_term_with_len(&mut random, len);
 
     let f = Field::with_bytes_ref(name.clone(), value, ft.clone())?;

@@ -405,10 +405,10 @@ mod tests {
         another_pool.append(&existing_bytes)?;
 
         // now slice and append to another pool
-        let offset = TestUtil::next_int(&mut random, 1, 2 << 15) as usize;
+        let offset = TestUtil::next_usize(&mut random, 1, 2 << 15);
         let mut length = bytes_length - offset;
         if random.random_bool(0.5) {
-            length = TestUtil::next_int(&mut random, 1, length as i32) as usize;
+            length = TestUtil::next_usize(&mut random, 1, length);
         }
         another_pool.append_from_byte_block_pool(&pool, offset as i64, length as i32)?;
         assert_eq!(

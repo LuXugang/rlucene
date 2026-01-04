@@ -889,7 +889,7 @@ mod tests {
     #[test]
     fn test_iterator_random() -> Result<()> {
         let mut random = random();
-        let max_size: usize = TestUtil::next_int(&mut random, 1, 20) as usize;
+        let max_size: usize = TestUtil::next_usize(&mut random, 1, 20);
         let mut queue = PriorityQueue::new(max_size as i32, I32Compare)?;
         let iters: usize = at_least(&mut random, 100) as usize;
         let mut expected: Vec<i32> = Vec::new();

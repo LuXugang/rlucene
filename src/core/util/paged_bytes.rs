@@ -493,9 +493,9 @@ mod tests {
             let mut paged_bytes = PagedBytes::new(block_bits as usize);
 
             let num_bytes = if is_night_mode() {
-                TestUtil::next_int(&mut random, 2, 10_000_000) as usize
+                TestUtil::next_usize(&mut random, 2, 10_000_000) as usize
             } else {
-                TestUtil::next_int(&mut random, 2, 1_000_000) as usize
+                TestUtil::next_usize(&mut random, 2, 1_000_000) as usize
             };
 
             let mut answer = vec![0u8; num_bytes];
@@ -635,8 +635,7 @@ mod tests {
             let mut curr = 0;
             let max_skip_to = num_bytes - 1;
             while curr < max_skip_to {
-                let skip_to =
-                    TestUtil::next_int(&mut random, curr as i32, max_skip_to as i32) as usize;
+                let skip_to = TestUtil::next_usize(&mut random, curr, max_skip_to);
                 let step = skip_to - curr;
                 input2.skip_bytes(step as i64)?;
                 assert_eq!(answer[skip_to], input2.read_byte()?);
@@ -655,13 +654,13 @@ mod tests {
         let block_bits = TestUtil::next_int(&mut random, 14, 28);
         let block_size = 1 << block_bits;
 
-        let arr_len = TestUtil::next_int(&mut random, block_size / 2, block_size * 2) as usize;
+        let arr_len = TestUtil::next_usize(&mut random, block_size / 2, block_size * 2);
         let mut arr = vec![0u8; arr_len];
         for (i, byte) in arr.iter_mut().enumerate().take(arr_len) {
             *byte = i as u8;
         }
 
-        let extra = TestUtil::next_int(&mut random, 1, block_size * 3) as i64;
+        let extra = TestUtil::next_int(&mut random, 1, block_size as i32 * 3) as i64;
         let num_bytes: i64 = (1i64 << 31) + extra;
 
         let mut paged_bytes = PagedBytes::new(block_bits as usize);

@@ -1129,20 +1129,19 @@ mod tests {
             let mut random = random();
             do_test_random_binary(&mut random, 500000)
         }
-        fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<()> {
+        fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: usize) -> Result<()> {
             let config = get_random_config(random)?;
             let packed_bytes_length = config.packed_bytes_length();
-            let values = TestUtil::next_int(random, count, count * 2) as usize;
+            let values = TestUtil::next_usize(random, count, count * 2);
             let dir = new_directory(random)?;
             let (start, end) = if random.random_bool(0.5) {
                 (0, values)
             } else {
-                let start = TestUtil::next_int(random, 0, values as i32 - 3) as usize;
-                let end = TestUtil::next_int(random, start as i32 + 2, values as i32) as usize;
+                let start = TestUtil::next_usize(random, 0, values - 3);
+                let end = TestUtil::next_usize(random, start + 2, values);
                 (start, end)
             };
-            let partition_point =
-                TestUtil::next_int(random, start as i32 + 1, end as i32 - 1) as usize;
+            let partition_point = TestUtil::next_usize(random, start + 1, end - 1);
             let sorted_on_heap = random.random_range(0..5000);
             let mut points = get_random_point_writer(random, config.clone(), &dir, values)?;
             let mut value = vec![0u8; packed_bytes_length as usize];
@@ -1166,16 +1165,15 @@ mod tests {
         #[test]
         fn test_random_all_dimensions_equals() -> Result<()> {
             let mut random = random();
-            let dimensions =
-                TestUtil::next_int(&mut random, 1, BKDConfig::MAX_INDEX_DIMS as i32) as usize;
-            let bytes_per_dimensions = TestUtil::next_int(&mut random, 2, 30) as usize;
+            let dimensions = TestUtil::next_usize(&mut random, 1, BKDConfig::MAX_INDEX_DIMS);
+            let bytes_per_dimensions = TestUtil::next_usize(&mut random, 2, 30);
             let config = BKDConfig::new(
                 dimensions,
                 dimensions,
                 bytes_per_dimensions,
                 BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
             )?;
-            let values = TestUtil::next_int(&mut random, 15000, 20000) as usize;
+            let values = TestUtil::next_usize(&mut random, 15000, 20000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
@@ -1813,13 +1811,10 @@ mod tests {
         }
 
         fn get_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
-            let num_index_dims =
-                TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS as i32) as usize;
-            let num_dims =
-                TestUtil::next_int(random, num_index_dims as i32, BKDConfig::MAX_DIMS as i32)
-                    as usize;
-            let bytes_per_dim = TestUtil::next_int(random, 2, 30) as usize;
-            let max_points_in_leaf_node = TestUtil::next_int(random, 50, 2000) as usize;
+            let num_index_dims = TestUtil::next_usize(random, 1, BKDConfig::MAX_INDEX_DIMS);
+            let num_dims = TestUtil::next_usize(random, num_index_dims, BKDConfig::MAX_DIMS);
+            let bytes_per_dim = TestUtil::next_usize(random, 2, 30);
+            let max_points_in_leaf_node = TestUtil::next_usize(random, 50, 2000);
             BKDConfig::new(
                 num_dims,
                 num_index_dims,
@@ -1849,11 +1844,8 @@ mod tests {
         fn test_random() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let num_points = TestUtil::next_int(
-                &mut random,
-                1,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32,
-            ) as usize;
+            let num_points =
+                TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             for i in 0..num_points {
@@ -1869,11 +1861,8 @@ mod tests {
         fn test_random_all_equals() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let num_points = TestUtil::next_int(
-                &mut random,
-                1,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32,
-            ) as usize;
+            let num_points =
+                TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
@@ -1890,11 +1879,8 @@ mod tests {
         fn test_random_last_byte_two_values() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let num_points = TestUtil::next_int(
-                &mut random,
-                1,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32,
-            ) as usize;
+            let num_points =
+                TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
@@ -1915,11 +1901,8 @@ mod tests {
         fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let num_points = TestUtil::next_int(
-                &mut random,
-                1,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32,
-            ) as usize;
+            let num_points =
+                TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
             let number_values = random.random_range(0..8) + 2; // [2, 9)
             let mut different_values: Vec<Vec<u8>> = Vec::with_capacity(number_values as usize);
@@ -1942,11 +1925,8 @@ mod tests {
         fn test_random_data_dim_different() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let num_points = TestUtil::next_int(
-                &mut random,
-                1,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32,
-            ) as usize;
+            let num_points =
+                TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
             let total_data_dimension = config.num_dims - config.num_index_dims;
             let data_dim_length = total_data_dimension * config.bytes_per_dim;
@@ -2107,13 +2087,10 @@ mod tests {
         }
 
         fn get_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
-            let num_index_dims =
-                TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS as i32) as usize;
-            let num_dims =
-                TestUtil::next_int(random, num_index_dims as i32, BKDConfig::MAX_DIMS as i32)
-                    as usize;
-            let bytes_per_dim = TestUtil::next_int(random, 2, 30) as usize;
-            let max_points_in_leaf_node = TestUtil::next_int(random, 50, 2000) as usize;
+            let num_index_dims = TestUtil::next_usize(random, 1, BKDConfig::MAX_INDEX_DIMS);
+            let num_dims = TestUtil::next_usize(random, num_index_dims, BKDConfig::MAX_DIMS);
+            let bytes_per_dim = TestUtil::next_usize(random, 2, 30);
+            let max_points_in_leaf_node = TestUtil::next_usize(random, 50, 2000);
             BKDConfig::new(
                 num_dims,
                 num_index_dims,

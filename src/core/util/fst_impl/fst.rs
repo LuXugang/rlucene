@@ -1832,7 +1832,7 @@ mod tests {
     #[ignore]
     fn test_big_set() -> Result<()> {
         let mut random = random();
-        let max_num_words = TestUtil::next_int(&mut random, 50000, 60000) as usize;
+        let max_num_words = TestUtil::next_usize(&mut random, 50000, 60000);
         test_random_words_limit(&mut random, max_num_words, 1)
     }
 

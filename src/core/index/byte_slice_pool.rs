@@ -457,7 +457,7 @@ mod tests {
 
         let n_iterations = random.random_range(1..=3); // 1-3 iterations with buffer resets
         for _ in 0..n_iterations {
-            let n = TestUtil::next_int(&mut random, 2, 3) as usize;
+            let n = TestUtil::next_usize(&mut random, 2, 3);
             let mut slice_writers: Vec<SliceWriter> = Vec::with_capacity(n);
             let mut slice_readers: Vec<SliceReader> = Vec::with_capacity(n);
 

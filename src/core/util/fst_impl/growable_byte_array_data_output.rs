@@ -217,7 +217,7 @@ mod tests {
         let mut bytes_out = vec![0u8; bytes.len()];
         random.fill_bytes(&mut bytes);
 
-        let offset = TestUtil::next_int(&mut random, 0, 100) as usize;
+        let offset = TestUtil::next_usize(&mut random, 0, 100);
         let len = bytes.len() - offset;
 
         let mut input = ByteArrayDataInput::with_range(bytes.as_slice(), offset, len);

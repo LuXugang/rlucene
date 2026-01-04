@@ -411,7 +411,7 @@ mod tests {
             random.fill_bytes(&mut bytes);
             arr.push(BytesRef::from_bytes(bytes));
         }
-        do_test(random, &arr, from, to, max_len)
+        do_test(random, &arr, from as usize, to as usize, max_len)
     }
 
     #[test]
@@ -445,20 +445,20 @@ mod tests {
                 .bytes
                 .copy_within(offset_2..offset_2 + copy_len, offset_1);
         }
-        do_test(random, &arr, from, to, max_len)
+        do_test(random, &arr, from as usize, to as usize, max_len)
     }
 
     pub fn do_test<R: Rng + ?Sized>(
         random: &mut R,
         arr: &[BytesRef<Vec<u8>>],
-        from: i32,
-        to: i32,
+        from: usize,
+        to: usize,
         max_len: i32,
     ) -> Result<()> {
-        let k = TestUtil::next_int(random, from, to - 1) as usize;
+        let k = TestUtil::next_usize(random, from, to - 1);
 
         let mut expected = arr.to_vec();
-        expected[from as usize..to as usize].sort();
+        expected[from..to].sort();
 
         let mut actual = arr.to_vec();
         let enforced_max_len = if random.random_bool(0.5) {
@@ -473,12 +473,12 @@ mod tests {
         };
 
         let mut selector = RadixSelector::new(enforced_max_len, selector_impl);
-        Selector::select(&mut selector, from, to, k as i32)?;
+        Selector::select(&mut selector, from as i32, to as i32, k as i32)?;
         actual = selector.sub_selector.actual.clone();
 
         assert_eq!(expected[k], actual[k]);
         for i in 0..actual.len() {
-            if i < from as usize || i >= to as usize {
+            if i < from || i >= to {
                 assert_eq!(&arr[i], &actual[i]);
             } else if i <= k {
                 assert_ne!(actual[i].cmp(&actual[k]), Ordering::Greater);

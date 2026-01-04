@@ -378,7 +378,7 @@ mod tests {
     fn test_big_int_conversion_and_ordering() -> Result<()> {
         let mut random = random();
         // Generate a random size between 3 and 16
-        let size = TestUtil::next_int(&mut random, 3, 16) as usize;
+        let size = TestUtil::next_usize(&mut random, 3, 16);
         let mut previous: Option<BytesRef<Vec<u8>>> = None;
         let mut current = BytesRef::from_bytes(vec![0u8; size]);
 
@@ -738,7 +738,7 @@ mod tests {
     fn test_add() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 1000);
-        let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
+        let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
         for _ in 0..iters {
             let v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
@@ -799,7 +799,7 @@ mod tests {
     fn test_subtract() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 1000);
-        let num_bytes = TestUtil::next_int(&mut random, 1, 100) as usize;
+        let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
         for _ in 0..iters {
             let mut v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
@@ -960,8 +960,7 @@ mod tests {
         for _ in 0..10_000 {
             let value = TestUtil::next_big_integer(&mut random, 16);
             let length = value.to_signed_bytes_be().len();
-            let max_length =
-                TestUtil::next_int(&mut random, length as i32, length as i32 + 3) as usize;
+            let max_length = TestUtil::next_usize(&mut random, length, length + 3);
             let mut encoded = vec![0u8; max_length];
             NumericUtils::big_int_to_sortable_bytes(&value, max_length, &mut encoded, 0)?;
             let decoded = NumericUtils::sortable_bytes_to_big_int(&encoded, 0, max_length)?;
@@ -1125,7 +1124,7 @@ mod tests {
     fn test_big_ints_compare() -> Result<()> {
         let mut random = random();
         for _ in 0..10_000 {
-            let max_length = TestUtil::next_int(&mut random, 1, 16) as usize;
+            let max_length = TestUtil::next_usize(&mut random, 1, 16);
             let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
             let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
             let mut left = BytesRef::from_bytes(vec![0u8; max_length]);

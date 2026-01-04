@@ -279,7 +279,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..8);
-        let length = TestUtil::next_int(random, 1, 16) as usize;
+        let length = TestUtil::next_usize(random, 1, 16);
         let padding =
             offset + length * size_of::<i64>() - random.random_range(1..=size_of::<i64>());
 
@@ -359,7 +359,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..4);
-        let length = TestUtil::next_int(random, 1, 16) as usize;
+        let length = TestUtil::next_usize(random, 1, 16);
 
         let total_size = offset + length * size_of::<i32>();
         let truncation = random.random_range(1..=size_of::<i32>());
@@ -440,7 +440,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..4);
-        let length = TestUtil::next_int(random, 1, 16) as usize;
+        let length = TestUtil::next_usize(random, 1, 16);
         {
             let size =
                 offset + length * size_of::<f32>() - random.random_range(1..=size_of::<f32>());
@@ -987,10 +987,10 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let bytes_len = TestUtil::next_int(random, 1, 77777) as usize;
+        let bytes_len = TestUtil::next_usize(random, 1, 77777);
         let mut bytes = vec![0u8; bytes_len];
 
-        let size = TestUtil::next_int(random, 1, 1777777) as usize;
+        let size = TestUtil::next_usize(random, 1, 1777777);
         let mut upto = 0;
         let mut byte_upto = 0;
         {
@@ -1177,7 +1177,7 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = TestUtil::next_int(random, 50, 3000) as usize;
+        let num = TestUtil::next_usize(random, 50, 3000);
         let mut longs = vec![0i64; num];
         {
             let mut output = dir.create_output("longs", &io_context)?;
@@ -1250,7 +1250,7 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = TestUtil::next_int(random, 50, 3000) as usize;
+        let num = TestUtil::next_usize(random, 50, 3000);
         let mut ints = vec![0i32; num];
         {
             let mut output = dir.create_output("ints", &io_context)?;
@@ -1324,7 +1324,7 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
         let io_context = new_io_context(random)?;
 
-        let num = TestUtil::next_int(random, 50, 3000) as usize;
+        let num = TestUtil::next_usize(random, 50, 3000);
         let mut shorts = vec![0i16; num];
         {
             let mut output = dir.create_output("shorts", &io_context)?;
@@ -1397,9 +1397,9 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
         let num = if is_night_mode() {
-            TestUtil::next_int(random, 1000, 3000) as usize
+            TestUtil::next_usize(random, 1000, 3000)
         } else {
-            TestUtil::next_int(random, 50, 1000) as usize
+            TestUtil::next_usize(random, 50, 1000)
         };
         let mut bytes = vec![0u8; num];
         random.fill_bytes(&mut bytes);
@@ -1488,9 +1488,9 @@ pub trait BaseDirectoryTestCase {
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
         let num = if is_night_mode() {
-            TestUtil::next_int(random, 250, 2500) as usize
+            TestUtil::next_usize(random, 250, 2500)
         } else {
-            TestUtil::next_int(random, 50, 250) as usize
+            TestUtil::next_usize(random, 50, 250)
         };
 
         let mut bytes = vec![0u8; num];
@@ -1931,7 +1931,7 @@ pub trait BaseDirectoryTestCase {
             // Encode
             for num_values in num_values_array.iter_mut().take(iterations) {
                 let bpv = TestUtil::next_int(random, min_bpv as i32, max_bpv as i32);
-                *num_values = TestUtil::next_int(random, 1, max_num_values as i32) as usize;
+                *num_values = TestUtil::next_usize(random, 1, max_num_values);
 
                 for value in values.iter_mut().take(*num_values) {
                     let upper = PackedInts::max_value(bpv) as i32;

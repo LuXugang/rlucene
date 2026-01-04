@@ -465,7 +465,7 @@ pub(crate) mod tests {
     }
 
     fn do_test_sort<R: Rng + ?Sized>(random: &mut R, is_doc_id_incremental: bool) -> Result<()> {
-        let bytes_per_dim = TestUtil::next_int(random, 1, 16) as usize;
+        let bytes_per_dim = TestUtil::next_usize(random, 1, 16);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
         let config = BKDConfig::new(
@@ -659,12 +659,10 @@ pub(crate) mod tests {
     }
 
     fn create_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
-        let num_index_dims =
-            TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS as i32) as usize;
-        let num_dims =
-            TestUtil::next_int(random, num_index_dims as i32, BKDConfig::MAX_DIMS as i32) as usize;
-        let bytes_per_dim = TestUtil::next_int(random, 1, 16) as usize;
-        let max_points_in_leaf_node = TestUtil::next_int(random, 50, 2000) as usize;
+        let num_index_dims = TestUtil::next_usize(random, 1, BKDConfig::MAX_INDEX_DIMS);
+        let num_dims = TestUtil::next_usize(random, num_index_dims, BKDConfig::MAX_DIMS);
+        let bytes_per_dim = TestUtil::next_usize(random, 1, 16);
+        let max_points_in_leaf_node = TestUtil::next_usize(random, 50, 2000);
         BKDConfig::new(
             num_dims,
             num_index_dims,
@@ -693,9 +691,9 @@ pub(crate) mod tests {
                 };
                 points.push(Point::new(random, &value, doc));
             }
-            common_prefix_lengths.iter_mut().for_each(|prefix| {
-                *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim as i32) as usize
-            });
+            common_prefix_lengths
+                .iter_mut()
+                .for_each(|prefix| *prefix = TestUtil::next_usize(random, 0, config.bytes_per_dim));
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
@@ -738,9 +736,7 @@ pub(crate) mod tests {
 
             common_prefix_lengths[config.num_index_dims..config.num_dims]
                 .iter_mut()
-                .for_each(|prefix| {
-                    *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim as i32) as usize
-                });
+                .for_each(|prefix| *prefix = TestUtil::next_usize(random, 0, config.bytes_per_dim));
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {

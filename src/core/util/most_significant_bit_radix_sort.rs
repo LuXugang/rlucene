@@ -587,7 +587,7 @@ mod tests {
     fn test_random_with_shared_prefix() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
-            let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
             test_random_impl(shared_prefix, 10, &mut random)?;
         }
         Ok(())
@@ -597,7 +597,7 @@ mod tests {
     fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
         let mut random = random();
         for _ in 0..10 {
-            let shared_prefix = TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix = TestUtil::next_usize(&mut random, 1, 30);
             test_random_impl(shared_prefix, 2, &mut random)?;
         }
         Ok(())
@@ -610,7 +610,7 @@ mod tests {
         let letter_count = TestUtil::next_int(&mut random, 2, 10);
 
         // How many substring fragments to use
-        let substring_count = TestUtil::next_int(&mut random, 2, 10) as usize;
+        let substring_count = TestUtil::next_usize(&mut random, 2, 10);
         let mut substrings_set = HashSet::new();
 
         // How many strings to make

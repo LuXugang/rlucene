@@ -394,7 +394,7 @@ mod tests {
         let letter_count = TestUtil::next_int(&mut random, 2, 10);
 
         // how many substring fragments to use
-        let substring_count = TestUtil::next_int(&mut random, 2, 10) as usize;
+        let substring_count = TestUtil::next_usize(&mut random, 2, 10);
         let mut substrings_set = HashSet::new();
 
         // how many strings to make
@@ -402,7 +402,7 @@ mod tests {
 
         // Generate substring fragments
         while substrings_set.len() < substring_count {
-            let length = TestUtil::next_int(&mut random, 2, 10) as usize;
+            let length = TestUtil::next_usize(&mut random, 2, 10);
             let mut bytes = vec![0u8; length];
             for byte in &mut bytes {
                 *byte = random.random_range(0..letter_count) as u8;
