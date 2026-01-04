@@ -664,7 +664,7 @@ where
         if !grown {
             let size = self.size()?;
             if size <= i32::MAX as usize {
-                visitor.grow(size as i32)?;
+                visitor.grow(size)?;
                 grown = true;
             }
         }
@@ -674,7 +674,7 @@ where
             let leaf_fp = self.get_leaf_block_fp()?;
             leaf_nodes.seek(leaf_fp)?;
             // How many points are stored in this leaf cell:
-            let count = leaf_nodes.read_vint()?;
+            let count: usize = leaf_nodes.read_vint()?.try_into()?;
             // No need to call grow(), it has been called up-front
             self.scratch_iterator
                 .doc_ids_writer
@@ -727,9 +727,9 @@ where
         Ok(())
     }
 
-    fn read_doc_ids(&mut self, block_fp: i64, index_input: &mut I) -> Result<i32> {
+    fn read_doc_ids(&mut self, block_fp: i64, index_input: &mut I) -> Result<usize> {
         index_input.seek(block_fp)?;
-        let count = index_input.read_vint()?;
+        let count = index_input.read_vint()?.try_into()?;
         self.scratch_iterator.doc_ids_writer.read_ints(
             index_input,
             count,
@@ -833,7 +833,7 @@ where
     }
     fn visit_doc_values_no_cardinality(
         &mut self,
-        count: i32,
+        count: usize,
         visitor: &mut impl IntersectVisitor,
         leaf_node: &mut I,
     ) -> Result<()> {
@@ -871,7 +871,7 @@ where
             visitor.grow(count)?;
 
             if relation == Relation::CellInsideQuery {
-                for i in 0..count as usize {
+                for i in 0..count {
                     visitor.visit(self.scratch_iterator.doc_ids[i])?;
                 }
                 return Ok(());
@@ -892,7 +892,7 @@ where
     }
     fn visit_doc_values_with_cardinality(
         &mut self,
-        count: i32,
+        count: usize,
         visitor: &mut impl IntersectVisitor,
         leaf_node: &mut I,
     ) -> Result<()> {
@@ -935,7 +935,7 @@ where
                 visitor.grow(count)?;
 
                 if relation == Relation::CellInsideQuery {
-                    for i in 0..count as usize {
+                    for i in 0..count {
                         visitor.visit(self.scratch_iterator.doc_ids[i])?;
                     }
                     return Ok(());
@@ -980,14 +980,14 @@ where
     // read cardinality and point
     fn visit_sparse_raw_doc_values(
         &mut self,
-        count: i32,
+        count: usize,
         visitor: &mut impl IntersectVisitor,
         index_input: &mut I,
     ) -> Result<()> {
-        let mut i = 0;
+        let mut i: usize = 0;
         {
             while i < count {
-                let length = DataInput::read_vint(index_input)?;
+                let length = DataInput::read_vint(index_input)?.try_into()?;
                 for dim in 0..self.config.num_dims {
                     let prefix = self.common_prefix_lengths[dim];
                     DataInput::read_bytes(
@@ -1019,7 +1019,7 @@ where
     // point is under commonPrefix
     pub fn visit_unique_raw_doc_values(
         &mut self,
-        count: i32,
+        count: usize,
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
         self.scratch_iterator.reset(0, count);
@@ -1031,7 +1031,7 @@ where
     }
     fn visit_compressed_doc_values(
         &mut self,
-        count: i32,
+        count: usize,
         visitor: &mut impl IntersectVisitor,
         compressed_dim: i32,
         index_input: &mut I,
@@ -1062,11 +1062,11 @@ where
                         )?;
                     }
                     visitor.visit_with_packed_value(
-                        self.scratch_iterator.doc_ids[i as usize + j],
+                        self.scratch_iterator.doc_ids[i + j],
                         &self.scratch_data_packed_value,
                     )?;
                 }
-                i += run_len as i32;
+                i += run_len;
             }
         }
 
@@ -1272,9 +1272,9 @@ where
 /// Reusable [`DocIdSetIterator`] to handle low cardinality leaves.
 #[derive(Clone)]
 struct BKDReaderDocIDSetIterator {
-    idx: i32,
-    length: i32,
-    offset: i32,
+    idx: usize,
+    length: usize,
+    offset: usize,
     doc_id: i32,
     doc_ids: Vec<i32>,
     doc_ids_writer: DocIdsWriter,
@@ -1291,10 +1291,10 @@ impl BKDReaderDocIDSetIterator {
             doc_ids_writer: DocIdsWriter::new(max_points_in_leaf_node),
         }
     }
-    fn reset(&mut self, offset: i32, length: i32) {
+    fn reset(&mut self, offset: usize, length: usize) {
         self.offset = offset;
         self.length = length;
-        debug_assert!((offset + length) as usize <= self.doc_ids.len());
+        debug_assert!((offset + length) <= self.doc_ids.len());
         self.doc_id = -1;
         self.idx = 0;
     }
@@ -1308,7 +1308,7 @@ impl DocIdSetIterator for BKDReaderDocIDSetIterator {
         if self.idx == self.length {
             self.doc_id = NO_MORE_DOCS;
         } else {
-            self.doc_id = self.doc_ids[(self.offset + self.idx) as usize];
+            self.doc_id = self.doc_ids[self.offset + self.idx];
             self.idx += 1;
         }
         Ok(self.doc_id)

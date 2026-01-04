@@ -692,7 +692,7 @@ where
         )?;
 
         // Compact the byte[] blocks into single byte index:
-        let mut index = vec![0u8; total_size as usize];
+        let mut index = vec![0u8; total_size];
         let mut upto = 0;
         for block in &blocks {
             debug_assert!(block.is_some());
@@ -702,7 +702,7 @@ where
             upto += block_len;
         }
 
-        debug_assert!(upto == total_size as usize);
+        debug_assert!(upto == total_size);
 
         Ok(index)
     }
@@ -961,7 +961,7 @@ where
         );
         out.write_vint(count.try_into()?)?;
         self.doc_ids_writer
-            .write_doc_ids(doc_ids, start.try_into()?, count.try_into()?, out)?;
+            .write_doc_ids(doc_ids, start, count, out)?;
         Ok(())
     }
     fn write_leaf_block_packed_values(
@@ -2511,10 +2511,10 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         Ok(Relation::CellCrossesQuery)
     }
 
-    fn grow(&mut self, count: i32) -> Result<()> {
+    fn grow(&mut self, count: usize) -> Result<()> {
         debug_assert_eq!(self.docs_in_block, 0);
-        if self.doc_ids.len() < count as usize {
-            ArrayUtil::grow_i32(&mut self.doc_ids, count as usize)?;
+        if self.doc_ids.len() < count {
+            ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
             let packed_values_size: i32 =
                 (self.doc_ids.len() * self.packed_bytes_length).try_into()?;
             // TODO:

@@ -489,7 +489,7 @@ pub trait IntersectVisitor {
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation>;
 
     /// Notifies the caller that this many documents are about to be visited.
-    fn grow(&mut self, _count: i32) -> Result<()> {
+    fn grow(&mut self, _count: usize) -> Result<()> {
         Ok(())
     }
 }

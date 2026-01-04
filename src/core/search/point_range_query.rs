@@ -845,8 +845,8 @@ impl IntersectVisitorImpl1 {
 }
 
 impl IntersectVisitor for IntersectVisitorImpl1 {
-    fn grow(&mut self, count: i32) -> Result<()> {
-        self.result.grow(count);
+    fn grow(&mut self, count: usize) -> Result<()> {
+        self.result.grow(count.try_into()?);
         Ok(())
     }
 

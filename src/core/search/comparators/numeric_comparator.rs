@@ -600,8 +600,8 @@ where
         }
     }
 
-    fn grow(&mut self, count: i32) -> Result<()> {
-        self.result.grow(count);
+    fn grow(&mut self, count: usize) -> Result<()> {
+        self.result.grow(count.try_into()?);
         Ok(())
     }
 }
