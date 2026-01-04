@@ -20,11 +20,11 @@ use crate::core::util::error::lucene_error::Result;
 
 pub trait SortableBytesRefArray<'a> {
     /// Append a new value
-    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32>;
+    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<usize>;
     /// Clear all previously stored values
     fn clear(&mut self);
     /// Returns the number of values appended so far
-    fn size(&self) -> i32;
+    fn size(&self) -> usize;
     /// Sort all values by the provided comparator and return an iterator over
     /// the sorted values  */
     type Iter;

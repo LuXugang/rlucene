@@ -321,19 +321,19 @@ impl FieldUpdatesBuffer {
                 if let Some(last_term) = &last {
                     let cmp = current.cmp(last_term);
                     debug_assert_ne!(cmp, Ordering::Less, "term in reverse order");
-                    let last_doc_upto = self.docs_upto
-                        [Self::get_array_index(self.docs_upto.len() as i32, last_ord) as usize];
+                    let last_doc_upto =
+                        self.docs_upto[Self::get_array_index(self.docs_upto.len(), last_ord)];
                     let current_doc_upto = self.docs_upto[Self::get_array_index(
-                        self.docs_upto.len() as i32,
-                        iterator.ord(),
-                    ) as usize];
+                        self.docs_upto.len(),
+                        *iterator.ord().as_ref().unwrap(),
+                    )];
                     debug_assert!(
                         cmp != Ordering::Equal || last_doc_upto <= current_doc_upto,
                         "doc id in reverse order"
                     );
                 }
                 last = Some(current);
-                last_ord = iterator.ord();
+                last_ord = *iterator.ord().as_ref().unwrap();
             }
             Ok(())
         })();
@@ -358,18 +358,17 @@ impl FieldUpdatesBuffer {
         // we only do this optimization for numerics so far.
         self.is_numeric && self.numeric_values.as_ref().unwrap().len() == 1
     }
-    pub(crate) fn get_numeric_value(&self, idx: i32) -> i64 {
+    pub(crate) fn get_numeric_value(&self, idx: usize) -> i64 {
         if let Some(ref has_values) = self.has_values
-            && !has_values.get(idx)
+            && !has_values.get(idx as i32)
         {
             return 0;
         }
         assert!(self.numeric_values.is_some());
         let length = self.numeric_values.as_ref().unwrap().len();
-        debug_assert!(length <= i32::MAX as usize);
-        self.numeric_values.as_ref().unwrap()[Self::get_array_index(length as i32, idx) as usize]
+        self.numeric_values.as_ref().unwrap()[Self::get_array_index(length, idx)]
     }
-    fn get_array_index(array_length: i32, index: i32) -> i32 {
+    fn get_array_index(array_length: usize, index: usize) -> usize {
         assert!(
             array_length == 1 || array_length > index,
             "illegal array index length: {array_length} index: {index}"
@@ -384,9 +383,9 @@ pub struct BufferedUpdateIterator<'a> {
     byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
     buffered_update: BufferedUpdate,
     updates_with_value: Option<UpdateBits<'a>>,
-    fields_length: i32,
-    docs_upto_length: i32,
-    numeric_values_length: i32,
+    fields_length: usize,
+    docs_upto_length: usize,
+    numeric_values_length: usize,
     field_updates_buffer: &'a FieldUpdatesBuffer,
 }
 
@@ -424,13 +423,10 @@ impl<'a> BufferedUpdateIterator<'a> {
         let fields_length = field_updates_buffer.fields.len();
         let docs_upto_length = field_updates_buffer.docs_upto.len();
         let numeric_values_length = if field_updates_buffer.is_numeric {
-            let length = field_updates_buffer.numeric_values.as_ref().unwrap().len();
-            debug_assert!(length <= i32::MAX as usize);
-            length as i32
+            field_updates_buffer.numeric_values.as_ref().unwrap().len()
         } else {
             0
         };
-        debug_assert!(fields_length <= i32::MAX as usize);
         debug_assert!(docs_upto_length <= i32::MAX as usize);
         BufferedUpdateIterator {
             term_values_iterator,
@@ -438,8 +434,8 @@ impl<'a> BufferedUpdateIterator<'a> {
             byte_values_iterator,
             buffered_update: BufferedUpdate::default(),
             updates_with_value: Some(updates_with_value),
-            fields_length: fields_length as i32,
-            docs_upto_length: docs_upto_length as i32,
+            fields_length,
+            docs_upto_length,
             numeric_values_length,
             field_updates_buffer,
         }
@@ -459,22 +455,24 @@ impl<'a> BufferedUpdateIterator<'a> {
         let next_term = self.next_term()?;
 
         if let Some(next) = next_term {
-            let idx = self.term_values_iterator.ord();
+            let idx = match self.term_values_iterator.ord() {
+                Some(idx) => idx,
+                None => return Err(LuceneError::illegal_state("idx is None")),
+            };
             self.buffered_update.term_value = Some(next.clone());
             buffered_update.term_value = Some(next);
-            buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx);
+            buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx as i32);
             buffered_update.term_field = self.field_updates_buffer.fields
-                [FieldUpdatesBuffer::get_array_index(self.fields_length, idx) as usize]
-                .clone();
+                [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)]
+            .clone();
             buffered_update.doc_upto = self.field_updates_buffer.docs_upto
-                [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx) as usize];
+                [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx)];
 
             if buffered_update.has_value {
                 if self.field_updates_buffer.is_numeric {
                     buffered_update.numeric_value =
                         self.field_updates_buffer.numeric_values.as_ref().unwrap()
-                            [FieldUpdatesBuffer::get_array_index(self.numeric_values_length, idx)
-                                as usize];
+                            [FieldUpdatesBuffer::get_array_index(self.numeric_values_length, idx)];
                     buffered_update.binary_value = None;
                 } else {
                     debug_assert!(self.numeric_values_length == 0);
@@ -1070,7 +1068,7 @@ mod tests {
 
         while let Some(value) = iterator.next_value()? {
             let v = buffer.get_numeric_value(count);
-            let expected_update = &updates[count as usize];
+            let expected_update = &updates[count];
             count += 1;
             assert_eq!(
                 expected_update.term.bytes.utf8_to_string()?,
@@ -1101,7 +1099,7 @@ mod tests {
             assert_eq!(0, buffer.get_min_numeric());
             assert_eq!(0, buffer.get_max_numeric());
         }
-        assert_eq!(updates.len() as i32, count);
+        assert_eq!(updates.len(), count);
         Ok(())
     }
 }

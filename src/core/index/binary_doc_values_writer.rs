@@ -160,7 +160,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                     self.docs_with_field.iterator()?.unwrap(),
                 );
                 Some(BinaryDVs::new(
-                    segment_info.max_doc()?,
+                    segment_info.max_doc()?.try_convert()?,
                     sort_map.as_ref(),
                     &mut buffered_binary_doc_values,
                 )?)
@@ -415,30 +415,30 @@ impl BinaryDocValues for SortingBinaryDocValues {
 
 #[derive(Clone)]
 pub(crate) struct BinaryDVs {
-    pub(crate) offsets: Rc<Vec<i32>>,
+    pub(crate) offsets: Rc<Vec<usize>>,
     pub(crate) values: Rc<BytesRefArray>,
 }
 
 impl BinaryDVs {
     pub(crate) fn new<DM>(
-        max_doc: i32,
+        max_doc: usize,
         sort_map: &DM,
         old_values: &mut impl BinaryDocValues,
     ) -> Result<Self>
     where
         DM: DocMap,
     {
-        let mut offsets = vec![0i32; max_doc as usize];
+        let mut offsets = vec![0; max_doc];
         let counter = Arc::new(AtomicCounter::new());
         let mut values = BytesRefArray::new(counter)?;
-        let mut offset = 1i32; // 0 means no values for this document
+        let mut offset = 1; // 0 means no values for this document
         let mut doc_id;
         loop {
             doc_id = old_values.next_doc()?;
             if doc_id == NO_MORE_DOCS {
                 break;
             }
-            let new_doc = sort_map.old_to_new(doc_id)? as usize;
+            let new_doc = sort_map.old_to_new(doc_id)?.try_convert()?;
             let val = old_values.binary_value()?;
             values.append(val.as_ref())?;
             offsets[new_doc] = offset;

@@ -41,9 +41,9 @@ use crate::core::util::{
 #[derive(Debug)]
 pub struct BytesRefArray {
     pool: ByteBlockPool,
-    offsets: Vec<i32>,
-    last_element: i32,
-    current_offset: i32,
+    offsets: Vec<usize>,
+    last_element: usize,
+    current_offset: usize,
     byte_used: SharedCounter,
 }
 
@@ -78,27 +78,28 @@ impl BytesRefArray {
     pub fn get(
         &self,
         spare: &mut BytesRefBuilder<Vec<u8>>,
-        index: i32,
+        index: usize,
     ) -> Result<BytesRef<Vec<u8>>> {
-        if index < 0 || index >= self.last_element {
+        if index >= self.last_element {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
         }
 
-        let offset = self.offsets[index as usize];
+        let offset = self.offsets[index];
         let length = if index == self.last_element - 1 {
             self.current_offset - offset
         } else {
-            self.offsets[index as usize + 1] - offset
+            self.offsets[index + 1] - offset
         };
 
-        spare.grow_no_copy(length as usize);
-        spare.set_length(length as usize);
+        spare.grow_no_copy(length);
+        spare.set_length(length);
 
         spare.bytes_ref().bytes.access_mut(|bytes| {
-            self.pool.read_bytes(offset as i64, bytes, 0, length)?;
+            self.pool
+                .read_bytes(offset as i64, bytes, 0, length.try_convert()?)?;
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
         })?;
@@ -113,24 +114,24 @@ impl BytesRefArray {
         &self,
         spare: &mut BytesRefBuilder<AV>,
         result: &mut BytesRef<AV>,
-        index: i32,
+        index: usize,
     ) -> Result<()> {
-        if index < 0 || index >= self.last_element {
+        if index >= self.last_element {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index: {}, last_element: {}",
                 index, self.last_element
             )));
         }
 
-        let offset = self.offsets[index as usize];
+        let offset = self.offsets[index];
         let length = if index == self.last_element - 1 {
             self.current_offset - offset
         } else {
-            self.offsets[index as usize + 1] - offset
+            self.offsets[index + 1] - offset
         };
 
         self.pool
-            .set_bytes_ref(spare, result, offset as i64, length)?;
+            .set_bytes_ref(spare, result, offset as i64, length.try_convert()?)?;
         Ok(())
     }
 
@@ -148,23 +149,23 @@ impl BytesRefArray {
     /// [`BytesRefArray::iterator_with_state`] with the given sort state.
     pub fn sort(&self, comp: impl BytesRefComparator, stable: bool) -> Result<SortState> {
         let size = self.size();
-        let mut ordered_entries: Vec<i32> = (0..size).collect();
+        let mut ordered_entries: Vec<usize> = (0..size).collect();
         if stable {
             let delegate = StableStringSorterImpl {
-                tmp: vec![0; size as usize],
+                tmp: vec![0; size],
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
             let stable_string_sorter = StableStringSorter::new(delegate);
             let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
-            string_sorter.sort(0, size.try_convert()?)?;
+            string_sorter.sort(0, size)?;
         } else {
             let delegate = StringSorterImpl {
                 ordered_entries: ordered_entries.as_mut_slice(),
                 bytes_ref_array: self,
             };
             let mut string_sorter = StringSorter::new(delegate, comp);
-            string_sorter.sort(0, size.try_convert()?)?;
+            string_sorter.sort(0, size)?;
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
@@ -204,11 +205,11 @@ impl BytesRefArray {
 ///
 /// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
-    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
+    fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<usize> {
         self.pool.append_bytes_ref(bytes)?;
         self.offsets.push(self.current_offset);
         self.last_element += 1;
-        self.current_offset += bytes.length as i32;
+        self.current_offset += bytes.length;
         self.byte_used.add_and_get(BitUtil::INT_BYTES as i64);
         Ok(self.last_element - 1)
     }
@@ -221,7 +222,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         // the allocator
     }
 
-    fn size(&self) -> i32 {
+    fn size(&self) -> usize {
         self.last_element
     }
 
@@ -246,10 +247,10 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
 
 #[derive(Clone, Debug)]
 pub struct SortState {
-    pub indices: Option<Vec<i32>>,
+    pub indices: Option<Vec<usize>>,
 }
 impl SortState {
-    pub fn new(indices: Option<Vec<i32>>) -> SortState {
+    pub fn new(indices: Option<Vec<usize>>) -> SortState {
         SortState { indices }
     }
 }
@@ -260,11 +261,11 @@ impl Accountable for SortState {
 }
 
 pub struct IndexedBytesRefIteratorImpl<'a> {
-    pos: i32,
-    pub(crate) ord: i32,
+    pos: Option<usize>,
+    pub(crate) ord: Option<usize>,
     sort_state: Arc<SortState>,
     spare: BytesRefBuilder<Vec<u8>>,
-    size: i32,
+    size: usize,
     bytes_ref_array: &'a BytesRefArray,
     result: BytesRef<Vec<u8>>,
 }
@@ -274,8 +275,8 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
         bytes_ref_array: &'a BytesRefArray,
     ) -> IndexedBytesRefIteratorImpl<'a> {
         Self {
-            pos: -1,
-            ord: -1,
+            pos: None,
+            ord: None,
             sort_state,
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
@@ -283,21 +284,28 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
             result: BytesRef::new(),
         }
     }
-    pub fn ord(&self) -> i32 {
+    pub fn ord(&self) -> Option<usize> {
         self.ord
     }
 }
 impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
     fn next(&'_ mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.pos += 1;
-        if self.pos < self.size {
+        self.pos = match self.pos {
+            None => Some(0),
+            Some(i) => i.checked_add(1),
+        };
+        let pos = *self.pos.as_ref().unwrap();
+        if pos < self.size {
             self.ord = if self.sort_state.indices.is_none() {
                 self.pos
             } else {
-                self.sort_state.indices.as_ref().unwrap()[self.pos as usize]
+                Option::from(self.sort_state.indices.as_ref().unwrap()[pos])
             };
-            self.bytes_ref_array
-                .set_bytes_ref(&mut self.spare, &mut self.result, self.ord)?;
+            self.bytes_ref_array.set_bytes_ref(
+                &mut self.spare,
+                &mut self.result,
+                *self.ord.as_ref().unwrap(),
+            )?;
             Ok(Some(Cow::Borrowed(&self.result)))
         } else {
             Ok(None)
@@ -305,7 +313,7 @@ impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
     }
 }
 impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
-    fn ord(&self) -> i32 {
+    fn ord(&self) -> Option<usize> {
         self.ord
     }
 }
@@ -318,12 +326,12 @@ pub trait IndexedBytesRefIterator {
     /// This method must not be called if [`next`](BytesRefIterator::next) has
     /// not been called yet, or if the last call to
     /// [`next`](BytesRefIterator::next) returned `None`.
-    fn ord(&self) -> i32;
+    fn ord(&self) -> Option<usize>;
 }
 
 struct StableStringSorterImpl<'a> {
-    tmp: Vec<i32>,
-    ordered_entries: &'a mut [i32],
+    tmp: Vec<usize>,
+    ordered_entries: &'a mut [usize],
     bytes_ref_array: &'a BytesRefArray,
 }
 impl Sorter for StableStringSorterImpl<'_> {
@@ -356,7 +364,7 @@ impl StableStringSorterBase for StableStringSorterImpl<'_> {
 impl MSBRadixSorterBase for StableStringSorterImpl<'_> {}
 
 struct StringSorterImpl<'a> {
-    ordered_entries: &'a mut [i32],
+    ordered_entries: &'a mut [usize],
     bytes_ref_array: &'a BytesRefArray,
 }
 impl Sorter for StringSorterImpl<'_> {
@@ -408,10 +416,10 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 500);
+            let entries = at_least(&mut random, 500) as usize;
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
-
+            #[allow(clippy::needless_range_loop)]
             for i in 0..entries {
                 let random_realistic_unicode_string =
                     TestUtil::random_realistic_unicode_string(&mut random);
@@ -419,10 +427,10 @@ mod tests {
                 assert_eq!(i + init_size, list.append(spare.get_bytes_mut_ref())?);
                 string_list.push(random_realistic_unicode_string);
             }
-
+            #[allow(clippy::needless_range_loop)]
             for i in 0..entries {
                 assert_eq!(
-                    string_list[i as usize],
+                    string_list[i],
                     list.get(&mut spare, i).unwrap().utf8_to_string()?,
                     "entry {} doesn't match",
                     i
@@ -465,7 +473,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 200);
+            let entries = at_least(&mut random, 200) as usize;
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
 
@@ -535,7 +543,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 200) as i32;
+            let entries = at_least(&mut random, 200) as usize;
 
             let mut values = Vec::new();
             for _ in 0..20 {
@@ -561,7 +569,7 @@ mod tests {
             };
             let mut iter = list.iterator_with_state(Arc::new(sort_state));
             let mut i = 0;
-            let mut last_ord = -1;
+            let mut last_ord = None;
             let mut last = None;
 
             while let Some(next) = iter.next()? {
@@ -577,7 +585,7 @@ mod tests {
                     && next == *last_ref
                 {
                     let ord = iter.ord();
-                    assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
+                    assert!(ord > last_ord);
                 }
 
                 last = Some(BytesRef::deep_copy_of(&next));
