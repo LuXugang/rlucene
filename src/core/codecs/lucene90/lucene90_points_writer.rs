@@ -41,7 +41,7 @@ where
     data_out: O,
     meta_out: O,
     index_out: O,
-    max_points_in_leaf_node: i32,
+    max_points_in_leaf_node: usize,
     max_mb_sort_in_heap: f64,
     finish: bool,
 }
@@ -69,7 +69,7 @@ where
     }
     pub fn new<D1, D2>(
         write_state: &SegmentWriteState<D1>,
-        max_points_in_leaf_node: i32,
+        max_points_in_leaf_node: usize,
         max_mb_sort_in_heap: f64,
         segment_info: &SegmentInfo<D2>,
     ) -> Result<Self>
@@ -168,7 +168,7 @@ where
             &segment_info.name,
             config,
             self.max_mb_sort_in_heap,
-            values.size()?,
+            values.size()?.try_into()?,
         )?;
         match values {
             PointTreeEnum::Mutable(ref mut mutable_tree) => {

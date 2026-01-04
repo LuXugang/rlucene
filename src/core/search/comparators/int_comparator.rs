@@ -56,7 +56,7 @@ impl IntComparator {
             missing_value,
             reverse,
             pruning,
-            BitUtil::INT_BYTES as i32,
+            BitUtil::INT_BYTES,
             missing_value as i64,
         );
         Self {

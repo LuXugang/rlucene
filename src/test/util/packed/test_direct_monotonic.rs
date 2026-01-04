@@ -332,7 +332,7 @@ fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
         let meta = load_meta(&mut meta_in, array.len() as i64, block_shift)?;
-        let slice = data_in.random_access_slice(0, dir.file_length("data")?)?;
+        let slice = data_in.random_access_slice(0, dir.file_length("data")? as i64)?;
         let mut reader = DirectMonotonicReader::get_instance(&meta, slice)?;
 
         if array.is_empty() {

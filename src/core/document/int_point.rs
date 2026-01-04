@@ -45,21 +45,21 @@ impl IntPoint {
     {
         let point = point.as_ref();
         let value = Self::pack(point)?;
-        let field_type = Self::get_type(point.len() as i32)?;
+        let field_type = Self::get_type(point.len())?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(IntPoint { parent_field })
     }
 
-    fn get_type(num_dims: i32) -> Result<FieldType> {
+    fn get_type(num_dims: usize) -> Result<FieldType> {
         let mut field_type = FieldType::new();
-        field_type.set_dimensions(num_dims, BitUtil::INT_BYTES as i32)?;
+        field_type.set_dimensions(num_dims, BitUtil::INT_BYTES)?;
         field_type.freeze();
         Ok(field_type)
     }
 
     /// Change the values of this field
     pub fn set_int_values(&mut self, point: &[i32]) -> Result<()> {
-        if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
+        if self.parent_field.field_type().point_dimension_count() != point.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 self.parent_field.name(),
@@ -126,7 +126,7 @@ impl IntPoint {
             field,
             lower_point.take_bytes(),
             upper_point.take_bytes(),
-            len.try_into()?,
+            len,
             IntPointRangeQuery,
         )
     }
@@ -242,7 +242,7 @@ impl fmt::Display for IntPoint {
                     }
                     let value = Self::decode_dimension(
                         &bytes.bytes,
-                        bytes.offset + dim as usize * BitUtil::INT_BYTES,
+                        bytes.offset + dim * BitUtil::INT_BYTES,
                     );
                     write!(f, "{value}")?;
                 }
@@ -259,7 +259,7 @@ impl fmt::Display for IntPoint {
 #[derive(Debug, Clone)]
 pub struct IntPointRangeQuery;
 impl PointRangeBase for IntPointRangeQuery {
-    fn to_string(&self, _dimension: i32, value: &[u8]) -> String {
+    fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
         IntPoint::decode_dimension(value, 0).to_string()
     }
 }

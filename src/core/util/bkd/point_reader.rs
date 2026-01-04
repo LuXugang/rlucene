@@ -36,7 +36,7 @@ pub trait PointReader {
     fn next(&mut self) -> Result<bool>;
 
     /// Returns the current point value.
-    fn point_value(&mut self) -> &PointValueEnum;
+    fn point_value(&mut self) -> Result<&PointValueEnum>;
 }
 
 pub enum PointReaderEnum<I>
@@ -68,7 +68,7 @@ where
         }
     }
 
-    fn point_value(&mut self) -> &PointValueEnum {
+    fn point_value(&mut self) -> Result<&PointValueEnum> {
         match self {
             PointReaderEnum::Offline(offline) => offline.point_value(),
             PointReaderEnum::Heap(heap) => heap.point_value(),

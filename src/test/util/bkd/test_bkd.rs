@@ -135,9 +135,9 @@ fn test_random_ints_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
     let dir = new_directory_shared(&mut random)?;
-    let num_dims = TestUtil::next_int(&mut random, 1, 5);
-    let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
+    let num_dims = TestUtil::next_int(&mut random, 1, 5) as usize;
+    let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims as i32) as usize;
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100) as usize;
     let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
     let config = BKDConfig::new(num_dims, num_index_dims, 4, max_points_in_leaf_node)?;
     let mut writer = BKDWriter::new(
@@ -270,9 +270,9 @@ fn test_big_int_n_dims() -> Result<()> {
     let num_docs = at_least(&mut random, 1000);
     let dir = new_directory_shared(&mut random)?;
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_dims = TestUtil::next_int(&mut random, 1, 5);
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_dims = TestUtil::next_int(&mut random, 1, 5) as usize;
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 100) as usize;
     let max_mb: f32 = 3.0 + (3.0 * random.random::<f32>());
     let config = BKDConfig::new(
         num_dims,
@@ -434,22 +434,19 @@ fn test_too_little_heap() -> Result<()> {
     Ok(())
 }
 fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<()> {
-    let num_docs = TestUtil::next_int(random, count, count * 2);
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, 30);
+    let num_docs = TestUtil::next_int(random, count, count * 2) as usize;
+    let num_bytes_per_dim = TestUtil::next_int(random, 2, 30) as usize;
 
-    let num_data_dims = TestUtil::next_int(random, 1, MAX_DIMENSIONS);
+    let num_data_dims = TestUtil::next_int(random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
-    let mut doc_values = vec![
-        vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        num_docs as usize
-    ];
+    let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
-    for doc_value in doc_values.iter_mut().take(num_docs as usize) {
-        for val in doc_value.iter_mut().take(num_data_dims as usize) {
+    for doc_value in doc_values.iter_mut().take(num_docs) {
+        for val in doc_value.iter_mut().take(num_data_dims) {
             random.fill_bytes(val);
         }
     }
@@ -468,12 +465,12 @@ fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<
 fn test_all_equal() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 1000);
     let mut doc_values = vec![
@@ -506,12 +503,12 @@ fn test_all_equal() -> Result<()> {
 fn test_index_dim_equal_data_dim_different() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 2, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims - 1),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32 - 1),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 1000);
     let mut doc_values = vec![
@@ -555,12 +552,12 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
 fn test_one_dim_equal() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 1000);
     let the_equal_dim = random.random_range(0..num_data_dims);
@@ -580,7 +577,7 @@ fn test_one_dim_equal() -> Result<()> {
         }
     }
 
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 20, 50);
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 20, 50) as usize;
 
     verify_full(
         &mut random,
@@ -597,12 +594,12 @@ fn test_one_dim_equal() -> Result<()> {
 fn test_one_dim_low_card() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 2, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 2, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 2, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 2, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 10_000);
     let the_low_card_dim = random.random_range(0..num_data_dims);
@@ -641,7 +638,7 @@ fn test_one_dim_low_card() -> Result<()> {
         }
     }
 
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 20, 50);
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 20, 50) as usize;
     verify_full(
         &mut random,
         &doc_values,
@@ -657,12 +654,12 @@ fn test_one_dim_low_card() -> Result<()> {
 fn test_one_dim_two_values() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 1000);
     let the_dim = random.random_range(0..num_data_dims);
@@ -709,12 +706,12 @@ fn test_one_dim_two_values() -> Result<()> {
 fn test_random_few_different_values() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 10000);
     let cardinality = TestUtil::next_int(&mut random, 2, 100);
@@ -761,12 +758,12 @@ impl DocMap for DocMapMock {
 fn test_multi_valued() -> Result<()> {
     let mut random = random();
 
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
-    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, 1, MAX_DIMENSIONS as i32) as usize;
     let num_index_dims = std::cmp::min(
-        TestUtil::next_int(&mut random, 1, num_data_dims),
-        MAX_INDEX_DIMENSIONS,
-    );
+        TestUtil::next_int(&mut random, 1, num_data_dims as i32),
+        MAX_INDEX_DIMENSIONS as i32,
+    ) as usize;
 
     let num_docs = at_least(&mut random, 1000);
     let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::new();
@@ -805,11 +802,11 @@ fn verify<R: Rng + ?Sized>(
     random: &mut R,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
-    num_data_dims: i32,
-    num_index_dims: i32,
-    num_bytes_per_dim: i32,
+    num_data_dims: usize,
+    num_index_dims: usize,
+    num_bytes_per_dim: usize,
 ) -> Result<()> {
-    let max_points_in_leaf_node = TestUtil::next_int(random, 50, 1000);
+    let max_points_in_leaf_node = TestUtil::next_int(random, 50, 1000) as usize;
     verify_full(
         random,
         doc_values,
@@ -825,10 +822,10 @@ fn verify_full<R: Rng + ?Sized>(
     random: &mut R,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
-    num_data_dims: i32,
-    num_index_dims: i32,
-    num_bytes_per_dim: i32,
-    max_points_in_leaf_node: i32,
+    num_data_dims: usize,
+    num_index_dims: usize,
+    num_bytes_per_dim: usize,
+    max_points_in_leaf_node: usize,
 ) -> Result<()> {
     let dir = new_directory(random)?;
     let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
@@ -850,10 +847,10 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     dir: &D,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
-    num_data_dims: i32,
-    num_index_dims: i32,
-    num_bytes_per_dim: i32,
-    mut max_points_in_leaf_node: i32,
+    num_data_dims: usize,
+    num_index_dims: usize,
+    num_bytes_per_dim: usize,
+    mut max_points_in_leaf_node: usize,
     mut max_mb: f64,
 ) -> Result<()> {
     let num_values = doc_values.len();
@@ -900,7 +897,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-    let mut scratch = vec![0u8; (num_bytes_per_dim * num_data_dims) as usize];
+    let mut scratch = vec![0u8; num_bytes_per_dim * num_data_dims];
     let mut last_doc_id_base = 0;
     let use_merge = num_data_dims == 1 && num_values >= 10 && random.random_bool(0.5);
     let mut values_in_this_seg = if use_merge {
@@ -920,18 +917,18 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 ord, doc_id, last_doc_id_base
             );
         }
-
+        #[allow(clippy::needless_range_loop)]
         for dim in 0..num_data_dims {
             if cfg!(feature = "test_log_verbose") {
                 println!(
                     "  {} -> {}",
                     dim,
-                    BytesRef::from_bytes(doc_values[ord][dim as usize].to_vec())
+                    BytesRef::from_bytes(doc_values[ord][dim].to_vec())
                 );
             }
             scratch.copy_from(
-                &doc_values[ord][dim as usize][0..num_bytes_per_dim as usize],
-                (dim * num_bytes_per_dim) as usize,
+                &doc_values[ord][dim][0..num_bytes_per_dim],
+                dim * num_bytes_per_dim,
             );
         }
 
@@ -959,7 +956,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             seg_count = 0;
 
             seg += 1;
-            max_points_in_leaf_node = TestUtil::next_int(random, 50, 1000);
+            max_points_in_leaf_node = TestUtil::next_int(random, 50, 1000) as usize;
             max_mb = 3.0 + (3.0 * random.random::<f64>());
 
             writer = BKDWriter::new(
@@ -1044,10 +1041,10 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     let iters = at_least(random, 100);
     for _ in 0..iters {
-        let mut query_min = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
-        let mut query_max = vec![vec![0u8; num_bytes_per_dim as usize]; num_data_dims as usize];
+        let mut query_min = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
+        let mut query_max = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
 
-        for dim in 0..num_data_dims as usize {
+        for dim in 0..num_data_dims {
             random.fill_bytes(&mut query_min[dim]);
             random.fill_bytes(&mut query_max[dim]);
 
@@ -1056,7 +1053,6 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             }
         }
 
-        let num_bytes_per_dim = num_bytes_per_dim as usize;
         let mut expected = BitSet::new();
         for (ord, value) in doc_values.iter().enumerate().take(num_values) {
             let mut matches = true;
@@ -1064,7 +1060,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 .iter()
                 .zip(query_max.iter())
                 .enumerate()
-                .take(num_index_dims as usize)
+                .take(num_index_dims)
             {
                 let val = &value[dim][0..num_bytes_per_dim];
                 if val.cmp(&min[0..num_bytes_per_dim]).to_int() < 0
@@ -1083,7 +1079,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         let config = BKDConfig::new(
             num_data_dims,
             num_index_dims,
-            num_bytes_per_dim as i32,
+            num_bytes_per_dim,
             max_points_in_leaf_node,
         )?;
         let mut hits = BitSet::new();
@@ -1140,7 +1136,7 @@ fn assert_size<R: Rng + ?Sized>(tree: &mut impl PointTree, random: &mut R) -> Re
     }
 
     assert_eq!(visit_doc_id_size[0], visit_doc_values_size[0]);
-    assert_eq!(visit_doc_id_size[0], tree.size()?);
+    assert_eq!(visit_doc_id_size[0], tree.size()? as i64);
 
     if tree.move_to_child()? {
         loop {
@@ -1248,8 +1244,8 @@ where
         Ok(())
     }
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        let num_index_dims = self.config.num_index_dims as usize;
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
+        let num_index_dims = self.config.num_index_dims;
+        let bytes_per_dim = self.config.bytes_per_dim;
 
         for dim in 0..num_index_dims {
             let offset = dim * bytes_per_dim;
@@ -1307,8 +1303,8 @@ where
     }
 
     fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
-        let num_index_dims = self.config.num_index_dims as usize;
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
+        let num_index_dims = self.config.num_index_dims;
+        let bytes_per_dim = self.config.bytes_per_dim;
         let mut crosses = false;
 
         for dim in 0..num_index_dims {
@@ -1419,11 +1415,11 @@ fn test_tie_break_order() -> Result<()> {
 struct IntersectVisitorMock3 {
     previous: Option<Vec<u8>>,
     has_changed: bool,
-    num_data_dims: i32,
-    num_bytes_per_dim: i32,
+    num_data_dims: usize,
+    num_bytes_per_dim: usize,
 }
 impl IntersectVisitorMock3 {
-    fn new(num_data_dims: i32, num_bytes_per_dim: i32) -> Self {
+    fn new(num_data_dims: usize, num_bytes_per_dim: usize) -> Self {
         Self {
             previous: None,
             has_changed: false,
@@ -1438,7 +1434,7 @@ impl IntersectVisitor for IntersectVisitorMock3 {
     }
 
     fn visit_with_packed_value(&mut self, _doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        let len = (self.num_data_dims * self.num_bytes_per_dim) as usize;
+        let len = self.num_data_dims * self.num_bytes_per_dim;
         if self.previous.is_none() {
             let mut value = vec![0u8; len];
             value.copy_from(&packed_value[..len], 0);
@@ -1468,11 +1464,11 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let num_values = at_least(&mut random, 5000);
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500) as usize;
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
     let max_mb = 3.0 + 3.0 * random.random::<f64>();
-    let num_index_dims = TestUtil::next_int(&mut random, 1, 8);
-    let num_data_dims = TestUtil::next_int(&mut random, num_index_dims, 8);
+    let num_index_dims = TestUtil::next_int(&mut random, 1, 8) as usize;
+    let num_data_dims = TestUtil::next_int(&mut random, num_index_dims as i32, 8) as usize;
 
     let mut point_value1 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
     let mut point_value2 = vec![0u8; (num_data_dims * num_bytes_per_dim) as usize];
@@ -1603,17 +1599,17 @@ fn test_2d_long_ords_offline() -> Result<()> {
 struct IntersectVisitorMock5<'a> {
     count: &'a mut [i32],
     random: RefCell<StdRng>,
-    num_index_dims: i32,
-    bytes_per_dim: i32,
-    num_dims: i32,
+    num_index_dims: usize,
+    bytes_per_dim: usize,
+    num_dims: usize,
 }
 impl<'a> IntersectVisitorMock5<'a> {
     fn new(
         count: &'a mut [i32],
         random: u64,
-        num_index_dims: i32,
-        bytes_per_dim: i32,
-        num_dims: i32,
+        num_index_dims: usize,
+        bytes_per_dim: usize,
+        num_dims: usize,
     ) -> Self {
         let random = RefCell::new(random_from_seed(random));
         Self {
@@ -1632,22 +1628,13 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
     }
 
     fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-        assert_eq!(
-            packed_value.len(),
-            (self.num_dims * self.bytes_per_dim) as usize
-        );
+        assert_eq!(packed_value.len(), (self.num_dims * self.bytes_per_dim));
         self.visit(doc_id)
     }
 
     fn compare(&self, min_packed: &[u8], max_packed: &[u8]) -> Result<Relation> {
-        assert_eq!(
-            min_packed.len(),
-            (self.num_index_dims * self.bytes_per_dim) as usize
-        );
-        assert_eq!(
-            max_packed.len(),
-            (self.num_index_dims * self.bytes_per_dim) as usize
-        );
+        assert_eq!(min_packed.len(), (self.num_index_dims * self.bytes_per_dim));
+        assert_eq!(max_packed.len(), (self.num_index_dims * self.bytes_per_dim));
         if self.random.borrow_mut().random_range(0..7) == 1 {
             Ok(Relation::CellCrossesQuery)
         } else {
@@ -1658,10 +1645,10 @@ impl IntersectVisitor for IntersectVisitorMock5<'_> {
 #[test]
 fn test_wasted_leading_bytes() -> Result<()> {
     let mut random = random();
-    let num_dims = TestUtil::next_int(&mut random, 1, MAX_INDEX_DIMENSIONS);
-    let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
+    let num_dims = TestUtil::next_int(&mut random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+    let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims as i32) as usize;
     let bytes_per_dim = MAX_NUM_BYTES;
-    let bytes_used = TestUtil::next_int(&mut random, 1, 3);
+    let bytes_used = TestUtil::next_int(&mut random, 1, 3) as usize;
 
     let dir = new_directory_shared(&mut random)?;
     let num_docs = at_least(&mut random, 10000);
@@ -1743,7 +1730,7 @@ impl IntersectVisitor for IntersectVisitorMock7 {
 }
 struct IntersectVisitorMock8<'a> {
     unique_point_value: &'a [u8],
-    num_bytes_per_dim: i32,
+    num_bytes_per_dim: usize,
 }
 impl IntersectVisitor for IntersectVisitorMock8<'_> {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
@@ -1755,12 +1742,12 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
     }
 
     fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-        if self.unique_point_value[..self.num_bytes_per_dim as usize]
-            .cmp(&max_packed_value[..self.num_bytes_per_dim as usize])
+        if self.unique_point_value[..self.num_bytes_per_dim]
+            .cmp(&max_packed_value[..self.num_bytes_per_dim])
             .to_int()
             > 0
-            || self.unique_point_value[..self.num_bytes_per_dim as usize]
-                .cmp(&min_packed_value[..self.num_bytes_per_dim as usize])
+            || self.unique_point_value[..self.num_bytes_per_dim]
+                .cmp(&min_packed_value[..self.num_bytes_per_dim])
                 .to_int()
                 < 0
         {
@@ -1775,8 +1762,8 @@ fn test_estimate_point_count() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let num_values = at_least(&mut random, 10_000);
-    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+    let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500) as usize;
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
 
     let mut point_value = vec![0u8; num_bytes_per_dim as usize];
     let mut unique_point_value = vec![0u8; num_bytes_per_dim as usize];
@@ -1835,9 +1822,9 @@ fn test_estimate_point_count() -> Result<()> {
         unique_point_value: &unique_point_value,
         num_bytes_per_dim,
     })?;
-    let last_node_point_count = num_values % max_points_in_leaf_node;
-    let mid = ((max_points_in_leaf_node + 1) / 2) as i64;
-    let mid_last = ((last_node_point_count + 1) / 2) as i64;
+    let last_node_point_count = num_values as usize % max_points_in_leaf_node;
+    let mid = max_points_in_leaf_node.div_ceil(2) as i64;
+    let mid_last = last_node_point_count.div_ceil(2) as i64;
 
     assert!(
         point_count == mid// common case
@@ -1855,12 +1842,12 @@ fn test_estimate_point_count() -> Result<()> {
 }
 pub struct MutablePointTreeMock1 {
     point_value: Vec<u8>,
-    num_points_added: i32,
+    num_points_added: usize,
 }
 
 impl PointTree for MutablePointTreeMock1 {
-    fn size(&self) -> Result<i64> {
-        Ok(self.num_points_added as i64)
+    fn size(&self) -> Result<usize> {
+        Ok(self.num_points_added)
     }
 
     fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
@@ -1915,7 +1902,7 @@ fn test_total_point_count_validation() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let num_values = 10;
     let num_points_added = 50;
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
     let mut point_value = vec![0u8; num_bytes_per_dim as usize];
     random.fill_bytes(&mut point_value);
 
@@ -1949,13 +1936,13 @@ fn test_total_point_count_validation() -> Result<()> {
 pub struct MutablePointTreeMock2 {
     tmp_values: Vec<Vec<u8>>,
     tmp_docs: Vec<i32>,
-    num_bytes_per_dim: i32,
+    num_bytes_per_dim: usize,
     point_values: Vec<Vec<u8>>,
     doc_id: Vec<i32>,
 }
 
 impl PointTree for MutablePointTreeMock2 {
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         Ok(11)
     }
 
@@ -1963,7 +1950,7 @@ impl PointTree for MutablePointTreeMock2 {
     where
         IV: IntersectVisitor,
     {
-        for i in 0..self.size()? as usize {
+        for i in 0..self.size()? {
             visitor.visit_with_packed_value(self.doc_id[i], &self.point_values[i])?
         }
         Ok(())
@@ -1988,7 +1975,7 @@ impl MutablePointTree for MutablePointTreeMock2 {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         packed_value.bytes = self.point_values[i].clone();
         packed_value.offset = 0;
-        packed_value.length = self.num_bytes_per_dim as usize;
+        packed_value.length = self.num_bytes_per_dim;
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
@@ -2029,7 +2016,7 @@ fn test_too_many_points() -> Result<()> {
         num_values as i32,
         &dir,
         "_temp",
-        BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?,
+        BKDConfig::new(1, 1, num_bytes_per_dim, 2)?,
         DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values,
     )?;
@@ -2060,7 +2047,7 @@ fn test_too_many_points_1d() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
 
     let num_values = 10;
-    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
     let mut point_values = vec![vec![0u8; num_bytes_per_dim as usize]; 11];
     let mut doc_ids = vec![0i32; 11];
 

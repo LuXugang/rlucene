@@ -32,9 +32,9 @@ where
     pub out: Option<O>,
     pub name: String,
     pub config: BKDConfig,
-    pub count: i64,
+    pub count: usize,
     pub closed: bool,
-    pub expected_count: i64,
+    pub expected_count: usize,
 }
 
 impl<O> OfflinePointWriter<O>
@@ -47,7 +47,7 @@ where
         temp_dir: &D,
         temp_file_name_prefix: &str,
         desc: &str,
-        expected_count: i64,
+        expected_count: usize,
     ) -> Result<Self>
     where
         D: Directory<IndexOutput = O>,
@@ -70,8 +70,8 @@ where
 
     pub fn get_reader_with_buffer<D: Directory>(
         &self,
-        start: i64,
-        length: i64,
+        start: usize,
+        length: usize,
         reusable_buffer: Vec<u8>,
         temp_dir: &D,
     ) -> Result<OfflinePointReader<D::IndexInput>> {
@@ -135,7 +135,7 @@ where
         debug_assert!(!self.closed, "Point writer is already closed");
         assert_eq!(
             packed_value.len(),
-            self.config.packed_bytes_length() as usize,
+            self.config.packed_bytes_length(),
             "[packedValue] must have length [{}] but was [{}]",
             self.config.packed_bytes_length(),
             packed_value.len()
@@ -164,10 +164,11 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out
-            .as_mut()
-            .unwrap()
-            .write_bytes_range(value, offset, length)?;
+        self.out.as_mut().unwrap().write_bytes_range(
+            value,
+            offset.try_into()?,
+            length.try_into()?,
+        )?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -185,18 +186,18 @@ where
 
     fn get_reader<D>(
         &mut self,
-        start: i64,
-        length: i64,
+        start: usize,
+        length: usize,
         temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
     {
-        let buffer = vec![0u8; self.config.bytes_per_doc() as usize];
+        let buffer = vec![0u8; self.config.bytes_per_doc()];
         self.get_reader_with_buffer(start, length, buffer, temp_dir)
     }
 
-    fn count(&self) -> i64 {
+    fn count(&self) -> usize {
         self.count
     }
 

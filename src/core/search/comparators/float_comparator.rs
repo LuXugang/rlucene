@@ -56,7 +56,7 @@ impl FloatComparator {
             missing_value,
             reverse,
             pruning,
-            BitUtil::FLOAT_BYTES as i32,
+            BitUtil::FLOAT_BYTES,
             NumericUtils::float_to_sortable_int(missing_value) as i64,
         );
         Self {

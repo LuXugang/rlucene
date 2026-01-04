@@ -231,9 +231,10 @@ where
         for file_name in self.files()? {
             sum += self.info.dir.file_length(&file_name)?;
         }
-        self.size_in_bytes.store(sum, Ordering::SeqCst);
+        let v: i64 = sum.try_into()?;
+        self.size_in_bytes.store(v, Ordering::SeqCst);
 
-        Ok(sum)
+        Ok(v)
     }
     /// Returns all files in use by this segment.
     pub fn files(&self) -> Result<HashSet<String>> {

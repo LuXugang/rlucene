@@ -84,7 +84,7 @@ where
         self.write_lock.ensure_valid()?;
         self.base.delegate.delete_file(name)
     }
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         self.base.file_length(name)
     }
 

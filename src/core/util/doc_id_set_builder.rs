@@ -54,11 +54,8 @@ impl DocIdSetBuilder {
     where
         PV: PointValues,
     {
-        Ok(Self::with_count(
-            max_doc,
-            values.get_doc_count()?,
-            values.size()?,
-        ))
+        let v: i64 = values.size()?.try_into()?;
+        Ok(Self::with_count(max_doc, values.get_doc_count()?, v))
     }
 
     pub fn with_count(max_doc: i32, doc_count: i32, value_count: i64) -> DocIdSetBuilder {

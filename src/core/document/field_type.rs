@@ -41,9 +41,9 @@ pub struct FieldType {
     frozen: bool,
     doc_values_type: DocValuesType,
     doc_values_skip_index: DocValuesSkipIndexType,
-    dimension_count: i32,
-    index_dimension_count: i32,
-    dimension_num_bytes: i32,
+    dimension_count: usize,
+    index_dimension_count: usize,
+    dimension_num_bytes: usize,
     vector_dimension: i32,
     vector_encoding: VectorEncoding,
     vector_similarity_function: VectorSimilarityFunction,
@@ -215,34 +215,30 @@ impl FieldType {
     }
 
     /// Enables points indexing.
-    pub fn set_dimensions(&mut self, dimension_count: i32, dimension_num_bytes: i32) -> Result<()> {
+    pub fn set_dimensions(
+        &mut self,
+        dimension_count: usize,
+        dimension_num_bytes: usize,
+    ) -> Result<()> {
         self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
     }
 
     /// Enables points indexing with selectable dimension indexing.
     pub fn set_dimensions_all(
         &mut self,
-        dimension_count: i32,
-        index_dimension_count: i32,
-        dimension_num_bytes: i32,
+        dimension_count: usize,
+        index_dimension_count: usize,
+        dimension_num_bytes: usize,
     ) -> Result<()> {
         self.check_if_frozen()?;
-        if dimension_count < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "dimensionCount must be >= 0; got {dimension_count}"
-            )));
-        }
+
         if dimension_count > MAX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionCount must be <= {}; got {}",
                 MAX_DIMENSIONS, dimension_count
             )));
         }
-        if index_dimension_count < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "indexDimensionCount must be >= 0; got {index_dimension_count}"
-            )));
-        }
+
         if index_dimension_count > dimension_count {
             return Err(LuceneError::illegal_argument(format!(
                 "indexDimensionCount must be <= dimensionCount: {dimension_count}; got {index_dimension_count}"
@@ -254,11 +250,7 @@ impl FieldType {
                 MAX_INDEX_DIMENSIONS, index_dimension_count
             )));
         }
-        if dimension_num_bytes < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "dimensionNumBytes must be >= 0; got {dimension_num_bytes}"
-            )));
-        }
+
         if dimension_num_bytes > MAX_NUM_BYTES {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionNumBytes must be <= {}; got {}",
@@ -422,17 +414,17 @@ impl IndexableFieldType for FieldType {
     }
 
     /// Returns the number of point dimensions.
-    fn point_dimension_count(&self) -> i32 {
+    fn point_dimension_count(&self) -> usize {
         self.dimension_count
     }
 
     /// Returns the number of dimensions used for the index key.
-    fn point_index_dimension_count(&self) -> i32 {
+    fn point_index_dimension_count(&self) -> usize {
         self.index_dimension_count
     }
 
     /// Returns the number of bytes in each dimension's values.
-    fn point_num_bytes(&self) -> i32 {
+    fn point_num_bytes(&self) -> usize {
         self.dimension_num_bytes
     }
 

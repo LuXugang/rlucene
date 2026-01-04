@@ -69,7 +69,7 @@ where
             scratch1: BytesRefBuilder::new(),
             scratch_bytes1: BytesRef::default(),
         };
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, length);
+        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, length as usize);
         MSBRadixSorter::new(length, stable_msb_radix_sorter)
     }
 }

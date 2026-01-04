@@ -105,7 +105,7 @@ where
         Ok(())
     }
 
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         self.base.file_length(name)
     }
 

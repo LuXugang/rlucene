@@ -385,9 +385,9 @@ impl<'a> IntoIterator for &'a FieldInfos {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FieldDimensions {
-    pub dimension_count: i32,
-    pub index_dimension_count: i32,
-    pub dimension_num_bytes: i32,
+    pub dimension_count: usize,
+    pub index_dimension_count: usize,
+    pub dimension_num_bytes: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

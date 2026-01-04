@@ -85,13 +85,13 @@ pub trait IndexableFieldType {
 
     /// Returns the number of point dimensions if positive, indicating the field
     /// is indexed as a point.
-    fn point_dimension_count(&self) -> i32;
+    fn point_dimension_count(&self) -> usize;
 
     /// Returns the number of dimensions used for the index key.
-    fn point_index_dimension_count(&self) -> i32;
+    fn point_index_dimension_count(&self) -> usize;
 
     /// Returns the number of bytes in each dimension's values.
-    fn point_num_bytes(&self) -> i32;
+    fn point_num_bytes(&self) -> usize;
 
     /// Returns the number of dimensions of the field's vector value.
     fn vector_dimension(&self) -> i32;

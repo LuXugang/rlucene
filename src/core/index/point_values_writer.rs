@@ -63,7 +63,7 @@ impl PointValuesWriter {
         let doc_ids = vec![0; 16];
         iw_bytes_used.add_and_get((16 * BitUtil::INT_BYTES) as i64);
         let packed_bytes_length =
-            (field_info.get_point_dimension_count() * field_info.get_point_num_bytes()) as usize;
+            field_info.get_point_dimension_count() * field_info.get_point_num_bytes();
         Ok(Self {
             field_info,
             bytes_out,
@@ -272,19 +272,19 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_num_dimensions(&self) -> Result<i32> {
+    fn get_num_dimensions(&self) -> Result<usize> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32> {
+    fn get_num_index_dimensions(&self) -> Result<usize> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32> {
+    fn get_bytes_per_dimension(&self) -> Result<usize> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         Err(LuceneError::unsupported_operation(""))
     }
 
@@ -381,7 +381,7 @@ where
     M: MutablePointTree,
     DM: DocMap,
 {
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         self.input.size()
     }
 
@@ -463,8 +463,8 @@ impl MutablePointTreeImpl {
 }
 
 impl PointTree for MutablePointTreeImpl {
-    fn size(&self) -> Result<i64> {
-        Ok(self.num_points as i64)
+    fn size(&self) -> Result<usize> {
+        Ok(self.num_points)
     }
 
     fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>

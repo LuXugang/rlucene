@@ -49,9 +49,10 @@ pub struct FieldInfo {
     dv_gen: AtomicI64,
     ///  If both of these are positive it means this field indexed points (see
     /// [`PointsFormat`](crate::core::codecs::points_format::PointsFormat)).
-    point_dimension_count: i32,
-    point_index_dimension_count: i32,
-    point_num_bytes: i32,
+    point_dimension_count: usize,
+    // TODO IMPORTANT 这里改成usize
+    point_index_dimension_count: usize,
+    point_num_bytes: usize,
     // if it is a positive value, it means this field indexes vectors
     vector_dimension: i32,
     vector_encoding: VectorEncoding,
@@ -90,9 +91,9 @@ impl FieldInfo {
         doc_values_skip_index: DocValuesSkipIndexType,
         dv_gen: i64,
         attributes: HashMap<String, String>,
-        point_dimension_count: i32,
-        point_index_dimension_count: i32,
-        point_num_bytes: i32,
+        point_dimension_count: usize,
+        point_index_dimension_count: usize,
+        point_num_bytes: usize,
         vector_dimension: i32,
         vector_encoding: VectorEncoding,
         vector_similarity_function: VectorSimilarityFunction,
@@ -191,25 +192,6 @@ impl FieldInfo {
             return Err(LuceneError::illegal_argument(format!(
                 "field '{}' cannot have a docvalues update generation without having docvalues",
                 self.name
-            )));
-        }
-
-        if self.point_dimension_count < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "pointDimensionCount must be >= 0; got {} (field: '{}')",
-                self.point_dimension_count, self.name
-            )));
-        }
-        if self.point_index_dimension_count < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "pointIndexDimensionCount must be >= 0; got {} (field: '{}')",
-                self.point_index_dimension_count, self.name
-            )));
-        }
-        if self.point_num_bytes < 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "pointNumBytes must be >= 0; got {} (field: '{}')",
-                self.point_num_bytes, self.name
             )));
         }
 
@@ -372,12 +354,12 @@ impl FieldInfo {
     /// Verify that the provided points indexing options are the same
     pub(crate) fn verify_same_points_options(
         field_name: &str,
-        point_dimension_count1: i32,
-        index_dimension_count1: i32,
-        num_bytes1: i32,
-        point_dimension_count2: i32,
-        index_dimension_count2: i32,
-        num_bytes2: i32,
+        point_dimension_count1: usize,
+        index_dimension_count1: usize,
+        num_bytes1: usize,
+        point_dimension_count2: usize,
+        index_dimension_count2: usize,
+        num_bytes2: usize,
     ) -> Result<()> {
         if point_dimension_count1 != point_dimension_count2
             || index_dimension_count1 != index_dimension_count2
@@ -412,11 +394,11 @@ impl FieldInfo {
     /// of dimensions and bytes per dimension.
     pub fn set_point_dimensions(
         &mut self,
-        dimension_count: i32,
-        index_dimension_count: i32,
-        num_bytes: i32,
+        dimension_count: usize,
+        index_dimension_count: usize,
+        num_bytes: usize,
     ) -> Result<()> {
-        if dimension_count <= 0 {
+        if dimension_count == 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "point dimension count must be >= 0; got {} for field=\"{}\"",
                 dimension_count, self.name
@@ -434,7 +416,7 @@ impl FieldInfo {
                 dimension_count, index_dimension_count, self.name
             )));
         }
-        if num_bytes <= 0 {
+        if num_bytes == 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "point numBytes must be >= 0; got {} for field=\"{}\"",
                 num_bytes, self.name
@@ -474,17 +456,17 @@ impl FieldInfo {
         self.check_consistency()
     }
     /// Return point data dimension count
-    pub fn get_point_dimension_count(&self) -> i32 {
+    pub fn get_point_dimension_count(&self) -> usize {
         self.point_dimension_count
     }
 
     /// Return point data dimension count
-    pub fn get_point_index_dimension_count(&self) -> i32 {
+    pub fn get_point_index_dimension_count(&self) -> usize {
         self.point_index_dimension_count
     }
 
     /// Return number of bytes per dimension
-    pub fn get_point_num_bytes(&self) -> i32 {
+    pub fn get_point_num_bytes(&self) -> usize {
         self.point_num_bytes
     }
 

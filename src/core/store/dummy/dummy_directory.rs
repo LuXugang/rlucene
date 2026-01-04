@@ -53,7 +53,7 @@ impl Directory for DummyDirectory {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn file_length(&self, _name: &str) -> Result<i64> {
+    fn file_length(&self, _name: &str) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
     fn create_output(&self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {

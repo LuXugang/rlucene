@@ -90,7 +90,7 @@ where
         ))
     }
 
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         self.sub_compound_dir.file_length(name)
     }
 

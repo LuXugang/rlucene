@@ -70,8 +70,8 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct PointRangeQuery {
     field: String,
-    num_dims: i32,
-    bytes_per_dim: i32,
+    num_dims: usize,
+    bytes_per_dim: usize,
     lower_point: Vec<u8>,
     upper_point: Vec<u8>,
     sub: PointRangeBaseEnum,
@@ -92,25 +92,19 @@ impl PointRangeQuery {
         field: String,
         lower_point: Vec<u8>,
         upper_point: Vec<u8>,
-        num_dims: i32,
+        num_dims: usize,
         sub: S,
     ) -> Result<Self>
     where
         S: Into<PointRangeBaseEnum>,
     {
         check_args(&field, lower_point.as_ref(), upper_point.as_ref())?;
-        if num_dims <= 0 {
-            return Err(LuceneError::illegal_argument(format!(
-                "num_dims must be positive, got {}",
-                num_dims
-            )));
-        }
         if lower_point.is_empty() {
             return Err(LuceneError::illegal_argument(
                 "lower_point has length of zero".to_string(),
             ));
         }
-        if !lower_point.len().is_multiple_of(num_dims as usize) {
+        if !lower_point.len().is_multiple_of(num_dims) {
             return Err(LuceneError::illegal_argument(
                 "lower_point is not a fixed multiple of num_dims".to_string(),
             ));
@@ -123,7 +117,7 @@ impl PointRangeQuery {
             )));
         }
 
-        let bytes_per_dim = lower_point.len() as i32 / num_dims;
+        let bytes_per_dim = lower_point.len() / num_dims;
 
         Ok(Self {
             field,
@@ -154,8 +148,8 @@ impl PointRangeQuery {
             if i > 0 {
                 sb.push(',');
             }
-            let start = (self.bytes_per_dim * i) as usize;
-            let end = start + self.bytes_per_dim as usize;
+            let start = self.bytes_per_dim * i;
+            let end = start + self.bytes_per_dim;
 
             let lower = &self.lower_point[start..end];
             let upper = &self.upper_point[start..end];
@@ -259,7 +253,7 @@ where
     LR: LeafReader,
 {
     pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
-        let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim as usize);
+        let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
         let point_range_query = Arc::new(query.clone());
         let parent_query = Arc::new(query.into());
         Self {
@@ -348,7 +342,8 @@ where
             Relation::CellInsideQuery => {
                 // This cell is fully inside the query shape: return the size of the entire node as the
                 // count
-                visitor.matching_node_count += point_tree.size()?;
+                let v: i64 = point_tree.size()?.try_into()?;
+                visitor.matching_node_count += v;
                 Ok(())
             },
 
@@ -434,8 +429,8 @@ where
             let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
 
             let q = self.query.as_ref();
-            let num_dims = q.num_dims as usize;
-            let bytes_per_dim = q.bytes_per_dim as usize;
+            let num_dims = q.num_dims;
+            let bytes_per_dim = q.bytes_per_dim;
 
             for i in 0..num_dims {
                 let offset = i * bytes_per_dim;
@@ -469,8 +464,8 @@ where
             let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
 
             let q = self.query.as_ref();
-            let num_dims = q.num_dims as usize;
-            let bytes_per_dim = q.bytes_per_dim as usize;
+            let num_dims = q.num_dims;
+            let bytes_per_dim = q.bytes_per_dim;
 
             all_docs_match = true;
             for i in 0..num_dims {
@@ -558,8 +553,8 @@ pub(crate) fn matches(
     comparator: &ByteArrayComparatorEnum,
     packed_value: &[u8],
 ) -> Result<bool> {
-    let num_dims = query.num_dims as usize;
-    let bytes_per_dim = query.bytes_per_dim as usize;
+    let num_dims = query.num_dims;
+    let bytes_per_dim = query.bytes_per_dim;
     let mut offset = 0usize;
     for _ in 0..num_dims {
         if comparator.compare(packed_value, offset, query.lower_point.as_ref(), offset) < 0 {
@@ -588,8 +583,8 @@ pub(crate) fn relate(
     min_packed_value: &[u8],
     max_packed_value: &[u8],
 ) -> Result<Relation> {
-    let num_dims = query.num_dims as usize;
-    let bytes_per_dim = query.bytes_per_dim as usize;
+    let num_dims = query.num_dims;
+    let bytes_per_dim = query.bytes_per_dim;
 
     let mut crosses = false;
     let mut offset = 0usize;
@@ -662,8 +657,9 @@ where
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::Scorer>> {
         let reader = context.reader();
+        let v: i32 = self.values.size()?.try_into()?;
         if self.values.get_doc_count()? == reader.max_doc()?
-            && self.values.get_doc_count()? as i64 == self.values.size()?
+            && self.values.get_doc_count()? == v
             && self.cost(context)? > (reader.max_doc()? as i64 / 2)
         {
             let max_doc = reader.max_doc()?;
@@ -946,7 +942,7 @@ pub trait PointRangeBase {
     ///
     /// # Returns
     /// A human-readable representation of the value for debugging.
-    fn to_string(&self, dimension: i32, value: &[u8]) -> String;
+    fn to_string(&self, dimension: usize, value: &[u8]) -> String;
 }
 #[derive(Debug, Clone)]
 pub enum PointRangeBaseEnum {
@@ -982,7 +978,7 @@ impl From<BinaryPointRangeQuery> for PointRangeBaseEnum {
     }
 }
 impl PointRangeBase for PointRangeBaseEnum {
-    fn to_string(&self, dimension: i32, value: &[u8]) -> String {
+    fn to_string(&self, dimension: usize, value: &[u8]) -> String {
         match self {
             PointRangeBaseEnum::Int(q) => q.to_string(dimension, value),
             PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),

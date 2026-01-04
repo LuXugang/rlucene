@@ -909,7 +909,7 @@ where
     P: PointValues,
 {
     debug_assert!(points.get_num_dimensions()? == 1);
-    let comparator = ArrayUtil::get_unsigned_comparator(points.get_bytes_per_dimension()? as usize);
+    let comparator = ArrayUtil::get_unsigned_comparator(points.get_bytes_per_dimension()?);
     match points.get_min_packed_value()? {
         None => {
             return Err(LuceneError::illegal_state(
@@ -945,7 +945,7 @@ where
 {
     debug_assert!(points.get_num_dimensions()? == 1);
 
-    let comparator = ArrayUtil::get_unsigned_comparator(points.get_bytes_per_dimension()? as usize);
+    let comparator = ArrayUtil::get_unsigned_comparator(points.get_bytes_per_dimension()?);
     let min = points
         .get_min_packed_value()?
         .ok_or_else(|| LuceneError::illegal_state("point values has no min packed value"))?;
@@ -990,12 +990,12 @@ where
         return Ok((None, Some(delegate)));
     }
 
-    let bpd = points.get_bytes_per_dimension()? as usize;
+    let bpd = points.get_bytes_per_dimension()?;
     if bpd != BitUtil::INT_BYTES && bpd != BitUtil::LONG_BYTES {
         return Ok((None, Some(delegate)));
     }
 
-    if points.size()? != points.get_doc_count()? as i64 {
+    if points.size()? != points.get_doc_count()?.try_into()? {
         return Ok((None, Some(delegate)));
     }
 

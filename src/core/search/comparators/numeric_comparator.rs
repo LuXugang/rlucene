@@ -52,7 +52,7 @@ where
     pub(crate) field: String,
     missing_value_as_long: i64,
     pub(crate) reverse: bool,
-    bytes_count: i32, // how many bytes are used to encode this number
+    bytes_count: usize, // how many bytes are used to encode this number
     pub(crate) missing_value: V,
     pub(crate) top_value_set: bool,
     pub(crate) single_sort: bool, // true if sort is based on a single sort field
@@ -70,7 +70,7 @@ where
         missing_value: V,
         reverse: bool,
         pruning: Pruning,
-        bytes_count: i32,
+        bytes_count: usize,
         missing_value_as_long: i64,
     ) -> Self {
         Self {

@@ -29,14 +29,14 @@ pub struct OfflinePointReader<I>
 where
     I: IndexInput,
 {
-    count_left: i64,
+    count_left: usize,
     input: Option<I>,
     check_sum_input: Option<BufferedChecksumIndexInput<I>>,
-    offset: i32,
+    offset: usize,
     checked: bool,
     config: BKDConfig,
-    points_in_buffer: i32,
-    max_point_on_heap: i32,
+    points_in_buffer: usize,
+    max_point_on_heap: usize,
     // File name we are reading
     name: String,
     pub(crate) point_value: PointValueEnum,
@@ -50,15 +50,15 @@ where
         config: BKDConfig,
         temp_dir: &D,
         temp_file_name: &str,
-        start: i64,
-        length: i64,
+        start: usize,
+        length: usize,
         reusable_buffer: Vec<u8>,
     ) -> Result<Self>
     where
         D: Directory<IndexInput = I>,
     {
-        let bytes_per_doc = config.bytes_per_doc() as i64;
-        let footer_length = CodecUtil::footer_length() as i64;
+        let bytes_per_doc = config.bytes_per_doc();
+        let footer_length = CodecUtil::footer_length();
         let file_length = temp_dir.file_length(temp_file_name)?;
         if ((start + length) * bytes_per_doc + footer_length) > file_length {
             return Err(LuceneError::illegal_argument(format!(
@@ -71,7 +71,7 @@ where
             )));
         }
         let reusable_buffer_len = reusable_buffer.len();
-        if reusable_buffer_len < config.bytes_per_doc() as usize {
+        if reusable_buffer_len < config.bytes_per_doc() {
             return Err(LuceneError::illegal_argument(format!(
                 "Length of reusableBuffer must be bigger than {}",
                 config.bytes_per_doc()
@@ -79,9 +79,9 @@ where
         }
 
         debug_assert!(reusable_buffer_len <= i32::MAX as usize);
-        let max_point_on_heap = reusable_buffer_len as i32 / config.bytes_per_doc();
+        let max_point_on_heap = reusable_buffer_len / config.bytes_per_doc();
         let name = temp_file_name.to_string();
-        let seek_fp = start * bytes_per_doc;
+        let seek_fp: i64 = (start * bytes_per_doc).try_into()?;
         let (check_sum_input, input) =
             if start == 0 && (length * bytes_per_doc == file_length - footer_length) {
                 let mut check_sum_input = temp_dir.open_checksum_input(temp_file_name)?;
@@ -122,21 +122,21 @@ where
                 return Ok(false);
             }
             let read_len;
-            if self.count_left > self.max_point_on_heap as i64 {
+            if self.count_left > self.max_point_on_heap {
                 read_len = self.max_point_on_heap * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
                         if self.check_sum_input.is_some() {
                             self.check_sum_input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len as usize],
+                                &mut offline.value[0..read_len],
                                 0,
-                                read_len,
+                                read_len.try_into()?,
                             )?;
                         } else {
                             self.input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len as usize],
+                                &mut offline.value[0..read_len],
                                 0,
-                                read_len,
+                                read_len.try_into()?,
                             )?;
                         }
                     },
@@ -146,22 +146,22 @@ where
                 }
 
                 self.points_in_buffer = self.max_point_on_heap - 1;
-                self.count_left -= self.max_point_on_heap as i64;
+                self.count_left -= self.max_point_on_heap;
             } else {
-                read_len = self.count_left as i32 * bytes_per_doc;
+                read_len = self.count_left * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
                         if self.check_sum_input.is_some() {
                             self.check_sum_input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len as usize],
+                                &mut offline.value[0..read_len],
                                 0,
-                                read_len,
+                                read_len.try_into()?,
                             )?;
                         } else {
                             self.input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len as usize],
+                                &mut offline.value[0..read_len],
                                 0,
-                                read_len,
+                                read_len.try_into()?,
                             )?;
                         }
                     },
@@ -169,7 +169,7 @@ where
                         debug_assert!(false, "PointValueEnum must be Offline");
                     },
                 }
-                self.points_in_buffer = (self.count_left - 1) as i32;
+                self.points_in_buffer = self.count_left - 1;
                 self.count_left = 0;
             }
             self.offset = 0;
@@ -180,7 +180,7 @@ where
         Ok(true)
     }
 
-    fn point_value(&mut self) -> &PointValueEnum {
+    fn point_value(&mut self) -> Result<&PointValueEnum> {
         match &mut self.point_value {
             PointValueEnum::Offline(offline) => {
                 offline.set_offset(self.offset);
@@ -189,7 +189,7 @@ where
                 debug_assert!(false, "PointValueEnum must be Offline");
             },
         }
-        &self.point_value
+        Ok(&self.point_value)
     }
 }
 impl<I> Drop for OfflinePointReader<I>
@@ -211,10 +211,10 @@ where
 
 /// Reusable implementation for a point value offline.
 pub(crate) struct OfflinePointValue {
-    pub(crate) offset: i32,
+    pub(crate) offset: usize,
     pub(crate) value: Vec<u8>,
-    pub(crate) packed_value_length: i32,
-    pub(crate) packed_value_doc_id_length: i32,
+    pub(crate) packed_value_length: usize,
+    pub(crate) packed_value_doc_id_length: usize,
 }
 impl OfflinePointValue {
     pub fn new(config: &BKDConfig, value: Vec<u8>) -> Self {
@@ -227,20 +227,20 @@ impl OfflinePointValue {
     }
 }
 impl PointValue for OfflinePointValue {
-    fn set_offset(&mut self, offset: i32) {
+    fn set_offset(&mut self, offset: usize) {
         self.offset = offset;
     }
 
-    fn packed_value(&self) -> (&[u8], i32, i32) {
+    fn packed_value(&self) -> (&[u8], usize, usize) {
         (&self.value, self.offset, self.packed_value_length)
     }
 
     fn doc_id(&self) -> i32 {
-        let position = (self.offset + self.packed_value_length) as usize;
+        let position = self.offset + self.packed_value_length;
         BitUtil::get_i32_be(&self.value[position..], 0)
     }
 
-    fn packed_value_doc_id_bytes(&self) -> (&[u8], i32, i32) {
+    fn packed_value_doc_id_bytes(&self) -> (&[u8], usize, usize) {
         (&self.value, self.offset, self.packed_value_doc_id_length)
     }
 }

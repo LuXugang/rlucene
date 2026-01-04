@@ -21,17 +21,17 @@ use crate::core::util::bkd::offline_point_reader::OfflinePointValue;
 /// Represents a dimensional point value written in the BKD tree.
 pub(crate) trait PointValue {
     /// Sets a new value by changing the offset.
-    fn set_offset(&mut self, offset: i32);
+    fn set_offset(&mut self, offset: usize);
 
     /// Returns the packed values for the dimensions.
-    fn packed_value(&self) -> (&[u8], i32, i32);
+    fn packed_value(&self) -> (&[u8], usize, usize);
 
     /// Returns the docID.
     fn doc_id(&self) -> i32;
 
     /// Returns the byte representation of the packed value together with the
     /// docID.
-    fn packed_value_doc_id_bytes(&self) -> (&[u8], i32, i32);
+    fn packed_value_doc_id_bytes(&self) -> (&[u8], usize, usize);
 }
 
 pub(crate) enum PointValueEnum {
@@ -40,14 +40,14 @@ pub(crate) enum PointValueEnum {
 }
 
 impl PointValue for PointValueEnum {
-    fn set_offset(&mut self, offset: i32) {
+    fn set_offset(&mut self, offset: usize) {
         match self {
             PointValueEnum::Heap(heap) => heap.set_offset(offset),
             PointValueEnum::Offline(offline) => offline.set_offset(offset),
         }
     }
 
-    fn packed_value(&self) -> (&[u8], i32, i32) {
+    fn packed_value(&self) -> (&[u8], usize, usize) {
         match self {
             PointValueEnum::Heap(heap) => heap.packed_value(),
             PointValueEnum::Offline(offline) => offline.packed_value(),
@@ -61,7 +61,7 @@ impl PointValue for PointValueEnum {
         }
     }
 
-    fn packed_value_doc_id_bytes(&self) -> (&[u8], i32, i32) {
+    fn packed_value_doc_id_bytes(&self) -> (&[u8], usize, usize) {
         match self {
             PointValueEnum::Heap(heap) => heap.packed_value_doc_id_bytes(),
             PointValueEnum::Offline(offline) => offline.packed_value_doc_id_bytes(),

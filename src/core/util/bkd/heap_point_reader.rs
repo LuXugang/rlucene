@@ -17,25 +17,25 @@
 
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct HeapPointReader {
     points: Option<PointValueEnum>,
-    cur_read: i32,
-    end: i32,
-    bytes_per_doc: i32,
+    cur_read: Option<usize>,
+    end: usize,
+    bytes_per_doc: usize,
 }
 
 impl HeapPointReader {
     pub fn new(
         get_slice: Option<PointValueEnum>,
-        start: i32,
-        end: i32,
-        bytes_per_doc: i32,
+        start: usize,
+        end: usize,
+        bytes_per_doc: usize,
     ) -> Self {
         HeapPointReader {
             points: get_slice,
-            cur_read: start - 1,
+            cur_read: start.checked_sub(1),
             end,
             bytes_per_doc,
         }
@@ -46,16 +46,25 @@ impl HeapPointReader {
 }
 impl PointReader for HeapPointReader {
     fn next(&mut self) -> Result<bool> {
-        self.cur_read += 1;
-        Ok(self.cur_read < self.end)
+        self.cur_read = match self.cur_read {
+            None => Some(0),
+            Some(i) => i.checked_add(1),
+        };
+
+        Ok(matches!(self.cur_read, Some(i) if i < self.end))
     }
 
-    fn point_value(&mut self) -> &PointValueEnum {
-        debug_assert!(self.points.is_some());
-        self.points
-            .as_mut()
-            .unwrap()
-            .set_offset(self.bytes_per_doc * self.cur_read);
-        self.points.as_ref().unwrap()
+    fn point_value(&mut self) -> Result<&PointValueEnum> {
+        let cur_read = match self.cur_read {
+            Some(i) => i,
+            None => return Err(LuceneError::illegal_state("Iterator not yet advanced")),
+        };
+        match self.points {
+            None => return Err(LuceneError::illegal_state("No points available")),
+            Some(ref mut points) => {
+                points.set_offset(self.bytes_per_doc * cur_read);
+            },
+        }
+        Ok(self.points.as_ref().unwrap())
     }
 }

@@ -156,8 +156,8 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_header`](CodecUtil::write_header)
-    pub fn header_length(codec: &str) -> i32 {
-        9 + codec.len() as i32
+    pub fn header_length(codec: &str) -> usize {
+        9 + codec.len()
     }
     /// Computes the length of an index header.
     ///
@@ -169,9 +169,8 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_index_header`](CodecUtil::write_index_header)
-    pub fn index_header_length(codec: &str, suffix: &str) -> i32 {
-        debug_assert!(suffix.len() <= i32::MAX as usize);
-        Self::header_length(codec) + StringHelper::ID_LENGTH as i32 + 1 + (suffix.len() as i32)
+    pub fn index_header_length(codec: &str, suffix: &str) -> usize {
+        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + suffix.len()
     }
     /// Reads and validates a header previously written with
     /// [`write_header`](CodecUtil::write_header).
@@ -375,13 +374,12 @@ impl CodecUtil {
         let codec = data_input.read_string()?;
         Self::read_be_int(data_input)?;
         data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64)?;
-        let suffix_length = data_input.read_byte()?;
-        let bytes_len =
-            Self::header_length(&codec) + StringHelper::ID_LENGTH as i32 + 1 + suffix_length as i32;
+        let suffix_length = data_input.read_byte()? as usize;
+        let bytes_len = Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length;
 
-        let mut bytes: Vec<u8> = vec![0u8; bytes_len as usize];
+        let mut bytes: Vec<u8> = vec![0u8; bytes_len];
         data_input.seek(0)?;
-        data_input.read_bytes(&mut bytes, 0, bytes_len)?;
+        data_input.read_bytes(&mut bytes, 0, bytes_len.try_into()?)?;
         Ok(bytes)
     }
 
@@ -398,11 +396,12 @@ impl CodecUtil {
                 data_input
             )));
         }
-        data_input.seek(data_input.length() - Self::footer_length() as i64)?;
+        let footer_len: i64 = Self::footer_length().try_into()?;
+        data_input.seek(data_input.length() - footer_len)?;
         Self::validate_footer(data_input)?;
-        data_input.seek(data_input.length() - Self::footer_length() as i64)?;
-        let mut bytes: Vec<u8> = vec![0u8; Self::footer_length() as usize];
-        data_input.read_bytes(&mut bytes, 0, Self::footer_length())?;
+        data_input.seek(data_input.length() - footer_len)?;
+        let mut bytes: Vec<u8> = vec![0u8; Self::footer_length()];
+        data_input.read_bytes(&mut bytes, 0, Self::footer_length().try_into()?)?;
         Ok(bytes)
     }
     /// Expert: reads and verifies the object ID of an index header.
@@ -475,7 +474,7 @@ impl CodecUtil {
     ///
     /// # See Also
     /// - [`write_footer`](CodecUtil::write_footer)
-    pub fn footer_length() -> i32 {
+    pub fn footer_length() -> usize {
         16
     }
 

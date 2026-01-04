@@ -294,10 +294,13 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 };
                 let dv_gen = input.read_long()?;
                 let attributes = input.read_map_of_strings()?;
-                let point_data_dimension_count = input.read_vint()?;
+                let point_data_dimension_count = input.read_vint()?.try_into()?;
                 let (point_index_dimension_count, point_num_bytes) =
                     if point_data_dimension_count != 0 {
-                        (input.read_vint()?, input.read_vint()?)
+                        (
+                            input.read_vint()?.try_into()?,
+                            input.read_vint()?.try_into()?,
+                        )
                     } else {
                         (point_data_dimension_count, 0)
                     };
@@ -399,10 +402,10 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             output.write_long(fi.get_doc_values_gen())?;
             output.write_map_of_strings(&fi.attributes().lock().attributes)?;
 
-            output.write_vint(fi.get_point_dimension_count())?;
+            output.write_vint(fi.get_point_dimension_count() as i32)?;
             if fi.get_point_dimension_count() != 0 {
-                output.write_vint(fi.get_point_index_dimension_count())?;
-                output.write_vint(fi.get_point_num_bytes())?;
+                output.write_vint(fi.get_point_index_dimension_count() as i32)?;
+                output.write_vint(fi.get_point_num_bytes() as i32)?;
             }
             output.write_vint(fi.get_vector_dimension())?;
             output.write_byte(Self::vector_encoding_byte(fi.get_vector_encoding()))?;

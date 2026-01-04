@@ -306,7 +306,7 @@ where
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id, self.max_doc)?;
+        CoreHelper::check_index(doc_id.try_into()?, self.max_doc.try_into()?)?;
         self.reader.prefetch(doc_id)
     }
 
@@ -317,7 +317,7 @@ where
         writer: Option<&mut S>,
     ) -> Result<()> {
         // Don't trust the codec to do proper checks
-        CoreHelper::check_index(doc_id, self.max_doc)?;
+        CoreHelper::check_index(doc_id.try_into()?, self.max_doc.try_into()?)?;
         self.reader.document_with_visitor(doc_id, visitor, writer)
     }
 }

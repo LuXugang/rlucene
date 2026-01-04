@@ -58,7 +58,7 @@ impl DoubleComparator {
             missing_value,
             reverse,
             pruning,
-            BitUtil::DOUBLE_BYTES as i32,
+            BitUtil::DOUBLE_BYTES,
             NumericUtils::double_to_sortable_long(missing_value),
         );
         Self {

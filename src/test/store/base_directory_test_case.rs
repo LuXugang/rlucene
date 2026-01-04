@@ -1010,7 +1010,7 @@ pub trait BaseDirectoryTestCase {
             output.write_bytes_range(&bytes, 0, byte_upto as i32)?;
             assert_eq!(size as i64, output.get_file_pointer());
         }
-        assert_eq!(size as i64, dir.file_length("test")?);
+        assert_eq!(size as i64, dir.file_length("test")?.try_into()?);
 
         {
             let mut input = dir.open_input("test", &io_context)?;

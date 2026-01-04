@@ -49,7 +49,7 @@ impl PointTree for DummyPointTree {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

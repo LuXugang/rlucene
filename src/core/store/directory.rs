@@ -81,7 +81,7 @@ pub trait Directory: Display + Closeable + SameInstance {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    fn file_length(&self, name: &str) -> Result<i64>;
+    fn file_length(&self, name: &str) -> Result<usize>;
     /// Creates a new, empty file in the directory and returns an `IndexOutput`
     /// instance for appending data to this file.
     ///
@@ -297,7 +297,7 @@ macro_rules! either_directory {
                 }
             }
 
-            fn file_length(&self, name: &str) -> Result<i64> {
+            fn file_length(&self, name: &str) -> Result<usize> {
                 match self {
                     $( Self::$Variant(inner) => inner.file_length(name), )+
                 }
@@ -435,7 +435,7 @@ impl<D: Directory> Directory for &D {
     fn delete_file(&self, name: &str) -> Result<()> {
         (**self).delete_file(name)
     }
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         (**self).file_length(name)
     }
 
@@ -512,7 +512,7 @@ impl<D: Directory> Directory for Arc<D> {
     fn delete_file(&self, name: &str) -> Result<()> {
         (**self).delete_file(name)
     }
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         (**self).file_length(name)
     }
 

@@ -26,14 +26,14 @@ where
 {
     delegate: T,
     fixed_start_offsets: Vec<i32>,
-    max_length: i32,
+    max_length: usize,
 }
 
 impl<T> StableMSBRadixSorter<T>
 where
     T: StableMSBRadixSorterBase,
 {
-    pub fn new(delegate: T, max_length: i32) -> StableMSBRadixSorter<T> {
+    pub fn new(delegate: T, max_length: usize) -> StableMSBRadixSorter<T> {
         StableMSBRadixSorter {
             delegate,
             fixed_start_offsets: vec![0; HISTOGRAM_SIZE],
@@ -53,7 +53,7 @@ where
     }
 
     fn get_fallback_sorter(&mut self, k: i32, _length: i32) -> impl Sorter {
-        let delegate = MergeSorterImpl::new(k, self.max_length, &mut self.delegate);
+        let delegate = MergeSorterImpl::new(k as usize, self.max_length, &mut self.delegate);
         MergeSorter {
             delegate,
             pivot_index: 0,
@@ -204,15 +204,15 @@ pub struct MergeSorterImpl<'a, T>
 where
     T: StableMSBRadixSorterBase,
 {
-    k: i32,
-    max_length: i32,
+    k: usize,
+    max_length: usize,
     delegate: &'a mut T,
 }
 impl<'a, T> MergeSorterImpl<'a, T>
 where
     T: StableMSBRadixSorterBase,
 {
-    pub fn new(k: i32, max_length: i32, delegate: &'a mut T) -> MergeSorterImpl<'a, T>
+    pub fn new(k: usize, max_length: usize, delegate: &'a mut T) -> MergeSorterImpl<'a, T>
     where
         T: StableMSBRadixSorterBase,
     {
@@ -229,8 +229,8 @@ where
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         for o in self.k..self.max_length {
-            let b1 = self.delegate.byte_at(i, o)?;
-            let b2 = self.delegate.byte_at(j, o)?;
+            let b1 = self.delegate.byte_at(i, o.try_into()?)?;
+            let b2 = self.delegate.byte_at(j, o.try_into()?)?;
             if b1 != b2 {
                 return Ok(b1 - b2);
             } else if b1 == -1 {
@@ -299,7 +299,8 @@ mod tests {
         let final_max_length = max_length;
         let mut actual = refs[..len].to_vec();
         let delegate = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
-        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, final_max_length);
+        let stable_msb_radix_sorter =
+            StableMSBRadixSorter::new(delegate, final_max_length.try_into()?);
         let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
         msb_radix_sorter.sort(0, len as i32)?;
 

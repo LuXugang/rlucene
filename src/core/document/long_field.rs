@@ -43,7 +43,7 @@ pub mod long_field_type {
 
     pub static FIELD_TYPE: Lazy<FieldType> = Lazy::new(|| {
         let mut ft = FieldType::new();
-        ft.set_dimensions(1, BitUtil::LONG_BYTES as i32)
+        ft.set_dimensions(1, BitUtil::LONG_BYTES)
             .expect("set_dimensions should not fail");
         ft.set_doc_values_type(DocValuesType::SortedNumeric)
             .expect("set_doc_values_type should not fail");

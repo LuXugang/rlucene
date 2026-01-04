@@ -39,15 +39,15 @@ pub trait PointValues: Clone {
     fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>>;
 
     /// Returns how many dimensions are represented in the values
-    fn get_num_dimensions(&self) -> Result<i32>;
+    fn get_num_dimensions(&self) -> Result<usize>;
 
     /// Returns how many dimensions are used for the index
-    fn get_num_index_dimensions(&self) -> Result<i32>;
+    fn get_num_index_dimensions(&self) -> Result<usize>;
     /// Returns the number of bytes per dimension
-    fn get_bytes_per_dimension(&self) -> Result<i32>;
+    fn get_bytes_per_dimension(&self) -> Result<usize>;
 
     /// Returns the total number of indexed points across all documents.
-    fn size(&self) -> Result<i64>;
+    fn size(&self) -> Result<usize>;
 
     /// Returns the total number of documents that have indexed at least one
     /// point.
@@ -84,7 +84,7 @@ pub trait PointValues: Clone {
     fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;
-        let size = self.size()?;
+        let size: i64 = self.size()?.try_into()?;
 
         if estimated_point_count >= size {
             // math all docs
@@ -123,7 +123,8 @@ where
 
     for leaf in leaves.iter() {
         if let Some(values) = leaf.reader().get_point_values(field)? {
-            size += values.size()?;
+            let v: i64 = values.size()?.try_into()?;
+            size += v;
         }
     }
 
@@ -184,12 +185,12 @@ where
 
         let num_dimensions = values.get_num_index_dimensions()?;
         let num_bytes_per_dimension = values.get_bytes_per_dimension()?;
-        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension as usize);
+        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension);
         for i in 0..num_dimensions {
-            let offset = (i * num_bytes_per_dimension) as usize;
+            let offset = i * num_bytes_per_dimension;
             if comparator.compare(&leaf_min_value, offset, min_value_ref, offset) < 0 {
                 min_value_ref.copy_from(
-                    &leaf_min_value[offset..offset + num_bytes_per_dimension as usize],
+                    &leaf_min_value[offset..offset + num_bytes_per_dimension],
                     offset,
                 );
             }
@@ -230,13 +231,13 @@ where
 
         let num_dimensions = values.get_num_index_dimensions()?;
         let num_bytes_per_dimension = values.get_bytes_per_dimension()?;
-        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension as usize);
+        let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension);
 
         for dim in 0..num_dimensions {
-            let offset = (dim * num_bytes_per_dimension) as usize;
+            let offset = dim * num_bytes_per_dimension;
             if comparator.compare(&leaf_max_value, offset, max_value_ref, offset) > 0 {
                 max_value_ref.copy_from(
-                    &leaf_max_value[offset..offset + num_bytes_per_dimension as usize],
+                    &leaf_max_value[offset..offset + num_bytes_per_dimension],
                     offset,
                 );
             }
@@ -313,7 +314,7 @@ fn estimate_point_count_with_point_tree(
         },
         Relation::CellInsideQuery => {
             // This cell is fully inside the query shape: add all points
-            point_tree.size()
+            Ok(point_tree.size()?.try_into()?)
         },
         Relation::CellCrossesQuery => {
             // The cell crosses the shape boundary: keep recursing
@@ -333,7 +334,8 @@ fn estimate_point_count_with_point_tree(
                 Ok(cost)
             } else {
                 // Assume half the points matched
-                Ok((point_tree.size()? + 1) / 2)
+                let v: i64 = point_tree.size()?.try_into()?;
+                Ok((v + 1) / 2)
             }
         },
     }
@@ -391,7 +393,7 @@ pub trait PointTree: TryClone {
     }
 
     /// Return the number of points below the current node.
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         Err(LuceneError::need_implemented("size is not implemented"))
     }
 
@@ -492,9 +494,9 @@ pub trait IntersectVisitor {
     }
 }
 
-pub const MAX_NUM_BYTES: i32 = 16;
-pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
-pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
+pub const MAX_NUM_BYTES: usize = 16;
+pub const MAX_DIMENSIONS: usize = BKDConfig::MAX_DIMS;
+pub const MAX_INDEX_DIMENSIONS: usize = BKDConfig::MAX_INDEX_DIMS;
 
 pub enum PointTreeEnum<MPT, PT>
 where
@@ -561,7 +563,7 @@ where
         }
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         match self {
             PointTreeEnum::Mutable(mpt) => mpt.size(),
             PointTreeEnum::Other(pt) => pt.size(),
@@ -601,19 +603,19 @@ where
         (**self).get_max_packed_value()
     }
 
-    fn get_num_dimensions(&self) -> Result<i32> {
+    fn get_num_dimensions(&self) -> Result<usize> {
         (**self).get_num_dimensions()
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32> {
+    fn get_num_index_dimensions(&self) -> Result<usize> {
         (**self).get_num_index_dimensions()
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32> {
+    fn get_bytes_per_dimension(&self) -> Result<usize> {
         (**self).get_bytes_per_dimension()
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         (**self).size()
     }
 
@@ -1020,7 +1022,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
-        let err = BinaryPoint::new("dim", vec![vec![0u8; (MAX_NUM_BYTES + 1) as usize]]);
+        let err = BinaryPoint::new("dim", vec![vec![0u8; MAX_NUM_BYTES + 1]]);
         match err {
             Err(LuceneError::IllegalArgument(_)) => {},
             _ => unreachable!(""),
@@ -1044,7 +1046,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
         let iwc = new_index_writer_config(&mut random);
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
-        let mut values: Vec<Vec<u8>> = Vec::with_capacity((MAX_INDEX_DIMENSIONS + 1) as usize);
+        let mut values: Vec<Vec<u8>> = Vec::with_capacity(MAX_INDEX_DIMENSIONS + 1);
         for _ in 0..(MAX_INDEX_DIMENSIONS + 1) {
             values.push(vec![0u8; 4]);
         }
@@ -1510,7 +1512,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
 
                 assert_eq!(expected.get_doc_count()?, get_doc_count(&reader1, "field")?);
 
-                assert_eq!(expected.size()?, size(&reader1, "field")?);
+                assert_eq!(expected.size()?, size(&reader1, "field")?.try_into()?);
             },
             None => {
                 assert_eq!(get_min_packed_value(&reader1, "field")?, None);

@@ -1770,9 +1770,9 @@ pub(crate) struct FieldSchema {
     index_options: IndexOptions,
     doc_values_type: DocValuesType,
     doc_values_skip_index: DocValuesSkipIndexType,
-    point_dimension_count: i32,
-    point_index_dimension_count: i32,
-    point_num_bytes: i32,
+    point_dimension_count: usize,
+    point_index_dimension_count: usize,
+    point_num_bytes: usize,
     vector_dimension: i32,
     vector_encoding: VectorEncoding,
     vector_similarity_function: VectorSimilarityFunction,
@@ -1865,9 +1865,9 @@ impl FieldSchema {
 
     pub(crate) fn set_points(
         &mut self,
-        dimension_count: i32,
-        index_dimension_count: i32,
-        num_bytes: i32,
+        dimension_count: usize,
+        index_dimension_count: usize,
+        num_bytes: usize,
     ) -> Result<()> {
         if self.point_index_dimension_count == 0 {
             self.point_dimension_count = dimension_count;

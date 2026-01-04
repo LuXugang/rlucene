@@ -39,15 +39,15 @@ pub trait PointWriter {
         I: IndexInput;
     fn get_reader<D>(
         &mut self,
-        start_point: i64,
-        length: i64,
+        start_point: usize,
+        length: usize,
         temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory;
 
     /// Return the number of points in this writer
-    fn count(&self) -> i64;
+    fn count(&self) -> usize;
 
     /// Removes any temp files behind this writer
     fn destroy<D>(&mut self, dir: &D) -> Result<()>
@@ -108,8 +108,8 @@ where
 
     fn get_reader<D>(
         &mut self,
-        start_point: i64,
-        length: i64,
+        start_point: usize,
+        length: usize,
         temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
@@ -129,7 +129,7 @@ where
         }
     }
 
-    fn count(&self) -> i64 {
+    fn count(&self) -> usize {
         match self {
             PointWriterEnum::Offline(offline) => offline.count(),
             PointWriterEnum::Heap(heap) => heap.count(),

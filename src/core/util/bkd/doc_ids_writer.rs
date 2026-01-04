@@ -49,7 +49,7 @@ pub struct DocIdsWriter {
 impl Clone for DocIdsWriter {
     fn clone(&self) -> Self {
         let max_points_in_leaf = self.scratch.len();
-        DocIdsWriter::new(max_points_in_leaf as i32)
+        DocIdsWriter::new(max_points_in_leaf)
     }
 }
 
@@ -62,14 +62,13 @@ impl DocIdsWriter {
     // These signs are legacy, should no longer be used in the writing side.
     pub const LEGACY_DELTA_VINT: i8 = 0;
 
-    pub fn new(max_points_in_leaf: i32) -> Self {
+    pub fn new(max_points_in_leaf: usize) -> Self {
         let mut scratch_ints_ref = IntsRef::default();
         {
             // This is here to not rely on the default constructor of IntsRef to
             // set1 offset to 0
             scratch_ints_ref.offset = 0;
         }
-        let max_points_in_leaf = max_points_in_leaf as usize;
         Self {
             scratch: vec![0; max_points_in_leaf],
             scratch_longs: LongsRef::new(),
@@ -595,7 +594,7 @@ mod tests {
 
     fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
         let len: i64;
-        let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
+        let mut doc_ids_writer = DocIdsWriter::new(ints.len());
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
             doc_ids_writer.write_doc_ids(ints, 0, ints.len() as i32, &mut out)?;

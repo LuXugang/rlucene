@@ -89,7 +89,7 @@ where
         }
     }
 
-    fn size(&self) -> lucene_error::Result<i64> {
+    fn size(&self) -> lucene_error::Result<usize> {
         match self {
             MutablePointTreeEnum2::A(t) => t.size(),
             MutablePointTreeEnum2::B(s) => s.size(),

@@ -43,20 +43,20 @@ impl IntRange {
         P: AsRef<[i32]>,
     {
         let min = min.as_ref();
-        let field_type = Self::get_type(min.len() as i32)?;
+        let field_type = Self::get_type(min.len())?;
         let mut parent_field = Field::new(name, Dummy(()), field_type);
         Self::set_range_values_internal(&mut parent_field, min, max.as_ref())?;
         Ok(IntRange { parent_field })
     }
 
-    fn get_type(dimensions: i32) -> Result<FieldType> {
+    fn get_type(dimensions: usize) -> Result<FieldType> {
         if dimensions > 4 {
             return Err(LuceneError::illegal_argument(
                 "IntRange does not support greater than 4 dimensions".to_string(),
             ));
         }
         let mut ft = FieldType::new();
-        ft.set_dimensions(dimensions * 2, BitUtil::INT_BYTES as i32)?;
+        ft.set_dimensions(dimensions * 2, BitUtil::INT_BYTES)?;
         ft.freeze();
         Ok(ft)
     }
@@ -69,7 +69,7 @@ impl IntRange {
         Self::check_args(min, max)?;
 
         let dims = parent_field.field_type().point_dimension_count();
-        if min.len() * 2 != dims as usize || max.len() * 2 != dims as usize {
+        if min.len() * 2 != dims || max.len() * 2 != dims {
             return Err(LuceneError::illegal_argument(format!(
                 "field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 parent_field.name(),
@@ -157,17 +157,17 @@ impl IntRange {
         NumericUtils::int_to_sortable_bytes(value, dest, offset)
     }
 
-    fn decode_min(bytes: &[u8], dimension: i32) -> i32 {
-        let offset = dimension as usize * BitUtil::INT_BYTES;
+    fn decode_min(bytes: &[u8], dimension: usize) -> i32 {
+        let offset = dimension * BitUtil::INT_BYTES;
         NumericUtils::sortable_bytes_to_int(bytes, offset)
     }
 
-    fn decode_max(bytes: &[u8], dimension: i32) -> i32 {
-        let offset = bytes.len() / 2 + dimension as usize * BitUtil::INT_BYTES;
+    fn decode_max(bytes: &[u8], dimension: usize) -> i32 {
+        let offset = bytes.len() / 2 + dimension * BitUtil::INT_BYTES;
         NumericUtils::sortable_bytes_to_int(bytes, offset)
     }
 
-    pub fn get_min(&self, dimension: i32) -> Result<i32> {
+    pub fn get_min(&self, dimension: usize) -> Result<i32> {
         CoreHelper::check_index(
             dimension,
             self.parent_field.field_type().point_dimension_count() / 2,
@@ -180,7 +180,7 @@ impl IntRange {
         }
     }
 
-    pub fn get_max(&self, dimension: i32) -> Result<i32> {
+    pub fn get_max(&self, dimension: usize) -> Result<i32> {
         CoreHelper::check_index(
             dimension,
             self.parent_field.field_type().point_dimension_count() / 2,

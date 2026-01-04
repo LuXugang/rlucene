@@ -31,19 +31,19 @@ impl PointValues for DummyPointValues {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_num_dimensions(&self) -> Result<i32> {
+    fn get_num_dimensions(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32> {
+    fn get_num_index_dimensions(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32> {
+    fn get_bytes_per_dimension(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

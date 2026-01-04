@@ -26,19 +26,19 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// - `max_points_in_leaf_node`: Maximum points allowed in a leaf block.
 #[derive(Clone, Debug, Default)]
 pub struct BKDConfig {
-    pub num_dims: i32,
-    pub num_index_dims: i32,
-    pub bytes_per_dim: i32,
-    pub max_points_in_leaf_node: i32,
+    pub num_dims: usize,
+    pub num_index_dims: usize,
+    pub bytes_per_dim: usize,
+    pub max_points_in_leaf_node: usize,
 }
 
 impl BKDConfig {
     /// Default maximum number of points in each leaf block.
-    pub const DEFAULT_MAX_POINTS_IN_LEAF_NODE: i32 = 512;
+    pub const DEFAULT_MAX_POINTS_IN_LEAF_NODE: usize = 512;
     /// Maximum number of index dimensions (2 * max index dimensions).
-    pub const MAX_DIMS: i32 = 16;
+    pub const MAX_DIMS: usize = 16;
     /// Maximum number of index dimensions.
-    pub const MAX_INDEX_DIMS: i32 = 8;
+    pub const MAX_INDEX_DIMS: usize = 8;
     /// Creates a new `BKDConfig` instance after validating the inputs.
     ///
     /// # Errors
@@ -54,10 +54,10 @@ impl BKDConfig {
     /// - `max_points_in_leaf_node` must be greater than 0 and less than or
     ///   equal to `MAX_ARRAY_LENGTH`.
     pub fn new(
-        num_dims: i32,
-        num_index_dims: i32,
-        bytes_per_dim: i32,
-        max_points_in_leaf_node: i32,
+        num_dims: usize,
+        num_index_dims: usize,
+        bytes_per_dim: usize,
+        max_points_in_leaf_node: usize,
     ) -> Result<Self> {
         if !(1..=Self::MAX_DIMS).contains(&num_dims) {
             return Err(LuceneError::illegal_argument(format!(
@@ -73,19 +73,14 @@ impl BKDConfig {
                 num_index_dims
             )));
         }
-        if num_index_dims > num_dims {
-            return Err(LuceneError::illegal_argument(format!(
-                "num_index_dims cannot exceed num_dims (got: {num_dims} vs {num_index_dims})"
-            )));
-        }
-        if bytes_per_dim <= 0 {
+        if bytes_per_dim == 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "bytes_per_dim must be > 0; got {bytes_per_dim}"
             )));
         }
-        if max_points_in_leaf_node <= 0 {
+        if num_index_dims > num_dims {
             return Err(LuceneError::illegal_argument(format!(
-                "max_points_in_leaf_node must be > 0; got {max_points_in_leaf_node}"
+                "num_index_dims cannot exceed num_dims (got: {num_dims} vs {num_index_dims})"
             )));
         }
         //TODO: Implement ArrayUtil::MAX_ARRAY_LENGTH
@@ -105,19 +100,19 @@ impl BKDConfig {
     }
 
     /// Returns `num_dims * bytes_per_dim`.
-    pub fn packed_bytes_length(&self) -> i32 {
+    pub fn packed_bytes_length(&self) -> usize {
         self.num_dims * self.bytes_per_dim
     }
 
     /// Returns `num_index_dims * bytes_per_dim`.
-    pub fn packed_index_bytes_length(&self) -> i32 {
+    pub fn packed_index_bytes_length(&self) -> usize {
         self.num_index_dims * self.bytes_per_dim
     }
 
     /// Returns `(num_dims * bytes_per_dim) + size_of::<i32>()`
     /// (packed_bytes_length plus document ID size).
-    pub fn bytes_per_doc(&self) -> i32 {
-        self.packed_bytes_length() + BitUtil::INT_BYTES as i32
+    pub fn bytes_per_doc(&self) -> usize {
+        self.packed_bytes_length() + BitUtil::INT_BYTES
     }
 }
 #[cfg(test)]
@@ -172,14 +167,6 @@ mod tests {
 
     #[test]
     fn test_invalid_max_points_per_leaf_node() {
-        {
-            let result = BKDConfig::new(1, 1, 8, -1);
-            assert!(result.is_err());
-            if let Err(err) = result {
-                let err_msg = format!("{:?}", err);
-                assert!(err_msg.contains("max_points_in_leaf_node must be > 0"));
-            }
-        }
         {
             // TODO:
             // let result = BKDConfig::new(1, 1, 8, ArrayUtil::MAX_ARRAY_LENGTH

@@ -97,7 +97,10 @@ impl Lucene90CompoundFormat {
             {
                 for filename in files {
                     let file_length = directory.file_length(filename)?;
-                    pq.add(SizedFile::new(filename.to_string(), file_length))?;
+                    pq.add(SizedFile::new(
+                        filename.to_string(),
+                        file_length.try_into()?,
+                    ))?;
                 }
             }
         }

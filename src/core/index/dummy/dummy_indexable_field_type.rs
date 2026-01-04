@@ -65,15 +65,15 @@ impl IndexableFieldType for DummyIndexableFieldType {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn point_dimension_count(&self) -> i32 {
+    fn point_dimension_count(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn point_index_dimension_count(&self) -> i32 {
+    fn point_index_dimension_count(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn point_num_bytes(&self) -> i32 {
+    fn point_num_bytes(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

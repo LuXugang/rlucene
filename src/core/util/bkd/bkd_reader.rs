@@ -50,7 +50,7 @@ where
     data_in: Arc<Mutex<I>>,
     min_packed_value: Vec<u8>,
     max_packed_value: Vec<u8>,
-    point_count: i64,
+    point_count: usize,
     doc_count: i32,
     version: i32,
     #[allow(dead_code)]
@@ -107,15 +107,15 @@ where
     {
         let version = CodecUtil::check_header(meta_in, CODEC_NAME, VERSION_START, VERSION_CURRENT)?;
 
-        let num_dims = meta_in.read_vint()?;
+        let num_dims: usize = meta_in.read_vint()?.try_into()?;
         let num_index_dims = if version >= VERSION_SELECTIVE_INDEXING {
-            meta_in.read_vint()?
+            meta_in.read_vint()?.try_into()?
         } else {
             num_dims
         };
 
-        let max_points_in_leaf_node = meta_in.read_vint()?;
-        let bytes_per_dim = meta_in.read_vint()?;
+        let max_points_in_leaf_node = meta_in.read_vint()?.try_into()?;
+        let bytes_per_dim = meta_in.read_vint()?.try_into()?;
         let config = BKDConfig::new(
             num_dims,
             num_index_dims,
@@ -127,15 +127,25 @@ where
         let num_leaves = meta_in.read_vint()?;
         debug_assert!(num_leaves > 0);
         let packed_index_bytes_length = config.packed_index_bytes_length();
-        let mut min_packed_value = vec![0; packed_index_bytes_length as usize];
-        let mut max_packed_value = vec![0; packed_index_bytes_length as usize];
+        let mut min_packed_value = vec![0; packed_index_bytes_length];
+        let mut max_packed_value = vec![0; packed_index_bytes_length];
 
-        DataInput::read_bytes(meta_in, &mut min_packed_value, 0, packed_index_bytes_length)?;
-        DataInput::read_bytes(meta_in, &mut max_packed_value, 0, packed_index_bytes_length)?;
+        DataInput::read_bytes(
+            meta_in,
+            &mut min_packed_value,
+            0,
+            packed_index_bytes_length as i32,
+        )?;
+        DataInput::read_bytes(
+            meta_in,
+            &mut max_packed_value,
+            0,
+            packed_index_bytes_length as i32,
+        )?;
 
-        let bytes_per_dim = config.bytes_per_dim as usize;
+        let bytes_per_dim = config.bytes_per_dim;
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
-        for dim in 0..config.num_index_dims as usize {
+        for dim in 0..config.num_index_dims {
             let offset = dim * bytes_per_dim;
             if comparator.compare(&min_packed_value, offset, &max_packed_value, offset) > 0 {
                 return Err(LuceneError::corrupt_index(format!(
@@ -148,7 +158,7 @@ where
             }
         }
 
-        let point_count = meta_in.read_vlong()?;
+        let point_count = meta_in.read_vlong()?.try_into()?;
         let doc_count = meta_in.read_vint()?;
         let num_index_bytes = meta_in.read_vint()?;
         Ok((
@@ -195,8 +205,7 @@ where
         }
 
         // Count of the last node for unbalanced trees.
-        let last_leaf_node_point_count =
-            (self.point_count % self.config.max_points_in_leaf_node as i64) as i32;
+        let last_leaf_node_point_count = self.point_count % self.config.max_points_in_leaf_node;
 
         // Navigate to last node.
         let mut point_tree = self.get_point_tree()?;
@@ -204,11 +213,10 @@ where
         while point_tree.move_to_child()? {}
 
         // Count number of docs in the node.
-        let mut count = vec![0; 1];
-        let mut visitor = IntersectVisitorImpl { count: &mut count };
+        let mut visitor = IntersectVisitorImpl::new();
         point_tree.visit_doc_ids(&mut visitor)?;
 
-        Ok(count[0] != last_leaf_node_point_count)
+        Ok(visitor.count != last_leaf_node_point_count)
     }
 }
 impl<I> PointValues for BKDReader<I>
@@ -223,19 +231,19 @@ where
         Ok(Some(Cow::Borrowed(&self.max_packed_value)))
     }
 
-    fn get_num_dimensions(&self) -> Result<i32> {
+    fn get_num_dimensions(&self) -> Result<usize> {
         Ok(self.config.num_dims)
     }
 
-    fn get_num_index_dimensions(&self) -> Result<i32> {
+    fn get_num_index_dimensions(&self) -> Result<usize> {
         Ok(self.config.num_index_dims)
     }
 
-    fn get_bytes_per_dimension(&self) -> Result<i32> {
+    fn get_bytes_per_dimension(&self) -> Result<usize> {
         Ok(self.config.bytes_per_dim)
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         Ok(self.point_count)
     }
 
@@ -310,7 +318,7 @@ pub struct BKDPointTree<I: IndexInput> {
     /// level.
     right_node_positions: Vec<i32>,
     /// Holds the splitDim position for each level.
-    split_dims_pos: Vec<i32>,
+    split_dims_pos: Vec<usize>,
     /// True if the per-dimension delta we read for the node at this level is a
     /// negative offset versus the last split on this dimension.
     /// This is a packed 2D array, i.e., to access `array[level][dim]`,
@@ -332,16 +340,16 @@ pub struct BKDPointTree<I: IndexInput> {
     /// Version of the index.
     version: i32,
     /// Total number of points.
-    point_count: i64,
+    point_count: usize,
     /// Last node might not be fully populated.
-    last_leaf_node_point_count: i32,
+    last_leaf_node_point_count: usize,
     /// Right-most leaf node ID.
     right_most_leaf_node: i32,
     /// Helper objects for reading doc values.
     scratch_data_packed_value: Vec<u8>,
     scratch_min_index_packed_value: Vec<u8>,
     scratch_max_index_packed_value: Vec<u8>,
-    common_prefix_lengths: Vec<i32>,
+    common_prefix_lengths: Vec<usize>,
     scratch_iterator: BKDReaderDocIDSetIterator,
     /// If true, the tree is balanced; otherwise, it is unbalanced.
     is_tree_balanced: bool,
@@ -358,14 +366,14 @@ where
         config: BKDConfig,
         num_leaves: i32,
         version: i32,
-        point_count: i64,
+        point_count: usize,
         min_packed_value: &[u8],
         max_packed_value: &[u8],
         is_tree_balanced: bool,
     ) -> Result<Self> {
-        let packed_bytes_len = config.packed_bytes_length() as usize;
-        let packed_index_bytes_len = config.packed_index_bytes_length() as usize;
-        let num_dims = config.num_dims as usize;
+        let packed_bytes_len = config.packed_bytes_length();
+        let packed_index_bytes_len = config.packed_index_bytes_length();
+        let num_dims = config.num_dims;
         let disi_len = config.max_points_in_leaf_node;
 
         let mut tree = Self::with_scratch_iterator(
@@ -396,7 +404,7 @@ where
         config: BKDConfig,
         num_leaves: i32,
         version: i32,
-        point_count: i64,
+        point_count: usize,
         node_id: i32,
         level: i32,
         min_packed_value: &[u8],
@@ -405,22 +413,20 @@ where
         scratch_data_packed_value: Vec<u8>,
         scratch_min_index_packed_value: Vec<u8>,
         scratch_max_index_packed_value: Vec<u8>,
-        common_prefix_lengths: Vec<i32>,
+        common_prefix_lengths: Vec<usize>,
         is_tree_balanced: bool,
     ) -> Result<Self> {
         // stack arrays that keep information at different levels
         let tree_depth = Self::get_tree_depth(num_leaves)? as usize;
-        let split_values_stack =
-            vec![vec![0; config.packed_index_bytes_length() as usize]; tree_depth];
+        let split_values_stack = vec![vec![0; config.packed_index_bytes_length()]; tree_depth];
         let right_most_leaf_node = (1 << (tree_depth - 1)) - 1;
-        let last_leaf_node_point_count =
-            (point_count % config.max_points_in_leaf_node as i64).try_into()?;
+        let last_leaf_node_point_count = point_count % config.max_points_in_leaf_node;
         let last_leaf_node_point_count = if last_leaf_node_point_count == 0 {
             config.max_points_in_leaf_node
         } else {
             last_leaf_node_point_count
         };
-        let negative_deltas_len = config.num_index_dims as usize * tree_depth;
+        let negative_deltas_len = config.num_index_dims * tree_depth;
 
         Ok(BKDPointTree {
             config,
@@ -462,8 +468,8 @@ where
     }
     fn push_bounds_left(&mut self) {
         let level = self.level as usize;
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
-        let split_dim_pos = self.split_dims_pos[level] as usize;
+        let bytes_per_dim = self.config.bytes_per_dim;
+        let split_dim_pos = self.split_dims_pos[level];
 
         if self.split_dim_value_stack[level].is_empty() {
             self.split_dim_value_stack[level] = vec![0; bytes_per_dim];
@@ -501,8 +507,8 @@ where
     }
     fn push_bounds_right(&mut self) {
         let level = self.level as usize;
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
-        let split_dim_pos = self.split_dims_pos[level] as usize;
+        let bytes_per_dim = self.config.bytes_per_dim;
+        let split_dim_pos = self.split_dims_pos[level];
         // we should have already visited the left node
         debug_assert!(!self.split_dim_value_stack[level].is_empty());
         // save the dimension we are going to change
@@ -552,8 +558,8 @@ where
 
     fn pop_bounds(&mut self, is_left: bool) {
         let level = self.level as usize;
-        let split_dim_pos = self.split_dims_pos[level] as usize;
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
+        let split_dim_pos = self.split_dims_pos[level];
+        let bytes_per_dim = self.config.bytes_per_dim;
 
         if is_left {
             self.max_packed_value.copy_from(
@@ -591,11 +597,11 @@ where
         &self,
         left_most_leaf_node: i32,
         right_most_leaf_node: i32,
-    ) -> Result<i64> {
+    ) -> Result<usize> {
         // number of points that need to be distributed between leaves, one per
         // leaf
-        let extra_points: i32 = (self.config.max_points_in_leaf_node as i64
-            * self.leaf_node_offset as i64
+        let extra_points: i32 = (self.config.max_points_in_leaf_node
+            * self.leaf_node_offset as usize
             - self.point_count)
             .try_into()?;
 
@@ -606,7 +612,7 @@ where
 
         // offset where we stop adding one point to the leaves
         let node_offset = self.leaf_node_offset - extra_points;
-        let mut count: i64 = 0;
+        let mut count = 0;
 
         for node in left_most_leaf_node..=right_most_leaf_node {
             // offsetPosition provides which extra point will be added to this
@@ -619,9 +625,9 @@ where
                 0,
             ) < node_offset
             {
-                count += self.config.max_points_in_leaf_node as i64;
+                count += self.config.max_points_in_leaf_node;
             } else {
-                count += (self.config.max_points_in_leaf_node - 1) as i64;
+                count += self.config.max_points_in_leaf_node - 1;
             }
         }
         Ok(count)
@@ -657,7 +663,7 @@ where
     ) -> Result<()> {
         if !grown {
             let size = self.size()?;
-            if size <= i32::MAX as i64 {
+            if size <= i32::MAX as usize {
                 visitor.grow(size as i32)?;
                 grown = true;
             }
@@ -753,7 +759,7 @@ where
         }
 
         if !self.is_leaf_node() {
-            let num_index_dims = self.config.num_index_dims as usize;
+            let num_index_dims = self.config.num_index_dims;
             let level = self.level as usize;
 
             // Copy the negative deltas from the previous level
@@ -761,20 +767,21 @@ where
             let curr_offset = level * num_index_dims;
             self.negative_deltas
                 .copy_within(prev_offset..prev_offset + num_index_dims, curr_offset);
-            self.negative_deltas[curr_offset
-                + (self.split_dims_pos[level - 1] / self.config.bytes_per_dim) as usize] = is_left;
+            self.negative_deltas
+                [curr_offset + self.split_dims_pos[level - 1] / self.config.bytes_per_dim] =
+                is_left;
 
             // Clone or copy the previous level's split values
             if self.split_values_stack[level].is_empty() {
                 self.split_values_stack[level] = self.split_values_stack[level - 1].clone();
             } else {
                 let (before, after) = self.split_values_stack.split_at_mut(level);
-                let source = &before[level - 1][..self.config.packed_index_bytes_length() as usize];
+                let source = &before[level - 1][..self.config.packed_index_bytes_length()];
                 after[0].copy_from(source, 0);
             }
 
             // Read split dim, prefix, and firstDiffByteDelta encoded as an int
-            let mut code = self.inner_nodes.read_vint()?;
+            let mut code: usize = self.inner_nodes.read_vint()?.try_into()?;
             let split_dim = code % self.config.num_index_dims;
             self.split_dims_pos[level] = split_dim * self.config.bytes_per_dim;
             code /= self.config.num_index_dims;
@@ -782,19 +789,19 @@ where
             let suffix = self.config.bytes_per_dim - prefix;
 
             if suffix > 0 {
-                let mut first_diff_byte_delta = code / (1 + self.config.bytes_per_dim);
-                if self.negative_deltas[curr_offset + split_dim as usize] {
+                let mut first_diff_byte_delta = (code / (1 + self.config.bytes_per_dim)) as i32;
+                if self.negative_deltas[curr_offset + split_dim] {
                     first_diff_byte_delta = -first_diff_byte_delta;
                 }
                 let start_pos = self.split_dims_pos[level] + prefix;
-                let old_byte = self.split_values_stack[level][start_pos as usize] as i32;
-                self.split_values_stack[level][start_pos as usize] =
+                let old_byte = self.split_values_stack[level][start_pos] as i32;
+                self.split_values_stack[level][start_pos] =
                     (old_byte + first_diff_byte_delta) as u8;
                 DataInput::read_bytes(
                     &mut self.inner_nodes,
                     &mut self.split_values_stack[level],
-                    start_pos + 1,
-                    suffix - 1,
+                    (start_pos + 1).try_into()?,
+                    (suffix - 1) as i32,
                 )?;
             } else {
                 // Our split value is == last split value in this dim, which can
@@ -830,7 +837,7 @@ where
         visitor: &mut impl IntersectVisitor,
         leaf_node: &mut I,
     ) -> Result<()> {
-        let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
+        let packed_index_bytes_length = self.config.packed_index_bytes_length();
 
         self.read_common_prefixes(leaf_node)?;
 
@@ -889,7 +896,7 @@ where
         visitor: &mut impl IntersectVisitor,
         leaf_node: &mut I,
     ) -> Result<()> {
-        let packed_index_bytes_length = self.config.packed_index_bytes_length() as usize;
+        let packed_index_bytes_length = self.config.packed_index_bytes_length();
         self.read_common_prefixes(leaf_node)?;
         let compressed_dim = self.read_compressed_dim(leaf_node)?;
         if compressed_dim == -1 {
@@ -950,18 +957,20 @@ where
     }
     fn read_min_max(&mut self, index_input: &mut I) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
-            let prefix = self.common_prefix_lengths[dim as usize];
+            let prefix = self.common_prefix_lengths[dim];
+            let offset: i32 = (dim * self.config.bytes_per_dim + prefix).try_into()?;
+            let len: i32 = (self.config.bytes_per_dim - prefix).try_into()?;
             DataInput::read_bytes(
                 index_input,
                 &mut self.scratch_min_index_packed_value,
-                dim * self.config.bytes_per_dim + prefix,
-                self.config.bytes_per_dim - prefix,
+                offset,
+                len,
             )?;
             DataInput::read_bytes(
                 index_input,
                 &mut self.scratch_max_index_packed_value,
-                dim * self.config.bytes_per_dim + prefix,
-                self.config.bytes_per_dim - prefix,
+                offset,
+                len,
             )?;
         }
 
@@ -980,12 +989,12 @@ where
             while i < count {
                 let length = DataInput::read_vint(index_input)?;
                 for dim in 0..self.config.num_dims {
-                    let prefix = self.common_prefix_lengths[dim as usize];
+                    let prefix = self.common_prefix_lengths[dim];
                     DataInput::read_bytes(
                         index_input,
                         &mut self.scratch_data_packed_value,
-                        dim * self.config.bytes_per_dim + prefix,
-                        self.config.bytes_per_dim - prefix,
+                        (dim * self.config.bytes_per_dim + prefix).try_into()?,
+                        (self.config.bytes_per_dim - prefix).try_into()?,
                     )?;
                 }
                 self.scratch_iterator.reset(i, length);
@@ -1027,13 +1036,13 @@ where
         compressed_dim: i32,
         index_input: &mut I,
     ) -> Result<()> {
-        let bytes_per_dim = self.config.bytes_per_dim as usize;
+        let bytes_per_dim = self.config.bytes_per_dim;
         let compressed_dim = compressed_dim as usize;
 
         // the byte at `compressedByteOffset` is compressed using run-length
         // compression, other suffix bytes are stored verbatim
         let compressed_byte_offset =
-            compressed_dim * bytes_per_dim + self.common_prefix_lengths[compressed_dim] as usize;
+            compressed_dim * bytes_per_dim + self.common_prefix_lengths[compressed_dim];
         self.common_prefix_lengths[compressed_dim] += 1;
 
         let mut i = 0;
@@ -1044,12 +1053,12 @@ where
                 let run_len = DataInput::read_byte(index_input)? as usize;
                 for j in 0..run_len {
                     for dim in 0..self.config.num_dims {
-                        let prefix = self.common_prefix_lengths[dim as usize];
+                        let prefix = self.common_prefix_lengths[dim];
                         DataInput::read_bytes(
                             index_input,
                             &mut self.scratch_data_packed_value,
-                            dim * self.config.bytes_per_dim + prefix,
-                            self.config.bytes_per_dim - prefix,
+                            (dim * self.config.bytes_per_dim + prefix).try_into()?,
+                            (self.config.bytes_per_dim - prefix).try_into()?,
                         )?;
                     }
                     visitor.visit_with_packed_value(
@@ -1074,7 +1083,7 @@ where
         let compressed_dim = DataInput::read_byte(leaf_node)? as i8 as i32;
 
         if compressed_dim < -2
-            || compressed_dim >= self.config.num_dims
+            || compressed_dim >= self.config.num_dims as i32
             || (self.version < VERSION_LOW_CARDINALITY_LEAVES && compressed_dim == -2)
         {
             return Err(LuceneError::corrupt_index(format!(
@@ -1089,14 +1098,14 @@ where
     pub fn read_common_prefixes(&mut self, index_input: &mut I) -> Result<()> {
         let num_dims = self.config.num_dims;
         for dim in 0..num_dims {
-            let prefix = index_input.read_vint()?;
-            self.common_prefix_lengths[dim as usize] = prefix;
+            let prefix = index_input.read_vint()?.try_into()?;
+            self.common_prefix_lengths[dim] = prefix;
             if prefix > 0 {
                 DataInput::read_bytes(
                     index_input,
                     &mut self.scratch_data_packed_value,
-                    dim * self.config.bytes_per_dim,
-                    prefix,
+                    (dim * self.config.bytes_per_dim).try_into()?,
+                    prefix as i32,
                 )?;
             }
         }
@@ -1132,7 +1141,7 @@ where
         )?;
 
         let level = self.level as usize;
-        let dims = self.config.num_dims as usize;
+        let dims = self.config.num_dims;
 
         index.leaf_block_fp_stack[level] = self.leaf_block_fp_stack[level];
 
@@ -1199,7 +1208,7 @@ where
         Ok(&self.max_packed_value)
     }
 
-    fn size(&self) -> Result<i64> {
+    fn size(&self) -> Result<usize> {
         let mut left_most_leaf_node = self.node_id;
         while left_most_leaf_node < self.leaf_node_offset {
             left_most_leaf_node *= 2;
@@ -1233,10 +1242,10 @@ where
 
         // size for an unbalanced tree.
         let size = if right_most_leaf_node == self.right_most_leaf_node {
-            (num_leaves as i64 - 1) * self.config.max_points_in_leaf_node as i64
-                + self.last_leaf_node_point_count as i64
+            (num_leaves as usize - 1) * self.config.max_points_in_leaf_node
+                + self.last_leaf_node_point_count
         } else {
-            num_leaves as i64 * self.config.max_points_in_leaf_node as i64
+            num_leaves as usize * self.config.max_points_in_leaf_node
         };
 
         Ok(size)
@@ -1272,13 +1281,13 @@ struct BKDReaderDocIDSetIterator {
 }
 
 impl BKDReaderDocIDSetIterator {
-    pub fn new(max_points_in_leaf_node: i32) -> Self {
+    pub fn new(max_points_in_leaf_node: usize) -> Self {
         Self {
             idx: 0,
             length: 0,
             offset: 0,
             doc_id: -1,
-            doc_ids: vec![0; max_points_in_leaf_node as usize],
+            doc_ids: vec![0; max_points_in_leaf_node],
             doc_ids_writer: DocIdsWriter::new(max_points_in_leaf_node),
         }
     }
@@ -1314,12 +1323,17 @@ impl DocIdSetIterator for BKDReaderDocIDSetIterator {
     }
 }
 
-struct IntersectVisitorImpl<'a> {
-    count: &'a mut [i32],
+struct IntersectVisitorImpl {
+    count: usize,
 }
-impl IntersectVisitor for IntersectVisitorImpl<'_> {
+impl IntersectVisitorImpl {
+    fn new() -> Self {
+        Self { count: 0 }
+    }
+}
+impl IntersectVisitor for IntersectVisitorImpl {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
-        self.count[0] += 1;
+        self.count += 1;
         Ok(())
     }
 

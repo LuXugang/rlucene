@@ -47,8 +47,8 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
         }
         Ok(from_index)
     }
-    pub fn check_index(index: i32, length: i32) -> Result<i32> {
-        if index < 0 || index >= length {
+    pub fn check_index(index: usize, length: usize) -> Result<usize> {
+        if index >= length {
             return Err(LuceneError::array_index_out_of_bounds(format!(
                 "index out of bounds: index={index} length={length}"
             )));

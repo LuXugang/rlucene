@@ -42,20 +42,20 @@ impl DoublePoint {
     {
         let point = point.as_ref();
         let value = Self::pack(point)?;
-        let field_type = Self::get_type(point.len() as i32)?;
+        let field_type = Self::get_type(point.len())?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(DoublePoint { parent_field })
     }
 
-    fn get_type(num_dims: i32) -> Result<FieldType> {
+    fn get_type(num_dims: usize) -> Result<FieldType> {
         let mut field_type = FieldType::new();
-        field_type.set_dimensions(num_dims, BitUtil::DOUBLE_BYTES as i32)?;
+        field_type.set_dimensions(num_dims, BitUtil::DOUBLE_BYTES)?;
         field_type.freeze();
         Ok(field_type)
     }
     /// Change the values of this field
     pub fn set_double_values(&mut self, point: &[f64]) -> Result<()> {
-        if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
+        if self.parent_field.field_type().point_dimension_count() != point.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 self.parent_field.name(),
@@ -120,7 +120,7 @@ impl DoublePoint {
             field,
             lower_point.take_bytes(),
             upper_point.take_bytes(),
-            len.try_into()?,
+            len,
             DoublePointRangeQuery,
         )
     }
@@ -235,7 +235,7 @@ impl fmt::Display for DoublePoint {
                     }
                     let value = Self::decode_dimension(
                         &bytes.bytes,
-                        bytes.offset + dim as usize * BitUtil::DOUBLE_BYTES,
+                        bytes.offset + dim * BitUtil::DOUBLE_BYTES,
                     );
                     write!(f, "{value}")?;
                 }
@@ -254,7 +254,7 @@ impl fmt::Display for DoublePoint {
 pub struct DoublePointRangeQuery;
 
 impl PointRangeBase for DoublePointRangeQuery {
-    fn to_string(&self, _dimension: i32, value: &[u8]) -> String {
+    fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
         DoublePoint::decode_dimension(value, 0).to_string()
     }
 }

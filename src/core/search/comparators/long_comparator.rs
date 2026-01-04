@@ -56,7 +56,7 @@ impl LongComparator {
             missing_value,
             reverse,
             pruning,
-            BitUtil::LONG_BYTES as i32,
+            BitUtil::LONG_BYTES,
             missing_value,
         );
         Self {

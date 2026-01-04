@@ -59,7 +59,7 @@ impl BinaryPoint {
     where
         T: Into<String>,
     {
-        let expected = (field_type.point_dimension_count() * field_type.point_num_bytes()) as usize;
+        let expected = field_type.point_dimension_count() * field_type.point_num_bytes();
         if packed_point.len() != expected {
             return Err(LuceneError::illegal_argument(format!(
                 "packedPoint is length={} but type.pointDimensionCount()={} and type.pointNumBytes()={}",
@@ -101,10 +101,10 @@ impl BinaryPoint {
             }
         }
 
-        Self::get_type(point.len() as i32, bytes_per_dim.unwrap() as i32)
+        Self::get_type(point.len(), bytes_per_dim.unwrap())
     }
 
-    fn get_type(num_dims: i32, bytes_per_dim: i32) -> Result<FieldType> {
+    fn get_type(num_dims: usize, bytes_per_dim: usize) -> Result<FieldType> {
         let mut ty = FieldType::new();
         ty.set_dimensions(num_dims, bytes_per_dim)?;
         ty.freeze();
@@ -191,7 +191,7 @@ impl BinaryPoint {
             field,
             packed_lower.take_bytes(),
             packed_upper.take_bytes(),
-            lower.len() as i32,
+            lower.len(),
             BinaryPointRangeQuery,
         )
     }
@@ -287,7 +287,7 @@ impl fmt::Display for BinaryPoint {
 pub struct BinaryPointRangeQuery;
 
 impl PointRangeBase for BinaryPointRangeQuery {
-    fn to_string(&self, _dimension: i32, value: &[u8]) -> String {
+    fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
         let mut out = String::from("binary(");
         for (i, b) in value.iter().enumerate() {
             if i > 0 {

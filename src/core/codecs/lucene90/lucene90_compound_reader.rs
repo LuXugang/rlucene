@@ -193,13 +193,13 @@ where
     }
 
     /// Returns the length of a file in the directory.
-    fn file_length(&self, name: &str) -> Result<i64> {
+    fn file_length(&self, name: &str) -> Result<usize> {
         let stripped_name = IndexFileNames::strip_segment_name(name);
         let entry = self
             .entries
             .get(stripped_name)
             .ok_or_else(|| LuceneError::not_found(format!("{name} not found")))?;
-        Ok(entry.length)
+        Ok(entry.length.try_into()?)
     }
 
     fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {

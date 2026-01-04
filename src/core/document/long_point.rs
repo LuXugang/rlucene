@@ -44,21 +44,21 @@ impl LongPoint {
     {
         let point = point.as_ref();
         let value = Self::pack(point)?;
-        let field_type = Self::get_type(point.len() as i32)?;
+        let field_type = Self::get_type(point.len())?;
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(LongPoint { parent_field })
     }
 
-    fn get_type(num_dims: i32) -> Result<FieldType> {
+    fn get_type(num_dims: usize) -> Result<FieldType> {
         let mut field_type = FieldType::new();
-        field_type.set_dimensions(num_dims, BitUtil::LONG_BYTES as i32)?;
+        field_type.set_dimensions(num_dims, BitUtil::LONG_BYTES)?;
         field_type.freeze();
         Ok(field_type)
     }
 
     /// Change the values of this field
     pub fn set_long_values(&mut self, point: &[i64]) -> Result<()> {
-        if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
+        if self.parent_field.field_type().point_dimension_count() != point.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 self.parent_field.name(),
@@ -133,7 +133,7 @@ impl LongPoint {
             field,
             lower_point.take_bytes(),
             upper_point.take_bytes(),
-            len.try_into()?, // numDims
+            len, // numDims
             LongPointRangeQuery,
         )
     }
@@ -250,7 +250,7 @@ impl fmt::Display for LongPoint {
                     }
                     let value = Self::decode_dimension(
                         &bytes.bytes,
-                        bytes.offset + dim as usize * BitUtil::LONG_BYTES,
+                        bytes.offset + dim * BitUtil::LONG_BYTES,
                     );
                     write!(f, "{value}")?;
                 }
@@ -268,7 +268,7 @@ impl fmt::Display for LongPoint {
 pub struct LongPointRangeQuery;
 
 impl PointRangeBase for LongPointRangeQuery {
-    fn to_string(&self, _dimension: i32, value: &[u8]) -> String {
+    fn to_string(&self, _dimension: usize, value: &[u8]) -> String {
         LongPoint::decode_dimension(value, 0).to_string()
     }
 }
