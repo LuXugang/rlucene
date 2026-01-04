@@ -88,6 +88,9 @@ impl TestUtil {
             }
         }
     }
+    pub fn next_usize<R: Rng + ?Sized>(random: &mut R, start: usize, end: usize) -> usize {
+        random.random_range(start..=end)
+    }
     /// start and end are BOTH inclusive
     pub fn next_int<R: Rng + ?Sized>(random: &mut R, start: i32, end: i32) -> i32 {
         random.random_range(start..=end)
