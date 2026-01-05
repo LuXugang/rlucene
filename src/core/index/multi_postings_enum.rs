@@ -35,7 +35,7 @@ where
     num_subs: i32,
     upto: i32,
     current: Option<usize>,
-    current_base: i32,
+    current_base: usize,
     doc: i32,
 }
 impl<PE> MultiPostingsEnum<PE>
@@ -114,7 +114,7 @@ where
             let idx = self.subs[self.current.unwrap()].postings_enum;
             let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
             if doc != NO_MORE_DOCS {
-                self.doc = self.current_base + doc;
+                self.doc = self.current_base as i32 + doc;
                 return Ok(self.doc);
             } else {
                 self.current = None;
@@ -126,7 +126,7 @@ where
         debug_assert!(target > self.doc);
         loop {
             if let Some(idx) = self.current {
-                let doc = if target < self.current_base {
+                let doc = if target < self.current_base as i32 {
                     // target was in the previous slice but there was no matching doc after it
                     self.sub_postings_enums[self.subs[idx].postings_enum]
                         .as_mut()
@@ -136,13 +136,13 @@ where
                     self.sub_postings_enums[self.subs[idx].postings_enum]
                         .as_mut()
                         .unwrap()
-                        .advance(target - self.current_base)?
+                        .advance(target - self.current_base as i32)?
                 };
 
                 if doc == NO_MORE_DOCS {
                     self.current = None;
                 } else {
-                    self.doc = doc + self.current_base;
+                    self.doc = doc + self.current_base as i32;
                     return Ok(self.doc);
                 }
             } else if self.upto == self.num_subs - 1 {

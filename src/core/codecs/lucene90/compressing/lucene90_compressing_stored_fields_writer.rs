@@ -69,7 +69,7 @@ where
     buffered_docs: ByteBuffersDataOutput,
     num_stored_fields: Vec<i32>,
     end_offsets: Vec<i32>,
-    doc_base: i32,
+    doc_base: usize,
     num_buffered_docs: i32,
     num_chunks: i64,
     num_dirty_chunks: i64,
@@ -184,7 +184,7 @@ where
         let sliced_bit = if sliced { 1 } else { 0 };
         let dirty_bit = if dirty_chunk { 2 } else { 0 };
 
-        self.fields_stream.write_vint(self.doc_base)?;
+        self.fields_stream.write_vint(self.doc_base as i32)?;
         self.fields_stream
             .write_vint((self.num_buffered_docs << 2) | dirty_bit | sliced_bit)?;
         // save numStoredFields
@@ -247,7 +247,7 @@ where
         }
 
         // reset
-        self.doc_base += self.num_buffered_docs;
+        self.doc_base += self.num_buffered_docs as usize;
         self.num_buffered_docs = 0;
         self.buffered_docs.reset();
 
@@ -341,10 +341,10 @@ where
                     // write a new index entry and new header for this chunk.
                     self.index_writer
                         .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
-                    self.fields_stream.write_vint(self.doc_base)?;
+                    self.fields_stream.write_vint(self.doc_base as i32)?;
                     self.fields_stream.write_vint(code)?;
                     doc_id += buffered_docs;
-                    self.doc_base += buffered_docs;
+                    self.doc_base += buffered_docs.try_convert()?;
                     if doc_id > to_doc_id {
                         return Err(LuceneError::corrupt_index(format!(
                             "invalid state: base={base}, count={buffered_docs}, toDocID={to_doc_id} (resource {raw_docs})"
@@ -546,7 +546,7 @@ where
             debug_assert_eq!(self.buffered_docs.size(), 0);
         }
 
-        if self.doc_base != num_docs {
+        if self.doc_base != num_docs as usize {
             return Err(LuceneError::illegal_state(format!(
                 "Wrote {} docs, finish called with numDocs={}",
                 self.doc_base, num_docs

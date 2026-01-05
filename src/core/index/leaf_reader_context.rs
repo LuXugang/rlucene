@@ -30,7 +30,7 @@ where
     /// The reader's ord in the top-level's leaves array
     pub(crate) ord: usize,
     /// The reader's absolute doc base
-    pub(crate) doc_base: i32,
+    pub(crate) doc_base: usize,
     reader: LR,
     base: IndexReaderContextBase,
     pub(crate) top_parent: TopParentMeta,
@@ -57,9 +57,9 @@ where
     pub(crate) fn new(
         reader: LR,
         ord: i32,
-        doc_base: i32,
+        doc_base: usize,
         leaf_ord: usize,
-        leaf_doc_base: i32,
+        leaf_doc_base: usize,
         parent: TopParentMeta,
     ) -> Self {
         Self {

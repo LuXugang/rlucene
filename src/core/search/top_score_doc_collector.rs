@@ -91,7 +91,7 @@ impl Collector for TopScoreDocCollector {
 
         if let Some(after) = &self.after {
             after_score = after.score;
-            after_doc = after.doc - doc_base
+            after_doc = after.doc - doc_base as i32
         } else {
             after_score = f32::INFINITY;
             after_doc = NO_MORE_DOCS;
@@ -160,14 +160,14 @@ impl TopDocsCollector for TopScoreDocCollector {
 pub struct TopScoreDocLeafCollector<'a> {
     base: &'a mut TopScoreDocCollector,
     min_competitive_score: f32,
-    doc_base: i32,
+    doc_base: usize,
     after_doc: i32,
     after_score: f32,
 }
 impl<'a> TopScoreDocLeafCollector<'a> {
     pub fn new(
         base: &'a mut TopScoreDocCollector,
-        doc_base: i32,
+        doc_base: usize,
         after_doc: i32,
         after_score: f32,
     ) -> Self {
@@ -188,7 +188,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
             // smaller than the ids in the current leaf
             let mut score = MaxScoreAccumulator::to_score(max_min_score);
 
-            if self.doc_base >= MaxScoreAccumulator::doc_id(max_min_score) {
+            if self.doc_base as i32 >= MaxScoreAccumulator::doc_id(max_min_score) {
                 score = f32::from_bits(score.to_bits() + 1);
             }
             if score > self.min_competitive_score {
@@ -208,7 +208,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
         match self.base.base.pq.top_mut() {
             None => return Err(LuceneError::illegal_state("Priority queue is empty")),
             Some(pq_top) => {
-                pq_top.doc = doc + self.doc_base;
+                pq_top.doc = doc + self.doc_base as i32;
                 pq_top.score = score;
             },
         }

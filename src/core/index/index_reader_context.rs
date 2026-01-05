@@ -44,7 +44,7 @@ pub struct IndexReaderContextBase {
     pub is_top_level: bool,
 
     /// The doc base for this reader in the parent, `0` if parent is `None`.
-    pub doc_base_in_parent: i32,
+    pub doc_base_in_parent: usize,
 
     /// The ord for this reader in the parent, `0` if parent is `None`.
     pub ord_in_parent: i32,
@@ -53,7 +53,7 @@ pub struct IndexReaderContextBase {
 }
 
 impl IndexReaderContextBase {
-    pub fn new(is_top_level: bool, ord_in_parent: i32, doc_base_in_parent: i32) -> Self {
+    pub fn new(is_top_level: bool, ord_in_parent: i32, doc_base_in_parent: usize) -> Self {
         Self {
             is_top_level,
             doc_base_in_parent,

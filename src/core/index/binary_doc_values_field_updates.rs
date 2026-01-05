@@ -225,6 +225,7 @@ mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::store::directory::Directory;
+    use crate::core::util::TryIntoInt;
     use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -416,7 +417,7 @@ mod tests {
             let max_doc = r.max_doc()?;
             for i in 0..max_doc {
                 assert_eq!(i, bdv.next_doc()?);
-                let expected = expected_values[(i + context.doc_base) as usize];
+                let expected = expected_values[i.try_convert()? + context.doc_base];
                 let actual = get_value(&mut bdv)?;
                 assert_eq!(expected, actual);
             }

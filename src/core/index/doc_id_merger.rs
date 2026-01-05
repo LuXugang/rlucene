@@ -409,11 +409,11 @@ pub mod tests {
         }
     }
     pub struct DocMapMock1 {
-        doc_base: i32,
+        doc_base: usize,
     }
     impl DocMap for DocMapMock1 {
         fn get(&self, doc_id: i32) -> i32 {
-            self.doc_base + doc_id
+            self.doc_base as i32 + doc_id
         }
     }
 
@@ -422,12 +422,14 @@ pub mod tests {
         let mut random = random();
         let sub_count = TestUtil::next_int(&mut random, 1, 200);
         let mut subs = vec![];
-        let mut value_start = 0;
+        let mut value_start: i32 = 0;
 
         for _ in 0..sub_count {
             let max_doc = TestUtil::next_int(&mut random, 1, 1000);
             let doc_base = value_start;
-            let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 { doc_base }));
+            let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 {
+                doc_base: doc_base as usize,
+            }));
             let sub = Sub::new(TestSubUnsorted::new(doc_map.clone(), max_doc, value_start));
             subs.push(sub);
             value_start += max_doc;

@@ -544,7 +544,7 @@ struct BlockState<I>
 where
     I: IndexInput,
 {
-    doc_base: i32,
+    doc_base: usize,
     chunk_docs: i32,
     /// Whether the block has been sliced, this happens for large documents.
     sliced: bool,
@@ -592,7 +592,7 @@ where
     }
 
     fn contains(&self, doc_id: i32) -> bool {
-        doc_id >= self.doc_base && doc_id < self.doc_base + self.chunk_docs
+        doc_id >= self.doc_base as i32 && doc_id < self.doc_base as i32 + self.chunk_docs
     }
     /// Reset this block so that it stores state for the block that contains the
     /// given doc id.
@@ -614,11 +614,11 @@ where
     }
 
     fn do_reset(&mut self, doc_id: i32, num_docs: i32) -> Result<()> {
-        self.doc_base = self.fields_stream.read_vint()?;
+        self.doc_base = self.fields_stream.read_vint()?.try_convert()?;
         let token = self.fields_stream.read_vint()?;
         self.chunk_docs = ((token as u32) >> 2) as i32;
 
-        if !self.contains(doc_id) || self.doc_base + self.chunk_docs > num_docs {
+        if !self.contains(doc_id) || self.doc_base as i32 + self.chunk_docs > num_docs {
             return Err(LuceneError::corrupt_index(format!(
                 "Corrupted: docID={}, docBase={}, chunkDocs={}, numDocs={} (resource={})",
                 doc_id, self.doc_base, self.chunk_docs, num_docs, self.fields_stream
@@ -723,7 +723,7 @@ where
             return Err(LuceneError::illegal_argument(""));
         }
 
-        let index = (doc_id - self.doc_base) as usize;
+        let index = (doc_id - self.doc_base as i32) as usize;
         let offset = self.offsets[index].try_convert()?;
         let length = (self.offsets[index + 1] - self.offsets[index]).try_convert()?;
         let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;

@@ -150,7 +150,7 @@ where
     for ctx in leaves {
         // record all liveDocs, even if they are null
         live_docs.push(ctx.reader().get_live_docs()?);
-        starts.push(ctx.doc_base.try_convert()?);
+        starts.push(ctx.doc_base);
     }
 
     starts.push(max_doc.try_convert()?);

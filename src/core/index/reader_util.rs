@@ -65,9 +65,9 @@ impl ReaderUtil {
             let mid = (lo + hi) >> 1;
             let mid_value = leaves[mid as usize].doc_base;
 
-            if n < mid_value {
+            if n < mid_value as i32 {
                 hi = mid - 1;
-            } else if n > mid_value {
+            } else if n > mid_value as i32 {
                 lo = mid + 1;
             } else {
                 let mut mid = mid;

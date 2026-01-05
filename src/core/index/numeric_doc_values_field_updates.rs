@@ -250,6 +250,7 @@ mod tests {
     use rand::seq::IndexedRandom;
     use std::collections::HashSet;
 
+    use crate::core::util::TryIntoInt;
     use std::vec;
 
     #[allow(dead_code)]
@@ -530,7 +531,7 @@ mod tests {
             let r = context.reader();
             let mut ndv = r.get_numeric_doc_values("val")?.unwrap();
             for i in 0..r.max_doc()? {
-                let expected = expected_values[(i + context.doc_base) as usize];
+                let expected = expected_values[i.try_convert()? + context.doc_base];
                 assert_eq!(i, ndv.next_doc()?);
                 let actual = ndv.long_value()?;
                 assert_eq!(expected, actual);

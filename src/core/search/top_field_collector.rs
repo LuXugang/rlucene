@@ -66,7 +66,7 @@ pub struct TopFieldCollector {
     min_competitive_score: f32,
     num_comparators: i32,
     queue_full: bool,
-    doc_base: i32,
+    doc_base: usize,
     needs_scores: bool,
     score_mode: ScoreMode,
 }
@@ -169,14 +169,14 @@ impl TopFieldCollector {
                 self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
 
                 if let Some(acc) = &self.min_score_acc {
-                    acc.accumulate(self.doc_base, min_score);
+                    acc.accumulate(self.doc_base as i32, min_score);
                 }
             }
         }
         Ok(())
     }
     pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
-        let global_doc = doc + self.doc_base;
+        let global_doc = doc + self.doc_base as i32;
         self.pq_mut().add(Entry::new(slot, global_doc).into())?;
 
         // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
@@ -188,7 +188,7 @@ impl TopFieldCollector {
         Ok(())
     }
     pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
-        let global_doc = doc + self.doc_base;
+        let global_doc = doc + self.doc_base as i32;
         let bottom = self.bottom_mut()?;
         bottom.base().doc = global_doc;
         let pq = self.pq_mut();
@@ -781,7 +781,7 @@ impl Collector for PagingFieldCollector {
     {
         self.base.min_competitive_score = 0.0;
         self.base.doc_base = context.doc_base;
-        let after_doc = self.after.doc - self.base.doc_base;
+        let after_doc = self.after.doc - self.base.doc_base as i32;
 
         let needs_scores = self.base.needs_scores;
         let collector = PagingFieldLeafCollector::new(

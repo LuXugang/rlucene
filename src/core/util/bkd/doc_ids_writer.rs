@@ -261,7 +261,7 @@ impl DocIdsWriter {
             std::mem::take(&mut self.scratch_longs.longs),
             long_len << 6,
         )?;
-        DocBaseBitSetIterator::new(bit_set, count as i64, offset_words << 6)
+        DocBaseBitSetIterator::new(bit_set, count as i64, (offset_words << 6).try_convert()?)
     }
 
     fn read_continuous_ids(
@@ -398,7 +398,7 @@ impl DocIdsWriter {
         let num_bits = count + extra;
         let mut bit_set = FixedBitSet::new(num_bits);
         bit_set.set_with_range(extra, num_bits);
-        let mut disi = DocBaseBitSetIterator::new(bit_set, count as i64, offset as i32)?;
+        let mut disi = DocBaseBitSetIterator::new(bit_set, count as i64, offset)?;
         visitor.visit_with_iterator(&mut disi)?;
         Ok(())
     }

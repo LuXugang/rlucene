@@ -833,7 +833,7 @@ pub struct LeafReaderContextPartition {
     pub min_doc_id: i32,
     pub max_doc_id: i32,
     pub ctx: usize,
-    pub doc_base: i32,
+    pub doc_base: usize,
     pub ctx_max_doc: i32,
     // we keep track of maxDocs separately because we use NO_MORE_DOCS as upper bound when targeting
     // the entire segment. We use this only in tests.

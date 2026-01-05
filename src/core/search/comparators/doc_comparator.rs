@@ -95,7 +95,7 @@ impl FieldComparator for DocComparator {
 /// - When sorting by `_doc` ascending and a "top" document is set (after which search should start),
 ///   the comparator provides an iterator that can quickly skip to the desired "top" document.
 pub struct DocLeafComparator {
-    doc_base: i32,
+    doc_base: usize,
     min_doc: i32,
     max_doc: i32,
     competitive_iterator: Option<DocComparatorIterator>,
@@ -144,7 +144,7 @@ impl DocLeafComparator {
             // Currently early termination on _doc is also implemented in TopFieldCollector, but this
             // will be removed
             // once all bulk scores uses collectors' iterators
-            if self.doc_base + self.max_doc <= self.min_doc {
+            if self.doc_base as i32 + self.max_doc <= self.min_doc {
                 self.competitive_iterator = Some(DocComparatorIterator::new(
                     DocComparatorCompetitiveIterator::B(EmptyDISI::default()),
                 )); // skip this segment
@@ -154,7 +154,7 @@ impl DocLeafComparator {
                     .as_ref()
                     .expect("competitive_iterator must be initialized before update_iterator")
                     .doc_id();
-                let segment_min_doc = current_doc.max(self.min_doc - self.doc_base);
+                let segment_min_doc = current_doc.max(self.min_doc - self.doc_base as i32);
 
                 self.competitive_iterator = Some(DocComparatorIterator::new(
                     DocComparatorCompetitiveIterator::C(MinDocIterator::new(
@@ -185,7 +185,7 @@ impl LeafFieldComparator for DocLeafComparator {
         S: Scorable,
     {
         // No overflow risk because docIDs are non-negative
-        Ok(comparator.bottom - (self.doc_base + doc))
+        Ok(comparator.bottom - (self.doc_base as i32 + doc))
     }
 
     fn compare_top<S>(
@@ -197,7 +197,7 @@ impl LeafFieldComparator for DocLeafComparator {
     where
         S: Scorable,
     {
-        let doc_value = self.doc_base + doc;
+        let doc_value = self.doc_base as i32 + doc;
         Ok(comparator.top_value.cmp(&doc_value).to_int())
     }
 
@@ -211,7 +211,7 @@ impl LeafFieldComparator for DocLeafComparator {
     where
         S: Scorable,
     {
-        comparator.doc_ids[slot] = self.doc_base + doc;
+        comparator.doc_ids[slot] = self.doc_base as i32 + doc;
         Ok(())
     }
 

@@ -21,6 +21,7 @@ use crate::core::index::index_reader_context::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -103,7 +104,7 @@ where
 {
     // for easy taken
     pub(crate) leaves: Option<Vec<LeafReaderContext<LR>>>,
-    pub(crate) leaf_doc_base: i32,
+    pub(crate) leaf_doc_base: usize,
     pub(crate) max_doc: i32,
 }
 impl<LR> Builder<LR>
@@ -122,7 +123,12 @@ impl<LR> Builder<LR>
 where
     LR: LeafReader + Clone,
 {
-    fn build<CR>(&mut self, reader: &IndexReaderEnum<LR, CR>, ord: i32, doc_base: i32) -> Result<()>
+    fn build<CR>(
+        &mut self,
+        reader: &IndexReaderEnum<LR, CR>,
+        ord: i32,
+        doc_base: usize,
+    ) -> Result<()>
     where
         CR: CompositeReader<LeafReader = LR>,
     {
@@ -139,7 +145,7 @@ where
                 );
                 self.leaves.as_mut().unwrap().push(atomic);
                 let max_doc = ar.max_doc()?;
-                self.leaf_doc_base += max_doc;
+                self.leaf_doc_base += max_doc.try_convert()?;
                 self.max_doc += max_doc;
             },
             IndexReaderEnum::Composite(composite_reader) => {

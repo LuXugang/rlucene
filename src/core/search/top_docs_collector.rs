@@ -303,11 +303,11 @@ mod tests {
 
     struct LeafCollectorImpl<'a> {
         base: &'a mut MyTopDocsCollector,
-        doc_base: i32,
+        doc_base: usize,
         scores: [f32; 30],
     }
     impl<'a> LeafCollectorImpl<'a> {
-        fn new(base: &'a mut MyTopDocsCollector, doc_base: i32, scores: [f32; 30]) -> Self {
+        fn new(base: &'a mut MyTopDocsCollector, doc_base: usize, scores: [f32; 30]) -> Self {
             Self {
                 base,
                 doc_base,
@@ -329,8 +329,8 @@ mod tests {
         {
             self.base.base.total_hits += 1;
             let sd = ScoreDoc::new(
-                doc + self.doc_base,
-                self.scores[(self.doc_base + doc) as usize],
+                doc + self.doc_base as i32,
+                self.scores[self.doc_base + doc as usize],
             );
             self.base.pq_mut().insert_with_overflow(sd)?;
             Ok(())

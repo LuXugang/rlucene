@@ -50,7 +50,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{
     ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
 };
-use crate::core::util::ToInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -64,6 +63,7 @@ use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIt
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
+use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
@@ -219,7 +219,7 @@ where
                 prefetched_block_id_cache,
                 prefetched_block_id_cache_index: 0,
                 closed: false,
-                block_state: BlockState::new(-1, -1, 0),
+                block_state: BlockState::new(None, None, 0),
             })
         })();
 
@@ -250,7 +250,7 @@ where
             num_dirty_docs: reader.num_dirty_docs,
             max_pointer: reader.max_pointer,
             closed: false,
-            block_state: BlockState::new(-1, -1, 0),
+            block_state: BlockState::new(None, None, 0),
             prefetched_block_id_cache: [-1; PREFETCH_CACHE_SIZE],
             prefetched_block_id_cache_index: 0,
         })
@@ -345,7 +345,11 @@ where
     }
     pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
         let bs = &self.block_state;
-        bs.doc_base <= doc_id && doc_id < bs.doc_base + bs.chunk_docs
+        let doc_base = match bs.doc_base {
+            Some(v) => v as i32,
+            None => -1,
+        };
+        doc_base <= doc_id && doc_id < doc_base + bs.chunk_docs
     }
     fn position_index(
         skip: i32,
@@ -459,7 +463,9 @@ where
         self.ensure_open()?;
         // seek to the right place
         let start_pointer = if self.is_loaded(doc) {
-            self.block_state.start_pointer
+            self.block_state
+                .start_pointer
+                .ok_or_else(|| LuceneError::illegal_state("start_pointer was None"))?
         } else {
             self.index_reader.get_start_pointer(doc)?
         };
@@ -476,7 +482,11 @@ where
                 doc_base, chunk_docs, doc, &self.vectors_stream
             )));
         }
-        self.block_state = BlockState::new(start_pointer, doc_base, chunk_docs);
+        self.block_state = BlockState::new(
+            Some(start_pointer),
+            Some(doc_base.try_convert()?),
+            chunk_docs,
+        );
         let mut reader =
             BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         let (skip, num_fields, total_fields) = if chunk_docs == 1 {
@@ -968,12 +978,16 @@ where
 }
 
 struct BlockState {
-    start_pointer: i64,
-    doc_base: i32,
+    start_pointer: Option<i64>,
+    doc_base: Option<usize>,
     chunk_docs: i32,
 }
 impl BlockState {
-    pub(crate) fn new(start_pointer: i64, doc_base: i32, chunk_docs: i32) -> Self {
+    pub(crate) fn new(
+        start_pointer: Option<i64>,
+        doc_base: Option<usize>,
+        chunk_docs: i32,
+    ) -> Self {
         BlockState {
             start_pointer,
             doc_base,

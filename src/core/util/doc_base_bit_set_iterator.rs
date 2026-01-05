@@ -29,12 +29,12 @@ pub struct DocBaseBitSetIterator {
     bits: FixedBitSet,
     length: i32,
     cost: i64,
-    doc_base: i32,
+    doc_base: usize,
     doc: i32,
 }
 
 impl DocBaseBitSetIterator {
-    pub fn new(bits: FixedBitSet, cost: i64, doc_base: i32) -> Result<DocBaseBitSetIterator> {
+    pub fn new(bits: FixedBitSet, cost: i64, doc_base: usize) -> Result<DocBaseBitSetIterator> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {cost}"
@@ -46,7 +46,7 @@ impl DocBaseBitSetIterator {
             )));
         }
         let len: i32 = bits.length().try_convert()?;
-        let length = len + doc_base;
+        let length = len + doc_base as i32;
         Ok(DocBaseBitSetIterator {
             bits,
             length,
@@ -69,7 +69,7 @@ impl DocBaseBitSetIterator {
     ///
     /// # Returns
     /// The `docBase`.
-    fn get_doc_base(&self) -> i32 {
+    fn get_doc_base(&self) -> usize {
         self.doc_base
     }
 }
@@ -90,12 +90,12 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         }
         let next = self
             .bits
-            .next_set_bit(0.max(target - self.doc_base).try_convert()?);
+            .next_set_bit(0.max(target - self.doc_base as i32).try_convert()?);
         if next == NO_MORE_DOCS as usize {
             self.doc = NO_MORE_DOCS
         } else {
             let next: i32 = next.try_convert()?;
-            self.doc = next + self.doc_base;
+            self.doc = next + self.doc_base as i32;
         }
         Ok(self.doc)
     }

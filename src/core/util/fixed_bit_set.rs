@@ -93,7 +93,7 @@ impl FixedBitSet {
     pub fn intersection_count(a: FixedBitSet, b: FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words);
         for i in 0..num_common_words {
             tot += (a.bits[i] & b.bits[i]).count_ones();
         }
@@ -105,7 +105,7 @@ impl FixedBitSet {
     pub fn union_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         // Depends on the ghost bits being clear!
         let mut tot = 0;
-        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words);
         for i in 0..num_common_words {
             tot += (a.bits[i] | b.bits[i]).count_ones();
         }
@@ -122,7 +122,7 @@ impl FixedBitSet {
     /// not(b))". Neither set is modified.
     pub fn and_not_count(a: &FixedBitSet, b: &FixedBitSet) -> i64 {
         let mut tot = 0;
-        let num_common_words = std::cmp::min(a.num_words, b.num_words) as usize;
+        let num_common_words = std::cmp::min(a.num_words, b.num_words);
         for i in 0..num_common_words {
             tot += (a.bits[i] & !b.bits[i]).count_ones();
         }
@@ -226,7 +226,7 @@ impl FixedBitSet {
             self.num_words,
             other_num_words
         );
-        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words);
         let offset = other_offset_words;
         for i in (0..pos).rev() {
             self.bits[i + offset] |= other_arr[i];
@@ -248,7 +248,7 @@ impl FixedBitSet {
             self.num_words,
             other_num_words
         );
-        let pos = std::cmp::min(self.num_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other_num_words);
         for i in (0..pos).rev() {
             self.bits[i] ^= other_bits[i];
         }
@@ -256,7 +256,7 @@ impl FixedBitSet {
 
     pub fn intersects(&self, other: &FixedBitSet) -> bool {
         // Depends on the ghost bits being clear!
-        let pos = std::cmp::min(self.num_words, other.num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other.num_words);
         for i in (0..pos).rev() {
             if self.bits[i] != other.bits[i] {
                 return true;
@@ -271,7 +271,7 @@ impl FixedBitSet {
     }
 
     pub fn and_self(&mut self, other_arr: &[i64], other_num_words: usize) {
-        let pos = std::cmp::min(self.num_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words, other_num_words);
         for i in (0..pos).rev() {
             self.bits[i] &= other_arr[i];
         }
@@ -307,7 +307,7 @@ impl FixedBitSet {
         other_arr: &[i64],
         other_num_words: usize,
     ) {
-        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
+        let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words);
         let offset = other_offset_words;
         for i in (0..pos).rev() {
             self.bits[i + offset] &= !other_arr[i];
@@ -1177,7 +1177,7 @@ mod tests {
     fn test_next_bitset() {
         let mut random = random();
         let capacity = random.random_range(0..1000);
-        let mut set_bits = Vec::with_capacity(capacity as usize);
+        let mut set_bits = Vec::with_capacity(capacity);
         for _i in 0..capacity {
             set_bits.push(random.random_range(0..capacity));
         }
@@ -1311,8 +1311,7 @@ mod tests {
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
             let offset_bits: Vec<usize> = bits1.iter().map(|&i| i - offset1).collect();
             let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1)?;
-            let mut disi =
-                DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1.try_convert()?)?;
+            let mut disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1)?;
             fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }

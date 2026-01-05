@@ -29,6 +29,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
@@ -235,8 +236,8 @@ fn test_random_positions() -> Result<()> {
                     break;
                 }
 
-                let global_doc = leaf_ctx.doc_base + doc_id;
-                let pos = &positions_in_doc[global_doc as usize];
+                let global_doc = leaf_ctx.doc_base + doc_id.try_convert()?;
+                let pos = &positions_in_doc[global_doc];
 
                 assert_eq!(pos.len() as i32, docs_and_pos_enum.freq()?,);
 

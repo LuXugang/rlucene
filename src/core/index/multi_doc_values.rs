@@ -296,7 +296,7 @@ impl MultiDocValues {
             };
 
             values.push(v);
-            starts.push(ctx.doc_base as usize);
+            starts.push(ctx.doc_base);
         }
 
         starts.push(max_doc as usize);
@@ -359,7 +359,7 @@ impl MultiDocValues {
             };
 
             values.push(v);
-            starts.push(ctx.doc_base as usize);
+            starts.push(ctx.doc_base);
         }
 
         starts.push(max_doc as usize);
@@ -807,7 +807,7 @@ where
     reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
-    current_doc_base: i32,
+    current_doc_base: usize,
 }
 impl<CR> NumericDocValuesImpl<CR>
 where
@@ -857,7 +857,7 @@ where
             if new_doc_id == NO_MORE_DOCS {
                 self.current_values = None;
             } else {
-                self.doc_id = self.current_doc_base + new_doc_id;
+                self.doc_id = self.current_doc_base as i32 + new_doc_id;
                 return Ok(self.doc_id);
             }
         }
@@ -896,13 +896,13 @@ where
             .current_values
             .as_mut()
             .unwrap()
-            .advance(target_doc_id - self.current_doc_base)?;
+            .advance(target_doc_id - self.current_doc_base as i32)?;
 
         if new_doc_id == NO_MORE_DOCS {
             self.current_values = None;
             self.next_doc()
         } else {
-            self.doc_id = self.current_doc_base + new_doc_id;
+            self.doc_id = self.current_doc_base as i32 + new_doc_id;
             Ok(self.doc_id)
         }
     }
@@ -933,7 +933,7 @@ where
     reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
-    current_doc_base: i32,
+    current_doc_base: usize,
 }
 
 impl<CR> NumericDocValuesImpl1<CR>
@@ -985,7 +985,7 @@ where
 
         match self.current_values {
             None => Ok(false),
-            Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base),
+            Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base as i32),
         }
     }
 }
@@ -1017,7 +1017,7 @@ where
             if new_doc_id == NO_MORE_DOCS {
                 self.current_values = None;
             } else {
-                self.doc_id = self.current_doc_base + new_doc_id;
+                self.doc_id = self.current_doc_base as i32 + new_doc_id;
                 return Ok(self.doc_id);
             }
         }
@@ -1054,13 +1054,13 @@ where
             .current_values
             .as_mut()
             .unwrap()
-            .advance(target_doc_id - self.current_doc_base)?;
+            .advance(target_doc_id - self.current_doc_base as i32)?;
 
         if new_doc_id == NO_MORE_DOCS {
             self.current_values = None;
             self.next_doc()
         } else {
-            self.doc_id = self.current_doc_base + new_doc_id;
+            self.doc_id = self.current_doc_base as i32 + new_doc_id;
             Ok(self.doc_id)
         }
     }
@@ -1091,7 +1091,7 @@ where
     reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
-    current_doc_base: i32,
+    current_doc_base: usize,
 }
 
 impl<CR> BinaryDocValuesImpl<CR>
@@ -1142,7 +1142,7 @@ where
 
         match self.current_values {
             None => Ok(false),
-            Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base),
+            Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base as i32),
         }
     }
 }
@@ -1174,7 +1174,7 @@ where
             if new_doc_id == NO_MORE_DOCS {
                 self.current_values = None;
             } else {
-                self.doc_id = self.current_doc_base + new_doc_id;
+                self.doc_id = self.current_doc_base as i32 + new_doc_id;
                 return Ok(self.doc_id);
             }
         }
@@ -1212,13 +1212,13 @@ where
             .current_values
             .as_mut()
             .unwrap()
-            .advance(target_doc_id - self.current_doc_base)?;
+            .advance(target_doc_id - self.current_doc_base as i32)?;
 
         if new_doc_id == NO_MORE_DOCS {
             self.current_values = None;
             self.next_doc()
         } else {
-            self.doc_id = self.current_doc_base + new_doc_id;
+            self.doc_id = self.current_doc_base as i32 + new_doc_id;
             Ok(self.doc_id)
         }
     }
@@ -1253,7 +1253,7 @@ where
     reader: CompositeReaderContext<CR>,
     doc_id: i32,
     field: String,
-    current_doc_base: i32,
+    current_doc_base: usize,
     final_total_cost: i64,
 }
 impl<CR> SortedNumericDocValuesImpl<CR>
@@ -1314,7 +1314,7 @@ where
 
         self.doc_id = target_doc_id;
         let current_values = &mut self.values[*self.current_values_index.as_ref().unwrap()];
-        current_values.advance_exact(target_doc_id - self.current_doc_base)
+        current_values.advance_exact(target_doc_id - self.current_doc_base as i32)
     }
 }
 impl<CR> DocIdSetIterator for SortedNumericDocValuesImpl<CR>
@@ -1345,7 +1345,7 @@ where
             if new_doc == NO_MORE_DOCS {
                 self.current_values_index = None;
             } else {
-                self.doc_id = self.current_doc_base + new_doc;
+                self.doc_id = self.current_doc_base as i32 + new_doc;
                 return Ok(self.doc_id);
             }
         }
@@ -1376,13 +1376,13 @@ where
         }
 
         let new_doc = self.values[*self.current_values_index.as_ref().unwrap()]
-            .advance(target_doc_id - self.current_doc_base)?;
+            .advance(target_doc_id - self.current_doc_base as i32)?;
 
         if new_doc == NO_MORE_DOCS {
             self.current_values_index = None;
             self.next_doc()
         } else {
-            self.doc_id = self.current_doc_base + new_doc;
+            self.doc_id = self.current_doc_base as i32 + new_doc;
             Ok(self.doc_id)
         }
     }
