@@ -58,8 +58,8 @@ use std::vec;
 /// [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) with support for concurrency in [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher).
 pub struct TopFieldCollector {
     base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-    num_hits: i32,
-    total_hits_threshold: i32,
+    num_hits: usize,
+    total_hits_threshold: usize,
     can_set_min_score: bool,
     search_sort_part_of_index_sort: Option<bool>,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
@@ -73,14 +73,12 @@ pub struct TopFieldCollector {
 impl TopFieldCollector {
     pub fn new(
         pq: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-        num_hits: i32,
-        total_hits_threshold: i32,
+        num_hits: usize,
+        total_hits_threshold: usize,
         needs_scores: bool,
         min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
-        debug_assert!(total_hits_threshold >= 0);
-
         let num_comparators = pq.get_comparators().len() as i32;
 
         let first_comparator = &pq.get_comparators()[0];
@@ -88,12 +86,12 @@ impl TopFieldCollector {
 
         let (score_mode, can_set_min_score) = if matches!(first_comparator, FieldComparatorEnum::Relevance(_))
                 && reverse_mul == 1// if the natural sort is preserved (sort by descending relevance)
-                && total_hits_threshold != i32::MAX
+                && total_hits_threshold != i32::MAX as usize
         {
             (ScoreMode::TopScores, true)
         } else {
             let can_set_min_score = false;
-            let score_mode = if total_hits_threshold != i32::MAX {
+            let score_mode = if total_hits_threshold != i32::MAX as usize {
                 if needs_scores {
                     ScoreMode::TopDocsWithScores
                 } else {
@@ -153,10 +151,9 @@ impl TopFieldCollector {
         &mut self,
         scorer: &mut S,
     ) -> Result<()> {
-        debug_assert!(self.total_hits_threshold >= 0);
         if self.can_set_min_score
             && self.queue_full
-            && self.base.total_hits > self.total_hits_threshold as usize
+            && self.base.total_hits > self.total_hits_threshold
         {
             let bottom = self.bottom()?;
 
@@ -178,7 +175,7 @@ impl TopFieldCollector {
         }
         Ok(())
     }
-    pub(crate) fn add(&mut self, slot: i32, doc: i32) -> Result<()> {
+    pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
         let global_doc = doc + self.doc_base;
         self.pq_mut().add(Entry::new(slot, global_doc).into())?;
 
@@ -343,13 +340,12 @@ where
     pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, _doc: i32) -> Result<()> {
         self.base.base.total_hits += 1;
         debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
-        let hit_count_so_far = self.base.base.total_hits as i32;
+        let hit_count_so_far = self.base.base.total_hits;
 
-        if let Some(acc) = &self.base.min_score_acc {
-            debug_assert!(acc.mod_interval <= i32::MAX as i64);
-            if (hit_count_so_far & acc.mod_interval as i32) == 0 {
-                self.base.update_global_min_competitive_score(scorer)?;
-            }
+        if let Some(acc) = &self.base.min_score_acc
+            && (hit_count_so_far & acc.mod_interval as usize) == 0
+        {
+            self.base.update_global_min_competitive_score(scorer)?;
         }
 
         if !self.base.score_mode.is_exhaustive()
@@ -380,7 +376,7 @@ where
             // this document is larger than anything else in the queue, and
             // therefore not competitive.
             if self.base.search_sort_part_of_index_sort.unwrap_or(false) {
-                if self.base.base.total_hits > self.base.total_hits_threshold as usize {
+                if self.base.base.total_hits > self.base.total_hits_threshold {
                     self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
                     return Err(LuceneError::collection_terminated(
                         "collection terminated due to early termination threshold",
@@ -405,7 +401,7 @@ where
         {
             let bottom = self.bottom()?;
             self.comparator.copy(
-                bottom.slot()? as usize,
+                bottom.slot()?,
                 doc,
                 scorer,
                 self.base.base.pq.get_comparators_mut(),
@@ -413,10 +409,8 @@ where
         }
         self.base.update_bottom(doc)?;
         let bottom = self.bottom()?;
-        self.comparator.set_bottom(
-            bottom.slot()? as usize,
-            self.base.base.pq.get_comparators_mut(),
-        )?;
+        self.comparator
+            .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
         self.base.update_min_competitive_score(scorer)?;
 
         Ok(())
@@ -424,7 +418,7 @@ where
     pub(crate) fn collect_any_hit<S>(
         &mut self,
         doc: i32,
-        hits_collected: i32,
+        hits_collected: usize,
         scorer: &mut S,
     ) -> Result<()>
     where
@@ -433,19 +427,13 @@ where
         // Startup transient: queue hasn't gathered numHits yet
         let slot = hits_collected - 1;
         // Copy hit into queue
-        self.comparator.copy(
-            slot as usize,
-            doc,
-            scorer,
-            self.base.base.pq.get_comparators_mut(),
-        )?;
+        self.comparator
+            .copy(slot, doc, scorer, self.base.base.pq.get_comparators_mut())?;
         self.base.add(slot, doc)?;
         if self.base.queue_full {
             let bottom = self.bottom()?;
-            self.comparator.set_bottom(
-                bottom.slot()? as usize,
-                self.base.base.pq.get_comparators_mut(),
-            )?;
+            self.comparator
+                .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
             self.base.update_min_competitive_score(scorer)?;
         }
         Ok(())
@@ -549,8 +537,8 @@ impl SimpleFieldCollector {
     pub fn new(
         sort: Arc<Sort>,
         queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-        num_hits: i32,
-        total_hits_threshold: i32,
+        num_hits: usize,
+        total_hits_threshold: usize,
         min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let base = TopFieldCollector::new(
@@ -707,9 +695,7 @@ where
             self.base.collect_competitive_hit(doc, scorer)?;
         } else {
             let hits_collected = self.base.base.total_hits();
-            debug_assert!(hits_collected <= i32::MAX as usize);
-            self.base
-                .collect_any_hit(doc, hits_collected as i32, scorer)?;
+            self.base.collect_any_hit(doc, hits_collected, scorer)?;
         }
         Ok(())
     }
@@ -738,7 +724,7 @@ where
 pub struct PagingFieldCollector {
     base: TopFieldCollector,
     sort: Arc<Sort>,
-    collected_hits: i32,
+    collected_hits: usize,
     after: ScoreDoc,
 }
 
@@ -747,8 +733,8 @@ impl PagingFieldCollector {
         sort: Arc<Sort>,
         queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
         mut after: FieldDoc,
-        num_hits: i32,
-        total_hits_threshold: i32,
+        num_hits: usize,
+        total_hits_threshold: usize,
         min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let mut base = TopFieldCollector::new(
@@ -885,7 +871,7 @@ where
 {
     base: TopFieldLeafCollector<'a, LR>,
     after_doc: i32,
-    collected_hits: &'a mut i32,
+    collected_hits: &'a mut usize,
 }
 
 impl<'a, LR> PagingFieldLeafCollector<'a, LR>
@@ -897,7 +883,7 @@ where
         sort: &Sort,
         context: &LeafReaderContext<LR>,
         after_doc: i32,
-        collected_hits: &'a mut i32,
+        collected_hits: &'a mut usize,
     ) -> Result<Self> {
         let base = TopFieldLeafCollector::new(base, sort, context)?;
         Ok(Self {
@@ -1387,7 +1373,7 @@ mod tests {
         ];
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let collector_manager = TopFieldCollectorManager::new(sort, 10, i32::MAX)?;
+            let collector_manager = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
 
             let top_docs = is.search_with_collector_manager(query, &collector_manager)?;
             let sd = top_docs.score_docs();
@@ -1410,7 +1396,7 @@ mod tests {
 
         for sort in sorts {
             let query = MatchAllDocsQuery::new();
-            let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX as usize)?;
             let top_docs = is.search_with_collector_manager(query, &tdc)?;
             let sd = top_docs.score_docs();
 
@@ -1449,11 +1435,11 @@ mod tests {
         ];
 
         for sort in sorts {
-            let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX)?;
+            let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX as usize)?;
             let td =
                 single_threaded_searcher.search_with_collector_manager(MatchAllDocsQuery, &tdc)?;
 
-            let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX)?;
+            let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
             let td2 =
                 concurrent_searcher.search_with_collector_manager(MatchAllDocsQuery, &tsdc)?;
 
@@ -1754,7 +1740,7 @@ mod tests {
 
         for sort in sorts {
             let mut collector =
-                TopFieldCollectorManager::new(sort, 10, i32::MAX)?.new_collector()?;
+                TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?.new_collector()?;
             let top_docs = collector.top_docs()?;
 
             assert_eq!(top_docs.total_hits().value(), 0);

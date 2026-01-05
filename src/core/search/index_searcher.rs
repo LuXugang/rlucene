@@ -49,6 +49,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::{Weight, WeightEnum2};
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -57,7 +58,7 @@ use std::sync::{Arc, LazyLock};
 use sysinfo::System;
 
 pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
-const TOTAL_HITS_THRESHOLD: i32 = 1000;
+const TOTAL_HITS_THRESHOLD: usize = 1000;
 /// Thresholds for index slice allocation logic.
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
@@ -197,13 +198,13 @@ where
         &self,
         after: Option<ScoreDoc>,
         query: impl Into<Query>,
-        num_hits: i32,
+        num_hits: usize,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopDocs<ScoreDoc>> {
-        let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
+        let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
         if let Some(ref a) = after
-            && a.doc >= limit
+            && a.doc >= limit.try_convert()?
         {
             return Err(LuceneError::illegal_argument(format!(
                 "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
@@ -217,7 +218,7 @@ where
 
         self.search_with_collector_manager_with_state(query, &manager, term_state)
     }
-    pub fn search(&self, query: impl Into<Query>, n: i32) -> Result<TopDocs<ScoreDoc>> {
+    pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
         self.search_with_term_state(query, n, None)
     }
     /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -232,7 +233,7 @@ where
     pub fn search_with_sort_score<T>(
         &self,
         query: impl Into<Query>,
-        n: i32,
+        n: usize,
         sort: T,
         do_doc_scores: bool,
     ) -> Result<TopFieldDocs>
@@ -255,7 +256,7 @@ where
     pub fn search_with_sort<T>(
         &self,
         query: impl Into<Query>,
-        n: i32,
+        n: usize,
         sort: T,
     ) -> Result<TopFieldDocs>
     where
@@ -266,7 +267,7 @@ where
     pub fn search_with_term_state(
         &self,
         query: impl Into<Query>,
-        n: i32,
+        n: usize,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<TopDocs<ScoreDoc>> {
         self.search_after_score(None, query, n, term_state)
@@ -288,7 +289,7 @@ where
         &self,
         after: Option<FieldDoc>,
         query: Q,
-        num_hits: i32,
+        num_hits: usize,
         sort: T,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -303,7 +304,7 @@ where
         &self,
         after: Option<FieldDoc>,
         query: Q,
-        num_hits: i32,
+        num_hits: usize,
         sort: T,
     ) -> Result<TopFieldDocs>
     where
@@ -317,7 +318,7 @@ where
         &self,
         after: Option<FieldDoc>,
         query: Q,
-        num_hits: i32,
+        num_hits: usize,
         sort: T,
         do_doc_scores: bool,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
@@ -326,10 +327,11 @@ where
         Q: Into<Query>,
         T: Into<Arc<Sort>>,
     {
-        let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
+        let limit: usize =
+            std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
         if let Some(ref a) = after
-            && a.base.doc >= limit
+            && a.base.doc >= limit.try_convert()?
         {
             return Err(LuceneError::illegal_argument(format!(
                 "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",

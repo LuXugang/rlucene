@@ -285,7 +285,7 @@ impl SortedDocValuesTermOrdValComparator {
 impl FieldComparator for SortedDocValuesTermOrdValComparator {
     type V = <TermOrdValComparator as FieldComparator>::V;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
         self.base.compare(slot1, slot2)
     }
 
@@ -293,7 +293,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
         self.base.set_top_value(value);
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
+    fn value(&self, slot: usize) -> Option<Self::V> {
         self.base.value(slot)
     }
 

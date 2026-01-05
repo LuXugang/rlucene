@@ -76,7 +76,7 @@ pub trait FieldComparator {
     /// - `N < 0` if slot2's value is sorted after slot1
     /// - `N > 0` if slot2's value is sorted before slot1
     /// - `0` if they are equal
-    fn compare(&self, slot1: i32, slot2: i32) -> i32;
+    fn compare(&self, slot1: usize, slot2: usize) -> i32;
 
     /// Record the top value, for future calls to [`LeafFieldComparator::compare_top`].
     /// This is only called for searches that use `search_after` (deep paging),
@@ -90,7 +90,7 @@ pub trait FieldComparator {
     ///
     /// # Returns
     /// The value stored in this slot if it exists, otherwise [`None`].
-    fn value(&self, slot: i32) -> Option<Self::V>;
+    fn value(&self, slot: usize) -> Option<Self::V>;
 
     type LeafFieldComparator<LR>: LeafFieldComparator
     where
@@ -176,9 +176,9 @@ impl RelevanceComparator {
 impl FieldComparator for RelevanceComparator {
     type V = f32;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        let slot1_v = self.scores[slot2 as usize];
-        let slot2_v = self.scores[slot1 as usize];
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        let slot1_v = self.scores[slot2];
+        let slot2_v = self.scores[slot1];
         slot1_v.total_cmp(&slot2_v).to_int()
     }
 
@@ -186,8 +186,8 @@ impl FieldComparator for RelevanceComparator {
         self.top_value = value
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
-        Some(self.scores[slot as usize])
+    fn value(&self, slot: usize) -> Option<Self::V> {
+        Some(self.scores[slot])
     }
 
     type LeafFieldComparator<LR>
@@ -555,7 +555,7 @@ impl From<DummyFieldComparator> for FieldComparatorEnum {
 impl FieldComparator for FieldComparatorEnum {
     type V = FieldComparatorValue;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
         match self {
             FieldComparatorEnum::Relevance(comparator) => comparator.compare(slot1, slot2),
             FieldComparatorEnum::Doc(comparator) => comparator.compare(slot1, slot2),
@@ -656,7 +656,7 @@ impl FieldComparator for FieldComparatorEnum {
         }
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
+    fn value(&self, slot: usize) -> Option<Self::V> {
         match self {
             FieldComparatorEnum::Relevance(comparator) => {
                 comparator.value(slot).map(FieldComparatorValue::Float)
@@ -946,9 +946,9 @@ impl TermValComparator {
 impl FieldComparator for TermValComparator {
     type V = BytesRef<Vec<u8>>;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        let val1 = self.values[slot1 as usize].as_ref();
-        let val2 = self.values[slot2 as usize].as_ref();
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        let val1 = self.values[slot1].as_ref();
+        let val2 = self.values[slot2].as_ref();
         self.compare_values(val1, val2)
     }
 
@@ -956,9 +956,9 @@ impl FieldComparator for TermValComparator {
         self.top_value = Some(value);
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
+    fn value(&self, slot: usize) -> Option<Self::V> {
         // TODO IMPORTANT - avoid clone here
-        self.values[slot as usize].clone()
+        self.values[slot].clone()
     }
 
     type LeafFieldComparator<LR>

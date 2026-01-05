@@ -433,8 +433,8 @@ mod tests {
         searcher.search_with_collector_manager(query, &cm)
     }
     fn do_search_with_threshold<CR>(
-        num_results: i32,
-        threshold: i32,
+        num_results: usize,
+        threshold: usize,
         query: Query,
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>
@@ -447,8 +447,8 @@ mod tests {
         searcher.search_with_collector_manager(query, &collector_manager)
     }
     fn do_concurrent_search_with_threshold<CR>(
-        num_results: i32,
-        threshold: i32,
+        num_results: usize,
+        threshold: usize,
         query: Query,
         index_reader: CR,
     ) -> Result<TopDocs<ScoreDoc>>

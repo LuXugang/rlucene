@@ -356,10 +356,7 @@ mod tests {
         let top_docs = single_threaded_searcher
             .search_with_collector_manager(MatchAllDocsQuery::new(), &collector_mgr)?;
 
-        assert_eq!(
-            top_docs.total_hits.value(),
-            total_hits_threshold as usize + 1
-        );
+        assert_eq!(top_docs.total_hits.value(), total_hits_threshold + 1);
         assert_eq!(
             top_docs.total_hits.relation(),
             Relation::GreaterThanOrEqualTo
@@ -371,7 +368,7 @@ mod tests {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_mgr)?;
 
-        assert_eq!(top_docs.total_hits.value(), num_docs as usize);
+        assert_eq!(top_docs.total_hits.value(), num_docs);
         assert_eq!(top_docs.total_hits.relation(), Relation::EqualTo);
         iw.close()?;
         Ok(())

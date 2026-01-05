@@ -87,10 +87,10 @@ fn test_long_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let field_doc = &top_docs.score_docs()[i as usize];
+            let field_doc = &top_docs.score_docs()[i];
             let fields = &field_doc.fields()?[0];
             let value = *fields.as_i64().expect("should be i64");
             assert_eq!(i as i64, value);
@@ -120,10 +120,10 @@ fn test_long_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let field_doc = &top_docs.score_docs()[i as usize];
+            let field_doc = &top_docs.score_docs()[i];
             let fields = &field_doc.fields()?[0];
             let value = *fields.as_i64().expect("should be i64");
             assert_eq!(after_value + 1 + i as i64, value);
@@ -150,10 +150,10 @@ fn test_long_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let field_doc = &top_docs.score_docs()[i as usize];
+            let field_doc = &top_docs.score_docs()[i];
             let fields = field_doc.fields()?;
 
             let long_val = *fields[0].as_i64().expect("should be i64");
@@ -184,7 +184,7 @@ fn test_long_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         // assert that all documents were collected => optimization was not run
         assert_eq!(top_docs.total_hits().value as i32, num_docs);
     }
@@ -222,11 +222,11 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
     let top_docs = searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
     // sort still works and returns expected number of docs
-    assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+    assert_eq!(top_docs.score_docs().len(), num_hits);
 
     // returns expected values
     for i in 0..num_hits {
-        let field_doc = &top_docs.score_docs()[i as usize];
+        let field_doc = &top_docs.score_docs()[i];
         let fields = field_doc.fields()?;
         let long_val = *fields[0].as_i64().expect("should be i64");
         assert_eq!(i as i64, long_val);
@@ -273,7 +273,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
             TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         assert_non_competitive_hits_are_skipped(
             top_docs.total_hits().value as i64,
             num_docs as i64,
@@ -290,7 +290,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
             TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         assert_eq!(top_docs.total_hits().value as i32, num_docs as i32);
     }
 
@@ -302,7 +302,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
             TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         assert_non_competitive_hits_are_skipped(
             top_docs.total_hits().value as i64,
             num_docs as i64,
@@ -327,7 +327,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         )?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         assert_non_competitive_hits_are_skipped(
             top_docs.total_hits().value as i64,
             num_docs as i64,
@@ -352,7 +352,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         )?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         assert_non_competitive_hits_are_skipped(
             top_docs.total_hits().value as i64,
             num_docs as i64,
@@ -373,10 +373,10 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
         )?;
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let field_doc = &top_docs.score_docs()[i as usize];
+            let field_doc = &top_docs.score_docs()[i];
             let fields = &field_doc.fields()?[0];
             let value = *fields.as_i64().expect("should be i64");
             assert_eq!(after_value + 1 + i as i64, value);
@@ -452,11 +452,11 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
         assert_eq!(top_docs1.score_docs().len(), top_docs2.score_docs().len());
-        assert_eq!(top_docs1.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs1.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let fd1 = &top_docs1.score_docs()[i as usize];
-            let fd2 = &top_docs2.score_docs()[i as usize];
+            let fd1 = &top_docs1.score_docs()[i];
+            let fd2 = &top_docs2.score_docs()[i];
             let v1 = fd1.fields()?[0].as_i64().unwrap();
             let v2 = fd2.fields()?[0].as_i64().unwrap();
             assert_eq!(v1, v2);
@@ -524,16 +524,16 @@ fn test_sort_optimization_equal_values() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let fd = &top_docs.score_docs()[i as usize];
+            let fd = &top_docs.score_docs()[i];
             let fields = fd.fields()?;
             assert_eq!(*fields[0].as_i32().unwrap(), 100);
         }
 
         if searcher.reader_context.leaves()?.len() == 1 {
-            assert_eq!(top_docs.total_hits().value as i32, num_hits + 1);
+            assert_eq!(top_docs.total_hits().value, num_hits + 1);
         }
 
         assert_non_competitive_hits_are_skipped(
@@ -557,9 +557,9 @@ fn test_sort_optimization_equal_values() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
         for i in 0..num_hits {
-            let fd = &top_docs.score_docs()[i as usize];
+            let fd = &top_docs.score_docs()[i];
             let fields = fd.fields()?;
             assert_eq!(*fields[0].as_i32().unwrap(), 100);
             assert!(fd.doc() > after_doc_id);
@@ -580,13 +580,13 @@ fn test_sort_optimization_equal_values() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let fd = &top_docs.score_docs()[i as usize];
+            let fd = &top_docs.score_docs()[i];
             let fields = fd.fields()?;
             assert_eq!(*fields[0].as_i32().unwrap(), 100);
-            assert_eq!(*fields[1].as_i32().unwrap(), i);
+            assert_eq!(*fields[1].as_i32().unwrap(), i as i32);
         }
 
         assert_eq!(top_docs.total_hits().value as i32, num_docs);
@@ -625,10 +625,10 @@ fn test_float_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(top_docs.score_docs().len(), num_hits as usize);
+        assert_eq!(top_docs.score_docs().len(), num_hits);
 
         for i in 0..num_hits {
-            let fd = &top_docs.score_docs()[i as usize];
+            let fd = &top_docs.score_docs()[i];
             let fields = fd.fields()?;
             let v = *fields[0].as_f32().expect("should be f32");
             assert!((v - i as f32).abs() < f32::EPSILON);
@@ -739,7 +739,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
-    let num_docs = at_least(&mut random, 150);
+    let num_docs = at_least(&mut random, 150) as usize;
     for i in 0..num_docs {
         let doc = Document::new();
         writer.add_document(doc)?;
@@ -753,7 +753,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
     let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
     let num_hits = 10;
     let total_hits_threshold = 10;
-    let search_afters = [3, 10, num_docs - 10];
+    let search_afters = [3, 10, num_docs as i32 - 10];
 
     for &search_after in &search_afters {
         {
@@ -771,8 +771,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
             )?;
             let top_docs =
                 searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-            let exp_num_hits = if search_after >= (num_docs - num_hits) {
-                num_docs - search_after - 1
+            let exp_num_hits = if search_after as usize >= (num_docs - num_hits) {
+                num_docs - (search_after as usize) - 1
             } else {
                 num_hits
             };
@@ -812,8 +812,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
             )?;
             let top_docs =
                 searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-            let exp_num_hits = if search_after >= (num_docs - num_hits) {
-                num_docs - search_after - 1
+            let exp_num_hits = if search_after as usize >= (num_docs - num_hits) {
+                num_docs - (search_after as usize) - 1
             } else {
                 num_hits
             };
@@ -848,12 +848,12 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
             )?;
             let top_docs =
                 searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
-            let exp_num_hits = if search_after < num_hits {
-                search_after
+            let exp_num_hits = if (search_after as usize) < num_hits {
+                search_after as usize
             } else {
                 num_hits
             };
-            assert_eq!(exp_num_hits as usize, top_docs.score_docs().len());
+            assert_eq!(exp_num_hits, top_docs.score_docs().len());
             for (i, sd) in top_docs.score_docs().iter().enumerate() {
                 assert_eq!(search_after - 1 - i as i32, sd.doc());
             }
@@ -900,7 +900,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
         let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
         let top_docs = searcher.search_after(after, MatchAllDocsQuery, batch, sort)?;
 
-        let expected_hits = std::cmp::min(num_docs - visited_hits, batch);
+        let expected_hits = std::cmp::min(num_docs - visited_hits, batch as i32);
         assert_eq!(expected_hits as usize, top_docs.score_docs().len());
 
         let last_doc = top_docs.score_docs()[expected_hits as usize - 1].clone();
@@ -961,7 +961,7 @@ fn test_doc_sort_optimization() -> Result<()> {
         let top_docs =
             searcher.search_with_collector_manager(MatchAllDocsQuery, &collector_manager)?;
 
-        assert_eq!(num_hits as usize, top_docs.score_docs().len());
+        assert_eq!(num_hits, top_docs.score_docs().len());
         for (i, sd) in top_docs.score_docs().iter().enumerate() {
             assert_eq!(i as i32, sd.doc());
         }
@@ -1123,7 +1123,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
-    let num_docs = at_least(&mut random, 5000);
+    let num_docs = at_least(&mut random, 5000) as usize;
     for _ in 0..num_docs {
         let value = random.random();
         let value2 = random.random();
@@ -1160,7 +1160,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let mut after: Option<FieldDoc> = None;
 
     while visited_hits < num_docs {
-        let batch = 1 + random.random_range(0..100);
+        let batch = 1 + random.random_range(0..100) as usize;
         let expected_hits = std::cmp::min(num_docs - visited_hits, batch);
 
         let manager = TopFieldCollectorManager::with_after(

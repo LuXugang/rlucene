@@ -42,6 +42,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::index::random_index_writer::RandomIndexWriter;
@@ -519,8 +520,8 @@ where
         Arc::new(Sort::get_index_order()?)
     };
 
-    let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
-    let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
+    let td1 = searcher.search_with_sort(q1, max_doc.try_convert()?, sort.clone())?;
+    let td2 = searcher.search_with_sort(q2, max_doc.try_convert()?, sort)?;
     assert_eq!(td1.total_hits().value(), td2.total_hits().value());
 
     for i in 0..td1.score_docs().len() {
@@ -721,10 +722,10 @@ fn test_sorted_numeric_npe() -> Result<()> {
 
     let max_doc = searcher.get_index_reader().max_doc()?;
     let q1 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", lo, hi);
-    searcher.search_with_sort(q1, max_doc, Sort::get_index_order()?)?;
+    searcher.search_with_sort(q1, max_doc.try_convert()?, Sort::get_index_order()?)?;
 
     let q2 = sorted_numeric_doc_values_field_util::new_slow_range_query("dv", hi, lo);
-    searcher.search_with_sort(q2, max_doc, Sort::get_index_order()?)?;
+    searcher.search_with_sort(q2, max_doc.try_convert()?, Sort::get_index_order()?)?;
 
     Ok(())
 }

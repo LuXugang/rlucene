@@ -394,6 +394,7 @@ mod test {
     use std::sync::Arc;
 
     use crate::core::document::text_field::TextField;
+    use crate::core::util::TryIntoInt;
 
     #[allow(dead_code)] // for quick search
     struct TestFieldExistsQuery;
@@ -725,8 +726,8 @@ mod test {
             Arc::new(Sort::get_index_order()?)
         };
 
-        let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
-        let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
+        let td1 = searcher.search_with_sort(q1, max_doc.try_convert()?, sort.clone())?;
+        let td2 = searcher.search_with_sort(q2, max_doc.try_convert()?, sort)?;
         assert_eq!(td1.total_hits().value(), td2.total_hits().value());
 
         for i in 0..td1.score_docs().len() {

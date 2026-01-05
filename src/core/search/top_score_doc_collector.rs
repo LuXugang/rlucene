@@ -48,14 +48,14 @@ use std::sync::Arc;
 pub struct TopScoreDocCollector {
     base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
     after: Option<ScoreDoc>,
-    total_hits_threshold: i32,
+    total_hits_threshold: usize,
     pub(crate) min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopScoreDocCollector {
     pub fn new(
         num_hits: usize,
         after: Option<ScoreDoc>,
-        total_hits_threshold: i32,
+        total_hits_threshold: usize,
         min_score_acc: Option<Arc<MaxScoreAccumulator>>,
     ) -> Result<Self> {
         let pq = HitQueue::new(num_hits, true)?;
@@ -105,7 +105,7 @@ impl Collector for TopScoreDocCollector {
     }
 
     fn score_mode(&self) -> ScoreMode {
-        match self.total_hits_threshold == i32::MAX {
+        match self.total_hits_threshold == i32::MAX as usize {
             true => ScoreMode::Complete,
             false => ScoreMode::TopScores,
         }
@@ -218,7 +218,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
     }
 
     fn update_min_competitive_score<S: Scorable>(&mut self, scorer: &mut S) -> Result<()> {
-        if self.base.base.total_hits as i32 > self.base.total_hits_threshold
+        if self.base.base.total_hits > self.base.total_hits_threshold
             && let Some(pq_top) = self.base.base.pq.top()
         {
             // since we tie-break on doc id and collect in doc id order, we can require the next float
@@ -266,7 +266,7 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
     {
         let score = scorer.score()?;
         self.base.base.total_hits += 1;
-        let hit_count_so_far = self.base.base.total_hits as i32;
+        let hit_count_so_far = self.base.base.total_hits;
 
         if let Some(acc) = &self.base.min_score_acc
             && (hit_count_so_far as i64 & acc.mod_interval) == 0

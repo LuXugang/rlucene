@@ -20,7 +20,6 @@ use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::{TopDocs, top_docs_util};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector::TopScoreDocCollector;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -33,9 +32,9 @@ use std::sync::Arc;
 /// # Notes
 /// A new collector manager should be created for each search due to its internal states.
 pub struct TopScoreDocCollectorManager {
-    num_hits: i32,
+    num_hits: usize,
     after: Option<ScoreDoc>,
-    total_hits_threshold: i32,
+    total_hits_threshold: usize,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopScoreDocCollectorManager {
@@ -65,28 +64,27 @@ impl TopScoreDocCollectorManager {
     ///   of the result will be accurate. `i32::MAX` may be used to make the hit count accurate,
     ///   but this will also make query processing slower.
     pub fn with_after(
-        num_hits: i32,
+        num_hits: usize,
         after: Option<ScoreDoc>,
-        total_hits_threshold: i32,
+        total_hits_threshold: usize,
     ) -> Result<Self> {
-        if total_hits_threshold < 0 {
+        if total_hits_threshold > i32::MAX as usize {
             return Err(LuceneError::illegal_argument(format!(
-                "totalHitsThreshold must be >= 0, got {}",
+                "totalHitsThreshold must be < i32::MAX, got {}",
                 total_hits_threshold
             )));
         }
 
-        if num_hits <= 0 {
+        if num_hits > i32::MAX as usize {
             return Err(LuceneError::illegal_argument(
-                "numHits must be > 0; please use TotalHitCountCollectorManager \
-                 if you just need the total hit count"
-                    .to_string(),
+                "numHits must be > i32::MAX; please use TotalHitCountCollectorManager \
+                 if you just need the total hit count",
             ));
         }
 
         let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
 
-        let min_score_acc = if total_hits_threshold != i32::MAX {
+        let min_score_acc = if total_hits_threshold != i32::MAX as usize {
             Some(Arc::new(MaxScoreAccumulator::new()))
         } else {
             None
@@ -125,7 +123,7 @@ impl TopScoreDocCollectorManager {
     ///     the hit count of the result will be accurate.
     ///   - `i32::MAX` may be used to make the hit count accurate,
     ///     but this will also make query processing slower.
-    pub fn new(num_hits: i32, total_hits_threshold: i32) -> Result<Self> {
+    pub fn new(num_hits: usize, total_hits_threshold: usize) -> Result<Self> {
         Self::with_after(num_hits, None, total_hits_threshold)
     }
 }
@@ -135,7 +133,7 @@ impl CollectorManager for TopScoreDocCollectorManager {
 
     fn new_collector(&self) -> Result<Self::C> {
         TopScoreDocCollector::new(
-            self.num_hits.try_convert()?,
+            self.num_hits,
             self.after.clone(),
             self.total_hits_threshold,
             self.min_score_acc.clone(),

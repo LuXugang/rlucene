@@ -65,7 +65,8 @@ fn test_exactly_at_true_limit() -> Result<()> {
         let ir = get_context(&ir)?;
 
         let searcher = IndexSearcher::new(ir)?;
-        let collector_manager = TopScoreDocCollectorManager::with_after(10, None, i32::MAX)?;
+        let collector_manager =
+            TopScoreDocCollectorManager::with_after(10, None, i32::MAX as usize)?;
 
         let hits = searcher.search_with_collector_manager(
             TermQuery::new(Term::from_text("field", "text")),

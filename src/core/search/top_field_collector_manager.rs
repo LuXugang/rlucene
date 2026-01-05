@@ -26,7 +26,6 @@ use crate::core::search::top_field_collector::{
     PagingFieldCollector, SimpleFieldCollector, TopFieldCollectorEnum,
 };
 use crate::core::search::top_field_docs::TopFieldDocs;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -41,9 +40,9 @@ use std::sync::Arc;
 /// since it maintains internal state that is not thread-safe or reusable.
 pub struct TopFieldCollectorManager {
     sort: Arc<Sort>,
-    num_hits: i32,
+    num_hits: usize,
     after: Option<FieldDoc>,
-    total_hits_threshold: i32,
+    total_hits_threshold: usize,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
 impl TopFieldCollectorManager {
@@ -65,7 +64,7 @@ impl TopFieldCollectorManager {
     ///   then the hit count of the result will be accurate.
     ///   Use `i32::MAX` to make the hit count fully accurate,
     ///   though this may make query processing slower.
-    pub fn new<S>(sort: S, num_hits: i32, total_hits_threshold: i32) -> Result<Self>
+    pub fn new<S>(sort: S, num_hits: usize, total_hits_threshold: usize) -> Result<Self>
     where
         S: Into<Arc<Sort>>,
     {
@@ -92,37 +91,37 @@ impl TopFieldCollectorManager {
     ///   though this may make query processing slower.
     pub fn with_after<S>(
         sort: S,
-        num_hits: i32,
+        num_hits: usize,
         after: Option<FieldDoc>,
-        total_hits_threshold: i32,
+        total_hits_threshold: usize,
     ) -> Result<Self>
     where
         S: Into<Arc<Sort>>,
     {
-        if total_hits_threshold < 0 {
+        if total_hits_threshold > i32::MAX as usize {
             return Err(LuceneError::illegal_argument(format!(
-                "totalHitsThreshold must be >= 0, got {}",
+                "totalHitsThreshold must be <= i32::MAX, got {}",
                 total_hits_threshold
             )));
         }
 
-        if num_hits <= 0 {
+        if num_hits > i32::MAX as usize {
             return Err(LuceneError::illegal_argument(
-                "numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count".to_string(),
+                "numHits must be <= i32::MAX; please use TotalHitCountCollector if you just need the total hit count",
             ));
         }
         let sort = sort.into();
         let sort_fields = sort.get_sort();
         if sort_fields.is_empty() {
             return Err(LuceneError::illegal_argument(
-                "Sort must contain at least one field".to_string(),
+                "Sort must contain at least one field",
             ));
         }
 
         if let Some(ref after_doc) = after {
             if after_doc.fields.is_empty() {
                 return Err(LuceneError::illegal_argument(
-                    "after.fields wasn't set; you must pass fillFields=true for the previous search".to_string(),
+                    "after.fields wasn't set; you must pass fillFields=true for the previous search",
                 ));
             }
 
@@ -135,7 +134,7 @@ impl TopFieldCollectorManager {
             }
         }
 
-        let min_score_acc = if total_hits_threshold != i32::MAX {
+        let min_score_acc = if total_hits_threshold != i32::MAX as usize {
             Some(Arc::new(MaxScoreAccumulator::new()))
         } else {
             None
@@ -155,7 +154,7 @@ impl CollectorManager for TopFieldCollectorManager {
     type T = TopFieldDocs;
 
     fn new_collector(&self) -> Result<Self::C> {
-        let mut queue = create(self.sort.get_sort(), self.num_hits.try_convert()?)?;
+        let mut queue = create(self.sort.get_sort(), self.num_hits)?;
 
         let collector = if self.after.is_none() {
             // Inform a comparator that sort is based on a single field,

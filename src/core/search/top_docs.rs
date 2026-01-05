@@ -72,7 +72,7 @@ pub mod top_docs_util {
     /// lucene.experimental
     pub fn merge_top_field_docs(
         sort: &Sort,
-        top_n: i32,
+        top_n: usize,
         // The reason the type of shard_hits is Vec<TopDocs<TopFieldScoreDoc>> instead of Vec<TopFieldDocs>
         // is that the field property inside TopFieldDocs is currently unused.
         shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
@@ -87,8 +87,8 @@ pub mod top_docs_util {
     /// belong to the same searcher).
     pub fn merge_top_field_docs_with_start(
         sort: &Sort,
-        start: i32,
-        top_n: i32,
+        start: usize,
+        top_n: usize,
         shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
     ) -> Result<TopFieldDocs> {
         merge_top_field_docs_with_comparator(
@@ -102,8 +102,8 @@ pub mod top_docs_util {
     /// Pass in a custom tie breaker for ordering results
     pub fn merge_top_field_docs_with_comparator<C>(
         sort: &Sort,
-        start: i32,
-        size: i32,
+        start: usize,
+        size: usize,
         shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
         tie_breaker: C,
     ) -> Result<TopFieldDocs>
@@ -111,7 +111,6 @@ pub mod top_docs_util {
         C: Comparator<TopFieldScoreDoc>,
     {
         let len = shard_hits.len();
-        debug_assert!(len <= i32::MAX as usize);
         let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
         let queue = PriorityQueue::new(len, &cmp)?;
         let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
@@ -122,7 +121,7 @@ pub mod top_docs_util {
     /// sorting by score. Each [`TopDocs`] instance must be sorted.
     ///
     /// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
-    pub fn merge_top_docs<S>(top_n: i32, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
+    pub fn merge_top_docs<S>(top_n: usize, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
     where
         S: ScoreDocLike,
     {
@@ -135,8 +134,8 @@ pub mod top_docs_util {
     /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
     /// belong to the same searcher).
     pub fn merge_top_docs_with_start<S>(
-        start: i32,
-        size: i32,
+        start: usize,
+        size: usize,
         shard_hits: Vec<TopDocs<S>>,
     ) -> Result<TopDocs<S>>
     where
@@ -150,8 +149,8 @@ pub mod top_docs_util {
     /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
     /// belong to the same searcher).
     pub fn merge_top_docs_with_comparator<C, S>(
-        start: i32,
-        size: i32,
+        start: usize,
+        size: usize,
         shard_hits: Vec<TopDocs<S>>,
         tie_breaker: C,
     ) -> Result<TopDocs<S>>
@@ -274,8 +273,8 @@ where
 /// A sort value of `null` is used to indicate that docs should be sorted by score.
 fn merge_aux<C, S>(
     mut queue: PriorityQueue<ShardRef, C>,
-    start: i32,
-    size: i32,
+    start: usize,
+    size: usize,
     shard_hits: &[TopDocs<S>],
 ) -> Result<(TotalHits, Vec<S>)>
 where
@@ -292,7 +291,7 @@ where
             total_hits_relation = Relation::GreaterThanOrEqualTo;
         }
         if !shard.score_docs.is_empty() {
-            avail_hit_count += shard.score_docs.len() as i32;
+            avail_hit_count += shard.score_docs.len();
             queue.add(ShardRef::new(shard_idx as i32))?;
         }
     }
@@ -332,7 +331,7 @@ where
 
             if hit_upto >= start {
                 // TODO IMPORTANT here has a Clone , should not be a bottleneck right?
-                hits[(hit_upto - start) as usize] = hit.clone();
+                hits[hit_upto - start] = hit.clone();
             }
 
             hit_upto += 1;

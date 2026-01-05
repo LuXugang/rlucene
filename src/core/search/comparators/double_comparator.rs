@@ -72,9 +72,9 @@ impl DoubleComparator {
 
 impl FieldComparator for DoubleComparator {
     type V = f64;
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        let slot1_v = self.values[slot1 as usize];
-        let slot2_v = self.values[slot2 as usize];
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        let slot1_v = self.values[slot1];
+        let slot2_v = self.values[slot2];
         slot1_v.total_cmp(&slot2_v).to_int()
     }
 
@@ -83,8 +83,8 @@ impl FieldComparator for DoubleComparator {
         self.top_value = value;
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
-        Some(self.values[slot as usize])
+    fn value(&self, slot: usize) -> Option<Self::V> {
+        Some(self.values[slot])
     }
 
     type LeafFieldComparator<LR>

@@ -111,9 +111,7 @@ impl TermOrdValComparator {
 impl FieldComparator for TermOrdValComparator {
     type V = BytesRef<Vec<u8>>;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        let slot1 = slot1 as usize;
-        let slot2 = slot2 as usize;
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
         if self.reader_gen[slot1] == self.reader_gen[slot2] {
             return self.ords[slot1] - self.ords[slot2];
         }
@@ -135,9 +133,9 @@ impl FieldComparator for TermOrdValComparator {
         self.top_value = Some(value);
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
+    fn value(&self, slot: usize) -> Option<Self::V> {
         // TODO IMPORTANT: avoid the clone here
-        self.values[slot as usize].clone()
+        self.values[slot].clone()
     }
 
     type LeafFieldComparator<LR>

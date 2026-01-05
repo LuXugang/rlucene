@@ -71,8 +71,8 @@ impl LongComparator {
 impl FieldComparator for LongComparator {
     type V = i64;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.values[slot1 as usize].cmp(&self.values[slot2 as usize]) as i32
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        self.values[slot1].cmp(&self.values[slot2]) as i32
     }
 
     fn set_top_value(&mut self, value: Self::V) {
@@ -80,8 +80,8 @@ impl FieldComparator for LongComparator {
         self.top_value = value;
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
-        Some(self.values[slot as usize])
+    fn value(&self, slot: usize) -> Option<Self::V> {
+        Some(self.values[slot])
     }
 
     type LeafFieldComparator<LR>

@@ -59,8 +59,8 @@ impl DocComparator {
 impl FieldComparator for DocComparator {
     type V = i32;
 
-    fn compare(&self, slot1: i32, slot2: i32) -> i32 {
-        self.doc_ids[slot1 as usize] - self.doc_ids[slot2 as usize]
+    fn compare(&self, slot1: usize, slot2: usize) -> i32 {
+        self.doc_ids[slot1] - self.doc_ids[slot2]
     }
 
     fn set_top_value(&mut self, value: Self::V) {
@@ -68,8 +68,8 @@ impl FieldComparator for DocComparator {
         self.top_value_set = true;
     }
 
-    fn value(&self, slot: i32) -> Option<Self::V> {
-        Some(self.doc_ids[slot as usize])
+    fn value(&self, slot: usize) -> Option<Self::V> {
+        Some(self.doc_ids[slot])
     }
 
     type LeafFieldComparator<LR>

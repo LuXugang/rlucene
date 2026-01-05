@@ -95,10 +95,10 @@ pub fn create(
 #[derive(Clone, Default, Debug)]
 pub struct Entry {
     pub base: ScoreDoc,
-    pub slot: i32,
+    pub slot: usize,
 }
 impl Entry {
-    pub fn new(slot: i32, doc: i32) -> Self {
+    pub fn new(slot: usize, doc: i32) -> Self {
         let base = ScoreDoc::new(doc, f32::NAN);
         Self { base, slot }
     }
@@ -296,7 +296,7 @@ impl TopFieldScoreDoc {
             _ => Err(LuceneError::illegal_state("not a FieldDoc variant")),
         }
     }
-    pub fn slot(&self) -> Result<i32> {
+    pub fn slot(&self) -> Result<usize> {
         match self {
             TopFieldScoreDoc::Entry(e) => Ok(e.slot),
             _ => Err(LuceneError::illegal_state(

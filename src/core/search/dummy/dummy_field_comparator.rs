@@ -23,7 +23,7 @@ pub struct DummyFieldComparator;
 impl FieldComparator for DummyFieldComparator {
     type V = i32;
 
-    fn compare(&self, _slot1: i32, _slot2: i32) -> i32 {
+    fn compare(&self, _slot1: usize, _slot2: usize) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -31,7 +31,7 @@ impl FieldComparator for DummyFieldComparator {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn value(&self, _slot: i32) -> Option<Self::V> {
+    fn value(&self, _slot: usize) -> Option<Self::V> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
