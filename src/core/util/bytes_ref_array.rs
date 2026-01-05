@@ -398,7 +398,7 @@ mod tests {
     use crate::core::util::{
         AtomicCounter, BytesRefArray, Natural, NaturalOrder, SortableBytesRefArray,
     };
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
     use crate::test::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
@@ -416,7 +416,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 500) as usize;
+            let entries = at_least_usize(&mut random, 500);
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
             #[allow(clippy::needless_range_loop)]
@@ -473,7 +473,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 200) as usize;
+            let entries = at_least_usize(&mut random, 200);
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
 
@@ -543,7 +543,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 200) as usize;
+            let entries = at_least_usize(&mut random, 200);
 
             let mut values = Vec::new();
             for _ in 0..20 {

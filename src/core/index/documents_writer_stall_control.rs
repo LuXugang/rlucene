@@ -132,7 +132,7 @@ mod tests {
     use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, random,
+        at_least, at_least_usize, is_night_mode, random,
     };
     use parking_lot::{Condvar, Mutex};
     use rand::{Rng, rng};
@@ -147,13 +147,13 @@ mod tests {
         let mut random = random();
         let ctrl = Arc::new(DocumentsWriterStallControl::new());
         ctrl.update_stalled(false);
-        let mut threads = wait_threads(at_least(&mut random, 3) as usize, ctrl.clone());
+        let mut threads = wait_threads(at_least_usize(&mut random, 3), ctrl.clone());
         assert!(!ctrl.has_blocked());
         assert!(!ctrl.any_stalled_threads());
         join(threads);
         // now stall threads and wake them up again
         ctrl.update_stalled(true);
-        threads = wait_threads(at_least(&mut random, 3) as usize, ctrl.clone());
+        threads = wait_threads(at_least_usize(&mut random, 3), ctrl.clone());
         start();
         thread::sleep(Duration::from_millis(50));
         assert!(ctrl.has_blocked());
@@ -209,9 +209,9 @@ mod tests {
         let stop = Arc::new(AtomicBool::new(false));
         let check_point = Arc::new(AtomicBool::new(true));
 
-        let num_stallers = at_least(&mut rng, 1) as usize;
-        let num_releasers = at_least(&mut rng, 1) as usize;
-        let num_waiters = at_least(&mut rng, 1) as usize;
+        let num_stallers = at_least_usize(&mut rng, 1);
+        let num_releasers = at_least_usize(&mut rng, 1);
+        let num_waiters = at_least_usize(&mut rng, 1);
         let total_threads = num_stallers + num_releasers + num_waiters;
 
         let sync = Arc::new(Synchronizer::new(
@@ -365,7 +365,7 @@ mod tests {
             let mut rng = rng();
             while !stop.load(Ordering::SeqCst) {
                 let internal_iters = if release && rng.random_bool(0.5) {
-                    at_least(&mut rng, 5) as usize
+                    at_least_usize(&mut rng, 5)
                 } else {
                     1
                 };

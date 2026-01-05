@@ -37,7 +37,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, new_directory_shared, new_io_context, random,
+    at_least_usize, new_directory_shared, new_io_context, random,
 };
 use crate::test::util::test_util::TestUtil;
 
@@ -389,7 +389,7 @@ pub trait BaseCompoundFormatTestCase {
     fn test_many_sub_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         // TODO: should enhance after implementing the newMockFSDirectory
         let dir = new_directory_shared(random)?;
-        let file_count = at_least(random, 500) as usize;
+        let file_count = at_least_usize(random, 500);
         let mut files = Vec::new();
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         for file_idx in 0..file_count {

@@ -522,7 +522,9 @@ mod tests {
     use crate::core::util::TryIntoInt;
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::priority_queue::{Compare, PriorityQueue};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, at_least_usize, random,
+    };
     use crate::test::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
@@ -892,7 +894,7 @@ mod tests {
         let mut random = random();
         let max_size = TestUtil::next_usize(&mut random, 1, 20);
         let mut queue = PriorityQueue::new(max_size, I32Compare)?;
-        let iters: usize = at_least(&mut random, 100) as usize;
+        let iters: usize = at_least_usize(&mut random, 100);
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
             if queue.size() == 0 || (queue.size() < max_size) {

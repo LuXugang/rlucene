@@ -1044,7 +1044,7 @@ mod tests {
         use crate::core::util::numeric_utils::NumericUtils;
         use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
         use crate::test::util::lucene_test_case::lucene_test_case_util::{
-            at_least, new_directory, random,
+            at_least_usize, new_directory, random,
         };
         use crate::test::util::test_util::TestUtil;
 
@@ -1241,7 +1241,7 @@ mod tests {
         fn test_random_few_different_values() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let values = at_least(&mut random, 15000) as usize;
+            let values = at_least_usize(&mut random, 15000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
@@ -1275,7 +1275,7 @@ mod tests {
         fn test_random_data_dim_diff_values() -> Result<()> {
             let mut random = random();
             let config = get_random_config(&mut random)?;
-            let values = at_least(&mut random, 15000) as usize;
+            let values = at_least_usize(&mut random, 15000);
             let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);

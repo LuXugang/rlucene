@@ -378,7 +378,7 @@ mod tests {
     };
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
     use crate::test::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
@@ -388,7 +388,7 @@ mod tests {
         let mut random = random();
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
-        let num_bytes = at_least(&mut random, 2 << 16) as usize;
+        let num_bytes = at_least_usize(&mut random, 2 << 16);
         let bytes = (&mut random)
             .sample_iter(&Alphanumeric)
             .take(num_bytes)
@@ -401,7 +401,7 @@ mod tests {
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut another_pool = ByteBlockPool::new(allocator);
-        let existing_bytes = vec![0; at_least(&mut random, 500) as usize];
+        let existing_bytes = vec![0; at_least_usize(&mut random, 500)];
         another_pool.append(&existing_bytes)?;
 
         // now slice and append to another pool
@@ -439,8 +439,8 @@ mod tests {
         let reuse_first = random.random_bool(0.5);
         for _j in 0..2 {
             let mut list: Vec<BytesRef<Vec<u8>>> = Vec::new();
-            let max_length = at_least(&mut random, 500) as usize;
-            let num_values = at_least(&mut random, 100) as usize;
+            let max_length = at_least_usize(&mut random, 500);
+            let num_values = at_least_usize(&mut random, 100);
             let mut bytes_ref_builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
             for _i in 0..num_values {
                 let value = (&mut random)

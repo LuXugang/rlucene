@@ -106,7 +106,10 @@ pub mod lucene_test_case_util {
         }
         Ok(sub_readers[0].reader().clone())
     }
-
+    pub(crate) fn at_least_usize<R: Rng + ?Sized>(random: &mut R, i: usize) -> usize {
+        debug_assert!(i <= i32::MAX as usize);
+        at_least(random, i as i32) as usize
+    }
     /// Returns a number of at least `i`
     ///
     /// The actual number returned will be influenced by whether `TEST_NIGHTLY` is

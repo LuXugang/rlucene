@@ -176,7 +176,9 @@ mod tests {
     use crate::core::store::ByteBuffersDataOutput;
     use crate::core::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, at_least_usize, random,
+    };
     use crate::test::util::test_util::TestUtil;
     fn do_test_compress<R: Rng + ?Sized>(random: &mut R, bytes: &[u8]) -> Result<bool> {
         do_test_compress_with_len(random, bytes, bytes.len())
@@ -315,7 +317,7 @@ mod tests {
         let mut random = random();
         let iters = at_least(&mut random, 1000);
         for _ in 0..iters {
-            let word_len = at_least(&mut random, 400) as usize;
+            let word_len = at_least_usize(&mut random, 400);
             let simple = random.random_bool(0.5);
             let s = TestUtil::random_substring(&mut random, word_len, simple);
             do_test_compress(&mut random, s.as_bytes())?;

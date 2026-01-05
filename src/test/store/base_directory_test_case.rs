@@ -40,7 +40,7 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_directory,
+    at_least, at_least_usize, is_night_mode, new_directory,
 };
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_io_context, random_from_seed, slow_file_exists,
@@ -1783,7 +1783,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = Builder::new().prefix("test_list_all_is_sorted").tempdir()?;
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
 
-        let count = at_least(random, 20) as usize;
+        let count = at_least_usize(random, 20);
         let mut names = HashSet::new();
 
         let mut names_len = names.len();

@@ -43,8 +43,8 @@ use crate::core::search::total_hits::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, new_directory_shared, new_searcher, new_searcher_with_reader,
-    new_searcher_with_threads, random,
+    at_least, at_least_usize, is_night_mode, new_directory_shared, new_searcher,
+    new_searcher_with_reader, new_searcher_with_threads, random,
 };
 use rand::{Rng, random_bool};
 use std::sync::Arc;
@@ -1123,7 +1123,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
-    let num_docs = at_least(&mut random, 5000) as usize;
+    let num_docs = at_least_usize(&mut random, 5000);
     for _ in 0..num_docs {
         let value = random.random();
         let value2 = random.random();

@@ -394,7 +394,7 @@ mod tests {
         AutomatonTestUtil, RandomAcceptedStrings,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        TestRng, at_least, new_bytes_ref_from_string, random,
+        TestRng, at_least, at_least_usize, new_bytes_ref_from_string, random,
     };
     use crate::test::util::test_util::TestUtil;
     #[allow(dead_code)] // for quick search
@@ -504,7 +504,7 @@ mod tests {
     fn test_random_ranges() -> Result<()> {
         let mut random = random();
         let iters = at_least(&mut random, 10);
-        let iters_per_dfa = at_least(&mut random, 100) as usize;
+        let iters_per_dfa = at_least_usize(&mut random, 100);
 
         for _ in 0..iters {
             let x1 = get_code_start(&mut random);

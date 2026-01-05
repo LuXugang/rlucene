@@ -482,7 +482,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
     use crate::test::util::common_method::assert_vecs_equal;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
     use crate::test::util::test_util::TestUtil;
 
     #[allow(dead_code)] // for quick search
@@ -610,7 +610,7 @@ mod tests {
         let mut substrings_set = HashSet::new();
 
         // How many strings to make
-        let string_count = at_least(&mut random, 10000) as usize;
+        let string_count = at_least_usize(&mut random, 10000);
         // let string_count = ;
 
         // Generate unique substrings

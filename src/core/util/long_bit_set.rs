@@ -531,7 +531,7 @@ mod tests {
     use crate::core::util::long_bit_set::LongBitSet;
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        at_least, is_night_mode, random, random_multiplier,
+        at_least, at_least_usize, is_night_mode, random, random_multiplier,
     };
     use crate::test::util::test_util::TestUtil;
 
@@ -723,7 +723,7 @@ mod tests {
             100
         };
 
-        let size = at_least(&mut random, 1200) as usize;
+        let size = at_least_usize(&mut random, 1200);
         do_random_sets(size, iters, 1, &mut random)?;
         do_random_sets(size, iters, 2, &mut random)?;
         Ok(())
