@@ -195,7 +195,7 @@ where
         let mut min_length = i32::MAX;
         for iter in &bit_set_iterators {
             let bit_set = iter.get_bit_set();
-            min_length = min_length.min(bit_set.length());
+            min_length = min_length.min(bit_set.length() as i32);
         }
 
         Ok(Self {
@@ -215,7 +215,7 @@ where
 
             for bs_iter in &self.bit_set_iterators {
                 let bs = bs_iter.get_bit_set();
-                if !bs.get(doc) {
+                if !bs.get(doc as usize) {
                     doc = self.lead.next_doc()?;
                     continue 'advance_lead;
                 }

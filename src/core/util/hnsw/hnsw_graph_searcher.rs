@@ -80,9 +80,9 @@ where
     pub fn search_level<S>(
         &mut self,
         scorer: &mut S,
-        top_k: i32,
+        top_k: usize,
         level: usize,
-        eps: &[i32],
+        eps: &[usize],
         graph: &mut HnswGraphEnums,
     ) -> Result<GraphBuilderKnnCollector>
     where
@@ -117,16 +117,16 @@ where
         scorer: &mut S,
         graph: &mut HnswGraphEnums,
         collector: &mut impl KnnCollector,
-    ) -> Result<i32>
+    ) -> Result<Option<usize>>
     where
         S: RandomVectorScorer,
     {
-        let mut current_ep = graph.entry_node()?;
-        if current_ep == -1 || graph.num_levels()? == 1 {
+        let current_ep = graph.entry_node()?;
+        if current_ep.is_none() || graph.num_levels()? == 1 {
             return Ok(current_ep);
         }
-
-        let size = get_graph_size(graph) as usize;
+        let mut current_ep = *current_ep.as_ref().unwrap();
+        let size = get_graph_size(graph);
         self.prepare_scratch_state(size);
 
         let mut current_score = scorer.score(current_ep)?;
@@ -139,23 +139,20 @@ where
             // point
             while found_better {
                 found_better = false;
-                self.sub.graph_seek(graph, level, current_ep as usize)?;
-                let mut friend_ord;
+                self.sub.graph_seek(graph, level, current_ep)?;
+                let mut friend_ord: usize;
                 while {
                     friend_ord = self.sub.graph_next_neighbor(graph)?;
-                    friend_ord != NO_MORE_DOCS
+                    friend_ord != NO_MORE_DOCS as usize
                 } {
-                    debug_assert!(
-                        (friend_ord as usize) < size,
-                        "friendOrd={friend_ord} >= size={size}"
-                    );
+                    debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
 
                     if self.visited.get_and_set(friend_ord) {
                         continue;
                     }
 
                     if collector.early_terminated() {
-                        return Ok(-1);
+                        return Ok(None);
                     }
 
                     let friend_score = scorer.score(friend_ord)?;
@@ -171,9 +168,9 @@ where
         }
 
         Ok(if collector.early_terminated() {
-            -1
+            None
         } else {
-            current_ep
+            Some(current_ep)
         })
     }
     /// Add the closest neighbors found to a priority queue (heap).
@@ -187,14 +184,14 @@ where
         results: &mut impl KnnCollector,
         scorer: &mut S,
         level: usize,
-        eps: &[i32],
+        eps: &[usize],
         graph: &mut HnswGraphEnums,
         accept_ords: &mut Option<impl Bits>,
     ) -> Result<()>
     where
         S: RandomVectorScorer,
     {
-        let size = get_graph_size(graph) as usize;
+        let size = get_graph_size(graph);
         self.prepare_scratch_state(size);
 
         for &ep in eps {
@@ -220,17 +217,13 @@ where
             }
 
             let top_node = self.candidates.pop()?;
-            debug_assert!(top_node >= 0);
-            self.sub.graph_seek(graph, level, top_node as usize)?;
+            self.sub.graph_seek(graph, level, top_node)?;
             let mut friend_ord;
             while {
                 friend_ord = self.sub.graph_next_neighbor(graph)?;
-                friend_ord != NO_MORE_DOCS
+                friend_ord != NO_MORE_DOCS as usize
             } {
-                debug_assert!(
-                    (friend_ord as usize) < size,
-                    "friendOrd={friend_ord} >= size={size}"
-                );
+                debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
 
                 if self.visited.get_and_set(friend_ord) {
                     continue;
@@ -258,9 +251,9 @@ where
     }
     fn prepare_scratch_state(&mut self, capacity: usize) {
         self.candidates.clear();
-        if (self.visited.length() as usize) < capacity {
+        if self.visited.length() < capacity {
             debug_assert!(capacity <= i32::MAX as usize);
-            self.visited.ensure_capacity(capacity as i32);
+            self.visited.ensure_capacity(capacity);
         }
         self.visited.clear();
     }
@@ -294,7 +287,7 @@ pub trait HnswGraphSearcherBase {
     /// # Errors
     ///
     /// Returns an error if advancing to the next neighbor fails.
-    fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<i32> {
+    fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<usize> {
         graph.next_neighbor()
     }
 }
@@ -329,7 +322,7 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
         Ok(())
     }
 
-    fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<i32> {
+    fn graph_next_neighbor(&mut self, graph: &mut HnswGraphEnums) -> Result<usize> {
         match graph {
             HnswGraphEnums::OnHeap(graph) => {
                 let neighbors = graph.get_neighbors(self.cur_level, self.cur_node);
@@ -337,7 +330,7 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
                 if (self.upto as usize) < neighbors.size() {
                     Ok(neighbors.nodes()[self.upto as usize])
                 } else {
-                    Ok(NO_MORE_DOCS)
+                    Ok(NO_MORE_DOCS as usize)
                 }
             },
         }
@@ -395,7 +388,7 @@ where
 /// A set of collected vectors holding the nearest neighbors found
 pub fn search_with_top_k<S>(
     scorer: &mut S,
-    top_k: i32,
+    top_k: usize,
     graph: &mut HnswGraphEnums,
     accept_ords: &mut Option<impl Bits>,
     visited_limit: usize,
@@ -431,8 +424,7 @@ where
     B: BitSet,
     S: RandomVectorScorer,
 {
-    let ep = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)?;
-    if ep != -1 {
+    if let Some(ep) = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)? {
         graph_searcher.search_level_with_collector(
             knn_collector,
             scorer,
@@ -444,7 +436,9 @@ where
     }
     Ok(())
 }
-pub(crate) fn get_graph_size<G: HnswGraph>(graph: &G) -> i32 {
-    debug_assert!((graph.max_node_id() + 1) >= 0);
-    graph.max_node_id() + 1
+pub(crate) fn get_graph_size<G: HnswGraph>(graph: &G) -> usize {
+    match graph.max_node_id() {
+        Some(v) => v + 1,
+        None => 0,
+    }
 }

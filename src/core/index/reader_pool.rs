@@ -962,7 +962,13 @@ mod tests {
                     .unwrap();
 
                 assert_ne!(-1, doc);
-                assert!(!updated_reader.get_live_docs()?.as_ref().unwrap().get(doc));
+                assert!(
+                    !updated_reader
+                        .get_live_docs()?
+                        .as_ref()
+                        .unwrap()
+                        .get(doc as usize)
+                );
                 readers_and_updates.release(updated_reader.as_ref(), None)?;
                 assert!(!pool.release(
                     &readers_and_updates,

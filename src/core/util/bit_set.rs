@@ -35,45 +35,45 @@ pub trait BitSet: Bits + Accountable {
     }
 
     /// Sets the bit at `i`.
-    fn set(&mut self, i: i32);
+    fn set(&mut self, i: usize);
     /// Sets the bit at `i`, returning `true` if it was previously set.
-    fn get_and_set(&mut self, i: i32) -> bool;
+    fn get_and_set(&mut self, i: usize) -> bool;
 
     /// Clears the bit at `i`.
-    fn clear_with_index(&mut self, i: i32);
+    fn clear_with_index(&mut self, i: usize);
     /// Clears a range of bits.
     ///
     /// # Arguments
     /// * `start_index` - The lower index.
     /// * `end_index` - One-past the last bit to clear.
-    fn clear_range(&mut self, start_index: i32, end_index: i32);
+    fn clear_range(&mut self, start_index: usize, end_index: usize);
 
     /// Returns the number of bits that are set.
     ///
     /// # Note
     /// This method is likely to run in linear time.
-    fn cardinality(&self) -> i32;
+    fn cardinality(&self) -> usize;
     /// Returns an approximation of the cardinality of this set. Some
     /// implementations may trade accuracy for speed if they have the
     /// ability to estimate the cardinality of the set without iterating
     /// over all the data. The default implementation returns
     /// [`cardinality`](BitSet::cardinality).
-    fn approximate_cardinality(&self) -> i32;
+    fn approximate_cardinality(&self) -> usize;
 
     /// Returns the index of the last set bit before or on the index specified.
     /// -1 is returned if there are no more set bits.
-    fn prev_set_bit(&self, index: i32) -> i32;
+    fn prev_set_bit(&self, index: usize) -> Option<usize>;
 
     /// Returns the index of the first set bit starting at the index specified.
     /// [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS) is returned if there are no more set bits.
-    fn next_set_bit(&self, index: i32) -> i32 {
+    fn next_set_bit(&self, index: usize) -> usize {
         self.next_set_bit_range(index, self.length())
     }
 
     /// Returns the index of the first set bit from start (inclusive) until end
     /// (exclusive).
     /// [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS) is returned if there are no more set bits.
-    fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize;
 
     /// Performs in-place OR of the bits provided by the iterator. The state of
     /// the iterator after this operation terminates is undefined.
@@ -82,8 +82,8 @@ pub trait BitSet: Bits + Accountable {
     fn default_or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         check_unpositioned(iter)?;
         loop {
-            let doc = iter.next_doc()?;
-            if doc == NO_MORE_DOCS {
+            let doc = iter.next_doc()?.try_convert()?;
+            if doc == NO_MORE_DOCS as usize {
                 break;
             }
             self.set(doc);
@@ -91,7 +91,7 @@ pub trait BitSet: Bits + Accountable {
         Ok(())
     }
 
-    fn ensure_capacity(&mut self, _num_bits: i32) {}
+    fn ensure_capacity(&mut self, _num_bits: usize) {}
 }
 
 // BitSet
@@ -105,14 +105,14 @@ where
     A: BitSet,
     B: BitSet,
 {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         match self {
             BitSetEnum2::A(t) => t.get(index),
             BitSetEnum2::B(s) => s.get(index),
         }
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         match self {
             BitSetEnum2::A(t) => t.length(),
             BitSetEnum2::B(s) => s.length(),
@@ -152,63 +152,63 @@ where
         }
     }
 
-    fn set(&mut self, i: i32) {
+    fn set(&mut self, i: usize) {
         match self {
             BitSetEnum2::A(t) => t.set(i),
             BitSetEnum2::B(s) => s.set(i),
         }
     }
 
-    fn get_and_set(&mut self, i: i32) -> bool {
+    fn get_and_set(&mut self, i: usize) -> bool {
         match self {
             BitSetEnum2::A(t) => t.get_and_set(i),
             BitSetEnum2::B(s) => s.get_and_set(i),
         }
     }
 
-    fn clear_with_index(&mut self, i: i32) {
+    fn clear_with_index(&mut self, i: usize) {
         match self {
             BitSetEnum2::A(t) => t.clear_with_index(i),
             BitSetEnum2::B(s) => s.clear_with_index(i),
         }
     }
 
-    fn clear_range(&mut self, start_index: i32, end_index: i32) {
+    fn clear_range(&mut self, start_index: usize, end_index: usize) {
         match self {
             BitSetEnum2::A(t) => t.clear_range(start_index, end_index),
             BitSetEnum2::B(s) => s.clear_range(start_index, end_index),
         }
     }
 
-    fn cardinality(&self) -> i32 {
+    fn cardinality(&self) -> usize {
         match self {
             BitSetEnum2::A(t) => t.cardinality(),
             BitSetEnum2::B(s) => s.cardinality(),
         }
     }
 
-    fn approximate_cardinality(&self) -> i32 {
+    fn approximate_cardinality(&self) -> usize {
         match self {
             BitSetEnum2::A(t) => t.approximate_cardinality(),
             BitSetEnum2::B(s) => s.approximate_cardinality(),
         }
     }
 
-    fn prev_set_bit(&self, index: i32) -> i32 {
+    fn prev_set_bit(&self, index: usize) -> Option<usize> {
         match self {
             BitSetEnum2::A(t) => t.prev_set_bit(index),
             BitSetEnum2::B(s) => s.prev_set_bit(index),
         }
     }
 
-    fn next_set_bit(&self, index: i32) -> i32 {
+    fn next_set_bit(&self, index: usize) -> usize {
         match self {
             BitSetEnum2::A(t) => t.next_set_bit(index),
             BitSetEnum2::B(s) => s.next_set_bit(index),
         }
     }
 
-    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
         match self {
             BitSetEnum2::A(t) => t.next_set_bit_range(start, end),
             BitSetEnum2::B(s) => s.next_set_bit_range(start, end),
@@ -222,7 +222,7 @@ where
         }
     }
 
-    fn ensure_capacity(&mut self, _num_bits: i32) {
+    fn ensure_capacity(&mut self, _num_bits: usize) {
         match self {
             BitSetEnum2::A(t) => t.ensure_capacity(_num_bits),
             BitSetEnum2::B(s) => s.ensure_capacity(_num_bits),
@@ -247,39 +247,39 @@ where
         unreachable!()
     }
 
-    fn set(&mut self, _i: i32) {
+    fn set(&mut self, _i: usize) {
         unreachable!()
     }
 
-    fn get_and_set(&mut self, _i: i32) -> bool {
+    fn get_and_set(&mut self, _i: usize) -> bool {
         unreachable!()
     }
 
-    fn clear_with_index(&mut self, _i: i32) {
+    fn clear_with_index(&mut self, _i: usize) {
         unreachable!()
     }
 
-    fn clear_range(&mut self, _start_index: i32, _end_index: i32) {
+    fn clear_range(&mut self, _start_index: usize, _end_index: usize) {
         unreachable!()
     }
 
-    fn cardinality(&self) -> i32 {
+    fn cardinality(&self) -> usize {
         (**self).cardinality()
     }
 
-    fn approximate_cardinality(&self) -> i32 {
+    fn approximate_cardinality(&self) -> usize {
         (**self).approximate_cardinality()
     }
 
-    fn prev_set_bit(&self, index: i32) -> i32 {
+    fn prev_set_bit(&self, index: usize) -> Option<usize> {
         (**self).prev_set_bit(index)
     }
 
-    fn next_set_bit(&self, index: i32) -> i32 {
+    fn next_set_bit(&self, index: usize) -> usize {
         (**self).next_set_bit(index)
     }
 
-    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
         (**self).next_set_bit_range(start, end)
     }
 
@@ -291,7 +291,7 @@ where
         unreachable!()
     }
 
-    fn ensure_capacity(&mut self, _num_bits: i32) {
+    fn ensure_capacity(&mut self, _num_bits: usize) {
         unreachable!()
     }
 }
@@ -300,11 +300,11 @@ impl<T> Bits for Rc<T>
 where
     T: BitSet,
 {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         (**self).get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         (**self).length()
     }
 }
@@ -326,39 +326,39 @@ where
         unreachable!()
     }
 
-    fn set(&mut self, _i: i32) {
+    fn set(&mut self, _i: usize) {
         unreachable!()
     }
 
-    fn get_and_set(&mut self, _i: i32) -> bool {
+    fn get_and_set(&mut self, _i: usize) -> bool {
         unreachable!()
     }
 
-    fn clear_with_index(&mut self, _i: i32) {
+    fn clear_with_index(&mut self, _i: usize) {
         unreachable!()
     }
 
-    fn clear_range(&mut self, _start_index: i32, _end_index: i32) {
+    fn clear_range(&mut self, _start_index: usize, _end_index: usize) {
         unreachable!()
     }
 
-    fn cardinality(&self) -> i32 {
+    fn cardinality(&self) -> usize {
         (**self).cardinality()
     }
 
-    fn approximate_cardinality(&self) -> i32 {
+    fn approximate_cardinality(&self) -> usize {
         (**self).approximate_cardinality()
     }
 
-    fn prev_set_bit(&self, index: i32) -> i32 {
+    fn prev_set_bit(&self, index: usize) -> Option<usize> {
         (**self).prev_set_bit(index)
     }
 
-    fn next_set_bit(&self, index: i32) -> i32 {
+    fn next_set_bit(&self, index: usize) -> usize {
         (**self).next_set_bit(index)
     }
 
-    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
         (**self).next_set_bit_range(start, end)
     }
 
@@ -370,17 +370,18 @@ where
         unreachable!()
     }
 
-    fn ensure_capacity(&mut self, _num_bits: i32) {
+    fn ensure_capacity(&mut self, _num_bits: usize) {
         unreachable!()
     }
 }
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 /// Builds a [`BitSet`] from the content of the provided
 /// [`DocIdSetIterator`]. **Note**: This will fully consume the
 /// [`DocIdSetIterator`].
-pub fn of(it: &mut impl DocIdSetIterator, max_doc: i32) -> Result<SparseFixedBitSetBitSet> {
+pub fn of(it: &mut impl DocIdSetIterator, max_doc: usize) -> Result<SparseFixedBitSetBitSet> {
     let cost = it.cost()?;
     let threshold = max_doc >> 7;
     let mut set;

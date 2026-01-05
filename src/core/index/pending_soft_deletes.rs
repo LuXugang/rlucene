@@ -150,7 +150,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
         let mutable_bits = self.base.get_mutable_bits()?;
         // hardDeletes
         if self.hard_deletes.delete(doc_id, info)? {
-            if mutable_bits.get_and_clear(doc_id) {
+            if mutable_bits.get_and_clear(doc_id as usize) {
                 // delete it here too!
                 debug_assert!(!self.hard_deletes.delete(doc_id, info)?);
             } else {
@@ -246,7 +246,7 @@ pub(crate) fn count_soft_deletes(
             if doc == NO_MORE_DOCS {
                 break;
             }
-            if hard_deletes.is_none_or(|bits| bits.get(doc)) {
+            if hard_deletes.is_none_or(|bits| bits.get(doc as usize)) {
                 count += 1;
             }
         }

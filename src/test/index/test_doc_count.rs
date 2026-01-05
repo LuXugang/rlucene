@@ -103,17 +103,17 @@ where
         };
 
         let doc_count = terms.get_doc_count()?;
-        let mut visited = FixedBitSet::new(max_doc);
+        let mut visited = FixedBitSet::new(max_doc as usize);
 
         let mut te = terms.iterator()?;
         while te.next()?.is_some() {
             let mut de = TestUtil::docs(random, &mut te, None, NONE as i32)?;
             while de.next_doc()? != NO_MORE_DOCS {
-                visited.set(de.doc_id());
+                visited.set(de.doc_id() as usize);
             }
         }
 
-        assert_eq!(visited.cardinality(), doc_count);
+        assert_eq!(visited.cardinality(), doc_count as usize);
     }
 
     Ok(())

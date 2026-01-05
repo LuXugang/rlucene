@@ -34,7 +34,7 @@ pub struct NeighborQueue {
     pub incomplete: bool,
 }
 impl NeighborQueue {
-    pub fn new(initial_size: i32, max_heap: bool) -> Result<Self> {
+    pub fn new(initial_size: usize, max_heap: bool) -> Result<Self> {
         Ok(NeighborQueue {
             heap: LongHeap::new(initial_size)?,
             order: if max_heap {
@@ -47,7 +47,7 @@ impl NeighborQueue {
         })
     }
     /// return the number of elements in the heap
-    pub fn size(&self) -> i32 {
+    pub fn size(&self) -> usize {
         self.heap.size()
     }
     /// Adds a new graph arc, extending the storage as needed.
@@ -56,7 +56,7 @@ impl NeighborQueue {
     ///
     /// * `new_node` - The neighbor node ID.
     /// * `new_score` - The score of the neighbor, relative to some other node.
-    pub fn add(&mut self, new_node: i32, new_score: f32) {
+    pub fn add(&mut self, new_node: usize, new_score: f32) {
         let encoded = self.encode(new_node, new_score);
         self.heap.push(encoded);
     }
@@ -70,7 +70,7 @@ impl NeighborQueue {
     ///
     /// * `new_node` - The neighbor node ID.
     /// * `new_score` - The score of the neighbor, relative to some other node.
-    pub fn insert_with_overflow(&mut self, new_node: i32, new_score: f32) -> bool {
+    pub fn insert_with_overflow(&mut self, new_node: usize, new_score: f32) -> bool {
         let encoded = self.encode(new_node, new_score);
         self.heap.insert_with_overflow(encoded)
     }
@@ -99,7 +99,8 @@ impl NeighborQueue {
     /// # Returns
     ///
     /// A 64-bit encoded representation combining score and node ID.
-    fn encode(&self, node: i32, score: f32) -> i64 {
+    fn encode(&self, node: usize, score: f32) -> i64 {
+        debug_assert!(node <= i64::MAX as usize);
         let encoded_score = NumericUtils::float_to_sortable_int(score) as i64;
         let encoded_node = !(node as i64) & 0xFFFF_FFFF;
         self.order.apply((encoded_score << 32) | encoded_node)
@@ -110,26 +111,27 @@ impl NeighborQueue {
         NumericUtils::sortable_int_to_float(sortable)
     }
 
-    fn decode_node_id(&self, heap_value: i64) -> i32 {
-        (!self.order.apply(heap_value)) as i32
+    fn decode_node_id(&self, heap_value: i64) -> usize {
+        let v = (!self.order.apply(heap_value)) as i32;
+        v as usize
     }
     /// Removes the top element and returns its node id.
-    pub fn pop(&mut self) -> Result<i32> {
+    pub fn pop(&mut self) -> Result<usize> {
         let v = self.heap.pop()?;
         Ok(self.decode_node_id(v))
     }
 
-    pub fn nodes(&self) -> Vec<i32> {
+    pub fn nodes(&self) -> Vec<usize> {
         let size = self.size();
-        let mut nodes = Vec::with_capacity(size as usize);
-        for i in 0..size as usize {
+        let mut nodes = Vec::with_capacity(size);
+        for i in 0..size {
             nodes.push(self.decode_node_id(self.heap.get(i + 1)));
         }
         nodes
     }
 
     /// Returns the top element's node id.
-    pub fn top_node(&self) -> i32 {
+    pub fn top_node(&self) -> usize {
         self.decode_node_id(self.heap.top())
     }
     /// Returns the top element's node score.
@@ -177,8 +179,6 @@ impl Order {
     pub fn apply(&self, v: i64) -> i64 {
         match self {
             Order::MinHeap => v,
-            // This cannot be just `-v` since Long.MIN_VALUE doesn't have a positive counterpart. It
-            // needs a function that returns MAX_VALUE for MIN_VALUE and vice-versa.
             Order::MaxHeap => -1 - v,
         }
     }
@@ -295,20 +295,20 @@ mod tests {
         let mut random = random();
         let mut nn = NeighborQueue::new(1, true)?;
         let mut max_score = -2.0f32;
-        let mut max_node = -1;
+        let mut max_node: Option<usize> = None;
 
         for i in 0..256 {
             // initial size is 32
             let score: f32 = random.random();
             if score > max_score {
                 max_score = score;
-                max_node = i;
+                max_node = Some(i);
             }
             nn.add(i, score);
         }
 
         assert!((nn.top_score() - max_score).abs() < f32::EPSILON);
-        assert_eq!(nn.top_node(), max_node);
+        assert_eq!(Some(nn.top_node()), max_node);
 
         Ok(())
     }

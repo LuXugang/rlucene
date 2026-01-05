@@ -67,12 +67,12 @@ impl DocsWithFieldSet {
         }
         if self.set.is_some() {
             let set = self.set.as_mut().unwrap();
-            set.ensure_capacity(doc_id);
-            set.set(doc_id);
+            set.ensure_capacity(doc_id as usize);
+            set.set(doc_id as usize);
         } else if doc_id != self.cardinality {
-            let mut set = FixedBitSet::new(doc_id + 1);
-            set.set_with_range(0, self.cardinality);
-            set.set(doc_id);
+            let mut set = FixedBitSet::new((doc_id + 1) as usize);
+            set.set_with_range(0, self.cardinality as usize);
+            set.set(doc_id as usize);
             self.set = Some(set);
         }
         self.last_doc_id = doc_id;

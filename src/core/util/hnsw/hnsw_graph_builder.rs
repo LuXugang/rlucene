@@ -100,8 +100,8 @@ where
     ) -> Result<Self> {
         let size = hnsw.size();
         let searcher = HnswGraphSearcher::new(
-            NeighborQueue::new(beam_width as i32, true)?,
-            FixedBitSet::new(size as i32),
+            NeighborQueue::new(beam_width, true)?,
+            FixedBitSet::new(size),
             HnswGraphSearcherBaseDefault,
         );
         Self::new(scorer_supplier, m, beam_width, random, hnsw, None, searcher)
@@ -158,13 +158,13 @@ where
             hnsw_lock,
             graph_searcher,
             entry_candidates: GraphBuilderKnnCollector::new(1)?,
-            beam_candidates: GraphBuilderKnnCollector::new(beam_width as i32)?,
+            beam_candidates: GraphBuilderKnnCollector::new(beam_width)?,
             info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
             frozen: false,
         })
     }
     /// add vectors in range [minOrd, maxOrd)
-    pub(crate) fn add_vectors(&mut self, min_ord: i32, max_ord: i32) -> Result<()> {
+    pub(crate) fn add_vectors(&mut self, min_ord: usize, max_ord: usize) -> Result<()> {
         if self.frozen {
             return Err(LuceneError::illegal_state(
                 "This HnswGraphBuilder is frozen and cannot be updated",
@@ -188,10 +188,10 @@ where
 
         Ok(())
     }
-    fn add_all_vectors(&mut self, max_ord: i32) -> Result<()> {
+    fn add_all_vectors(&mut self, max_ord: usize) -> Result<()> {
         self.add_vectors(0, max_ord)
     }
-    fn print_graph_build_status(&mut self, node: i32, start: Instant, t: Instant) -> Instant {
+    fn print_graph_build_status(&mut self, node: usize, start: Instant, t: Instant) -> Instant {
         let now = Instant::now();
         if self.info_stream.enabled(HNSW_COMPONENT) {
             let elapsed_t = now.duration_since(t).as_millis();
@@ -206,7 +206,7 @@ where
     fn add_diverse_neighbors(
         &mut self,
         level: usize,
-        node: i32,
+        node: usize,
         candidates: &NeighborArray,
     ) -> Result<()> {
         let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
@@ -215,7 +215,7 @@ where
          * already-selected neighbors (ie selected in this method,
          * since the node is new and has no prior neighbors).
          */
-        let neighbors = hnsw.get_neighbors(level, node as usize);
+        let neighbors = hnsw.get_neighbors(level, node);
         debug_assert_eq!(neighbors.size(), 0); // new node
         let max_conn_on_level = if level == 0 { self.m * 2 } else { self.m };
         let mask = Self::select_and_link_diverse(candidates, max_conn_on_level, self, level, node)?;
@@ -266,13 +266,13 @@ where
         max_conn_on_level: usize,
         builder: &mut HnswGraphBuilder<S, B, H>,
         level: usize,
-        node: i32,
+        node: usize,
     ) -> Result<Vec<bool>> {
         let mut mask = vec![false; candidates.size()];
         let mut i = candidates.size();
         let HnswGraphEnums::OnHeap(hnsw) = &mut builder.hnsw;
         let max_node_id = hnsw.max_node_id();
-        let neighbors = hnsw.get_neighbors(level, node as usize);
+        let neighbors = hnsw.get_neighbors(level, node);
         // Select the best maxConnOnLevel neighbors of the new node, applying the
         // diversity heuristic
         while neighbors.size() < max_conn_on_level && i > 0 {
@@ -282,7 +282,12 @@ where
             // than to any of the other selected neighbors
             let c_node = candidates.nodes()[i];
             let c_score = candidates.scores()[i];
-            debug_assert!(c_node <= max_node_id);
+            debug_assert!({
+                match max_node_id {
+                    Some(v) => c_node <= v,
+                    None => false,
+                }
+            });
             let v = builder.scorer_supplier.scorer(c_node)?;
             if Self::diversity_check(c_score, &v, neighbors)? {
                 mask[i] = true;
@@ -375,7 +380,7 @@ where
 
     fn connect_components_with_level(&mut self, level: usize) -> Result<bool> {
         debug_assert!(self.hnsw.size() <= i32::MAX as usize);
-        let mut not_fully_connected = Some(FixedBitSet::new(self.hnsw.size() as i32));
+        let mut not_fully_connected = Some(FixedBitSet::new(self.hnsw.size()));
         let mut max_conn = self.m;
         if level == 0 {
             max_conn *= 2;
@@ -400,7 +405,7 @@ where
                 .max_by_key(|(_, c)| c.size)
                 .unwrap();
 
-            if c0.start == NO_MORE_DOCS {
+            if c0.start == NO_MORE_DOCS as usize {
                 // the component is already fully connected - no room for new connections
                 return Ok(false);
             }
@@ -411,7 +416,7 @@ where
             #[allow(clippy::needless_range_loop)]
             for index in 0..components.len() {
                 let c = &components[index];
-                if index == c0_index || c.start == NO_MORE_DOCS {
+                if index == c0_index || c.start == NO_MORE_DOCS as usize {
                     continue;
                 }
 
@@ -482,14 +487,13 @@ where
     fn link(
         &mut self,
         level: usize,
-        n0: i32,
-        n1: i32,
+        n0: usize,
+        n1: usize,
         score: f32,
         not_fully_connected: &mut FixedBitSet,
     ) -> Result<()> {
         let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
-        debug_assert!(n0 >= 0 && n1 >= 0);
-        let nbr0 = hnsw.get_neighbors(level, n0 as usize);
+        let nbr0 = hnsw.get_neighbors(level, n0);
         // must subtract 1 here since the nodes array is one larger than the configured
         // max neighbors (M / 2M).
         // We should have taken care of this check by searching for not-full nodes
@@ -509,7 +513,7 @@ where
             not_fully_connected.clear_with_index(n0);
         }
 
-        let nbr1 = hnsw.get_neighbors(level, n1 as usize);
+        let nbr1 = hnsw.get_neighbors(level, n1);
         if nbr1.size() < max_conn {
             nbr1.add_out_of_order(n0, score)?;
             if nbr1.size() == max_conn {
@@ -526,7 +530,7 @@ where
     B: BitSet,
     H: HnswGraphSearcherBase,
 {
-    fn build(&mut self, max_ord: i32) -> Result<&mut OnHeapHnswGraph> {
+    fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph> {
         if self.frozen {
             return Err(LuceneError::illegal_state(
                 "This HnswGraphBuilder is frozen and cannot be updated",
@@ -544,7 +548,7 @@ where
         self.get_completed_graph()
     }
 
-    fn add_graph_node(&mut self, node: i32) -> Result<()> {
+    fn add_graph_node(&mut self, node: usize) -> Result<()> {
         /*
         Note: this implementation is thread safe when graph size is fixed (e.g. when merging)
         The process of adding a node is roughly:
@@ -577,7 +581,7 @@ where
             let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
             // first add nodes to all levels
             for level in (0..=node_level).rev() {
-                hnsw.add_node(level, node as usize)?;
+                hnsw.add_node(level, node)?;
             }
             // then promote itself as entry node if entry node is not set
             if hnsw.try_set_new_entry_node(node, node_level) {
@@ -597,7 +601,16 @@ where
                 // NOTE: the entry node and max level may not be paired, but because we get the
                 // level first we ensure that the entry node we get later will
                 // always exist on the curMaxLevel
-                vec![hnsw.entry_node()?]
+                match hnsw.entry_node()? {
+                    Some(v) => {
+                        vec![v]
+                    },
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "Entry node is not set when trying to add connections",
+                        ));
+                    },
+                }
             };
             // we first do the search from top to bottom
             // for levels > nodeLevel search with topk = 1
@@ -634,7 +647,7 @@ where
                 )?;
                 eps = candidates.pop_until_nearest_k_nodes()?;
                 let mut scratch =
-                    NeighborArray::new(std::cmp::max(candidates.k() as usize, self.m + 1), false);
+                    NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
                 Self::pop_to_scratch(candidates, &mut scratch)?;
                 scratch_per_level[i] = scratch;
             }
@@ -689,11 +702,11 @@ where
 /// This collector does **not** support [`TopDocs`].
 pub struct GraphBuilderKnnCollector {
     queue: NeighborQueue,
-    k: i32,
+    k: usize,
     visited_count: usize,
 }
 impl GraphBuilderKnnCollector {
-    pub fn new(k: i32) -> Result<Self> {
+    pub fn new(k: usize) -> Result<Self> {
         Ok(Self {
             queue: NeighborQueue::new(k, false)?,
             k,
@@ -702,15 +715,15 @@ impl GraphBuilderKnnCollector {
     }
 
     pub fn size(&self) -> usize {
-        self.queue.size() as usize
+        self.queue.size()
     }
 
-    pub fn pop_node(&mut self) -> Result<i32> {
+    pub fn pop_node(&mut self) -> Result<usize> {
         self.queue.pop()
     }
 
-    pub fn pop_until_nearest_k_nodes(&mut self) -> Result<Vec<i32>> {
-        while self.size() as i32 > self.k {
+    pub fn pop_until_nearest_k_nodes(&mut self) -> Result<Vec<usize>> {
+        while self.size() > self.k {
             self.queue.pop()?;
         }
         Ok(self.queue.nodes())
@@ -742,11 +755,11 @@ impl KnnCollector for GraphBuilderKnnCollector {
         i64::MAX as usize
     }
 
-    fn k(&self) -> i32 {
+    fn k(&self) -> usize {
         self.k
     }
 
-    fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
+    fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
         self.queue.insert_with_overflow(doc_id, similarity)
     }
 

@@ -154,7 +154,7 @@ where
         if lead1_doc_id == lead2_doc_id {
             let doc = lead1_doc_id;
             let mut matched = true;
-            if accept_docs.is_none_or(|bits| bits.get(doc)) {
+            if accept_docs.is_none_or(|bits| bits.get(doc as usize)) {
                 {
                     let (first, rest) = self.all_scores.split_at_mut(1);
                     let lead1 = &mut first[0].iterator_mut();
@@ -194,7 +194,10 @@ where
 
                 debug_assert!(lead2.doc_id() < doc);
 
-                if accept_docs.map(|bits| !bits.get(doc)).unwrap_or(false) {
+                if accept_docs
+                    .map(|bits| !bits.get(doc as usize))
+                    .unwrap_or(false)
+                {
                     doc = lead1.next_doc()?;
                     continue;
                 }
@@ -207,7 +210,10 @@ where
                         continue;
                     } else if doc >= max {
                         break;
-                    } else if accept_docs.map(|bits| !bits.get(doc)).unwrap_or(false) {
+                    } else if accept_docs
+                        .map(|bits| !bits.get(doc as usize))
+                        .unwrap_or(false)
+                    {
                         doc = lead1.next_doc()?;
                         continue;
                     }

@@ -16,7 +16,7 @@
  */
 use std::fmt;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
 
@@ -40,7 +40,7 @@ pub struct OnHeapHnswGraph {
     // essentially another 2d map which the first dimension is level and second dimension is node
     // id, this is only
     // generated on demand when there's someone calling getNodeOnLevel on a non-zero level
-    level_to_nodes: Vec<Arc<Option<Vec<i32>>>>,
+    level_to_nodes: Vec<Arc<Option<Vec<usize>>>>,
     last_freeze_size: usize,
     // remember the size we are at last time to freeze the graph and generate
     // levelToNodes
@@ -48,7 +48,7 @@ pub struct OnHeapHnswGraph {
     non_zero_level_size: AtomicUsize,
     // total number of NeighborArrays created that is not on level 0, for now it
     // is only used to account memory usage
-    max_node_id: AtomicI32,
+    max_node_id: Option<AtomicUsize>,
     // neighbour array size at non-zero level
     nsize: usize,
     // neighbour array size at zero level
@@ -71,7 +71,7 @@ impl OnHeapHnswGraph {
     ///   non-negative value locks the graph size,   disallowing any addition of
     ///   nodes with id ≥ `num_nodes`.
     pub fn new(m: usize, mut num_nodes: i32) -> Self {
-        let entry_node = Arc::new(RwLock::new(EntryNode::new(-1, 1)));
+        let entry_node = Arc::new(RwLock::new(EntryNode::new(None, 1)));
         // Neighbours' size on upper levels (nsize) and level 0 (nsize0)
         // We allocate extra space for neighbours, but then prune them to keep allowed
         // maximum
@@ -92,7 +92,7 @@ impl OnHeapHnswGraph {
             last_freeze_size: 0,
             size: AtomicUsize::new(0),
             non_zero_level_size: AtomicUsize::new(0),
-            max_node_id: AtomicI32::new(-1),
+            max_node_id: None,
             nsize,
             nsize0,
             no_growth,
@@ -161,11 +161,9 @@ impl OnHeapHnswGraph {
 
         self.graph[node][level] = Some(neighbor_array);
 
-        self.max_node_id
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                Some(current.max(node as i32))
-            })
-            .ok();
+        let atomic = self.max_node_id.get_or_insert_with(|| AtomicUsize::new(0));
+
+        atomic.fetch_max(node, Ordering::AcqRel);
         Ok(())
     }
     /// Try to set the entry node if the graph does not already have one.
@@ -174,10 +172,10 @@ impl OnHeapHnswGraph {
     ///
     /// `true` if the entry node was successfully set to the provided node,  
     /// `false` if the entry node was already set.
-    pub fn try_set_new_entry_node(&self, node: i32, level: usize) -> bool {
+    pub fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool {
         let mut entry_node = self.entry_node.write();
-        if entry_node.node == -1 {
-            *entry_node = EntryNode::new(node, level);
+        if entry_node.node.is_none() {
+            *entry_node = EntryNode::new(Some(node), level);
             true
         } else {
             false
@@ -200,7 +198,7 @@ impl OnHeapHnswGraph {
     /// check fails.
     pub fn try_promote_new_entry_node(
         &self,
-        node: i32,
+        node: usize,
         level: usize,
         expect_old_level: usize,
     ) -> bool {
@@ -211,7 +209,7 @@ impl OnHeapHnswGraph {
 
         let mut entry = self.entry_node.write();
         if entry.level == expect_old_level {
-            *entry = EntryNode::new(node, level);
+            *entry = EntryNode::new(Some(node), level);
             true
         } else {
             false
@@ -241,13 +239,14 @@ impl OnHeapHnswGraph {
                 .skip(1)
             {
                 if let Some(vec) = maybe_vec {
-                    vec.push(node as i32);
+                    vec.push(node);
                 }
             }
             if non_null_node == self.size() {
                 break;
             }
         }
+        // TODO IMPORTANT 这里可以避免再次收集吗
         self.level_to_nodes = level_to_nodes.into_iter().map(Arc::new).collect();
 
         self.last_freeze_size = self.size();
@@ -273,27 +272,27 @@ impl HnswGraph for OnHeapHnswGraph {
     /// # Returns
     ///
     /// The maximum node ID (inclusive).
-    fn max_node_id(&self) -> i32 {
+    fn max_node_id(&self) -> Option<usize> {
         if self.no_growth {
             debug_assert!(!self.graph.is_empty() && self.graph.len() <= i32::MAX as usize);
             // we know the eventual graph size and the graph can possibly
             // being concurrently modified
-            self.graph.len() as i32 - 1
+            Some(self.graph.len() - 1)
         } else {
             // The graph cannot be concurrently modified (and searched) if
             // we don't know the size beforehand, so it's safe to return the
             // actual maxNodeId
-            self.max_node_id.load(Ordering::Acquire)
+            self.max_node_id.as_ref().map(|v| v.load(Ordering::Acquire))
         }
     }
 
-    fn next_neighbor(&mut self) -> Result<i32> {
+    fn next_neighbor(&mut self) -> Result<usize> {
         let cur = self.graph[self.cur_node][self.cur_level].as_ref().unwrap();
         self.upto += 1;
         if (self.upto as usize) < cur.size() {
             Ok(cur.nodes()[self.upto as usize])
         } else {
-            Ok(NO_MORE_DOCS)
+            Ok(NO_MORE_DOCS as usize)
         }
     }
     /// Returns the current number of levels in the graph.
@@ -311,7 +310,7 @@ impl HnswGraph for OnHeapHnswGraph {
     /// # Returns
     ///
     /// The graph's current entry node on the top level.
-    fn entry_node(&self) -> Result<i32> {
+    fn entry_node(&self) -> Result<Option<usize>> {
         let entry = self.entry_node.read();
         Ok(entry.node)
     }
@@ -330,11 +329,16 @@ impl HnswGraph for OnHeapHnswGraph {
     /// degradation.
     fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
         let size = self.size();
-        let max_id = self.max_node_id();
+        let max_id = match self.max_node_id() {
+            Some(v) => v + 1,
+            None => 0,
+        };
 
-        if size != (max_id + 1) as usize {
+        if size != (max_id) {
             return Err(LuceneError::illegal_state(format!(
-                "graph build not complete: size={size}, maxNodeId={max_id}"
+                "graph build not complete: size={}, maxNodeId={}",
+                size,
+                max_id as i32 - 1
             )));
         }
 
@@ -373,11 +377,11 @@ impl Accountable for OnHeapHnswGraph {
 
 #[derive(Debug)]
 struct EntryNode {
-    node: i32,
+    node: Option<usize>,
     level: usize,
 }
 impl EntryNode {
-    pub fn new(node: i32, level: usize) -> Self {
+    pub fn new(node: Option<usize>, level: usize) -> Self {
         Self { node, level }
     }
 }
@@ -440,12 +444,12 @@ mod tests {
         let mut graph = OnHeapHnswGraph::new(10, -1);
 
         let max_level = 5;
-        let mut level_to_nodes: Vec<Vec<i32>> = vec![Vec::new(); max_level];
+        let mut level_to_nodes: Vec<Vec<usize>> = vec![Vec::new(); max_level];
 
-        for i in 0..101i32 {
+        for i in 0..101 {
             let level = random.random_range(0..max_level);
             for l in (0..=level).rev() {
-                graph.add_node(l, i as usize)?;
+                graph.add_node(l, i)?;
                 graph.try_set_new_entry_node(i, l);
                 if l > graph.num_levels()? - 1 {
                     graph.try_promote_new_entry_node(i, l, graph.num_levels()? - 1);
@@ -465,9 +469,9 @@ mod tests {
 
         let max_level = 5;
         let num_nodes = 100;
-        let mut level_to_nodes: Vec<Vec<i32>> = vec![Vec::new(); max_level];
+        let mut level_to_nodes: Vec<Vec<usize>> = vec![Vec::new(); max_level];
 
-        let mut insertions: Vec<i32> = (0..num_nodes).collect();
+        let mut insertions: Vec<usize> = (0..num_nodes).collect();
 
         // Shuffle insertion order 40 times
         for _ in 0..40 {
@@ -479,7 +483,7 @@ mod tests {
         for &i in &insertions {
             let level = random.random_range(0..max_level);
             for l in (0..=level).rev() {
-                graph.add_node(l, i as usize)?;
+                graph.add_node(l, i)?;
                 graph.try_set_new_entry_node(i, l);
                 if l > graph.num_levels()? - 1 {
                     graph.try_promote_new_entry_node(i, l, graph.num_levels()? - 1);
@@ -498,7 +502,10 @@ mod tests {
         Ok(())
     }
 
-    fn assert_graph_equals(graph: &mut impl HnswGraph, level_to_nodes: &[Vec<i32>]) -> Result<()> {
+    fn assert_graph_equals(
+        graph: &mut impl HnswGraph,
+        level_to_nodes: &[Vec<usize>],
+    ) -> Result<()> {
         let num_levels = graph.num_levels()?;
 
         for (level, expected) in level_to_nodes.iter().enumerate().take(num_levels) {

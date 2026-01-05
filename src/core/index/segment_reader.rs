@@ -173,7 +173,7 @@ where
         }
         if let Some(ld) = &live_docs {
             let len = ld.length();
-            if len != max_doc {
+            if len != max_doc as usize {
                 return Err(LuceneError::illegal_argument(format!(
                     "maxDoc={} but liveDocs.size()={}",
                     max_doc, len

@@ -954,23 +954,23 @@ impl Operations {
         let mut builder = String::new();
         let mut scratch = Transition::default();
         let capacity = a.get_num_states();
-        let mut visited = FixedBitSet::new(capacity);
-        let mut current = FixedBitSet::new(capacity);
-        let mut next = FixedBitSet::new(capacity);
+        let mut visited = FixedBitSet::new(capacity as usize);
+        let mut current = FixedBitSet::new(capacity as usize);
+        let mut next = FixedBitSet::new(capacity as usize);
         current.set(0); // start with initial state
         'algorithm: loop {
             let mut label: i32 = -1;
             let mut state = current.next_set_bit(0);
             // do a pass, stepping all current paths forward once
-            while state != NO_MORE_DOCS {
+            while state != NO_MORE_DOCS as usize {
                 visited.set(state);
 
-                if a.is_accept(state) {
+                if a.is_accept(state as i32) {
                     break 'algorithm;
                 }
 
-                for t_idx in 0..a.get_num_transitions_with_state(state) {
-                    a.get_transition(state, t_idx, &mut scratch);
+                for t_idx in 0..a.get_num_transitions_with_state(state as i32) {
+                    a.get_transition(state as i32, t_idx, &mut scratch);
                     if label == -1 {
                         label = scratch.min;
                     }
@@ -979,11 +979,11 @@ impl Operations {
                     if scratch.min != scratch.max || scratch.min != label {
                         break 'algorithm;
                     }
-                    next.set(scratch.dest);
+                    next.set(scratch.dest as usize);
                 }
 
                 if state + 1 >= (current.length()) {
-                    state = NO_MORE_DOCS
+                    state = NO_MORE_DOCS as usize
                 } else {
                     state = current.next_set_bit(state + 1)
                 }

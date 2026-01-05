@@ -112,12 +112,12 @@ where
 
                         let max_doc = segment_info.max_doc()?;
                         let live_docs = state.live_docs.get_or_insert_with(|| {
-                            let mut bits = FixedBitSet::new(max_doc);
-                            bits.set_with_range(0, max_doc);
+                            let mut bits = FixedBitSet::new(max_doc as usize);
+                            bits.set_with_range(0, max_doc as usize);
                             bits
                         });
 
-                        if live_docs.get_and_clear(doc) {
+                        if live_docs.get_and_clear(doc as usize) {
                             state.del_count_on_flush += 1;
                         }
                     }

@@ -114,7 +114,7 @@ where
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
         let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
         let common_prefix_comparator = BKDUtil::get_prefix_length_comparator(bytes_per_dim);
-        let docs_seen = FixedBitSet::new(max_doc);
+        let docs_seen = FixedBitSet::new(max_doc as usize);
 
         let scratch_diff = vec![0u8; config.bytes_per_dim];
         let scratch = vec![0u8; packed_bytes_length];
@@ -251,7 +251,7 @@ where
             .unwrap()
             .append_bytes(packed_value, doc_id)?;
         self.point_count += 1;
-        self.docs_seen.set(doc_id);
+        self.docs_seen.set(doc_id as usize);
         Ok(())
     }
     /// Write a field from a `MutablePointTree`. This way of writing points is
@@ -381,7 +381,7 @@ where
         )?;
 
         for i in 0..self.point_count as i32 {
-            self.docs_seen.set(values.get_doc_id(i as usize));
+            self.docs_seen.set(values.get_doc_id(i as usize) as usize);
         }
 
         let data_start_fp = data_out.get_file_pointer();
@@ -922,7 +922,7 @@ where
         )?;
 
         meta_out.write_vlong(self.point_count)?;
-        meta_out.write_vint(self.docs_seen.cardinality())?;
+        meta_out.write_vint(self.docs_seen.cardinality() as i32)?;
         meta_out.write_vint(packed_index_len)?;
         meta_out.write_long(data.data_start_fp)?;
         let (file_pointer, v) = match &index_out {
@@ -1457,7 +1457,7 @@ where
                                 i,
                                 dim * self.config.bytes_per_dim + self.common_prefix_lengths[dim],
                             );
-                            set.set(b as i32);
+                            set.set(b as usize);
                         }
                     }
                 }
@@ -1466,9 +1466,9 @@ where
                 for dim in 0..self.config.num_dims {
                     if let Some(ref set) = used_bytes[dim] {
                         let cardinality = set.cardinality();
-                        if cardinality < sorted_dim_cardinality {
+                        if cardinality < sorted_dim_cardinality as usize {
                             sorted_dim = dim;
-                            sorted_dim_cardinality = cardinality;
+                            sorted_dim_cardinality = cardinality as i32;
                         }
                     }
                 }
@@ -1776,12 +1776,12 @@ where
                                 let (bytes, bytes_offset, _) =
                                     heap_source.get_packed_value_slice(i).packed_value();
                                 let bucket = bytes[bytes_offset + offset + prefix] as usize;
-                                used_bytes[dim].as_mut().unwrap().set(bucket as i32);
+                                used_bytes[dim].as_mut().unwrap().set(bucket);
                             }
                             let cardinality = used_bytes[dim].as_ref().unwrap().cardinality();
-                            if cardinality < sorted_dim_cardinality {
+                            if cardinality < sorted_dim_cardinality as usize {
                                 sorted_dim = dim;
-                                sorted_dim_cardinality = cardinality;
+                                sorted_dim_cardinality = cardinality as i32;
                             }
                         }
                     }
@@ -2105,7 +2105,7 @@ where
         self.leaf_values.copy_from(&packed_value[0..length], offset);
 
         self.leaf_docs[self.leaf_count] = doc_id;
-        self.bkd_writer.docs_seen.set(doc_id);
+        self.bkd_writer.docs_seen.set(doc_id as usize);
         self.leaf_count += 1;
 
         if self.value_count + self.leaf_count as i64 > self.bkd_writer.total_point_count {

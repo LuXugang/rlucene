@@ -23,11 +23,11 @@ use crate::core::util::error::lucene_error::Result;
 pub struct AbstractKnnCollector {
     visited_count: usize,
     visit_limit: usize,
-    k: i32,
+    k: usize,
 }
 
 impl AbstractKnnCollector {
-    pub fn new(k: i32, visit_limit: usize) -> Self {
+    pub fn new(k: usize, visit_limit: usize) -> Self {
         Self {
             visited_count: 0,
             visit_limit,
@@ -52,11 +52,11 @@ impl KnnCollector for AbstractKnnCollector {
         self.visit_limit
     }
 
-    fn k(&self) -> i32 {
+    fn k(&self) -> usize {
         self.k
     }
 
-    fn collect(&mut self, _doc_id: i32, _similarity: f32) -> bool {
+    fn collect(&mut self, _doc_id: usize, _similarity: f32) -> bool {
         unimplemented!()
     }
 

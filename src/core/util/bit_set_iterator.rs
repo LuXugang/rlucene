@@ -46,7 +46,7 @@ where
         let length = bits.length();
         Ok(BitSetIterator {
             bits,
-            length,
+            length: length as i32,
             cost,
             doc: -1,
         })
@@ -78,7 +78,7 @@ where
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        self.doc = self.bits.next_set_bit(target);
+        self.doc = self.bits.next_set_bit(target as usize) as i32;
         Ok(self.doc)
     }
 

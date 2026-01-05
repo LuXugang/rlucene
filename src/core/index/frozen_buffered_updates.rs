@@ -393,7 +393,10 @@ impl FrozenBufferedUpdates {
                             if doc == NO_MORE_DOCS {
                                 break;
                             }
-                            if accept_docs.as_ref().is_none_or(|bits| bits.get(doc)) {
+                            if accept_docs
+                                .as_ref()
+                                .is_none_or(|bits| bits.get(doc as usize))
+                            {
                                 // The limit is in the pre-sorted doc space:
                                 if sort_map.new_to_old(doc)? < limit {
                                     doc_id_consumer.accept(doc)?;
@@ -410,7 +413,10 @@ impl FrozenBufferedUpdates {
                             if doc >= limit {
                                 break; // no more docs that can be updated for this term
                             }
-                            if accept_docs.as_ref().is_none_or(|bits| bits.get(doc)) {
+                            if accept_docs
+                                .as_ref()
+                                .is_none_or(|bits| bits.get(doc as usize))
+                            {
                                 doc_id_consumer.accept(doc)?;
                                 update_count += 1;
                             }

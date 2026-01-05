@@ -88,11 +88,11 @@ impl<B: Bits> NotDocIdBits<B> {
 }
 
 impl<B: Bits> Bits for NotDocIdBits<B> {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         !self.in_bit.get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.in_bit.length()
     }
 }
@@ -169,21 +169,21 @@ mod tests {
 
     struct TestNotDocIdSet;
     impl BaseDocIdSetTestCase for TestNotDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet {
             let mut set = FixedBitSet::new(length);
             for i in 0..length {
-                if !bs.contains(i as usize) {
+                if !bs.contains(i) {
                     set.set(i);
                 }
             }
             let bit_doc_id_set = BitDocIdSet::new(Some(set)).unwrap();
-            NotDocIdSet::new(length, bit_doc_id_set)
+            NotDocIdSet::new(length as i32, bit_doc_id_set)
         }
 
         fn assert_equals<R: Rng + ?Sized>(
             &self,
             random: &mut R,
-            num_bits: i32,
+            num_bits: usize,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
@@ -192,7 +192,7 @@ mod tests {
             let bits = bits2_wrap.unwrap();
             assert_eq!(num_bits, bits.length());
             for i in 0..num_bits {
-                assert_eq!(ds1.contains(i as usize), bits.get(i));
+                assert_eq!(ds1.contains(i), bits.get(i));
             }
             BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }

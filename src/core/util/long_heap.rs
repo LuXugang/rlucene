@@ -44,7 +44,7 @@ impl LongHeap {
     ///
     /// Returns `Err` if `max_size` is invalid to prevent confusing
     /// out-of-memory errors.
-    pub fn new(max_size: i32) -> Result<Self> {
+    pub fn new(max_size: usize) -> Result<Self> {
         // TODO
         // if max_size < 1 || max_size >= ArrayUtil::MAX_ARRAY_LENGTH {
         if max_size < 1 {
@@ -56,10 +56,10 @@ impl LongHeap {
         }
         // We add +1 because index 0 is unused.
         let heap_size = max_size + 1;
-        let heap = vec![0i64; heap_size as usize];
+        let heap = vec![0i64; heap_size];
 
         Ok(Self {
-            max_size: max_size as usize,
+            max_size,
             heap,
             size: 0,
         })
@@ -126,9 +126,8 @@ impl LongHeap {
     }
 
     /// Returns the number of elements currently stored in the heap.
-    pub fn size(&self) -> i32 {
-        debug_assert!(self.size <= i32::MAX as usize);
-        self.size as i32
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     /// Removes all entries from the heap.
@@ -200,7 +199,7 @@ mod tests {
     /// Checks that the heap property is maintained.
     fn check_validity(heap: &LongHeap) {
         let heap_array = heap.get_heap_array();
-        let size = heap.size() as usize;
+        let size = heap.size();
         for i in 2..=size {
             let parent = i >> 1;
             assert!(
@@ -220,7 +219,7 @@ mod tests {
     }
 
     fn test_pq_with_random<R: Rng + ?Sized>(count: usize, random: &mut R) -> Result<()> {
-        let mut pq = LongHeap::new(count as i32)?;
+        let mut pq = LongHeap::new(count)?;
         let mut sum: i64 = 0;
         let mut sum2: i64 = 0;
 
@@ -319,10 +318,6 @@ mod tests {
 
     #[test]
     fn test_invalid() -> Result<()> {
-        assert!(matches!(
-            LongHeap::new(-1),
-            Err(LuceneError::IllegalArgument(_))
-        ));
         assert!(matches!(
             LongHeap::new(0),
             Err(LuceneError::IllegalArgument(_))

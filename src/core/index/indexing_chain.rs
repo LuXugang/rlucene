@@ -109,6 +109,7 @@ use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::{
     AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, SliceCopyOps,
+    TryIntoInt,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -242,7 +243,9 @@ where
         let parent_bit_set = if use_parent {
             let parent_field = *parent_field.as_ref().unwrap();
             match doc_values_reader.get_numeric_doc_values(parent_field)? {
-                Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc)?)),
+                Some(ref mut reader_values) => {
+                    Some(Rc::new(of(reader_values, max_doc.try_convert()?)?))
+                },
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
                         "missing doc values for parent field {parent_field} IndexingChain"
@@ -2494,8 +2497,8 @@ where
     DC: DocComparator,
 {
     fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        let doc_id1 = self.parents.next_set_bit(doc_id1);
-        let doc_id2 = self.parents.next_set_bit(doc_id2);
+        let doc_id1 = self.parents.next_set_bit(doc_id1 as usize) as i32;
+        let doc_id2 = self.parents.next_set_bit(doc_id2 as usize) as i32;
         self.doc_comparator.compare(doc_id1, doc_id2)
     }
 }

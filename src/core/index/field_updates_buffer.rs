@@ -50,7 +50,7 @@ use crate::core::util::{
 #[derive(Debug)]
 pub(crate) struct FieldUpdatesBuffer {
     bytes_used: SharedCounter,
-    num_updates: i32,
+    num_updates: usize,
     // we use a very simple approach and store the update term values without
     // de-duplication which is also not a common case to keep updating the
     // same value more than once... we might pay a higher price in terms of
@@ -187,16 +187,16 @@ impl FieldUpdatesBuffer {
         &mut self,
         field: String,
         doc_upto: i32,
-        ord: i32,
+        ord: usize,
         has_value: bool,
     ) -> Result<()> {
         debug_assert!(!self.finished, "buffer was finished already");
         let fields_len = self.fields.len();
         if self.fields[0] != field || fields_len != 1 {
-            if fields_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.fields, (ord + 1) as usize);
+            if fields_len <= ord {
+                ArrayUtil::grow_with_len(&mut self.fields, ord + 1);
                 if fields_len == 1 {
-                    for i in 1..ord as usize {
+                    for i in 1..ord {
                         self.fields[i] = self.fields[0].clone();
                     }
                 }
@@ -206,22 +206,22 @@ impl FieldUpdatesBuffer {
             if self.fields[0] != field {
                 self.bytes_used.add_and_get(field.len() as i64);
             }
-            self.fields[ord as usize] = field;
+            self.fields[ord] = field;
         }
 
         let docs_upto_len = self.docs_upto.len();
         if self.docs_upto[0] != doc_upto || docs_upto_len != 1 {
-            if docs_upto_len <= ord as usize {
-                ArrayUtil::grow_with_len(&mut self.docs_upto, (ord + 1) as usize);
+            if docs_upto_len <= ord {
+                ArrayUtil::grow_with_len(&mut self.docs_upto, ord + 1);
                 if docs_upto_len == 1 {
-                    for i in 1..ord as usize {
+                    for i in 1..ord {
                         self.docs_upto[i] = self.docs_upto[0];
                     }
                 }
                 // TODO: memory calculation not implemented
                 self.bytes_used.add_and_get(0);
             }
-            self.docs_upto[ord as usize] = doc_upto;
+            self.docs_upto[ord] = doc_upto;
         }
 
         if !has_value || self.has_values.is_some() {
@@ -252,17 +252,17 @@ impl FieldUpdatesBuffer {
         let numeric_values = self.numeric_values.as_mut().unwrap();
         let numeric_values_len = numeric_values.len();
         if numeric_values[0] != value || numeric_values_len != 1 {
-            if numeric_values_len <= ord as usize {
-                ArrayUtil::grow_with_len(numeric_values, (ord + 1) as usize);
+            if numeric_values_len <= ord {
+                ArrayUtil::grow_with_len(numeric_values, ord + 1);
                 if numeric_values_len == 1 {
-                    for i in 1..ord as usize {
+                    for i in 1..ord {
                         numeric_values[i] = numeric_values[0];
                     }
                 }
                 // TODO: memory calculation not implemented
                 self.bytes_used.add_and_get(0);
             }
-            numeric_values[ord as usize] = value;
+            numeric_values[ord] = value;
         }
         Ok(())
     }
@@ -285,7 +285,7 @@ impl FieldUpdatesBuffer {
         Ok(())
     }
 
-    fn append(&mut self, term: &Term) -> Result<i32> {
+    fn append(&mut self, term: &Term) -> Result<usize> {
         self.term_values.append(&term.bytes)?;
         let ord = self.num_updates;
         self.num_updates += 1;
@@ -360,7 +360,7 @@ impl FieldUpdatesBuffer {
     }
     pub(crate) fn get_numeric_value(&self, idx: usize) -> i64 {
         if let Some(ref has_values) = self.has_values
-            && !has_values.get(idx as i32)
+            && !has_values.get(idx)
         {
             return 0;
         }
@@ -461,7 +461,7 @@ impl<'a> BufferedUpdateIterator<'a> {
             };
             self.buffered_update.term_value = Some(next.clone());
             buffered_update.term_value = Some(next);
-            buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx as i32);
+            buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx);
             buffered_update.term_field = self.field_updates_buffer.fields
                 [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)]
             .clone();

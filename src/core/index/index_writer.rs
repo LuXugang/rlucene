@@ -2557,14 +2557,14 @@ where
         // what the segDocMap is build on.
         if let Some(current_hard_live_docs) = current_hard_live_docs {
             let carry_over_delete = |doc_id: i32| -> bool {
-                seg_doc_map.get(doc_id) != -1 && !current_hard_live_docs.get(doc_id)
+                seg_doc_map.get(doc_id) != -1 && !current_hard_live_docs.get(doc_id as usize)
             };
 
             if let Some(prev_hard_live_docs) = prev_hard_live_docs {
                 // If we had deletions on starting the merge we must
                 // still have deletions now:
-                debug_assert!(prev_hard_live_docs.length() == max_doc);
-                debug_assert!(current_hard_live_docs.length() == max_doc);
+                debug_assert!(prev_hard_live_docs.length() == max_doc as usize);
+                debug_assert!(current_hard_live_docs.length() == max_doc as usize);
 
                 // There were deletes on this segment when the merge
                 // started.  The merge has collapsed away those
@@ -2594,7 +2594,7 @@ where
                 //     }
                 // }
             } else {
-                debug_assert!(current_hard_live_docs.length() == max_doc);
+                debug_assert!(current_hard_live_docs.length() == max_doc as usize);
                 // This segment had no deletes before but now it
                 // does:
                 for j in 0..max_doc {
@@ -3997,11 +3997,11 @@ where
     B1: Bits,
     B2: Bits,
 {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         self.hard_live_docs.get(index) && self.wrapped_live_docs.get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.hard_live_docs.length()
     }
 }

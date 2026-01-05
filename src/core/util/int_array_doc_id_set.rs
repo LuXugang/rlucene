@@ -158,7 +158,7 @@ mod tests {
 
     struct TestIntArrayDocIdSet;
     impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, _length: i32) -> impl DocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, _length: usize) -> impl DocIdSet {
             let mut docs: Vec<i32> = vec![];
             let iter = bs.iter();
             for doc in iter {
@@ -174,7 +174,7 @@ mod tests {
         fn assert_equals<R: Rng + ?Sized>(
             &self,
             random: &mut R,
-            num_bits: i32,
+            num_bits: usize,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {

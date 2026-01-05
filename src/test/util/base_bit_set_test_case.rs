@@ -31,27 +31,27 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, rando
 
 pub fn random_set<R: Rng + ?Sized>(
     random: &mut R,
-    num_bits: i32,
+    num_bits: usize,
     percent_set: f32,
 ) -> bit_set::BitSet {
-    random_set_impl(random, num_bits, (percent_set * num_bits as f32) as i32)
+    random_set_impl(random, num_bits, (percent_set * num_bits as f32) as usize)
 }
 
 pub fn random_set_impl<R: Rng + ?Sized>(
     random: &mut R,
-    num_bits: i32,
-    num_bits_set: i32,
+    num_bits: usize,
+    num_bits_set: usize,
 ) -> bit_set::BitSet {
     assert!(num_bits_set <= num_bits);
-    let mut set = bit_set::BitSet::with_capacity(num_bits as usize);
+    let mut set = bit_set::BitSet::with_capacity(num_bits);
     if num_bits_set == num_bits {
-        id_set_common::set_range(&mut set, 0, num_bits as usize)
+        id_set_common::set_range(&mut set, 0, num_bits)
     } else {
         for _i in 0..num_bits_set {
             loop {
                 let o = random.random_range(0..num_bits);
-                if !set.contains(o as usize) {
-                    set.insert(o as usize);
+                if !set.contains(o) {
+                    set.insert(o);
                     break;
                 }
             }
@@ -60,13 +60,16 @@ pub fn random_set_impl<R: Rng + ?Sized>(
     set
 }
 pub trait BaseBitSetTestCase {
-    fn copy_of(&self, bs: &RustUtilBitSet, length: i32)
-    -> (impl BitSet, Option<SparseFixedBitSet>);
+    fn copy_of(
+        &self,
+        bs: &RustUtilBitSet,
+        length: usize,
+    ) -> (impl BitSet, Option<SparseFixedBitSet>);
     fn assert_equals(
         &self,
         set1: &RustUtilBitSet,
         set2: &impl BitSet,
-        max_doc: i32,
+        max_doc: usize,
         sfbs: &Option<SparseFixedBitSet>,
     );
     fn test_cardinality<R: Rng + ?Sized>(&mut self, random: &mut R) {
@@ -123,7 +126,7 @@ pub trait BaseBitSetTestCase {
         }
     }
     fn test_set<R: Rng + ?Sized>(&self, random: &mut R) {
-        let num_bits = 1 + random.random_range(0..100000);
+        let num_bits = 1 + random.random_range(0..100000) as usize;
         let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
         let mut set1 = set3.clone();
         let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
@@ -225,7 +228,7 @@ pub trait BaseBitSetTestCaseSupperImpl {
         &self,
         set1: &RustUtilBitSet,
         set2: &T,
-        max_doc: i32,
+        max_doc: usize,
         _sfbs: &Option<SparseFixedBitSet>,
     ) {
         for i in 0..max_doc {
@@ -235,21 +238,21 @@ pub trait BaseBitSetTestCaseSupperImpl {
 }
 
 //TODO
-fn random_copy<R: Rng + ?Sized>(_random: &mut R, _set: impl BitSet, _num_bits: i32) {
+fn random_copy<R: Rng + ?Sized>(_random: &mut R, _set: impl BitSet, _num_bits: usize) {
     todo!()
 }
 pub struct RustUtilBitSet {
     bitset: bit_set::BitSet,
-    num_bits: i32,
-    index_hash_set: HashSet<i32>,
+    num_bits: usize,
+    index_hash_set: HashSet<usize>,
 }
 
 impl RustUtilBitSet {
-    pub(crate) fn new(bitset: bit_set::BitSet, num_bits: i32) -> Self {
+    pub(crate) fn new(bitset: bit_set::BitSet, num_bits: usize) -> Self {
         let iter = bitset.iter();
         let mut index_hash_set = HashSet::new();
         for index in iter {
-            index_hash_set.insert(index as i32);
+            index_hash_set.insert(index);
         }
         RustUtilBitSet {
             bitset,
@@ -282,11 +285,11 @@ impl PartialEq for RustUtilBitSet {
 }
 
 impl Bits for RustUtilBitSet {
-    fn get(&self, index: i32) -> bool {
-        self.bitset.contains(index as usize)
+    fn get(&self, index: usize) -> bool {
+        self.bitset.contains(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.num_bits
     }
 }
@@ -302,53 +305,54 @@ impl BitSet for RustUtilBitSet {
         self.bitset.clear();
     }
 
-    fn set(&mut self, i: i32) {
-        self.bitset.insert(i as usize);
+    fn set(&mut self, i: usize) {
+        self.bitset.insert(i);
     }
 
-    fn get_and_set(&mut self, index: i32) -> bool {
-        let v = self.get(index);
-        self.set(index);
+    fn get_and_set(&mut self, i: usize) -> bool {
+        let v = self.get(i);
+        self.set(i);
         v
     }
 
-    fn clear_with_index(&mut self, i: i32) {
-        self.bitset.remove(i as usize);
+    fn clear_with_index(&mut self, i: usize) {
+        self.bitset.remove(i);
     }
 
-    fn clear_range(&mut self, start_index: i32, end_index: i32) {
+    fn clear_range(&mut self, start_index: usize, end_index: usize) {
         if start_index >= end_index {
             return;
         }
-        clear_range(&mut self.bitset, start_index as usize, end_index as usize);
+        clear_range(&mut self.bitset, start_index, end_index);
     }
 
-    fn cardinality(&self) -> i32 {
-        self.bitset.len() as i32
+    fn cardinality(&self) -> usize {
+        self.bitset.len()
     }
 
-    fn approximate_cardinality(&self) -> i32 {
-        self.bitset.len() as i32
+    fn approximate_cardinality(&self) -> usize {
+        self.bitset.len()
     }
 
-    fn prev_set_bit(&self, mut index: i32) -> i32 {
+    fn prev_set_bit(&self, index: usize) -> Option<usize> {
+        let mut index = index as i32;
         while index >= 0 {
             if self.bitset.contains((index) as usize) {
-                return index;
+                return Option::from(index as usize);
             }
             index -= 1
         }
-        -1
+        None
     }
 
-    fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
         // TODO:: this implement too slow
-        for index in start..upper_bound {
+        for index in start..end {
             if self.index_hash_set.contains(&index) {
                 return index;
             }
         }
-        NO_MORE_DOCS
+        NO_MORE_DOCS as usize
     }
 
     fn or<T: DocIdSetIterator>(&mut self, _iter: &mut T) -> Result<()> {

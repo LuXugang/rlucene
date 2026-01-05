@@ -38,7 +38,7 @@ impl PForUtil {
     }
     /// Encode 128 integers from `ints` into `out`.
     pub(crate) fn encode<O: DataOutput>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()> {
-        let mut top = LongHeap::new(Self::MAX_EXCEPTIONS as i32 + 1)?;
+        let mut top = LongHeap::new(Self::MAX_EXCEPTIONS + 1)?;
         for &v in &ints[..=Self::MAX_EXCEPTIONS] {
             top.push(v as i64);
         }
@@ -51,7 +51,7 @@ impl PForUtil {
         }
 
         let mut max = 0;
-        for i in 1..=top.size() as usize {
+        for i in 1..=top.size() {
             max = max.max(top.get(i));
         }
 
@@ -63,7 +63,7 @@ impl PForUtil {
 
         let mut num_exceptions = 0;
         let max_unpatched_value = (1i64 << patched_bits_required) - 1;
-        for i in 2..=top.size() as usize {
+        for i in 2..=top.size() {
             if top.get(i) > max_unpatched_value {
                 num_exceptions += 1;
             }

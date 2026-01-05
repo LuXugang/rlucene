@@ -123,7 +123,7 @@ where
                 break;
             }
             if let Some(bits) = accept_docs
-                && !bits.get(doc)
+                && !bits.get(doc as usize)
             {
                 doc = self.scorers[0].iterator_mut().next_doc()?;
                 continue;

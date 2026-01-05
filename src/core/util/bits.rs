@@ -26,15 +26,14 @@ pub trait Bits {
     ///
     /// # Arguments
     /// * `index` - The index should be non-negative and less than the length of
-    ///   the bitset. Passing negative or out-of-bounds values results in
-    ///   undefined behavior—**just don't do it!**
+    ///   the bitset.
     ///
     /// # Returns
     /// `true` if the bit is set, `false` otherwise.
-    fn get(&self, index: i32) -> bool;
+    fn get(&self, index: usize) -> bool;
 
     /// Returns the number of bits in this set
-    fn length(&self) -> i32;
+    fn length(&self) -> usize;
 
     /// Make a copy of the given bits.
     fn copy_of(&self) -> FixedBitSet {
@@ -55,19 +54,19 @@ pub trait Bits {
 
 /// Bits impl of the specified length with all bits set.
 pub struct MatchAllBits {
-    len: i32,
+    len: usize,
 }
 impl MatchAllBits {
-    pub fn new(len: i32) -> MatchAllBits {
+    pub fn new(len: usize) -> MatchAllBits {
         MatchAllBits { len }
     }
 }
 impl Bits for MatchAllBits {
-    fn get(&self, _index: i32) -> bool {
+    fn get(&self, _index: usize) -> bool {
         true
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.len
     }
 }
@@ -75,14 +74,14 @@ impl Bits for MatchAllBits {
 /// Bits impl of the specified length with no bits set.
 #[derive(Default)]
 pub struct MatchNoBits {
-    len: i32,
+    len: usize,
 }
 impl Bits for MatchNoBits {
-    fn get(&self, _index: i32) -> bool {
+    fn get(&self, _index: usize) -> bool {
         false
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.len
     }
 }
@@ -96,14 +95,14 @@ where
     A: Bits,
     B: Bits,
 {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         match self {
             BitsEnum2::A(t) => t.get(index),
             BitsEnum2::B(s) => s.get(index),
         }
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         match self {
             BitsEnum2::A(t) => t.length(),
             BitsEnum2::B(s) => s.length(),
@@ -127,11 +126,11 @@ where
 
 pub enum BitsEnum {}
 impl Bits for BitsEnum {
-    fn get(&self, _index: i32) -> bool {
+    fn get(&self, _index: usize) -> bool {
         todo!()
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         todo!()
     }
 }
@@ -140,11 +139,11 @@ impl<T> Bits for Arc<T>
 where
     T: Bits,
 {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         (**self).get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         (**self).length()
     }
 
@@ -157,11 +156,11 @@ where
 }
 
 impl<T: Bits + ?Sized> Bits for &T {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         <T as Bits>::get(*self, index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         <T as Bits>::length(*self)
     }
 

@@ -900,7 +900,7 @@ where
             .get(query.as_ref(), cache_helper, &inner_read);
 
         if let Some(cached) = cached {
-            return Ok(cached.count());
+            return cached.count().try_convert();
         }
 
         self.in_.count(context)
@@ -977,7 +977,7 @@ where
             Some(bulk_scorer) => bulk_scorer,
             None => return Err(LuceneError::illegal_state("BulkScorer should not be None")),
         };
-        let cached = cache_impl(&mut bulk_scorer, self.max_doc)?;
+        let cached = cache_impl(&mut bulk_scorer, self.max_doc.try_convert()?)?;
         let disi = cached.iterator()?;
         self.lru_query_cache
             .put_if_absent(self.query.clone(), cached, &self.cache_helper);
@@ -1049,7 +1049,7 @@ where
     D: DocIdSet,
 {
     cache: D,
-    count: i32,
+    count: usize,
 }
 impl CacheAndCount<EmptyDocIdSet> {
     pub(crate) fn empty() -> Self {
@@ -1064,14 +1064,14 @@ impl<D> CacheAndCount<D>
 where
     D: DocIdSet,
 {
-    pub(crate) fn new(cache: D, count: i32) -> Self {
+    pub(crate) fn new(cache: D, count: usize) -> Self {
         Self { cache, count }
     }
 
     pub(crate) fn iterator(&self) -> Result<Option<D::DocIdSetIterator>> {
         self.cache.iterator()
     }
-    pub(crate) fn count(&self) -> i32 {
+    pub(crate) fn count(&self) -> usize {
         self.count
     }
 }
@@ -1086,7 +1086,7 @@ where
 
 fn cache_into_bit_set<BS>(
     scorer: &mut BS,
-    max_doc: i32,
+    max_doc: usize,
 ) -> Result<CacheAndCount<BitDocIdSet<FixedBitSet>>>
 where
     BS: BulkScorer,
@@ -1102,10 +1102,10 @@ where
 
 struct LeafCollectorImpl {
     bit_set: FixedBitSet,
-    count: i32,
+    count: usize,
 }
 impl LeafCollectorImpl {
-    fn new(max_doc: i32) -> Self {
+    fn new(max_doc: usize) -> Self {
         Self {
             bit_set: FixedBitSet::new(max_doc),
             count: 0,
@@ -1125,7 +1125,7 @@ impl LeafCollector for LeafCollectorImpl {
         S: Scorable,
     {
         self.count += 1;
-        self.bit_set.set(doc);
+        self.bit_set.set(doc.try_convert()?);
         Ok(())
     }
 
@@ -1137,7 +1137,7 @@ impl LeafCollector for LeafCollectorImpl {
 
 fn cache_into_roaring_doc_id_set<BS>(
     scorer: &mut BS,
-    max_doc: i32,
+    max_doc: usize,
 ) -> Result<CacheAndCount<RoaringDocIdSet>>
 where
     BS: BulkScorer,
@@ -1154,7 +1154,7 @@ struct RoaringCollectorImpl {
 }
 
 impl RoaringCollectorImpl {
-    fn new(max_doc: i32) -> Self {
+    fn new(max_doc: usize) -> Self {
         Self {
             builder: Builder::new(max_doc),
         }
@@ -1187,7 +1187,7 @@ pub(crate) enum CacheAndCountEnum {
     Empty(CacheAndCount<EmptyDocIdSet>),
 }
 impl CacheAndCountEnum {
-    pub(crate) fn count(&self) -> i32 {
+    pub(crate) fn count(&self) -> usize {
         match self {
             CacheAndCountEnum::BitSet(c) => c.count(),
             CacheAndCountEnum::Roaring(c) => c.count(),
@@ -1224,7 +1224,7 @@ impl Default for CacheAndCountDISI {
 }
 /// Default cache implementation: uses [`RoaringDocIdSet`] for sets that have a density < 1%,
 /// and a [`BitDocIdSet`] over a [`FixedBitSet`] otherwise.
-fn cache_impl<BS>(scorer: &mut BS, max_doc: i32) -> Result<CacheAndCountEnum>
+fn cache_impl<BS>(scorer: &mut BS, max_doc: usize) -> Result<CacheAndCountEnum>
 where
     BS: BulkScorer,
 {

@@ -18,6 +18,7 @@ use crate::core::index::composite_reader::{CompositeReader, CompositeReaderBits,
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::reader_util::ReaderUtil;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -31,7 +32,7 @@ where
     B: Bits,
 {
     subs: Vec<Option<B>>,
-    starts: Vec<i32>,
+    starts: Vec<usize>,
     default_value: bool,
 }
 
@@ -39,7 +40,7 @@ impl<B> MultiBits<B>
 where
     B: Bits,
 {
-    pub fn new(subs: Vec<Option<B>>, starts: Vec<i32>, default_value: bool) -> Self {
+    pub fn new(subs: Vec<Option<B>>, starts: Vec<usize>, default_value: bool) -> Self {
         debug_assert_eq!(starts.len(), subs.len() + 1);
         Self {
             subs,
@@ -47,7 +48,7 @@ where
             default_value,
         }
     }
-    fn check_length(&self, reader: usize, doc: i32) -> bool {
+    fn check_length(&self, reader: usize, doc: usize) -> bool {
         let length = self.starts[reader + 1] - self.starts[reader];
         debug_assert!(
             doc - self.starts[reader] < length,
@@ -64,8 +65,8 @@ impl<B> Bits for MultiBits<B>
 where
     B: Bits,
 {
-    fn get(&self, doc: i32) -> bool {
-        let reader = ReaderUtil::sub_index(doc, &self.starts);
+    fn get(&self, index: usize) -> bool {
+        let reader = ReaderUtil::sub_index(index, &self.starts);
         debug_assert!(reader != -1);
 
         let reader = reader as usize;
@@ -73,13 +74,13 @@ where
         match bits {
             None => self.default_value,
             Some(bits) => {
-                debug_assert!(self.check_length(reader, doc));
-                bits.get(doc - self.starts[reader])
+                debug_assert!(self.check_length(reader, index));
+                bits.get(index - self.starts[reader])
             },
         }
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         let len = self.starts.len() - 1;
         self.starts[len]
     }
@@ -144,15 +145,15 @@ where
     }
 
     let mut live_docs = Vec::with_capacity(size);
-    let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+    let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
 
     for ctx in leaves {
         // record all liveDocs, even if they are null
         live_docs.push(ctx.reader().get_live_docs()?);
-        starts.push(ctx.doc_base);
+        starts.push(ctx.doc_base.try_convert()?);
     }
 
-    starts.push(max_doc);
+    starts.push(max_doc.try_convert()?);
 
     Ok(Some(BitsType::<CR>::B(MultiBits::new(
         live_docs, starts, true,

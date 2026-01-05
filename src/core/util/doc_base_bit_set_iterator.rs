@@ -16,6 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -44,7 +45,8 @@ impl DocBaseBitSetIterator {
                 "docBase need to be a multiple of 64, got {doc_base}"
             )));
         }
-        let length = bits.length() + doc_base;
+        let len: i32 = bits.length().try_convert()?;
+        let length = len + doc_base;
         Ok(DocBaseBitSetIterator {
             bits,
             length,
@@ -88,10 +90,11 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
         }
         let next = self
             .bits
-            .next_set_bit(std::cmp::max(0, target - self.doc_base));
-        if next == NO_MORE_DOCS {
+            .next_set_bit(0.max(target - self.doc_base).try_convert()?);
+        if next == NO_MORE_DOCS as usize {
             self.doc = NO_MORE_DOCS
         } else {
+            let next: i32 = next.try_convert()?;
             self.doc = next + self.doc_base;
         }
         Ok(self.doc)

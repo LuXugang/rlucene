@@ -19,6 +19,7 @@ use rand::Rng;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::base_bit_set_test_case::random_set;
@@ -26,7 +27,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
 use crate::test::util::test_util::TestUtil;
 
 pub trait BaseDocIdSetTestCase {
-    fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
+    fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet;
     /// Test length=0.
     fn test_bit_0<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let bs = bit_set::BitSet::with_capacity(1);
@@ -56,7 +57,7 @@ pub trait BaseDocIdSetTestCase {
     }
     /// Compare the content of the set against a {@link BitSet}.
     fn test_against_bit_set<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let num_bits = random.random_range(100..1 << 20);
+        let num_bits = random.random_range(100..1 << 20) as usize;
         let random_float: f32 = random.random();
         for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
             let set = random_set(random, num_bits, percent_set);
@@ -64,12 +65,12 @@ pub trait BaseDocIdSetTestCase {
             self.assert_equals(random, num_bits, &set, copy)?;
         }
         // test one doc
-        let mut set = bit_set::BitSet::with_capacity(num_bits as usize);
+        let mut set = bit_set::BitSet::with_capacity(num_bits);
         set.insert(0); // 0 first
         let mut copy = self.copy_of(&set, num_bits);
         self.assert_equals(random, num_bits, &set, copy)?;
         set.remove(0);
-        set.insert(random.random_range(0..num_bits as usize));
+        set.insert(random.random_range(0..num_bits));
         copy = self.copy_of(&set, num_bits);
         self.assert_equals(random, num_bits, &set, copy)?;
         // rest regular increments
@@ -82,15 +83,15 @@ pub trait BaseDocIdSetTestCase {
             }
             iterations += 1;
 
-            set = bit_set::BitSet::with_capacity(num_bits as usize);
+            set = bit_set::BitSet::with_capacity(num_bits);
             let mut d = random.random_range(0..=10);
             while d < num_bits {
-                set.insert(d as usize);
+                set.insert(d);
                 d += inc;
             }
             copy = self.copy_of(&set, num_bits);
             self.assert_equals(random, num_bits, &set, copy)?;
-            inc += TestUtil::next_int(random, 1, 100);
+            inc += TestUtil::next_usize(random, 1, 100);
         }
         Ok(())
     }
@@ -100,7 +101,7 @@ pub trait BaseDocIdSetTestCase {
     fn assert_equals<R: Rng + ?Sized>(
         &self,
         random: &mut R,
-        num_bits: i32,
+        num_bits: usize,
         ds1: &bit_set::BitSet,
         ds2: impl DocIdSet,
     ) -> Result<()>;
@@ -114,7 +115,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
     fn assert_equals<R: Rng + ?Sized>(
         &self,
         random: &mut R,
-        num_bits: i32,
+        num_bits: usize,
         ds1: &bit_set::BitSet,
         ds2: impl DocIdSet,
     ) -> Result<()> {
@@ -171,10 +172,10 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                 }
             },
         }
-        // bits)
+        // bits
         let bitss = ds2.bits();
         let mut doc = -1;
-        let mut previes_doc = -1;
+        let mut previes_doc: Option<usize> = None;
         if let Some(bits) = bitss {
             let mut disi = ds2.iterator()?.unwrap();
             while doc != NO_MORE_DOCS {
@@ -182,10 +183,13 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()
                 } else {
-                    doc
+                    doc.try_convert()?
                 };
 
-                let mut i = previes_doc + 1;
+                let mut i = match previes_doc {
+                    Some(v) => v + 1,
+                    None => 0,
+                };
                 while i < max {
                     assert!(!bits.get(i));
                     i += 1;
@@ -194,9 +198,8 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                 if doc == NO_MORE_DOCS {
                     break;
                 }
-
-                previes_doc = doc;
-                assert!(bits.get(doc));
+                previes_doc = Some(doc as usize);
+                assert!(bits.get(doc as usize));
             }
         }
         Ok(())

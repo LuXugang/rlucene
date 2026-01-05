@@ -282,7 +282,7 @@ impl MultiDocValues {
 
         let mut any_real = false;
         let mut values = Vec::with_capacity(size);
-        let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+        let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
         let mut total_cost: i64 = 0;
 
         for ctx in leaves.iter() {
@@ -296,10 +296,10 @@ impl MultiDocValues {
             };
 
             values.push(v);
-            starts.push(ctx.doc_base);
+            starts.push(ctx.doc_base as usize);
         }
 
-        starts.push(max_doc);
+        starts.push(max_doc as usize);
 
         if !any_real {
             Ok(None)
@@ -345,7 +345,7 @@ impl MultiDocValues {
 
         let mut any_real = false;
         let mut values = Vec::with_capacity(size);
-        let mut starts: Vec<i32> = Vec::with_capacity(size + 1);
+        let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
         let mut total_cost: i64 = 0;
 
         for ctx in leaves.iter() {
@@ -359,10 +359,10 @@ impl MultiDocValues {
             };
 
             values.push(v);
-            starts.push(ctx.doc_base);
+            starts.push(ctx.doc_base as usize);
         }
 
-        starts.push(max_doc);
+        starts.push(max_doc as usize);
 
         if !any_real {
             Ok(None)
@@ -390,7 +390,7 @@ where
     S: SortedDocValues,
 {
     /// docbase for each leaf: parallel with [`values`]
-    pub doc_starts: Vec<i32>,
+    pub doc_starts: Vec<usize>,
     /// leaf values
     pub values: Vec<S>,
     /// ordinal map mapping ords from `values` to global ord space
@@ -407,7 +407,12 @@ impl<S> MultiSortedDocValues<S>
 where
     S: SortedDocValues,
 {
-    pub fn new(doc_starts: Vec<i32>, values: Vec<S>, mapping: OrdinalMap, total_cost: i64) -> Self {
+    pub fn new(
+        doc_starts: Vec<usize>,
+        values: Vec<S>,
+        mapping: OrdinalMap,
+        total_cost: i64,
+    ) -> Self {
         Self {
             doc_starts,
             values,
@@ -433,7 +438,7 @@ where
             )));
         }
 
-        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        let reader_index = ReaderUtil::sub_index(target_doc_id as usize, &self.doc_starts);
         if reader_index < 0 {
             return Err(LuceneError::illegal_state("reader_index should be >= 0"));
         }
@@ -445,7 +450,7 @@ where
                     target_doc_id
                 )));
             }
-            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_doc_start = self.doc_starts[reader_index] as i32;
             self.current_values = Some(reader_index);
             self.next_leaf = reader_index + 1;
         }
@@ -479,7 +484,7 @@ where
                     self.doc_id = NO_MORE_DOCS;
                     return Ok(self.doc_id);
                 }
-                self.current_doc_start = self.doc_starts[self.next_leaf];
+                self.current_doc_start = self.doc_starts[self.next_leaf] as i32;
                 self.current_values = Some(self.next_leaf);
                 self.next_leaf += 1;
             }
@@ -503,7 +508,7 @@ where
             )));
         }
 
-        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        let reader_index = ReaderUtil::sub_index(target_doc_id as usize, &self.doc_starts);
         if reader_index < 0 {
             return Err(LuceneError::illegal_state("reader_index should be >= 0"));
         }
@@ -514,7 +519,7 @@ where
                 self.doc_id = NO_MORE_DOCS;
                 return Ok(self.doc_id);
             }
-            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_doc_start = self.doc_starts[reader_index] as i32;
             self.current_values = Some(reader_index);
             self.next_leaf = reader_index + 1;
         }
@@ -588,7 +593,7 @@ where
     T: SortedSetDocValues,
 {
     /// docbase for each leaf: parallel with `values`
-    pub doc_starts: Vec<i32>,
+    pub doc_starts: Vec<usize>,
 
     /// leaf values
     pub values: Vec<T>,
@@ -607,7 +612,12 @@ impl<T> MultiSortedSetDocValues<T>
 where
     T: SortedSetDocValues,
 {
-    pub fn new(values: Vec<T>, doc_starts: Vec<i32>, mapping: OrdinalMap, total_cost: i64) -> Self {
+    pub fn new(
+        values: Vec<T>,
+        doc_starts: Vec<usize>,
+        mapping: OrdinalMap,
+        total_cost: i64,
+    ) -> Self {
         debug_assert_eq!(doc_starts.len(), values.len() + 1);
 
         Self {
@@ -635,7 +645,7 @@ where
             )));
         }
 
-        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        let reader_index = ReaderUtil::sub_index(target_doc_id as usize, &self.doc_starts);
         if reader_index < 0 {
             return Err(LuceneError::illegal_state("reader_index should be >= 0"));
         }
@@ -648,7 +658,7 @@ where
                     target_doc_id
                 )));
             }
-            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_doc_start = self.doc_starts[reader_index] as i32;
             self.current_values = Some(reader_index);
             self.next_leaf = reader_index + 1;
         }
@@ -680,7 +690,7 @@ where
                     return Ok(self.doc_id);
                 }
 
-                self.current_doc_start = self.doc_starts[self.next_leaf];
+                self.current_doc_start = self.doc_starts[self.next_leaf] as i32;
                 self.current_values = Some(self.next_leaf);
                 self.next_leaf += 1;
             }
@@ -705,7 +715,7 @@ where
             )));
         }
 
-        let reader_index = ReaderUtil::sub_index(target_doc_id, &self.doc_starts);
+        let reader_index = ReaderUtil::sub_index(target_doc_id as usize, &self.doc_starts);
         if reader_index < 0 {
             return Err(LuceneError::illegal_state("reader_index should be >= 0"));
         }
@@ -718,7 +728,7 @@ where
                 return Ok(self.doc_id);
             }
 
-            self.current_doc_start = self.doc_starts[reader_index];
+            self.current_doc_start = self.doc_starts[reader_index] as i32;
             self.current_values = Some(reader_index);
             self.next_leaf = reader_index + 1;
         }

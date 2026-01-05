@@ -64,29 +64,29 @@ pub trait BaseLiveDocsFormatTestCase {
         fixed_bit_set: bool,
     ) -> Result<()> {
         let format = LATEST_CODEC.live_docs_format();
-        let mut live_docs = FixedBitSet::new(max_doc);
+        let mut live_docs = FixedBitSet::new(max_doc as usize);
         if num_live_docs > max_doc / 2 {
-            live_docs.set_with_range(0, max_doc);
+            live_docs.set_with_range(0, max_doc as usize);
             for _ in 0..(max_doc - num_live_docs) {
                 let mut clear_bit;
                 loop {
                     clear_bit = random.random_range(0..max_doc);
-                    if live_docs.get(clear_bit) {
+                    if live_docs.get(clear_bit as usize) {
                         break;
                     }
                 }
-                live_docs.clear_with_index(clear_bit);
+                live_docs.clear_with_index(clear_bit as usize);
             }
         } else {
             for _ in 0..num_live_docs {
                 let mut set_bit;
                 loop {
                     set_bit = random.random_range(0..max_doc);
-                    if !live_docs.get(set_bit) {
+                    if !live_docs.get(set_bit as usize) {
                         break;
                     }
                 }
-                live_docs.set(set_bit);
+                live_docs.set(set_bit as usize);
             }
         }
         let bits = if fixed_bit_set {
@@ -133,8 +133,8 @@ pub trait BaseLiveDocsFormatTestCase {
         let dir = dir;
         let bits2 = format.read_live_docs(dir.as_ref(), &sci, &io_context)?;
 
-        assert_eq!(max_doc, bits2.length());
-        for i in 0..max_doc {
+        assert_eq!(max_doc as usize, bits2.length());
+        for i in 0..max_doc as usize {
             assert_eq!(bits.get(i), bits2.get(i));
         }
         Ok(())
@@ -150,11 +150,11 @@ impl TestBits {
     }
 }
 impl Bits for TestBits {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         self.live_docs.get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.live_docs.length()
     }
 }
@@ -164,13 +164,13 @@ enum TestBitsEnum {
     Fixed(FixedBitSet),
 }
 impl Bits for TestBitsEnum {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         match self {
             TestBitsEnum::Test(test) => test.get(index),
             TestBitsEnum::Fixed(fixed) => fixed.get(index),
         }
     }
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         match self {
             TestBitsEnum::Test(test) => test.length(),
             TestBitsEnum::Fixed(fixed) => fixed.length(),

@@ -113,7 +113,7 @@ impl DocIdSetBuilder {
         if self.bit_set.is_none() {
             self.buffer.push(doc);
         } else {
-            self.bit_set.as_mut().unwrap().set(doc);
+            self.bit_set.as_mut().unwrap().set(doc as usize);
         }
     }
     pub fn grow(&mut self, num_docs: i32) {
@@ -128,10 +128,10 @@ impl DocIdSetBuilder {
     }
     fn upgrade_to_bitset(&mut self) {
         debug_assert!(self.bit_set.is_none());
-        let mut bitset = FixedBitSet::new(self.max_doc);
+        let mut bitset = FixedBitSet::new(self.max_doc as usize);
         let mut counter = 0i64;
         for doc in self.buffer.iter() {
-            bitset.set(*doc);
+            bitset.set(*doc as usize);
             counter += 1;
         }
         self.bit_set = Some(bitset);
@@ -320,14 +320,14 @@ mod tests {
         let max_doc = 1000000 + random.random_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
         let num_iterators = 1 + random.random_range(0..10);
-        let mut fixed_set_bit = FixedBitSet::new(max_doc);
+        let mut fixed_set_bit = FixedBitSet::new(max_doc as usize);
         for _i in 0..num_iterators {
             let base_inc = 200000 + random.random_range(0..10000);
-            let mut b = Builder::new(max_doc);
+            let mut b = Builder::new(max_doc as usize);
             let mut doc = random.random_range(0..100);
             while doc < max_doc {
                 b.add(doc)?;
-                fixed_set_bit.set(doc);
+                fixed_set_bit.set(doc as usize);
                 doc += base_inc + random.random_range(0..10000);
             }
             let roaring_doc_id_set = b.build();
@@ -352,13 +352,13 @@ mod tests {
         let max_doc = 1000000 + random.random_range(0..1000000);
         let mut builder = DocIdSetBuilder::new(max_doc);
         let num_iterators = 1 + random.random_range(0..10);
-        let mut fixed_set_bit = FixedBitSet::new(max_doc);
+        let mut fixed_set_bit = FixedBitSet::new(max_doc as usize);
         for _i in 0..num_iterators {
-            let mut b = Builder::new(max_doc);
+            let mut b = Builder::new(max_doc as usize);
             let mut doc = random.random_range(0..1000);
             while doc < max_doc {
                 b.add(doc)?;
-                fixed_set_bit.set(doc);
+                fixed_set_bit.set(doc as usize);
                 doc += 1 + random.random_range(0..100);
             }
             let roaring_doc_id_set = b.build();
@@ -389,12 +389,12 @@ mod tests {
         let mut i = 1;
         while i < (max_doc / 2) {
             let num_docs = TestUtil::next_int(&mut random, 1, i);
-            let mut docs = FixedBitSet::new(max_doc);
+            let mut docs = FixedBitSet::new(max_doc as usize);
             let mut c = 0;
             while c < num_docs {
                 let d = random.random_range(0..max_doc);
-                if !docs.get(d) {
-                    docs.set(d);
+                if !docs.get(d as usize) {
+                    docs.set(d as usize);
                     c += 1
                 }
             }
@@ -456,13 +456,13 @@ mod tests {
         let mut random = random();
         let max_doc = TestUtil::next_int(&mut random, 1000, 10000);
         let mut builder = DocIdSetBuilder::new(max_doc);
-        let mut expected = FixedBitSet::new(max_doc);
+        let mut expected = FixedBitSet::new(max_doc as usize);
         for _i in 0..100 {
-            let mut docs = FixedBitSet::new(max_doc);
+            let mut docs = FixedBitSet::new(max_doc as usize);
             let num_docs = random.random_range(1..=max_doc / 1000);
             for _ in 0..num_docs {
                 let doc = random.random_range(0..max_doc);
-                docs.set(doc);
+                docs.set(doc as usize);
             }
             expected.or(&docs);
             // We provide a cost of 0 here to make sure the builder can deal

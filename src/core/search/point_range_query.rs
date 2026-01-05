@@ -667,8 +667,8 @@ where
             // If all docs have exactly one value and the cost is greater
             // than half the leaf size then maybe we can make things faster
             // by computing the set of documents that do NOT match the range
-            let mut result = FixedBitSet::new(max_doc);
-            result.set_with_range(0, max_doc);
+            let mut result = FixedBitSet::new(max_doc as usize);
+            result.set_with_range(0, max_doc as usize);
             let mut visitor = get_inverse_intersect_visitor(
                 &mut result,
                 max_doc as i64,
@@ -771,7 +771,7 @@ impl<'a> IntersectVisitorImpl<'a> {
 }
 impl IntersectVisitor for IntersectVisitorImpl<'_> {
     fn visit(&mut self, doc_id: i32) -> Result<()> {
-        self.result.clear_with_index(doc_id);
+        self.result.clear_with_index(doc_id as usize);
         self.cost -= 1;
         Ok(())
     }
@@ -784,7 +784,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
 
     fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
         for i in ints_ref.offset..(ints_ref.offset + ints_ref.length) {
-            self.result.clear_with_index(ints_ref.ints[i])
+            self.result.clear_with_index(ints_ref.ints[i] as usize)
         }
         self.cost -= ints_ref.length as i64;
         Ok(())

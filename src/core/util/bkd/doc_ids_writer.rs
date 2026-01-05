@@ -186,12 +186,12 @@ impl DocIdsWriter {
 
         let offset_words = min >> 6;
         let offset_bits = offset_words << 6;
-        let total_word_count = FixedBitSet::bits2words(max - offset_bits + 1);
+        let total_word_count = FixedBitSet::bits2words((max - offset_bits + 1).try_convert()?);
         let mut current_word: i64 = 0;
-        let mut current_word_index: i32 = 0;
+        let mut current_word_index = 0;
 
         out.write_vint(offset_words)?;
-        out.write_vint(total_word_count)?;
+        out.write_vint(total_word_count.try_convert()?)?;
         // build bit set streaming
         for i in 0..count {
             let index = doc_ids[start + i] - offset_bits;
@@ -213,7 +213,7 @@ impl DocIdsWriter {
         }
         out.write_long(current_word)?;
         debug_assert!(
-            current_word_index + 1 == total_word_count,
+            current_word_index + 1 == total_word_count as i32,
             "current_word_index + 1: {}, total_word_count: {}",
             current_word_index + 1,
             total_word_count
@@ -247,19 +247,16 @@ impl DocIdsWriter {
         count: usize,
     ) -> Result<impl DocIdSetIterator> {
         let offset_words = input.read_vint()?;
-        let long_len = input.read_vint()?;
-        let long_len_index = long_len as usize;
-        if let Some(new_array) =
-            ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len as usize)
-        {
+        let long_len = input.read_vint()?.try_convert()?;
+        if let Some(new_array) = ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len) {
             self.scratch_longs.longs = new_array
         }
-        input.read_longs(&mut self.scratch_longs.longs, 0, long_len)?;
+        input.read_longs(&mut self.scratch_longs.longs, 0, long_len.try_convert()?)?;
         // make ghost bits clear for FixedBitSet.
-        if (long_len) < self.scratch_longs.length as i32 {
-            self.scratch_longs.longs[long_len_index..].fill(0);
+        if (long_len) < self.scratch_longs.length {
+            self.scratch_longs.longs[long_len..].fill(0);
         }
-        self.scratch_longs.length = long_len.try_convert()?;
+        self.scratch_longs.length = long_len;
         let bit_set = FixedBitSet::with_capacity(
             std::mem::take(&mut self.scratch_longs.longs),
             long_len << 6,
@@ -399,8 +396,8 @@ impl DocIdsWriter {
         let extra = start & 63;
         let offset = start - extra;
         let num_bits = count + extra;
-        let mut bit_set = FixedBitSet::new(num_bits as i32);
-        bit_set.set_with_range(extra as i32, num_bits as i32);
+        let mut bit_set = FixedBitSet::new(num_bits);
+        bit_set.set_with_range(extra, num_bits);
         let mut disi = DocBaseBitSetIterator::new(bit_set, count as i64, offset as i32)?;
         visitor.visit_with_iterator(&mut disi)?;
         Ok(())

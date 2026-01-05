@@ -27,9 +27,9 @@ use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
 use std::sync::Arc;
 
 // Number of documents in a block
-const BLOCK_SIZE: i32 = 1 << 16;
+const BLOCK_SIZE: usize = 1 << 16;
 // The maximum length for an array, beyond that point we switch to a bitset
-const MAX_ARRAY_LENGTH: i32 = 1 << 12;
+const MAX_ARRAY_LENGTH: usize = 1 << 12;
 // todo
 
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -45,12 +45,12 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// This is an internal API.
 pub struct RoaringDocIdSet {
     doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
-    cardinality: i32,
+    cardinality: usize,
 
     ram_bytes_used: i64,
 }
 impl RoaringDocIdSet {
-    fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: i32) -> Self {
+    fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: usize) -> Self {
         // todo
         let doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>> = doc_id_sets
             .into_iter()
@@ -64,7 +64,7 @@ impl RoaringDocIdSet {
         }
     }
 
-    pub(crate) fn cardinality(&self) -> i32 {
+    pub(crate) fn cardinality(&self) -> usize {
         self.cardinality
     }
 }
@@ -105,12 +105,12 @@ pub mod builder {
     };
 
     pub struct Builder {
-        max_doc: i32,
+        max_doc: usize,
         sets: Vec<Option<DocIdSetEnum>>,
-        cardinality: i32,
+        cardinality: usize,
         last_doc_id: i32,
         current_block: i32,
-        current_block_cardinality: i32,
+        current_block_cardinality: usize,
         // We start by filling the buffer and when it's full we copy the
         // content of the buffer to the FixedBitSet and put further
         // documents in that bitset
@@ -119,10 +119,10 @@ pub mod builder {
     }
 
     impl Builder {
-        pub fn new(max_doc: i32) -> Builder {
-            let buffer: Vec<i16> = Vec::with_capacity(MAX_ARRAY_LENGTH as usize);
+        pub fn new(max_doc: usize) -> Builder {
+            let buffer: Vec<i16> = Vec::with_capacity(MAX_ARRAY_LENGTH);
             let sets_length = (max_doc + (1 << 16) - 1) >> 16;
-            let mut sets = Vec::with_capacity(sets_length as usize);
+            let mut sets = Vec::with_capacity(sets_length);
             // not want to impl Copy of DocIdSetEnum
             for _i in 0..sets_length {
                 sets.push(None);
@@ -160,13 +160,13 @@ pub mod builder {
             } else {
                 if self.dense_buffer.length() == 0 {
                     // the buffer is full, let's move to a fixed bit set
-                    let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16));
+                    let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16) as usize);
                     self.dense_buffer = FixedBitSet::new(num_bits);
                     for i in 0..self.buffer.len() {
-                        self.dense_buffer.set(self.buffer[i] as i32 & 0xFFFF);
+                        self.dense_buffer.set(self.buffer[i] as usize & 0xFFFF);
                     }
                 }
-                self.dense_buffer.set(doc_id & 0xFFFF);
+                self.dense_buffer.set(doc_id as usize & 0xFFFF);
             }
             self.last_doc_id = doc_id;
             self.current_block_cardinality += 1;
@@ -206,22 +206,23 @@ pub mod builder {
                 if self.dense_buffer.length() == BLOCK_SIZE
                     && BLOCK_SIZE - self.current_block_cardinality < MAX_ARRAY_LENGTH
                 {
-                    let capacity = (BLOCK_SIZE - self.current_block_cardinality) as usize;
+                    let capacity = BLOCK_SIZE - self.current_block_cardinality;
                     let mut excluded_docs: Vec<i16> = vec![0; capacity];
                     self.dense_buffer.flip_range(0, self.dense_buffer.length());
-                    let mut excluded_doc = -1;
+                    let mut excluded_doc = 0;
                     for excluded_doc_ref in excluded_docs.iter_mut() {
-                        excluded_doc = self.dense_buffer.next_set_bit(excluded_doc + 1);
-                        assert_ne!(excluded_doc, NO_MORE_DOCS);
+                        excluded_doc = self.dense_buffer.next_set_bit(excluded_doc);
+                        assert_ne!(excluded_doc, NO_MORE_DOCS as usize);
                         *excluded_doc_ref = excluded_doc as i16;
                     }
 
                     debug_assert!(
-                        excluded_doc + 1 == self.dense_buffer.length()
-                            || self.dense_buffer.next_set_bit(excluded_doc + 1) == NO_MORE_DOCS
+                        excluded_doc == self.dense_buffer.length()
+                            || self.dense_buffer.next_set_bit(excluded_doc)
+                                == NO_MORE_DOCS as usize
                     );
                     let dense: Option<DocIdSetEnum> = Some(DocIdSetEnum::Dense(NotDocIdSet::new(
-                        BLOCK_SIZE,
+                        BLOCK_SIZE as i32,
                         ShortArrayDocIdSet::new(excluded_docs),
                     )));
                     self.buffer.clear();
@@ -555,7 +556,7 @@ mod tests {
         test_case.test_ram_bytes_used(&mut random);
     }
     impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet {
             let mut builder = Builder::new(length);
             let iter = bs.iter();
             for doc in iter {
@@ -567,7 +568,7 @@ mod tests {
         fn assert_equals<R: Rng + ?Sized>(
             &self,
             random: &mut R,
-            num_bits: i32,
+            num_bits: usize,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {

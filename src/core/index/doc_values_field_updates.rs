@@ -1044,7 +1044,7 @@ impl SingleValueDocValuesFieldUpdates {
     ) -> Result<Self> {
         Ok(Self {
             sub_update: Arc::new(sub),
-            bit_set: SparseFixedBitSet::new(max_doc)?,
+            bit_set: SparseFixedBitSet::new(max_doc as usize)?,
             has_no_value: None,
             max_doc,
             del_gen,
@@ -1079,21 +1079,27 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn add_value(&mut self, doc: i32, value: i64, _index: usize) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
-        self.bit_set.set(doc);
+        self.bit_set.set(doc as usize);
 
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
-            self.has_no_value.as_mut().unwrap().clear_with_index(doc);
+            self.has_no_value
+                .as_mut()
+                .unwrap()
+                .clear_with_index(doc as usize);
         }
         Ok(())
     }
 
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()?.as_ref() == value);
-        self.bit_set.set(doc);
+        self.bit_set.set(doc as usize);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
-            self.has_no_value.as_mut().unwrap().clear_with_index(doc);
+            self.has_no_value
+                .as_mut()
+                .unwrap()
+                .clear_with_index(doc as usize);
         }
         Ok(())
     }
@@ -1127,12 +1133,12 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn reset(&mut self, doc: i32) -> Result<()> {
         let _guide = self.lock.lock();
-        self.bit_set.set(doc);
+        self.bit_set.set(doc as usize);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
-            self.has_no_value = Some(SparseFixedBitSet::new(self.max_doc)?);
+            self.has_no_value = Some(SparseFixedBitSet::new(self.max_doc as usize)?);
         }
-        self.has_no_value.as_mut().unwrap().set(doc);
+        self.has_no_value.as_mut().unwrap().set(doc as usize);
         drop(_guide);
         Ok(())
     }
@@ -1218,7 +1224,7 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
                 .has_no_value
                 .as_ref()
                 .unwrap()
-                .get(self.iterator.doc_id())
+                .get(self.iterator.doc_id() as usize)
         } else {
             true
         }

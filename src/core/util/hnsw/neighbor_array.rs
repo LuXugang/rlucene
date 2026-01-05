@@ -32,7 +32,7 @@ pub struct NeighborArray {
     scores_desc_order: bool,
     size: usize,
     scores: Vec<f32>,
-    nodes: Vec<i32>,
+    nodes: Vec<usize>,
     sorted_node_size: usize,
 }
 
@@ -51,7 +51,7 @@ impl NeighborArray {
     /// The new node must be worse than all previously stored nodes.
     /// This cannot be called after [`add_out_of_order(int,
     /// float)`](Self::add_out_of_order).
-    pub fn add_in_order(&mut self, new_node: i32, new_score: f32) -> Result<()> {
+    pub fn add_in_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
         debug_assert!(
             self.size == self.sorted_node_size,
             "cannot call add_in_order after add_out_of_order"
@@ -85,7 +85,7 @@ impl NeighborArray {
         Ok(())
     }
     /// Add node and newScore but do not insert as sorted
-    pub fn add_out_of_order(&mut self, new_node: i32, new_score: f32) -> Result<()> {
+    pub fn add_out_of_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
         if self.size == self.nodes.len() {
             return Err(LuceneError::illegal_state("No growth is allowed"));
         }
@@ -110,13 +110,13 @@ impl NeighborArray {
     pub fn add_and_ensure_diversity(
         hnsw: &mut HnswGraphEnums,
         level: usize,
-        new_node: i32,
+        new_node: usize,
         new_score: f32,
-        node_id: i32,
+        node_id: usize,
         scorer_supplier: &impl RandomVectorScorerSupplier,
     ) -> Result<()> {
         let HnswGraphEnums::OnHeap(hnsw) = hnsw;
-        let neighbor_array = hnsw.get_neighbors(level, node_id as usize);
+        let neighbor_array = hnsw.get_neighbors(level, node_id);
         neighbor_array.add_out_of_order(new_node, new_score)?;
 
         if neighbor_array.size < neighbor_array.nodes.len() {
@@ -205,7 +205,7 @@ impl NeighborArray {
     }
     /// This method is for test only.
     #[cfg(debug_assertions)]
-    pub(crate) fn insert_sorted(&mut self, new_node: i32, new_score: f32) -> Result<()> {
+    pub(crate) fn insert_sorted(&mut self, new_node: usize, new_score: f32) -> Result<()> {
         self.add_out_of_order(new_node, new_score)?;
         let v = DummyRandomVectorScorer;
         self.insert_sorted_internal(&v)?;
@@ -216,7 +216,7 @@ impl NeighborArray {
     }
     /// irect access to the internal list of node ids; provided for efficient
     /// writing of the graph
-    pub fn nodes(&self) -> &[i32] {
+    pub fn nodes(&self) -> &[usize] {
         &self.nodes[..self.size]
     }
 
@@ -280,7 +280,7 @@ impl NeighborArray {
     }
     /// Find first non-diverse neighbour among the list of neighbors starting
     /// from the most distant neighbours
-    fn find_worst_non_diverse<S>(&mut self, node_ord: i32, scorer_supplier: &S) -> Result<usize>
+    fn find_worst_non_diverse<S>(&mut self, node_ord: usize, scorer_supplier: &S) -> Result<usize>
     where
         S: RandomVectorScorerSupplier,
     {
@@ -646,7 +646,7 @@ mod tests {
         }
     }
 
-    fn assert_nodes_equal(expected: &[i32], neighbors: &NeighborArray) {
+    fn assert_nodes_equal(expected: &[usize], neighbors: &NeighborArray) {
         for (i, &node) in expected.iter().enumerate() {
             assert_eq!(
                 node,
@@ -662,11 +662,11 @@ mod tests {
     #[derive(Default)]
     struct TestRandomVectorScorer;
     impl RandomVectorScorer for TestRandomVectorScorer {
-        fn score(&self, node: i32) -> Result<f32> {
+        fn score(&self, node: usize) -> Result<f32> {
             Ok((7 - node + 1) as f32)
         }
 
-        fn max_ord(&self) -> i32 {
+        fn max_ord(&self) -> usize {
             0
         }
 
@@ -680,11 +680,11 @@ mod tests {
     #[derive(Default)]
     struct TestRandomVectorScorer1;
     impl RandomVectorScorer for TestRandomVectorScorer1 {
-        fn score(&self, node: i32) -> Result<f32> {
+        fn score(&self, node: usize) -> Result<f32> {
             Ok((7 - node + 11) as f32)
         }
 
-        fn max_ord(&self) -> i32 {
+        fn max_ord(&self) -> usize {
             0
         }
 

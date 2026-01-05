@@ -253,6 +253,8 @@ macro_rules! impl_try_convert {
 }
 impl_try_convert!(usize => i32);
 impl_try_convert!(usize => i64);
+impl_try_convert!(usize => u64);
+impl_try_convert!(usize => u32);
 impl_try_convert!(u64 => i64);
 impl_try_convert!(i64   => i32);
 impl_try_convert!(i64   => usize);

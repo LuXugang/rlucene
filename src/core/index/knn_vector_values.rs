@@ -17,8 +17,10 @@
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+
 /// This struct abstracts addressing of document vector values indexed as
 /// [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField) or `KnnByteVectorField`.
 pub trait KnnVectorValues {
@@ -69,7 +71,7 @@ where
     T: OrdToDoc,
 {
     accept_docs: B,
-    size: i32,
+    size: usize,
     map: T,
 }
 impl<B, T> BitsImpl<B, T>
@@ -77,7 +79,7 @@ where
     B: Bits,
     T: OrdToDoc,
 {
-    pub(crate) fn new(accept_docs: B, size: i32, map: T) -> Self {
+    pub(crate) fn new(accept_docs: B, size: usize, map: T) -> Self {
         Self {
             accept_docs,
             size,
@@ -90,11 +92,11 @@ where
     B: Bits,
     T: OrdToDoc,
 {
-    fn get(&self, index: i32) -> bool {
-        self.accept_docs.get(self.map.ord_to_doc(index))
+    fn get(&self, index: usize) -> bool {
+        self.accept_docs.get(self.map.ord_to_doc(index) as usize)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.size
     }
 }
@@ -207,7 +209,7 @@ where
     T: OrdToDoc,
 {
     ord: i32,
-    size: i32,
+    size: usize,
     map: T,
 }
 
@@ -215,7 +217,7 @@ impl<T> DocIndexIteratorImpl3<T>
 where
     T: OrdToDoc,
 {
-    pub(crate) fn new(size: i32, ord_to_doc: T) -> Self {
+    pub(crate) fn new(size: usize, ord_to_doc: T) -> Self {
         Self {
             ord: -1,
             size,
@@ -234,12 +236,12 @@ where
         } else if self.ord == NO_MORE_DOCS {
             NO_MORE_DOCS
         } else {
-            self.map.ord_to_doc(self.ord)
+            self.map.ord_to_doc(self.ord as usize)
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        if self.ord >= self.size - 1 {
+        if (self.ord + 1).try_convert()? >= self.size {
             self.ord = NO_MORE_DOCS;
         } else {
             self.ord += 1;
@@ -266,7 +268,7 @@ where
 }
 
 pub trait OrdToDoc {
-    fn ord_to_doc(&self, ord: i32) -> i32;
+    fn ord_to_doc(&self, ord: usize) -> i32;
 }
 
 pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
@@ -284,7 +286,7 @@ where
 
 ///  Creates an iterator from this instance's ordinal-to-docid mapping which
 /// must be monotonic (docid increases when ordinal does).
-pub(crate) fn create_sparse_iterator<T>(size: i32, map: T) -> DocIndexIteratorImpl3<T>
+pub(crate) fn create_sparse_iterator<T>(size: usize, map: T) -> DocIndexIteratorImpl3<T>
 where
     T: OrdToDoc,
 {

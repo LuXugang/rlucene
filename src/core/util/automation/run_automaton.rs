@@ -54,13 +54,13 @@ impl RunAutomaton {
 
         let points = automaton.get_start_points();
         let size = std::cmp::max(1, automaton.get_num_states());
-        let mut accept = FixedBitSet::new(size);
+        let mut accept = FixedBitSet::new(size as usize);
         let mut transitions = vec![-1; size as usize * points.len()];
 
         let mut transition = Transition::default();
         for n in 0..size {
             if automaton.is_accept(n) {
-                accept.set(n);
+                accept.set(n as usize);
             }
             transition.source = n;
             transition.transition_upto = -1;
@@ -104,7 +104,7 @@ impl RunAutomaton {
     /// Returns:
     /// - `true` if the state is an accept state, otherwise `false`.
     pub fn is_accept(&self, state: i32) -> bool {
-        self.accept.get(state)
+        self.accept.get(state as usize)
     }
 
     /// Returns array of codepoint class interval start points. The array should
@@ -149,7 +149,7 @@ impl fmt::Display for RunAutomaton {
         writeln!(f, "initial state: 0")?;
         for i in 0..self.size {
             write!(f, "state {i}")?;
-            if self.accept.get(i) {
+            if self.accept.get(i as usize) {
                 writeln!(f, " [accept]:")?;
             } else {
                 writeln!(f, " [reject]:")?;

@@ -48,7 +48,7 @@ pub trait KnnCollector {
     fn visit_limit(&self) -> usize;
 
     /// Returns the expected number of collected results.
-    fn k(&self) -> i32;
+    fn k(&self) -> usize;
 
     /// Collects the provided `doc_id` and includes it in the result set.
     ///
@@ -60,7 +60,7 @@ pub trait KnnCollector {
     /// # Returns
     ///
     /// `true` if the vector is collected.
-    fn collect(&mut self, doc_id: i32, similarity: f32) -> bool;
+    fn collect(&mut self, doc_id: usize, similarity: f32) -> bool;
 
     /// This method is utilized during search to ensure only competitive results
     /// are explored.

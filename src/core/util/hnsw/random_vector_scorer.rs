@@ -28,10 +28,10 @@ pub trait RandomVectorScorer {
     /// # Errors
     ///
     /// Returns an error if the scoring fails (e.g., I/O error).
-    fn score(&self, node: i32) -> Result<f32>;
+    fn score(&self, node: usize) -> Result<f32>;
 
     /// Returns the maximum possible ordinal for this scorer.
-    fn max_ord(&self) -> i32;
+    fn max_ord(&self) -> usize;
 
     /// Translates a vector ordinal to the correct document ID.  
     /// By default, this is an identity function.

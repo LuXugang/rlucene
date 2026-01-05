@@ -101,11 +101,11 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
 
     impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
-        fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
+        fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> impl DocIdSet {
             let mut set = FixedBitSet::new(length);
             let iter = bs.iter();
             for doc in iter {
-                set.set(doc as i32);
+                set.set(doc);
             }
             let result = BitDocIdSet::new(Some(set));
             assert!(result.is_ok());
@@ -115,7 +115,7 @@ mod tests {
         fn assert_equals<R: Rng + ?Sized>(
             &self,
             random: &mut R,
-            num_bits: i32,
+            num_bits: usize,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {

@@ -67,7 +67,7 @@ struct All {
 }
 impl All {
     fn new(max_doc: i32) -> Self {
-        let bits = Some(Arc::new(MatchAllBits::new(max_doc)));
+        let bits = Some(Arc::new(MatchAllBits::new(max_doc as usize)));
         All { max_doc, bits }
     }
 }

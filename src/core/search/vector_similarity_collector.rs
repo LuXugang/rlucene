@@ -82,14 +82,16 @@ impl KnnCollector for VectorSimilarityCollector {
         self.base.visit_limit()
     }
 
-    fn k(&self) -> i32 {
+    fn k(&self) -> usize {
         self.base.k()
     }
 
-    fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
+    fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
         self.max_similarity = self.max_similarity.max(similarity);
         if similarity >= self.result_similarity {
-            self.score_doc_list.push(ScoreDoc::new(doc_id, similarity));
+            debug_assert!(doc_id <= i32::MAX as usize);
+            self.score_doc_list
+                .push(ScoreDoc::new(doc_id as i32, similarity));
         }
         true
     }

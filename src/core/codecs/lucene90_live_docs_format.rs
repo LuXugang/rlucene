@@ -24,6 +24,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -69,10 +70,10 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    fn read_fixed_bit_set(input: &mut impl IndexInput, length: i32) -> Result<FixedBitSet> {
+    fn read_fixed_bit_set(input: &mut impl IndexInput, length: usize) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
-        let mut data = vec![0i64; num_words as usize];
-        input.read_longs(&mut data, 0, num_words)?;
+        let mut data = vec![0i64; num_words];
+        input.read_longs(&mut data, 0, num_words.try_convert()?)?;
         FixedBitSet::with_capacity(data, length)
     }
     fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {
@@ -115,7 +116,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
             Lucene90LiveDocsFormat::EXTENSION,
             r#gen,
         );
-        let length = info.info.max_doc()?;
+        let length = info.info.max_doc()?.try_convert()?;
         debug_assert!(name.is_some());
         let name_str = name.as_ref().unwrap();
         let mut input = directory.open_checksum_input(name_str)?;
@@ -131,7 +132,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
 
             let fbs = Self::read_fixed_bit_set(&mut input, length)?;
 
-            if fbs.length() - fbs.cardinality() != info.get_del_count() {
+            if fbs.length() - fbs.cardinality() != info.get_del_count().try_convert()? {
                 return Err(LuceneError::corrupt_index(format!(
                     "bits.deleted={} info.delcount={}",
                     fbs.length() - fbs.cardinality(),

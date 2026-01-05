@@ -18,12 +18,12 @@ use std::hash::{Hash, Hasher};
 
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-
 // todo
 
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
@@ -40,9 +40,9 @@ pub struct FixedBitSet {
     // Array of longs holding the bits
     bits: Vec<i64>,
     // The number of bits in use
-    num_bits: i32,
+    num_bits: usize,
     // The exact number of longs needed to hold numBits (<= bits.length)
-    num_words: i32,
+    num_words: usize,
 }
 
 impl Hash for FixedBitSet {
@@ -83,8 +83,9 @@ impl Clone for FixedBitSet {
 /// greater than `num_bits`.
 impl FixedBitSet {
     /// returns the number of 64-bit words it would take to hold numBits
-    pub fn bits2words(num_bits: i32) -> i32 {
-        ((num_bits - 1) >> 6) + 1
+    pub fn bits2words(num_bits: usize) -> usize {
+        let num_bits = num_bits as i32;
+        (((num_bits - 1) >> 6) + 1) as usize
     }
 
     /// Returns the popcount or cardinality of the intersection of the two sets.
@@ -108,10 +109,10 @@ impl FixedBitSet {
         for i in 0..num_common_words {
             tot += (a.bits[i] | b.bits[i]).count_ones();
         }
-        for i in num_common_words..a.num_words as usize {
+        for i in num_common_words..a.num_words {
             tot += a.bits[i].count_ones();
         }
-        for i in num_common_words..b.num_words as usize {
+        for i in num_common_words..b.num_words {
             tot += b.bits[i].count_ones();
         }
         tot as i64
@@ -125,7 +126,7 @@ impl FixedBitSet {
         for i in 0..num_common_words {
             tot += (a.bits[i] & !b.bits[i]).count_ones();
         }
-        for i in num_common_words..a.num_words as usize {
+        for i in num_common_words..a.num_words {
             tot += a.bits[i].count_ones();
         }
         tot as i64
@@ -136,15 +137,14 @@ impl FixedBitSet {
     ///
     /// # Arguments
     /// * `num_bits` - The number of bits needed.
-    pub fn new(num_bits: i32) -> FixedBitSet {
-        let size: usize = Self::bits2words(num_bits) as usize;
+    pub fn new(num_bits: usize) -> FixedBitSet {
+        let size: usize = Self::bits2words(num_bits);
         let bits: Vec<i64> = vec![0; size];
         let exact_size = bits.len();
-        debug_assert!(exact_size < i32::MAX as usize);
         FixedBitSet {
             bits,
             num_bits,
-            num_words: exact_size as i32,
+            num_words: exact_size,
         }
     }
     /// Creates a new `FixedBitSet` using the provided `Vec<u64>` array as the
@@ -156,9 +156,9 @@ impl FixedBitSet {
     /// # Arguments
     /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
     /// * `num_bits` - The number of bits actually needed.
-    pub fn with_capacity(stored_bits: Vec<i64>, num_bits: i32) -> Result<FixedBitSet> {
+    pub fn with_capacity(stored_bits: Vec<i64>, num_bits: usize) -> Result<FixedBitSet> {
         let num_words = Self::bits2words(num_bits);
-        if num_words as usize > stored_bits.len() {
+        if num_words > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "The given long array is too small  to hold {num_words} bits"
             )));
@@ -179,7 +179,7 @@ impl FixedBitSet {
     /// # Returns
     /// `true` if the bits past `num_bits` are clear.
     fn verify_ghost_bits_clear(fixed_bit_set: &FixedBitSet) -> bool {
-        for i in fixed_bit_set.num_words as usize..fixed_bit_set.bits.len() {
+        for i in fixed_bit_set.num_words..fixed_bit_set.bits.len() {
             if fixed_bit_set.bits[i] != 0 {
                 return false;
             }
@@ -189,21 +189,21 @@ impl FixedBitSet {
         }
 
         let mask = -1 << (fixed_bit_set.num_bits % 64);
-        (fixed_bit_set.bits[(fixed_bit_set.num_words as usize) - 1] & mask) == 0
+        (fixed_bit_set.bits[fixed_bit_set.num_words - 1] & mask) == 0
     }
 
     pub fn get_bits(&self) -> &[i64] {
         &self.bits
     }
 
-    pub fn get_and_clear(&mut self, index: i32) -> bool {
+    pub fn get_and_clear(&mut self, index: usize) -> bool {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
             self.num_bits
         );
-        let word_num = (index >> 6) as usize;
+        let word_num = index >> 6;
         let bit_mask = 1_i64 << (index % 64);
         let val = (self.bits[word_num] & bit_mask) != 0;
         self.bits[word_num] &= !bit_mask;
@@ -215,11 +215,11 @@ impl FixedBitSet {
         self.or_impl(0, &other.bits, other.num_words);
     }
 
-    fn or_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
+    fn or_offset(&mut self, other_offset_words: usize, other: &FixedBitSet) {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn or_impl(&mut self, other_offset_words: i32, other_arr: &[i64], other_num_words: i32) {
+    fn or_impl(&mut self, other_offset_words: usize, other_arr: &[i64], other_num_words: usize) {
         debug_assert!(
             other_num_words + other_offset_words <= self.num_words,
             "num_words = {} other_num_words = {}",
@@ -227,7 +227,7 @@ impl FixedBitSet {
             other_num_words
         );
         let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
-        let offset = other_offset_words as usize;
+        let offset = other_offset_words;
         for i in (0..pos).rev() {
             self.bits[i + offset] |= other_arr[i];
         }
@@ -241,7 +241,7 @@ impl FixedBitSet {
         // not used in Java Lucene, so we did not impl it
         todo!()
     }
-    fn xor_impl(&mut self, other_bits: &[i64], other_num_words: i32) {
+    fn xor_impl(&mut self, other_bits: &[i64], other_num_words: usize) {
         debug_assert!(
             other_num_words <= self.num_words,
             "num_words = {} other_num_words = {}",
@@ -270,14 +270,14 @@ impl FixedBitSet {
         self.and_self(&other.bits, other.num_words);
     }
 
-    pub fn and_self(&mut self, other_arr: &[i64], other_num_words: i32) {
+    pub fn and_self(&mut self, other_arr: &[i64], other_num_words: usize) {
         let pos = std::cmp::min(self.num_words, other_num_words) as usize;
         for i in (0..pos).rev() {
             self.bits[i] &= other_arr[i];
         }
 
         if self.num_words > other_num_words {
-            for i in other_num_words as usize..self.num_words as usize {
+            for i in other_num_words..self.num_words {
                 self.bits[i] = 0;
             }
         }
@@ -286,7 +286,7 @@ impl FixedBitSet {
     pub fn and_not_iter(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
-            self.clear_with_index(doc);
+            self.clear_with_index(doc.try_convert()?);
             doc = iter.next_doc()?;
         }
         Ok(())
@@ -297,13 +297,18 @@ impl FixedBitSet {
         self.and_not_impl(0, &other.bits, other.num_words)
     }
 
-    fn and_not_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
+    fn and_not_offset(&mut self, other_offset_words: usize, other: &FixedBitSet) {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }
 
-    fn and_not_impl(&mut self, other_offset_words: i32, other_arr: &[i64], other_num_words: i32) {
+    fn and_not_impl(
+        &mut self,
+        other_offset_words: usize,
+        other_arr: &[i64],
+        other_num_words: usize,
+    ) {
         let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words) as usize;
-        let offset = other_offset_words as usize;
+        let offset = other_offset_words;
         for i in (0..pos).rev() {
             self.bits[i + offset] &= !other_arr[i];
         }
@@ -314,17 +319,18 @@ impl FixedBitSet {
     /// # Arguments
     /// * `start_index` - The lower index.
     /// * `end_index` - One-past the last bit to flip.
-    pub fn flip_range(&mut self, start_index: i32, end_index: i32) {
-        debug_assert!(start_index >= 0 && start_index < self.num_bits);
-        debug_assert!(end_index >= 0 && end_index <= self.num_bits);
+    pub fn flip_range(&mut self, start_index: usize, end_index: usize) {
+        debug_assert!(start_index < self.num_bits);
+        debug_assert!(end_index <= self.num_bits);
         if end_index <= start_index {
             return;
         }
-        let start_word = (start_index >> 6) as usize;
-        let end_word = ((end_index - 1) >> 6) as usize;
+        let start_word = start_index >> 6;
+        let end_word = (end_index - 1) >> 6;
 
         let start_mask = -1_i64 << (start_index % 64);
-        let end_mask = (!0u64) >> (-end_index as u64);
+        let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
+        let end_mask: u64 = u64::MAX >> shift;
         if start_word == end_word {
             self.bits[start_word] ^= start_mask & end_mask as i64;
             return;
@@ -340,16 +346,16 @@ impl FixedBitSet {
     }
 
     /// Flip the bit at the provided index.
-    pub fn flip(&mut self, index: i32) {
+    pub fn flip(&mut self, index: usize) {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
             self.num_bits
         );
         let word_num = index >> 6;
         let bit_mask = 1_i64 << (index % 64);
-        self.bits[word_num as usize] ^= bit_mask;
+        self.bits[word_num] ^= bit_mask;
     }
 
     /// Sets a range of bits.
@@ -357,24 +363,25 @@ impl FixedBitSet {
     /// # Arguments
     /// * `start_index` - The lower index.
     /// * `end_index` - One-past the last bit to set.
-    pub fn set_with_range(&mut self, start_index: i32, end_index: i32) {
+    pub fn set_with_range(&mut self, start_index: usize, end_index: usize) {
         debug_assert!(
-            start_index >= 0 && start_index < self.num_bits,
+            start_index < self.num_bits,
             "start_index = {start_index}, num_bits = {end_index}"
         );
         debug_assert!(
-            end_index >= 0 && end_index <= self.num_bits,
+            end_index <= self.num_bits,
             "end_index = {end_index}, num_bits = {start_index}"
         );
         if end_index <= start_index {
             return;
         }
 
-        let start_word = (start_index >> 6) as usize;
-        let end_word = ((end_index - 1) >> 6) as usize;
+        let start_word = start_index >> 6;
+        let end_word = (end_index - 1) >> 6;
 
         let start_mask = !0u64 << (start_index % 64);
-        let end_mask = (!0u64) >> (-end_index as u64);
+        let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
+        let end_mask: u64 = u64::MAX >> shift;
 
         if start_word == end_word {
             self.bits[start_word] |= start_mask as i64 & end_mask as i64;
@@ -387,10 +394,10 @@ impl FixedBitSet {
         }
         self.bits[end_word] |= end_mask as i64;
     }
-    fn next_set_bit_impl(&self, start: i32, upper_bound: i32) -> i32 {
+    fn next_set_bit_impl(&self, start: usize, upper_bound: usize) -> usize {
         // Depends on the ghost bits being clear!
         debug_assert!(
-            start >= 0 && start < self.num_bits,
+            start < self.num_bits,
             "index = {}, num_bits = {}",
             start,
             self.num_bits
@@ -405,27 +412,27 @@ impl FixedBitSet {
             upper_bound,
             self.num_bits
         );
-        let mut i = (start >> 6) as usize;
+        let mut i = start >> 6;
         let mut word = self.bits[i] >> (start % 64); //skip all the bits to the right of index
 
         if word != 0 {
-            return start + word.trailing_zeros() as i32;
+            return start + word.trailing_zeros() as usize;
         }
 
         let limit = if upper_bound == self.num_bits {
-            self.num_words as usize
+            self.num_words
         } else {
-            Self::bits2words(upper_bound) as usize
+            Self::bits2words(upper_bound)
         };
         i += 1;
         while i < limit {
             word = self.bits[i];
             if word != 0 {
-                return ((i << 6) + word.trailing_zeros() as usize) as i32;
+                return (i << 6) + word.trailing_zeros() as usize;
             }
             i += 1;
         }
-        NO_MORE_DOCS
+        NO_MORE_DOCS as usize
     }
 
     /// Converts this instance to a read-only [`Bits`].
@@ -438,9 +445,9 @@ impl FixedBitSet {
 }
 
 impl Bits for FixedBitSet {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
             self.num_bits
@@ -450,10 +457,10 @@ impl Bits for FixedBitSet {
         // array-index-out-of-bounds-exception, removing the need for an
         // explicit check.
         let bit_mask = 1_i64 << (index % 64);
-        (bit_mask & self.bits[i as usize]) != 0
+        (bit_mask & self.bits[i]) != 0
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.num_bits
     }
 
@@ -470,53 +477,53 @@ impl Accountable for FixedBitSet {
 }
 
 impl BitSet for FixedBitSet {
-    fn set(&mut self, index: i32) {
+    fn set(&mut self, i: usize) {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            i < self.num_bits,
             "index = {}, num_bits = {}",
-            index,
+            i,
             self.num_bits
         );
-        let word_num = index >> 6;
-        let bit_mask = 1_i64 << (index % 64);
-        self.bits[word_num as usize] |= bit_mask;
+        let word_num = i >> 6;
+        let bit_mask = 1_i64 << (i % 64);
+        self.bits[word_num] |= bit_mask;
     }
 
-    fn get_and_set(&mut self, index: i32) -> bool {
+    fn get_and_set(&mut self, i: usize) -> bool {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            i < self.num_bits,
             "index = {}, num_bits = {}",
-            index,
+            i,
             self.num_bits
         );
-        let word_num = (index >> 6) as usize;
-        let bit_mask = 1_i64 << (index % 64);
+        let word_num = i >> 6;
+        let bit_mask = 1_i64 << (i % 64);
         let val = (self.bits[word_num] & bit_mask) != 0;
         self.bits[word_num] |= bit_mask;
         val
     }
 
-    fn clear_with_index(&mut self, index: i32) {
+    fn clear_with_index(&mut self, i: usize) {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            i < self.num_bits,
             "index = {}, num_bits = {}",
-            index,
+            i,
             self.num_bits
         );
-        let word_num = index >> 6;
-        let bit_mask = 1_i64 << (index % 64);
-        self.bits[word_num as usize] &= !bit_mask;
+        let word_num = i >> 6;
+        let bit_mask = 1_i64 << (i % 64);
+        self.bits[word_num] &= !bit_mask;
     }
 
-    fn clear_range(&mut self, start_index: i32, end_index: i32) {
+    fn clear_range(&mut self, start_index: usize, end_index: usize) {
         debug_assert!(
-            start_index >= 0 && start_index < self.num_bits,
+            start_index < self.num_bits,
             "start_index = {}, num_bits = {}",
             start_index,
             self.num_bits
         );
         debug_assert!(
-            end_index >= 0 && end_index <= self.num_bits,
+            end_index <= self.num_bits,
             "end_index = {}, num_bits = {}",
             end_index,
             self.num_bits
@@ -524,11 +531,12 @@ impl BitSet for FixedBitSet {
         if end_index <= start_index {
             return;
         }
-        let start_word = (start_index >> 6) as usize;
-        let end_word = ((end_index - 1) >> 6) as usize;
+        let start_word = start_index >> 6;
+        let end_word = (end_index - 1) >> 6;
 
         let mut start_mask = u64::MAX << (start_index % 64);
-        let mut end_mask = u64::MAX >> ((64 - (end_index % 64)) % 64);
+        let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
+        let mut end_mask: u64 = u64::MAX >> shift;
 
         start_mask = !start_mask;
         end_mask = !end_mask;
@@ -549,71 +557,71 @@ impl BitSet for FixedBitSet {
     /// # Note
     /// This visits every `u64` in the backing bits array, and the result is not
     /// internally cached.
-    fn cardinality(&self) -> i32 {
+    fn cardinality(&self) -> usize {
         // Depends on the ghost bits being clear!
-        let mut tot: i64 = 0;
-        for i in 0..self.num_words as usize {
-            tot += self.bits[i].count_ones() as i64;
+        let mut tot = 0;
+        for i in 0..self.num_words {
+            tot += self.bits[i].count_ones() as usize;
         }
 
-        tot as i32
+        tot
     }
 
-    fn approximate_cardinality(&self) -> i32 {
+    fn approximate_cardinality(&self) -> usize {
         // Naive sampling: compute the number of bits that are set on the first
         // 16 longs every 1024 longs and scale the result by 1024/16.
         // This computes the pop count on ranges instead of single longs in
         // order to take advantage of vectorization.
         let range_length = 16;
-        let interval: usize = 1024;
+        let interval = 1024;
 
-        if self.num_words as usize <= interval {
+        if self.num_words <= interval {
             return self.cardinality();
         }
 
-        let mut pop_count: i64 = 0;
+        let mut pop_count = 0;
         let mut max_word = 0;
-        let num = self.num_words as usize;
+        let num = self.num_words;
         while max_word + interval < num {
             for i in 0..range_length {
-                pop_count += self.bits[max_word + i].count_ones() as i64;
+                pop_count += self.bits[max_word + i].count_ones() as usize;
             }
             max_word += interval;
         }
-        pop_count *= ((interval / range_length) * self.num_words as usize / max_word) as i64;
+        pop_count *= (interval / range_length) * self.num_words / max_word;
 
-        pop_count as i32
+        pop_count
     }
 
-    fn prev_set_bit(&self, index: i32) -> i32 {
+    fn prev_set_bit(&self, index: usize) -> Option<usize> {
         debug_assert!(
-            index >= 0 && index < self.num_bits,
+            index < self.num_bits,
             "index = {}, num_bits = {}",
             index,
             self.num_bits
         );
-        let mut i = index >> 6;
+        let i = index >> 6;
         let sub_index = index & 0x3f; //  index within the word
 
-        let mut word = self.bits[i as usize] << (63 - (sub_index % 64));
+        let mut word = self.bits[i] << (63 - (sub_index % 64));
 
         if word != 0 {
-            return (i << 6) + sub_index - word.leading_zeros() as i32;
+            return Option::from((i << 6) + sub_index - word.leading_zeros() as usize);
         }
-
+        let mut i: i32 = i as i32;
         i -= 1;
 
         while i >= 0 {
             word = self.bits[i as usize];
             if word != 0 {
-                return (i << 6) + 63 - word.leading_zeros() as i32;
+                return Option::from(((i as usize) << 6) + 63 - word.leading_zeros() as usize);
             }
             i -= 1;
         }
-        -1
+        None
     }
 
-    fn next_set_bit(&self, index: i32) -> i32 {
+    fn next_set_bit(&self, index: usize) -> usize {
         self.next_set_bit_range(index, self.num_bits)
     }
 
@@ -622,9 +630,13 @@ impl BitSet for FixedBitSet {
     /// Note that this may return a result that is greater than or equal
     /// to `upper_bound` in some cases, so callers must add their own check if
     /// `upper_bound` is a hard requirement.
-    fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
-        let res = self.next_set_bit_impl(start, upper_bound);
-        if res < upper_bound { res } else { NO_MORE_DOCS }
+    fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
+        let res = self.next_set_bit_impl(start, end);
+        if res < end {
+            res
+        } else {
+            NO_MORE_DOCS as usize
+        }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
@@ -636,21 +648,21 @@ impl BitSet for FixedBitSet {
             if doc == NO_MORE_DOCS {
                 break;
             }
-            self.set(doc);
+            self.set(doc.try_convert()?);
         }
         Ok(())
     }
 
-    fn ensure_capacity(&mut self, num_bits: i32) {
+    fn ensure_capacity(&mut self, num_bits: usize) {
         if num_bits < self.num_bits {
         } else {
             let num_words = Self::bits2words(num_bits);
             let length = self.bits.len();
-            if num_words as usize >= length {
-                ArrayUtil::grow_with_len(&mut self.bits, num_words as usize + 1);
+            if num_words >= length {
+                ArrayUtil::grow_with_len(&mut self.bits, num_words + 1);
             }
             debug_assert!(self.bits.len() <= i32::MAX as usize);
-            self.num_bits = (self.bits.len() as i32) << 6;
+            self.num_bits = (self.bits.len()) << 6;
             self.num_words = Self::bits2words(self.num_bits);
         }
     }
@@ -659,11 +671,11 @@ impl BitSet for FixedBitSet {
 #[derive(Clone, Default)]
 pub struct FixedBit(FixedBitSet);
 impl Bits for FixedBit {
-    fn get(&self, index: i32) -> bool {
+    fn get(&self, index: usize) -> bool {
         self.0.get(index)
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         self.0.length()
     }
 
@@ -676,6 +688,7 @@ impl Bits for FixedBit {
 mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::util::TryIntoInt;
     use crate::core::util::bit_set::BitSet;
     use crate::core::util::bit_set_iterator::BitSetIterator;
     use crate::core::util::bits::Bits;
@@ -699,14 +712,14 @@ mod tests {
         fn copy_of(
             &self,
             bs: &RustUtilBitSet,
-            length: i32,
+            length: usize,
         ) -> (impl BitSet, Option<SparseFixedBitSet>) {
             let mut set = FixedBitSet::new(length);
             let mut doc = bs.next_set_bit(0);
-            while doc != NO_MORE_DOCS {
+            while doc != NO_MORE_DOCS as usize {
                 set.set(doc);
                 if doc + 1 > length {
-                    doc = NO_MORE_DOCS;
+                    doc = NO_MORE_DOCS as usize;
                 } else {
                     doc = bs.next_set_bit(doc + 1);
                 }
@@ -718,10 +731,10 @@ mod tests {
             &self,
             set1: &RustUtilBitSet,
             set2: &impl BitSet,
-            max_doc: i32,
-            _sfbs: &Option<SparseFixedBitSet>,
+            max_doc: usize,
+            sfbs: &Option<SparseFixedBitSet>,
         ) {
-            BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, _sfbs);
+            BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
         }
 
         fn test_prev_set_bit<R: Rng + ?Sized>(&mut self, random: &mut R) {
@@ -821,76 +834,81 @@ mod tests {
             i += interval;
         }
         let cardinality = set.cardinality();
-        assert!((cardinality - set.approximate_cardinality()).abs() <= (cardinality / 20))
+        assert!(cardinality.abs_diff(set.approximate_cardinality()) <= (cardinality / 20))
     }
 
     fn do_get(a: &bit_set::BitSet, b: &FixedBitSet) {
-        assert_eq!(a.len(), b.cardinality() as usize);
+        assert_eq!(a.len(), b.cardinality());
         let max = b.length();
         for i in 0..max {
-            assert_eq!(a.contains(i as usize), b.get(i));
+            assert_eq!(a.contains(i), b.get(i));
         }
     }
 
     fn do_next_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
-        assert_eq!(a.len(), b.cardinality() as usize);
+        assert_eq!(a.len(), b.cardinality());
         let mut bb = 0;
         loop {
             bb = b.next_set_bit(bb);
 
-            if bb == NO_MORE_DOCS {
-                assert!(!a.contains(bb as usize));
+            if bb == NO_MORE_DOCS as usize {
+                assert!(!a.contains(bb));
                 break;
             }
-            assert!(a.contains(bb as usize));
+            assert!(a.contains(bb));
             bb += 1;
             if bb > b.length() - 1 {
-                assert!(!a.contains(bb as usize));
+                assert!(!a.contains(bb));
                 break;
             }
         }
 
         let iter = a.iter();
         for index in iter {
-            assert_eq!(index, b.next_set_bit(index as i32) as usize);
+            assert_eq!(index, b.next_set_bit(index));
         }
     }
 
     fn do_prev_set_bit(a: &bit_set::BitSet, b: &FixedBitSet) {
-        assert_eq!(a.len(), b.cardinality() as usize);
-        let mut bb = b.length() - 1;
+        assert_eq!(a.len(), b.cardinality());
+        let mut bb = b.length().checked_sub(1);
         let mut count = 0;
         let mut iter: Vec<_> = a.iter().collect();
         iter.reverse();
         // check set a bit in BitSet should be in FixedBitSet
         for index in iter {
-            bb = b.prev_set_bit(index as i32);
-            assert_eq!(bb as usize, index);
+            bb = b.prev_set_bit(index);
+            assert_eq!(*bb.as_ref().unwrap(), index);
         }
-        if bb > 0 {
-            // bb should be the last match value , so prev_set_bit(bb - 1)
-            // should return -1
-            assert_eq!(b.prev_set_bit(bb - 1), -1);
+        if let Some(bb) = bb {
+            // bb is the last match value, so prev_set_bit(bb - 1) should return None
+            if bb > 0 {
+                assert_eq!(b.prev_set_bit(bb - 1), None);
+            }
         }
 
-        bb = b.length() - 1;
+        bb = if b.length() < 1 {
+            None
+        } else {
+            Option::from(b.length() - 1)
+        };
 
-        if bb == -1 {
+        if bb.is_none() {
             assert_eq!(a.iter().count(), 0);
             return;
         }
 
         loop {
-            bb = b.prev_set_bit(bb);
-            if bb == -1 {
+            bb = b.prev_set_bit(*bb.as_ref().unwrap());
+            if bb.is_none() {
                 break;
             }
             count += 1;
-            assert!(a.contains(bb as usize));
-            if bb == 0 {
+            assert!(a.contains(*bb.as_ref().unwrap()));
+            if *bb.as_ref().unwrap() == 0 {
                 break;
             }
-            bb -= 1;
+            bb = bb.map(|x| x - 1);
         }
         assert_eq!(b.cardinality(), count);
     }
@@ -900,7 +918,7 @@ mod tests {
         a: &bit_set::BitSet,
         b: FixedBitSet,
     ) -> Result<FixedBitSet> {
-        assert_eq!(a.len(), b.cardinality() as usize);
+        assert_eq!(a.len(), b.cardinality());
         let mut iterator = BitSetIterator::new(b, 0)?;
         let iter = a.iter();
         for index in iter {
@@ -923,24 +941,24 @@ mod tests {
         let mut flag = 0;
         for _i in 0..iter {
             let sz = random.random_range(2..max_size);
-            let mut a = bit_set::BitSet::with_capacity(sz as usize);
+            let mut a = bit_set::BitSet::with_capacity(sz);
             let mut b = FixedBitSet::new(sz);
             let n_oper = random.random_range(0..sz);
             for _j in 0..n_oper {
                 let mut idx = random.random_range(0..sz);
-                a.insert(idx as usize);
+                a.insert(idx);
                 b.set(idx);
 
                 idx = random.random_range(0..sz);
-                a.remove(idx as usize);
+                a.remove(idx);
                 b.clear_with_index(idx);
 
                 idx = random.random_range(0..sz);
-                flip_bit_range(&mut a, idx as usize, (idx + 1) as usize);
+                flip_bit_range(&mut a, idx, idx + 1);
                 b.flip_range(idx, idx + 1);
 
                 idx = random.random_range(0..sz);
-                flip_bit(&mut a, idx as usize);
+                flip_bit(&mut a, idx);
                 b.flip(idx);
 
                 let val2 = b.get(idx);
@@ -958,12 +976,12 @@ mod tests {
             do_get(&a, &b);
 
             // test ranges, including possible extension
-            let mut from_index: i32;
-            let mut to_index: i32;
+            let mut from_index;
+            let mut to_index;
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
             let mut aa = a.clone();
-            flip_bit_range(&mut aa, from_index as usize, to_index as usize);
+            flip_bit_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
             bb.flip_range(from_index, to_index);
 
@@ -972,7 +990,7 @@ mod tests {
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
             aa.clone_from(&a);
-            clear_range(&mut aa, from_index as usize, to_index as usize);
+            clear_range(&mut aa, from_index, to_index);
             bb = b.clone();
             bb.clear_range(from_index, to_index);
 
@@ -983,7 +1001,7 @@ mod tests {
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
             aa.clone_from(&a);
-            set_range(&mut aa, from_index as usize, to_index as usize);
+            set_range(&mut aa, from_index, to_index);
             bb = b.clone();
             bb.set_with_range(from_index, to_index);
 
@@ -992,7 +1010,7 @@ mod tests {
             do_prev_set_bit(&aa, &bb);
 
             if flag == 1 && b0.length() <= b.length() {
-                assert_eq!(a.len(), b.cardinality() as usize);
+                assert_eq!(a.len(), b.cardinality());
 
                 let mut a_and = a.clone();
                 a_and.intersect_with(&a0);
@@ -1013,13 +1031,13 @@ mod tests {
                 let mut b_andn = b.clone();
                 b_andn.and_not_fixed_bit_set(&b0);
 
-                assert_eq!(a0.len(), b0.cardinality() as usize);
-                assert_eq!(a_or.len(), b_or.cardinality() as usize);
+                assert_eq!(a0.len(), b0.cardinality());
+                assert_eq!(a_or.len(), b_or.cardinality());
 
-                assert_eq!(a_and.len(), b_and.cardinality() as usize);
-                assert_eq!(a_or.len(), b_or.cardinality() as usize);
-                assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
-                assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
+                assert_eq!(a_and.len(), b_and.cardinality());
+                assert_eq!(a_or.len(), b_or.cardinality());
+                assert_eq!(a_andn.len(), b_andn.cardinality());
+                assert_eq!(a_xor.len(), b_xor.cardinality());
 
                 do_iterate(random, &a_and, b_and)?;
                 do_iterate(random, &a_xor, b_xor)?;
@@ -1117,14 +1135,14 @@ mod tests {
 
     fn make_fixed_bitset<R: Rng + ?Sized>(
         random: &mut R,
-        a: &Vec<i32>,
-        num_bits: i32,
+        a: &[usize],
+        num_bits: usize,
     ) -> Result<FixedBitSet> {
         let mut bs: FixedBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = FixedBitSet::bits2words(num_bits);
-            let mut words: Vec<i64> = Vec::with_capacity(bits_2_words as usize);
-            words.resize(num_bits as usize, 0);
+            let mut words: Vec<i64> = Vec::with_capacity(bits_2_words);
+            words.resize(num_bits, 0);
             bs = FixedBitSet::with_capacity(words, num_bits)?
         } else {
             bs = FixedBitSet::new(num_bits)
@@ -1135,21 +1153,21 @@ mod tests {
         Ok(bs)
     }
 
-    fn make_bitset(a: &Vec<i32>) -> bit_set::BitSet {
+    fn make_bitset(a: &[usize]) -> bit_set::BitSet {
         let mut bs: bit_set::BitSet = bit_set::BitSet::with_capacity(a.len());
         for x in a {
-            bs.insert(*x as usize);
+            bs.insert(*x);
         }
         bs
     }
 
-    fn check_prev_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<i32>, num_bits: i32) {
+    fn check_prev_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<usize>, num_bits: usize) {
         let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
         let bs = make_bitset(&a);
         do_prev_set_bit(&bs, &obs);
     }
 
-    fn check_next_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<i32>, num_bits: i32) {
+    fn check_next_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<usize>, num_bits: usize) {
         let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
         let bs = make_bitset(&a);
         do_next_set_bit(&bs, &obs);
@@ -1159,13 +1177,13 @@ mod tests {
     fn test_next_bitset() {
         let mut random = random();
         let capacity = random.random_range(0..1000);
-        let mut set_bits: Vec<i32> = Vec::with_capacity(capacity as usize);
+        let mut set_bits = Vec::with_capacity(capacity as usize);
         for _i in 0..capacity {
             set_bits.push(random.random_range(0..capacity));
         }
         let num_bits = set_bits.len() + random.random_range(0..10);
-        check_next_set_bit_array(&mut random, set_bits, num_bits as i32);
-        check_next_set_bit_array(&mut random, vec![], num_bits as i32);
+        check_next_set_bit_array(&mut random, set_bits, num_bits);
+        check_next_set_bit_array(&mut random, vec![], num_bits);
     }
 
     #[test]
@@ -1211,11 +1229,16 @@ mod tests {
         assert_eq!(1024, FixedBitSet::bits2words(65536));
         assert_eq!(1025, FixedBitSet::bits2words(65537));
 
-        assert_eq!(1 << (31 - 6), FixedBitSet::bits2words(i32::MAX));
+        assert_eq!(1 << (31 - 6), FixedBitSet::bits2words(i32::MAX as usize));
     }
 
-    fn make_int_array<R: Rng + ?Sized>(random: &mut R, count: i32, min: i32, max: i32) -> Vec<i32> {
-        let mut rv = vec![0; count as usize];
+    fn make_int_array<R: Rng + ?Sized>(
+        random: &mut R,
+        count: usize,
+        min: usize,
+        max: usize,
+    ) -> Vec<usize> {
+        let mut rv = vec![0; count];
         for _i in 0..count {
             rv.push(random.random_range(min..=max));
         }
@@ -1286,19 +1309,26 @@ mod tests {
         {
             // test DocBaseBitSetIterator
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
-            let offset_bits: Vec<i32> = bits1.iter().map(|&i| i - offset1).collect();
+            let offset_bits: Vec<usize> = bits1.iter().map(|&i| i - offset1).collect();
             let fixed_bit = make_fixed_bitset(&mut random, &offset_bits, num_bits1 - offset1)?;
-            let mut disi = DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1)?;
+            let mut disi =
+                DocBaseBitSetIterator::new(fixed_bit, count1 as i64, offset1.try_convert()?)?;
             fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }
         {
             // test other
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
-            let mut sorted = bits1.clone();
+            let mut sorted: Vec<i32> = bits1
+                .iter()
+                .map(|&x| {
+                    debug_assert!(x <= i32::MAX as usize);
+                    x as i32
+                })
+                .collect();
             sorted.push(0);
             sorted[bits1.len()] = NO_MORE_DOCS;
-            let mut disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1);
+            let mut disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1.try_convert()?);
             fixed_bit_set2.and_not_iter(&mut disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }

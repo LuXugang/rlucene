@@ -26,7 +26,7 @@ impl ReaderUtil {
         leaf_reader.top_parent()
     }
     /// Returns index of the searcher/reader for document n in the array used to construct this searcher/reader.
-    pub fn sub_index(n: i32, doc_starts: &[i32]) -> i32 {
+    pub fn sub_index(n: usize, doc_starts: &[usize]) -> i32 {
         debug_assert!(doc_starts.len() <= i32::MAX as usize);
         // find searcher/reader for doc n:
         let size = doc_starts.len();

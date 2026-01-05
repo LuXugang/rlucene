@@ -19,11 +19,11 @@ use crate::core::util::bits::Bits;
 #[derive(Clone)]
 pub struct DummyBits;
 impl Bits for DummyBits {
-    fn get(&self, _index: i32) -> bool {
+    fn get(&self, _index: usize) -> bool {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn length(&self) -> i32 {
+    fn length(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

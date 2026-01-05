@@ -112,8 +112,8 @@ impl PendingDeletes {
                     return Err(LuceneError::illegal_state("should not be here"));
                 },
                 None => {
-                    let mut v = FixedBitSet::new(self.max_doc);
-                    v.set_with_range(0, self.max_doc);
+                    let mut v = FixedBitSet::new(self.max_doc as usize);
+                    v.set_with_range(0, self.max_doc as usize);
                     BitsEnum2::B(BitsEnum2::B(v))
                 },
             });
@@ -134,7 +134,7 @@ impl PendingDeletes {
     ) -> bool {
         debug_assert_eq!(
             bits.length(),
-            expected_length,
+            expected_length as usize,
             "length: {} != expected: {}",
             bits.length(),
             expected_length
@@ -170,7 +170,7 @@ impl PendingDeletesBase for PendingDeletes {
         debug_assert!(mutable_bits.length() > 0);
 
         debug_assert!(
-            (0..mutable_bits.length()).contains(&doc_id),
+            (0..mutable_bits.length()).contains(&(doc_id as usize)),
             "out of bounds: docID={} liveDocsLength={} seg={} maxDoc={}",
             doc_id,
             mutable_bits.length(),
@@ -178,7 +178,7 @@ impl PendingDeletesBase for PendingDeletes {
             self.max_doc
         );
 
-        let did_delete = mutable_bits.get_and_clear(doc_id);
+        let did_delete = mutable_bits.get_and_clear(doc_id as usize);
         if did_delete {
             self.pending_delete_count += 1;
         }
@@ -266,7 +266,7 @@ impl PendingDeletesBase for PendingDeletes {
         // We have new deletes
         debug_assert_eq!(
             live_docs.length(),
-            info.info.max_doc()?,
+            info.info.max_doc()? as usize,
             "liveDocs.length must match maxDoc"
         );
         // Do this so we can delete any created files on
@@ -445,7 +445,7 @@ pub(crate) trait PendingDeletesBase: Display {
         match self.get_live_docs() {
             Some(bits) => {
                 for doc_id in 0..max_doc {
-                    if bits.get(doc_id) {
+                    if bits.get(doc_id as usize) {
                         count += 1;
                     }
                 }
@@ -743,7 +743,7 @@ mod tests {
         let mut live_docs = deletes.get_live_docs().unwrap();
         assert_eq!(deletes.num_pending_deletes(), 1);
 
-        assert!(!live_docs.get(doc_to_delete));
+        assert!(!live_docs.get(doc_to_delete as usize));
         assert!(!deletes.delete(doc_to_delete, &commit_info)?);
 
         assert!(live_docs.get(8));
@@ -758,7 +758,7 @@ mod tests {
         live_docs = deletes.get_live_docs().unwrap();
         assert!(!live_docs.get(8));
         assert!(!live_docs.get(9));
-        assert!(!live_docs.get(doc_to_delete));
+        assert!(!live_docs.get(doc_to_delete as usize));
         assert_eq!(deletes.num_pending_deletes(), 3);
         Ok(())
     }

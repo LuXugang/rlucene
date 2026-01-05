@@ -382,7 +382,7 @@ where
             if doc == NO_MORE_DOCS {
                 break;
             }
-            if accept_docs.is_none_or(|a| a.get(doc)) && matches {
+            if accept_docs.is_none_or(|a| a.get(doc as usize)) && matches {
                 collector.collect(doc, scorer)?;
             }
         }
@@ -401,7 +401,7 @@ where
             if doc == NO_MORE_DOCS {
                 break;
             }
-            if accept_docs.is_none_or(|a| a.get(doc)) {
+            if accept_docs.is_none_or(|a| a.get(doc as usize)) {
                 collector.collect(doc, scorer)?;
             }
         }
@@ -452,7 +452,7 @@ where
 
     if !has_two_phase && !has_competitive {
         while doc < max {
-            if accept_docs.is_none_or(|a| a.get(doc)) {
+            if accept_docs.is_none_or(|a| a.get(doc as usize)) {
                 collector.collect(doc, scorer)?;
             }
             doc = {
@@ -498,7 +498,7 @@ where
             }
         }
 
-        if accept_docs.is_none_or(|a| a.get(doc)) {
+        if accept_docs.is_none_or(|a| a.get(doc as usize)) {
             let matches = if has_two_phase {
                 let mut two_phase = scorer.two_phase_iterator_mut()?.unwrap();
                 two_phase.matches()?

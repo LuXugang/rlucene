@@ -32,10 +32,10 @@ pub trait HnswBuilder {
     /// # Returns
     ///
     /// The built [`OnHeapHnswGraph`].
-    fn build(&mut self, max_ord: i32) -> Result<&mut OnHeapHnswGraph>;
+    fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph>;
 
     /// Inserts a doc with vector value to the graph.
-    fn add_graph_node(&mut self, node: i32) -> Result<()>;
+    fn add_graph_node(&mut self, node: usize) -> Result<()>;
 
     /// Sets the info stream for debug output.
     fn set_info_stream(&mut self, info_stream: InfoStreamMT);

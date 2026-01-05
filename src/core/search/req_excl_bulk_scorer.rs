@@ -227,7 +227,7 @@ mod tests {
             ReqExclBulkScorer::with_disi(req_bulk_scorer, excl_iter)
         };
 
-        let mut actual_matches = FixedBitSet::new(max_doc);
+        let mut actual_matches = FixedBitSet::new(max_doc as usize);
 
         if random.random_bool(0.5) {
             req_excl.score(
@@ -251,10 +251,10 @@ mod tests {
             }
         }
 
-        let mut expected_matches = FixedBitSet::new(max_doc);
+        let mut expected_matches = FixedBitSet::new(max_doc as usize);
         BitSet::or(&mut expected_matches, &mut req.iterator()?.unwrap())?;
 
-        let mut excluded_set = FixedBitSet::new(max_doc);
+        let mut excluded_set = FixedBitSet::new(max_doc as usize);
         BitSet::or(&mut excluded_set, &mut excl.iterator()?.unwrap())?;
 
         expected_matches.and_not_fixed_bit_set(&excluded_set);
@@ -282,7 +282,7 @@ mod tests {
         where
             S: Scorable,
         {
-            self.actual_matches.set(doc);
+            self.actual_matches.set(doc as usize);
             Ok(())
         }
 
@@ -328,7 +328,7 @@ mod tests {
             while doc < max {
                 let accept = match accept_docs {
                     None => true,
-                    Some(bits) => bits.get(doc),
+                    Some(bits) => bits.get(doc as usize),
                 };
                 if accept {
                     collector.collect(doc, &mut DummyScorer)?;

@@ -52,7 +52,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
-use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper};
+use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper, TryIntoInt};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -542,11 +542,12 @@ where
                 // happens when an exception is hit processing that
                 // doc, eg if analyzer has some problem w/ the text):
                 if self.num_deleted_doc_ids > 0 {
-                    let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst));
-                    live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst));
+                    let mut live_docs =
+                        FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst) as usize);
+                    live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst) as usize);
 
                     for doc_id in 0..self.num_deleted_doc_ids {
-                        live_docs.clear_with_index(doc_id);
+                        live_docs.clear_with_index(doc_id as usize);
                     }
 
                     flush_state.live_docs = Some(live_docs);
@@ -782,7 +783,8 @@ where
 
         for i in 0..live_docs_len {
             if !live_docs.get(i) {
-                sorted_live_docs.clear_with_index(sort_map.old_to_new(i)?);
+                let v: i32 = i.try_convert()?;
+                sorted_live_docs.clear_with_index(sort_map.old_to_new(v)? as usize);
             }
         }
         Ok(sorted_live_docs)

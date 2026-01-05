@@ -498,7 +498,7 @@ pub mod tests {
     impl DocMap for DocMapMock2 {
         fn get(&self, doc_id: i32) -> i32 {
             let mapped = self.doc_map[doc_id as usize];
-            if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped) {
+            if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped as usize) {
                 mapped
             } else {
                 -1
@@ -515,7 +515,7 @@ pub mod tests {
         let mut tot_doc_count = 0;
 
         for _ in 0..sub_count {
-            let max_doc = TestUtil::next_int(&mut random, 1, 1000);
+            let max_doc = TestUtil::next_usize(&mut random, 1, 1000);
             uptos.push(0);
             old_to_new.push(vec![0; max_doc as usize]);
             tot_doc_count += max_doc;
@@ -527,7 +527,7 @@ pub mod tests {
         for doc_id in 0..tot_doc_count {
             let sub = random.random_range(0..old_to_new.len());
             let mut upto = uptos[sub];
-            old_to_new[sub][upto] = doc_id;
+            old_to_new[sub][upto] = doc_id as i32;
             upto += 1;
             if upto == old_to_new[sub].len() {
                 completed_subs.push(old_to_new[sub].clone());
@@ -545,7 +545,7 @@ pub mod tests {
         if random.random_bool(0.5) {
             let mut bitset = FixedBitSet::new(tot_doc_count);
             bitset.set_with_range(0, tot_doc_count);
-            let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count);
+            let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count as i32);
             for _ in 0..delete_attempts {
                 bitset.clear_with_index(random.random_range(0..tot_doc_count));
             }
@@ -575,7 +575,7 @@ pub mod tests {
             }
             assert_eq!(
                 count,
-                merger.get_subs()[sub].mapped_doc_id,
+                merger.get_subs()[sub].mapped_doc_id as usize,
                 "doc mismatch at count {}",
                 count
             );
@@ -584,7 +584,7 @@ pub mod tests {
 
         if let Some(ref live) = live_docs {
             if count < tot_doc_count {
-                assert_eq!(live.next_set_bit(count), NO_MORE_DOCS);
+                assert_eq!(live.next_set_bit(count), NO_MORE_DOCS as usize);
             } else {
                 assert_eq!(count, tot_doc_count);
             }

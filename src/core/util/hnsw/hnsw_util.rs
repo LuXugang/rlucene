@@ -48,7 +48,7 @@ impl HnswUtil {
     /// Returns the sizes of the distinct graph components on level 0. If the
     /// graph is fully-rooted the list will have one entry. If it is empty, the
     /// returned list will be empty.
-    pub(crate) fn component_sizes<G: HnswGraph>(hnsw: &mut G) -> Result<Vec<i32>> {
+    pub(crate) fn component_sizes<G: HnswGraph>(hnsw: &mut G) -> Result<Vec<usize>> {
         Self::component_sizes_on_level(hnsw, 0)
     }
     /// Returns the sizes of the distinct graph components on the given level.
@@ -60,7 +60,7 @@ impl HnswUtil {
     pub(crate) fn component_sizes_on_level<G: HnswGraph>(
         hnsw: &mut G,
         level: usize,
-    ) -> Result<Vec<i32>> {
+    ) -> Result<Vec<usize>> {
         let comps = Self::components(hnsw, level, &mut None, 0)?;
         Ok(comps.into_iter().map(|c| c.size).collect())
     }
@@ -72,7 +72,7 @@ impl HnswUtil {
         not_fully_connected: &mut Option<FixedBitSet>,
         connected_nodes: &mut FixedBitSet,
         max_conn: usize,
-    ) -> Result<i32> {
+    ) -> Result<usize> {
         let mut total = 0;
         for entry_point in nodes_iter {
             let component = Self::mark_rooted(
@@ -96,7 +96,7 @@ impl HnswUtil {
     ) -> Result<Vec<Component>> {
         let mut components = Vec::new();
         debug_assert!(hnsw.size() <= i32::MAX as usize);
-        let mut connected_nodes = FixedBitSet::new(hnsw.size() as i32);
+        let mut connected_nodes = FixedBitSet::new(hnsw.size());
 
         assert_eq!(hnsw.size(), hnsw.get_nodes_on_level(0)?.size());
 
@@ -109,10 +109,8 @@ impl HnswUtil {
         }
 
         let mut total = if level == hnsw.num_levels()? - 1 {
-            let iter = NodesIteratorEnums::Array(ArrayNodesIterator::from_nodes(
-                vec![hnsw.entry_node()?; 1],
-                1,
-            ));
+            let v = hnsw.entry_node()?.map(|ep| vec![ep; 1]);
+            let iter = NodesIteratorEnums::Array(ArrayNodesIterator::from_nodes(v, 1));
             Self::get_total(
                 iter,
                 hnsw,
@@ -153,12 +151,12 @@ impl HnswUtil {
                     &mut connected_nodes,
                     not_fully_connected,
                     max_conn,
-                    next_clear as i32,
+                    next_clear,
                 )?;
                 debug_assert!(component.size > 0);
                 components.push(component);
                 total += component.size;
-                next_clear = Self::next_clear_bit(&connected_nodes, component.start as usize);
+                next_clear = Self::next_clear_bit(&connected_nodes, component.start);
             }
         } else {
             let mut nodes = hnsw.get_nodes_on_level(level)?;
@@ -182,7 +180,7 @@ impl HnswUtil {
 
         assert_eq!(
             total,
-            hnsw.get_nodes_on_level(level)?.size() as i32,
+            hnsw.get_nodes_on_level(level)?.size(),
             "Mismatch total={total} vs node size on level {level}"
         );
 
@@ -209,7 +207,7 @@ impl HnswUtil {
         connected_nodes: &mut FixedBitSet,
         not_fully_connected: &mut Option<FixedBitSet>,
         max_conn: usize,
-        entry_point: i32,
+        entry_point: usize,
     ) -> Result<Component> {
         // Start at entry point and search all nodes on this level
         let mut stack = VecDeque::new();
@@ -222,13 +220,13 @@ impl HnswUtil {
             }
             count += 1;
             connected_nodes.set(node);
-            hnsw_graph.seek(level, node as usize)?;
+            hnsw_graph.seek(level, node)?;
 
             let mut friend_count = 0;
             let mut friend_ord;
             while {
                 friend_ord = hnsw_graph.next_neighbor()?;
-                friend_ord != NO_MORE_DOCS
+                friend_ord != NO_MORE_DOCS as usize
             } {
                 friend_count += 1;
                 stack.push_back(friend_ord);
@@ -249,7 +247,7 @@ impl HnswUtil {
     fn next_clear_bit(bits: &FixedBitSet, index: usize) -> usize {
         let barray = bits.get_bits();
         debug_assert!(
-            index < bits.length() as usize,
+            index < bits.length(),
             "index={}, num_bits={}",
             index,
             bits.length()
@@ -272,7 +270,7 @@ impl HnswUtil {
             }
         }
 
-        if next >= bits.length() as usize {
+        if next >= bits.length() {
             NO_MORE_DOCS as usize
         } else {
             next
@@ -301,8 +299,8 @@ impl HnswUtil {
 /// - `size`: the number of nodes in the component
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Component {
-    pub start: i32,
-    pub size: i32,
+    pub start: usize,
+    pub size: usize,
 }
 
 #[cfg(test)]
@@ -324,7 +322,7 @@ mod tests {
     struct TestHnswUtil;
     #[test]
     fn test_tree_with_cycle() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![vec![
             Some(vec![1, 2]),
             Some(vec![3, 4]),
             Some(vec![5, 6]),
@@ -343,7 +341,7 @@ mod tests {
     }
     #[test]
     fn test_back_linking() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![vec![
             Some(vec![1, 2]),
             Some(vec![3, 4]),
             Some(vec![0]),
@@ -362,7 +360,7 @@ mod tests {
     }
     #[test]
     fn test_chain() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![vec![
             Some(vec![1]),
             Some(vec![2]),
             Some(vec![3]),
@@ -378,7 +376,7 @@ mod tests {
     }
     #[test]
     fn test_two_chains() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![vec![
             Some(vec![2]),
             Some(vec![3]),
             Some(vec![0]),
@@ -394,7 +392,7 @@ mod tests {
     }
     #[test]
     fn test_levels() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![
             vec![
                 Some(vec![1, 2]),
                 Some(vec![3]),
@@ -414,7 +412,7 @@ mod tests {
     }
     #[test]
     fn test_levels_not_rooted() -> Result<()> {
-        let nodes: Vec<Vec<Option<Vec<i32>>>> = vec![
+        let nodes: Vec<Vec<Option<Vec<usize>>>> = vec![
             vec![Some(vec![1]), Some(vec![0]), Some(vec![0])],
             vec![Some(vec![]), None, None],
         ];
@@ -432,7 +430,7 @@ mod tests {
         for _ in 0..at_least(&mut random, 10) {
             let num_nodes = random.random_range(1..100);
             let num_levels = (num_nodes as f64).ln().ceil() as usize;
-            let mut nodes: Vec<Vec<Option<Vec<i32>>>> = vec![vec![None; num_nodes]; num_levels];
+            let mut nodes: Vec<Vec<Option<Vec<usize>>>> = vec![vec![None; num_nodes]; num_levels];
 
             for level in (0..num_levels).rev() {
                 for node in 0..num_nodes {
@@ -457,7 +455,7 @@ mod tests {
                         loop {
                             let random_nbr = random.random_range(0..num_nodes);
                             if nodes[level][random_nbr].is_some() {
-                                nodes[level][node].as_mut().unwrap()[nbr] = random_nbr as i32;
+                                nodes[level][node].as_mut().unwrap()[nbr] = random_nbr;
                                 break;
                             }
                         }
@@ -475,7 +473,7 @@ mod tests {
         Ok(())
     }
 
-    fn is_rooted(nodes: &[Vec<Option<Vec<i32>>>]) -> bool {
+    fn is_rooted(nodes: &[Vec<Option<Vec<usize>>>]) -> bool {
         for level in (0..nodes.len()).rev() {
             if !is_rooted_with_level(nodes, level) {
                 return false;
@@ -484,7 +482,7 @@ mod tests {
         true
     }
 
-    fn is_rooted_with_level(nodes: &[Vec<Option<Vec<i32>>>], level: usize) -> bool {
+    fn is_rooted_with_level(nodes: &[Vec<Option<Vec<usize>>>], level: usize) -> bool {
         let entry_points: Vec<usize> = if level == nodes.len() - 1 {
             vec![0]
         } else {
@@ -495,7 +493,7 @@ mod tests {
                 .collect()
         };
 
-        let mut connected = FixedBitSet::new(nodes[level].len() as i32);
+        let mut connected = FixedBitSet::new(nodes[level].len());
         let mut count = 0;
 
         for &entry_point in &entry_points {
@@ -511,15 +509,15 @@ mod tests {
             stack.push_back(entry_point);
 
             while let Some(node) = stack.pop_back() {
-                if connected.get(node as i32) {
+                if connected.get(node) {
                     continue;
                 }
-                connected.set(node as i32);
+                connected.set(node);
                 count += 1;
 
                 if let Some(neighbors) = nodes[level][node].as_ref() {
                     for &nbr in neighbors {
-                        stack.push_back(nbr as usize);
+                        stack.push_back(nbr);
                     }
                 }
             }
@@ -528,7 +526,7 @@ mod tests {
         count == level_size(&nodes[level])
     }
 
-    fn level_size(nodes: &[Option<Vec<i32>>]) -> usize {
+    fn level_size(nodes: &[Option<Vec<usize>>]) -> usize {
         let mut count = 0;
         for node in nodes {
             if node.is_some() {
@@ -539,13 +537,13 @@ mod tests {
     }
 
     pub struct MockGraph {
-        nodes: Vec<Vec<Option<Vec<i32>>>>,
+        nodes: Vec<Vec<Option<Vec<usize>>>>,
         current_level: usize,
         current_node: usize,
         current_neighbor: usize,
     }
     impl MockGraph {
-        pub fn new(nodes: Vec<Vec<Option<Vec<i32>>>>) -> Self {
+        pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>) -> Self {
             Self {
                 nodes,
                 current_level: 0,
@@ -585,12 +583,12 @@ mod tests {
             self.nodes[0].len()
         }
 
-        fn next_neighbor(&mut self) -> Result<i32> {
+        fn next_neighbor(&mut self) -> Result<usize> {
             let neighbors = self.nodes[self.current_level][self.current_node]
                 .as_ref()
                 .unwrap();
             if self.current_neighbor >= neighbors.len() {
-                Ok(NO_MORE_DOCS)
+                Ok(NO_MORE_DOCS as usize)
             } else {
                 let result = neighbors[self.current_neighbor];
                 self.current_neighbor += 1;
@@ -602,8 +600,8 @@ mod tests {
             Ok(self.nodes.len())
         }
 
-        fn entry_node(&self) -> Result<i32> {
-            Ok(0)
+        fn entry_node(&self) -> Result<Option<usize>> {
+            Ok(Some(0))
         }
 
         type NodeIterator = NodeIteratorImpl;
@@ -640,11 +638,11 @@ mod tests {
         cur_count: i32,
         final_count: i32,
         level: usize,
-        nodes: Vec<Vec<Option<Vec<i32>>>>,
+        nodes: Vec<Vec<Option<Vec<usize>>>>,
         size: usize,
     }
     impl NodeIteratorImpl {
-        pub fn new(nodes: Vec<Vec<Option<Vec<i32>>>>, final_count: i32, level: usize) -> Self {
+        pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>, final_count: i32, level: usize) -> Self {
             NodeIteratorImpl {
                 cur: -1,
                 cur_count: 0,
@@ -657,7 +655,7 @@ mod tests {
     }
 
     impl Iterator for NodeIteratorImpl {
-        type Item = i32;
+        type Item = usize;
 
         fn next(&mut self) -> Option<Self::Item> {
             if !self.has_next() {
@@ -667,7 +665,7 @@ mod tests {
                 self.cur += 1;
                 if self.nodes[self.level][self.cur as usize].is_some() {
                     self.cur_count += 1;
-                    return Some(self.cur);
+                    return Some(self.cur as usize);
                 }
             }
             unreachable!()
@@ -679,7 +677,7 @@ mod tests {
             self.size
         }
 
-        fn consume(&mut self, _dest: &mut [i32]) -> Option<i32> {
+        fn consume(&mut self, _dest: &mut [usize]) -> Option<usize> {
             unreachable!()
         }
 

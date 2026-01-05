@@ -85,7 +85,7 @@ where
         let scratch = vec![0usize; all_scorers_idx.len()];
         let essential_queue = DisiPriorityQueue::new(all_scorers_idx.len() as i32);
         let max_score_sums = vec![0f64; all_scorers_idx.len()];
-        let window_matches = vec![0u64; FixedBitSet::bits2words(INNER_WINDOW_SIZE) as usize];
+        let window_matches = vec![0u64; FixedBitSet::bits2words(INNER_WINDOW_SIZE as usize)];
         let window_scores = vec![0f64; INNER_WINDOW_SIZE as usize];
 
         Ok(Self {
@@ -212,7 +212,7 @@ where
                 let m = {
                     let accepted = match accept_docs {
                         None => true,
-                        Some(bits) => bits.get(doc),
+                        Some(bits) => bits.get(doc as usize),
                     };
                     accepted && filter.matches_may_none()?
                 };
@@ -273,7 +273,7 @@ where
         while doc < up_to {
             let accepted = match accept_docs {
                 None => true,
-                Some(bits) => bits.get(doc),
+                Some(bits) => bits.get(doc as usize),
             };
             if accepted {
                 self.score_non_essential_clauses(
@@ -343,7 +343,7 @@ where
 
                 let accepted = match accept_docs {
                     None => true,
-                    Some(bits) => bits.get(lead1.doc),
+                    Some(bits) => bits.get(lead1.doc as usize),
                 };
 
                 if !accepted {
@@ -433,7 +433,7 @@ where
             while doc < inner_window_max {
                 let accepted = match accept_docs {
                     None => true,
-                    Some(bits) => bits.get(doc),
+                    Some(bits) => bits.get(doc as usize),
                 };
 
                 if accepted {

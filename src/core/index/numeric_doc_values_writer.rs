@@ -359,13 +359,13 @@ where
 
     fn advance_exact(&self, target: i32) -> bool {
         match &self.docs_with_field {
-            Some(bits) => bits.get(target),
+            Some(bits) => bits.get(target as usize),
             None => true,
         }
     }
     pub(crate) fn advance(&self, target: i32) -> i32 {
         if let Some(bits) = &self.docs_with_field {
-            bits.next_set_bit(target)
+            bits.next_set_bit(target as usize) as i32
         } else {
             // Only called when target is less than maxDoc
             target
@@ -390,7 +390,7 @@ where
     M: DocMap,
 {
     let mut docs_with_field = if !dense {
-        Some(FixedBitSet::new(max_doc))
+        Some(FixedBitSet::new(max_doc as usize))
     } else {
         None
     };
@@ -405,7 +405,7 @@ where
 
         let new_doc_id = sort_map.old_to_new(doc_id)?;
         if let Some(bits) = &mut docs_with_field {
-            bits.set(new_doc_id);
+            bits.set(new_doc_id as usize);
         }
 
         values[new_doc_id as usize] = old_doc_values.long_value()?;

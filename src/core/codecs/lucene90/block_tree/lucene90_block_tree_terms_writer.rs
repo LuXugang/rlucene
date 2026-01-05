@@ -403,7 +403,7 @@ where
                         self.max_items_in_block,
                         self.version,
                         &mut self.terms_out,
-                    );
+                    )?;
                     let mut reuse = None;
                     loop {
                         let text = terms_enum.next()?;
@@ -727,15 +727,15 @@ where
         max_items_in_block: i32,
         version: i32,
         terms_out: &'a mut O,
-    ) -> Self {
+    ) -> Result<Self> {
         assert_ne!(*field_info.get_index_options(), IndexOptions::None);
 
         postings_writer.set_field(field_info.clone());
 
-        Self {
+        let v = Self {
             field_info,
             num_terms: 0,
-            docs_seen: FixedBitSet::new(max_doc),
+            docs_seen: FixedBitSet::new(max_doc.try_convert()?),
             sum_total_term_freq: 0,
             sum_doc_freq: 0,
             last_term: BytesRefBuilder::new(),
@@ -758,7 +758,8 @@ where
             last_pending_term_bytes: Rc::new(vec![]),
             terms_out,
             postings_writer,
-        }
+        };
+        Ok(v)
     }
     pub fn write_blocks(&mut self, prefix_length: usize, count: usize) -> Result<()> {
         debug_assert!(count > 0);
@@ -1279,7 +1280,7 @@ where
                 meta_out.write_vlong(self.sum_total_term_freq)?;
             }
             meta_out.write_vlong(self.sum_doc_freq)?;
-            meta_out.write_vint(self.docs_seen.cardinality())?;
+            meta_out.write_vint(self.docs_seen.cardinality().try_convert()?)?;
             let first_term_bytes = self.first_pending_term_bytes.take().unwrap();
             self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
             let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);

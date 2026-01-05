@@ -21,6 +21,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::{Relation, TotalHits};
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 
@@ -37,7 +38,7 @@ impl TopKnnCollector {
     ///
     /// * `k` - the number of neighbors to collect
     /// * `visit_limit` - how many vector nodes the results are allowed to visit
-    pub fn new(k: i32, visit_limit: usize) -> Result<Self> {
+    pub fn new(k: usize, visit_limit: usize) -> Result<Self> {
         let base = AbstractKnnCollector::new(k, visit_limit);
         Ok(Self {
             queue: NeighborQueue::new(k, false)?,
@@ -47,7 +48,7 @@ impl TopKnnCollector {
 }
 impl AbstractKnnCollectorBase for TopKnnCollector {
     fn num_collected(&self) -> usize {
-        self.queue.size() as usize
+        self.queue.size()
     }
 }
 impl KnnCollector for TopKnnCollector {
@@ -67,11 +68,11 @@ impl KnnCollector for TopKnnCollector {
         self.base.visit_limit()
     }
 
-    fn k(&self) -> i32 {
+    fn k(&self) -> usize {
         self.base.k()
     }
 
-    fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
+    fn collect(&mut self, doc_id: usize, similarity: f32) -> bool {
         self.queue.insert_with_overflow(doc_id, similarity)
     }
 
@@ -91,12 +92,12 @@ impl KnnCollector for TopKnnCollector {
             "Tried to collect more results than the maximum number allowed"
         );
 
-        let mut score_docs = vec![ScoreDoc::default(); self.queue.size() as usize];
+        let mut score_docs = vec![ScoreDoc::default(); self.queue.size()];
         for i in 1..=score_docs.len() {
             let doc_id = self.queue.top_node();
             let score = self.queue.top_score();
             let len = score_docs.len() - i;
-            score_docs[len] = ScoreDoc::new(doc_id, score);
+            score_docs[len] = ScoreDoc::new(doc_id.try_convert()?, score);
             self.queue.pop()?;
         }
 

@@ -63,7 +63,7 @@ where
     CR: CompositeReader,
 {
     pub(crate) sub_reader: Vec<IndexReaderEnum<LR, CR>>,
-    starts: Vec<i32>,
+    starts: Vec<usize>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
@@ -129,11 +129,11 @@ where
             }
         }
 
-        let mut starts = vec![0i32; sub_readers.len() + 1];
+        let mut starts = vec![0usize; sub_readers.len() + 1];
         let mut max_doc: i64 = 0;
 
         for (i, reader) in sub_readers.iter().enumerate() {
-            starts[i] = max_doc as i32;
+            starts[i] = max_doc as usize;
             max_doc += reader.max_doc()? as i64;
         }
 
@@ -152,7 +152,7 @@ where
         Ok(Self {
             sub_reader,
             starts,
-            max_doc: max_doc_i32,
+            max_doc: max_doc_i32 as i32,
             num_docs: AtomicI32::new(-1),
         })
     }
@@ -273,7 +273,7 @@ where
         Ok(total)
     }
     /// Helper method for subclasses to get the docBase of the given sub-reader index.
-    pub fn reader_base(&self, reader_index: usize) -> Result<i32> {
+    pub fn reader_base(&self, reader_index: usize) -> Result<usize> {
         if reader_index >= self.sub_reader.len() {
             return Err(LuceneError::illegal_argument(
                 "readerIndex must be >= 0 and < getSequentialSubReaders().size()",
@@ -294,7 +294,7 @@ where
     CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: &'a [i32],
+    starts: &'a [usize],
     sub_term_vectors: Vec<Option<IRTermVectors<'a, LR, CR>>>,
     max_doc: i32,
 }
@@ -303,7 +303,11 @@ where
     LR: LeafReader + Clone,
     CR: CompositeReader,
 {
-    pub fn new(sub_reader: &'a [IndexReaderEnum<LR, CR>], starts: &'a [i32], max_doc: i32) -> Self {
+    pub fn new(
+        sub_reader: &'a [IndexReaderEnum<LR, CR>],
+        starts: &'a [usize],
+        max_doc: i32,
+    ) -> Self {
         let mut sub_term_vectors = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_term_vectors.push(None);
@@ -324,10 +328,10 @@ where
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
         let i = reader_index(doc_id, self.max_doc, self.starts)?;
         match self.sub_term_vectors[i] {
-            Some(ref mut tv) => tv.prefetch(doc_id - self.starts[i])?,
+            Some(ref mut tv) => tv.prefetch(doc_id - self.starts[i] as i32)?,
             None => {
                 let mut tv_reader = self.sub_reader[i].term_vectors()?;
-                tv_reader.prefetch(doc_id - self.starts[i])?;
+                tv_reader.prefetch(doc_id - self.starts[i] as i32)?;
                 self.sub_term_vectors[i] = Some(tv_reader);
             },
         }
@@ -344,7 +348,7 @@ where
             self.sub_term_vectors[i] = Some(tv);
         }
         let tv = self.sub_term_vectors[i].as_mut().unwrap();
-        tv.get(doc_id - self.starts[i])
+        tv.get(doc_id - self.starts[i] as i32)
     }
 }
 pub struct StoredFieldsImpl<'a, LR, CR>
@@ -353,7 +357,7 @@ where
     CR: CompositeReader,
 {
     sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: &'a [i32],
+    starts: &'a [usize],
     sub_stored_fields: Vec<Option<IRStoredFields<'a, LR, CR>>>,
     max_doc: i32,
 }
@@ -363,7 +367,11 @@ where
     LR: LeafReader + Clone,
     CR: CompositeReader,
 {
-    pub fn new(sub_reader: &'a [IndexReaderEnum<LR, CR>], starts: &'a [i32], max_doc: i32) -> Self {
+    pub fn new(
+        sub_reader: &'a [IndexReaderEnum<LR, CR>],
+        starts: &'a [usize],
+        max_doc: i32,
+    ) -> Self {
         let mut sub_stored_fields = Vec::with_capacity(starts.len());
         for _ in 0..sub_reader.len() {
             sub_stored_fields.push(None);
@@ -386,10 +394,10 @@ where
         let i = reader_index(doc_id, self.max_doc, self.starts)?;
 
         match self.sub_stored_fields[i] {
-            Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i])?,
+            Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i] as i32)?,
             None => {
                 let mut sf_reader = self.sub_reader[i].stored_fields()?;
-                sf_reader.prefetch(doc_id - self.starts[i])?;
+                sf_reader.prefetch(doc_id - self.starts[i] as i32)?;
                 self.sub_stored_fields[i] = Some(sf_reader);
             },
         }
@@ -411,18 +419,18 @@ where
         }
 
         let sf = self.sub_stored_fields[i].as_mut().unwrap();
-        sf.document_with_visitor(doc_id - self.starts[i], visitor, writer)
+        sf.document_with_visitor(doc_id - self.starts[i] as i32, visitor, writer)
     }
 }
 /// Helper method for subclasses to get the corresponding reader for a doc ID
-pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[i32]) -> Result<usize> {
+pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[usize]) -> Result<usize> {
     if doc_id < 0 || doc_id >= max_doc {
         return Err(LuceneError::illegal_argument(format!(
             "docID must be >= 0 and < maxDoc={} (got docID={})",
             max_doc, doc_id
         )));
     }
-    let v = ReaderUtil::sub_index(doc_id, starts);
+    let v = ReaderUtil::sub_index(doc_id as usize, starts);
     if v < 0 {
         return Err(LuceneError::illegal_state("index should >= 0"));
     }
