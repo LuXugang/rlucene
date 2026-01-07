@@ -433,8 +433,8 @@ where
 #[derive(Default)]
 struct MutablePointTreeImpl {
     num_points: usize,
-    ords: Vec<i32>,
-    temp: Vec<i32>,
+    ords: Vec<usize>,
+    temp: Vec<usize>,
     doc_ids: Vec<i32>,
     packed_bytes_length: usize,
     bytes_reader: PagedBytesReader,
@@ -446,11 +446,11 @@ impl MutablePointTreeImpl {
         bytes_reader: PagedBytesReader,
         packed_bytes_length: usize,
     ) -> Self {
-        let mut ords: Vec<i32> = vec![0; num_points];
+        let mut ords = vec![0; num_points];
         for (i, ord) in ords.iter_mut().take(num_points).enumerate() {
-            *ord = i as i32;
+            *ord = i;
         }
-        let temp: Vec<i32> = vec![0; num_points];
+        let temp = vec![0; num_points];
         Self {
             num_points,
             ords,
@@ -514,18 +514,18 @@ impl Clone for MutablePointTreeImpl {
 
 impl MutablePointTree for MutablePointTreeImpl {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
-        let offset = self.packed_bytes_length * self.ords[i] as usize;
+        let offset = self.packed_bytes_length * self.ords[i];
         self.bytes_reader
             .fill_slice(packed_value, offset, self.packed_bytes_length);
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
-        let offset = self.packed_bytes_length * self.ords[i] as usize + k;
+        let offset = self.packed_bytes_length * self.ords[i] + k;
         self.bytes_reader.get_byte(offset)
     }
 
     fn get_doc_id(&self, i: usize) -> i32 {
-        self.doc_ids[self.ords[i] as usize]
+        self.doc_ids[self.ords[i]]
     }
 
     fn swap(&mut self, i: usize, j: usize) {
