@@ -652,7 +652,7 @@ fn test_float_sort_optimization() -> Result<()> {
 fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     let mut random = random();
     let num_indices = 3;
-    let num_docs_in_index = at_least(&mut random, 50);
+    let num_docs_in_index = at_least_usize(&mut random, 50);
 
     let mut readers = Vec::with_capacity(num_indices);
 
@@ -664,7 +664,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
             let mut doc = Document::new();
             doc.add(NumericDocValuesField::new(
                 "my_field",
-                (doc_id as usize * num_indices + i) as i64,
+                (doc_id * num_indices + i) as i64,
             ));
             writer.add_document(doc)?;
         }
@@ -684,7 +684,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     let mut cur_num_hits;
     let mut after: Option<FieldDoc> = None;
     let mut collected_docs: i64 = 0;
-    let mut total_docs: i64 = 0;
+    let mut total_docs = 0;
     let mut num_hits = 0;
 
     loop {
@@ -727,7 +727,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
             break;
         }
     }
-    let expected_num_hits = num_docs_in_index as usize * num_indices;
+    let expected_num_hits = num_docs_in_index * num_indices;
     assert_eq!(expected_num_hits, num_hits);
     assert_non_competitive_hits_are_skipped(collected_docs, total_docs)?;
 
@@ -739,7 +739,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
-    let num_docs = at_least(&mut random, 150) as usize;
+    let num_docs = at_least_usize(&mut random, 150);
     for i in 0..num_docs {
         let doc = Document::new();
         writer.add_document(doc)?;
@@ -776,7 +776,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
             } else {
                 num_hits
             };
-            assert_eq!(exp_num_hits as usize, top_docs.score_docs().len());
+            assert_eq!(exp_num_hits, top_docs.score_docs().len());
             for (i, sd) in top_docs.score_docs().iter().enumerate() {
                 assert_eq!(search_after + 1 + i as i32, sd.doc());
             }
@@ -817,7 +817,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
             } else {
                 num_hits
             };
-            assert_eq!(exp_num_hits as usize, top_docs.score_docs().len());
+            assert_eq!(exp_num_hits, top_docs.score_docs().len());
             for (i, sd) in top_docs.score_docs().iter().enumerate() {
                 assert_eq!(search_after + 1 + i as i32, sd.doc());
             }
@@ -871,9 +871,9 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
     let num_docs = if is_night_mode() {
-        at_least(&mut random, 50_000)
+        at_least_usize(&mut random, 50_000)
     } else {
-        at_least(&mut random, 5_000)
+        at_least_usize(&mut random, 5_000)
     };
 
     let multiple_segments = random.random_bool(0.5);
@@ -900,10 +900,10 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
         let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
         let top_docs = searcher.search_after(after, MatchAllDocsQuery, batch, sort)?;
 
-        let expected_hits = std::cmp::min(num_docs - visited_hits, batch as i32);
-        assert_eq!(expected_hits as usize, top_docs.score_docs().len());
+        let expected_hits = std::cmp::min(num_docs - visited_hits, batch);
+        assert_eq!(expected_hits, top_docs.score_docs().len());
 
-        let last_doc = top_docs.score_docs()[expected_hits as usize - 1].clone();
+        let last_doc = top_docs.score_docs()[expected_hits - 1].clone();
         match last_doc {
             TopFieldScoreDoc::Field(field_doc) => after = Some(field_doc),
             _ => {
@@ -914,7 +914,7 @@ fn test_doc_sort_optimization_with_after_collects_all_docs() -> Result<()> {
         }
 
         for sd in top_docs.score_docs() {
-            assert_eq!(visited_hits, sd.doc());
+            assert_eq!(visited_hits, sd.doc() as usize);
             visited_hits += 1;
         }
     }
@@ -1160,7 +1160,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let mut after: Option<FieldDoc> = None;
 
     while visited_hits < num_docs {
-        let batch = 1 + random.random_range(0..100) as usize;
+        let batch = 1 + random.random_range(0..100);
         let expected_hits = std::cmp::min(num_docs - visited_hits, batch);
 
         let manager = TopFieldCollectorManager::with_after(
@@ -1181,7 +1181,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
         let top_docs2 = searcher.search_with_collector_manager(MatchAllDocsQuery, &manager2)?;
         let score_docs2 = top_docs2.score_docs();
 
-        assert_eq!(expected_hits as usize, score_docs.len());
+        assert_eq!(expected_hits, score_docs.len());
         assert_eq!(score_docs.len(), score_docs2.len());
 
         for i in 0..score_docs.len() {
@@ -1202,7 +1202,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
         collected_hits += top_docs.total_hits().value as i64;
         collected_hits2 += top_docs2.total_hits().value as i64;
 
-        let last_doc = score_docs[expected_hits as usize - 1].clone();
+        let last_doc = score_docs[expected_hits - 1].clone();
         match last_doc {
             TopFieldScoreDoc::Field(fd) => after = Some(fd),
             _ => return Err(LuceneError::illegal_state("Expected FieldDoc type")),

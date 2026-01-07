@@ -677,7 +677,7 @@ mod tests {
         let mut b = BytesRef::new();
         for offset in test_offsets.into_iter() {
             reader.fill_slice(&mut b, offset, 1);
-            let expected = arr[(offset % arr.len()) as usize];
+            let expected = arr[offset % arr.len()];
             assert_eq!(expected, b.bytes[b.offset], "Mismatch at offset {}", offset);
         }
         Ok(())

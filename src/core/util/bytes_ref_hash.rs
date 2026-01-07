@@ -131,16 +131,16 @@ where
         );
 
         let mut upto = 0;
-        for i in 0..self.hash_size {
-            if self.ids[i as usize] != -1 {
+        for i in 0..self.hash_size as usize {
+            if self.ids[i] != -1 {
                 if upto < i {
-                    self.ids[upto as usize] = self.ids[i as usize];
-                    self.ids[i as usize] = -1;
+                    self.ids[upto] = self.ids[i];
+                    self.ids[i] = -1;
                 }
                 upto += 1;
             }
         }
-        debug_assert!(upto == self.count);
+        debug_assert!(upto == self.count as usize);
         self.last_count = self.count;
 
         &self.ids
@@ -153,9 +153,9 @@ where
             (self.count * 2) as usize <= length,
             "We need load factor <= 0.5f to speed up this sort"
         );
-        let tmp_offset = self.count;
+        let tmp_offset = self.count as usize;
         let sub_sorter = StringSorterImpl::new(
-            tmp_offset as usize,
+            tmp_offset,
             &mut self.ids,
             &mut self.pool,
             byte_block_pool,
@@ -165,7 +165,7 @@ where
         sorter.sort(0, self.count as usize)?;
 
         length = self.ids.len();
-        for i in tmp_offset as usize..length {
+        for i in tmp_offset..length {
             self.ids[i] = -1;
         }
         Ok(())
@@ -244,7 +244,7 @@ where
 
         // final position
         let hash_pos = self.find_hash(bytes, byte_block_pool);
-        let mut e = self.ids[hash_pos as usize];
+        let mut e = self.ids[hash_pos];
         if e == -1 {
             {
                 let length = self.bytes_start_array.len();
@@ -263,8 +263,8 @@ where
                 self.bytes_start_array.set_value(self.count as usize, v);
                 e = self.count;
                 self.count += 1;
-                assert_eq!(self.ids[hash_pos as usize], -1);
-                self.ids[hash_pos as usize] = e;
+                assert_eq!(self.ids[hash_pos], -1);
+                self.ids[hash_pos] = e;
             }
 
             if self.count == self.hash_half_size {
@@ -284,9 +284,9 @@ where
     /// The id of the given bytes, or `-1` if there is no mapping for the given
     /// bytes.
     pub fn find(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> i32 {
-        self.ids[self.find_hash(bytes, byte_block_pool) as usize]
+        self.ids[self.find_hash(bytes, byte_block_pool)]
     }
-    fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> i32 {
+    fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> usize {
         debug_assert!(
             self.bytes_start_array.len() > 0,
             "bytesStart is null - not initialized"
@@ -319,8 +319,8 @@ where
                 }
             }
         }
-
-        hash_pos
+        debug_assert!(hash_pos >= 0);
+        hash_pos as usize
     }
     /// Adds an "arbitrary" integer offset instead of a `BytesRef` term.
     ///
@@ -385,8 +385,8 @@ where
         // TODO: memory calculation not implemented
         self.bytes_used.add_and_get(0);
         let mut new_hash = vec![-1; new_size as usize];
-        for i in 0..self.hash_size {
-            let e0 = self.ids[i as usize];
+        for i in 0..self.hash_size as usize {
+            let e0 = self.ids[i];
             if e0 != -1 {
                 let mut code = if hash_on_data {
                     self.pool.hash(
@@ -675,8 +675,8 @@ impl BytesStartArray for DirectBytesStartArray {
 
     fn grow(&mut self) -> Result<()> {
         debug_assert!(self.bytes_start.is_some());
-        let length = self.bytes_start.as_ref().unwrap().len() as i32;
-        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length as usize + 1)?;
+        let length = self.bytes_start.as_ref().unwrap().len();
+        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length + 1)?;
         Ok(())
     }
 

@@ -805,7 +805,7 @@ mod tests {
         // Try many random additions to existing entries - we should always see
         // increasing scores in the lowest entry in the PQ
         for _i in 0..500000 {
-            let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
+            let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as usize;
             let object_to_remove = sds[element as usize];
             assert_eq!(sds.remove(element as usize), object_to_remove);
             assert!(pq.remove(&object_to_remove)?);
