@@ -324,7 +324,7 @@ where
         entry.docs_with_field_length = meta.read_long()?;
         entry.jump_table_entry_count = meta.read_short()?;
         entry.dense_rank_power = meta.read_byte()? as i8;
-        entry.num_values = meta.read_long()?;
+        entry.num_values = meta.read_long()? as usize;
 
         let table_size = meta.read_int()?;
         if table_size > 256 {
@@ -348,8 +348,8 @@ where
         entry.bits_per_value = meta.read_byte()?;
         entry.min_value = meta.read_long()?;
         entry.gcd = meta.read_long()?;
-        entry.values_offset = meta.read_long()?;
-        entry.values_length = meta.read_long()?;
+        entry.values_offset = meta.read_long()? as usize;
+        entry.values_length = meta.read_long()? as usize;
         entry.value_jump_table_offset = meta.read_long()?;
         Ok(())
     }
@@ -478,7 +478,7 @@ where
         entry.addresses_meta = None;
         entry.addresses_length = 0;
 
-        if entry.num_docs_with_field as i64 != entry.base.num_values {
+        if entry.num_docs_with_field as usize != entry.base.num_values {
             entry.addresses_offset = meta.read_long()?;
             let block_shift = meta.read_vint()?;
             entry.addresses_meta = Some(load_meta(
@@ -502,10 +502,9 @@ where
                     min_values: entry.min_value,
                 })
             } else {
-                let mut slice = self.data.random_access_slice(
-                    entry.values_offset as usize,
-                    entry.values_length as usize,
-                )?;
+                let mut slice = self
+                    .data
+                    .random_access_slice(entry.values_offset, entry.values_length)?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if slice.length() > 0 {
@@ -561,17 +560,16 @@ where
                 entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
                 entry.dense_rank_power,
-                entry.num_values,
+                entry.num_values as i64,
             )?;
             let sparse_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
                 SparseNumericDocValuesSubEnum::Sparse(SparseNumericDocValuesBaseImpl {
                     min_values: entry.min_value,
                 })
             } else {
-                let mut slice = self.data.random_access_slice(
-                    entry.values_offset as usize,
-                    entry.values_length as usize,
-                )?;
+                let mut slice = self
+                    .data
+                    .random_access_slice(entry.values_offset, entry.values_length)?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if slice.length() > 0 {
@@ -638,7 +636,7 @@ where
         } else {
             let mut slice = self
                 .data
-                .random_access_slice(entry.values_offset as usize, entry.values_length as usize)?;
+                .random_access_slice(entry.values_offset, entry.values_length)?;
             if slice.length() > 0 {
                 slice.prefetch(0, 1)?
             }
@@ -694,10 +692,9 @@ where
                 ));
             }
 
-            let mut slice = self.data.random_access_slice(
-                ords_entry.values_offset as usize,
-                ords_entry.values_length as usize,
-            )?;
+            let mut slice = self
+                .data
+                .random_access_slice(ords_entry.values_offset, ords_entry.values_length)?;
             if slice.length() > 0 {
                 slice.prefetch(0, 1)?;
             }
@@ -720,7 +717,7 @@ where
                     ords_entry.docs_with_field_length as usize,
                     ords_entry.jump_table_entry_count as i32,
                     ords_entry.dense_rank_power,
-                    ords_entry.num_values,
+                    ords_entry.num_values as i64,
                 )?;
                 BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
             };
@@ -739,7 +736,7 @@ where
     where
         I: IndexInput,
     {
-        if entry.base.num_values == entry.num_docs_with_field as i64 {
+        if entry.base.num_values == entry.num_docs_with_field as usize {
             return Ok(Lucene90SortedNumericDocValuesEnum::C(
                 DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
             ));
@@ -1020,8 +1017,8 @@ where
                             };
 
                             let mut slice = self.data.random_access_slice(
-                                ords_entry.base.values_offset as usize,
-                                ords_entry.base.values_length as usize,
+                                ords_entry.base.values_offset,
+                                ords_entry.base.values_length,
                             )?;
                             if slice.length() > 0 {
                                 slice.prefetch(0, 1)?;
@@ -1143,11 +1140,11 @@ pub struct NumericEntry {
     pub docs_with_field_length: i64,
     pub jump_table_entry_count: i16,
     pub dense_rank_power: i8,
-    pub num_values: i64,
+    pub num_values: usize,
     pub min_value: i64,
     pub gcd: i64,
-    pub values_offset: i64,
-    pub values_length: i64,
+    pub values_offset: usize,
+    pub values_length: usize,
     pub value_jump_table_offset: i64, // -1 if no jump-table
 }
 
@@ -1470,14 +1467,14 @@ where
     rank_slice: Option<R>,
     entry: Arc<NumericEntry>,
 
-    shift: i32,
+    shift: usize,
     mul: i64,
     mask: usize,
 
-    block: i64,
+    block: Option<usize>,
     delta: i64,
-    offset: i64,
-    block_end_offset: i64,
+    offset: usize,
+    block_end_offset: usize,
     merging: bool,
 }
 
@@ -1506,8 +1503,8 @@ where
             }
             Some(slice)
         };
-
-        let shift = entry.block_shift;
+        debug_assert!(entry.block_shift >= 0);
+        let shift = entry.block_shift as usize;
         let mul = entry.gcd;
         let mask = (1 << shift) - 1;
 
@@ -1518,7 +1515,7 @@ where
             shift,
             mul,
             mask: mask as usize,
-            block: -1,
+            block: None,
             delta: 0,
             offset: 0,
             block_end_offset: 0,
@@ -1527,46 +1524,53 @@ where
     }
 
     fn get_long_value(&mut self, index: usize) -> Result<i64> {
-        let block = ((index as u64) >> self.shift) as i64;
+        let block = index >> self.shift;
 
         let mut result = 0;
-        if self.block != block {
+        let mut current_block = 0;
+        let same_block = match self.block {
+            Some(b) => {
+                current_block = b;
+                b == block
+            },
+            None => false,
+        };
+        if !same_block {
             loop {
                 let bits_per_value;
                 if let Some(ref mut rank_slice) = self.rank_slice
-                    && block != self.block + 1
+                    && block != current_block + 1
                 {
-                    self.block_end_offset = rank_slice
-                        .read_long(block as usize * BitUtil::LONG_BYTES)?
+                    self.block_end_offset = rank_slice.read_long(block * BitUtil::LONG_BYTES)?
+                        as usize
                         - self.entry.values_offset;
-                    self.block = block - 1;
+                    current_block = block - 1;
                 }
 
                 {
                     self.offset = self.block_end_offset;
-                    bits_per_value = self.slice.read_byte(self.offset as usize)? as i32;
+                    bits_per_value = self.slice.read_byte(self.offset)? as i32;
                     self.offset += 1;
 
-                    self.delta = self.slice.read_long(self.offset as usize)?;
-                    self.offset += BitUtil::LONG_BYTES as i64;
+                    self.delta = self.slice.read_long(self.offset)?;
+                    self.offset += BitUtil::LONG_BYTES;
 
                     if bits_per_value == 0 {
                         self.block_end_offset = self.offset;
                     } else {
-                        let length = self.slice.read_int(self.offset as usize)? as i64;
-                        self.offset += BitUtil::INT_BYTES as i64;
+                        let length = self.slice.read_int(self.offset)? as usize;
+                        self.offset += BitUtil::INT_BYTES;
                         self.block_end_offset = self.offset + length;
                     }
                 }
 
-                self.block += 1;
+                current_block += 1;
 
-                if self.block == block {
-                    let num_values: i32 = std::cmp::min(
+                if current_block == block {
+                    let num_values = std::cmp::min(
                         1 << self.shift,
                         self.entry.num_values - (block << self.shift),
-                    )
-                    .try_convert()?;
+                    );
 
                     let mut values = if bits_per_value == 0 {
                         DirectPackedEnum::P(Zeroes)
@@ -1576,7 +1580,7 @@ where
                             None,
                             bits_per_value,
                             self.offset,
-                            num_values as i64,
+                            num_values,
                         )?
                     };
                     result = self.mul
@@ -1586,6 +1590,7 @@ where
                 }
             }
         }
+        self.block = Some(current_block);
         Ok(result)
     }
 }
@@ -3404,8 +3409,8 @@ fn get_direct_reader_instance<R>(
     merging: bool,
     slice: Option<R>,
     bits_per_value: i32,
-    offset: i64,
-    num_values: i64,
+    offset: usize,
+    num_values: usize,
 ) -> Result<DirectPackedEnum<R>>
 where
     R: RandomAccessInput,
@@ -3414,10 +3419,10 @@ where
         Ok(DirectReader::get_merge_instance_with_base_offset(
             slice,
             bits_per_value,
-            offset as usize,
-            num_values as usize,
+            offset,
+            num_values,
         ))
     } else {
-        DirectReader::get_instance_with_offset(slice, bits_per_value, offset as usize)
+        DirectReader::get_instance_with_offset(slice, bits_per_value, offset)
     }
 }
