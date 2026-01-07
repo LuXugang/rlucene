@@ -50,11 +50,11 @@ pub struct SegmentTermsEnumFrame {
     pub(crate) stats_singleton_run_length: i32,
     pub(crate) stats_reader: ByteArrayDataInput<Vec<u8>>,
 
-    pub(crate) rewind_pos: i32,
+    pub(crate) rewind_pos: usize,
     pub(crate) floor_data_reader: ByteArrayDataInput<Arc<Vec<u8>>>,
 
     // Length of prefix shared by all terms in this block
-    pub(crate) prefix_length: i32,
+    pub(crate) prefix_length: usize,
 
     // Number of entries (term or sub-block) in this block
     pub(crate) ent_count: i32,
@@ -88,8 +88,8 @@ pub struct SegmentTermsEnumFrame {
     // metadata buffer
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
-    start_byte_pos: i32,
-    suffix_length: i32,
+    start_byte_pos: usize,
+    suffix_length: usize,
     sub_code: i64,
     compression_alg: CompressionAlgorithm,
 }
@@ -162,7 +162,7 @@ impl SegmentTermsEnumFrame {
     pub(crate) fn set_floor_data(&mut self, output_accumulator: &OutputAccumulator) -> Result<()> {
         output_accumulator.set_floor_data(&mut self.floor_data_reader);
         debug_assert!(self.floor_data_reader.get_position() <= i32::MAX as usize);
-        self.rewind_pos = self.floor_data_reader.get_position() as i32;
+        self.rewind_pos = self.floor_data_reader.get_position();
         self.num_follow_floor_blocks = self.floor_data_reader.read_vint()?;
         self.next_floor_label = self.floor_data_reader.read_byte()? as i32;
         Ok(())
@@ -359,8 +359,7 @@ impl SegmentTermsEnumFrame {
         self.has_terms = self.has_terms_orig;
 
         if self.is_floor {
-            self.floor_data_reader
-                .set_position(self.rewind_pos as usize);
+            self.floor_data_reader.set_position(self.rewind_pos);
             self.num_follow_floor_blocks = self.floor_data_reader.read_vint()?;
             debug_assert!(self.num_follow_floor_blocks > 0);
             self.next_floor_label = self.floor_data_reader.read_byte()? as i32;
@@ -405,19 +404,19 @@ impl SegmentTermsEnumFrame {
         );
 
         frame.next_ent += 1;
-        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
+        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?.try_convert()?;
         debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
-        frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+        frame.start_byte_pos = frame.suffixes_reader.get_position();
 
         let term_len = frame.prefix_length + frame.suffix_length;
-        ste.term.set_length(term_len as usize);
+        ste.term.set_length(term_len);
         let len = ste.term.length();
         ste.term.grow(len);
 
         frame.suffixes_reader.read_bytes(
             ste.term.get_bytes_mut_ref().bytes.as_mut(),
-            frame.prefix_length as usize,
-            frame.suffix_length as usize,
+            frame.prefix_length,
+            frame.suffix_length,
         )?;
 
         ste.term_exists = true;
@@ -476,19 +475,19 @@ impl SegmentTermsEnumFrame {
             frame.next_ent += 1;
 
             let code = frame.suffix_lengths_reader.read_vint()?;
-            frame.suffix_length = ((code as u32) >> 1) as i32;
+            frame.suffix_length = ((code as u32) >> 1) as usize;
             debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
-            frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+            frame.start_byte_pos = frame.suffixes_reader.get_position();
 
             let term_len = frame.prefix_length + frame.suffix_length;
-            ste.term.set_length(term_len as usize);
+            ste.term.set_length(term_len);
             let len = ste.term.length();
             ste.term.grow(len);
 
             frame.suffixes_reader.read_bytes(
                 ste.term.get_bytes_mut_ref().bytes.as_mut(),
-                frame.prefix_length as usize,
-                frame.suffix_length as usize,
+                frame.prefix_length,
+                frame.suffix_length,
             )?;
 
             return if (code & 1) == 0 {
@@ -536,11 +535,11 @@ impl SegmentTermsEnumFrame {
         } else {
             ste.term.get_bytes_ref()
         };
-        if !frame.is_floor || target.length <= frame.prefix_length as usize {
+        if !frame.is_floor || target.length <= frame.prefix_length {
             return Ok(());
         }
 
-        let target_label = target.bytes[target.offset + frame.prefix_length as usize] as i32;
+        let target_label = target.bytes[target.offset + frame.prefix_length] as i32;
 
         if target_label < frame.next_floor_label {
             return Ok(());
@@ -650,7 +649,7 @@ impl SegmentTermsEnumFrame {
         } else {
             &ste.stack[frame_idx]
         };
-        for byte_pos in 0..frame.prefix_length as usize {
+        for byte_pos in 0..frame.prefix_length {
             if target.bytes[target.offset + byte_pos] != ste.term.byte_at(byte_pos) {
                 return false;
             }
@@ -768,20 +767,20 @@ impl SegmentTermsEnumFrame {
                 &mut ste.stack[frame_idx]
             };
             frame.next_ent += 1;
-            frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
+            frame.suffix_length = frame.suffix_lengths_reader.read_vint()?.try_convert()?;
             debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
-            frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+            frame.start_byte_pos = frame.suffixes_reader.get_position();
             frame
                 .suffixes_reader
                 .skip_bytes(frame.suffix_length as i64)?;
 
-            let suffix_start = frame.start_byte_pos as usize;
-            let suffix_end = suffix_start + frame.suffix_length as usize;
+            let suffix_start = frame.start_byte_pos;
+            let suffix_end = suffix_start + frame.suffix_length;
 
             let cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
                 .cmp(
-                    &target.bytes[target.offset + frame.prefix_length as usize
-                        ..target.offset + target.length],
+                    &target.bytes
+                        [target.offset + frame.prefix_length..target.offset + target.length],
                 )
                 .to_int();
 
@@ -862,7 +861,7 @@ impl SegmentTermsEnumFrame {
             &mut ste.stack[frame_idx]
         };
 
-        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
+        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?.try_convert()?;
 
         let mut start = frame.next_ent;
         let mut end = frame.ent_count - 1;
@@ -871,15 +870,15 @@ impl SegmentTermsEnumFrame {
         while start <= end {
             let mid = ((start + end) as u32 >> 1) as i32;
             frame.next_ent = mid + 1;
-            frame.start_byte_pos = mid * frame.suffix_length;
+            frame.start_byte_pos = mid as usize * frame.suffix_length;
 
-            let suffix_start = frame.start_byte_pos as usize;
-            let suffix_end = suffix_start + frame.suffix_length as usize;
+            let suffix_start = frame.start_byte_pos;
+            let suffix_end = suffix_start + frame.suffix_length;
 
             cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
                 .cmp(
-                    &target.bytes[target.offset + frame.prefix_length as usize
-                        ..target.offset + target.length],
+                    &target.bytes
+                        [target.offset + frame.prefix_length..target.offset + target.length],
                 )
                 .to_int();
 
@@ -891,7 +890,7 @@ impl SegmentTermsEnumFrame {
                 // match
                 frame
                     .suffixes_reader
-                    .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
+                    .set_position(frame.start_byte_pos + frame.suffix_length);
                 Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::Found);
             }
@@ -915,13 +914,13 @@ impl SegmentTermsEnumFrame {
             }
             frame
                 .suffixes_reader
-                .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
+                .set_position(frame.start_byte_pos + frame.suffix_length);
             Self::fill_term(frame_idx, ste);
         } else {
             seek_status = SeekStatus::End;
             frame
                 .suffixes_reader
-                .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
+                .set_position(frame.start_byte_pos + frame.suffix_length);
             if exact_only {
                 Self::fill_term(frame_idx, ste);
             }
@@ -987,9 +986,9 @@ impl SegmentTermsEnumFrame {
                 };
                 frame.next_ent += 1;
                 let code = frame.suffix_lengths_reader.read_vint()?;
-                frame.suffix_length = (code as u32 >> 1) as i32;
+                frame.suffix_length = (code as u32 >> 1) as usize;
                 debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
-                frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+                frame.start_byte_pos = frame.suffixes_reader.get_position();
                 frame
                     .suffixes_reader
                     .skip_bytes(frame.suffix_length as i64)?;
@@ -1006,13 +1005,13 @@ impl SegmentTermsEnumFrame {
                     frame.last_sub_fp = frame.fp - frame.sub_code;
                 }
 
-                let suffix_start = frame.start_byte_pos as usize;
-                let suffix_end = suffix_start + frame.suffix_length as usize;
+                let suffix_start = frame.start_byte_pos;
+                let suffix_end = suffix_start + frame.suffix_length;
 
                 frame.suffixes_reader.bytes[suffix_start..suffix_end]
                     .cmp(
-                        &target.bytes[target.offset + frame.prefix_length as usize
-                            ..target.offset + target.length],
+                        &target.bytes
+                            [target.offset + frame.prefix_length..target.offset + target.length],
                     )
                     .to_int()
             };
@@ -1057,8 +1056,7 @@ impl SegmentTermsEnumFrame {
                         };
 
                         let next_prefix = ste.term.length();
-                        current_frame_idx =
-                            ste.push_frame(None, last_sub_fp, next_prefix as i32)?;
+                        current_frame_idx = ste.push_frame(None, last_sub_fp, next_prefix)?;
                         Self::load_block(current_frame_idx, ste)?;
                     }
                 }
@@ -1096,13 +1094,13 @@ impl SegmentTermsEnumFrame {
             &mut ste.stack[frame_idx]
         };
         let term_length = frame.prefix_length + frame.suffix_length;
-        ste.term.set_length(term_length as usize);
-        ste.term.grow(term_length as usize);
+        ste.term.set_length(term_length);
+        ste.term.grow(term_length);
 
         let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
         let src = &frame.suffixes_reader.bytes;
-        let start = frame.start_byte_pos as usize;
-        let end = start + frame.suffix_length as usize;
-        dest.copy_from(&src[start..end], frame.prefix_length as usize);
+        let start = frame.start_byte_pos;
+        let end = start + frame.suffix_length;
+        dest.copy_from(&src[start..end], frame.prefix_length);
     }
 }

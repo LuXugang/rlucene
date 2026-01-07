@@ -55,7 +55,7 @@ where
     pub(crate) fr: FieldReader<I, P>,
     target_before_current_length: i32,
     output_accumulator: OutputAccumulator,
-    valid_index_prefix: i32,
+    valid_index_prefix: usize,
     eof: bool,
     pub(crate) term: BytesRefBuilder<Vec<u8>>,
     fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
@@ -146,7 +146,7 @@ where
         &mut self,
         arc: Option<usize>,
         frame_data: BytesRef<std::sync::Arc<Vec<u8>>>,
-        length: i32,
+        length: usize,
     ) -> Result<usize> {
         self.output_accumulator.reset();
         self.output_accumulator.push(frame_data);
@@ -155,7 +155,7 @@ where
     pub(crate) fn push_frame_with_length(
         &mut self,
         arc: Option<usize>,
-        length: i32,
+        length: usize,
     ) -> Result<usize> {
         self.output_accumulator.prepare_read();
         let code = self.fr.read_vlong_output(&mut self.output_accumulator)?;
@@ -178,7 +178,12 @@ where
         self.push_frame(arc, fp_seek, length)?;
         Ok(ord)
     }
-    pub(crate) fn push_frame(&mut self, arc: Option<usize>, fp: i64, length: i32) -> Result<usize> {
+    pub(crate) fn push_frame(
+        &mut self,
+        arc: Option<usize>,
+        fp: i64,
+        length: usize,
+    ) -> Result<usize> {
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
             &mut self.static_frame
         } else {
@@ -260,9 +265,9 @@ where
 
             target_upto = 0;
             let mut last_frame: usize = 0;
-            debug_assert!(self.valid_index_prefix <= self.term.length() as i32);
+            debug_assert!(self.valid_index_prefix <= self.term.length());
 
-            let target_limit = std::cmp::min(target.length, self.valid_index_prefix as usize);
+            let target_limit = std::cmp::min(target.length, self.valid_index_prefix);
 
             let mut cmp = 0;
 
@@ -405,7 +410,7 @@ where
                     self.output_accumulator.push(arc.next_final_output());
                     let v = arc.next_final_output();
                     self.current_frame_idx =
-                        self.push_frame_with_length(Some(next_arc_idx), target_upto as i32)?;
+                        self.push_frame_with_length(Some(next_arc_idx), target_upto)?;
                     self.output_accumulator.pop(&v);
                 }
             }
@@ -556,7 +561,7 @@ where
                 };
                 let last_sub_fp = current_frame.last_sub_fp;
                 let length = { self.term.length() };
-                self.current_frame_idx = self.push_frame(None, last_sub_fp, length as i32)?;
+                self.current_frame_idx = self.push_frame(None, last_sub_fp, length)?;
                 // This is a "next" frame -- even if it's
                 // floor'd we must pretend it isn't so we don't
                 // try to scan to the right floor frame:
@@ -638,9 +643,9 @@ where
 
             let mut last_frame_index: usize = 0;
             let mut last_frame = &mut self.stack[last_frame_index];
-            debug_assert!(self.valid_index_prefix <= self.term.length() as i32);
+            debug_assert!(self.valid_index_prefix <= self.term.length());
 
-            let target_limit = std::cmp::min(target.length, self.valid_index_prefix as usize);
+            let target_limit = std::cmp::min(target.length, self.valid_index_prefix);
             let mut cmp = 0;
 
             while target_upto < target_limit {
@@ -766,7 +771,7 @@ where
                     self.output_accumulator.push(arc.next_final_output());
                     let v = arc.next_final_output();
                     self.current_frame_idx =
-                        self.push_frame_with_length(Some(arc_index), target_upto as i32)?;
+                        self.push_frame_with_length(Some(arc_index), target_upto)?;
                     self.output_accumulator.pop(&v);
                 }
             }
