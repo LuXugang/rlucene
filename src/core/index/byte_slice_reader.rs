@@ -209,16 +209,16 @@ mod tests {
         block_pool.next_buffer()?;
 
         let mut slice_pool = ByteSlicePool;
-        let mut buffer_upto = block_pool.buffer_upto;
+        let mut buffer_upto = block_pool.buffer_upto()?;
         let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
         for &random_byte in random_data.iter() {
-            let mut buffer = block_pool.get_buffer_mut(buffer_upto.try_convert()?);
+            let mut buffer = block_pool.get_buffer_mut(buffer_upto);
             let value = buffer[upto as usize];
             if (value & 16) != 0 {
-                upto = slice_pool.alloc_slice(buffer_upto as usize, upto, &mut block_pool)?;
+                upto = slice_pool.alloc_slice(buffer_upto, upto, &mut block_pool)?;
             }
-            buffer_upto = block_pool.buffer_upto;
-            buffer = block_pool.get_buffer_mut(buffer_upto.try_convert()?);
+            buffer_upto = block_pool.buffer_upto()?;
+            buffer = block_pool.get_buffer_mut(buffer_upto);
             buffer[upto as usize] = random_byte;
             upto += 1;
         }

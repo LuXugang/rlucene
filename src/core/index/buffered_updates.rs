@@ -582,7 +582,7 @@ mod tests {
             assert_eq!(actual.size(), 0);
             assert_eq!(actual.ram_bytes_used()?, 0);
             let pool = actual.get_pool();
-            assert_eq!(pool.buffer_upto, -1);
+            assert_eq!(pool.buffer_upto, None);
         }
 
         Ok(())

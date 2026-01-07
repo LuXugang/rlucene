@@ -36,7 +36,7 @@ use crate::core::util::{SliceCopyOps, TryIntoInt};
 pub struct ByteBlockPool {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
-    pub buffer_upto: i32,
+    pub(crate) buffer_upto: Option<usize>,
     allocator: AllocatorByteEnum,
     /// Offset from the start of the first buffer to the start of the current
     /// buffer, which is `buffer_upto * BYTE_BLOCK_SIZE`. The buffer pool
@@ -55,7 +55,7 @@ impl ByteBlockPool {
     pub fn new(allocator: AllocatorByteEnum) -> Self {
         ByteBlockPool {
             buffers: vec![],
-            buffer_upto: -1,
+            buffer_upto: None,
             allocator,
             byte_offset: -BYTE_BLOCK_SIZE,
             byte_upto: BYTE_BLOCK_SIZE,
@@ -77,30 +77,27 @@ impl ByteBlockPool {
     ///   [`ByteBlockPool::next_buffer`](#method.next_buffer) was called
     ///   before).
     pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
-        if self.buffer_upto != -1 {
+        if let Some(buffer_upto) = self.buffer_upto {
             if zero_fill_buffers {
-                for i in 0..(self.buffer_upto + 1) as usize {
+                for i in 0..(buffer_upto + 1) {
                     self.buffers[i].fill(0);
                 }
             }
-            if self.buffer_upto > 0 || !reuse_first {
+            if buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
-                self.allocator.recycle_byte_blocks(
-                    &self.buffers,
-                    offset,
-                    (self.buffer_upto + 1) as usize,
-                );
-                for _i in offset..(self.buffer_upto + 1) as usize {
+                self.allocator
+                    .recycle_byte_blocks(&self.buffers, offset, buffer_upto + 1);
+                for _i in offset..(buffer_upto + 1) {
                     self.buffers.pop();
                 }
             }
 
             if reuse_first {
-                self.buffer_upto = 0;
+                self.buffer_upto = Some(0);
                 self.byte_upto = 0;
                 self.byte_offset = 0;
             } else {
-                self.buffer_upto = -1;
+                self.buffer_upto = None;
                 self.byte_upto = BYTE_BLOCK_SIZE;
                 self.byte_offset = -BYTE_BLOCK_SIZE;
             }
@@ -110,12 +107,17 @@ impl ByteBlockPool {
     /// be called once after the constructor to initialize the pool. In
     /// contrast to the constructor, a [`ByteBlockPool::reset`](#method.
     /// reset) call will advance the pool to its first buffer immediately.
-    pub fn next_buffer(&mut self) -> Result<()> {
-        if self.buffer_upto + 1 == self.buffers.len() as i32 {
+    pub fn next_buffer(&mut self) -> Result<usize> {
+        let next_upto = match self.buffer_upto {
+            Some(upto) => upto + 1,
+            None => 0,
+        };
+
+        if next_upto == self.buffers.len() {
             self.buffers.push(self.allocator.get_byte_block());
         }
         // Allocate new buffer and advance the pool to it
-        self.buffer_upto += 1;
+        self.buffer_upto = Some(next_upto);
         self.byte_upto = 0;
         match self.byte_offset.checked_add(BYTE_BLOCK_SIZE) {
             Some(val) => self.byte_offset = val,
@@ -125,7 +127,7 @@ impl ByteBlockPool {
                 ));
             },
         }
-        Ok(())
+        Ok(next_upto)
     }
 
     /// Fills the provided [`BytesRef`] with the bytes at the specified offset
@@ -219,10 +221,12 @@ impl ByteBlockPool {
         mut length: i32,
     ) {
         debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_upto);
+        debug_assert!(self.buffer_upto.is_some());
+        let buffer_upto = self.buffer_upto.unwrap();
         while length > 0 {
             let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
             let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
-            self.buffers[self.buffer_upto as usize].copy_from(
+            self.buffers[buffer_upto].copy_from(
                 &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
                     [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
                 self.byte_upto as usize,
@@ -251,11 +255,12 @@ impl ByteBlockPool {
     /// * `length` - The number of bytes to copy.
     pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) -> Result<()> {
         let mut bytes_left = length;
+        let mut buffer_upto = self.buffer_upto.unwrap_or_default();
         while bytes_left > 0 {
             let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
-                self.buffers[self.buffer_upto as usize].copy_from(
+                self.buffers[buffer_upto].copy_from(
                     &bytes[offset as usize..(offset + bytes_left) as usize],
                     self.byte_upto as usize,
                 );
@@ -264,12 +269,12 @@ impl ByteBlockPool {
             } else {
                 // fill up this buffer and move to next one
                 if buffer_left > 0 {
-                    self.buffers[self.buffer_upto as usize].copy_from(
+                    self.buffers[buffer_upto].copy_from(
                         &bytes[offset as usize..(offset + buffer_left) as usize],
                         self.byte_upto as usize,
                     );
                 }
-                self.next_buffer()?;
+                buffer_upto = self.next_buffer()?;
                 bytes_left -= buffer_left;
                 offset += buffer_left;
             }
@@ -314,16 +319,19 @@ impl ByteBlockPool {
     ///
     /// # Returns
     /// The byte at the specified offset.
-    pub fn read_byte(&self, offset: i64) -> u8 {
-        debug_assert!(offset >= 0);
-        let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as usize;
-        let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
-        self.buffers[buffer_index][pos as usize]
+    pub fn read_byte(&self, offset: usize) -> u8 {
+        let buffer_index = offset >> BYTE_BLOCK_SHIFT;
+        let pos = offset & BYTE_BLOCK_MASK as usize;
+        self.buffers[buffer_index][pos]
     }
     /// the current position (in absolute value) of this byte pool .
     pub fn get_position(&mut self) -> i64 {
         debug_assert!(self.allocator.get_block_size() <= i32::MAX as usize);
-        (self.buffer_upto * self.allocator.get_block_size() as i32 + self.byte_upto) as i64
+        let buffer_upto = match self.buffer_upto {
+            Some(upto) => upto as i32,
+            None => -1,
+        };
+        (buffer_upto * self.allocator.get_block_size() as i32 + self.byte_upto) as i64
     }
     pub fn get_buffer_mut(&mut self, buffer_index: usize) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index]
@@ -333,6 +341,15 @@ impl ByteBlockPool {
     }
     pub fn get_bytes_used(&self) -> i64 {
         self.allocator.get_used()
+    }
+    /// Get valid buffer_upto
+    pub fn buffer_upto(&self) -> Result<usize> {
+        match self.buffer_upto {
+            Some(upto) => Ok(upto),
+            None => Err(LuceneError::illegal_state(
+                "buffer_upto not init yet, call next_buffer first.",
+            )),
+        }
     }
 }
 impl Accountable for ByteBlockPool {
