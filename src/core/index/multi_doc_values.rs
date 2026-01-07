@@ -555,7 +555,7 @@ where
 
         let global_ord = self
             .mapping
-            .get_global_ords((self.next_leaf - 1) as i32)
+            .get_global_ords(self.next_leaf - 1)
             .get(local_ord)?;
 
         Ok(global_ord as i32)
@@ -763,7 +763,7 @@ where
         let segment_ord = self.values[idx].next_ord()?;
         let global = self
             .mapping
-            .get_global_ords((self.next_leaf - 1) as i32)
+            .get_global_ords(self.next_leaf - 1)
             .get(segment_ord)?;
 
         Ok(global)

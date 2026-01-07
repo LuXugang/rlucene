@@ -75,7 +75,7 @@ impl Sorter {
     {
         // check if the index is sorted
         let mut sorted = true;
-        for i in 1..max_doc {
+        for i in 1..max_doc as usize {
             if comparator.compare(i - 1, i) > 0 {
                 sorted = false;
                 break;
@@ -202,7 +202,9 @@ where
     }
 
     fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
-        Ok(self.comparator.compare(self.tmp[i], self.docs[j]))
+        Ok(self
+            .comparator
+            .compare(self.tmp[i] as usize, self.docs[j] as usize))
     }
 }
 impl<'a, DC> crate::core::util::Sorter for DocValueSorter<'a, DC>
@@ -210,7 +212,9 @@ where
     DC: DocComparator,
 {
     fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-        Ok(self.comparator.compare(self.docs[i], self.docs[j]))
+        Ok(self
+            .comparator
+            .compare(self.docs[i] as usize, self.docs[j] as usize))
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -275,7 +279,7 @@ impl<DC> DocComparator for DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
         for cmp in self.comparators.iter() {
             let comp = cmp.compare(doc_id1, doc_id2);
             if comp != 0 {

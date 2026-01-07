@@ -18,10 +18,10 @@ use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::data_input::DataInput;
-use crate::core::util::SliceCopyOps;
 use crate::core::util::access::ByteSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 /// `DataInput` backed by a byte array.
 ///
@@ -109,12 +109,9 @@ where
         Ok(value)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        b.copy_from(
-            &self.bytes.as_slice()[self.pos..self.pos + len as usize],
-            offset as usize,
-        );
-        self.pos += len as usize;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        b.copy_from(&self.bytes.as_slice()[self.pos..self.pos + len], offset);
+        self.pos += len;
         Ok(())
     }
 
@@ -136,9 +133,9 @@ where
         Ok(value)
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<()> {
-        debug_assert!(count <= i32::MAX as i64, "count exceeds usize range");
-        self.pos += count as usize;
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        let num_bytes: usize = num_bytes.try_convert()?;
+        self.pos += num_bytes;
         Ok(())
     }
 }

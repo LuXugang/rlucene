@@ -913,7 +913,7 @@ mod tests {
         assert_eq!(unique_values, bd2_terms_set);
 
         let frozen = queue.freeze_global_buffer(&mut None)?.unwrap();
-        let mut iter = frozen.delete_terms.iterator();
+        let mut iter = frozen.delete_terms.iterator()?;
         let mut frozen_set: HashSet<Term> = HashSet::new();
         let mut bytes_ref = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
@@ -1074,7 +1074,7 @@ mod tests {
         queue.try_apply_global_slice()?;
         let mut frozen_set = HashSet::new();
         let frozen = queue.freeze_global_buffer(&mut None)?.unwrap();
-        let mut iter = frozen.delete_terms.iterator();
+        let mut iter = frozen.delete_terms.iterator()?;
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
             builder.copy_bytes_with_ref(&byte_ref);

@@ -156,7 +156,7 @@ where
         debug_assert!(arc.bytes_per_arc > 0);
         debug_assert_eq!(arc.node_flags, ARCS_FOR_DIRECT_ADDRESSING);
 
-        arc.bit_table_start = reader.get_position();
+        arc.bit_table_start = reader.get_position() as i64;
         let skip_bytes = get_num_presence_bytes(arc.num_arcs);
         reader.skip_bytes(skip_bytes as i64)?;
         Ok(())
@@ -204,7 +204,7 @@ where
             return Ok(arc);
         }
 
-        input.set_position(follow.target());
+        input.set_position(follow.target() as usize);
         let flags = input.read_byte()?;
         arc.node_flags = flags;
 
@@ -220,15 +220,15 @@ where
             if flags == ARCS_FOR_DIRECT_ADDRESSING {
                 read_presence_bytes(arc, input)?;
                 arc.first_label = self.read_label(input)?;
-                arc.pos_arcs_start = input.get_position();
+                arc.pos_arcs_start = input.get_position() as i64;
                 self.read_last_arc_by_direct_addressing(arc, input)?;
             } else if flags == ARCS_FOR_BINARY_SEARCH {
                 arc.arc_idx = arc.num_arcs - 2;
-                arc.pos_arcs_start = input.get_position();
+                arc.pos_arcs_start = input.get_position() as i64;
                 self.read_next_real_arc(arc, input)?;
             } else {
                 arc.first_label = self.read_label(input)?;
-                arc.pos_arcs_start = input.get_position();
+                arc.pos_arcs_start = input.get_position() as i64;
                 self.read_last_arc_by_continuous(arc, input)?;
             }
         } else {
@@ -253,7 +253,7 @@ where
             }
             // Undo the byte flags we read:
             input.skip_bytes(-1)?;
-            arc.next_arc = input.get_position();
+            arc.next_arc = input.get_position() as i64;
             self.read_next_real_arc(arc, input)?;
         }
 
@@ -297,7 +297,7 @@ where
         arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
-        reader.set_position(node_address);
+        reader.set_position(node_address as usize);
 
         let flags = reader.read_byte()?;
         arc.node_flags = flags;
@@ -320,7 +320,7 @@ where
                 arc.first_label = self.read_label(reader)?;
             }
 
-            arc.pos_arcs_start = reader.get_position();
+            arc.pos_arcs_start = reader.get_position() as i64;
         } else {
             arc.next_arc = node_address;
             arc.bytes_per_arc = 0;
@@ -347,7 +347,7 @@ where
         if !target_has_arcs(follow) {
             Ok(false)
         } else {
-            reader.set_position(follow.target);
+            reader.set_position(follow.target as usize);
             let flags = reader.read_byte()?;
             Ok(flags == ARCS_FOR_BINARY_SEARCH
                 || flags == ARCS_FOR_DIRECT_ADDRESSING
@@ -380,7 +380,7 @@ where
         if arc.label() == END_LABEL {
             // Next arc is the first arc of a node.
             // Position to read the first arc label.
-            input.set_position(arc.next_arc());
+            input.set_position(arc.next_arc() as usize);
             let flags = input.read_byte()?;
 
             if flags == ARCS_FOR_BINARY_SEARCH
@@ -404,7 +404,7 @@ where
                     let pos = arc.pos_arcs_start()
                         - (1 + arc.arc_idx()) as i64 * arc.bytes_per_arc() as i64
                         - 1;
-                    input.set_position(pos);
+                    input.set_position(pos as usize);
                 },
                 ARCS_FOR_DIRECT_ADDRESSING => {
                     // Direct addressing node. The label is not stored but
@@ -424,7 +424,7 @@ where
                     debug_assert_eq!(arc.bytes_per_arc(), 0);
                     // Arcs have variable length.
                     // Position to next arc, -1 to skip flags.
-                    input.set_position(arc.next_arc() - 1);
+                    input.set_position((arc.next_arc() - 1) as usize);
                 },
             }
         }
@@ -451,7 +451,9 @@ where
         debug_assert!(arc.bytes_per_arc() > 0);
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_BINARY_SEARCH);
         debug_assert!(idx >= 0 && idx < arc.num_arcs());
-        input.set_position(arc.pos_arcs_start() - idx as i64 * arc.bytes_per_arc() as i64);
+        input.set_position(
+            (arc.pos_arcs_start() - idx as i64 * arc.bytes_per_arc() as i64) as usize,
+        );
         arc.arc_idx = idx;
         arc.flags = input.read_byte()?;
         self.read_arc(arc, input)
@@ -468,7 +470,7 @@ where
     ) -> Result<()> {
         debug_assert!(range_index >= 0 && range_index < arc.num_arcs);
         let pos = arc.pos_arcs_start - (range_index as i64 * arc.bytes_per_arc as i64);
-        reader.set_position(pos);
+        reader.set_position(pos as usize);
         arc.arc_idx = range_index;
         arc.flags = reader.read_byte()?;
         self.read_arc(arc, reader)
@@ -515,7 +517,7 @@ where
         presence_index: i32,
     ) -> Result<()> {
         let pos = arc.pos_arcs_start - (presence_index as i64 * arc.bytes_per_arc as i64);
-        reader.set_position(pos);
+        reader.set_position(pos as usize);
         arc.arc_idx = range_index;
         arc.presence_index = presence_index;
         arc.flags = reader.read_byte()?;
@@ -566,7 +568,7 @@ where
                 arc.arc_idx += 1;
                 debug_assert!(arc.arc_idx >= 0 && arc.arc_idx < arc.num_arcs);
                 let pos = arc.pos_arcs_start - (arc.arc_idx as i64 * arc.bytes_per_arc as i64);
-                reader.set_position(pos);
+                reader.set_position(pos as usize);
                 arc.flags = reader.read_byte()?;
             },
 
@@ -589,7 +591,7 @@ where
             _ => {
                 // Variable-length arcs (linear scan)
                 debug_assert_eq!(arc.bytes_per_arc, 0);
-                reader.set_position(arc.next_arc);
+                reader.set_position(arc.next_arc as usize);
                 arc.flags = reader.read_byte()?;
             },
         }
@@ -626,9 +628,9 @@ where
             } else {
                 NON_FINAL_END_NODE
             };
-            arc.next_arc = reader.get_position();
+            arc.next_arc = reader.get_position() as i64;
         } else if arc.flag(BIT_TARGET_NEXT as i32) {
-            arc.next_arc = reader.get_position();
+            arc.next_arc = reader.get_position() as i64;
 
             if !arc.flag(BIT_LAST_ARC as i32) {
                 if arc.bytes_per_arc() == 0 {
@@ -640,14 +642,14 @@ where
                         arc.num_arcs()
                     };
                     let pos = arc.pos_arcs_start - (arc.bytes_per_arc as i64 * num_arcs as i64);
-                    reader.set_position(pos);
+                    reader.set_position(pos as usize);
                 }
             }
 
-            arc.target = reader.get_position();
+            arc.target = reader.get_position() as i64;
         } else {
             arc.target = self.read_unpacked_node_target(reader)?;
-            arc.next_arc = reader.get_position();
+            arc.next_arc = reader.get_position() as i64;
         }
         Ok(())
     }
@@ -697,7 +699,7 @@ where
             return Ok(None);
         }
 
-        input.set_position(follow.target());
+        input.set_position(follow.target() as usize);
 
         let flags = input.read_byte()?;
         arc.node_flags = flags;
@@ -707,7 +709,7 @@ where
             arc.bytes_per_arc = input.read_vint()?;
             self.read_presence_bytes(arc, input)?;
             arc.first_label = self.read_label(input)?;
-            arc.pos_arcs_start = input.get_position();
+            arc.pos_arcs_start = input.get_position() as i64;
 
             let arc_index = label_to_match - arc.first_label;
             if arc_index < 0 || arc_index >= arc.num_arcs {
@@ -721,13 +723,15 @@ where
         } else if flags == ARCS_FOR_BINARY_SEARCH {
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
-            arc.pos_arcs_start = input.get_position();
+            arc.pos_arcs_start = input.get_position() as i64;
             // Array is sparse; do binary search:
             let mut low = 0;
             let mut high = arc.num_arcs - 1;
             while low <= high {
                 let mid = (low + high) >> 1;
-                input.set_position(arc.pos_arcs_start - (arc.bytes_per_arc * mid + 1) as i64);
+                input.set_position(
+                    (arc.pos_arcs_start - (arc.bytes_per_arc * mid + 1) as i64) as usize,
+                );
                 let mid_label = self.read_label(input)?;
                 match mid_label.cmp(&label_to_match) {
                     std::cmp::Ordering::Less => low = mid + 1,
@@ -743,7 +747,7 @@ where
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
             arc.first_label = self.read_label(input)?;
-            arc.pos_arcs_start = input.get_position();
+            arc.pos_arcs_start = input.get_position() as i64;
             let arc_index = label_to_match - arc.first_label;
             if arc_index < 0 || arc_index >= arc.num_arcs {
                 return Ok(None); // Before or after label range.
@@ -753,7 +757,7 @@ where
         }
 
         self.read_first_arc_info(follow.target(), arc, input)?;
-        input.set_position(arc.next_arc);
+        input.set_position(arc.next_arc as usize);
         loop {
             debug_assert_eq!(arc.bytes_per_arc, 0);
             arc.flags = input.read_byte()?;
@@ -1028,7 +1032,7 @@ impl BitTable {
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        reader.set_position(arc.bit_table_start);
+        reader.set_position(arc.bit_table_start as usize);
         BitTableUtil::is_bit_set(bit_index, reader)
     }
 
@@ -1039,7 +1043,7 @@ impl BitTable {
         reader: &mut R,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        reader.set_position(arc.bit_table_start);
+        reader.set_position(arc.bit_table_start as usize);
         let num_presence_bytes = get_num_presence_bytes(arc.num_arcs());
         BitTableUtil::count_bits(num_presence_bytes, reader)
     }
@@ -1050,7 +1054,7 @@ impl BitTable {
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        reader.set_position(arc.bit_table_start);
+        reader.set_position(arc.bit_table_start as usize);
         BitTableUtil::count_bits_upto(bit_index, reader)
     }
 
@@ -1061,7 +1065,7 @@ impl BitTable {
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        reader.set_position(arc.bit_table_start);
+        reader.set_position(arc.bit_table_start as usize);
         let num_bytes = get_num_presence_bytes(arc.num_arcs());
         BitTableUtil::next_bit_set(bit_index, num_bytes, reader)
     }
@@ -1073,7 +1077,7 @@ impl BitTable {
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        reader.set_position(arc.bit_table_start);
+        reader.set_position(arc.bit_table_start as usize);
         BitTableUtil::previous_bit_set(bit_index, reader)
     }
 
@@ -1172,7 +1176,7 @@ impl<O: Outputs> FSTMetadata<O> {
 
             meta_out.write_vint(empty_len as i32)?;
             debug_assert!(empty_output_bytes.len() <= i32::MAX as usize);
-            meta_out.write_bytes_range(&empty_output_bytes, 0, empty_len as i32)?;
+            meta_out.write_bytes_range(&empty_output_bytes, 0, empty_len as i32 as usize)?;
         } else {
             meta_out.write_byte(0)?;
         }
@@ -1201,10 +1205,10 @@ pub enum InputType {
 /// Reads bytes stored in an FST.
 pub trait BytesReader: DataInput {
     /// Get current read position.
-    fn get_position(&self) -> i64;
+    fn get_position(&self) -> usize;
 
     /// Set current read position.
-    fn set_position(&mut self, pos: i64);
+    fn set_position(&mut self, pos: usize);
 }
 
 pub enum BytesReaderEnum2<A, B> {
@@ -1224,7 +1228,7 @@ where
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         match self {
             BytesReaderEnum2::A(reader) => reader.read_bytes(b, offset, len),
             BytesReaderEnum2::B(reader) => reader.read_bytes(b, offset, len),
@@ -1261,14 +1265,14 @@ where
     A: BytesReader,
     B: BytesReader,
 {
-    fn get_position(&self) -> i64 {
+    fn get_position(&self) -> usize {
         match self {
             BytesReaderEnum2::A(reader) => reader.get_position(),
             BytesReaderEnum2::B(reader) => reader.get_position(),
         }
     }
 
-    fn set_position(&mut self, pos: i64) {
+    fn set_position(&mut self, pos: usize) {
         match self {
             BytesReaderEnum2::A(reader) => reader.set_position(pos),
             BytesReaderEnum2::B(reader) => reader.set_position(pos),
@@ -1375,7 +1379,7 @@ where
         // 1 KB blocks:
         let mut empty_bytes = get_on_heap_reader_writer(10)?;
         let num_bytes = meta_in.read_vint()?;
-        empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
+        empty_bytes.copy_bytes(meta_in, num_bytes as usize)?;
         empty_bytes.freeze()?;
         empty_bytes.init_reader();
         // De-serialize empty-string output:
@@ -1383,7 +1387,7 @@ where
         // NoOutputs uses 0 bytes when writing its output,
         // so we have to check here else BytesStore gets angry:
         if num_bytes > 0 {
-            reader.set_position((num_bytes - 1) as i64);
+            reader.set_position((num_bytes - 1) as usize);
         }
         empty_output = Some(outputs.read_final_output(&mut reader)?);
     }
@@ -1430,7 +1434,7 @@ pub(crate) fn read_presence_bytes<T: OutputsBound>(
 ) -> Result<()> {
     debug_assert!(arc.bytes_per_arc() > 0);
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-    arc.bit_table_start = reader.get_position();
+    arc.bit_table_start = reader.get_position() as i64;
     let skip = get_num_presence_bytes(arc.num_arcs());
     reader.skip_bytes(skip as i64)
 }

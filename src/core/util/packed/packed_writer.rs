@@ -83,7 +83,7 @@ where
         debug_assert!(block_count <= i32::MAX as i64);
         self.data_output.write_bytes_with_len(
             &self.next_blocks[0..block_count as usize],
-            block_count as i32,
+            block_count as usize,
         )?;
         self.next_values.fill(0);
         self.off = 0;

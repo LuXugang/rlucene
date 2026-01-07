@@ -324,7 +324,7 @@ where
         let mut id = [0u8; StringHelper::ID_LENGTH];
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
-        input.read_bytes(&mut id, 0, id_len as i32)?;
+        input.read_bytes(&mut id, 0, id_len)?;
         CodecUtil::check_index_header_suffix(input, &BigInt::from(generation).to_str_radix(36))?;
 
         let lucene_version =
@@ -410,7 +410,7 @@ where
             let mut segment_id = [0u8; StringHelper::ID_LENGTH];
             let segment_id_len = segment_id.len();
             debug_assert!(segment_id_len <= i32::MAX as usize);
-            input.read_bytes(&mut segment_id, 0, segment_id_len as i32)?;
+            input.read_bytes(&mut segment_id, 0, segment_id_len)?;
             let codec = Self::read_codec(input)?;
             let info = codec.segment_info_format().read(
                 directory.clone(),
@@ -454,7 +454,7 @@ where
                         let mut id = [0u8; StringHelper::ID_LENGTH];
                         let id_len = id.len();
                         debug_assert!(id_len <= i32::MAX as usize);
-                        input.read_bytes(&mut id, 0, id_len as i32)?;
+                        input.read_bytes(&mut id, 0, id_len)?;
                         Some(id)
                     },
                     0 => None,
@@ -683,7 +683,7 @@ where
                 )));
             }
             debug_assert!(segment_id_len <= i32::MAX as usize);
-            out.write_bytes_with_len(segment_id, segment_id_len as i32)?;
+            out.write_bytes_with_len(segment_id, segment_id_len)?;
             out.write_string(LATEST_CODEC.get_name())?;
 
             CodecUtil::write_be_long(out, si_per_commit.get_del_gen())?;
@@ -717,7 +717,7 @@ where
                     "Invalid SegmentCommitInfo#id: {sci_id:?}"
                 );
                 debug_assert!(sci_id_len <= i32::MAX as usize);
-                out.write_bytes_range(sci_id, 0, sci_id_len as i32)?;
+                out.write_bytes_range(sci_id, 0, sci_id_len)?;
             } else {
                 out.write_byte(0)?;
             }
@@ -1812,7 +1812,7 @@ mod tests {
                         let mut output = corrupt_dir.create_output(&file, &io_context)?;
 
                         let mut input_length = IndexInput::length(&input);
-                        let corrupt_index = TestUtil::next_long(&mut random, 0, input_length - 1);
+                        let corrupt_index = TestUtil::next_usize(&mut random, 0, input_length - 1);
                         output.copy_bytes(&mut input, corrupt_index)?;
 
                         let byte = DataInput::read_byte(&mut input)?;
@@ -1820,7 +1820,7 @@ mod tests {
                         let corrupt_byte = byte.wrapping_add(value);
                         output.write_byte(corrupt_byte)?;
                         input_length = IndexInput::length(&input);
-                        let file_pointer = input.get_file_pointer();
+                        let file_pointer = input.get_file_pointer()?;
                         output.copy_bytes(&mut input, input_length - file_pointer)?;
                     }
                     let input = corrupt_dir.open_input(&file, &io_context)?;

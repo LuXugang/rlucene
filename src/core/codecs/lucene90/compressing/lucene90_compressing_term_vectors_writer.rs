@@ -122,7 +122,7 @@ where
             CodecUtil::index_header_length(
                 &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
                 segment_suffix
-            ) as i64,
+            ),
             meta_stream.get_file_pointer()
         );
 
@@ -138,7 +138,7 @@ where
             segment_suffix,
         )?;
         debug_assert_eq!(
-            CodecUtil::index_header_length(format_name, segment_suffix) as i64,
+            CodecUtil::index_header_length(format_name, segment_suffix),
             vectors_stream.get_file_pointer()
         );
 
@@ -210,7 +210,7 @@ where
         index
     }
     fn trigger_flush(&self) -> bool {
-        self.term_suffixes.size() >= self.chunk_size as i64
+        self.term_suffixes.size() >= self.chunk_size as usize
             || self.pending_docs.len() >= self.max_docs_per_chunk as usize
     }
     fn flush(&mut self, force: bool) -> Result<()> {
@@ -228,8 +228,10 @@ where
         }
 
         // write the index file
-        self.index_writer
-            .write_index(chunk_docs as i32, self.vectors_stream.get_file_pointer())?;
+        self.index_writer.write_index(
+            chunk_docs as i32,
+            self.vectors_stream.get_file_pointer() as i64,
+        )?;
 
         let doc_base = self.num_docs - chunk_docs as i32;
         self.vectors_stream.write_vint(doc_base)?;
@@ -262,7 +264,7 @@ where
 
             // compress terms and payloads and write them to the output
             // using ByteBuffersDataInput reduce memory copy
-            let mut input = self.term_suffixes.get_data_input_ref();
+            let mut input = self.term_suffixes.get_data_input_ref()?;
             self.compressor
                 .compress(&mut input, &mut self.vectors_stream)?;
         }
@@ -363,7 +365,7 @@ where
         writer.finish()?;
 
         self.vectors_stream
-            .write_vlong(self.scratch_buffer.size())?;
+            .write_vlong(self.scratch_buffer.size() as i64)?;
         self.scratch_buffer.copy_to(&mut self.vectors_stream)?;
 
         Ok(())
@@ -743,7 +745,7 @@ where
         let prefix: usize = if self.last_term.length == 0 {
             0
         } else {
-            StringHelper::bytes_difference(&self.last_term, term)? as usize
+            StringHelper::bytes_difference(&self.last_term, term)?
         };
 
         let suffix_len = term.length - prefix;
@@ -764,11 +766,8 @@ where
         cur_field.add_term(freq, prefix, suffix_len);
 
         debug_assert!((term.offset + prefix) <= i32::MAX as usize);
-        self.term_suffixes.write_bytes_range(
-            &term.bytes,
-            (term.offset + prefix) as i32,
-            suffix_len as i32,
-        )?;
+        self.term_suffixes
+            .write_bytes_range(&term.bytes, term.offset + prefix, suffix_len)?;
         // copy last term
         if self.last_term.bytes.len() < term.length {
             self.last_term.bytes = vec![0; ArrayUtil::oversize(term.length, 1)];
@@ -822,7 +821,7 @@ where
             && let Some(p) = payload
         {
             self.payload_bytes
-                .write_bytes_range(&p.bytes, p.offset as i32, p.length as i32)?;
+                .write_bytes_range(&p.bytes, p.offset, p.length)?;
         }
         Ok(())
     }
@@ -844,7 +843,7 @@ where
 
         self.index_writer.finish(
             num_docs,
-            self.vectors_stream.get_file_pointer(),
+            self.vectors_stream.get_file_pointer() as i64,
             &mut self.meta_stream,
             dir,
         )?;
@@ -904,7 +903,7 @@ where
                         let payload_len = positions.read_vint()?;
                         self.payload_lengths_buf[pay_start + i] = payload_len;
                         self.payload_bytes
-                            .copy_bytes(positions, payload_len as i64)?;
+                            .copy_bytes(positions, payload_len as usize)?;
                     } else {
                         self.payload_lengths_buf[pay_start + i] = 0;
                     }

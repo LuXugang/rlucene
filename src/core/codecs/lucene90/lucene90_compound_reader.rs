@@ -31,8 +31,8 @@ use crate::core::util::{StringHelper, TryIntoInt};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
-    pub offset: i64,
-    pub length: i64,
+    pub offset: usize,
+    pub length: usize,
 }
 /// Provides access to a compound stream. This struct implements a directory but
 /// is limited to read-only operations. Any directory methods that attempt to
@@ -81,9 +81,9 @@ where
             .map(|e| e.offset + e.length)
             .max()
             .unwrap_or_else(|| {
-                CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, "") as i64
+                CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, "")
             })
-            + CodecUtil::footer_length() as i64;
+            + CodecUtil::footer_length();
 
         CodecUtil::check_index_header(
             &mut handle,
@@ -155,8 +155,8 @@ where
                     "Duplicate cfs entry id={id} in CFS (resource={entries_stream})"
                 )));
             }
-            let offset = entries_stream.read_long()?;
-            let length = entries_stream.read_long()?;
+            let offset = entries_stream.read_long()?.try_convert()?;
+            let length = entries_stream.read_long()?.try_convert()?;
             mapping.insert(id, FileEntry { offset, length });
         }
         Ok(mapping)
@@ -199,7 +199,7 @@ where
             .entries
             .get(stripped_name)
             .ok_or_else(|| LuceneError::not_found(format!("{name} not found")))?;
-        entry.length.try_convert()
+        Ok(entry.length)
     }
 
     fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {

@@ -167,7 +167,7 @@ where
             } else {
                 (1i64 << self.bits_per_value) - 1
             };
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
             for i in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
                 if self.bits_per_value > i32::BITS as i32 {
                     self.buffer[i] = slice.read_long(offset)? & mask;
@@ -178,13 +178,13 @@ where
                 } else {
                     self.buffer[i] = slice.read_byte(offset)? as i64;
                 }
-                offset += bytes_per_value as i64;
+                offset += bytes_per_value as usize;
             }
         } else if self.bits_per_value < 8 {
             // bitsPerValue is 1, 2 or 4
             let values_per_long = u64::BITS as i32 / self.bits_per_value;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
             let mut i = 0;
             for _ in 0..(2 * self.bits_per_value) {
                 let bits = slice.read_long(offset)?;
@@ -192,13 +192,13 @@ where
                     self.buffer[i] = (bits as u64 >> (j * self.bits_per_value)) as i64 & mask;
                     i += 1;
                 }
-                offset += BitUtil::LONG_BYTES as i64;
+                offset += BitUtil::LONG_BYTES;
             }
         } else {
             // bitsPerValue is 12, 20 or 28; read values 2 by 2
             let num_bytes_for_2_values = (self.bits_per_value * 2) / i8::BITS as i32;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
+            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
             for i in (0..DirectReader::MERGE_BUFFER_SIZE as usize).step_by(2) {
                 let l = if num_bytes_for_2_values > BitUtil::INT_BYTES as i32 {
                     slice.read_long(offset)?
@@ -207,7 +207,7 @@ where
                 };
                 self.buffer[i] = l & mask;
                 self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
-                offset += num_bytes_for_2_values as i64;
+                offset += num_bytes_for_2_values as usize;
             }
         }
         Ok(())
@@ -273,7 +273,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
+        let result = (slice.read_byte((self.offset + (index >> 3)) as usize)? >> shift) & 0x1;
         Ok(result as i64)
     }
 }
@@ -317,7 +317,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte(self.offset + (index >> 2))?;
+        let byte = slice.read_byte((self.offset + (index >> 2)) as usize)?;
         let result = (byte >> shift) & 0x3;
         Ok(result as i64)
     }
@@ -362,7 +362,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte(self.offset + (index >> 1))?;
+        let byte = slice.read_byte((self.offset + (index >> 1)) as usize)?;
         let result = (byte >> shift) & 0xF;
         Ok(result as i64)
     }
@@ -406,7 +406,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte(self.offset + index)?;
+        let byte = slice.read_byte((self.offset + index) as usize)?;
         let result = byte;
         Ok(result as i64)
     }
@@ -452,7 +452,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let short_val = slice.read_short(self.offset + off)?;
+        let short_val = slice.read_short((self.offset + off) as usize)?;
         let result = ((short_val as u16) >> shift) & 0xFFF;
         Ok(result as i64)
     }
@@ -496,7 +496,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = slice.read_short(self.offset + (index << 1))? as u16;
+        let result = slice.read_short((self.offset + (index << 1)) as usize)? as u16;
         Ok(result as i64)
     }
 }
@@ -540,7 +540,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int(self.offset + off)?;
+        let int_val = slice.read_int((self.offset + off) as usize)?;
         let result = (int_val >> shift) & 0xFFFFF;
         Ok(result as i64)
     }
@@ -584,7 +584,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int(self.offset + index * 3)?;
+        let int_val = slice.read_int((self.offset + index * 3) as usize)?;
         let result = int_val & 0xFFFFFF;
         Ok(result as i64)
     }
@@ -630,7 +630,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int(self.offset + off)?;
+        let int_val = slice.read_int((self.offset + off) as usize)?;
         let result = (int_val >> shift) & 0xFFFFFFF;
         Ok(result as i64)
     }
@@ -674,7 +674,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int(self.offset + (index << 2))?;
+        let int_val = slice.read_int((self.offset + (index << 2)) as usize)?;
         let result = int_val as u32;
         Ok(result as i64)
     }
@@ -719,7 +719,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long(self.offset + index * 5)?;
+        let long_val = slice.read_long((self.offset + index * 5) as usize)?;
         let result = long_val & 0xFFFFFFFFFF;
         Ok(result)
     }
@@ -764,7 +764,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long(self.offset + index * 6)?;
+        let long_val = slice.read_long((self.offset + index * 6) as usize)?;
         let result = long_val & 0xFFFFFFFFFFFF;
         Ok(result)
     }
@@ -809,7 +809,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long(self.offset + index * 7)?;
+        let long_val = slice.read_long((self.offset + index * 7) as usize)?;
         let result = long_val & 0xFFFFFFFFFFFFFF;
         Ok(result)
     }
@@ -854,7 +854,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = slice.read_long(self.offset + (index << 3))?;
+        let result = slice.read_long((self.offset + (index << 3)) as usize)?;
         Ok(result)
     }
 }

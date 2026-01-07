@@ -17,26 +17,26 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
-use crate::core::util::error::lucene_error;
 use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
 
 pub struct DummyBytesReader;
 
 impl DataInput for DummyBytesReader {
-    fn read_byte(&mut self) -> lucene_error::Result<u8> {
+    fn read_byte(&mut self) -> Result<u8> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes",
         ))
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> lucene_error::Result<()> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes",
         ))
     }
 
-    fn skip_bytes(&mut self, _num_bytes: i64) -> lucene_error::Result<()> {
+    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support skipping bytes",
         ))
@@ -50,9 +50,9 @@ impl Display for DummyBytesReader {
 }
 
 impl BytesReader for DummyBytesReader {
-    fn get_position(&self) -> i64 {
+    fn get_position(&self) -> usize {
         0
     }
 
-    fn set_position(&mut self, _pos: i64) {}
+    fn set_position(&mut self, _pos: usize) {}
 }

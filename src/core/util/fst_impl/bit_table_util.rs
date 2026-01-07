@@ -17,6 +17,7 @@
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
+
 /// Static helper methods for `FST::Arc::BitTable`.
 ///
 /// # Experimental
@@ -176,6 +177,7 @@ impl BitTableUtil {
                 return Ok(-1);
             }
             byte_index -= 1;
+            // FST.BytesReader implementations support negative skip.
             reader.skip_bytes(-2)?;
             i = reader.read_byte()? as i32 & 0xFF;
         }
@@ -213,6 +215,7 @@ mod tests {
     use rand::Rng;
 
     use crate::core::store::DataInput;
+
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
     use crate::core::util::fst_impl::fst::BytesReader;
@@ -350,7 +353,7 @@ mod tests {
 
     struct BytesReaderImpl<'a> {
         bits: &'a [u8],
-        position: i32,
+        position: usize,
     }
     impl<'a> BytesReaderImpl<'a> {
         fn new(bits: &'a [u8]) -> Self {
@@ -360,17 +363,21 @@ mod tests {
 
     impl DataInput for BytesReaderImpl<'_> {
         fn read_byte(&mut self) -> Result<u8> {
-            let v = self.bits[self.position as usize];
+            let v = self.bits[self.position];
             self.position += 1;
             Ok(v)
         }
 
-        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+        fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
             Err(LuceneError::unsupported_operation("Not implemented"))
         }
 
         fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-            self.position += num_bytes as i32;
+            if num_bytes >= 0 {
+                self.position += num_bytes as usize;
+            } else {
+                self.position -= (-num_bytes) as usize;
+            }
             Ok(())
         }
     }
@@ -382,11 +389,11 @@ mod tests {
     }
 
     impl BytesReader for BytesReaderImpl<'_> {
-        fn get_position(&self) -> i64 {
-            self.position as i64
+        fn get_position(&self) -> usize {
+            self.position
         }
-        fn set_position(&mut self, pos: i64) {
-            self.position = pos as i32;
+        fn set_position(&mut self, pos: usize) {
+            self.position = pos;
         }
     }
 }

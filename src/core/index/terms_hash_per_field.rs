@@ -122,7 +122,7 @@ impl TermsHashPerField {
             .unwrap()
             .get_byte_starts()[term_id]
             + stream * ByteSlicePool::FIRST_LEVEL_SIZE;
-        reader.init(init_offset, addr)
+        reader.init(init_offset as usize, addr as usize)
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs
     /// to the results. This method must not be called twice unless
@@ -151,17 +151,17 @@ impl TermsHashPerField {
         let upto = term_stream_address_buffer[stream_address];
         let mut block_index = upto >> BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
-        let mut bytes = byte_pool.get_buffer_mut(block_index);
+        let mut bytes = byte_pool.get_buffer_mut(block_index as usize);
         let mut offset = upto & BYTE_BLOCK_MASK;
         if bytes[offset as usize] != 0 {
             // End of slice; allocate a new one
             offset = self
                 .slice_pool
-                .alloc_slice(block_index, offset, byte_pool)?;
+                .alloc_slice(block_index as usize, offset, byte_pool)?;
             term_stream_address_buffer[stream_address] = offset + byte_pool.byte_offset;
             // try update bytes
             block_index = byte_pool.buffer_upto;
-            bytes = byte_pool.get_buffer_mut(block_index);
+            bytes = byte_pool.get_buffer_mut(block_index as usize);
         }
         bytes[offset as usize] = b;
         term_stream_address_buffer[stream_address] += 1;
@@ -185,7 +185,7 @@ impl TermsHashPerField {
         {
             let mut block_index = upto >> BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
-            let slice = byte_pool.get_buffer_mut(block_index);
+            let slice = byte_pool.get_buffer_mut(block_index as usize);
             let mut slice_offset = (upto & BYTE_BLOCK_MASK) as usize;
 
             while offset < end && slice[slice_offset] == 0 {
@@ -198,7 +198,7 @@ impl TermsHashPerField {
             while offset < end {
                 debug_assert!(slice_offset <= i32::MAX as usize);
                 let offset_and_length = self.slice_pool.alloc_known_size_slice(
-                    block_index,
+                    block_index as usize,
                     slice_offset as i32,
                     byte_pool,
                 )?;
@@ -206,7 +206,7 @@ impl TermsHashPerField {
                 let slice_length = offset_and_length & 0xff;
                 let buffer_upto = byte_pool.buffer_upto;
                 block_index = buffer_upto;
-                let slice = byte_pool.get_buffer_mut(buffer_upto);
+                let slice = byte_pool.get_buffer_mut(buffer_upto as usize);
                 let write_length = std::cmp::min(slice_length as usize - 1, end - offset);
                 slice.copy_from(&b[offset..offset + write_length], slice_offset);
                 slice_offset += write_length;

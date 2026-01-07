@@ -173,8 +173,7 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
         encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
         let block_count =
             Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
-        debug_assert!(block_count <= i32::MAX as i64);
-        out.write_bytes_with_len(blocks, block_count as i32)?;
+        out.write_bytes_with_len(blocks, block_count as usize)?;
         Ok(())
     }
 }
@@ -213,8 +212,7 @@ pub(crate) fn write_values(
     encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
     let block_count =
         Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
-    debug_assert!(block_count <= i32::MAX as i64);
-    out.write_bytes_with_len(blocks, block_count as i32)?;
+    out.write_bytes_with_len(blocks, block_count as usize)?;
     Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.

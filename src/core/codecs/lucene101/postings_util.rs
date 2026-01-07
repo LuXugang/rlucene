@@ -27,12 +27,11 @@ impl PostingsUtil {
         doc_in: &mut impl IndexInput,
         doc_buffer: &mut [i32],
         freq_buffer: &mut [i32],
-        num: i32,
+        num: usize,
         index_has_freq: bool,
         decode_freq: bool,
     ) -> Result<()> {
         GroupVIntUtil::read_group_vints_i32(doc_in, doc_buffer, num)?;
-        let num = num as usize;
         if index_has_freq && decode_freq {
             for i in 0..num {
                 freq_buffer[i] = doc_buffer[i] & 0x01;
@@ -131,7 +130,7 @@ mod tests {
                 &mut input,
                 &mut restored_docs,
                 &mut restored_freqs,
-                size as i32,
+                size,
                 true,
                 true,
             )?;

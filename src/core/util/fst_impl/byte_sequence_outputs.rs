@@ -22,7 +22,7 @@ use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
-use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper};
+use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
 
 thread_local! {
     static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> = BytesRef::default();
@@ -118,17 +118,17 @@ impl Outputs for ByteSequenceOutputs {
 
     fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
         out.write_vint(output.length as i32)?;
-        out.write_bytes_range(&output.bytes, output.offset as i32, output.length as i32)
+        out.write_bytes_range(&output.bytes, output.offset, output.length)
     }
 
     fn read(&self, input: &mut impl DataInput) -> Result<Self::V> {
-        let len = input.read_vint()?;
+        let len = input.read_vint()?.try_convert()?;
         if len == 0 {
             Ok(NO_OUTPUT.with(|rc| rc.clone()))
         } else {
-            let mut output = vec![0u8; len as usize];
+            let mut output = vec![0u8; len];
             input.read_bytes(&mut output, 0, len)?;
-            Ok(BytesRef::from_slice(Arc::new(output), 0, len as usize))
+            Ok(BytesRef::from_slice(Arc::new(output), 0, len))
         }
     }
 

@@ -17,17 +17,17 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
-use crate::core::util::ByteBlockPool;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
+use crate::core::util::{ByteBlockPool, TryIntoInt};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
     pub(crate) buf: ByteBlockPool,
     // the difference between the FST node address and the hash table copied
     // node address
-    pos_delta: i64,
-    pos: i64,
+    pos_delta: usize,
+    pos: usize,
 }
 impl ByteBlockPoolReverseBytesReader {
     pub fn new(buf: ByteBlockPool) -> Self {
@@ -37,30 +37,38 @@ impl ByteBlockPoolReverseBytesReader {
             pos: 0,
         }
     }
-    pub fn set_pos_delta(&mut self, pos_delta: i64) {
+    pub fn set_pos_delta(&mut self, pos_delta: usize) {
         self.pos_delta = pos_delta;
     }
 }
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
-        let b = self.buf.read_byte(self.pos);
-        self.pos -= 1;
+        let b = self.buf.read_byte(self.pos.try_convert()?);
+        if self.pos > 0 {
+            self.pos -= 1;
+        }
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        let offset = offset as usize;
-        let len = len as usize;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         for i in 0..len {
-            b[offset + i] = self.buf.read_byte(self.pos);
-            self.pos -= 1;
+            b[offset + i] = self.buf.read_byte(self.pos.try_convert()?);
+            if self.pos > 0 {
+                self.pos -= 1;
+            }
         }
         Ok(())
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        self.pos -= num_bytes;
+        let num_bytes = num_bytes.try_convert()?;
+        self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+                "underflow pos {}, num_bytes {}",
+                self.pos, num_bytes
+            ))
+        })?;
         Ok(())
     }
 }
@@ -72,11 +80,11 @@ impl Display for ByteBlockPoolReverseBytesReader {
 }
 
 impl BytesReader for ByteBlockPoolReverseBytesReader {
-    fn get_position(&self) -> i64 {
+    fn get_position(&self) -> usize {
         self.pos + self.pos_delta
     }
 
-    fn set_position(&mut self, pos: i64) {
+    fn set_position(&mut self, pos: usize) {
         self.pos = pos - self.pos_delta;
     }
 }

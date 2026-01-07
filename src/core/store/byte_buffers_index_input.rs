@@ -52,15 +52,15 @@ where
         DataInput::read_byte(&mut self.data_input)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         DataInput::read_bytes(&mut self.data_input, b, offset, len)
     }
 
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: i32,
-        len: i32,
+        offset: usize,
+        len: usize,
         _use_buffer: bool,
     ) -> Result<()> {
         self.data_input
@@ -75,7 +75,7 @@ where
         DataInput::read_int(&mut self.data_input)
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         self.data_input.read_group_vint(dst, offset)
     }
 
@@ -91,11 +91,11 @@ where
         DataInput::read_long(&mut self.data_input)
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
         self.data_input.read_longs(dst, offset, len)
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
         self.data_input.read_floats(dst, offset, len)
     }
 
@@ -127,12 +127,12 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: i64) -> Result<()> {
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         debug_assert!(self.is_index_input());
-        IndexInput::seek(self, pos)
+        IndexInput::seek(self, _pos)
     }
 
-    fn get_file_pointer_in_data_input(&self) -> i64 {
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         debug_assert!(self.is_index_input());
         IndexInput::get_file_pointer(self)
     }
@@ -141,27 +141,27 @@ impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]>,
 {
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         RandomAccessInput::length(&self.data_input)
     }
 
-    fn read_byte(&mut self, pos: i64) -> Result<u8> {
+    fn read_byte(&mut self, pos: usize) -> Result<u8> {
         RandomAccessInput::read_byte(&mut self.data_input, pos)
     }
 
-    fn read_short(&mut self, pos: i64) -> Result<i16> {
+    fn read_short(&mut self, pos: usize) -> Result<i16> {
         RandomAccessInput::read_short(&mut self.data_input, pos)
     }
 
-    fn read_int(&mut self, pos: i64) -> Result<i32> {
+    fn read_int(&mut self, pos: usize) -> Result<i32> {
         RandomAccessInput::read_int(&mut self.data_input, pos)
     }
 
-    fn read_long(&mut self, pos: i64) -> Result<i64> {
+    fn read_long(&mut self, pos: usize) -> Result<i64> {
         RandomAccessInput::read_long(&mut self.data_input, pos)
     }
 
-    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
 }
@@ -195,21 +195,21 @@ impl<B> IndexInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> Result<usize> {
         self.data_input.position()
     }
 
-    fn seek(&mut self, pos: i64) -> Result<()> {
+    fn seek(&mut self, pos: usize) -> Result<()> {
         self.data_input.seek(pos)
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.data_input.length()
     }
 
     type Slice = ByteBuffersIndexInput<B>;
 
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
@@ -218,7 +218,7 @@ where
 
     type RandomAccessSlice = Self::Slice;
 
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
         self.slice("", offset, length)
     }
 }

@@ -34,7 +34,7 @@ use crate::core::util::bkd::bkd_writer::{
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
-use crate::core::util::{SliceCopyOps, ToInt};
+use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory, new_directory_shared, random, random_from_seed,
 };
@@ -58,10 +58,10 @@ fn get_point_values<I: IndexInput>(index_input: Arc<Mutex<I>>) -> Result<BKDRead
     let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
         (
             DataInput::read_long(meta_in)?,
-            DataInput::read_long(meta_in)?,
+            DataInput::read_long(meta_in)?.try_convert()?,
         )
     } else {
-        let index_start_pointer = meta_in.get_file_pointer();
+        let index_start_pointer = meta_in.get_file_pointer()?;
         let min_leaf_block_fp = meta_in.read_vlong()?;
         meta_in.seek(index_start_pointer)?;
         (min_leaf_block_fp, index_start_pointer)
@@ -949,7 +949,10 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
                 .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
 
             let finalizer = writer.finish(&mut out)?.unwrap();
-            to_merge.as_mut().unwrap().push(out.get_file_pointer());
+            to_merge
+                .as_mut()
+                .unwrap()
+                .push(out.get_file_pointer() as i64);
             writer.write_index(&mut out, None, &finalizer)?;
             values_in_this_seg = TestUtil::next_usize(random, num_values / 10, num_values / 2);
             seg_count = 0;
@@ -981,7 +984,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     if let Some(to_merge) = &mut to_merge {
         if seg_count > 0 {
             let finalizer = writer.finish(&mut out)?.unwrap();
-            to_merge.push(out.get_file_pointer());
+            to_merge.push(out.get_file_pointer() as i64);
             writer.write_index(&mut out, None, &finalizer)?;
             let cur_doc_id_base = last_doc_id_base;
             doc_maps
@@ -1010,7 +1013,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
         let mut readers = Vec::new();
         for fp in to_merge {
-            input.lock().seek(*fp)?;
+            input.lock().seek(*fp as usize)?;
             readers.push(get_point_values(input.clone())?);
         }
 

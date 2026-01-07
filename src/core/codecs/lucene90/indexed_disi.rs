@@ -265,13 +265,13 @@ where
                 self.jump_table_entry_count - 1
             };
 
-            let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
+            let jump_pos = in_range_block_index as usize * BitUtil::INT_BYTES * 2;
             jump_table_rc.with_mut(|jump_table| {
                 let index = jump_table.read_int(jump_pos)?;
-                let offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
+                let offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES)?;
                 // -1 to compensate for the always-added 1 in readBlockHeader
                 self.next_block_index = index - 1;
-                self.slice.with_mut(|slice| slice.seek(offset as i64))?;
+                self.slice.with_mut(|slice| slice.seek(offset as usize))?;
                 Ok::<(), LuceneError>(())
             })?;
             self.read_block_header()?;
@@ -279,7 +279,8 @@ where
         }
         // Fallback to iteration of blocks
         loop {
-            self.slice.with_mut(|slice| slice.seek(self.block_end))?;
+            self.slice
+                .with_mut(|slice| slice.seek(self.block_end as usize))?;
             self.read_block_header()?;
             if self.block < target_block {
                 continue;
@@ -301,15 +302,15 @@ where
 
             if num_values <= MAX_ARRAY_LENGTH {
                 self.method = Method::Sparse;
-                self.block_end = slice.get_file_pointer() + (num_values << 1) as i64;
+                self.block_end = slice.get_file_pointer()? as i64 + (num_values << 1) as i64;
                 self.next_exist_doc_in_block = -1;
             } else if num_values == BLOCK_SIZE {
                 self.method = Method::ALL;
-                self.block_end = slice.get_file_pointer();
+                self.block_end = slice.get_file_pointer()? as i64;
                 self.gap = self.block - self.index - 1;
             } else {
                 self.method = Method::Dense;
-                self.dense_bitmap_offset = slice.get_file_pointer()
+                self.dense_bitmap_offset = slice.get_file_pointer()? as i64
                     + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
                 self.block_end = self.dense_bitmap_offset + (1 << 13);
                 // Performance consideration: All rank (default 128 * 16 bits) are
@@ -327,7 +328,7 @@ where
                     let rank_table_len = self.dense_rank_table.as_ref().unwrap().len();
                     debug_assert!(rank_table_len <= i32::MAX as usize);
                     if let Some(rank_table) = self.dense_rank_table.as_mut() {
-                        slice.read_bytes(rank_table, 0, rank_table_len as i32)?;
+                        slice.read_bytes(rank_table, 0, rank_table_len)?;
                     }
                 }
 
@@ -515,7 +516,7 @@ impl MethodBehavior for SparseMethod {
 
                     if doc != target_in_block {
                         disi.index -= 1;
-                        let fp = slice.get_file_pointer();
+                        let fp = slice.get_file_pointer()?;
                         slice.seek(fp - 2)?;
                         break;
                     }
@@ -825,7 +826,7 @@ where
         if prev_block != -1 && block != prev_block {
             add_jumps(
                 &mut jumps,
-                out.get_file_pointer() - origo,
+                (out.get_file_pointer() - origo) as i64,
                 total_cardinality,
                 jump_block_index,
                 prev_block + 1,
@@ -847,7 +848,7 @@ where
     if block_cardinality > 0 {
         add_jumps(
             &mut jumps,
-            out.get_file_pointer() - origo,
+            (out.get_file_pointer() - origo) as i64,
             total_cardinality,
             jump_block_index,
             prev_block + 1,
@@ -868,7 +869,7 @@ where
     // block after all real blocks.
     add_jumps(
         &mut jumps,
-        out.get_file_pointer() - origo,
+        (out.get_file_pointer() - origo) as i64,
         total_cardinality,
         last_block,
         last_block + 1,
@@ -910,7 +911,11 @@ pub fn create_block_slice<I: IndexInput>(
     } else {
         jump_table_entry_count as i64 * BitUtil::INT_BYTES as i64 * 2
     };
-    slice.slice(slice_description, offset, length - jump_table_bytes)
+    slice.slice(
+        slice_description,
+        offset as usize,
+        (length - jump_table_bytes) as usize,
+    )
 }
 /// Helper method for using [`IndexedDISI::from_components`].
 /// Creates a `RandomAccessInput` covering only the jump-table data, or
@@ -941,7 +946,10 @@ pub fn create_jump_table<I: IndexInput>(
     } else {
         let jump_table_bytes = (jump_table_entry_count as i64) * BitUtil::INT_BYTES as i64 * 2;
         slice
-            .random_access_slice(offset + length - jump_table_bytes, jump_table_bytes)
+            .random_access_slice(
+                (offset + length - jump_table_bytes) as usize,
+                jump_table_bytes as usize,
+            )
             .map(Some)
     }
 }
@@ -967,7 +975,7 @@ where
                 let rank = create_rank(&buffer, dense_rank_power as u8);
                 let rank_len = rank.len();
                 debug_assert!(rank_len <= i32::MAX as usize);
-                out.write_bytes_with_len(&rank, rank_len as i32)?;
+                out.write_bytes_with_len(&rank, rank_len)?;
             }
             for word in buffer.get_bits() {
                 out.write_long(*word)?;
@@ -1101,7 +1109,7 @@ where
     let offset =
         disi.dense_bitmap_offset + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
     let rank_word = disi.slice.with_mut(|slice| {
-        slice.seek(offset)?;
+        slice.seek(offset as usize)?;
         slice.read_long()
     })?;
     let dense_noo = rank + rank_word.count_ones() as i32;
@@ -1293,7 +1301,7 @@ mod tests {
         let mut disi = IndexedDISI::new(
             &input,
             0,
-            length,
+            length as i64,
             jump_count as i32,
             dense_rank_power,
             cardinality as i64,
@@ -1347,7 +1355,7 @@ mod tests {
             &mut random,
             &full_input,
             dense_rank_power,
-            length,
+            length as i64,
             jump_table_entry_count,
             cardinality as i64,
             BLOCKS as i32,
@@ -1431,7 +1439,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 cardinality as i64,
@@ -1441,7 +1449,7 @@ mod tests {
             let mut disi2 = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 cardinality as i64,
@@ -1550,7 +1558,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 MAX_ARRAY_LENGTH as i64,
@@ -1574,7 +1582,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 (MAX_ARRAY_LENGTH + 1) as i64,
@@ -1668,7 +1676,7 @@ mod tests {
         let _ = IndexedDISI::new(
             &input,
             0,
-            length,
+            length as i64,
             jump_count,
             read_power,
             set.cardinality() as i64,
@@ -1704,7 +1712,7 @@ mod tests {
         let mut disi = IndexedDISI::new(
             &input,
             0,
-            length,
+            length as i64,
             jump_table_entry_count,
             dense_rank_power,
             cardinality,
@@ -1779,7 +1787,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 cardinality,
@@ -1794,7 +1802,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 cardinality,
@@ -1809,7 +1817,7 @@ mod tests {
             let mut disi = IndexedDISI::new(
                 &input,
                 0,
-                length,
+                length as i64,
                 jump_table_entry_count,
                 dense_rank_power,
                 cardinality,

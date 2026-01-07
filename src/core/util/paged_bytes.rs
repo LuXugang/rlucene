@@ -90,21 +90,11 @@ impl PagedBytes {
             }
             let current_block = self.current_block.as_mut().unwrap();
             if left < byte_count {
-                input.read_bytes_with_buffer(
-                    current_block,
-                    self.upto as i32,
-                    left as i32,
-                    false,
-                )?;
+                input.read_bytes_with_buffer(current_block, self.upto, left, false)?;
                 self.upto = self.block_size;
                 byte_count -= left;
             } else {
-                input.read_bytes_with_buffer(
-                    current_block,
-                    self.upto as i32,
-                    byte_count as i32,
-                    false,
-                )?;
+                input.read_bytes_with_buffer(current_block, self.upto, byte_count, false)?;
                 self.upto += byte_count;
                 break;
             }
@@ -319,16 +309,14 @@ impl DataInput for PagedBytesDataInput {
         Ok(byte)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, len: usize) -> Result<()> {
         assert!(
-            b.len() >= (offset + len) as usize,
+            b.len() >= (offset + len),
             "b.len()={}, offset={}, len={}",
             b.len(),
             offset,
             len
         );
-        let mut offset = offset as usize;
-        let len = len as usize;
         let offset_end = offset + len;
 
         loop {
@@ -395,9 +383,9 @@ impl DataOutput for PagedBytesDataOutput {
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], mut offset: usize, length: usize) -> Result<()> {
         assert!(
-            b.len() >= (offset + length) as usize,
+            b.len() >= (offset + length),
             "b.len={} offset={} length={}",
             b.len(),
             offset,
@@ -414,8 +402,6 @@ impl DataOutput for PagedBytesDataOutput {
             self.paged_bytes.current_block = Some(vec![0u8; self.paged_bytes.block_size]);
             self.paged_bytes.upto = 0;
         }
-        let mut offset = offset as usize;
-        let length = length as usize;
         let offset_end = offset + length;
 
         loop {
@@ -511,7 +497,7 @@ mod tests {
                     } else {
                         let chunk =
                             std::cmp::min(random.random_range(1..1000), num_bytes - written);
-                        out.write_bytes_range(&answer, written as i32, chunk as i32)?;
+                        out.write_bytes_range(&answer, written, chunk)?;
                         written += chunk;
                     }
                 }
@@ -532,7 +518,7 @@ mod tests {
                     read += 1;
                 } else {
                     let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
-                    clone_input.read_bytes(&mut verify, read as i32, chunk as i32)?;
+                    clone_input.read_bytes(&mut verify, read, chunk)?;
                     read += chunk;
                 }
             }
@@ -591,7 +577,7 @@ mod tests {
                     written += 1;
                 } else {
                     let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - written);
-                    out.write_bytes_range(&answer, written as i32, chunk as i32)?;
+                    out.write_bytes_range(&answer, written, chunk)?;
                     written += chunk;
                 }
             }
@@ -608,7 +594,7 @@ mod tests {
                     read += 1;
                 } else {
                     let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
-                    input.read_bytes(&mut verify, read as i32, chunk as i32)?;
+                    input.read_bytes(&mut verify, read, chunk)?;
                     read += chunk;
                 }
             }
@@ -660,19 +646,19 @@ mod tests {
             *byte = i as u8;
         }
 
-        let extra = TestUtil::next_int(&mut random, 1, block_size as i32 * 3) as i64;
-        let num_bytes: i64 = (1i64 << 31) + extra;
+        let extra = TestUtil::next_usize(&mut random, 1, block_size * 3);
+        let num_bytes = (1 << 31) + extra;
 
         let mut paged_bytes = PagedBytes::new(block_bits as usize);
         {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
 
-            let mut written: i64 = 0;
+            let mut written = 0;
             while written < num_bytes {
                 assert_eq!(written, out.get_file_pointer());
-                let len = std::cmp::min(arr.len() as i64, num_bytes - written) as usize;
-                out.write_bytes_range(&arr, 0, len as i32)?;
-                written += len as i64;
+                let len = std::cmp::min(arr.len(), num_bytes - written) as usize;
+                out.write_bytes_range(&arr, 0, len)?;
+                written += len;
             }
             assert_eq!(num_bytes, out.get_file_pointer());
         }
@@ -682,16 +668,16 @@ mod tests {
         let reader = paged_bytes.freeze(random.random_bool(0.5))?;
 
         let test_offsets = [
-            0_i64,
-            i32::MAX as i64,
+            0,
+            i32::MAX as usize,
             num_bytes - 1,
-            TestUtil::next_long(&mut random, 1, num_bytes - 2),
+            TestUtil::next_usize(&mut random, 1, num_bytes - 2),
         ];
 
         let mut b = BytesRef::new();
-        for &offset in &test_offsets {
-            reader.fill_slice(&mut b, offset as usize, 1);
-            let expected = arr[(offset % arr.len() as i64) as usize];
+        for offset in test_offsets.into_iter() {
+            reader.fill_slice(&mut b, offset, 1);
+            let expected = arr[(offset % arr.len()) as usize];
             assert_eq!(expected, b.bytes[b.offset], "Mismatch at offset {}", offset);
         }
         Ok(())

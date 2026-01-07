@@ -74,7 +74,7 @@ impl DataInputAction {
             },
             DataInputAction::ReadBytes(bytes) => {
                 let mut buffer = vec![0u8; bytes.len()];
-                let _ = src.read_bytes(&mut buffer, 0, bytes.len() as i32);
+                let _ = src.read_bytes(&mut buffer, 0, bytes.len());
                 assert_eq!(
                     buffer.as_slice(),
                     bytes.as_slice(),
@@ -83,7 +83,7 @@ impl DataInputAction {
             },
             DataInputAction::ReadBytesRange { bytes, off, length } => {
                 let mut read: Vec<u8> = vec![0u8; bytes.len() + *off];
-                let _ = src.read_bytes(&mut read, *off as i32, *length as i32);
+                let _ = src.read_bytes(&mut read, *off, *length);
                 assert_eq!(
                     read[*off..*off + *length],
                     bytes[*off..*off + *length],
@@ -139,7 +139,7 @@ pub fn add_random_data(
                 let len = rnd.random_range(0..100);
                 let bytes: Vec<u8> = (0..len).map(|_| rnd.random()).collect();
                 let bytes_len = bytes.len();
-                let _ = dst.write_bytes_with_len(&bytes, bytes_len as i32);
+                let _ = dst.write_bytes_with_len(&bytes, bytes_len);
                 DataInputAction::ReadBytes(bytes)
             },
             //2 writeBytes / readBytes (array + offset).
@@ -157,7 +157,7 @@ pub fn add_random_data(
                 } else {
                     rnd.random_range(0..(bytes_len - off))
                 };
-                let _ = dst.write_bytes_range(&bytes, off as i32, length as i32);
+                let _ = dst.write_bytes_range(&bytes, off, length);
                 DataInputAction::ReadBytesRange { bytes, off, length }
             },
             //3 writeInt / readInt

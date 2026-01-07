@@ -104,7 +104,7 @@ where
                 max_impact_num_bytes_at_level0 = meta_in.read_int()?;
                 max_num_impacts_at_level1 = meta_in.read_int()?;
                 max_impact_num_bytes_at_level1 = meta_in.read_int()?;
-                expected_doc_file_length = meta_in.read_long()?;
+                expected_doc_file_length = meta_in.read_long()?.try_convert()?;
                 (expected_pos_file_length, expected_pay_file_length) =
                     if state.field_infos.has_prox() {
                         let pos_len = meta_in.read_long()?;
@@ -175,7 +175,10 @@ where
                 segment_info.get_id(),
                 &state.segment_suffix,
             )?;
-            CodecUtil::retrieve_checksum_with_expected(&mut pos_in, expected_pos_file_length)?;
+            CodecUtil::retrieve_checksum_with_expected(
+                &mut pos_in,
+                expected_pos_file_length as usize,
+            )?;
             pos_in_opt = Some(pos_in);
 
             if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
@@ -193,7 +196,10 @@ where
                     segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
-                CodecUtil::retrieve_checksum_with_expected(&mut pay, expected_pay_file_length)?;
+                CodecUtil::retrieve_checksum_with_expected(
+                    &mut pay,
+                    expected_pay_file_length as usize,
+                )?;
                 pay_in_opt = Some(pay);
             }
         }
@@ -701,9 +707,9 @@ where
         // Where this term's payloads/offsets start in the .pay
         let pay_term_start_fp = term_state.pay_start_fp;
         if let Some(ref mut pos_in) = self.pos_in_util {
-            pos_in.input.seek(pos_term_start_fp)?;
+            pos_in.input.seek(pos_term_start_fp as usize)?;
             if let Some(ref mut pay_in) = self.pay_in_util {
-                pay_in.input.seek(pay_term_start_fp)?;
+                pay_in.input.seek(pay_term_start_fp as usize)?;
             }
         }
         self.level1_pos_end_fp = pos_term_start_fp;
@@ -741,7 +747,7 @@ where
                     .as_mut()
                     .unwrap()
                     .input
-                    .seek(term_state.doc_start_fp)?;
+                    .seek(term_state.doc_start_fp as usize)?;
             }
         } else {
             self.level1_last_doc_id = -1;
@@ -764,7 +770,7 @@ where
         if self.index_has_freq {
             let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
             if self.needs_freq {
-                self.freq_fp = doc_in.get_file_pointer();
+                self.freq_fp = doc_in.get_file_pointer()? as i64;
             }
             PForUtil::skip(doc_in)?;
         }
@@ -794,7 +800,7 @@ where
                 doc_in,
                 &mut self.doc_buffer,
                 &mut self.freq_buffer,
-                self.doc_count_left,
+                self.doc_count_left as usize,
                 self.index_has_freq,
                 self.needs_freq,
             )?;
@@ -829,7 +835,7 @@ where
         loop {
             self.prev_doc_id = self.level1_last_doc_id;
             self.level0_last_doc_id = self.level1_last_doc_id;
-            doc_in.seek(self.level1_doc_end_fp)?;
+            doc_in.seek(self.level1_doc_end_fp as usize)?;
             self.level0_pos_end_fp = self.level1_pos_end_fp;
             self.level0_block_pos_upto = self.level1_block_pos_upto;
             self.level0_pay_end_fp = self.level1_pay_end_fp;
@@ -845,16 +851,16 @@ where
 
             self.level1_last_doc_id += doc_in.read_vint()?;
             let delta = doc_in.read_vlong()?;
-            self.level1_doc_end_fp = delta + doc_in.get_file_pointer();
+            self.level1_doc_end_fp = delta + doc_in.get_file_pointer()? as i64;
 
             if self.index_has_freq {
-                let skip1_end_fp = doc_in.read_short()? as i64 + doc_in.get_file_pointer();
-                let num_impact_bytes = doc_in.read_short()? as i32;
+                let skip1_end_fp = doc_in.read_short()? as i64 + doc_in.get_file_pointer()? as i64;
+                let num_impact_bytes = doc_in.read_short()? as usize;
 
                 if self.needs_impacts && self.level1_last_doc_id >= target {
                     let byte_ref = self.level1_serialized_impacts.as_mut().unwrap();
                     doc_in.read_bytes(&mut byte_ref.bytes, 0, num_impact_bytes)?;
-                    byte_ref.length = num_impact_bytes as usize;
+                    byte_ref.length = num_impact_bytes;
                 } else {
                     IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                 }
@@ -866,7 +872,7 @@ where
                         self.level1_pay_end_fp += doc_in.read_vlong()?;
                         self.level1_block_pay_upto = doc_in.read_vint()?;
                     }
-                    debug_assert_eq!(doc_in.get_file_pointer(), skip1_end_fp);
+                    debug_assert_eq!(doc_in.get_file_pointer()? as i64, skip1_end_fp);
                 }
             }
 
@@ -879,12 +885,14 @@ where
     fn do_move_to_next_level0_block(&mut self) -> Result<()> {
         debug_assert!(self.doc_buffer_upto as usize == ForUtil::BLOCK_SIZE);
         if let Some(ref mut pos_in) = self.pos_in_util {
-            if self.level0_pos_end_fp >= pos_in.input.get_file_pointer() {
-                pos_in.input.seek(self.level0_pos_end_fp)?;
+            if self.level0_pos_end_fp >= pos_in.input.get_file_pointer()? as i64 {
+                pos_in.input.seek(self.level0_pos_end_fp as usize)?;
                 self.pos_pending_count = self.level0_block_pos_upto;
                 if let Some(ref mut pay_in) = self.pay_in_util {
-                    debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer());
-                    pay_in.input.seek(self.level0_pay_end_fp)?;
+                    debug_assert!(
+                        self.level0_pay_end_fp >= pay_in.input.get_file_pointer()? as i64
+                    );
+                    pay_in.input.seek(self.level0_pay_end_fp as usize)?;
                     self.payload_byte_upto = self.level0_block_pay_upto;
                 }
                 self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
@@ -906,13 +914,13 @@ where
                 self.level0_last_doc_id += doc_delta;
 
                 let block_length = read_vlong15(doc_in)?;
-                self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
+                self.level0_doc_end_fp = doc_in.get_file_pointer()? as i64 + block_length;
                 if self.index_has_freq {
-                    let num_impact_bytes = doc_in.read_vint()?;
+                    let num_impact_bytes = doc_in.read_vint()?.try_convert()?;
                     if self.needs_impacts {
                         let bi = self.level0_serialized_impacts.as_mut().unwrap();
                         doc_in.read_bytes(&mut bi.bytes, 0, num_impact_bytes)?;
-                        bi.length = num_impact_bytes as usize;
+                        bi.length = num_impact_bytes;
                     } else {
                         IndexInput::skip_bytes(doc_in, num_impact_bytes as i64)?;
                     }
@@ -975,13 +983,13 @@ where
         // into posPendingCount instead of seeking backwards and decoding the
         // same pos block again.
         let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
-        if pos_fp >= pos_in.get_file_pointer() {
-            pos_in.seek(pos_fp)?;
+        if pos_fp >= pos_in.get_file_pointer()? as i64 {
+            pos_in.seek(pos_fp as usize)?;
             self.pos_pending_count = pos_upto;
             // needs payloads or offsets
             if let Some(ref mut pay_in) = self.pay_in_util {
-                debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer());
-                pay_in.input.seek(pay_fp)?;
+                debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer()? as i64);
+                pay_in.input.seek(pay_fp as usize)?;
                 self.payload_byte_upto = pay_upto;
             }
             self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
@@ -1007,23 +1015,23 @@ where
 
                 if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
                     let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
-                    let num_skip_bytes = doc_in.read_vlong()?;
-                    let skip0_end = doc_in.get_file_pointer() + num_skip_bytes;
+                    let num_skip_bytes: usize = doc_in.read_vlong()?.try_convert()?;
+                    let skip0_end = doc_in.get_file_pointer()? + num_skip_bytes;
                     let doc_delta = read_vint15(doc_in)?;
                     self.level0_last_doc_id += doc_delta;
                     let found = target <= self.level0_last_doc_id;
                     let block_length = read_vlong15(doc_in)?;
-                    self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
+                    self.level0_doc_end_fp = doc_in.get_file_pointer()? as i64 + block_length;
 
                     if self.index_has_freq {
                         if !found && !self.needs_pos {
                             doc_in.seek(skip0_end)?;
                         } else {
-                            let num_impact_bytes = doc_in.read_vint()?;
+                            let num_impact_bytes = doc_in.read_vint()?.try_convert()?;
                             if self.needs_impacts && found {
                                 let bytes = self.level0_serialized_impacts.as_mut().unwrap();
                                 doc_in.read_bytes(&mut bytes.bytes, 0, num_impact_bytes)?;
-                                bytes.length = num_impact_bytes as usize;
+                                bytes.length = num_impact_bytes;
                             } else {
                                 IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                             }
@@ -1043,7 +1051,7 @@ where
                     if found {
                         break;
                     }
-                    doc_in.seek(self.level0_doc_end_fp)?;
+                    doc_in.seek(self.level0_doc_end_fp as usize)?;
                     self.doc_count_left -= ForUtil::BLOCK_SIZE as i32;
                 } else {
                     self.level0_last_doc_id = NO_MORE_DOCS;
@@ -1063,7 +1071,7 @@ where
             self.skip_level1_to(target)?;
         } else if self.needs_refilling {
             let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
-            doc_in.seek(self.level0_doc_end_fp)?;
+            doc_in.seek(self.level0_doc_end_fp as usize)?;
             self.doc_count_left -= ForUtil::BLOCK_SIZE as i32;
         }
 
@@ -1089,16 +1097,16 @@ where
             {
                 let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
                 while to_skip >= ForUtil::BLOCK_SIZE as i32 {
-                    debug_assert!(pos_in.get_file_pointer() != self.last_pos_block_fp);
+                    debug_assert!(pos_in.get_file_pointer()? as i64 != self.last_pos_block_fp);
                     PForUtil::skip(pos_in)?;
 
                     if let Some(ref mut pay_in) = self.pay_in_util {
                         let pay_in = &mut pay_in.input;
                         if self.index_has_payloads {
                             PForUtil::skip(pay_in)?;
-                            let num_bytes = pay_in.read_vint()?;
-                            let pos = pay_in.get_file_pointer();
-                            pay_in.seek(pos + num_bytes as i64)?;
+                            let num_bytes = pay_in.read_vint()?.try_convert()?;
+                            let pos = pay_in.get_file_pointer()?;
+                            pay_in.seek(pos + num_bytes)?;
                         }
 
                         if self.index_has_offsets {
@@ -1148,8 +1156,8 @@ where
 
                         pos_in.read_bytes(
                             &mut self.payload_bytes,
-                            self.payload_byte_upto,
-                            payload_length,
+                            self.payload_byte_upto as usize,
+                            payload_length as usize,
                         )?;
                         self.payload_byte_upto += payload_length;
                     }
@@ -1185,9 +1193,15 @@ where
                     .unwrap()
                     .decode(pay_in_util, &mut self.payload_length_buffer)?;
 
-                let num_bytes = self.pay_in_util.as_mut().unwrap().input.read_vint()?;
-                if num_bytes as usize > self.payload_bytes.len() {
-                    ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes as usize);
+                let num_bytes = self
+                    .pay_in_util
+                    .as_mut()
+                    .unwrap()
+                    .input
+                    .read_vint()?
+                    .try_convert()?;
+                if num_bytes > self.payload_bytes.len() {
+                    ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes);
                 }
 
                 self.pay_in_util.as_mut().unwrap().input.read_bytes(
@@ -1200,9 +1214,9 @@ where
                 // the first length to be written
                 let pay_in = &mut pay_in.input;
                 PForUtil::skip(pay_in)?;
-                let num_bytes = pay_in.read_vint()?;
-                let pos = pay_in.get_file_pointer();
-                pay_in.seek(pos + num_bytes as i64)?;
+                let num_bytes = pay_in.read_vint()?.try_convert()?;
+                let pos = pay_in.get_file_pointer()?;
+                pay_in.seek(pos + num_bytes)?;
             }
             self.payload_byte_upto = 0;
         }
@@ -1226,9 +1240,9 @@ where
     fn refill_positions(&mut self) -> Result<()> {
         let pos = {
             let pos_in = &self.pos_in_util.as_mut().unwrap().input;
-            pos_in.get_file_pointer()
+            pos_in.get_file_pointer()?
         };
-        if pos == self.last_pos_block_fp {
+        if pos as i64 == self.last_pos_block_fp {
             self.refill_last_position_block()?;
             return Ok(());
         }
@@ -1289,7 +1303,7 @@ where
     fn freq(&mut self) -> Result<i32> {
         if self.freq_fp != -1 {
             let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
-            doc_in.seek(self.freq_fp)?;
+            doc_in.seek(self.freq_fp as usize)?;
             self.pfor_util
                 .as_mut()
                 .unwrap()
@@ -1596,7 +1610,7 @@ fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
 
 fn prefetch_postings(doc_in: &mut impl IndexInput, state: &IntBlockTermState) -> Result<()> {
     debug_assert!(state.base.doc_freq > 1);
-    if doc_in.get_file_pointer() != state.doc_start_fp {
+    if doc_in.get_file_pointer()? as i64 != state.doc_start_fp {
         // Don't prefetch if the input is already positioned at the right
         // offset, which suggests that the caller is streaming
         // the entire inverted index (e.g. for merging), let the read-ahead
@@ -1604,7 +1618,7 @@ fn prefetch_postings(doc_in: &mut impl IndexInput, state: &IntBlockTermState) ->
         // for terms that have skip data, since skip data is
         // stored after the last term, but handling all terms that have <128
         // docs is a good start already.
-        doc_in.prefetch(state.doc_start_fp, 1)?;
+        doc_in.prefetch(state.doc_start_fp as usize, 1)?;
     }
     // Note: we don't prefetch positions or offsets, which are less likely
     // to be needed.

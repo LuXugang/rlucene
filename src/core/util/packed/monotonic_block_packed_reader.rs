@@ -94,8 +94,7 @@ impl MonotonicBlockPackedReader {
                 );
                 total_byte_count += byte_count;
                 let mut blocks = vec![0u8; byte_count as usize];
-                debug_assert!(byte_count <= i32::MAX as i64);
-                input.read_bytes(&mut blocks, 0, byte_count as i32)?;
+                input.read_bytes(&mut blocks, 0, byte_count as usize)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
                 let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
                 sub_readers[i] = LongValuesEnum2::B(MonotonicLongValues {

@@ -782,7 +782,7 @@ mod tests {
 
             for i in 0..iterations {
                 let bits_per_value = pdu.input.read_byte()? as i32;
-                let current_fp = pdu.input.get_file_pointer();
+                let current_fp = pdu.input.get_file_pointer()?;
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
 
                 for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
@@ -790,16 +790,16 @@ mod tests {
                 let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
                 assert_eq!(restored, expected, "Mismatch at iteration {}", i);
 
-                let expected_bytes = ForUtil::num_bytes(bits_per_value) as i64;
-                let actual_bytes = pdu.input.get_file_pointer() - current_fp;
+                let expected_bytes = ForUtil::num_bytes(bits_per_value);
+                let actual_bytes = pdu.input.get_file_pointer()? - current_fp;
                 assert_eq!(
-                    expected_bytes, actual_bytes,
+                    expected_bytes as usize, actual_bytes,
                     "Unexpected byte count at iteration {}",
                     i
                 );
             }
 
-            assert_eq!(end_pointer, pdu.input.get_file_pointer());
+            assert_eq!(end_pointer, pdu.input.get_file_pointer()?);
         }
 
         Ok(())

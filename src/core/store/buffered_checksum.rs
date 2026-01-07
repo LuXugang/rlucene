@@ -21,7 +21,7 @@ use crate::core::util::SliceCopyOps;
 /// calculations.
 pub struct BufferedChecksum<T: Checksum> {
     buffer: Vec<u8>,
-    upto: i32,
+    upto: usize,
     checksum: T,
 }
 
@@ -53,28 +53,25 @@ impl<T: Checksum> BufferedChecksum<T> {
 impl<T: Checksum> Checksum for BufferedChecksum<T> {
     fn update(&mut self, b: u8) {
         debug_assert!(self.buffer.len() <= i32::MAX as usize);
-        if self.upto == self.buffer.len() as i32 {
+        if self.upto == self.buffer.len() {
             self.flush();
         }
-        self.buffer[self.upto as usize] = b;
+        self.buffer[self.upto] = b;
         self.upto += 1;
     }
 
-    fn update_bytes(&mut self, bytes: &[u8], offset: i32, len: i32) {
-        let offset = offset as usize;
-        let len = len as usize;
-
+    fn update_bytes(&mut self, bytes: &[u8], offset: usize, len: usize) {
         if len >= self.buffer.len() {
             self.flush();
             self.checksum
-                .update_bytes(&bytes[offset..offset + len], 0, len as i32);
+                .update_bytes(&bytes[offset..offset + len], 0, len);
         } else {
-            if self.upto as usize + len > self.buffer.len() {
+            if self.upto + len > self.buffer.len() {
                 self.flush();
             }
             self.buffer
-                .copy_from(&bytes[offset..offset + len], self.upto as usize);
-            self.upto += len as i32;
+                .copy_from(&bytes[offset..offset + len], self.upto);
+            self.upto += len;
         }
     }
 
@@ -128,7 +125,7 @@ mod tests {
                     let mut bytes = vec![0; length];
                     rng.fill(bytes.as_mut_slice());
                     raw_crc.update(&bytes);
-                    buffered.update_bytes(&bytes, 0, length as i32);
+                    buffered.update_bytes(&bytes, 0, length);
                 },
                 1 => {
                     let b = rng.random_range(0..=255) as u8;

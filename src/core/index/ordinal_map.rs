@@ -363,8 +363,8 @@ impl OrdinalMap {
     }
     /// Given a segment number, return a [`LongValues`] instance that maps segment ordinals
     /// to global ordinals.
-    pub(crate) fn get_global_ords(&self, segment_index: i32) -> &Rc<SegmentToGlobalOrds> {
-        let mapped = self.segment_map.old_to_new(segment_index as usize) as usize;
+    pub(crate) fn get_global_ords(&self, segment_index: usize) -> &Rc<SegmentToGlobalOrds> {
+        let mapped = self.segment_map.old_to_new(segment_index) as usize;
         &self.segment_to_global_ords[mapped]
     }
 

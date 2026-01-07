@@ -26,12 +26,8 @@ pub struct CoreHelper;
 impl CoreHelper {
     pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
 The purpose of implementing the Clone trait is to make it could be used with Cow";
-    pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
-        if from_index < 0 || size < 0 || length < 0 {
-            Err(LuceneError::array_index_out_of_bounds(format!(
-                "from_index: {from_index}, size: {size}, and length {length} must be non-negative"
-            )))
-        } else if size > length - from_index {
+    pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {
+        if size > length - from_index {
             Err(LuceneError::array_index_out_of_bounds(format!(
                 "size: {size} is too large, from_index: {from_index}, length: {length}"
             )))
@@ -256,6 +252,7 @@ impl_try_convert!(usize => i64);
 impl_try_convert!(usize => u64);
 impl_try_convert!(usize => u32);
 impl_try_convert!(u64 => i64);
+impl_try_convert!(u64 => usize);
 impl_try_convert!(i64   => i32);
 impl_try_convert!(i64   => usize);
 impl_try_convert!(i32   => usize);

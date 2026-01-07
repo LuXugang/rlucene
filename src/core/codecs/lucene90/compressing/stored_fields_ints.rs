@@ -171,9 +171,8 @@ impl StoredFieldsInts {
     ) -> Result<()> {
         let mut k = 0;
         while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-            let step = offset + k;
+            let step = (offset + k) as usize;
             input.read_longs(values, step, 16)?;
-            let step = step as usize;
             for i in 0..16 {
                 let l = values[step + i];
                 values[step + i] = (l >> 56) & 0xFF;
@@ -202,9 +201,8 @@ impl StoredFieldsInts {
     ) -> Result<()> {
         let mut k = 0;
         while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-            let step = offset + k;
+            let step = (offset + k) as usize;
             input.read_longs(values, step, 32)?;
-            let step = step as usize;
             for i in 0..32 {
                 let l = values[step + i];
                 values[step + i] = (l >> 48) & 0xFFFF;
@@ -229,9 +227,8 @@ impl StoredFieldsInts {
     ) -> Result<()> {
         let mut k = 0;
         while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-            let step = offset + k;
+            let step = (offset + k) as usize;
             input.read_longs(values, step, 64)?;
-            let step = step as usize;
             for i in 0..64 {
                 let l = values[step + i];
                 values[step + i] = (l >> 32) & 0xFFFFFFFF;
@@ -316,7 +313,7 @@ mod tests {
                 .collect();
 
             assert_eq!(ints, read_ints.as_slice());
-            assert_eq!(len, input.get_file_pointer());
+            assert_eq!(len, input.get_file_pointer()?);
         }
 
         dir.delete_file("tmp")?;

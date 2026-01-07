@@ -456,8 +456,8 @@ pub trait BaseCompoundFormatTestCase {
         // Seek the first pair
         e1.seek(100)?;
         a1.seek(100)?;
-        assert_eq!(100, e1.get_file_pointer());
-        assert_eq!(100, a1.get_file_pointer());
+        assert_eq!(100, e1.get_file_pointer()?);
+        assert_eq!(100, a1.get_file_pointer()?);
         let be1 = DataInput::read_byte(&mut e1)?;
         let ba1 = DataInput::read_byte(&mut a1)?;
         assert_eq!(be1, ba1);
@@ -465,15 +465,15 @@ pub trait BaseCompoundFormatTestCase {
         // Now seek the second pair
         e2.seek(1027)?;
         a2.seek(1027)?;
-        assert_eq!(1027, e2.get_file_pointer());
-        assert_eq!(1027, a2.get_file_pointer());
+        assert_eq!(1027, e2.get_file_pointer()?);
+        assert_eq!(1027, a2.get_file_pointer()?);
         let be2 = DataInput::read_byte(&mut e2)?;
         let ba2 = DataInput::read_byte(&mut a2)?;
         assert_eq!(be2, ba2);
 
         // Now make sure the first one didn't move
-        assert_eq!(101, e1.get_file_pointer());
-        assert_eq!(101, a1.get_file_pointer());
+        assert_eq!(101, e1.get_file_pointer()?);
+        assert_eq!(101, a1.get_file_pointer()?);
         let be1 = DataInput::read_byte(&mut e1)?;
         let ba1 = DataInput::read_byte(&mut a1)?;
         assert_eq!(be1, ba1);
@@ -481,15 +481,15 @@ pub trait BaseCompoundFormatTestCase {
         // Now move the first one again, past the buffer length
         e1.seek(1910)?;
         a1.seek(1910)?;
-        assert_eq!(1910, e1.get_file_pointer());
-        assert_eq!(1910, a1.get_file_pointer());
+        assert_eq!(1910, e1.get_file_pointer()?);
+        assert_eq!(1910, a1.get_file_pointer()?);
         let be1 = DataInput::read_byte(&mut e1)?;
         let ba1 = DataInput::read_byte(&mut a1)?;
         assert_eq!(be1, ba1);
 
         // Now make sure the second set didn't move
-        assert_eq!(1028, e2.get_file_pointer());
-        assert_eq!(1028, a2.get_file_pointer());
+        assert_eq!(1028, e2.get_file_pointer()?);
+        assert_eq!(1028, a2.get_file_pointer()?);
         let be2 = DataInput::read_byte(&mut e2)?;
         let ba2 = DataInput::read_byte(&mut a2)?;
         assert_eq!(be2, ba2);
@@ -497,15 +497,15 @@ pub trait BaseCompoundFormatTestCase {
         // Move the second set back, again crossing the buffer size
         e2.seek(17)?;
         a2.seek(17)?;
-        assert_eq!(17, e2.get_file_pointer());
-        assert_eq!(17, a2.get_file_pointer());
+        assert_eq!(17, e2.get_file_pointer()?);
+        assert_eq!(17, a2.get_file_pointer()?);
         let be2 = DataInput::read_byte(&mut e2)?;
         let ba2 = DataInput::read_byte(&mut a2)?;
         assert_eq!(be2, ba2);
 
         // Finally, make sure the first set didn't move
-        assert_eq!(1911, e1.get_file_pointer());
-        assert_eq!(1911, a1.get_file_pointer());
+        assert_eq!(1911, e1.get_file_pointer()?);
+        assert_eq!(1911, a1.get_file_pointer()?);
         let be1 = DataInput::read_byte(&mut e1)?;
         let ba1 = DataInput::read_byte(&mut a1)?;
         assert_eq!(be1, ba1);
@@ -527,8 +527,8 @@ pub trait BaseCompoundFormatTestCase {
         // Seek the first pair
         e1.seek(100)?;
         a1.seek(100)?;
-        assert_eq!(100, e1.get_file_pointer());
-        assert_eq!(100, a1.get_file_pointer());
+        assert_eq!(100, e1.get_file_pointer()?);
+        assert_eq!(100, a1.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e1)?,
             DataInput::read_byte(&mut a1)?
@@ -537,16 +537,16 @@ pub trait BaseCompoundFormatTestCase {
         // Now seek the second pair
         e2.seek(1027)?;
         a2.seek(1027)?;
-        assert_eq!(1027, e2.get_file_pointer());
-        assert_eq!(1027, a2.get_file_pointer());
+        assert_eq!(1027, e2.get_file_pointer()?);
+        assert_eq!(1027, a2.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e2)?,
             DataInput::read_byte(&mut a2)?
         );
 
         // Now make sure the first one didn't move
-        assert_eq!(101, e1.get_file_pointer());
-        assert_eq!(101, a1.get_file_pointer());
+        assert_eq!(101, e1.get_file_pointer()?);
+        assert_eq!(101, a1.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e1)?,
             DataInput::read_byte(&mut a1)?
@@ -555,16 +555,16 @@ pub trait BaseCompoundFormatTestCase {
         // Now move the first one again, past the buffer length
         e1.seek(1910)?;
         a1.seek(1910)?;
-        assert_eq!(1910, e1.get_file_pointer());
-        assert_eq!(1910, a1.get_file_pointer());
+        assert_eq!(1910, e1.get_file_pointer()?);
+        assert_eq!(1910, a1.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e1)?,
             DataInput::read_byte(&mut a1)?
         );
 
         // Now make sure the second set didn't move
-        assert_eq!(1028, e2.get_file_pointer());
-        assert_eq!(1028, a2.get_file_pointer());
+        assert_eq!(1028, e2.get_file_pointer()?);
+        assert_eq!(1028, a2.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e2)?,
             DataInput::read_byte(&mut a2)?
@@ -573,16 +573,16 @@ pub trait BaseCompoundFormatTestCase {
         // Move the second set back, again crossing the buffer size
         e2.seek(17)?;
         a2.seek(17)?;
-        assert_eq!(17, e2.get_file_pointer());
-        assert_eq!(17, a2.get_file_pointer());
+        assert_eq!(17, e2.get_file_pointer()?);
+        assert_eq!(17, a2.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e2)?,
             DataInput::read_byte(&mut a2)?
         );
 
         // Finally, make sure the first set didn't move
-        assert_eq!(1911, e1.get_file_pointer());
-        assert_eq!(1911, a1.get_file_pointer());
+        assert_eq!(1911, e1.get_file_pointer()?);
+        assert_eq!(1911, a1.get_file_pointer()?);
         assert_eq!(
             DataInput::read_byte(&mut e1)?,
             DataInput::read_byte(&mut a1)?
@@ -790,23 +790,23 @@ fn assert_same_streams(
 ) -> Result<()> {
     assert_eq!(expected.length(), test.length(), "{} length", msg);
     assert_eq!(
-        expected.get_file_pointer(),
-        test.get_file_pointer(),
+        expected.get_file_pointer()?,
+        test.get_file_pointer()?,
         "{} position",
         msg
     );
 
     let mut expected_buffer = vec![0u8; 512];
     let expected_len = expected.length();
-    let mut test_buffer = vec![0u8; expected_len as usize];
+    let mut test_buffer = vec![0u8; expected_len];
 
-    let mut remainder = expected.length() - expected.get_file_pointer();
+    let mut remainder = expected.length() - expected.get_file_pointer()?;
     while remainder > 0 {
-        let read_len = remainder.min(expected_buffer.len() as i64) as usize;
-        expected.read_bytes(&mut expected_buffer[..read_len], 0, read_len as i32)?;
-        test.read_bytes(&mut test_buffer[..read_len], 0, read_len as i32)?;
+        let read_len = remainder.min(expected_buffer.len()) as usize;
+        expected.read_bytes(&mut expected_buffer[..read_len], 0, read_len)?;
+        test.read_bytes(&mut test_buffer[..read_len], 0, read_len)?;
         assert_equal_arrays(msg, &expected_buffer, &test_buffer, 0, read_len);
-        remainder -= read_len as i64;
+        remainder -= read_len;
     }
     Ok(())
 }
@@ -814,9 +814,9 @@ fn assert_same_streams_seek_with_seek(
     msg: &str,
     expected: &mut impl IndexInput,
     actual: &mut impl IndexInput,
-    seek_to: i64,
+    seek_to: usize,
 ) -> Result<()> {
-    if seek_to >= 0 && seek_to < expected.length() {
+    if seek_to < expected.length() {
         expected.seek(seek_to)?;
         actual.seek(seek_to)?;
         assert_same_streams(msg, expected, actual)?;

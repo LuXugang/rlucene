@@ -251,7 +251,7 @@ impl DocIdsWriter {
         if let Some(new_array) = ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len) {
             self.scratch_longs.longs = new_array
         }
-        input.read_longs(&mut self.scratch_longs.longs, 0, long_len.try_convert()?)?;
+        input.read_longs(&mut self.scratch_longs.longs, 0, long_len)?;
         // make ghost bits clear for FixedBitSet.
         if (long_len) < self.scratch_longs.length {
             self.scratch_longs.longs[long_len..].fill(0);
@@ -312,7 +312,7 @@ impl DocIdsWriter {
     fn read_delta16(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
         let min = input.read_vint()?;
         let half_len = count >> 1;
-        input.read_ints(doc_ids, 0, half_len as i32)?;
+        input.read_ints(doc_ids, 0, half_len)?;
         for i in 0..half_len {
             let l = doc_ids[i];
             doc_ids[i] = ((l as u32) >> 16) as i32 + min;
@@ -350,7 +350,7 @@ impl DocIdsWriter {
     }
 
     fn read_ints32(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
-        input.read_ints(doc_ids, 0, count.try_convert()?)?;
+        input.read_ints(doc_ids, 0, count)?;
         Ok(())
     }
     pub(crate) fn read_ints_with_visitor(
@@ -463,7 +463,7 @@ impl DocIdsWriter {
         count: usize,
         visitor: &mut impl IntersectVisitor,
     ) -> Result<()> {
-        input.read_ints(&mut self.scratch, 0, count as i32)?;
+        input.read_ints(&mut self.scratch, 0, count)?;
         self.scratch_ints_ref.ints =
             CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);
 
@@ -584,7 +584,7 @@ mod tests {
     }
 
     fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
-        let len: i64;
+        let len;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len());
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
@@ -599,7 +599,7 @@ mod tests {
             let mut read = vec![0; ints.len()];
             doc_ids_writer.read_ints(&mut input, ints.len(), &mut read)?;
             assert_eq!(ints, &read[..]);
-            assert_eq!(len, input.get_file_pointer());
+            assert_eq!(len, input.get_file_pointer()?);
         }
         {
             let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
@@ -610,7 +610,7 @@ mod tests {
             };
             doc_ids_writer.read_ints_with_visitor(&mut input, ints.len(), &mut visitor)?;
             assert_eq!(ints, &read[..]);
-            assert_eq!(len, input.get_file_pointer());
+            assert_eq!(len, input.get_file_pointer()?);
         }
         dir.delete_file("tmp")?;
         Ok(())

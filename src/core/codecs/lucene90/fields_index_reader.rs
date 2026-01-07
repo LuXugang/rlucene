@@ -20,11 +20,11 @@ use crate::core::codecs::lucene90::fields_index_writer::fields_index_writer_cons
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
-use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
+use crate::core::util::{StringHelper, TryIntoInt};
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -36,10 +36,10 @@ where
     docs_meta: Meta,
     start_pointers_meta: Meta,
     index_input: I,
-    docs_start_pointer: i64,
-    docs_end_pointer: i64,
-    start_pointers_start_pointer: i64,
-    start_pointers_end_pointer: i64,
+    docs_start_pointer: usize,
+    docs_end_pointer: usize,
+    start_pointers_start_pointer: usize,
+    start_pointers_end_pointer: usize,
     docs: DirectMonotonicReader<I::RandomAccessSlice>,
     start_pointers: DirectMonotonicReader<I::RandomAccessSlice>,
     max_pointer: i64,
@@ -65,14 +65,14 @@ where
         let max_doc = meta_in.read_int()?;
         let block_shift = meta_in.read_int()?;
         let num_chunks = meta_in.read_int()?;
-        let docs_start_pointer = meta_in.read_long()?;
+        let docs_start_pointer = meta_in.read_long()?.try_convert()?;
         let docs_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
         let (docs_end_pointer, start_pointers_start_pointer) = {
-            let v = meta_in.read_long()?;
+            let v = meta_in.read_long()?.try_convert()?;
             (v, v)
         };
         let start_pointers_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
-        let start_pointers_end_pointer = meta_in.read_long()?;
+        let start_pointers_end_pointer: usize = meta_in.read_long()?.try_convert()?;
         let max_pointer = meta_in.read_long()?;
 
         let mut index_input = dir.open_input(

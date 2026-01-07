@@ -45,7 +45,7 @@ impl OnHeapFSTStore {
 
         if num_bytes > (1_i64 << max_block_bits) {
             let mut data_output = get_on_heap_reader_writer(max_block_bits)?;
-            data_output.copy_bytes(input, num_bytes)?;
+            data_output.copy_bytes(input, num_bytes as usize)?;
             data_output.freeze()?;
             Ok(Self {
                 data_output: Some(data_output),
@@ -53,7 +53,7 @@ impl OnHeapFSTStore {
             })
         } else {
             let mut bytes_array = vec![0u8; num_bytes as usize];
-            let len = bytes_array.len() as i32;
+            let len = bytes_array.len();
             input.read_bytes(&mut bytes_array, 0, len)?;
             Ok(Self {
                 data_output: None,
@@ -94,8 +94,7 @@ impl FstReader for OnHeapFSTStore {
             data_output.write_to(out)?;
         } else if let Some(bytes_array) = &self.bytes_array {
             let len = bytes_array.len();
-            debug_assert!(len <= i32::MAX as usize);
-            out.write_bytes_range(bytes_array, 0, len as i32)?;
+            out.write_bytes_range(bytes_array, 0, len)?;
         } else {
             return Err(LuceneError::illegal_state("OnHeapFSTStore is empty"));
         }

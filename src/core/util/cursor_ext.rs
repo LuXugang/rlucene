@@ -16,10 +16,12 @@
  */
 use std::io::Cursor;
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+
 pub trait ReadableCursorExt {
     /// Returns the remaining bytes in the buffer from the current position.
-    fn remain(&self) -> u64;
+    fn remain(&self) -> Result<usize>;
 
     /// Returns the remaining bytes between a specified position and a limit.
     ///
@@ -27,11 +29,11 @@ pub trait ReadableCursorExt {
     /// * `position` - The current position in the buffer.
     /// * `limit` - The effective limit up to which remaining bytes are
     ///   calculated.
-    fn remain_between(&self, position: u64, limit: u64) -> u64;
+    fn remain_between(&self, position: usize, limit: usize) -> usize;
 
     /// Reads data from the cursor's buffer to the destination slice, starting
     /// at the current position.
-    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()>;
+    fn read_to(&mut self, dest: &mut [u8], offset: usize, len: usize) -> Result<()>;
 
     /// Reads data from a specific position in the cursor into the destination
     /// buffer.
@@ -39,7 +41,7 @@ pub trait ReadableCursorExt {
         &self,
         dest: &mut [u8],
         offset: usize,
-        position: u64,
+        position: usize,
         len: usize,
     ) -> Result<()>;
 }
@@ -50,17 +52,18 @@ pub trait WritableCursorExt: ReadableCursorExt {
 
     /// Writes data from the source slice into the cursor's buffer, starting
     /// from the given offset.
-    fn write_from(&mut self, src: &[u8], offset: i32, len: i32) -> Result<()>;
+    fn write_from(&mut self, src: &[u8], offset: usize, len: usize) -> Result<()>;
 }
 impl<T> ReadableCursorExt for Cursor<T>
 where
     T: AsRef<[u8]>,
 {
-    fn remain(&self) -> u64 {
-        self.remain_between(self.position(), self.get_ref().as_ref().len() as u64)
+    fn remain(&self) -> Result<usize> {
+        let p: usize = self.position().try_convert()?;
+        Ok(self.remain_between(p, self.get_ref().as_ref().len()))
     }
 
-    fn remain_between(&self, position: u64, limit: u64) -> u64 {
+    fn remain_between(&self, position: usize, limit: usize) -> usize {
         if limit == 0 {
             return 0;
         }
@@ -71,16 +74,10 @@ where
         limit.saturating_sub(position)
     }
 
-    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        let position = self.position();
-        perform_read(
-            self.get_ref().as_ref(),
-            dest,
-            offset as usize,
-            position,
-            len as usize,
-        )?;
-        self.set_position(position + len as u64);
+    fn read_to(&mut self, dest: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        let position = self.position().try_convert()?;
+        perform_read(self.get_ref().as_ref(), dest, offset, position, len)?;
+        self.set_position((position + len).try_convert()?);
         Ok(())
     }
 
@@ -88,7 +85,7 @@ where
         &self,
         dest: &mut [u8],
         offset: usize,
-        position: u64,
+        position: usize,
         len: usize,
     ) -> Result<()> {
         perform_read(self.get_ref().as_ref(), dest, offset, position, len)
@@ -123,8 +120,8 @@ where
         Ok(())
     }
 
-    fn write_from(&mut self, src: &[u8], offset: i32, len: i32) -> Result<()> {
-        let src_slice = &src[offset as usize..(offset + len) as usize];
+    fn write_from(&mut self, src: &[u8], offset: usize, len: usize) -> Result<()> {
+        let src_slice = &src[offset..(offset + len)];
         self.write_from_slice(src_slice)
     }
 }
@@ -132,12 +129,12 @@ fn perform_read(
     source: &[u8],
     dest: &mut [u8],
     offset: usize,
-    position: u64,
+    position: usize,
     len: usize,
 ) -> Result<()> {
-    let total = source.len() as u64;
+    let total = source.len();
 
-    if position > total || position + len as u64 > total {
+    if position > total || position + len > total {
         return Err(LuceneError::illegal_argument(format!(
             "Read out of bounds: position={position}, len={len}, total={total}"
         )));
@@ -153,7 +150,7 @@ fn perform_read(
 
     unsafe {
         std::ptr::copy_nonoverlapping(
-            source.as_ptr().add(position as usize),
+            source.as_ptr().add(position),
             dest.as_mut_ptr().add(offset),
             len,
         );

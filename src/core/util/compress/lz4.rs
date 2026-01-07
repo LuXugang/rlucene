@@ -95,7 +95,7 @@ impl LZ4 {
                         literal_len += 0xFF;
                     }
                 }
-                compressed.read_bytes(dest, d_off, literal_len)?;
+                compressed.read_bytes(dest, d_off as usize, literal_len as usize)?;
                 d_off += literal_len;
             }
 
@@ -171,7 +171,7 @@ impl LZ4 {
         }
 
         // encode literals
-        out.write_bytes_range(bytes, anchor, literal_len)?;
+        out.write_bytes_range(bytes, anchor as usize, literal_len as usize)?;
 
         Ok(())
     }
@@ -236,8 +236,12 @@ impl LZ4 {
         ht: &mut HashTableEnum,
     ) -> Result<()> {
         // Ensure the indices are valid
-        CoreHelper::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
-        CoreHelper::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
+        CoreHelper::check_from_index_size(dict_off as usize, dict_len as usize, bytes.len())?;
+        CoreHelper::check_from_index_size(
+            (dict_off + dict_len) as usize,
+            len as usize,
+            bytes.len(),
+        )?;
 
         if dict_len > LZ4::MAX_DISTANCE {
             return Err(LuceneError::illegal_argument(format!(
@@ -251,7 +255,11 @@ impl LZ4 {
         if len > LZ4::LAST_LITERALS + LZ4::MIN_MATCH {
             let limit = end - LZ4::LAST_LITERALS;
             let match_limit = limit - LZ4::MIN_MATCH;
-            CoreHelper::check_from_index_size(dict_off, dict_len + len, bytes.len() as i32)?;
+            CoreHelper::check_from_index_size(
+                dict_off as usize,
+                (dict_len + len) as usize,
+                bytes.len(),
+            )?;
             ht.reset(dict_off, dict_len + len);
             ht.init_dictionary(dict_len, bytes);
 
@@ -1013,7 +1021,7 @@ mod tests {
                 let l = std::cmp::min(data.len() - i as usize, TestUtil::next_usize(random, 1, 32));
                 let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
                 debug_assert!(l <= i32::MAX as usize);
-                copy.write_bytes_range(data, i, l as i32)?;
+                copy.write_bytes_range(data, i as usize, l)?;
                 dict_len += l as i32;
                 i += l as i32;
                 i += TestUtil::next_int(random, 1, 32);
@@ -1225,7 +1233,7 @@ mod tests {
 
             // The compressed output is smaller than the original input despite
             // being incompressible on its own
-            assert!(out.size() < len as i64);
+            assert!(out.size() < len as usize);
             Ok(())
         }
     }

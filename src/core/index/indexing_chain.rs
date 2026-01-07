@@ -2496,9 +2496,9 @@ impl<DC> DocComparator for DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        let doc_id1 = self.parents.next_set_bit(doc_id1 as usize) as i32;
-        let doc_id2 = self.parents.next_set_bit(doc_id2 as usize) as i32;
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        let doc_id1 = self.parents.next_set_bit(doc_id1);
+        let doc_id2 = self.parents.next_set_bit(doc_id2);
         self.doc_comparator.compare(doc_id1, doc_id2)
     }
 }

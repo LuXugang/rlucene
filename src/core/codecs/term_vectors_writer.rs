@@ -85,7 +85,7 @@ pub trait TermVectorsWriter: Accountable {
                     }
                     let builder = payload.as_mut().unwrap();
                     builder.grow_no_copy(payload_len);
-                    pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len as i32)?;
+                    pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len)?;
                     builder.set_length(payload_len);
                     Some(builder.get_bytes_ref())
                 } else {

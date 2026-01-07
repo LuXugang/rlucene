@@ -134,8 +134,8 @@ where
             )?;
 
             debug_assert_eq!(
-                CodecUtil::index_header_length(format_name, segment_suffix) as i64,
-                fields_stream.get_file_pointer()
+                CodecUtil::index_header_length(format_name, segment_suffix),
+                fields_stream.get_file_pointer()?
             );
 
             let meta_stream_fm =
@@ -353,7 +353,7 @@ where
     pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
         if !self.state.contains(doc_id) {
             let pointer = self.index_reader.get_start_pointer(doc_id)?;
-            self.state.fields_stream.seek(pointer)?;
+            self.state.fields_stream.seek(pointer as usize)?;
             self.state.reset(doc_id, self.num_docs)?;
         }
 
@@ -447,7 +447,7 @@ where
 
         self.state
             .fields_stream
-            .prefetch(block_start_pointer, block_length)?;
+            .prefetch(block_start_pointer as usize, block_length as usize)?;
 
         self.prefetched_block_id_cache
             [self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK] = block_id;
@@ -667,7 +667,7 @@ where
             }
         }
 
-        self.start_pointer = self.fields_stream.get_file_pointer();
+        self.start_pointer = self.fields_stream.get_file_pointer()? as i64;
 
         if self.merging {
             let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
@@ -754,7 +754,7 @@ where
                 length,
             ))
         } else {
-            self.fields_stream.seek(self.start_pointer)?;
+            self.fields_stream.seek(self.start_pointer as usize)?;
 
             if self.sliced {
                 self.decompressor.decompress(
@@ -901,9 +901,7 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        let mut len = len as usize;
-        let mut offset = offset as usize;
+    fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, mut len: usize) -> Result<()> {
         while len > self.bytes.length {
             b.copy_from(
                 &self.bytes.bytes[self.bytes.offset..(self.bytes.offset + self.bytes.length)],

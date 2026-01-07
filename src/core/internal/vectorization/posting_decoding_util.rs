@@ -47,7 +47,8 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         c_index: i32,
         c_mask: i32,
     ) -> Result<()> {
-        self.input.read_ints(b_and_c, c_index, count)?;
+        self.input
+            .read_ints(b_and_c, c_index as usize, count as usize)?;
 
         let count = count as usize;
         let c_index = c_index as usize;
@@ -78,9 +79,9 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         c_index: i32,
         c_mask: i32,
     ) -> Result<()> {
-        self.input.read_ints(c, c_index, count)?;
         let count = count as usize;
         let c_index = c_index as usize;
+        self.input.read_ints(c, c_index, count)?;
         let max_iter = (b_shift - 1) / dec;
         for i in 0..count {
             for j in 0..=max_iter {

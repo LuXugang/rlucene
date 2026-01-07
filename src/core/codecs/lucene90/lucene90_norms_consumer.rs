@@ -189,7 +189,7 @@ where
             self.meta.write_byte(-1i8 as u8)?;
         } else {
             let offset = self.data.get_file_pointer();
-            self.meta.write_long(offset)?; // docsWithFieldOffset
+            self.meta.write_long(offset as i64)?; // docsWithFieldOffset
 
             let jump_table_entry_count;
             {
@@ -201,7 +201,7 @@ where
                 )?;
             }
             self.meta
-                .write_long(self.data.get_file_pointer() - offset)?; // docsWithFieldLength
+                .write_long((self.data.get_file_pointer() - offset) as i64)?; // docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;
             self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
         }
@@ -213,7 +213,7 @@ where
         if num_bytes_per_value == 0 {
             self.meta.write_long(min)?;
         } else {
-            self.meta.write_long(self.data.get_file_pointer())?;
+            self.meta.write_long(self.data.get_file_pointer() as i64)?;
             let mut values = norms_producer.get_norms(field)?;
             Self::write_values(&mut values, num_bytes_per_value, &mut self.data)?;
         }

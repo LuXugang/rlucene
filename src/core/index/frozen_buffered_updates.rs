@@ -468,7 +468,7 @@ impl FrozenBufferedUpdates {
                 continue;
             }
 
-            let mut iter = self.delete_terms.iterator();
+            let mut iter = self.delete_terms.iterator()?;
             {
                 let mut inner = seg_state.rld.inner.lock();
                 let reader = inner.reader.as_ref().unwrap().clone();

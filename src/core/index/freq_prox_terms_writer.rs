@@ -788,7 +788,7 @@ where
             }
 
             self.docs[i] = doc_map.old_to_new(doc)?;
-            self.offsets[i] = self.buffer.size();
+            self.offsets[i] = self.buffer.size() as i64;
 
             self.add_positions(&mut postings_enum)?;
             i += 1;
@@ -802,7 +802,7 @@ where
             DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots as usize);
         sorter.sort(0, self.upto)?;
 
-        self.posting_input = Some(self.buffer.get_data_input_owner());
+        self.posting_input = Some(self.buffer.get_data_input_owner()?);
 
         Ok(())
     }
@@ -837,8 +837,8 @@ where
                     self.buffer.write_vint(payload.length as i32)?;
                     self.buffer.write_bytes_range(
                         &payload.bytes,
-                        payload.offset as i32,
-                        payload.length as i32,
+                        payload.offset,
+                        payload.length,
                     )?;
                 }
             }
@@ -869,7 +869,7 @@ where
 
         let offset = self.offsets[self.doc_it as usize];
         let posting_input = self.posting_input.as_mut().unwrap();
-        posting_input.seek(offset)?;
+        posting_input.seek(offset as usize)?;
 
         posting_input.read_vint()?;
 
@@ -923,7 +923,7 @@ where
                 self.payload.bytes = vec![0; new_length];
             }
 
-            posting_input.read_bytes(&mut self.payload.bytes, 0, self.payload.length as i32)?;
+            posting_input.read_bytes(&mut self.payload.bytes, 0, self.payload.length)?;
         } else {
             self.payload.length = 0;
         }

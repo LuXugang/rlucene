@@ -19,7 +19,6 @@ use crate::core::codecs::CodecUtil;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput};
-use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::point_reader::PointReader;
@@ -82,7 +81,7 @@ where
         debug_assert!(reusable_buffer_len <= i32::MAX as usize);
         let max_point_on_heap = reusable_buffer_len / config.bytes_per_doc();
         let name = temp_file_name.to_string();
-        let seek_fp: i64 = (start * bytes_per_doc).try_convert()?;
+        let seek_fp = start * bytes_per_doc;
         let (check_sum_input, input) =
             if start == 0 && (length * bytes_per_doc == file_length - footer_length) {
                 let mut check_sum_input = temp_dir.open_checksum_input(temp_file_name)?;
@@ -131,13 +130,13 @@ where
                             self.check_sum_input.as_mut().unwrap().read_bytes(
                                 &mut offline.value[0..read_len],
                                 0,
-                                read_len.try_convert()?,
+                                read_len,
                             )?;
                         } else {
                             self.input.as_mut().unwrap().read_bytes(
                                 &mut offline.value[0..read_len],
                                 0,
-                                read_len.try_convert()?,
+                                read_len,
                             )?;
                         }
                     },
@@ -156,13 +155,13 @@ where
                             self.check_sum_input.as_mut().unwrap().read_bytes(
                                 &mut offline.value[0..read_len],
                                 0,
-                                read_len.try_convert()?,
+                                read_len,
                             )?;
                         } else {
                             self.input.as_mut().unwrap().read_bytes(
                                 &mut offline.value[0..read_len],
                                 0,
-                                read_len.try_convert()?,
+                                read_len,
                             )?;
                         }
                     },

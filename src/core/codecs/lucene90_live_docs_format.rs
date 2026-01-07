@@ -73,7 +73,7 @@ impl Lucene90LiveDocsFormat {
     fn read_fixed_bit_set(input: &mut impl IndexInput, length: usize) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words];
-        input.read_longs(&mut data, 0, num_words.try_convert()?)?;
+        input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
     fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {

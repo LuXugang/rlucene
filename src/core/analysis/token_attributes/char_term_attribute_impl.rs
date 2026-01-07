@@ -117,7 +117,7 @@ impl CharTermAttribute for CharTermAttributeImpl {
 
     fn set_length(&mut self, length: usize) -> Result<&mut Self> {
         debug_assert!(self.term_buffer.len() <= i32::MAX as usize);
-        CoreHelper::check_from_index_size(0, length as i32, self.term_buffer.len() as i32)?;
+        CoreHelper::check_from_index_size(0, length, self.term_buffer.len())?;
         self.term_length = length;
         Ok(self)
     }

@@ -50,7 +50,7 @@ impl BytesRefBlockPool {
         start: i32,
         byte_block_pool: &ByteBlockPool,
     ) {
-        let block = byte_block_pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
+        let block = byte_block_pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
         let pos = (start & BYTE_BLOCK_MASK) as usize;
 
         let (length, offset) = if (block[pos] & 0x80) == 0 {
@@ -97,7 +97,7 @@ impl BytesRefBlockPool {
         let buffer_upto = pool.byte_upto;
         let text_start = buffer_upto + pool.byte_offset;
         let buffer_index = pool.buffer_upto;
-        let buffer = pool.get_buffer_mut(buffer_index);
+        let buffer = pool.get_buffer_mut(buffer_index as usize);
 
         // We first encode the length, followed by the bytes. Length is
         // encoded as vInt, but will consume 1 or 2 bytes at
@@ -126,7 +126,7 @@ impl BytesRefBlockPool {
     /// Computes the hash of the BytesRef at the given start.
     pub fn hash(&self, start: i32, pool: &ByteBlockPool) -> i32 {
         let offset = (start & BYTE_BLOCK_MASK) as usize;
-        let bytes = pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
+        let bytes = pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
 
         let (len, pos) = if (bytes[offset] & 0x80) == 0 {
             // length is 1 byte
@@ -144,7 +144,7 @@ impl BytesRefBlockPool {
     /// and the provided BytesRef.
     pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> bool {
         let pos = (start & BYTE_BLOCK_MASK) as usize;
-        let bytes = pool.get_buffer(start >> BYTE_BLOCK_SHIFT);
+        let bytes = pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
 
         let (length, offset) = if (bytes[pos] & 0x80) == 0 {
             // length is 1 byte

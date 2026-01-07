@@ -26,7 +26,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::core::util::{ReadableCursorExt, SliceCopyOps};
+use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<&'a [u8]>;
 pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
 
@@ -34,53 +34,52 @@ pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
 pub struct ByteBuffersDataInput<B: AsRef<[u8]>> {
     blocks: Vec<Cursor<B>>,
-    block_mask: i32,
-    block_bits: i32,
-    length: i64,
-    offset: i64,
-    pos: i64,
+    block_mask: usize,
+    block_bits: usize,
+    length: usize,
+    offset: usize,
+    pos: usize,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of
 /// remaining bytes (which must be a power of two). The last buffer can have an
 /// arbitrary remaining length.
 impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
-    pub fn new(blocks: Vec<Cursor<B>>, length: i64) -> Self {
+    pub fn new(blocks: Vec<Cursor<B>>, length: usize) -> Result<Self> {
         let (block_bits, block_mask) = if blocks.is_empty() {
             (32, !0)
         } else {
-            let block_bytes = blocks[0].get_ref().as_ref().len() as u64;
-            let block_bits = block_bytes.trailing_zeros();
+            let block_bytes = blocks[0].get_ref().as_ref().len();
+            let block_bits = block_bytes.trailing_zeros() as usize;
             (block_bits, (1 << block_bits) - 1)
         };
         // The initial "position" of this stream is shifted by the position of
         // the first block.
-        let offset = blocks.first().map_or(0, |block| block.position()) as i64;
-        Self {
+        let offset = blocks
+            .first()
+            .map_or(0, |block| block.position())
+            .try_convert()?;
+        Ok(Self {
             blocks,
             block_mask,
-            block_bits: block_bits as i32,
+            block_bits,
             length,
             offset,
             pos: offset,
-        }
+        })
     }
-    fn block_index(&self, pos: i64) -> i32 {
-        let value = pos >> self.block_bits;
-        debug_assert!(value <= i32::MAX as i64);
-        value as i32
+    fn block_index(&self, pos: usize) -> usize {
+        pos >> self.block_bits
     }
-    fn block_offset(&self, pos: i64) -> i32 {
-        let value = pos & (self.block_mask as i64);
-        debug_assert!(value <= i32::MAX as i64,);
-        value as i32
+    fn block_offset(&self, pos: usize) -> usize {
+        pos & (self.block_mask)
     }
     fn read_buffer<T, C>(
         &self,
-        mut pos: i64,
-        len: i32,
+        mut pos: usize,
+        len: usize,
         output: &mut [T],
-        type_size: i32,
+        type_size: usize,
         converter: C,
     ) -> Result<()>
     where
@@ -89,38 +88,27 @@ impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
         let mut bytes_read = len * type_size;
         // TODO: use This bytes would made additional data copy
         // TODO: we should convert directly from block
-        let mut bytes = vec![0; bytes_read as usize];
+        let mut bytes = vec![0; bytes_read];
         let mut bytes_offset = 0;
         while bytes_read > 0 {
             let block_index = self.block_index(pos);
             let block_offset = self.block_offset(pos);
 
-            if block_index as usize >= self.blocks.len()
-                || pos + bytes_read as i64 > self.length + self.offset
-            {
+            if block_index >= self.blocks.len() || pos + bytes_read > self.length + self.offset {
                 return Err(LuceneError::eof(format!("{pos}")));
             }
 
-            let block = self.blocks.get(block_index as usize).unwrap();
-            let available =
-                block.remain_between(block_offset as u64, block.get_ref().as_ref().len() as u64);
+            let block = self.blocks.get(block_index).unwrap();
+            let available = block.remain_between(block_offset, block.get_ref().as_ref().len());
 
-            debug_assert!(available <= i32::MAX as u64);
-
-            debug_assert!(available > 0);
-            let chunk = bytes_read.min(available as i32);
-            block.read_to_buffer(
-                &mut bytes,
-                bytes_offset as usize,
-                block_offset as u64,
-                chunk as usize,
-            )?;
+            let chunk = bytes_read.min(available);
+            block.read_to_buffer(&mut bytes, bytes_offset, block_offset, chunk)?;
             bytes_offset += chunk;
-            pos += chunk as i64;
+            pos += chunk;
             bytes_read -= chunk;
         }
 
-        debug_assert!(bytes.len().is_multiple_of(type_size as usize));
+        debug_assert!(bytes.len().is_multiple_of(type_size));
         if type_size == 1 {
             let output_bytes = unsafe {
                 std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len())
@@ -129,30 +117,30 @@ impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
         } else {
             output
                 .iter_mut()
-                .zip(bytes.chunks_exact(type_size as usize).map(converter))
+                .zip(bytes.chunks_exact(type_size).map(converter))
                 .for_each(|(out, value)| *out = value);
         }
 
         Ok(())
     }
-    fn do_read_longs(&self, pos: i64, len: i32, output: &mut [i64]) -> Result<()> {
-        self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as i32, LE::read_i64)
+    fn do_read_longs(&self, pos: usize, len: usize, output: &mut [i64]) -> Result<()> {
+        self.read_buffer(pos, len, output, BitUtil::LONG_BYTES, LE::read_i64)
     }
-    fn do_read_bytes(&self, pos: i64, len: i32, output: &mut [u8]) -> Result<()> {
+    fn do_read_bytes(&self, pos: usize, len: usize, output: &mut [u8]) -> Result<()> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn do_read_ints(&self, pos: i64, len: i32, output: &mut [i32]) -> Result<()> {
-        self.read_buffer(pos, len, output, BitUtil::INT_BYTES as i32, LE::read_i32)
+    fn do_read_ints(&self, pos: usize, len: usize, output: &mut [i32]) -> Result<()> {
+        self.read_buffer(pos, len, output, BitUtil::INT_BYTES, LE::read_i32)
     }
-    fn do_read_shorts(&self, pos: i64, len: i32, output: &mut [i16]) -> Result<()> {
-        self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as i32, LE::read_i16)
+    fn do_read_shorts(&self, pos: usize, len: usize, output: &mut [i16]) -> Result<()> {
+        self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES, LE::read_i16)
     }
-    fn do_read_floats(&self, pos: i64, len: i32, output: &mut [f32]) -> Result<()> {
-        self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as i32, LE::read_f32)
+    fn do_read_floats(&self, pos: usize, len: usize, output: &mut [f32]) -> Result<()> {
+        self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES, LE::read_f32)
     }
 
-    pub fn seek(&mut self, position: i64) -> Result<()> {
+    pub fn seek(&mut self, position: usize) -> Result<()> {
         self.pos = position + self.offset;
         if position > self.length() {
             self.pos = self.length;
@@ -160,25 +148,30 @@ impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
         }
         Ok(())
     }
-    pub fn position(&self) -> i64 {
-        self.pos - self.offset
+    pub fn position(&self) -> Result<usize> {
+        self.pos.checked_sub(self.offset).ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+                "underflow, pos {} offset {}",
+                self.pos, self.offset
+            ))
+        })
     }
 }
 impl<B> ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
-    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<B>> {
-        if offset < 0 || length < 0 || offset + length > self.length {
+    pub fn slice(&self, offset: usize, length: usize) -> Result<ByteBuffersDataInput<B>> {
+        if offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
             )));
         }
         let blocks = Self::slice_buffer_list(&self.blocks, offset, length);
-        Ok(Self::new(blocks, length))
+        Self::new(blocks, length)
     }
-    pub fn slice_buffer_list(blocks: &[Cursor<B>], offset: i64, length: i64) -> Vec<Cursor<B>> {
+    pub fn slice_buffer_list(blocks: &[Cursor<B>], offset: usize, length: usize) -> Vec<Cursor<B>> {
         debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
 
         let abs_start = blocks[0].position() + offset as u64;
@@ -228,14 +221,17 @@ where
         } else {
             format!(" [offset: {}]", self.offset)
         };
-
+        let v = match self.position() {
+            Ok(p) => p.to_string(),
+            Err(_) => "ERR".to_string(),
+        };
         write!(
             f,
             "{} bytes, block size: {}, blocks: {}, position: {}{}",
             self.length,
             1u64 << self.block_bits,
             blocks_len,
-            self.position(),
+            v,
             offset_str
         )
     }
@@ -251,72 +247,68 @@ where
         self.pos += 1;
         Ok(bytes[0])
     }
-    fn read_bytes(&mut self, arr: &mut [u8], off: i32, len: i32) -> Result<()> {
-        self.do_read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
-        self.pos += len as i64;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        self.do_read_bytes(self.pos, len, &mut b[offset..(offset + len)])?;
+        self.pos += len;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
         let mut output = [0; 1];
         self.do_read_shorts(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::SHORT_BYTES as i64;
+        self.pos += BitUtil::SHORT_BYTES;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32> {
         let mut output = [0; 1];
         self.do_read_ints(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::INT_BYTES as i64;
+        self.pos += BitUtil::INT_BYTES;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
-        let block = self.blocks.get_mut(block_index as usize).unwrap();
-        let remain = block
-            .remain_between(block_offset as u64, block.get_ref().as_ref().len() as u64)
-            as usize;
+        let block = self.blocks.get_mut(block_index).unwrap();
+        let remain = block.remain_between(block_offset, block.get_ref().as_ref().len());
         let len = GroupVIntUtil::read_group_vint_i32_with_reader(
             self,
             remain as u64,
-            block_offset as i64,
+            block_offset,
             dst,
             offset,
         )?;
-        self.pos += len as i64;
+        self.pos += len;
         Ok(())
     }
     fn read_long(&mut self) -> Result<i64> {
         let mut output = [0; 1];
         self.do_read_longs(self.pos, 1, &mut output)?;
-        self.pos += BitUtil::LONG_BYTES as i64;
+        self.pos += BitUtil::LONG_BYTES;
         Ok(output[0])
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
-        self.do_read_longs(
-            self.pos,
-            len,
-            &mut dst[offset as usize..(offset + len) as usize],
-        )?;
-        self.pos += len as i64;
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+        self.do_read_longs(self.pos, len, &mut dst[offset..(offset + len)])?;
+        self.pos += len;
         Ok(())
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
-        self.do_read_floats(
-            self.pos,
-            len,
-            &mut dst[offset as usize..(offset + len) as usize],
-        )?;
-        self.pos += len as i64;
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+        self.do_read_floats(self.pos, len, &mut dst[offset..(offset + len)])?;
+        self.pos += len;
         Ok(())
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        let skip_to = self.position() + num_bytes;
+        if num_bytes < 0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "num_bytes must be >= 0, got {num_bytes}"
+            )));
+        }
+        let num_bytes: usize = num_bytes.try_convert()?;
+        let skip_to = self.position()? + num_bytes;
         self.seek(skip_to)
     }
 }
@@ -327,39 +319,39 @@ impl<B> RandomAccessInput for ByteBuffersDataInput<B>
 where
     B: AsRef<[u8]>,
 {
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.length
     }
 
-    fn read_byte(&mut self, pos: i64) -> Result<u8> {
+    fn read_byte(&mut self, pos: usize) -> Result<u8> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
         self.do_read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_short(&mut self, pos: i64) -> Result<i16> {
+    fn read_short(&mut self, pos: usize) -> Result<i16> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
         self.do_read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: i64) -> Result<i32> {
+    fn read_int(&mut self, pos: usize) -> Result<i32> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
         self.do_read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: i64) -> Result<i64> {
+    fn read_long(&mut self, pos: usize) -> Result<i64> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
         self.do_read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
-    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
 }
@@ -392,7 +384,7 @@ mod tests {
     #[test]
     fn test_sanity() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
-        let mut o1 = out.get_data_input_ref();
+        let mut o1 = out.get_data_input_ref()?;
         assert_eq!(0, o1.length());
         let mut result = DataInput::read_byte(&mut o1);
         assert!(result.is_err());
@@ -400,19 +392,19 @@ mod tests {
         out.write_byte(1)?;
         // TODO: how to assert o1's length not modified?
         // assert_eq!(0, o1.length());
-        let mut o2 = out.get_data_input_ref();
+        let mut o2 = out.get_data_input_ref()?;
         assert_eq!(1, o2.length());
-        assert_eq!(0, o2.position());
+        assert_eq!(0, o2.position()?);
 
         //TODO
         // assert!(o2.ram_bytes_used() > 0)
         assert_eq!(1, DataInput::read_byte(&mut o2)? as i32);
-        assert_eq!(1, o2.position());
+        assert_eq!(1, o2.position()?);
         assert_eq!(1, RandomAccessInput::read_byte(&mut o2, 0)? as i32);
 
         result = DataInput::read_byte(&mut o2);
         assert!(result.is_err());
-        assert_eq!(1, o2.position());
+        assert_eq!(1, o2.position()?);
         Ok(())
     }
 
@@ -424,7 +416,7 @@ mod tests {
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
         let max = if is_night_mode() { 1000000 } else { 100000 };
         let reply = add_random_data(&mut dst, &mut random1, max);
-        let mut src = dst.get_data_input_ref();
+        let mut src = dst.get_data_input_ref()?;
         for action in reply {
             action.verify(&mut src);
         }
@@ -440,20 +432,20 @@ mod tests {
         for _i in 0..=reps {
             let mut dst = ByteBuffersDataOutput::new();
             let prefix = vec![0; random.random_range(0..=1024 * 8)];
-            let prefix_len = prefix.len() as i64;
+            let prefix_len = prefix.len();
             dst.write_bytes(prefix.as_slice())?;
             let seed: u64 = random.random();
             let max = 10000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
             let reply = add_random_data(&mut dst, &mut random1, max);
             let suffix = vec![0; random.random_range(0..=1024 * 8)];
-            let suffix_len = suffix.len() as i64;
+            let suffix_len = suffix.len();
             dst.write_bytes(suffix.as_slice())?;
             let size = dst.size();
             let mut src = dst
-                .get_data_input_ref()
+                .get_data_input_ref()?
                 .slice(prefix_len, size - suffix_len - prefix_len)?;
-            assert_eq!(0, src.position());
+            assert_eq!(0, src.position()?);
             assert_eq!(size - prefix_len - suffix_len, src.length());
             for action in reply {
                 action.verify(&mut src);
@@ -466,7 +458,7 @@ mod tests {
     #[test]
     fn test_seek_empty() -> Result<()> {
         let mut dst = ByteBuffersDataOutput::new();
-        let mut data_input = dst.get_data_input_ref();
+        let mut data_input = dst.get_data_input_ref()?;
         let mut result = data_input.seek(0);
         assert!(result.is_ok());
         result = data_input.seek(1);
@@ -485,11 +477,11 @@ mod tests {
         for _i in 0..reps {
             let mut dst = ByteBuffersDataOutput::new();
             let prefix;
-            let mut prefix_len: i64 = 0;
+            let mut prefix_len = 0;
             if random.random_bool(0.5) {
                 let len = random.random_range(1..=1024 * 8);
                 prefix = vec![0; len];
-                prefix_len = prefix.len() as i64;
+                prefix_len = prefix.len();
                 dst.write_bytes(prefix.as_slice())?;
             }
             let seed: u64 = random.random();
@@ -498,9 +490,9 @@ mod tests {
             let reply = add_random_data(&mut dst, &mut random1, max);
             let size = dst.size();
             let mut array = dst.get_array_copy();
-            array = Vec::from(&array[prefix_len as usize..array.len()]);
+            array = Vec::from(&array[prefix_len..array.len()]);
             let mut data_input = dst
-                .get_data_input_ref()
+                .get_data_input_ref()?
                 .slice(prefix_len, size - prefix_len)?;
             data_input.seek(0)?;
             for action in &reply {
@@ -512,8 +504,8 @@ mod tests {
             }
             for _i in 0..1000 {
                 let offs = random.random_range(0..=array.len() - 1);
-                data_input.seek(offs as i64)?;
-                assert_eq!(offs as i64, data_input.position());
+                data_input.seek(offs)?;
+                assert_eq!(offs, data_input.position()?);
                 assert_eq!(array[offs], DataInput::read_byte(&mut data_input)?);
             }
             // test skipping
@@ -530,7 +522,7 @@ mod tests {
             }
 
             data_input.seek(data_input.length())?;
-            assert_eq!(data_input.length(), data_input.position());
+            assert_eq!(data_input.length(), data_input.position()?);
             let result = DataInput::read_byte(&mut data_input);
             assert!(result.is_err());
         }
@@ -540,11 +532,11 @@ mod tests {
     fn test_slicing_window() -> Result<()> {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::new();
-        assert_eq!(0, dst.get_data_input_ref().slice(0, 0)?.length());
+        assert_eq!(0, dst.get_data_input_ref()?.slice(0, 0)?.length());
         let random_bytes = vec![0; random.random_range(0..=1024 * 8)];
         dst.write_bytes(random_bytes.as_slice())?;
         let max = dst.size();
-        let data_input = dst.get_data_input_ref();
+        let data_input = dst.get_data_input_ref()?;
         let mut offset = 0;
         while offset < max {
             assert_eq!(0, data_input.slice(offset, 0)?.length());
@@ -563,7 +555,7 @@ mod tests {
         let mut dst = ByteBuffersDataOutput::new();
         let bytes = vec![0; 10];
         dst.write_bytes(bytes.as_slice())?;
-        let mut data_input = dst.get_data_input_ref();
+        let mut data_input = dst.get_data_input_ref()?;
         let mut output: Vec<u8> = vec![0; 100];
         let result = DataInput::read_bytes(&mut data_input, &mut output, 0, 100);
         assert!(result.is_err());
@@ -577,7 +569,7 @@ mod tests {
         let mut random = random();
         let mb = 1024 * 1024;
         let page_bytes: Vec<u8> = vec![0; 4 * mb];
-        let simulated_length: i64 = random.random_range(0..2018) as i64 + 4 * i32::MAX as i64;
+        let simulated_length = random.random_range(0..2018) + 4 * i32::MAX as usize;
         let mut remaining = simulated_length;
         let mut dst = ByteBuffersDataOutput::new();
         while remaining > 0 {
@@ -587,9 +579,9 @@ mod tests {
             }
             let len = block.len();
             dst.write_bytes(block.as_slice())?;
-            remaining -= len as i64;
+            remaining -= len;
         }
-        let data_input = dst.get_data_input_ref();
+        let data_input = dst.get_data_input_ref()?;
         assert_eq!(simulated_length, data_input.length());
         let max = data_input.length();
         let mut offset = 0;
@@ -602,11 +594,11 @@ mod tests {
             assert_eq!(window, slice.length());
             // Sanity check of the content against original pages.
             for i in 0..window {
-                let index = (offset + i) % page_bytes.len() as i64;
+                let index = (offset + i) % page_bytes.len();
                 let expected = page_bytes[index as usize];
                 assert_eq!(expected, RandomAccessInput::read_byte(&mut slice, i)?);
             }
-            offset += random.random_range(mb..4 * mb) as i64;
+            offset += random.random_range(mb..4 * mb);
         }
         Ok(())
     }

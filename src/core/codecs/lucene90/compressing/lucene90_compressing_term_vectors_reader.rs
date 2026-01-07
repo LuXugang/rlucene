@@ -137,8 +137,8 @@ where
                 segment_suffix,
             )?;
             debug_assert_eq!(
-                CodecUtil::index_header_length(format_name, segment_suffix) as i64,
-                vectors_stream.get_file_pointer()
+                CodecUtil::index_header_length(format_name, segment_suffix),
+                vectors_stream.get_file_pointer()?
             );
 
             let meta_stream_fn =
@@ -335,13 +335,10 @@ where
         }
     }
     fn slice(input: &mut I) -> Result<ByteBuffersDataInputOwned> {
-        let length = input.read_vint()?;
-        let mut buf = vec![0; length as usize];
+        let length = input.read_vint()?.try_convert()?;
+        let mut buf = vec![0; length];
         input.read_bytes(&mut buf, 0, length)?;
-        Ok(ByteBuffersDataInput::new(
-            vec![Cursor::new(buf)],
-            length as i64,
-        ))
+        ByteBuffersDataInput::new(vec![Cursor::new(buf)], length)
     }
     pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
         let bs = &self.block_state;
@@ -450,7 +447,7 @@ where
         let block_start_pointer = self.index_reader.get_block_start_pointer(block_id)?;
         let block_length = self.index_reader.get_block_length(block_id)?;
         self.vectors_stream
-            .prefetch(block_start_pointer, block_length)?;
+            .prefetch(block_start_pointer as usize, block_length as usize)?;
         let idx = self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK;
         self.prefetched_block_id_cache[idx] = block_id;
         self.prefetched_block_id_cache_index += 1;
@@ -469,7 +466,7 @@ where
         } else {
             self.index_reader.get_start_pointer(doc)?
         };
-        self.vectors_stream.seek(start_pointer)?;
+        self.vectors_stream.seek(start_pointer as usize)?;
         // decode
         // - docBase: first doc ID of the chunk
         // - chunkDocs: number of docs of the chunk
@@ -560,7 +557,7 @@ where
                         writer.add(field_flags.get_mut(field_num_off)?)?;
                     }
                     writer.finish()?;
-                    DirectReader::get_instance(out.get_data_input_owner(), *FLAGS_BITS)?
+                    DirectReader::get_instance(out.get_data_input_owner()?, *FLAGS_BITS)?
                 },
                 1 => {
                     DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, *FLAGS_BITS)?
@@ -1352,8 +1349,11 @@ impl BytesRefIterator for TVTermsEnum {
             ArrayUtil::grow_with_len(&mut self.term.bytes, self.term.length);
         }
 
-        self.input
-            .read_bytes(&mut self.term.bytes, prefix_len, suffix_len)?;
+        self.input.read_bytes(
+            &mut self.term.bytes,
+            prefix_len as usize,
+            suffix_len as usize,
+        )?;
 
         Ok(Option::from(Cow::Borrowed(&self.term)))
     }

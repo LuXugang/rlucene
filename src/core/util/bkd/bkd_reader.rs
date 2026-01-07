@@ -55,8 +55,8 @@ where
     version: i32,
     #[allow(dead_code)]
     pub(crate) min_leaf_block_fp: i64,
-    pub(crate) index_start_pointer: i64,
-    num_index_bytes: i32,
+    pub(crate) index_start_pointer: usize,
+    num_index_bytes: usize,
     pub(crate) is_tree_balanced: bool,
     /// index_in,data_in are the same instance
     #[cfg(test)]
@@ -86,10 +86,10 @@ where
         let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
             (
                 DataInput::read_long(meta_in)?,
-                DataInput::read_long(meta_in)?,
+                DataInput::read_long(meta_in)?.try_convert()?,
             )
         } else {
-            let index_start_pointer = index_in.get_file_pointer();
+            let index_start_pointer = index_in.get_file_pointer()?;
             let min_leaf_block_fp = index_in.read_vlong()?;
             index_in.seek(index_start_pointer)?;
             (min_leaf_block_fp, index_start_pointer)
@@ -130,18 +130,8 @@ where
         let mut min_packed_value = vec![0; packed_index_bytes_length];
         let mut max_packed_value = vec![0; packed_index_bytes_length];
 
-        DataInput::read_bytes(
-            meta_in,
-            &mut min_packed_value,
-            0,
-            packed_index_bytes_length as i32,
-        )?;
-        DataInput::read_bytes(
-            meta_in,
-            &mut max_packed_value,
-            0,
-            packed_index_bytes_length as i32,
-        )?;
+        DataInput::read_bytes(meta_in, &mut min_packed_value, 0, packed_index_bytes_length)?;
+        DataInput::read_bytes(meta_in, &mut max_packed_value, 0, packed_index_bytes_length)?;
 
         let bytes_per_dim = config.bytes_per_dim;
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
@@ -160,7 +150,7 @@ where
 
         let point_count = meta_in.read_vlong()?.try_convert()?;
         let doc_count = meta_in.read_vint()?;
-        let num_index_bytes = meta_in.read_vint()?;
+        let num_index_bytes = meta_in.read_vint()?.try_convert()?;
         Ok((
             Self {
                 config,
@@ -259,7 +249,7 @@ where
             Some(ref index_in) => index_in.slice(
                 "packedIndex",
                 self.index_start_pointer,
-                self.num_index_bytes as i64,
+                self.num_index_bytes,
             )?,
             None => {
                 #[cfg(test)]
@@ -273,7 +263,7 @@ where
                     data_in.slice(
                         "packedIndex",
                         self.index_start_pointer,
-                        self.num_index_bytes as i64,
+                        self.num_index_bytes,
                     )?
                 }
                 #[cfg(not(test))]
@@ -303,20 +293,20 @@ pub struct BKDPointTree<I: IndexInput> {
     node_root: i32,
     /// Level is 1-based so that we can do `level - 1` without checking each
     /// time.
-    level: i32,
+    level: usize,
     /// Used to read the packed tree off-heap.
     inner_nodes: I::Slice,
     /// Used to read the packed leaves off-heap.
     leaf_nodes: Arc<Mutex<I>>,
     /// Holds the minimum (left-most) leaf block file pointer for each level
     /// we've recursed to.
-    leaf_block_fp_stack: Vec<i64>,
+    leaf_block_fp_stack: Vec<usize>,
     /// Holds the address, in the off-heap index, after reading the node data
     /// of each level.
-    read_node_data_positions: Vec<i32>,
+    read_node_data_positions: Vec<usize>,
     /// Holds the address, in the off-heap index, of the right-node of each
     /// level.
-    right_node_positions: Vec<i32>,
+    right_node_positions: Vec<usize>,
     /// Holds the splitDim position for each level.
     split_dims_pos: Vec<usize>,
     /// True if the per-dimension delta we read for the node at this level is a
@@ -406,7 +396,7 @@ where
         version: i32,
         point_count: usize,
         node_id: i32,
-        level: i32,
+        level: usize,
         min_packed_value: &[u8],
         max_packed_value: &[u8],
         scratch_iterator: BKDReaderDocIDSetIterator,
@@ -461,13 +451,13 @@ where
     }
     fn reset_node_data_position(&mut self) -> Result<()> {
         // move position of the inner nodes index to visit the first child
-        let position = self.read_node_data_positions[self.level as usize] as i64;
-        debug_assert!(position <= self.inner_nodes.get_file_pointer());
+        let position = self.read_node_data_positions[self.level];
+        debug_assert!(position <= self.inner_nodes.get_file_pointer()?);
         self.inner_nodes.seek(position)?;
         Ok(())
     }
     fn push_bounds_left(&mut self) {
-        let level = self.level as usize;
+        let level = self.level;
         let bytes_per_dim = self.config.bytes_per_dim;
         let split_dim_pos = self.split_dims_pos[level];
 
@@ -506,7 +496,7 @@ where
         self.read_node_data(true)
     }
     fn push_bounds_right(&mut self) {
-        let level = self.level as usize;
+        let level = self.level;
         let bytes_per_dim = self.config.bytes_per_dim;
         let split_dim_pos = self.split_dims_pos[level];
         // we should have already visited the left node
@@ -537,13 +527,13 @@ where
         );
     }
     fn push_right(&mut self) -> Result<()> {
-        let node_position = self.right_node_positions[self.level as usize] as i64;
+        let node_position = self.right_node_positions[self.level];
 
         debug_assert!(
-            node_position >= self.inner_nodes.get_file_pointer(),
+            node_position >= self.inner_nodes.get_file_pointer()?,
             "nodePosition = {} < currentPosition={}",
             node_position,
-            self.inner_nodes.get_file_pointer()
+            self.inner_nodes.get_file_pointer()?
         );
 
         self.inner_nodes.seek(node_position)?;
@@ -557,7 +547,7 @@ where
     }
 
     fn pop_bounds(&mut self, is_left: bool) {
-        let level = self.level as usize;
+        let level = self.level;
         let split_dim_pos = self.split_dims_pos[level];
         let bytes_per_dim = self.config.bytes_per_dim;
 
@@ -589,9 +579,9 @@ where
         self.node_id - self.leaf_node_offset < self.leaf_node_offset
     }
     /// Only valid after pushLeft or pushRight, not pop!.
-    fn get_leaf_block_fp(&self) -> Result<i64> {
+    fn get_leaf_block_fp(&self) -> Result<usize> {
         debug_assert!(self.is_leaf_node(), "nodeID={} is not a leaf", self.node_id);
-        Ok(self.leaf_block_fp_stack[self.level as usize])
+        Ok(self.leaf_block_fp_stack[self.level])
     }
     fn size_from_balanced_tree(
         &self,
@@ -713,7 +703,7 @@ where
     fn visit_doc_values(
         &mut self,
         visitor: &mut impl IntersectVisitor,
-        fp: i64,
+        fp: usize,
         leaf_node: &mut I,
     ) -> Result<()> {
         let count = self.read_doc_ids(fp, leaf_node)?;
@@ -727,7 +717,7 @@ where
         Ok(())
     }
 
-    fn read_doc_ids(&mut self, block_fp: i64, index_input: &mut I) -> Result<usize> {
+    fn read_doc_ids(&mut self, block_fp: usize, index_input: &mut I) -> Result<usize> {
         index_input.seek(block_fp)?;
         let count = index_input.read_vint()?.try_convert()?;
         self.scratch_iterator.doc_ids_writer.read_ints(
@@ -751,39 +741,39 @@ where
     }
 
     fn read_node_data(&mut self, is_left: bool) -> Result<()> {
-        self.leaf_block_fp_stack[self.level as usize] =
-            self.leaf_block_fp_stack[(self.level - 1) as usize];
+        self.leaf_block_fp_stack[self.level] = self.leaf_block_fp_stack[self.level - 1];
         if !is_left {
             // Read leaf block FP delta
-            self.leaf_block_fp_stack[self.level as usize] += self.inner_nodes.read_vlong()?;
+            let v: usize = self.inner_nodes.read_vlong()?.try_convert()?;
+            self.leaf_block_fp_stack[self.level] += v;
         }
 
         if !self.is_leaf_node() {
             let num_index_dims = self.config.num_index_dims;
-            let level = self.level as usize;
 
             // Copy the negative deltas from the previous level
-            let prev_offset = (level - 1) * num_index_dims;
-            let curr_offset = level * num_index_dims;
+            let prev_offset = (self.level - 1) * num_index_dims;
+            let curr_offset = self.level * num_index_dims;
             self.negative_deltas
                 .copy_within(prev_offset..prev_offset + num_index_dims, curr_offset);
             self.negative_deltas
-                [curr_offset + self.split_dims_pos[level - 1] / self.config.bytes_per_dim] =
+                [curr_offset + self.split_dims_pos[self.level - 1] / self.config.bytes_per_dim] =
                 is_left;
 
             // Clone or copy the previous level's split values
-            if self.split_values_stack[level].is_empty() {
-                self.split_values_stack[level] = self.split_values_stack[level - 1].clone();
+            if self.split_values_stack[self.level].is_empty() {
+                self.split_values_stack[self.level] =
+                    self.split_values_stack[self.level - 1].clone();
             } else {
-                let (before, after) = self.split_values_stack.split_at_mut(level);
-                let source = &before[level - 1][..self.config.packed_index_bytes_length()];
+                let (before, after) = self.split_values_stack.split_at_mut(self.level);
+                let source = &before[self.level - 1][..self.config.packed_index_bytes_length()];
                 after[0].copy_from(source, 0);
             }
 
             // Read split dim, prefix, and firstDiffByteDelta encoded as an int
             let mut code: usize = self.inner_nodes.read_vint()?.try_convert()?;
             let split_dim = code % self.config.num_index_dims;
-            self.split_dims_pos[level] = split_dim * self.config.bytes_per_dim;
+            self.split_dims_pos[self.level] = split_dim * self.config.bytes_per_dim;
             code /= self.config.num_index_dims;
             let prefix = code % (1 + self.config.bytes_per_dim);
             let suffix = self.config.bytes_per_dim - prefix;
@@ -793,15 +783,15 @@ where
                 if self.negative_deltas[curr_offset + split_dim] {
                     first_diff_byte_delta = -first_diff_byte_delta;
                 }
-                let start_pos = self.split_dims_pos[level] + prefix;
-                let old_byte = self.split_values_stack[level][start_pos] as i32;
-                self.split_values_stack[level][start_pos] =
+                let start_pos = self.split_dims_pos[self.level] + prefix;
+                let old_byte = self.split_values_stack[self.level][start_pos] as i32;
+                self.split_values_stack[self.level][start_pos] =
                     (old_byte + first_diff_byte_delta) as u8;
                 DataInput::read_bytes(
                     &mut self.inner_nodes,
-                    &mut self.split_values_stack[level],
-                    (start_pos + 1).try_convert()?,
-                    (suffix - 1) as i32,
+                    &mut self.split_values_stack[self.level],
+                    start_pos + 1,
+                    suffix - 1,
                 )?;
             } else {
                 // Our split value is == last split value in this dim, which can
@@ -809,14 +799,13 @@ where
             }
 
             let left_num_bytes = if self.node_id * 2 < self.leaf_node_offset {
-                self.inner_nodes.read_vint()?
+                self.inner_nodes.read_vint()?.try_convert()?
             } else {
                 0
             };
-            self.right_node_positions[level] =
-                (self.inner_nodes.get_file_pointer() + left_num_bytes as i64).try_convert()?;
-            self.read_node_data_positions[level] =
-                self.inner_nodes.get_file_pointer().try_convert()?;
+            self.right_node_positions[self.level] =
+                self.inner_nodes.get_file_pointer()? + left_num_bytes;
+            self.read_node_data_positions[self.level] = self.inner_nodes.get_file_pointer()?;
         }
         Ok(())
     }
@@ -958,8 +947,8 @@ where
     fn read_min_max(&mut self, index_input: &mut I) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
             let prefix = self.common_prefix_lengths[dim];
-            let offset: i32 = (dim * self.config.bytes_per_dim + prefix).try_convert()?;
-            let len: i32 = (self.config.bytes_per_dim - prefix).try_convert()?;
+            let offset = dim * self.config.bytes_per_dim + prefix;
+            let len = self.config.bytes_per_dim - prefix;
             DataInput::read_bytes(
                 index_input,
                 &mut self.scratch_min_index_packed_value,
@@ -993,8 +982,8 @@ where
                     DataInput::read_bytes(
                         index_input,
                         &mut self.scratch_data_packed_value,
-                        (dim * self.config.bytes_per_dim + prefix).try_convert()?,
-                        (self.config.bytes_per_dim - prefix).try_convert()?,
+                        dim * self.config.bytes_per_dim + prefix,
+                        self.config.bytes_per_dim - prefix,
                     )?;
                 }
                 self.scratch_iterator.reset(i, length);
@@ -1057,8 +1046,8 @@ where
                         DataInput::read_bytes(
                             index_input,
                             &mut self.scratch_data_packed_value,
-                            (dim * self.config.bytes_per_dim + prefix).try_convert()?,
-                            (self.config.bytes_per_dim - prefix).try_convert()?,
+                            dim * self.config.bytes_per_dim + prefix,
+                            self.config.bytes_per_dim - prefix,
                         )?;
                     }
                     visitor.visit_with_packed_value(
@@ -1104,8 +1093,8 @@ where
                 DataInput::read_bytes(
                     index_input,
                     &mut self.scratch_data_packed_value,
-                    (dim * self.config.bytes_per_dim).try_convert()?,
-                    prefix as i32,
+                    dim * self.config.bytes_per_dim,
+                    prefix,
                 )?;
             }
         }
@@ -1140,7 +1129,7 @@ where
             self.is_tree_balanced,
         )?;
 
-        let level = self.level as usize;
+        let level = self.level;
         let dims = self.config.num_dims;
 
         index.leaf_block_fp_stack[level] = self.leaf_block_fp_stack[level];

@@ -1013,7 +1013,7 @@ impl DataInput for OutputAccumulator {
         Ok(byte)
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 

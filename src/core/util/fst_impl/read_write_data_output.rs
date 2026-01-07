@@ -18,11 +18,13 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{BytesReader, BytesReaderEnum2};
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
+
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
 /// writing
@@ -126,7 +128,7 @@ impl DataOutput for ReadWriteDataOutput {
         DataOutput::write_byte(&mut self.data_output, b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         debug_assert!(!self.frozen);
         self.data_output.write_bytes_range(b, offset, length)
     }
@@ -173,15 +175,16 @@ impl DataInput for BytesReaderImpl {
         Ok(*byte)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         for i in 0..len {
-            b[(offset + i) as usize] = self.read_byte()?;
+            b[offset + i] = self.read_byte()?;
         }
         Ok(())
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<()> {
-        self.set_position(self.get_position() - count);
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        let num_bytes: usize = num_bytes.try_convert()?;
+        self.set_position(self.get_position() - num_bytes);
         Ok(())
     }
 }
@@ -193,17 +196,17 @@ impl Display for BytesReaderImpl {
 }
 
 impl BytesReader for BytesReaderImpl {
-    fn get_position(&self) -> i64 {
-        (((self.next_buffer + 1) * self.block_size) + self.next_read) as i64
+    fn get_position(&self) -> usize {
+        (((self.next_buffer + 1) * self.block_size) + self.next_read) as usize
     }
 
-    fn set_position(&mut self, pos: i64) {
+    fn set_position(&mut self, pos: usize) {
         let buffer_index = (pos >> self.block_bits) as i32;
         if self.next_buffer != buffer_index - 1 {
             self.next_buffer = buffer_index - 1;
             self.current = buffer_index;
         }
-        self.next_read = (pos & self.block_mask as i64) as i32;
+        self.next_read = (pos & self.block_mask as usize) as i32;
         debug_assert_eq!(
             self.get_position(),
             pos,

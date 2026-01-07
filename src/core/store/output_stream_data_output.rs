@@ -36,8 +36,8 @@ impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
         Ok(self.os.write_u8(b)?)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         let end = offset + length;
-        Ok(self.os.write_all(&b[offset as usize..end as usize])?)
+        Ok(self.os.write_all(&b[offset..end])?)
     }
 }

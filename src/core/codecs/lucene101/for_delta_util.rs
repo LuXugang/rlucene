@@ -739,7 +739,7 @@ mod tests {
                 );
             }
 
-            assert_eq!(end_pointer, pdu.input.get_file_pointer());
+            assert_eq!(end_pointer, pdu.input.get_file_pointer()?);
         }
         Ok(())
     }

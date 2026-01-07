@@ -501,9 +501,10 @@ where
                     min_values: entry.min_value,
                 })
             } else {
-                let mut slice = self
-                    .data
-                    .random_access_slice(entry.values_offset, entry.values_length)?;
+                let mut slice = self.data.random_access_slice(
+                    entry.values_offset as usize,
+                    entry.values_length as usize,
+                )?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if slice.length() > 0 {
@@ -566,9 +567,10 @@ where
                     min_values: entry.min_value,
                 })
             } else {
-                let mut slice = self
-                    .data
-                    .random_access_slice(entry.values_offset, entry.values_length)?;
+                let mut slice = self.data.random_access_slice(
+                    entry.values_offset as usize,
+                    entry.values_length as usize,
+                )?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if slice.length() > 0 {
@@ -635,7 +637,7 @@ where
         } else {
             let mut slice = self
                 .data
-                .random_access_slice(entry.values_offset, entry.values_length)?;
+                .random_access_slice(entry.values_offset as usize, entry.values_length as usize)?;
             if slice.length() > 0 {
                 slice.prefetch(0, 1)?
             }
@@ -691,9 +693,10 @@ where
                 ));
             }
 
-            let mut slice = self
-                .data
-                .random_access_slice(ords_entry.values_offset, ords_entry.values_length)?;
+            let mut slice = self.data.random_access_slice(
+                ords_entry.values_offset as usize,
+                ords_entry.values_length as usize,
+            )?;
             if slice.length() > 0 {
                 slice.prefetch(0, 1)?;
             }
@@ -741,9 +744,10 @@ where
             ));
         }
 
-        let mut addresses_input = self
-            .data
-            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
+        let mut addresses_input = self.data.random_access_slice(
+            entry.addresses_offset as usize,
+            entry.addresses_length as usize,
+        )?;
         // Prefetch the first page of data. Following pages are expected to get
         // prefetched through read-ahead.
         if addresses_input.length() > 0 {
@@ -826,7 +830,7 @@ where
                 }
                 let mut bytes_slice = self
                     .data
-                    .random_access_slice(entry.data_offset, entry.data_length)?;
+                    .random_access_slice(entry.data_offset as usize, entry.data_length as usize)?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if bytes_slice.length() > 0 {
@@ -843,9 +847,10 @@ where
                         };
                         DenseBinaryDocValuesBaseEnum::Dense(base)
                     } else {
-                        let mut addresses_data = self
-                            .data
-                            .random_access_slice(entry.data_offset, entry.data_length)?;
+                        let mut addresses_data = self.data.random_access_slice(
+                            entry.data_offset as usize,
+                            entry.data_length as usize,
+                        )?;
                         // Prefetch the first page of data. Following pages are
                         // expected to get prefetched through
                         // read-ahead.
@@ -900,9 +905,10 @@ where
                         })
                     } else {
                         // variable-length
-                        let mut addresses_data = self
-                            .data
-                            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
+                        let mut addresses_data = self.data.random_access_slice(
+                            entry.addresses_offset as usize,
+                            entry.addresses_length as usize,
+                        )?;
                         if addresses_data.length() > 0 {
                             addresses_data.prefetch(0, 1)?;
                         }
@@ -993,8 +999,8 @@ where
                             }
 
                             let mut addresses_input = self.data.random_access_slice(
-                                ords_entry.addresses_offset,
-                                ords_entry.addresses_length,
+                                ords_entry.addresses_offset as usize,
+                                ords_entry.addresses_length as usize,
                             )?;
                             if addresses_input.length() > 0 {
                                 addresses_input.prefetch(0, 1)?;
@@ -1013,8 +1019,8 @@ where
                             };
 
                             let mut slice = self.data.random_access_slice(
-                                ords_entry.base.values_offset,
-                                ords_entry.base.values_length,
+                                ords_entry.base.values_offset as usize,
+                                ords_entry.base.values_length as usize,
                             )?;
                             if slice.length() > 0 {
                                 slice.prefetch(0, 1)?;
@@ -1077,9 +1083,11 @@ where
         let entry = self.skippers.get(&field.number);
         match entry {
             Some(entry) => {
-                let mut input = self
-                    .data
-                    .slice("doc value skipper", entry.offset, entry.length)?;
+                let mut input = self.data.slice(
+                    "doc value skipper",
+                    entry.offset as usize,
+                    entry.length as usize,
+                )?;
                 if input.length() > 0 {
                     input.prefetch(0, 1)?;
                 }
@@ -1489,8 +1497,8 @@ where
             None
         } else {
             let mut slice = data.random_access_slice(
-                entry.value_jump_table_offset,
-                data.length() - entry.value_jump_table_offset,
+                entry.value_jump_table_offset as usize,
+                data.length() - entry.value_jump_table_offset as usize,
             )?;
             if slice.length() > 0 {
                 slice.prefetch(0, 1)?;
@@ -1528,23 +1536,23 @@ where
                     && block != self.block + 1
                 {
                     self.block_end_offset = rank_slice
-                        .read_long(block * BitUtil::LONG_BYTES as i64)?
+                        .read_long(block as usize * BitUtil::LONG_BYTES)?
                         - self.entry.values_offset;
                     self.block = block - 1;
                 }
 
                 {
                     self.offset = self.block_end_offset;
-                    bits_per_value = self.slice.read_byte(self.offset)? as i32;
+                    bits_per_value = self.slice.read_byte(self.offset as usize)? as i32;
                     self.offset += 1;
 
-                    self.delta = self.slice.read_long(self.offset)?;
+                    self.delta = self.slice.read_long(self.offset as usize)?;
                     self.offset += BitUtil::LONG_BYTES as i64;
 
                     if bits_per_value == 0 {
                         self.block_end_offset = self.offset;
                     } else {
-                        let length = self.slice.read_int(self.offset)? as i64;
+                        let length = self.slice.read_int(self.offset as usize)? as i64;
                         self.offset += BitUtil::INT_BYTES as i64;
                         self.block_end_offset = self.offset + length;
                     }
@@ -1961,10 +1969,10 @@ where
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.bytes_slice.read_bytes(
-            (doc * self.length) as i64,
+            (doc * self.length) as usize,
             &mut self.bytes.bytes,
             0,
-            self.length,
+            self.length as usize,
         )?;
         Ok(Cow::Borrowed(&self.bytes))
     }
@@ -1985,10 +1993,10 @@ where
         let start_offset = self.addresses.get_mut(doc as i64)?;
         self.bytes.length = (self.addresses.get_mut((doc + 1) as i64)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
-            start_offset,
+            start_offset as usize,
             &mut self.bytes.bytes,
             0,
-            self.bytes.length as i32,
+            self.bytes.length,
         )?;
         Ok(Cow::Borrowed(&self.bytes))
     }
@@ -2020,8 +2028,12 @@ where
         disi: &mut IndexedDISI<I, Owned>,
     ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let pos = (disi.index() * self.length) as i64;
-        self.bytes_slice
-            .read_bytes(pos, &mut self.bytes.bytes, 0, self.length)?;
+        self.bytes_slice.read_bytes(
+            pos as usize,
+            &mut self.bytes.bytes,
+            0,
+            self.length as usize,
+        )?;
         Ok(Cow::Borrowed(&self.bytes))
     }
 }
@@ -2045,10 +2057,10 @@ where
         let start_offset = self.addresses.get_mut(index)?;
         self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
-            start_offset,
+            start_offset as usize,
             &mut self.bytes.bytes,
             0,
-            self.bytes.length as i32,
+            self.bytes.length,
         )?;
         Ok(Cow::Borrowed(&self.bytes))
     }
@@ -2775,8 +2787,10 @@ where
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
     pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
-        let addresses_slice =
-            data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
+        let addresses_slice = data.random_access_slice(
+            entry.terms_addresses_offset as usize,
+            entry.terms_addresses_length as usize,
+        )?;
 
         let block_addresses = match entry.terms_addresses_meta {
             Some(ref meta) => {
@@ -2789,13 +2803,17 @@ where
             },
         };
 
-        let bytes = data.slice("terms", entry.terms_data_offset, entry.terms_data_length)?;
+        let bytes = data.slice(
+            "terms",
+            entry.terms_data_offset as usize,
+            entry.terms_data_length as usize,
+        )?;
 
         let block_mask = (1u64 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
 
         let index_addresses_slice = data.random_access_slice(
-            entry.terms_index_addresses_offset,
-            entry.terms_index_addresses_length,
+            entry.terms_index_addresses_offset as usize,
+            entry.terms_index_addresses_length as usize,
         )?;
 
         let index_addresses = match entry.terms_index_addresses_meta {
@@ -2811,8 +2829,10 @@ where
             },
         };
 
-        let index_bytes =
-            data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
+        let index_bytes = data.random_access_slice(
+            entry.terms_index_offset as usize,
+            entry.terms_index_length as usize,
+        )?;
 
         let term = BytesRef::with_capacity(entry.max_term_length as usize);
         // add the max term length for the dictionary
@@ -2850,10 +2870,10 @@ where
             "index {index} out of range"
         );
 
-        let start = self.index_addresses.get_mut(index)?;
-        let end = self.index_addresses.get_mut(index + 1)?;
-        let len = (end - start) as i32;
-        self.term.length = len as usize;
+        let start = self.index_addresses.get_mut(index)? as usize;
+        let end = self.index_addresses.get_mut(index + 1)? as usize;
+        let len = end - start;
+        self.term.length = len;
 
         self.term.bytes.access_mut(|bytes| {
             self.index_bytes.read_bytes(start, bytes, 0, len)?;
@@ -2909,10 +2929,10 @@ where
         );
 
         let block_address = self.block_addresses.get_mut(block)?;
-        self.bytes.seek(block_address)?;
+        self.bytes.seek(block_address as usize)?;
 
-        let len = self.bytes.read_vint()?;
-        self.term.length = len as usize;
+        let len = self.bytes.read_vint()?.try_convert()?;
+        self.term.length = len;
         self.term.bytes.access_mut(|bytes| {
             self.bytes.read_bytes(bytes, 0, len)?;
             // Help the compiler infer types.
@@ -2980,7 +3000,7 @@ where
         let block = std::cmp::max(block_hi, 0);
         let block_address = self.block_addresses.get_mut(block)?;
         self.ord = block << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
-        self.bytes.seek(block_address)?;
+        self.bytes.seek(block_address as usize)?;
         self.decompress_block()?;
 
         Ok(block_hi)
@@ -2990,11 +3010,11 @@ where
         // if only look up the first term when doing seek block.
         self.term.length = self.bytes.read_vint()? as usize;
         self.term.bytes.access_mut(|bytes| {
-            self.bytes.read_bytes(bytes, 0, self.term.length as i32)?;
+            self.bytes.read_bytes(bytes, 0, self.term.length)?;
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
         })?;
-        let offset = self.bytes.get_file_pointer();
+        let offset = self.bytes.get_file_pointer()? as i64;
         if offset < self.entry.terms_data_length - 1 {
             // Avoid decompressing again if reading the same block
             if self.current_compressed_block_start != offset {
@@ -3022,10 +3042,11 @@ where
                 })?;
 
                 self.current_compressed_block_start = offset;
-                self.current_compressed_block_end = self.bytes.get_file_pointer();
+                self.current_compressed_block_end = self.bytes.get_file_pointer()? as i64;
             } else {
                 // Seek to block end if already decompressed
-                self.bytes.seek(self.current_compressed_block_end)?;
+                self.bytes
+                    .seek(self.current_compressed_block_end as usize)?;
             }
 
             // Reset buffer reader
@@ -3064,7 +3085,7 @@ where
 
             self.term.length = (prefix_length + suffix_length) as usize;
             self.term.bytes.access_mut(|bytes| {
-                input.read_bytes(bytes, prefix_length, suffix_length)?;
+                input.read_bytes(bytes, prefix_length as usize, suffix_length as usize)?;
                 // Help the compiler infer types.
                 Ok::<(), LuceneError>(())
             })?;
@@ -3120,7 +3141,7 @@ where
             // The looked up ord is before the current ord or belongs to a
             // different block, seek again
             let block_address = self.block_addresses.get_mut(block_index)?;
-            self.bytes.seek(block_address)?;
+            self.bytes.seek(block_address as usize)?;
             self.ord = (block_index << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
         }
         // Scan forward to the desired ordinal

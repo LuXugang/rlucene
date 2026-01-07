@@ -18,19 +18,21 @@ use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
+use crate::core::util::{
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps, TryIntoInt,
+};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 /// IndexInput that knows how to read the byte slices written by Posting and PostingVector.
 /// We read the bytes in each slice until we hit the end of that slice at which point we read the forwarding address of the next slice and then jump to it.
 pub(crate) struct ByteSliceReader<P> {
     pool: P,
-    buffer_upto: i32,
-    upto: i32,
-    limit: i32,
-    level: i32,
-    buffer_offset: i32,
-    end_index: i32,
+    buffer_upto: usize,
+    upto: usize,
+    limit: usize,
+    level: usize,
+    buffer_offset: usize,
+    end_index: usize,
 }
 
 impl<P> ByteSliceReader<P> {
@@ -62,38 +64,36 @@ impl<P> ByteSliceReader<P>
 where
     P: Deref<Target = ByteBlockPool>,
 {
-    pub(crate) fn init(&mut self, start_index: i32, end_index: i32) {
-        debug_assert!(end_index - start_index >= 0);
-        debug_assert!(start_index >= 0);
-        debug_assert!(end_index >= 0);
+    pub(crate) fn init(&mut self, start_index: usize, end_index: usize) {
+        debug_assert!(end_index >= start_index);
 
         self.end_index = end_index;
         self.level = 0;
 
-        self.buffer_upto = start_index / BYTE_BLOCK_SIZE;
-        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE;
-        self.upto = start_index & BYTE_BLOCK_MASK;
+        self.buffer_upto = start_index / BYTE_BLOCK_SIZE as usize;
+        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE as usize;
+        self.upto = start_index & BYTE_BLOCK_MASK as usize;
 
-        let first_size = ByteSlicePool::LEVEL_SIZE_ARRAY[0];
+        let first_size = ByteSlicePool::LEVEL_SIZE_ARRAY[0] as usize;
 
         if start_index + first_size >= end_index {
             // Only one slice
-            self.limit = end_index & BYTE_BLOCK_MASK;
+            self.limit = end_index & BYTE_BLOCK_MASK as usize;
         } else {
             self.limit = self.upto + first_size - 4;
         }
     }
 
-    pub(crate) fn next_slice(&mut self) {
+    pub(crate) fn next_slice(&mut self) -> Result<()> {
         let buffer = self.pool.get_buffer(self.buffer_upto);
-        let next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
+        let next_index = BitUtil::get_i32_le(buffer, self.limit).try_convert()?;
 
-        self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
-        let new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level as usize];
+        self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level] as usize;
+        let new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level] as usize;
 
-        self.buffer_upto = next_index / BYTE_BLOCK_SIZE;
-        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE;
-        self.upto = next_index & BYTE_BLOCK_MASK;
+        self.buffer_upto = next_index / BYTE_BLOCK_SIZE as usize;
+        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE as usize;
+        self.upto = next_index & BYTE_BLOCK_MASK as usize;
 
         if next_index + new_size >= self.end_index {
             // Final slice
@@ -103,6 +103,7 @@ where
             // Intermediate slice (reserve 4 bytes for forwarding address)
             self.limit = self.upto + new_size - 4;
         }
+        Ok(())
     }
 }
 
@@ -115,36 +116,33 @@ where
         debug_assert!(self.upto <= self.limit);
 
         if self.upto == self.limit {
-            self.next_slice();
+            self.next_slice()?;
         }
 
-        let byte = self.pool.get_buffer(self.buffer_upto)[self.upto as usize];
+        let byte = self.pool.get_buffer(self.buffer_upto)[self.upto];
         self.upto += 1;
         Ok(byte)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, mut len: i32) -> Result<()> {
-        let mut offset = offset as usize;
-
+    fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, mut len: usize) -> Result<()> {
         while len > 0 {
             let num_left = self.limit - self.upto;
             if num_left < len {
                 {
                     let buffer = self.pool.get_buffer(self.buffer_upto);
-                    b.copy_from(
-                        &buffer[self.upto as usize..self.upto as usize + num_left as usize],
-                        offset,
-                    );
+                    b.copy_from(&buffer[self.upto..self.upto + num_left], offset);
                 }
-                offset += num_left as usize;
-                len -= num_left;
-                self.next_slice();
+                offset += num_left;
+                len = len.checked_sub(num_left).ok_or_else(|| {
+                    LuceneError::illegal_state(format!(
+                        "underflow, len {}, num_left {} ",
+                        len, num_left
+                    ))
+                })?;
+                self.next_slice()?;
             } else {
                 let buffer = self.pool.get_buffer(self.buffer_upto);
-                b.copy_from(
-                    &buffer[self.upto as usize..(self.upto + len) as usize],
-                    offset,
-                );
+                b.copy_from(&buffer[self.upto..(self.upto + len)], offset);
                 self.upto += len;
                 break;
             }
@@ -152,20 +150,25 @@ where
         Ok(())
     }
 
-    fn skip_bytes(&mut self, mut num_bytes: i64) -> Result<()> {
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
-            return Err(LuceneError::illegal_argument(
-                "numBytes must be >= 0".to_string(),
-            ));
+            return Err(LuceneError::illegal_argument(format!(
+                "num_bytes must be >= 0, got {num_bytes}"
+            )));
         }
-
+        let mut num_bytes = num_bytes.try_convert()?;
         while num_bytes > 0 {
-            let num_left = (self.limit - self.upto) as i64;
+            let num_left = self.limit - self.upto;
             if num_left < num_bytes {
-                num_bytes -= num_left;
-                self.next_slice();
+                num_bytes = num_bytes.checked_sub(num_left).ok_or_else(|| {
+                    LuceneError::illegal_state(format!(
+                        "underflow, num_bytes {}, num_left {} ",
+                        num_bytes, num_left
+                    ))
+                })?;
+                self.next_slice()?;
             } else {
-                self.upto += num_bytes as i32;
+                self.upto += num_bytes;
                 break;
             }
         }
@@ -187,9 +190,9 @@ mod tests {
     use crate::core::index::byte_slice_pool::ByteSlicePool;
     use crate::core::index::byte_slice_reader::ByteSliceReader;
     use crate::core::store::DataInput;
-    use crate::core::util::ByteBlockPool;
     use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::{ByteBlockPool, TryIntoInt};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
 
@@ -209,13 +212,13 @@ mod tests {
         let mut buffer_upto = block_pool.buffer_upto;
         let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
         for &random_byte in random_data.iter() {
-            let mut buffer = block_pool.get_buffer_mut(buffer_upto);
+            let mut buffer = block_pool.get_buffer_mut(buffer_upto.try_convert()?);
             let value = buffer[upto as usize];
             if (value & 16) != 0 {
-                upto = slice_pool.alloc_slice(buffer_upto, upto, &mut block_pool)?;
+                upto = slice_pool.alloc_slice(buffer_upto as usize, upto, &mut block_pool)?;
             }
             buffer_upto = block_pool.buffer_upto;
-            buffer = block_pool.get_buffer_mut(buffer_upto);
+            buffer = block_pool.get_buffer_mut(buffer_upto.try_convert()?);
             buffer[upto as usize] = random_byte;
             upto += 1;
         }
@@ -227,7 +230,7 @@ mod tests {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut reader = ByteSliceReader::new(&block_pool);
-        reader.init(0, block_pool_end);
+        reader.init(0, block_pool_end.try_convert()?);
         for &expected in random_data.iter() {
             let byte = reader.read_byte()?;
             assert_eq!(byte, expected);
@@ -242,7 +245,7 @@ mod tests {
         let max_skip_to = random_data.len() as i32 - 1;
         let iterations = at_least(&mut random, 10);
         for _ in 0..iterations {
-            slice_reader.init(0, block_pool_end);
+            slice_reader.init(0, block_pool_end.try_convert()?);
             // Skip random chunks of bytes until exhausted
             let mut curr = 0;
             while curr < max_skip_to {

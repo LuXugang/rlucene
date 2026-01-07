@@ -1180,7 +1180,7 @@ mod tests {
                 {
                     let mut out = directory.create_output("out.bin", &io_context)?;
                     let mem = random.random_range(0..2 * PackedInts::DEFAULT_BUFFER_SIZE);
-                    let start_fp = out.get_file_pointer();
+                    let start_fp = out.get_file_pointer() as i64;
                     let mut writer = PackedInts::get_writer_no_header(
                         &mut out,
                         Packed(PackedImpl::new(0)),
@@ -1216,7 +1216,7 @@ mod tests {
                         value_count as i32,
                         writer.bits_per_value,
                     );
-                    fp = out.get_file_pointer();
+                    fp = out.get_file_pointer() as i64;
                     assert_eq!(bytes, fp - start_fp);
                 }
 
@@ -1242,7 +1242,7 @@ mod tests {
                             assert_eq!(i, reader.ord() as usize);
                         }
                     }
-                    assert_eq!(fp, input.get_file_pointer());
+                    assert_eq!(fp, input.get_file_pointer()? as i64);
                 }
 
                 // Test reader iterator bulk `next`
@@ -1274,7 +1274,7 @@ mod tests {
                             i += next.length as usize;
                         }
                     }
-                    assert_eq!(fp, input.get_file_pointer());
+                    assert_eq!(fp, input.get_file_pointer()? as i64);
                 }
             }
         }
@@ -1333,7 +1333,7 @@ mod tests {
 
                     assert_eq!(
                         byte_count,
-                        input.get_file_pointer(),
+                        input.get_file_pointer()? as i64,
                         "{}: File pointer mismatch",
                         msg
                     );
@@ -2337,11 +2337,11 @@ mod tests {
                 fp = out.get_file_pointer();
             }
 
-            let mut buf = vec![0u8; fp as usize];
+            let mut buf = vec![0u8; fp];
             // test in1
             {
                 let mut in1 = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
-                DataInput::read_bytes(&mut in1, &mut buf, 0, fp as i32)?;
+                DataInput::read_bytes(&mut in1, &mut buf, 0, fp)?;
                 in1.seek(0)?;
                 let mut in_ref = in1;
                 let mut it = BlockPackedReaderIterator::new(
@@ -2370,7 +2370,7 @@ mod tests {
                 }
                 let result = it.next_value(&mut in_ref);
                 assert!(matches!(result, Err(LuceneError::Eof(_))));
-                assert_eq!(fp, in_ref.get_file_pointer());
+                assert_eq!(fp, in_ref.get_file_pointer()?);
                 in_ref.seek(0)?;
                 let mut it2 = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,
@@ -2391,7 +2391,7 @@ mod tests {
                     }
                 }
                 assert!(it2.skip(1, &mut in_ref).is_err());
-                assert_eq!(fp, in_ref.get_file_pointer());
+                assert_eq!(fp, in_ref.get_file_pointer()?);
             }
             // test in2
             {
@@ -2423,7 +2423,7 @@ mod tests {
                 }
                 let result = it.next_value(&mut in_ref);
                 assert!(matches!(result, Err(LuceneError::Eof(_))));
-                assert_eq!(fp, in_ref.get_position() as i64);
+                assert_eq!(fp, in_ref.get_position());
 
                 in_ref.set_position(0);
                 let mut it2 = BlockPackedReaderIterator::new(
@@ -2445,7 +2445,7 @@ mod tests {
                     }
                 }
                 assert!(it2.skip(1, &mut in_ref).is_err());
-                assert_eq!(fp, in_ref.get_position() as i64);
+                assert_eq!(fp, in_ref.get_position());
             }
         }
         Ok(())
@@ -2499,7 +2499,7 @@ mod tests {
                 block_size,
                 value_count as i64,
             )?;
-            assert_eq!(file_pointer, input.get_file_pointer());
+            assert_eq!(file_pointer, input.get_file_pointer()?);
             for (i, &value) in values.iter().enumerate().take(value_count) {
                 assert_eq!(value, reader.get(i as i64)?);
             }

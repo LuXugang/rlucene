@@ -21,25 +21,25 @@ use crate::core::util::error::lucene_error::Result;
 /// `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
     /// The number of bytes in the file.
-    fn length(&self) -> i64;
+    fn length(&self) -> usize;
     /// Reads a byte at the given position in the file
-    fn read_byte(&mut self, pos: i64) -> Result<u8>;
+    fn read_byte(&mut self, pos: usize) -> Result<u8>;
     /// Reads a specified number of bytes starting at a given position into an
     /// array at the specified offset.
-    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
         for i in 0..len {
-            buf[(offset + i) as usize] = self.read_byte(pos + i as i64)?;
+            buf[offset + i] = self.read_byte(pos + i)?;
         }
         Ok(())
     }
     ///  Reads an i16 (LE byte order) at the given position in the file.
-    fn read_short(&mut self, pos: i64) -> Result<i16>;
+    fn read_short(&mut self, pos: usize) -> Result<i16>;
     /// Reads an i32 (LE byte order) at the given position in the file.
-    fn read_int(&mut self, pos: i64) -> Result<i32>;
+    fn read_int(&mut self, pos: usize) -> Result<i32>;
     /// Reads a long (LE byte order) at the given position in the file.
-    fn read_long(&mut self, pos: i64) -> Result<i64>;
+    fn read_long(&mut self, pos: usize) -> Result<i64>;
     ///  Prefetch data in the background.
-    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()>;
+    fn prefetch(&mut self, pos: usize, len: usize) -> Result<()>;
 }
 
 macro_rules! either_random_access_input {
@@ -52,13 +52,13 @@ macro_rules! either_random_access_input {
         where
             $( $T: RandomAccessInput ),+
         {
-            fn length(&self) -> i64 {
+            fn length(&self) -> usize{
                 match self {
                     $( Self::$Variant(inner) => inner.length(), )+
                 }
             }
 
-            fn read_byte(&mut self, pos: i64) -> Result<u8> {
+            fn read_byte(&mut self, pos: usize) -> Result<u8> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_byte(pos), )+
                 }
@@ -66,35 +66,35 @@ macro_rules! either_random_access_input {
 
             fn read_bytes(
                 &mut self,
-                pos: i64,
+                pos: usize,
                 buf: &mut [u8],
-                offset: i32,
-                len: i32,
+                offset: usize,
+                len: usize,
             ) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_bytes(pos, buf, offset, len), )+
                 }
             }
 
-            fn read_short(&mut self, pos: i64) -> Result<i16> {
+            fn read_short(&mut self, pos: usize) -> Result<i16> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_short(pos), )+
                 }
             }
 
-            fn read_int(&mut self, pos: i64) -> Result<i32> {
+            fn read_int(&mut self, pos: usize) -> Result<i32> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_int(pos), )+
                 }
             }
 
-            fn read_long(&mut self, pos: i64) -> Result<i64> {
+            fn read_long(&mut self, pos: usize) -> Result<i64> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_long(pos), )+
                 }
             }
 
-            fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
+            fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.prefetch(pos, len), )+
                 }

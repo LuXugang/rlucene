@@ -23,7 +23,7 @@ impl DataOutput for DummyDataOutput {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, _b: &[u8], _offset: usize, _length: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

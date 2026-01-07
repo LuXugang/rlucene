@@ -43,7 +43,8 @@ pub trait StoredFieldVisitor {
         length: i32,
         writer: Option<&mut S>,
     ) -> Result<()> {
-        let mut buffer = vec![0u8; length as usize];
+        let length = length as usize;
+        let mut buffer = vec![0u8; length];
         input.read_bytes(&mut buffer, 0, length)?;
         self.binary_field(field_info, buffer, writer)
     }

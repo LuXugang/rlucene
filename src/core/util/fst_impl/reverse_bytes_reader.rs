@@ -17,13 +17,13 @@
 use std::rc::Rc;
 
 use crate::core::store::DataInput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
 
 /// Reads in reverse from a single byte array.
 pub struct ReverseBytesReader {
     bytes: Rc<Vec<u8>>,
-    pos: i32,
+    pos: usize,
 }
 
 impl ReverseBytesReader {
@@ -34,33 +34,44 @@ impl ReverseBytesReader {
 
 impl DataInput for ReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
-        let b = self.bytes[self.pos as usize];
+        let b = self.bytes[self.pos];
         self.pos -= 1;
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        let offset = offset as usize;
-        for i in 0..len as usize {
-            b[offset + i] = self.bytes[self.pos as usize];
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        for i in 0..len {
+            b[offset + i] = self.bytes[self.pos];
             self.pos -= 1;
         }
         Ok(())
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<()> {
-        self.pos -= count as i32;
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        if num_bytes >= 0 {
+            let v = num_bytes as usize;
+            self.pos = self.pos.checked_sub(v).ok_or_else(|| {
+                LuceneError::illegal_state(format!(
+                    "underflow, pos {}, num_num_bytes {} ",
+                    self.pos, num_bytes
+                ))
+            })?;
+        } else {
+            let v = -num_bytes as usize;
+            self.pos += v;
+        }
+
         Ok(())
     }
 }
 
 impl BytesReader for ReverseBytesReader {
-    fn get_position(&self) -> i64 {
-        self.pos as i64
+    fn get_position(&self) -> usize {
+        self.pos
     }
 
-    fn set_position(&mut self, pos: i64) {
-        self.pos = pos as i32;
+    fn set_position(&mut self, pos: usize) {
+        self.pos = pos;
     }
 }
 

@@ -195,7 +195,7 @@ where
                         node_hash.primary_table.copy_node_bytes(
                             hash_slot,
                             fst_compiler.scratch_bytes.get_bytes(),
-                            pos,
+                            pos as i32,
                         )?;
                     }
 
@@ -225,9 +225,9 @@ where
                     / 8
                     + node_hash.primary_table.count
                         * 2
-                        * PackedInts::bits_required(copied_bytes)? as i64
+                        * PackedInts::bits_required(copied_bytes as i64)? as i64
                         / 8
-                    + copied_bytes;
+                    + copied_bytes as i64;
                 // NOTE: we could instead use the more precise RAM used, but
                 // this leads to unpredictable
                 // quantized behavior due to 2X rehashing where for large ranges
@@ -348,7 +348,7 @@ impl Inner {
         debug_assert_eq!(self.fst_node_address.get(hash_slot)?, node_address);
         let local_address = self.copied_node_address.get(hash_slot)?;
         self.bytes_reader
-            .set_pos_delta(node_address - local_address);
+            .set_pos_delta((node_address - local_address) as usize);
         Ok(&mut self.bytes_reader)
     }
 }
@@ -504,7 +504,7 @@ where
 
         let position = self.inner.bytes_reader.get_position();
         let sub_reader = PagedGrowableWriter::with_fill_page(
-            PackedInts::bits_required(position)?,
+            PackedInts::bits_required(position as i64)?,
             PackedInts::COMPACT,
         );
         let mut new_copied_node_address =
@@ -668,7 +668,7 @@ where
 
             if self.scratch_arc.is_last() {
                 return if arc_idx == (node.num_arcs as usize - 1) {
-                    let len = address - in_reader.get_position();
+                    let len = address - in_reader.get_position() as i64;
                     Ok(len as i32)
                 } else {
                     Ok(-1)

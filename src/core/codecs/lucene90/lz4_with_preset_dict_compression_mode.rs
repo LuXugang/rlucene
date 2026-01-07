@@ -236,7 +236,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
         buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        let len = (buffers_input.length() - buffers_input.position()) as i32;
+        let len = (buffers_input.length() - buffers_input.position()?) as i32;
         let dict_length = (len
             / (LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS
                 * LZ4WithPresetDictCompressionMode::DICT_SIZE_FACTOR))
@@ -256,14 +256,19 @@ impl Compressor for LZ4WithPresetDictCompressor {
 
         self.compressed.reset();
         // Compress the dictionary first
-        DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length)?;
+        DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length as usize)?;
         self.do_compress(0, dict_length, out)?;
 
         // And then sub blocks
         let mut start = dict_length;
         while start < len {
             let l = (len - start).min(block_length);
-            DataInput::read_bytes(buffers_input, &mut self.buffer, dict_length, l)?;
+            DataInput::read_bytes(
+                buffers_input,
+                &mut self.buffer,
+                dict_length as usize,
+                l as usize,
+            )?;
             self.do_compress(dict_length, l, out)?;
             start += block_length;
         }

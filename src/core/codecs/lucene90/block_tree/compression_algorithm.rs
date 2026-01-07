@@ -50,7 +50,7 @@ impl CompressionAlgorithm {
     pub fn read(&self, input: &mut impl DataInput, out: &mut [u8], len: i32) -> Result<()> {
         match self {
             CompressionAlgorithm::NoCompression => {
-                input.read_bytes(out, 0, len)?;
+                input.read_bytes(out, 0, len as usize)?;
             },
             CompressionAlgorithm::LowercaseAscii => {
                 debug_assert!(len >= 0);

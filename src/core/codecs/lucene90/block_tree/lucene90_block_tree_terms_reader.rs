@@ -269,8 +269,11 @@ where
         }
         // At this point the checksum of the meta file has been verified so the lengths
         // are likely correct
-        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
-        CodecUtil::retrieve_checksum_with_expected(&mut terms_reader.terms_in, terms_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length as usize)?;
+        CodecUtil::retrieve_checksum_with_expected(
+            &mut terms_reader.terms_in,
+            terms_length as usize,
+        )?;
         let terms_reader = Arc::new(terms_reader);
         let index_in = Arc::new(index_in);
         for (_field_number, reader) in field_map.iter_mut() {
@@ -393,9 +396,10 @@ fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
             "invalid bytes length: {num_bytes} (resource={input})"
         )));
     }
-    let mut buffer = vec![0u8; num_bytes as usize];
+    let num_bytes = num_bytes as usize;
+    let mut buffer = vec![0u8; num_bytes];
     input.read_bytes(&mut buffer, 0, num_bytes)?;
-    Ok(BytesRef::from_slice(buffer, 0, num_bytes as usize))
+    Ok(BytesRef::from_slice(buffer, 0, num_bytes))
 }
 fn sort_field_names<I, PR>(
     field_map: &HashMap<i32, FieldReader<I, PR>>,

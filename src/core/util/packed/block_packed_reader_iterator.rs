@@ -158,8 +158,8 @@ impl BlockPackedReaderIterator {
     }
     fn skip_bytes(&mut self, count: i64, data_input: &mut impl DataInput) -> Result<()> {
         if data_input.is_index_input() {
-            let new_position = data_input.get_file_pointer_in_data_input() + count;
-            data_input.seek_in_data_input(new_position)?;
+            let new_position = data_input.get_file_pointer_in_data_input()? as i64 + count;
+            data_input.seek_in_data_input(new_position as usize)?;
         } else {
             // Use a temporary buffer to skip bytes
             if self.blocks.is_empty() {
@@ -170,7 +170,7 @@ impl BlockPackedReaderIterator {
             while skipped < count {
                 let to_skip = std::cmp::min(self.blocks.len() as i64, count - skipped);
                 debug_assert!(to_skip <= i32::MAX as i64);
-                data_input.read_bytes(&mut self.blocks, 0, to_skip as i32)?;
+                data_input.read_bytes(&mut self.blocks, 0, to_skip as usize)?;
                 skipped += to_skip;
             }
         }
@@ -279,8 +279,7 @@ impl BlockPackedReaderIterator {
                 value_count,
                 bits_per_value,
             );
-            debug_assert!(blocks_count <= i32::MAX as i64);
-            data_input.read_bytes(&mut self.blocks, 0, blocks_count as i32)?;
+            data_input.read_bytes(&mut self.blocks, 0, blocks_count as usize)?;
 
             decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
             if min_value != 0 {

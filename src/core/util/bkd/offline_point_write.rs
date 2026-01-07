@@ -18,7 +18,6 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
-use crate::core::util::TryIntoInt;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
@@ -143,7 +142,7 @@ where
         );
         debug_assert!(packed_value.len() <= i32::MAX as usize);
         let out = self.out.as_mut().unwrap();
-        out.write_bytes_range(packed_value, 0, packed_value.len() as i32)?;
+        out.write_bytes_range(packed_value, 0, packed_value.len())?;
         out.write_int(i32::to_be(doc_id))?;
         self.count += 1;
         debug_assert!(
@@ -165,11 +164,10 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out.as_mut().unwrap().write_bytes_range(
-            value,
-            offset.try_convert()?,
-            length.try_convert()?,
-        )?;
+        self.out
+            .as_mut()
+            .unwrap()
+            .write_bytes_range(value, offset, length)?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,

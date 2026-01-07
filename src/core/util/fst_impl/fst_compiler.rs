@@ -38,7 +38,7 @@ use crate::core::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadW
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
-use crate::core::util::{OutputIdentity, SliceCopyOps};
+use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 
 /// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from
 /// pre-sorted terms with outputs. The FST becomes an FSA if you use
@@ -497,7 +497,7 @@ where
                         }
                     }
                     let label_end = self.scratch_bytes.get_position();
-                    let num_label_bytes = label_end - label_start;
+                    let num_label_bytes = (label_end - label_start) as i32;
 
                     if !self.no_output.is_same_reference(&arc.output) {
                         self.fst
@@ -516,7 +516,8 @@ where
                     }
 
                     if do_fixed_length_arcs {
-                        let num_arc_bytes = self.scratch_bytes.get_position() - last_arc_start;
+                        let num_arc_bytes: i32 =
+                            (self.scratch_bytes.get_position() - last_arc_start).try_convert()?;
                         self.num_bytes_per_arc[arc_idx] = num_arc_bytes;
                         self.num_label_bytes_per_arc[arc_idx] = num_label_bytes;
                         last_arc_start = self.scratch_bytes.get_position();
@@ -735,7 +736,7 @@ where
         let header_len = self.fixed_length_arcs_buffer.get_position();
         // Expand the arcs in place, backwards.
         let src_pos = self.scratch_bytes.get_position();
-        let dest_pos = header_len + node_in.num_arcs * max_bytes_per_arc;
+        let dest_pos = (header_len + node_in.num_arcs * max_bytes_per_arc) as usize;
 
         debug_assert!(dest_pos >= src_pos);
 
@@ -743,8 +744,8 @@ where
             self.scratch_bytes.set_position(dest_pos);
             let scratch_bytes = self.scratch_bytes.get_bytes();
             let arc_bytes = &self.num_bytes_per_arc;
-            let mut src_pos = src_pos as usize;
-            let mut dest_pos = dest_pos as usize;
+            let mut src_pos = src_pos;
+            let mut dest_pos = dest_pos;
             let max_bytes_per_arc = max_bytes_per_arc as usize;
             for arc_idx in (0..node_in.num_arcs as usize).rev() {
                 dest_pos -= max_bytes_per_arc;
@@ -777,7 +778,7 @@ where
     /// Reverse the scratch bytes in place. This operation does not affect
     /// `scratch_bytes.get_position()`.
     fn reverse_scratch_bytes(&mut self) {
-        let pos = self.scratch_bytes.get_position() as usize;
+        let pos = self.scratch_bytes.get_position();
         let bytes = self.scratch_bytes.get_bytes();
         let limit = pos / 2;
         for i in 0..limit {
@@ -822,7 +823,7 @@ where
             get_num_presence_bytes(label_range)
         };
 
-        let mut src_pos = self.scratch_bytes.get_position();
+        let mut src_pos = self.scratch_bytes.get_position() as i32;
         let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         let total_arc_bytes =
             self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
@@ -838,23 +839,27 @@ where
             src_pos -= src_arc_len;
             let label_len = self.num_label_bytes_per_arc[arc_idx];
             self.scratch_bytes
-                .write_to(src_pos, buffer, buffer_offset, 1);
+                .write_to(src_pos as usize, buffer, buffer_offset, 1);
             // Skip the label, copy the remaining.
             let remaining_len = src_arc_len - 1 - label_len;
             if remaining_len != 0 {
                 self.scratch_bytes.write_to(
-                    src_pos + 1 + label_len,
+                    (src_pos + 1 + label_len) as usize,
                     buffer,
                     buffer_offset + 1,
-                    remaining_len,
+                    remaining_len as usize,
                 );
             }
 
             // Copy label for first arc only
             if arc_idx == 0 {
                 buffer_offset -= label_len;
-                self.scratch_bytes
-                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
+                self.scratch_bytes.write_to(
+                    (src_pos + 1) as usize,
+                    buffer,
+                    buffer_offset,
+                    label_len as usize,
+                );
             }
         }
 
@@ -882,7 +887,7 @@ where
         self.scratch_bytes.write_bytes_range(
             self.fixed_length_arcs_buffer.get_bytes(),
             0,
-            header_len,
+            header_len as usize,
         )?;
 
         // Write presence bits if not continuous
@@ -890,20 +895,20 @@ where
             self.write_presence_bits(node_in_idx)?;
             debug_assert_eq!(
                 self.scratch_bytes.get_position(),
-                header_len + num_presence_bytes
+                (header_len + num_presence_bytes) as usize
             );
         }
 
         // Write first label + arcs
         self.scratch_bytes.write_bytes_range(
             self.fixed_length_arcs_buffer.get_bytes(),
-            buffer_offset,
-            total_arc_bytes,
+            buffer_offset as usize,
+            total_arc_bytes as usize,
         )?;
 
         debug_assert_eq!(
             self.scratch_bytes.get_position(),
-            header_len + num_presence_bytes + total_arc_bytes
+            (header_len + num_presence_bytes + total_arc_bytes) as usize
         );
         Ok(())
     }
@@ -1262,7 +1267,7 @@ where
         }
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         match self {
             DataOutputEnum::FromDir(data_output) => {
                 data_output.write_bytes_range(b, offset, length)

@@ -33,7 +33,7 @@ where
     W: Write,
 {
     os: XBufferedOutputStream<W>,
-    bytes_written: i64,
+    bytes_written: usize,
     name: String,
     resource_description: String,
 }
@@ -82,10 +82,10 @@ where
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         let end = offset + length;
-        self.bytes_written += length as i64;
-        self.os.write_bytes(&b[offset as usize..end as usize])
+        self.bytes_written += length;
+        self.os.write_bytes(&b[offset..end])
     }
 
     fn write_int(&mut self, i: i32) -> Result<()> {
@@ -126,7 +126,7 @@ impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
 where
     W: Write,
 {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> usize {
         self.bytes_written
     }
 
@@ -238,7 +238,7 @@ mod tests {
 
             out.write_long(1234567890123456789)?;
             hasher.update(&1234567890123456789u64.to_le_bytes());
-            assert_eq!(out.get_file_pointer(), (offset + 14) as i64);
+            assert_eq!(out.get_file_pointer(), (offset + 14));
             assert_eq!(
                 out.get_checksum() as u32,
                 hasher.finalize(),
@@ -271,10 +271,10 @@ mod tests {
 
             let mut hasher = Hasher::new();
 
-            out.write_bytes_range(&large_data, 0, large_data.len() as i32)?;
+            out.write_bytes_range(&large_data, 0, large_data.len())?;
             hasher.update(&large_data);
 
-            assert_eq!(out.get_file_pointer(), large_data.len() as i64);
+            assert_eq!(out.get_file_pointer(), large_data.len());
             assert_eq!(
                 out.get_checksum(),
                 hasher.finalize() as u64,
@@ -299,10 +299,10 @@ mod tests {
             let data2 = b"World";
             let mut hasher = Hasher::new();
 
-            out.write_bytes_range(data1, 0, data1.len() as i32)?;
+            out.write_bytes_range(data1, 0, data1.len())?;
             hasher.update(data1);
             let sum1 = out.get_checksum();
-            out.write_bytes_range(data2, 0, data2.len() as i32)?;
+            out.write_bytes_range(data2, 0, data2.len())?;
             hasher.update(data2);
             let sum2 = out.get_checksum();
             assert_ne!(sum1, sum2, "Checksum mismatch");

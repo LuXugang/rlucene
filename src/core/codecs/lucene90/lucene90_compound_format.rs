@@ -108,15 +108,14 @@ impl Lucene90CompoundFormat {
         while pq.size() > 0 {
             let sized_file = pq.pop_unchecked()?;
             let file = &sized_file.name;
-            let start_offset = data.align_file_pointer(BitUtil::LONG_BYTES as i32)?;
+            let start_offset = data.align_file_pointer(BitUtil::LONG_BYTES)?;
             let mut file_input = directory.open_checksum_input(file)?;
             // just copies the index header, verifying that its id matches what
             // we expect
             CodecUtil::verify_and_copy_index_header(&mut file_input, data, si.get_id())?;
             // copy all bytes except the footer
-            let num_bytes_to_copy = file_input.length()
-                - CodecUtil::footer_length() as i64
-                - file_input.get_file_pointer();
+            let num_bytes_to_copy =
+                file_input.length() - CodecUtil::footer_length() - file_input.get_file_pointer()?;
             data.copy_bytes(&mut file_input, num_bytes_to_copy)?;
             // verify footer (checksum) matches for the incoming file we are
             // copying
@@ -132,8 +131,8 @@ impl Lucene90CompoundFormat {
             let length = end_offset - start_offset;
             // write entry for file
             entries.write_string(IndexFileNames::strip_segment_name(file))?;
-            entries.write_long(start_offset)?;
-            entries.write_long(length)?;
+            entries.write_long(start_offset as i64)?;
+            entries.write_long(length as i64)?;
         }
         Ok(())
     }

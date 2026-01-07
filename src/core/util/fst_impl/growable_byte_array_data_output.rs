@@ -26,7 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 // ByteBuffersDataOutput
 pub(crate) struct GrowableByteArrayDataOutput {
     bytes: Vec<u8>,
-    next_write: i32,
+    next_write: usize,
 }
 impl GrowableByteArrayDataOutput {
     const INITIAL_SIZE: usize = 1 << 8;
@@ -36,7 +36,7 @@ impl GrowableByteArrayDataOutput {
             next_write: 0,
         }
     }
-    pub(crate) fn get_position(&self) -> i32 {
+    pub(crate) fn get_position(&self) -> usize {
         self.next_write
     }
     /// Returns the full byte buffer.
@@ -45,8 +45,7 @@ impl GrowableByteArrayDataOutput {
     }
 
     /// Set the position of the byte array, increasing the capacity if needed.
-    pub(crate) fn set_position(&mut self, new_len: i32) {
-        debug_assert!(new_len >= 0);
+    pub(crate) fn set_position(&mut self, new_len: usize) {
         if new_len > self.next_write {
             self.ensure_capacity(new_len - self.next_write);
         }
@@ -54,12 +53,8 @@ impl GrowableByteArrayDataOutput {
     }
 
     /// Ensure we can write additional `capacity_to_write` bytes.
-    fn ensure_capacity(&mut self, capacity_to_write: i32) {
-        debug_assert!(capacity_to_write > 0);
-        ArrayUtil::grow_with_len(
-            &mut self.bytes,
-            (self.next_write + capacity_to_write) as usize,
-        )
+    fn ensure_capacity(&mut self, capacity_to_write: usize) {
+        ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
     }
     /// Writes all of our bytes to the target `Write`.
     pub(crate) fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {
@@ -67,10 +62,16 @@ impl GrowableByteArrayDataOutput {
     }
 
     /// Copies bytes from this store to a target buffer.
-    pub(crate) fn write_to(&self, src_offset: i32, dest: &mut [u8], dest_offset: i32, len: i32) {
+    pub(crate) fn write_to(
+        &self,
+        src_offset: usize,
+        dest: &mut [u8],
+        dest_offset: i32,
+        len: usize,
+    ) {
         debug_assert!(src_offset + len <= self.next_write);
         dest.copy_from(
-            &self.bytes[src_offset as usize..(src_offset + len) as usize],
+            &self.bytes[src_offset..(src_offset + len)],
             dest_offset as usize,
         );
     }
@@ -79,21 +80,20 @@ impl GrowableByteArrayDataOutput {
 impl DataOutput for GrowableByteArrayDataOutput {
     fn write_byte(&mut self, b: u8) -> Result<()> {
         self.ensure_capacity(1);
-        self.bytes[self.next_write as usize] = b;
+        self.bytes[self.next_write] = b;
         self.next_write += 1;
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, len: i32) -> Result<()> {
-        if len == 0 {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+        if length == 0 {
             return Ok(());
         }
-        self.ensure_capacity(len);
-        let start = offset as usize;
-        let end = start + len as usize;
-        self.bytes
-            .copy_from(&b[start..end], self.next_write as usize);
-        self.next_write += len;
+        self.ensure_capacity(length);
+        let start = offset;
+        let end = start + length;
+        self.bytes.copy_from(&b[start..end], self.next_write);
+        self.next_write += length;
         Ok(())
     }
 }
@@ -124,7 +124,7 @@ mod tests {
         let max_bytes = if is_night_mode() { 200_000 } else { 20_000 };
 
         for iter in 0..iters {
-            let num_bytes = TestUtil::next_int(&mut random, 1, max_bytes);
+            let num_bytes = TestUtil::next_usize(&mut random, 1, max_bytes);
             let mut expected = vec![0u8; num_bytes as usize];
             let mut bytes = GrowableByteArrayDataOutput::new();
 
@@ -145,20 +145,20 @@ mod tests {
                         if cfg!(feature = "test_log_verbose") {
                             println!("    write_byte b={}", b);
                         }
-                        expected[pos as usize] = b;
+                        expected[pos] = b;
                         bytes.write_byte(b)?;
                         pos += 1;
                     },
                     1 => {
                         // write byte array
                         let max_len = std::cmp::min(num_bytes - pos, 100);
-                        let len = random.random_range(0..max_len);
+                        let len = random.random_range(0..max_len) as usize;
                         let mut temp = vec![0u8; len as usize];
                         random.fill_bytes(&mut temp);
                         if cfg!(feature = "test_log_verbose") {
                             println!("    write_bytes len={}, bytes={:?}", len, temp);
                         }
-                        expected.copy_from(&temp[0..temp.len()], pos as usize);
+                        expected.copy_from(&temp[0..temp.len()], pos);
                         bytes.write_bytes_range(&temp, 0, len)?;
                         pos += len;
                     },
@@ -169,11 +169,11 @@ mod tests {
 
                 // maybe truncate
                 if pos > 0 && random.random_range(0..50) == 17 {
-                    let len = TestUtil::next_int(&mut random, 1, std::cmp::min(pos, 100));
+                    let len = TestUtil::next_usize(&mut random, 1, std::cmp::min(pos, 100));
                     pos -= len;
                     bytes.set_position(pos);
-                    for i in pos..pos + len {
-                        expected[i as usize] = 0;
+                    for v in expected.iter_mut().skip(pos).take(len) {
+                        *v = 0;
                     }
                     if cfg!(feature = "test_log_verbose") {
                         println!("    truncate len={} new_pos={}", len, pos);
@@ -198,7 +198,7 @@ mod tests {
 
                 let mut in_ = dir.open_input("bytes", &IOContext::default_io_context()?)?;
                 let mut bytes_to_verify = GrowableByteArrayDataOutput::new();
-                bytes_to_verify.copy_bytes(&mut in_, num_bytes as i64)?;
+                bytes_to_verify.copy_bytes(&mut in_, num_bytes)?;
                 bytes_to_verify
             } else {
                 bytes
@@ -223,8 +223,8 @@ mod tests {
         let mut input = ByteArrayDataInput::with_range(bytes.as_slice(), offset, len);
         let mut o = GrowableByteArrayDataOutput::new();
 
-        o.copy_bytes(&mut input, len as i64)?;
-        o.write_to(0, &mut bytes_out, 0, len as i32);
+        o.copy_bytes(&mut input, len)?;
+        o.write_to(0, &mut bytes_out, 0, len);
 
         let expected = &bytes[offset..(offset + len)];
         let actual = &bytes_out[..len];
@@ -238,7 +238,7 @@ mod tests {
     fn verify(
         bytes: &GrowableByteArrayDataOutput,
         expected: &[u8],
-        total_length: i32,
+        total_length: usize,
     ) -> Result<()> {
         assert_eq!(bytes.get_position(), total_length);
         if total_length == 0 {
@@ -254,9 +254,9 @@ mod tests {
         bytes.write_to_data_output(&mut output)?;
 
         let data = output.os.into_inner().unwrap();
-        assert_eq!(data.len(), total_length as usize);
+        assert_eq!(data.len(), total_length);
 
-        for i in 0..total_length as usize {
+        for i in 0..total_length {
             assert_eq!(expected[i], data[i], "byte @ index={}", i);
         }
         Ok(())

@@ -300,10 +300,10 @@ impl Compressor for LZ4FastCompressor {
         buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        let len = buffers_input.length() as i32;
-        let mut bytes = vec![0u8; len as usize];
+        let len = buffers_input.length();
+        let mut bytes = vec![0u8; len];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(bytes.as_slice(), 0, len, out, &mut self.ht)?;
+        LZ4::compress(bytes.as_slice(), 0, len as i32, out, &mut self.ht)?;
         Ok(())
     }
 }
@@ -324,10 +324,10 @@ impl Compressor for LZ4HighCompressor {
         buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        let len = buffers_input.length() as i32;
-        let mut bytes = vec![0u8; len as usize];
+        let len = buffers_input.length();
+        let mut bytes = vec![0u8; len];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(bytes.as_slice(), 0, len, out, &mut self.ht)?;
+        LZ4::compress(bytes.as_slice(), 0, len as i32, out, &mut self.ht)?;
         Ok(())
     }
 }
@@ -357,7 +357,7 @@ impl Decompressor for DeflateDecompressor {
 
         let compressed_length = input.read_vint()?;
         let mut compressed = vec![0; compressed_length as usize];
-        input.read_bytes(compressed.as_mut_slice(), 0, compressed_length)?;
+        input.read_bytes(compressed.as_mut_slice(), 0, compressed_length as usize)?;
 
         let mut decoder = DeflateDecoder::new(compressed.as_slice());
         let mut decompressed = Vec::new();
@@ -392,15 +392,15 @@ impl Compressor for DeflateCompressor {
         buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        let len = buffers_input.length() as i32;
-        let mut bytes = vec![0; len as usize];
+        let len = buffers_input.length();
+        let mut bytes = vec![0; len];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
         let mut compressor = DeflateEncoder::new(Vec::new(), Compression::new(self.level));
         compressor.write_all(&bytes)?;
         let compressed = compressor.finish()?;
         debug_assert!(compressed.len() <= i32::MAX as usize);
         out.write_vint(compressed.len() as i32)?;
-        out.write_bytes_with_len(&compressed, compressed.len() as i32)?;
+        out.write_bytes_with_len(&compressed, compressed.len())?;
         Ok(())
     }
 }
@@ -515,8 +515,8 @@ mod tests {
                 }
             }
 
-            let mut input = ByteBuffersDataInput::new(cursor_vec, limit as i64)
-                .slice(off as i64, len as i64)?;
+            let mut input = ByteBuffersDataInput::new(cursor_vec, limit as usize)?
+                .slice(off as usize, len as usize)?;
             let mut out = ByteArrayDataOutput::with_bytes(compressed);
 
             compressor.compress(&mut input, &mut out)?;

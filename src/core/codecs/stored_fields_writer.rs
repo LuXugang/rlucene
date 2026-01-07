@@ -70,9 +70,10 @@ pub trait StoredFieldsWriter {
         input: &mut impl DataInput,
         length: i32,
     ) -> Result<()> {
-        let mut buf = vec![0u8; length as usize];
+        let length = length as usize;
+        let mut buf = vec![0u8; length];
         input.read_bytes(&mut buf, 0, length)?;
-        self.write_field_bytes(field_info, &BytesRef::from_slice(buf, 0, length as usize))
+        self.write_field_bytes(field_info, &BytesRef::from_slice(buf, 0, length))
     }
 
     /// Writes a stored binary value.

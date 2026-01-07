@@ -67,7 +67,7 @@ impl ByteSlicePool {
         pool.byte_upto += size;
         let buffer_upto = pool.buffer_upto;
         let byte_upto = pool.byte_upto as usize;
-        pool.get_buffer_mut(buffer_upto)[byte_upto - 1] = 16; // This codifies level 0.
+        pool.get_buffer_mut(buffer_upto as usize)[byte_upto - 1] = 16; // This codifies level 0.
         Ok(upto)
     }
 
@@ -83,7 +83,7 @@ impl ByteSlicePool {
     /// The offset of the new slice in the pool.
     pub fn alloc_slice(
         &self,
-        slice_index: i32,
+        slice_index: usize,
         upto: i32,
         pool: &mut ByteBlockPool,
     ) -> Result<i32> {
@@ -102,7 +102,7 @@ impl ByteSlicePool {
     /// other 24 bits represent the offset into the pool.
     pub fn alloc_known_size_slice(
         &self,
-        slice_index: i32,
+        slice_index: usize,
         upto: i32,
         pool: &mut ByteBlockPool,
     ) -> Result<i32> {
@@ -134,7 +134,7 @@ impl ByteSlicePool {
         // Ensure we're not changing the content of `buffer` by setting 4 bytes
         // instead of 3. This should never happen since the next
         // `new_size` bytes must be equal to 0.
-        let buffer_upto = pool.buffer_upto;
+        let buffer_upto = pool.buffer_upto as usize;
         {
             let current_buffer = pool.get_buffer_mut(buffer_upto);
             debug_assert!(current_buffer[new_upto as usize + 3] == 0);
@@ -198,7 +198,7 @@ mod tests {
 
             let mut offset = 0;
             while offset < size as usize {
-                let mut buffer_upto = block_pool.buffer_upto;
+                let mut buffer_upto = block_pool.buffer_upto as usize;
                 if block_pool.get_buffer(buffer_upto)[upto as usize] & 16 == 0 {
                     block_pool.get_buffer_mut(buffer_upto)[upto as usize] = random_data[offset];
                     offset += 1;
@@ -208,7 +208,7 @@ mod tests {
                         slice_pool.alloc_known_size_slice(buffer_upto, upto, &mut block_pool)?;
                     let slice_length = offset_and_length & 0xff;
                     upto = offset_and_length >> 8;
-                    buffer_upto = block_pool.buffer_upto;
+                    buffer_upto = block_pool.buffer_upto as usize;
                     assert_ne!(
                         0,
                         block_pool.get_buffer(buffer_upto)[(upto + slice_length - 1) as usize]
@@ -234,7 +234,7 @@ mod tests {
         assert_eq!(0, slice_pool.new_slice(BYTE_BLOCK_SIZE, &mut block_pool)?);
         {
             let buffer_upto = block_pool.buffer_upto;
-            let buffer = block_pool.get_buffer_mut(buffer_upto).clone();
+            let buffer = block_pool.get_buffer_mut(buffer_upto as usize).clone();
             let buffer_0 = block_pool.get_buffer_mut(0).clone();
             assert_eq!(buffer, buffer_0);
             block_pool.next_buffer()?;
@@ -306,7 +306,7 @@ mod tests {
                 self.slice = self.first_slice;
 
                 let write_length = std::cmp::min(self.size, self.slice_length - 1);
-                let buffer = block_pool.get_buffer_mut(self.first_slice);
+                let buffer = block_pool.get_buffer_mut(self.first_slice as usize);
                 buffer.copy_from(
                     &self.random_data
                         [self.data_offset as usize..(self.data_offset + write_length) as usize],
@@ -323,19 +323,19 @@ mod tests {
             }
 
             let offset_and_length = slice_pool.alloc_known_size_slice(
-                self.slice,
+                self.slice as usize,
                 self.slice_offset + self.slice_length - 1,
                 block_pool,
             )?;
 
             // No, write more
             #[allow(unused_assignments)]
-            let mut current_pool_buffer = block_pool.get_buffer_mut(self.slice);
+            let mut current_pool_buffer = block_pool.get_buffer_mut(self.slice as usize);
             self.slice = block_pool.buffer_upto;
             self.slice_length = offset_and_length & 0xff;
             self.slice_offset = offset_and_length >> 8;
             let write_length = std::cmp::min(self.size - self.data_offset, self.slice_length - 1);
-            current_pool_buffer = block_pool.get_buffer_mut(self.slice);
+            current_pool_buffer = block_pool.get_buffer_mut(self.slice as usize);
             current_pool_buffer.copy_from(
                 &self.random_data
                     [self.data_offset as usize..(self.data_offset + write_length) as usize],
@@ -397,7 +397,7 @@ mod tests {
                     self.slice_length
                 };
 
-                let current_buffer = block_pool.get_buffer(self.slice);
+                let current_buffer = block_pool.get_buffer(self.slice as usize);
                 self.read_data.copy_from(
                     &current_buffer
                         [self.slice_offset as usize..(self.slice_offset + read_length) as usize],
@@ -418,7 +418,7 @@ mod tests {
             }
 
             // No, read more
-            let mut slice_buffer = block_pool.get_buffer(self.slice);
+            let mut slice_buffer = block_pool.get_buffer(self.slice as usize);
             let global_slice_offset = BitUtil::get_i32_le(
                 slice_buffer,
                 (self.slice_offset + self.slice_length) as usize,
@@ -433,7 +433,7 @@ mod tests {
                 self.slice_length
             };
 
-            slice_buffer = block_pool.get_buffer(self.slice);
+            slice_buffer = block_pool.get_buffer(self.slice as usize);
             self.read_data.copy_from(
                 &slice_buffer
                     [self.slice_offset as usize..(self.slice_offset + read_length) as usize],

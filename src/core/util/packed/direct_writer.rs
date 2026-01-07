@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 use crate::core::store::DataOutput;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::{FormatBehavior, PackedImpl, PackedInts};
+
 /// Writer for packed integers that can be directly read from a
 /// [`Directory`](crate::core::store::directory::Directory) via
 /// [`DirectReader`](crate::core::util::packed::direct_reader::DirectReader).
@@ -110,7 +112,7 @@ where
             self.bits_per_value,
         ) as i32;
         self.output
-            .write_bytes_with_len(&self.next_blocks, block_count)?;
+            .write_bytes_with_len(&self.next_blocks, block_count.try_convert()?)?;
         self.off = 0;
         Ok(())
     }

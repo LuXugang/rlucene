@@ -18,7 +18,8 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::TryIntoInt;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
 
 /// Implements reverse read from a RandomAccessInput.
@@ -27,7 +28,7 @@ where
     R: RandomAccessInput,
 {
     input: R,
-    pos: i64,
+    pos: usize,
 }
 
 impl<R> ReverseRandomAccessReader<R>
@@ -49,9 +50,7 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        let offset = offset as usize;
-        let len = len as usize;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         let mut i = offset;
         let end = offset + len;
         while i < end {
@@ -62,8 +61,14 @@ where
         Ok(())
     }
 
-    fn skip_bytes(&mut self, count: i64) -> Result<()> {
-        self.pos -= count;
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        let num_bytes = num_bytes.try_convert()?;
+        self.pos = self.pos.checked_sub(num_bytes).ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+                "underflow, pos {}, num_bytes {} ",
+                self.pos, num_bytes
+            ))
+        })?;
         Ok(())
     }
 }
@@ -72,11 +77,11 @@ impl<R> BytesReader for ReverseRandomAccessReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get_position(&self) -> i64 {
+    fn get_position(&self) -> usize {
         self.pos
     }
 
-    fn set_position(&mut self, pos: i64) {
+    fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
 }

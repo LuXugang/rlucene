@@ -132,7 +132,10 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
                 // no more skips on this level, go down one level
                 if level > 0 {
                     let lower = (level - 1) as usize;
-                    let fp = self.skip_stream[lower].as_ref().unwrap().get_file_pointer();
+                    let fp = self.skip_stream[lower]
+                        .as_ref()
+                        .unwrap()
+                        .get_file_pointer()? as i64;
                     if self.last_child_pointer > fp {
                         self.seek_child(lower)?;
                     }
@@ -179,7 +182,8 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         self.skip_pointer[0] = skip_pointer;
         self.doc_count = df;
         debug_assert!(
-            skip_pointer >= 0 && skip_pointer <= self.skip_stream[0].as_ref().unwrap().length(),
+            skip_pointer >= 0
+                && skip_pointer <= self.skip_stream[0].as_ref().unwrap().length() as i64,
             "invalid skip pointer: {}, length={}",
             skip_pointer,
             self.skip_stream[0].as_ref().unwrap().length()
@@ -209,20 +213,20 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         }
         // take ownership to void borrow issue, return to self.skip_stream later
         let mut stream0 = self.skip_stream[0].take().unwrap();
-        stream0.seek(self.skip_pointer[0])?;
+        stream0.seek(self.skip_pointer[0] as usize)?;
         for i in (1..self.number_of_skip_levels as usize).rev() {
             // the length of the current level
             let length = self.read_level_length(&mut stream0)?;
             // the start pointer of the current level
-            self.skip_pointer[i] = stream0.get_file_pointer();
+            self.skip_pointer[i] = stream0.get_file_pointer()? as i64;
             // clone this stream, it is already at the start of the current
             // level
             self.skip_stream[i] = Some(stream0.try_clone()?);
             // move base stream beyond the current level
-            stream0.seek(stream0.get_file_pointer() + length)?;
+            stream0.seek((stream0.get_file_pointer()? as i64 + length) as usize)?;
         }
         // use base stream for the lowest level
-        self.skip_pointer[0] = stream0.get_file_pointer();
+        self.skip_pointer[0] = stream0.get_file_pointer()? as i64;
         // return to self.skip_stream
         self.skip_stream[0] = Some(stream0);
         Ok(())
@@ -267,7 +271,7 @@ where
     }
     fn seek_child(&mut self, level: usize) -> Result<()> {
         let stream = self.skip_stream[level].as_mut().unwrap();
-        stream.seek(self.last_child_pointer)?;
+        stream.seek(self.last_child_pointer as usize)?;
         self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
         self.skip_doc[level] = self.last_doc;
         if level > 0 {

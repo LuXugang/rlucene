@@ -149,8 +149,8 @@ where
             }
         }
 
-        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length)?;
-        CodecUtil::retrieve_checksum_with_expected(&mut *data_in.lock(), data_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length as usize)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut *data_in.lock(), data_length as usize)?;
         let index_in = Arc::new(index_in);
         let mut readers = HashMap::new();
         for mut value in tmp_readers.into_iter() {

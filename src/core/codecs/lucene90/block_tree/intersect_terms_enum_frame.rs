@@ -272,7 +272,7 @@ impl IntersectTermsEnumFrame {
             .input
             .as_mut()
             .ok_or_else(|| LuceneError::number_format("input not init yey"))?;
-        input.seek(frame.fp)?;
+        input.seek(frame.fp as usize)?;
 
         let code = input.read_vint()?;
         frame.ent_count = (code as u32 >> 1).try_convert()?;
@@ -327,7 +327,7 @@ impl IntersectTermsEnumFrame {
             input.read_bytes(
                 &mut frame.suffix_lengths_reader.bytes,
                 0,
-                num_suffix_len_bytes as i32,
+                num_suffix_len_bytes,
             )?;
         }
 
@@ -341,7 +341,7 @@ impl IntersectTermsEnumFrame {
             let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.stats_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes as i32)?;
+        input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
 
         frame.stats_reader.reset_meta(0, num_bytes);
         frame.stats_singleton_run_length = 0;
@@ -355,7 +355,7 @@ impl IntersectTermsEnumFrame {
             let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.bytes_reader.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes as i32)?;
+        input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
 
         frame.bytes_reader.reset_meta(0, num_bytes);
 
@@ -363,7 +363,7 @@ impl IntersectTermsEnumFrame {
             // Sub-blocks of a single floor block are always
             // written one after another -- tail recurse:
             // tail recursion boundary for floor blocks
-            frame.fp_end = input.get_file_pointer();
+            frame.fp_end = input.get_file_pointer()? as i64;
         }
 
         Ok(())

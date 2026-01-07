@@ -549,7 +549,7 @@ mod tests {
         let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let len = input.length();
         let mut buffer = vec![0u8; len as usize];
-        input.read_bytes(&mut buffer, 0, len as i32)?;
+        input.read_bytes(&mut buffer, 0, len)?;
 
         let mut data_in = ByteArrayDataInput::with_bytes(buffer.as_slice());
         let mut mutable_impacts_list =

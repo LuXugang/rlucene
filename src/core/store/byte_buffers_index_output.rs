@@ -26,7 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
 pub struct ByteBuffersIndexOutput<'a> {
-    last_checksum_position: i64,
+    last_checksum_position: usize,
     last_checksum: u64,
     delegate: &'a mut ByteBuffersDataOutput,
     name: String,
@@ -66,11 +66,11 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_byte(b)
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
@@ -90,7 +90,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_string(s)
     }
 
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 
@@ -112,7 +112,7 @@ impl Closeable for ByteBuffersIndexOutput<'_> {
 }
 
 impl IndexOutput for ByteBuffersIndexOutput<'_> {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> usize {
         self.delegate.size()
     }
 
@@ -131,11 +131,11 @@ impl IndexOutput for ByteBuffersIndexOutput<'_> {
                     // block. Therefore, we need to use
                     // last_block_len to get the data length
                     // of the last block.
-                    last_block_len -= block.get_ref().len() as i64;
+                    last_block_len -= block.get_ref().len();
                     self.checksum.update(block.get_ref());
                 }
                 self.checksum
-                    .update(&last_block.get_ref()[0..last_block_len as usize]);
+                    .update(&last_block.get_ref()[0..last_block_len]);
             }
             self.last_checksum = self.checksum.clone().finalize() as u64;
         }

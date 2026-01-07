@@ -433,10 +433,10 @@ where
         }
         CodecUtil::write_footer(&mut self.index_out)?;
         self.meta_out
-            .write_long(self.index_out.get_file_pointer())?;
+            .write_long(self.index_out.get_file_pointer() as i64)?;
         CodecUtil::write_footer(&mut self.terms_out)?;
         self.meta_out
-            .write_long(self.terms_out.get_file_pointer())?;
+            .write_long(self.terms_out.get_file_pointer() as i64)?;
         CodecUtil::write_footer(&mut self.meta_out)?;
         Ok(())
     }
@@ -903,7 +903,7 @@ where
     ) -> Result<PendingBlock> {
         debug_assert!(end > start);
 
-        let start_fp = self.terms_out.get_file_pointer();
+        let start_fp = self.terms_out.get_file_pointer() as i64;
         let has_floor_lead = is_floor && floor_lead_label != -1;
 
         let mut prefix_bytes = vec![0u8; prefix_length + if has_floor_lead { 1 } else { 0 }];
@@ -1060,7 +1060,7 @@ where
                     self.compression_hash_table.as_mut().unwrap(),
                 )?;
 
-                if self.spare_writer.size() < (suffix_len - (suffix_len >> 2)) as i64 {
+                if self.spare_writer.size() < (suffix_len - (suffix_len >> 2)) {
                     compression_alg = CompressionAlgorithm::Lz4;
                 }
             }
@@ -1091,10 +1091,8 @@ where
         self.terms_out.write_vlong(token.try_convert()?)?;
 
         if compression_alg == CompressionAlgorithm::NoCompression {
-            self.terms_out.write_bytes_with_len(
-                &self.suffix_writer.bytes_ref.bytes,
-                suffix_len.try_convert()?,
-            )?;
+            self.terms_out
+                .write_bytes_with_len(&self.suffix_writer.bytes_ref.bytes, suffix_len)?;
         } else {
             self.spare_writer.copy_to(self.terms_out)?;
         }
@@ -1102,7 +1100,7 @@ where
         self.spare_writer.reset();
 
         // suffix lengths
-        let num_suffix_bytes = self.suffix_lengths_writer.size().try_convert()?;
+        let num_suffix_bytes = self.suffix_lengths_writer.size();
         if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes) {
             self.spare_bytes = v
         }
@@ -1121,7 +1119,7 @@ where
             debug_assert!(num_suffix_bytes <= i32::MAX as usize);
             self.terms_out.write_vint((num_suffix_bytes << 1) as i32)?;
             self.terms_out
-                .write_bytes_with_len(&self.spare_bytes, num_suffix_bytes as i32)?;
+                .write_bytes_with_len(&self.spare_bytes, num_suffix_bytes)?;
         }
 
         // stats
@@ -1269,11 +1267,7 @@ where
             meta_out.write_vint(root_code.length as i32)?;
             debug_assert!(root_code.offset <= i32::MAX as usize);
             debug_assert!(root_code.length <= i32::MAX as usize);
-            meta_out.write_bytes_range(
-                &root_code.bytes,
-                root_code.offset as i32,
-                root_code.length as i32,
-            )?;
+            meta_out.write_bytes_range(&root_code.bytes, root_code.offset, root_code.length)?;
             debug_assert!(*self.field_info.get_index_options() != IndexOptions::None);
 
             if *self.field_info.get_index_options() != IndexOptions::Docs {
@@ -1285,7 +1279,7 @@ where
             self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
             let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);
             self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
-            meta_out.write_vlong(index_out.get_file_pointer())?;
+            meta_out.write_vlong(index_out.get_file_pointer() as i64)?;
             root.index
                 .as_mut()
                 .unwrap()
@@ -1313,7 +1307,7 @@ where
         out.write_vint(bytes.length as i32)?;
         debug_assert!(bytes.offset <= i32::MAX as usize);
         bytes.bytes.access(|v| {
-            out.write_bytes_range(v, bytes.offset as i32, bytes.length as i32)?;
+            out.write_bytes_range(v, bytes.offset, bytes.length)?;
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
         })?;

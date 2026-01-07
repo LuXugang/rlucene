@@ -38,9 +38,9 @@ use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
-use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, TryIntoInt};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -197,7 +197,7 @@ where
             let docs_with_field_length = meta.read_long()?;
             let jump_table_entry_count = meta.read_short()?;
             let dense_rank_power = meta.read_byte()? as i8;
-            let num_docs_with_field = meta.read_int()?;
+            let num_docs_with_field = meta.read_int()?.try_convert()?;
             let bytes_per_norm = meta.read_byte()? as i8;
 
             match bytes_per_norm {
@@ -212,7 +212,7 @@ where
                 },
             }
 
-            let norms_offset = meta.read_long()?;
+            let norms_offset = meta.read_long()?.try_convert()?;
 
             norms.insert(
                 info_number,
@@ -240,7 +240,7 @@ where
             return Ok(RandomAccessSliceEnum::Shared(Arc::clone(existing)));
         }
 
-        let length = entry.num_docs_with_field as i64 * entry.bytes_per_norm as i64;
+        let length = entry.num_docs_with_field * entry.bytes_per_norm as usize;
         let mut slice = self.data.random_access_slice(entry.norms_offset, length)?;
         // Prefetch the first page of data. Following pages are expected to get
         // prefetched through read-ahead.
@@ -369,7 +369,7 @@ where
     I: IndexInput,
 {
     inf: Arc<Mutex<I::Slice>>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<I> DataInput for IndexInputImpl<I>
@@ -380,18 +380,18 @@ where
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], off: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         let mut inf = self.inf.lock();
         inf.seek(self.offset)?;
-        self.offset += len as i64;
-        inf.read_bytes(b, off, len)?;
+        self.offset += len;
+        inf.read_bytes(b, offset, len)?;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
         let mut inf = self.inf.lock();
         inf.seek(self.offset)?;
-        self.offset += BitUtil::SHORT_BYTES as i64;
+        self.offset += BitUtil::SHORT_BYTES;
         inf.read_short()
     }
 
@@ -425,32 +425,41 @@ impl<I> IndexInput for IndexInputImpl<I>
 where
     I: IndexInput,
 {
-    fn get_file_pointer(&self) -> i64 {
-        self.offset
+    fn get_file_pointer(&self) -> Result<usize> {
+        Ok(self.offset)
     }
 
-    fn seek(&mut self, pos: i64) -> Result<()> {
+    fn seek(&mut self, pos: usize) -> Result<()> {
         self.offset = pos;
         Ok(())
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.inf.lock().length()
     }
 
     type Slice = DummyIndexInput;
 
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
     type RandomAccessSlice = DummyRandomAccessInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<Self::RandomAccessSlice> {
+    fn random_access_slice(
+        &self,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::RandomAccessSlice> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 
-    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         // Not delegating to the wrapped instance on purpose. This is only used
         // for merging.
         Ok(())
@@ -668,8 +677,8 @@ struct NormsEntry {
     pub docs_with_field_offset: i64,
     pub docs_with_field_length: i64,
     pub jump_table_entry_count: i16,
-    pub num_docs_with_field: i32,
-    pub norms_offset: i64,
+    pub num_docs_with_field: usize,
+    pub norms_offset: usize,
 }
 pub struct DenseNormsIterator<R>
 where
@@ -740,11 +749,11 @@ trait DenseNormsIteratorBase {
     fn long_value(&mut self, doc: i32) -> Result<i64>;
 }
 struct DenseNormsIteratorBaseImpl {
-    norms_offset: i64,
+    norms_offset: usize,
 }
 impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
     fn long_value(&mut self, _doc: i32) -> Result<i64> {
-        Ok(self.norms_offset)
+        self.norms_offset.try_convert()
     }
 }
 // case 1
@@ -760,8 +769,10 @@ where
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(doc as i64)? as i64),
-            RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_byte(doc as i64)? as i64),
+            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(doc.try_convert()?)? as i64),
+            RandomAccessSliceEnum::Shared(ref v) => {
+                Ok(v.lock().read_byte(doc.try_convert()?)? as i64)
+            },
         }
     }
 }
@@ -778,9 +789,11 @@ where
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_short((doc as i64) << 1)? as i64),
+            RandomAccessSliceEnum::Owned(ref mut v) => {
+                Ok(v.read_short((doc.try_convert()?) << 1)? as i64)
+            },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_short((doc as i64) << 1)? as i64)
+                Ok(v.lock().read_short((doc.try_convert()?) << 1)? as i64)
             },
         }
     }
@@ -798,9 +811,11 @@ where
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int((doc as i64) << 2)? as i64),
+            RandomAccessSliceEnum::Owned(ref mut v) => {
+                Ok(v.read_int((doc.try_convert()?) << 2)? as i64)
+            },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_int((doc as i64) << 2)? as i64)
+                Ok(v.lock().read_int((doc.try_convert()?) << 2)? as i64)
             },
         }
     }
@@ -818,8 +833,10 @@ where
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_long((doc as i64) << 3)?),
-            RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_long((doc as i64) << 3)?),
+            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
+            RandomAccessSliceEnum::Shared(ref v) => {
+                Ok(v.lock().read_long((doc.try_convert()?) << 3)?)
+            },
         }
     }
 }
@@ -921,10 +938,10 @@ where
         P: IndexedDISIPolicy<I>;
 }
 struct SparseNormsIteratorBaseImpl {
-    norms_offset: i64,
+    norms_offset: usize,
 }
 impl SparseNormsIteratorBaseImpl {
-    fn new(norms_offset: i64) -> Self {
+    fn new(norms_offset: usize) -> Self {
         Self { norms_offset }
     }
 }
@@ -936,7 +953,7 @@ where
     where
         P: IndexedDISIPolicy<I>,
     {
-        Ok(self.norms_offset)
+        self.norms_offset.try_convert()
     }
 }
 // case 1
@@ -955,9 +972,11 @@ where
         P: IndexedDISIPolicy<I>,
     {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(disi.index() as i64)? as i64),
+            RandomAccessSliceEnum::Owned(ref mut v) => {
+                Ok(v.read_byte(disi.index() as usize)? as i64)
+            },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_byte(disi.index() as i64)? as i64)
+                Ok(v.lock().read_byte(disi.index() as usize)? as i64)
             },
         }
     }
@@ -979,10 +998,10 @@ where
     {
         match self.slice {
             RandomAccessSliceEnum::Owned(ref mut v) => {
-                Ok(v.read_short((disi.index() as i64) << 1)? as i64)
+                Ok(v.read_short(((disi.index()) << 1) as usize)? as i64)
             },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_short((disi.index() as i64) << 1)? as i64)
+                Ok(v.lock().read_short(((disi.index()) << 1) as usize)? as i64)
             },
         }
     }
@@ -1004,10 +1023,10 @@ where
     {
         match self.slice {
             RandomAccessSliceEnum::Owned(ref mut v) => {
-                Ok(v.read_int((disi.index() as i64) << 2)? as i64)
+                Ok(v.read_int(((disi.index()) << 2) as usize)? as i64)
             },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_int((disi.index() as i64) << 2)? as i64)
+                Ok(v.lock().read_int(((disi.index()) << 2) as usize)? as i64)
             },
         }
     }
@@ -1028,8 +1047,10 @@ where
         P: IndexedDISIPolicy<I>,
     {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => v.read_long((disi.index() as i64) << 3),
-            RandomAccessSliceEnum::Shared(ref v) => v.lock().read_long((disi.index() as i64) << 3),
+            RandomAccessSliceEnum::Owned(ref mut v) => v.read_long(((disi.index()) << 3) as usize),
+            RandomAccessSliceEnum::Shared(ref v) => {
+                v.lock().read_long(((disi.index()) << 3) as usize)
+            },
         }
     }
 }

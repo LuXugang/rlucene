@@ -34,7 +34,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub trait IndexOutput: DataOutput + Display + Closeable {
     /// Returns the current position in this file, where the next write will
     /// occur.
-    fn get_file_pointer(&self) -> i64;
+    fn get_file_pointer(&self) -> usize;
     /// Returns the current checksum of bytes written so far.
     fn get_checksum(&mut self) -> u64;
     /// Returns the name used to create this `IndexOutput`. This is especially
@@ -55,7 +55,7 @@ pub trait IndexOutput: DataOutput + Display + Closeable {
     ///
     /// # See Also
     /// [`align_offset`]
-    fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64> {
+    fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
         let offset = self.get_file_pointer();
         let aligned_offset = align_offset(offset, alignment_bytes)?;
         let count = (aligned_offset - offset) as usize;
@@ -72,13 +72,13 @@ pub trait IndexOutput: DataOutput + Display + Closeable {
 /// * `offset` - The offset to be aligned.
 /// * `alignment_bytes` - The alignment to which it should be rounded (must be a
 ///   power of 2).
-pub fn align_offset(offset: i64, alignment_bytes: i32) -> Result<i64> {
+pub fn align_offset(offset: usize, alignment_bytes: usize) -> Result<usize> {
     if alignment_bytes == 0 || alignment_bytes.count_ones() != 1 {
         return Err(LuceneError::illegal_argument(
             "Alignment must be a power of 2",
         ));
     }
-    Ok((offset + alignment_bytes as i64 - 1) & !(alignment_bytes as i64 - 1))
+    Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
 }
 
 macro_rules! either_index_output {
@@ -97,13 +97,13 @@ macro_rules! either_index_output {
                 }
             }
 
-            fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+            fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.write_bytes_with_len(b, len), )+
                 }
             }
 
-            fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+            fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.write_bytes_range(b, offset, length), )+
                 }
@@ -163,7 +163,7 @@ macro_rules! either_index_output {
                 }
             }
 
-            fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+            fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.copy_bytes(input, num_bytes), )+
                 }
@@ -220,7 +220,7 @@ macro_rules! either_index_output {
         where
             $( $T: IndexOutput ),+
         {
-            fn get_file_pointer(&self) -> i64 {
+            fn get_file_pointer(&self) -> usize{
                 match self {
                     $( Self::$Variant(inner) => inner.get_file_pointer(), )+
                 }
@@ -238,7 +238,7 @@ macro_rules! either_index_output {
                 }
             }
 
-            fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64> {
+            fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
                 match self {
                     $( Self::$Variant(inner) => inner.align_file_pointer(alignment_bytes), )+
                 }

@@ -27,21 +27,21 @@ where
     I: IndexInput,
 {
     input: Arc<I>,
-    offset: i64,
-    num_bytes: i64,
+    offset: usize,
+    num_bytes: usize,
 }
 impl<I> OffHeapFSTStore<I>
 where
     I: IndexInput,
 {
-    pub fn new(input: Arc<I>, offset: i64, num_bytes: i64) -> Self {
+    pub fn new(input: Arc<I>, offset: usize, num_bytes: usize) -> Self {
         Self {
             input,
             offset,
             num_bytes,
         }
     }
-    pub fn size(&self) -> i64 {
+    pub fn size(&self) -> usize {
         self.num_bytes
     }
 }

@@ -98,7 +98,7 @@ impl PointValuesWriter {
 
         let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;
         self.bytes_out
-            .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
+            .write_bytes_range(&value.bytes, value.offset, value.length)?;
         self.iw_bytes_used.add_and_get(
             self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before,
         );

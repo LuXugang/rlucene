@@ -159,7 +159,7 @@ where
         meta_out.write_int(num_docs)?;
         meta_out.write_int(self.block_shift)?;
         meta_out.write_int(self.total_chunks + 1)?;
-        meta_out.write_long(data_out.get_file_pointer())?;
+        meta_out.write_long(data_out.get_file_pointer() as i64)?;
 
         {
             let mut docs_in = dir.open_checksum_input(&docs_out_file_name)?;
@@ -202,7 +202,7 @@ where
             }
         }
         dir.delete_file(&docs_out_file_name)?;
-        meta_out.write_long(data_out.get_file_pointer())?;
+        meta_out.write_long(data_out.get_file_pointer() as i64)?;
         {
             let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
             let mut prior_e = None;
@@ -244,7 +244,7 @@ where
             }
         }
         dir.delete_file(&file_pointers_out_file_name)?;
-        meta_out.write_long(data_out.get_file_pointer())?;
+        meta_out.write_long(data_out.get_file_pointer() as i64)?;
         meta_out.write_long(max_pointer)?;
         CodecUtil::write_footer(&mut data_out)?;
         Ok(())

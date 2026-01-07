@@ -56,20 +56,25 @@ impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> Result<usize> {
         self.main.get_file_pointer()
     }
 
-    fn seek(&mut self, pos: i64) -> Result<()> {
+    fn seek(&mut self, pos: usize) -> Result<()> {
         ChecksumIndexInput::seek(self, pos)
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.main.length()
     }
 
     type Slice = DummyIndexInput;
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
@@ -77,7 +82,11 @@ where
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
+    fn random_access_slice(
+        &self,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::RandomAccessSlice> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))
@@ -95,7 +104,7 @@ where
         Ok(b)
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())
@@ -109,12 +118,12 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: i64) -> Result<()> {
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         debug_assert!(self.is_index_input());
-        IndexInput::seek(self, pos)
+        IndexInput::seek(self, _pos)
     }
 
-    fn get_file_pointer_in_data_input(&self) -> i64 {
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         debug_assert!(self.is_index_input());
         IndexInput::get_file_pointer(self)
     }

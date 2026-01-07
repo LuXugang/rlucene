@@ -107,7 +107,7 @@ impl BinaryDocValuesWriter {
         self.lengths.add(value.length as i64)?;
 
         self.bytes_out
-            .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
+            .write_bytes_range(&value.bytes, value.offset, value.length)?;
 
         self.docs_with_field.add(doc_id)?;
         self.update_bytes_used()?;
@@ -318,8 +318,8 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let length: i32 = self.lengths_iterator.next_value().try_convert()?;
-            self.value.set_length(length as usize);
+            let length = self.lengths_iterator.next_value().try_convert()?;
+            self.value.set_length(length);
             self.bytes_iter
                 .read_bytes(&mut self.value.bytes_ref.bytes, 0, length)?;
         }

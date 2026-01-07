@@ -18,6 +18,7 @@ use crate::core::store::random_access_input::{
     RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
 };
 use crate::core::store::{DataInput, ReadAdvice};
+use crate::core::util::TryIntoInt;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
@@ -45,7 +46,7 @@ pub trait IndexInput: DataInput + TryClone {
     ///
     /// # See Also
     /// [`seek`](IndexInput::seek)
-    fn get_file_pointer(&self) -> i64;
+    fn get_file_pointer(&self) -> Result<usize>;
 
     /// Sets the current position in this file, where the next read will occur.
     /// If this position is beyond the end of the file, it will return an
@@ -53,7 +54,7 @@ pub trait IndexInput: DataInput + TryClone {
     ///
     /// # See Also
     /// [`get_file_pointer`](IndexInput::get_file_pointer)
-    fn seek(&mut self, pos: i64) -> Result<()>;
+    fn seek(&mut self, pos: usize) -> Result<()>;
     /// Inherits documentation from the parent implementation.
     ///
     /// # Behavior
@@ -70,17 +71,18 @@ pub trait IndexInput: DataInput + TryClone {
                 "num_bytes must be >= 0, got {num_bytes}"
             )));
         }
-        let skip_to = self.get_file_pointer() + num_bytes;
+        let num_bytes: usize = num_bytes.try_convert()?;
+        let skip_to = self.get_file_pointer()? + num_bytes;
         self.seek(skip_to)?;
         Ok(())
     }
     /// The number of bytes in the file.
-    fn length(&self) -> i64;
+    fn length(&self) -> usize;
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.
     type Slice: IndexInput;
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice>;
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used
     /// by [`CompoundFormat`](crate::core::codecs::compound_format)
     /// implementations to honor the [`ReadAdvice`] of each file within the
@@ -96,8 +98,8 @@ pub trait IndexInput: DataInput + TryClone {
     fn slice_with_read_advice(
         &self,
         description: &str,
-        offset: i64,
-        length: i64,
+        offset: usize,
+        length: usize,
         read_advice: &ReadAdvice,
     ) -> Result<Self::Slice> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
@@ -105,8 +107,8 @@ pub trait IndexInput: DataInput + TryClone {
     fn default_slice_with_read_advice(
         &self,
         description: &str,
-        offset: i64,
-        length: i64,
+        offset: usize,
+        length: usize,
         _read_advice: &ReadAdvice,
     ) -> Result<Self::Slice> {
         self.slice(description, offset, length)
@@ -119,7 +121,7 @@ pub trait IndexInput: DataInput + TryClone {
     /// The default implementation calls [`slice`](IndexInput::slice), and it
     /// doesn't support random access. It implements absolute reads as
     /// seek+read.
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::RandomAccessSlice>;
+    fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice>;
 
     /// Optional method: Gives a hint to this input that some bytes will be read
     /// soon. `IndexInput` implementations may take advantage of this hint
@@ -131,11 +133,11 @@ pub trait IndexInput: DataInput + TryClone {
     ///
     /// # Note
     /// The default implementation is a no-op.
-    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
+    fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
         self.default_prefetch(pos, len)
     }
 
-    fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn default_prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
 }
@@ -161,7 +163,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+            fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_bytes(b, offset, len), )+
                 }
@@ -170,8 +172,8 @@ macro_rules! either_index_input {
             fn read_bytes_with_buffer(
                 &mut self,
                 b: &mut [u8],
-                offset: i32,
-                len: i32,
+                offset: usize,
+                len: usize,
                 _use_buffer: bool,
             ) -> Result<()> {
                 match self {
@@ -208,13 +210,13 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+            fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_group_vint(dst, offset), )+
                 }
             }
 
-            fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+            fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.default_read_group_vint(dst, offset), )+
                 }
@@ -244,19 +246,19 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+            fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_longs(dst, offset, len), )+
                 }
             }
 
-            fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
+            fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_ints(dst, offset, len), )+
                 }
             }
 
-            fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
+            fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_floats(dst, offset, len), )+
                 }
@@ -304,13 +306,13 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn seek_in_data_input(&mut self, _pos: i64) -> Result<()> {
+            fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.seek_in_data_input(_pos), )+
                 }
             }
 
-            fn get_file_pointer_in_data_input(&self) -> i64 {
+            fn get_file_pointer_in_data_input(&self) -> Result<usize>{
                 match self {
                     $( Self::$Variant(inner) => inner.get_file_pointer_in_data_input(), )+
                 }
@@ -346,13 +348,13 @@ macro_rules! either_index_input {
         where
             $( $T: IndexInput ),+
         {
-            fn get_file_pointer(&self) -> i64 {
+            fn get_file_pointer(&self) -> Result<usize>{
                 match self {
                     $( Self::$Variant(inner) => inner.get_file_pointer(), )+
                 }
             }
 
-            fn seek(&mut self, pos: i64) -> Result<()> {
+            fn seek(&mut self, pos: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.seek(pos), )+
                 }
@@ -364,7 +366,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn length(&self) -> i64 {
+            fn length(&self) -> usize {
                 match self {
                     $( Self::$Variant(inner) => inner.length(), )+
                 }
@@ -372,7 +374,7 @@ macro_rules! either_index_input {
 
             type Slice = $name<$( $T::Slice ),+>;
 
-            fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+            fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(
                         inner.slice(slice_description, offset, length)?,
@@ -383,8 +385,8 @@ macro_rules! either_index_input {
             fn slice_with_read_advice(
                 &self,
                 description: &str,
-                offset: i64,
-                length: i64,
+                offset: usize,
+                length: usize,
                 read_advice: &ReadAdvice,
             ) -> Result<Self::Slice> {
                 match self {
@@ -400,8 +402,8 @@ macro_rules! either_index_input {
             fn default_slice_with_read_advice(
                 &self,
                 description: &str,
-                offset: i64,
-                length: i64,
+                offset: usize,
+                length: usize,
                 _read_advice: &ReadAdvice,
             ) -> Result<Self::Slice> {
                 match self {
@@ -413,7 +415,7 @@ macro_rules! either_index_input {
 
             type RandomAccessSlice = $random_access<$( $T::RandomAccessSlice ),+>;
 
-            fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::RandomAccessSlice> {
+            fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
                 match self {
                     $( Self::$Variant(inner) => Ok($random_access::$Variant(
                         inner.random_access_slice(offset, length)?,
@@ -421,13 +423,13 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
+            fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.prefetch(pos, len), )+
                 }
             }
 
-            fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+            fn default_prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.default_prefetch(_pos, _len), )+
                 }
@@ -444,6 +446,7 @@ mod tests {
     use crate::core::store::{
         ByteArrayDataInput, ByteArrayDataOutput, DataInput, DataOutput, IndexInput,
     };
+    use crate::core::util::TryIntoInt;
     use crate::core::util::access::ByteSourceMut;
     use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -564,7 +567,7 @@ mod tests {
                 let skip_to = if len - curr < 10 {
                     max_skip_to
                 } else {
-                    TestUtil::next_long(random, curr, max_skip_to)
+                    TestUtil::next_usize(random, curr, max_skip_to)
                 };
 
                 let skip_delta = skip_to - curr;
@@ -576,15 +579,15 @@ mod tests {
                 input.seek(curr)?;
                 let start_byte_2 = input.read_byte()?;
                 input.seek(curr)?;
-                IndexInput::skip_bytes(input, skip_delta)?;
+                IndexInput::skip_bytes(input, skip_delta.try_convert()?)?;
                 let end_byte_2 = input.read_byte()?;
 
                 assert_eq!(start_byte_1, start_byte_2);
                 assert_eq!(end_byte_1, end_byte_2);
 
-                assert_eq!(curr + skip_delta + 1, input.get_file_pointer());
+                assert_eq!(curr + skip_delta + 1, input.get_file_pointer()?);
 
-                curr = input.get_file_pointer();
+                curr = input.get_file_pointer()?;
             }
         }
 
@@ -601,7 +604,7 @@ mod tests {
 
             {
                 let mut os = dir.create_output("foo", &new_io_context(&mut random)?)?;
-                os.write_bytes_with_len(&read_test_bytes, read_test_bytes.len() as i32)?;
+                os.write_bytes_with_len(&read_test_bytes, read_test_bytes.len())?;
             }
 
             {
@@ -614,7 +617,7 @@ mod tests {
 
             {
                 let mut os = dir.create_output("bar", &new_io_context(&mut random)?)?;
-                os.write_bytes_with_len(&random_test_bytes, random_test_bytes.len() as i32)?;
+                os.write_bytes_with_len(&random_test_bytes, random_test_bytes.len())?;
             }
 
             {
@@ -646,37 +649,41 @@ mod tests {
     fn test_no_read_on_skip_bytes() -> Result<()> {
         let mut random = random();
 
-        let len: i64 = if is_night_mode() { i64::MAX } else { 1_000_000 };
+        let len = if is_night_mode() {
+            i64::MAX as usize
+        } else {
+            1_000_000
+        };
 
         let max_seek_pos = len - 1;
 
         let mut input = get_index_input(len);
 
-        while input.get_file_pointer() < max_seek_pos {
-            let curr = input.get_file_pointer();
+        while input.get_file_pointer()? < max_seek_pos {
+            let curr = input.get_file_pointer()?;
 
-            let seek_pos = TestUtil::next_long(&mut random, curr, max_seek_pos);
+            let seek_pos = TestUtil::next_usize(&mut random, curr, max_seek_pos);
 
             let skip_delta = seek_pos - curr;
 
-            IndexInput::skip_bytes(&mut input, skip_delta)?;
-            assert_eq!(seek_pos, input.get_file_pointer());
+            IndexInput::skip_bytes(&mut input, skip_delta.try_convert()?)?;
+            assert_eq!(seek_pos, input.get_file_pointer()?);
         }
 
         Ok(())
     }
 
-    pub(crate) fn get_index_input(len: i64) -> InterceptingIndexInput {
+    pub(crate) fn get_index_input(len: usize) -> InterceptingIndexInput {
         InterceptingIndexInput::new("foo", len)
     }
 
     pub(crate) struct InterceptingIndexInput {
-        pos: i64,
-        len: i64,
+        pos: usize,
+        len: usize,
         resource_description: String,
     }
     impl InterceptingIndexInput {
-        pub fn new(resource_description: &str, len: i64) -> Self {
+        pub fn new(resource_description: &str, len: usize) -> Self {
             Self {
                 pos: 0,
                 len,
@@ -690,7 +697,7 @@ mod tests {
             Err(LuceneError::unsupported_operation(""))
         }
 
-        fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+        fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
         }
 
@@ -715,16 +722,16 @@ mod tests {
     }
 
     impl IndexInput for InterceptingIndexInput {
-        fn get_file_pointer(&self) -> i64 {
-            self.pos
+        fn get_file_pointer(&self) -> Result<usize> {
+            Ok(self.pos)
         }
 
-        fn seek(&mut self, pos: i64) -> Result<()> {
+        fn seek(&mut self, pos: usize) -> Result<()> {
             self.pos = pos;
             Ok(())
         }
 
-        fn length(&self) -> i64 {
+        fn length(&self) -> usize {
             self.len
         }
 
@@ -733,15 +740,19 @@ mod tests {
         fn slice(
             &self,
             _slice_description: &str,
-            _offset: i64,
-            _length: i64,
+            _offset: usize,
+            _length: usize,
         ) -> Result<Self::Slice> {
             Err(LuceneError::unsupported_operation(""))
         }
 
         type RandomAccessSlice = Self::Slice;
 
-        fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::RandomAccessSlice> {
+        fn random_access_slice(
+            &self,
+            offset: usize,
+            length: usize,
+        ) -> Result<Self::RandomAccessSlice> {
             self.slice("random_access_slice", offset, length)
         }
     }

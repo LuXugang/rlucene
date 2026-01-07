@@ -195,10 +195,10 @@ impl DocComparatorImplDouble {
     }
 }
 impl DocComparator for DocComparatorImplDouble {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
         self.reverse_mul
-            * self.values[doc_id1 as usize]
-                .total_cmp(&self.values[doc_id2 as usize])
+            * self.values[doc_id1]
+                .total_cmp(&self.values[doc_id2])
                 .to_int()
     }
 }
@@ -348,11 +348,8 @@ impl DocComparatorImplInt {
     }
 }
 impl DocComparator for DocComparatorImplInt {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        self.reverse_mul
-            * self.values[doc_id1 as usize]
-                .cmp(&self.values[doc_id2 as usize])
-                .to_int()
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        self.reverse_mul * self.values[doc_id1].cmp(&self.values[doc_id2]).to_int()
     }
 }
 pub struct IntComparableProvider<N>
@@ -501,11 +498,8 @@ impl DocComparatorImplLong {
 }
 
 impl DocComparator for DocComparatorImplLong {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        self.reverse_mul
-            * self.values[doc_id1 as usize]
-                .cmp(&self.values[doc_id2 as usize])
-                .to_int()
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        self.reverse_mul * self.values[doc_id1].cmp(&self.values[doc_id2]).to_int()
     }
 }
 pub struct LongComparableProvider<N>
@@ -658,9 +652,9 @@ impl DocComparatorImplFloat {
 }
 
 impl DocComparator for DocComparatorImplFloat {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        let v1 = self.values[doc_id1 as usize];
-        let v2 = self.values[doc_id2 as usize];
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        let v1 = self.values[doc_id1];
+        let v2 = self.values[doc_id2];
         let ord = v1.total_cmp(&v2).to_int();
         self.reverse_mul * ord
     }
@@ -760,7 +754,7 @@ where
         };
         match ordinal_map {
             Some(omap) => {
-                let global_ords = omap.get_global_ords(reader_index as i32).clone();
+                let global_ords = omap.get_global_ords(reader_index).clone();
                 let reader_values = self.values_provider.get(reader)?;
                 Ok(StringComparableProvider {
                     reader_values,
@@ -804,8 +798,8 @@ where
     {
         let mut sorted = self.values_provider.get(leaf_reader)?;
         let missing_ord = match self.missing_value {
-            Some(MissingValueEnum::StringLast) => i32::MAX,
-            _ => i32::MIN,
+            Some(MissingValueEnum::StringLast) => i32::MAX as usize,
+            _ => i32::MIN as usize,
         };
 
         let mut ords = vec![missing_ord; max_doc as usize];
@@ -815,7 +809,7 @@ where
             if doc_id == NO_MORE_DOCS {
                 break;
             }
-            ords[doc_id as usize] = sorted.ord_value()?;
+            ords[doc_id as usize] = sorted.ord_value()? as usize;
         }
         Ok(DocComparatorImplString::new(ords, self.reverse_mul))
     }
@@ -844,20 +838,20 @@ where
 }
 
 pub struct DocComparatorImplString {
-    ords: Vec<i32>,
+    ords: Vec<usize>,
     reverse_mul: i32,
 }
 
 impl DocComparatorImplString {
-    pub fn new(ords: Vec<i32>, reverse_mul: i32) -> Self {
+    pub fn new(ords: Vec<usize>, reverse_mul: i32) -> Self {
         Self { ords, reverse_mul }
     }
 }
 
 impl DocComparator for DocComparatorImplString {
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        let o1 = self.ords[doc_id1 as usize];
-        let o2 = self.ords[doc_id2 as usize];
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        let o1 = self.ords[doc_id1];
+        let o2 = self.ords[doc_id2];
         let cmp = o1.cmp(&o2).to_int();
         self.reverse_mul * cmp
     }
@@ -907,7 +901,7 @@ pub type CPEnumType2<NP, LR> = ComparableProviderEnum4<
 /// A comparator of doc IDs, used for sorting documents within a segment
 pub trait DocComparator {
     /// Compare docID1 against docID2.
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32;
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32;
 }
 macro_rules! either_doc_comparator {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -920,7 +914,7 @@ macro_rules! either_doc_comparator {
             $( $T: DocComparator ),+
         {
             #[inline]
-            fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+            fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
                 match self {
                     $( Self::$Variant(inner) => inner.compare(doc_id1, doc_id2), )+
                 }

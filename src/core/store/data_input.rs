@@ -17,10 +17,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
-use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::{CoreHelper, TryIntoInt};
 
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///
@@ -42,7 +42,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::core::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()>;
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()>;
     /// Reads a specified number of bytes into an array at the specified offset,
     /// with control over whether the read should be buffered. Callers who
     /// have their own buffer should pass `false` for `use_buffer`.
@@ -59,8 +59,8 @@ pub trait DataInput: Sized + Display {
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: i32,
-        len: i32,
+        offset: usize,
+        len: usize,
         _use_buffer: bool,
     ) -> Result<()> {
         self.read_bytes(b, offset, len)
@@ -101,10 +101,10 @@ pub trait DataInput: Sized + Display {
     /// Override if you have an efficient implementation.
     /// In general, this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and
@@ -157,12 +157,12 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
-        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
+        CoreHelper::check_from_index_size(offset, len, dst.len())?;
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = self.read_long()?;
+            dst[i + offset] = self.read_long()?;
             i += 1;
         }
         Ok(())
@@ -174,12 +174,11 @@ pub trait DataInput: Sized + Display {
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
-        debug_assert!(dst.len() <= i32::MAX as usize);
-        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+        CoreHelper::check_from_index_size(offset, len, dst.len())?;
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = self.read_int()?;
+            dst[i + offset] = self.read_int()?;
             i += 1;
         }
         Ok(())
@@ -192,12 +191,11 @@ pub trait DataInput: Sized + Display {
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
-        debug_assert!(dst.len() <= i32::MAX as usize);
-        CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+        CoreHelper::check_from_index_size(offset, len, dst.len())?;
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
+            dst[i + offset] = f32::from_bits(self.read_int()? as u32);
             i += 1;
         }
         Ok(())
@@ -239,9 +237,8 @@ pub trait DataInput: Sized + Display {
     /// # See Also
     /// [`DataOutput::write_string`](crate::core::store::data_output::DataOutput::write_string)
     fn read_string(&mut self) -> Result<String> {
-        let length = self.read_vint()?;
-        debug_assert!(length >= 0, "Length must be positive: {length}");
-        let mut bytes = vec![0u8; length as usize];
+        let length = self.read_vint()?.try_convert()?;
+        let mut bytes = vec![0u8; length];
         self.read_bytes(&mut bytes, 0, length)?;
         Ok(String::from_utf8(bytes)?)
     }
@@ -342,11 +339,11 @@ pub trait DataInput: Sized + Display {
     fn is_index_input(&self) -> bool {
         false
     }
-    fn seek_in_data_input(&mut self, _pos: i64) -> Result<()> {
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         debug_assert!(self.is_index_input());
         unimplemented!("Seek is not implemented for this DataInput")
     }
-    fn get_file_pointer_in_data_input(&self) -> i64 {
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         debug_assert!(self.is_index_input());
         unimplemented!("get_file_pointer is not implemented for this DataInput")
     }
@@ -382,7 +379,7 @@ where
         }
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_bytes(b, offset, len),
             DataInputEnum2::B(s) => s.read_bytes(b, offset, len),
@@ -392,8 +389,8 @@ where
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: i32,
-        len: i32,
+        offset: usize,
+        len: usize,
         _use_buffer: bool,
     ) -> Result<()> {
         match self {
@@ -430,14 +427,14 @@ where
         }
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_group_vint(dst, offset),
             DataInputEnum2::B(s) => s.read_group_vint(dst, offset),
         }
     }
 
-    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
+    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.default_read_group_vint(dst, offset),
             DataInputEnum2::B(s) => s.default_read_group_vint(dst, offset),
@@ -472,21 +469,21 @@ where
         }
     }
 
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_longs(dst, offset, len),
             DataInputEnum2::B(s) => s.read_longs(dst, offset, len),
         }
     }
 
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_ints(dst, offset, len),
             DataInputEnum2::B(s) => s.read_ints(dst, offset, len),
         }
     }
 
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_floats(dst, offset, len),
             DataInputEnum2::B(s) => s.read_floats(dst, offset, len),
@@ -542,14 +539,14 @@ where
         }
     }
 
-    fn seek_in_data_input(&mut self, _pos: i64) -> Result<()> {
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.seek_in_data_input(_pos),
             DataInputEnum2::B(s) => s.seek_in_data_input(_pos),
         }
     }
 
-    fn get_file_pointer_in_data_input(&self) -> i64 {
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         match self {
             DataInputEnum2::A(f) => f.get_file_pointer_in_data_input(),
             DataInputEnum2::B(s) => s.get_file_pointer_in_data_input(),

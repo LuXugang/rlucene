@@ -88,8 +88,7 @@ impl LowercaseAsciiCompression {
         }
 
         debug_assert!(o <= compressed_len);
-        debug_assert!(compressed_len <= i32::MAX as usize);
-        out.write_bytes_range(tmp, 0, compressed_len as i32)?;
+        out.write_bytes_range(tmp, 0, compressed_len)?;
 
         // 4. Write exception deltas
         debug_assert!(num_exceptions <= i32::MAX as usize);
@@ -141,7 +140,7 @@ impl LowercaseAsciiCompression {
 
         // 1. Copy the packed bytes
         debug_assert!(compressed_len <= i32::MAX as usize);
-        input.read_bytes(out, 0, compressed_len as i32)?;
+        input.read_bytes(out, 0, compressed_len)?;
 
         // 2. Restore the leading 2 bits into whole bytes
         for i in 0..saved {
@@ -194,10 +193,10 @@ mod tests {
         random.fill(&mut tmp[..]);
 
         if LowercaseAsciiCompression::compress(bytes, len, &mut tmp, &mut compressed)? {
-            assert!(compressed.size() < len as i64);
+            assert!(compressed.size() < len);
 
             let mut restored = vec![0u8; len + random.random_range(0..10)];
-            let mut input = compressed.get_data_input_ref();
+            let mut input = compressed.get_data_input_ref()?;
             LowercaseAsciiCompression::decompress(&mut input, &mut restored, len)?;
 
             assert_eq!(&restored[..len], &bytes[..len]);

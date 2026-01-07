@@ -67,7 +67,7 @@ impl PrefixCodedTerms {
         self.size
     }
 
-    pub fn iterator(&self) -> TermIterator<'_> {
+    pub fn iterator(&self) -> Result<TermIterator<'_>> {
         let content = self
             .content
             .iter()
@@ -78,10 +78,10 @@ impl PrefixCodedTerms {
                 cursor
             })
             .collect();
-        TermIterator::new(
+        Ok(TermIterator::new(
             self.del_gen,
-            ByteBuffersDataInput::new(content, self.content_len),
-        )
+            ByteBuffersDataInput::new(content, self.content_len as usize)?,
+        ))
     }
 }
 impl Hash for PrefixCodedTerms {
@@ -153,11 +153,11 @@ impl PrefixCodedTermsBuilder {
                     == Ordering::Greater,
         );
 
-        let prefix: i32;
+        let prefix;
         if self.size > 0 && field == self.last_term.field {
             // Same field as the last term
             prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
-            self.output.write_vint(prefix << 1)?;
+            self.output.write_vint((prefix << 1) as i32)?;
         } else {
             // Field change
             prefix = 0;
@@ -165,11 +165,10 @@ impl PrefixCodedTermsBuilder {
             self.output.write_string(&field)?;
         }
 
-        let suffix = bytes.length as i32 - prefix;
-        let prefix = prefix as usize;
-        self.output.write_vint(suffix)?;
+        let suffix = bytes.length - prefix;
+        self.output.write_vint(suffix as i32)?;
         self.output.write_bytes_range(
-            &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix as usize)],
+            &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix)],
             0,
             suffix,
         )?;
@@ -183,7 +182,7 @@ impl PrefixCodedTermsBuilder {
     /// return finalized form.
     pub fn finish(&mut self) -> PrefixCodedTerms {
         let content = self.output.get_buffer_list_owner();
-        PrefixCodedTerms::new(content.1, content.0, self.size)
+        PrefixCodedTerms::new(content.1, content.0 as i64, self.size)
     }
 }
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
@@ -198,7 +197,7 @@ pub struct TermIterator<'a> {
 impl<'a> TermIterator<'a> {
     pub fn new(del_gen: i64, input: ByteBuffersDataInputRef<'a>) -> Self {
         let builder = BytesRefBuilder::new();
-        let end = input.length();
+        let end = input.length() as i64;
         Self {
             input,
             builder,
@@ -212,7 +211,7 @@ impl<'a> TermIterator<'a> {
         let len = (prefix + suffix) as usize;
         self.builder.grow(len);
         self.builder.bytes_ref().bytes.access_mut(|bytes| {
-            DataInput::read_bytes(&mut self.input, bytes, prefix, suffix)?;
+            DataInput::read_bytes(&mut self.input, bytes, prefix as usize, suffix as usize)?;
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
         })?;
@@ -233,7 +232,7 @@ impl BytesRefIterator for TermIterator<'_> {
     }
 
     fn set_next(&mut self) -> Result<bool> {
-        if self.input.position() < self.end {
+        if self.input.position()? < self.end as usize {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;
             if new_field {
@@ -282,7 +281,7 @@ mod tests {
     fn test_empty() -> Result<()> {
         let mut builder = PrefixCodedTermsBuilder::new();
         let prefix_coded_terms = builder.finish();
-        let mut iter = prefix_coded_terms.iterator();
+        let mut iter = prefix_coded_terms.iterator()?;
         assert!(iter.next()?.is_none());
         Ok(())
     }
@@ -292,7 +291,7 @@ mod tests {
         let mut builder = PrefixCodedTermsBuilder::new();
         builder.add_term(&term)?;
         let prefix_coded_terms = builder.finish();
-        let mut iter = prefix_coded_terms.iterator();
+        let mut iter = prefix_coded_terms.iterator()?;
         let first_term = iter.next()?.expect("Expected a term, but got None");
         assert_eq!(first_term.utf8_to_string()?, "bogus");
         assert_eq!(iter.field(), "foo");
@@ -318,7 +317,7 @@ mod tests {
             builder.add_term(term)?;
         }
         let pb = builder.finish();
-        let mut iter = pb.iterator();
+        let mut iter = pb.iterator()?;
         let mut expected = terms.iter();
 
         assert_eq!(terms.len(), pb.size() as usize);

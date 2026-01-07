@@ -131,8 +131,7 @@ where
         )?;
 
         debug_assert_eq!(
-            CodecUtil::index_header_length(&format!("{}Meta", INDEX_CODEC_NAME), segment_suffix)
-                as i64,
+            CodecUtil::index_header_length(&format!("{}Meta", INDEX_CODEC_NAME), segment_suffix),
             meta_stream.get_file_pointer()
         );
 
@@ -145,7 +144,7 @@ where
         )?;
 
         debug_assert_eq!(
-            CodecUtil::index_header_length(format_name, segment_suffix) as i64,
+            CodecUtil::index_header_length(format_name, segment_suffix),
             fields_stream.get_file_pointer()
         );
 
@@ -216,7 +215,7 @@ where
 
         self.index_writer.write_index(
             self.num_buffered_docs,
-            self.fields_stream.get_file_pointer(),
+            self.fields_stream.get_file_pointer() as i64,
         )?;
 
         // convert end offsets into lengths
@@ -225,18 +224,18 @@ where
             debug_assert!(self.end_offsets[i] >= 0);
         }
 
-        let sliced = self.buffered_docs.size() >= 2 * self.chunk_size as i64;
+        let sliced = self.buffered_docs.size() >= 2 * self.chunk_size as usize;
         let dirty_chunk = force;
 
         self.write_header(sliced, dirty_chunk)?;
-        let mut byte_buffers = self.buffered_docs.get_data_input_ref();
+        let mut byte_buffers = self.buffered_docs.get_data_input_ref()?;
         // compress stored fields to fieldsStream.
         if sliced {
-            let capacity = byte_buffers.length() as i32;
+            let capacity = byte_buffers.length();
             let mut compressed = 0;
             while compressed < capacity {
-                let len = std::cmp::min(self.chunk_size, capacity - compressed);
-                let mut bbdi = byte_buffers.slice(compressed as i64, len as i64)?;
+                let len = std::cmp::min(self.chunk_size as usize, capacity - compressed);
+                let mut bbdi = byte_buffers.slice(compressed, len)?;
                 self.compressor
                     .compress(&mut bbdi, &mut self.fields_stream)?;
                 compressed += len;
@@ -269,7 +268,7 @@ where
         self.start_document()?;
 
         self.buffered_docs
-            .copy_bytes(&mut doc.input, doc.length as i64)?;
+            .copy_bytes(&mut doc.input, doc.length as usize)?;
 
         self.num_stored_fields_in_doc = doc.num_stored_fields;
         self.finish_document()?;
@@ -323,7 +322,7 @@ where
             }
             {
                 let raw_docs = reader.get_fields_stream();
-                raw_docs.seek(from_pointer)?;
+                raw_docs.seek(from_pointer as usize)?;
             }
 
             while from_pointer < to_pointer {
@@ -340,7 +339,7 @@ where
                     }
                     // write a new index entry and new header for this chunk.
                     self.index_writer
-                        .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
+                        .write_index(buffered_docs, self.fields_stream.get_file_pointer() as i64)?;
                     self.fields_stream.write_vint(self.doc_base as i32)?;
                     self.fields_stream.write_vint(code)?;
                     doc_id += buffered_docs;
@@ -363,8 +362,9 @@ where
                 };
 
                 let raw_docs = reader.get_fields_stream();
-                let num_bytes = end_chunk_pointer - raw_docs.get_file_pointer();
-                self.fields_stream.copy_bytes(&mut *raw_docs, num_bytes)?;
+                let num_bytes = end_chunk_pointer - raw_docs.get_file_pointer()? as i64;
+                self.fields_stream
+                    .copy_bytes(&mut *raw_docs, num_bytes as usize)?;
 
                 self.num_chunks += 1;
 
@@ -512,7 +512,7 @@ where
         let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
         self.buffered_docs.write_vlong(info_and_bits)?;
         self.buffered_docs.write_vint(length)?;
-        self.buffered_docs.copy_bytes(value, length as i64)?;
+        self.buffered_docs.copy_bytes(value, length as usize)?;
         Ok(())
     }
 
@@ -521,11 +521,8 @@ where
         let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
         self.buffered_docs.write_vlong(info_and_bits)?;
         self.buffered_docs.write_vint(value.length as i32)?;
-        self.buffered_docs.write_bytes_range(
-            &value.bytes,
-            value.offset as i32,
-            value.length as i32,
-        )?;
+        self.buffered_docs
+            .write_bytes_range(&value.bytes, value.offset, value.length)?;
         Ok(())
     }
 
@@ -555,7 +552,7 @@ where
 
         self.index_writer.finish(
             num_docs,
-            self.fields_stream.get_file_pointer(),
+            self.fields_stream.get_file_pointer() as i64,
             &mut self.meta_stream,
             dir,
         )?;

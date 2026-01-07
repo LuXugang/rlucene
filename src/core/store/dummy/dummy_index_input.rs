@@ -27,7 +27,7 @@ impl DataInput for DummyIndexInput {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -52,15 +52,15 @@ impl crate::core::util::clone::TryClone for DummyIndexInput {
 }
 
 impl IndexInput for DummyIndexInput {
-    fn get_file_pointer(&self) -> i64 {
+    fn get_file_pointer(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn seek(&mut self, _pos: i64) -> Result<()> {
+    fn seek(&mut self, _pos: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -69,40 +69,44 @@ impl IndexInput for DummyIndexInput {
     fn slice(
         &self,
         _slice_description: &str,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<DummyIndexInput> {
+        __offset: usize,
+        _length: usize,
+    ) -> Result<Self::Slice> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
+    fn random_access_slice(
+        &self,
+        __offset: usize,
+        _length: usize,
+    ) -> Result<Self::RandomAccessSlice> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 impl RandomAccessInput for DummyIndexInput {
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn read_byte(&mut self, _pos: i64) -> Result<u8> {
+    fn read_byte(&mut self, _pos: usize) -> Result<u8> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn read_short(&mut self, _pos: i64) -> Result<i16> {
+    fn read_short(&mut self, _pos: usize) -> Result<i16> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn read_int(&mut self, _pos: i64) -> Result<i32> {
+    fn read_int(&mut self, _pos: usize) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn read_long(&mut self, _pos: i64) -> Result<i64> {
+    fn read_long(&mut self, _pos: usize) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

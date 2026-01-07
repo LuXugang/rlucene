@@ -99,7 +99,7 @@ impl PForUtil {
 
         let len = exceptions.len();
         debug_assert!(len <= i32::MAX as usize);
-        out.write_bytes_with_len(&exceptions, len as i32)?;
+        out.write_bytes_with_len(&exceptions, len)?;
         Ok(())
     }
 
@@ -191,7 +191,7 @@ mod tests {
             assert_eq!(restored, expected, "Mismatch at iteration {}", i);
         }
 
-        assert_eq!(end_pointer, pdu.input.get_file_pointer());
+        assert_eq!(end_pointer as usize, pdu.input.get_file_pointer()?);
         Ok(())
     }
     fn create_test_data<R: Rng + ?Sized>(
@@ -219,7 +219,7 @@ mod tests {
         }
         values
     }
-    fn encode_test_data(iterations: usize, values: &[i32], dir: &impl Directory) -> Result<i64> {
+    fn encode_test_data(iterations: usize, values: &[i32], dir: &impl Directory) -> Result<usize> {
         let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
         let mut pfor_util = PForUtil::new();
 

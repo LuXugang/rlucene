@@ -283,26 +283,28 @@ where
                 write_impacts(&impacts, &mut self.scratch_output)?;
                 debug_assert!(self.level0_output.size() == 0);
                 let scratch_len = self.scratch_output.size();
-                if scratch_len > self.max_impact_num_bytes_at_level0 as i64 {
+                if scratch_len > self.max_impact_num_bytes_at_level0 as usize {
                     self.max_impact_num_bytes_at_level0 = scratch_len.try_convert()?;
                 }
-                self.level0_output.write_vlong(scratch_len)?;
+                self.level0_output.write_vlong(scratch_len as i64)?;
                 self.scratch_output.copy_to(&mut self.level0_output)?;
                 self.scratch_output.reset();
 
                 if options.write_positions {
                     let pos_out = self.pos_out.as_ref().unwrap();
-                    self.level0_output
-                        .write_vlong(pos_out.get_file_pointer() - self.level0_last_pos_fp)?;
+                    self.level0_output.write_vlong(
+                        (pos_out.get_file_pointer() - self.level0_last_pos_fp as usize) as i64,
+                    )?;
                     self.level0_output.write_byte(self.pos_buffer_upto as u8)?;
-                    self.level0_last_pos_fp = pos_out.get_file_pointer();
+                    self.level0_last_pos_fp = pos_out.get_file_pointer() as i64;
 
                     if options.write_offsets || options.write_payloads {
                         let pay_out = self.pay_out.as_ref().unwrap();
-                        self.level0_output
-                            .write_vlong(pay_out.get_file_pointer() - self.level0_last_pay_fp)?;
+                        self.level0_output.write_vlong(
+                            (pay_out.get_file_pointer() - self.level0_last_pay_fp as usize) as i64,
+                        )?;
                         self.level0_output.write_vint(self.payload_byte_upto)?;
-                        self.level0_last_pay_fp = pay_out.get_file_pointer();
+                        self.level0_last_pay_fp = pay_out.get_file_pointer() as i64;
                     }
                 }
             }
@@ -322,10 +324,10 @@ where
                 &mut self.scratch_output,
                 self.doc_id - self.level0_last_doc_id,
             )?;
-            write_vlong15(&mut self.scratch_output, self.level0_output.size())?;
+            write_vlong15(&mut self.scratch_output, self.level0_output.size() as i64)?;
             num_skip_bytes += self.scratch_output.size();
 
-            self.level1_output.write_vlong(num_skip_bytes)?;
+            self.level1_output.write_vlong(num_skip_bytes as i64)?;
             self.scratch_output.copy_to(&mut self.level1_output)?;
             self.scratch_output.reset();
         }
@@ -356,7 +358,7 @@ where
     fn write_level1_skip_data(&mut self, options: &FieldWriteOptions) -> Result<()> {
         self.doc_out
             .write_vint(self.doc_id - self.level1_last_doc_id)?;
-        let level1_end: i64;
+        let level1_end;
 
         if options.write_freqs {
             let impacts = self
@@ -368,43 +370,40 @@ where
             }
             write_impacts(&impacts, &mut self.scratch_output)?;
             let num_impact_bytes = self.scratch_output.size();
-            if num_impact_bytes > self.max_impact_num_bytes_at_level1 as i64 {
+            if num_impact_bytes > self.max_impact_num_bytes_at_level1 as usize {
                 self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_convert()?;
             }
             if options.write_positions {
-                let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer();
+                let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer() as i64;
                 self.scratch_output
                     .write_vlong(pos_fp - self.level1_last_pos_fp)?;
                 self.scratch_output.write_byte(self.pos_buffer_upto as u8)?;
                 self.level1_last_pos_fp = pos_fp;
                 if options.write_offsets || options.write_payloads {
-                    let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
+                    let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer() as i64;
                     self.scratch_output
                         .write_vlong(pay_fp - self.level1_last_pay_fp)?;
                     self.scratch_output.write_vint(self.payload_byte_upto)?;
                     self.level1_last_pay_fp = pay_fp;
                 }
             }
-            let level1_len = 2 * BitUtil::SHORT_BYTES as i64
-                + self.scratch_output.size()
-                + self.level1_output.size();
-            self.doc_out.write_vlong(level1_len)?;
+            let level1_len =
+                2 * BitUtil::SHORT_BYTES + self.scratch_output.size() + self.level1_output.size();
+            self.doc_out.write_vlong(level1_len as i64)?;
             level1_end = self.doc_out.get_file_pointer() + level1_len;
             // There are at most 128 impacts, that require at most 2 bytes each
-            debug_assert!(self.scratch_output.size() <= i16::MAX as i64);
+            debug_assert!(self.scratch_output.size() <= i16::MAX as usize);
             // Like impacts plus a few vlongs, still way under the max short
             // value
-            debug_assert!(
-                (self.scratch_output.size() + BitUtil::SHORT_BYTES as i64) <= i16::MAX as i64
-            );
+            debug_assert!((self.scratch_output.size() + BitUtil::SHORT_BYTES) <= i16::MAX as usize);
             self.doc_out
-                .write_short((self.scratch_output.size() + BitUtil::SHORT_BYTES as i64) as i16)?;
+                .write_short((self.scratch_output.size() + BitUtil::SHORT_BYTES) as i16)?;
             self.doc_out
                 .write_short(self.scratch_output.size() as i16)?;
             self.scratch_output.copy_to(&mut self.doc_out)?;
             self.scratch_output.reset();
         } else {
-            self.doc_out.write_vlong(self.level1_output.size())?;
+            self.doc_out.write_vlong(self.level1_output.size() as i64)?;
             level1_end = self.doc_out.get_file_pointer() + self.level1_output.size();
         }
 
@@ -428,11 +427,12 @@ where
             self.meta_out.write_int(self.max_num_impacts_at_level1)?;
             self.meta_out
                 .write_int(self.max_impact_num_bytes_at_level1)?;
-            self.meta_out.write_long(self.doc_out.get_file_pointer())?;
+            self.meta_out
+                .write_long(self.doc_out.get_file_pointer() as i64)?;
             if let Some(ref po) = self.pos_out {
-                self.meta_out.write_long(po.get_file_pointer())?;
+                self.meta_out.write_long(po.get_file_pointer() as i64)?;
                 if let Some(ref pay) = self.pay_out {
-                    self.meta_out.write_long(pay.get_file_pointer())?;
+                    self.meta_out.write_long(pay.get_file_pointer() as i64)?;
                 }
             }
             CodecUtil::write_footer(&mut self.meta_out)?;
@@ -514,15 +514,15 @@ where
     }
 
     fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
-        self.doc_start_fp = self.doc_out.get_file_pointer();
+        self.doc_start_fp = self.doc_out.get_file_pointer() as i64;
         if options.write_positions
             && let Some(ref pos_out) = self.pos_out
         {
-            self.pos_start_fp = pos_out.get_file_pointer();
+            self.pos_start_fp = pos_out.get_file_pointer() as i64;
             self.level0_last_pos_fp = self.pos_start_fp;
             self.level1_last_pos_fp = self.pos_start_fp;
             if options.write_payloads || options.write_offsets {
-                let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
+                let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer() as i64;
                 self.pay_start_fp = pay_fp;
                 self.level0_last_pay_fp = pay_fp;
                 self.level1_last_pay_fp = pay_fp;
@@ -564,13 +564,13 @@ where
             // totalTermFreq is just total number of positions(or payloads, or
             // offsets) associated with current term.
             debug_assert!(state.base.total_term_freq != -1);
-            let offset =
-                if state.base.total_term_freq as usize > Lucene101PostingsFormat::BLOCK_SIZE {
-                    // record file offset for last pos in last block
-                    self.pos_out.as_ref().unwrap().get_file_pointer() - self.pos_start_fp
-                } else {
-                    -1
-                };
+            let offset = if state.base.total_term_freq > Lucene101PostingsFormat::BLOCK_SIZE as i64
+            {
+                // record file offset for last pos in last block
+                self.pos_out.as_ref().unwrap().get_file_pointer() as i64 - self.pos_start_fp
+            } else {
+                -1
+            };
             if self.pos_buffer_upto > 0 {
                 debug_assert!(
                     (self.pos_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE
@@ -583,7 +583,7 @@ where
                 // vInt encode the remaining positions/payloads/offsets:
                 let mut last_payload_length = -1;
                 let mut last_offset_length = -1;
-                let mut payload_bytes_read_upto = 0;
+                let mut payload_bytes_read_upto: i32 = 0;
                 let po_out = self.pos_out.as_mut().unwrap();
                 for i in 0..self.pos_buffer_upto as usize {
                     let pos_delta = self.pos_delta_buffer[i];
@@ -599,8 +599,8 @@ where
                         if payload_length != 0 {
                             po_out.write_bytes_range(
                                 &self.payload_bytes,
-                                payload_bytes_read_upto,
-                                payload_length,
+                                payload_bytes_read_upto as usize,
+                                payload_length as usize,
                             )?;
                             payload_bytes_read_upto += payload_length;
                         }
@@ -758,7 +758,11 @@ where
                 self.pfor_util
                     .encode(&mut self.payload_length_buffer, pay_out)?;
                 pay_out.write_vint(self.payload_byte_upto)?;
-                pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
+                pay_out.write_bytes_range(
+                    &self.payload_bytes,
+                    0,
+                    self.payload_byte_upto as usize,
+                )?;
                 self.payload_byte_upto = 0;
             }
             if options.write_offsets {

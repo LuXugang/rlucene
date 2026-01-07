@@ -119,8 +119,8 @@ where
         };
         let store = OffHeapFSTStore::new(
             index_in,
-            tmp_data.index_start_fp,
-            tmp_data.metadata.num_bytes,
+            tmp_data.index_start_fp as usize,
+            tmp_data.metadata.num_bytes as usize,
         );
         let index = match FST::from_fst_reader(Some(tmp_data.metadata), Some(store)) {
             Some(fst) => fst,

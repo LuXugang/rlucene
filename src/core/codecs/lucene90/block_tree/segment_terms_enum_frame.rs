@@ -26,7 +26,7 @@ use crate::core::index::terms_enum::SeekStatus;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{SliceCopyOps, ToInt};
+use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::sync::Arc;
 
 pub struct SegmentTermsEnumFrame {
@@ -226,7 +226,7 @@ impl SegmentTermsEnumFrame {
         ste.init_index_input()?;
 
         // TODO: Could we know the number of bytes to prefetch?
-        ste.input.as_mut().unwrap().prefetch(fp, 1)?;
+        ste.input.as_mut().unwrap().prefetch(fp as usize, 1)?;
         Ok(())
     }
     /* Does initial decode of next block of terms; this
@@ -262,7 +262,7 @@ impl SegmentTermsEnumFrame {
 
         let input = ste.input.as_mut().unwrap();
 
-        input.seek(frame.fp)?;
+        input.seek(frame.fp as usize)?;
         let code = input.read_vint()?;
         frame.ent_count = ((code as u32) >> 1) as i32;
         debug_assert!(frame.ent_count > 0);
@@ -276,7 +276,7 @@ impl SegmentTermsEnumFrame {
             frame.is_floor,
             frame.is_last_in_floor
         );
-        let start_suffix_fp = input.get_file_pointer();
+        let start_suffix_fp = input.get_file_pointer()?;
         // term suffixes:
         let code_l = input.read_vlong()?;
         frame.is_leaf_block = (code_l & 0x04) != 0;
@@ -316,24 +316,23 @@ impl SegmentTermsEnumFrame {
             input.read_bytes(
                 &mut frame.suffix_lengths_reader.bytes,
                 0,
-                num_suffix_length_bytes as i32,
+                num_suffix_length_bytes,
             )?;
         }
 
         frame
             .suffix_lengths_reader
             .reset_meta(0, num_suffix_length_bytes);
-        frame.total_suffix_bytes = input.get_file_pointer() - start_suffix_fp;
+        frame.total_suffix_bytes = (input.get_file_pointer()? - start_suffix_fp) as i64;
 
         // stats
-        let mut num_bytes = input.read_vint()?;
-        debug_assert!(num_bytes >= 0);
-        if frame.stats_reader.bytes.len() < num_bytes as usize {
-            let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
+        let mut num_bytes = input.read_vint()?.try_convert()?;
+        if frame.stats_reader.bytes.len() < num_bytes {
+            let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.stats_reader.bytes = vec![0u8; new_len];
         }
         input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
-        frame.stats_reader.reset_meta(0, num_bytes as usize);
+        frame.stats_reader.reset_meta(0, num_bytes);
         frame.stats_singleton_run_length = 0;
         frame.meta_data_upto = 0;
 
@@ -341,15 +340,15 @@ impl SegmentTermsEnumFrame {
         frame.next_ent = 0;
         frame.last_sub_fp = -1;
         // metadata
-        num_bytes = input.read_vint()?;
-        if frame.bytes_reader.bytes.len() < num_bytes as usize {
-            let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
+        num_bytes = input.read_vint()?.try_convert()?;
+        if frame.bytes_reader.bytes.len() < num_bytes {
+            let new_len = ArrayUtil::oversize(num_bytes, 1);
             frame.bytes_reader.bytes = vec![0u8; new_len];
         }
         input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
-        frame.bytes_reader.reset_meta(0, num_bytes as usize);
+        frame.bytes_reader.reset_meta(0, num_bytes);
 
-        frame.fp_end = input.get_file_pointer();
+        frame.fp_end = input.get_file_pointer()? as i64;
 
         Ok(frame.is_leaf_block)
     }
@@ -417,8 +416,8 @@ impl SegmentTermsEnumFrame {
 
         frame.suffixes_reader.read_bytes(
             ste.term.get_bytes_mut_ref().bytes.as_mut(),
-            frame.prefix_length,
-            frame.suffix_length,
+            frame.prefix_length as usize,
+            frame.suffix_length as usize,
         )?;
 
         ste.term_exists = true;
@@ -488,8 +487,8 @@ impl SegmentTermsEnumFrame {
 
             frame.suffixes_reader.read_bytes(
                 ste.term.get_bytes_mut_ref().bytes.as_mut(),
-                frame.prefix_length,
-                frame.suffix_length,
+                frame.prefix_length as usize,
+                frame.suffix_length as usize,
             )?;
 
             return if (code & 1) == 0 {

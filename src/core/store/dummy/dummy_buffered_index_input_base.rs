@@ -31,26 +31,31 @@ impl crate::core::util::clone::TryClone for DummyBufferedIndexInputBase {
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-    fn seek_internal(&mut self, _pos: i64) -> Result<()> {
+    fn seek_internal(&mut self, _pos: usize) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_internal(
         &mut self,
         _b: &mut Cursor<Vec<u8>>,
-        _len: i64,
-        _file_pointer: i64,
+        _len: usize,
+        _file_pointer: usize,
     ) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
-    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::Slice> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

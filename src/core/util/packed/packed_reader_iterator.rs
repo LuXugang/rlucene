@@ -112,7 +112,7 @@ where
             self.data_input.read_bytes(
                 &mut self.next_blocks[..blocks_to_read as usize],
                 0,
-                blocks_to_read as i32,
+                blocks_to_read as usize,
             )?;
 
             if (blocks_to_read as usize) < self.next_blocks.len() {

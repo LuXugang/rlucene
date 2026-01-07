@@ -25,21 +25,21 @@ use crate::core::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::core::util::{ReadableCursorExt, SliceCopyOps};
+use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 /// Base implementation struct for buffered [`IndexInput`].  */
 pub struct BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    buffer_size: i32,
+    buffer_size: usize,
     resource_desc: String,
     buffer: Cursor<Vec<u8>>,
     sub_index_input: T,
-    buffer_start: i64,
+    buffer_start: usize,
     /// global pos in the file, used for sequential read
-    pos: i64,
+    pos: usize,
     /// valid data length in the buffer
-    length: i32,
+    length: usize,
 }
 
 impl<T> BufferedIndexInput<T>
@@ -49,9 +49,9 @@ where
     pub fn with_buffer_size(
         sub_index_input: T,
         resource_desc: &str,
-        buffer_size: i32,
+        buffer_size: usize,
     ) -> Result<BufferedIndexInput<T>> {
-        let buffer = Cursor::new(vec![0u8; buffer_size as usize]);
+        let buffer = Cursor::new(vec![0u8; buffer_size]);
         Self::check_buffer_size(buffer_size)?;
         Ok(BufferedIndexInput {
             buffer_size,
@@ -79,14 +79,14 @@ where
     }
 
     /// Returns default buffer sizes for the given [`IOContext`].
-    pub fn buffer_size(io_context: &IOContext) -> i32 {
+    pub fn buffer_size(io_context: &IOContext) -> usize {
         match io_context.context {
             Context::Merge => MERGE_BUFFER_SIZE,
             Context::Default | Context::Flush => BUFFER_SIZE,
         }
     }
 
-    fn check_buffer_size(buffer_size: i32) -> Result<()> {
+    fn check_buffer_size(buffer_size: usize) -> Result<()> {
         if buffer_size < MIN_BUFFER_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "bufferSize must be at least MIN_BUFFER_SIZE (got {buffer_size})"
@@ -131,9 +131,9 @@ where
     /// # Errors
     /// * Returns `LuceneError::eof` if no new data can be read from the
     ///   underlying input.
-    fn refill(&mut self, remain_unaligned_bytes: i32, start: i64) -> Result<()> {
+    fn refill(&mut self, remain_unaligned_bytes: usize, start: usize) -> Result<()> {
         // After the last read, some unaligned bytes remain in the buffer.
-        let mut end = start + (self.buffer_size - remain_unaligned_bytes) as i64;
+        let mut end = start + (self.buffer_size - remain_unaligned_bytes);
 
         // Don't read past EOF
         let length = self.sub_index_input.length();
@@ -147,22 +147,22 @@ where
         }
 
         // valid data length in buffer
-        debug_assert!(new_length <= i32::MAX as i64);
-        self.length = new_length as i32 + remain_unaligned_bytes;
+        self.length = new_length + remain_unaligned_bytes;
         // Set the buffer position to the remaining unaligned bytes
         // so that the next write within `read_internal` starts from remaining
         // unaligned bytes
-        self.buffer.set_position(remain_unaligned_bytes as u64);
+        self.buffer
+            .set_position(remain_unaligned_bytes.try_convert()?);
         self.sub_index_input
             .read_internal(&mut self.buffer, new_length, start)?;
         // Adjust buffer_start to include unaligned bytes
-        self.buffer_start = start - remain_unaligned_bytes as i64;
+        self.buffer_start = start - remain_unaligned_bytes;
         Ok(())
     }
     fn read_longs(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         output: &mut [i64],
         use_buffer: bool,
     ) -> Result<()> {
@@ -170,15 +170,15 @@ where
             pos,
             len,
             output,
-            BitUtil::LONG_BYTES as i32,
+            BitUtil::LONG_BYTES,
             LE::read_i64,
             use_buffer,
         )
     }
     fn read_bytes(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         output: &mut [u8],
         use_buffer: bool,
     ) -> Result<()> {
@@ -187,8 +187,8 @@ where
     }
     fn read_ints(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         output: &mut [i32],
         use_buffer: bool,
     ) -> Result<()> {
@@ -196,15 +196,15 @@ where
             pos,
             len,
             output,
-            BitUtil::INT_BYTES as i32,
+            BitUtil::INT_BYTES,
             LE::read_i32,
             use_buffer,
         )
     }
     fn read_shorts(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         output: &mut [i16],
         use_buffer: bool,
     ) -> Result<()> {
@@ -212,15 +212,15 @@ where
             pos,
             len,
             output,
-            BitUtil::SHORT_BYTES as i32,
+            BitUtil::SHORT_BYTES,
             LE::read_i16,
             use_buffer,
         )
     }
     fn read_floats(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         output: &mut [f32],
         use_buffer: bool,
     ) -> Result<()> {
@@ -228,7 +228,7 @@ where
             pos,
             len,
             output,
-            BitUtil::FLOAT_BYTES as i32,
+            BitUtil::FLOAT_BYTES,
             LE::read_f32,
             use_buffer,
         )
@@ -290,10 +290,10 @@ where
     ///   have negligible performance impact.
     fn read_buffer<D, F>(
         &mut self,
-        pos: i64,
-        len: i32,
+        pos: usize,
+        len: usize,
         target: &mut [D],
-        type_size: i32,
+        type_size: usize,
         converter: F,
         use_buffer: bool,
     ) -> Result<()>
@@ -310,58 +310,42 @@ where
         let mut elements_read = 0; // Tracks the number of elements read so far.
         let mut unaligned_bytes = 0; // Tracks bytes that cannot form a complete element.
         // Check if the position is within the current buffer range
-        if pos >= self.buffer_start && pos < self.buffer_start + self.length as i64 {
-            debug_assert!((pos - self.buffer_start) <= i32::MAX as i64);
-            let buffer_offset = (pos - self.buffer_start) as i32;
+        if pos >= self.buffer_start && pos < self.buffer_start + self.length {
+            let buffer_offset = pos - self.buffer_start;
             // Determine the number of bytes available in the buffer from the
             // requested position.
-            let available = self
-                .buffer
-                .remain_between(buffer_offset as u64, self.length as u64);
+            let available = self.buffer.remain_between(buffer_offset, self.length);
             // If the buffer contains all the data required for the request:
-            if available >= total_bytes as u64 {
-                let src = &self.buffer.get_ref()
-                    [buffer_offset as usize..(buffer_offset as usize + total_bytes as usize)];
-                Self::process_data(
-                    src,
-                    &mut target[0..len as usize],
-                    len as usize,
-                    type_size,
-                    &converter,
-                );
+            if available >= total_bytes {
+                let src = &self.buffer.get_ref()[buffer_offset..(buffer_offset + total_bytes)];
+                Self::process_data(src, &mut target[0..len], len, type_size, &converter);
                 return Ok(());
             }
             // Calculate the number of aligned bytes and elements that can be
             // fully read.
-            debug_assert!(available <= i32::MAX as u64);
-            let aligned_bytes = (available as i32 / type_size) * type_size;
+            let aligned_bytes = (available / type_size) * type_size;
             let aligned_elements = aligned_bytes / type_size;
             // Process aligned elements from the buffer.
             if aligned_elements > 0 {
-                let src = &self.buffer.get_ref()
-                    [buffer_offset as usize..(buffer_offset + aligned_bytes) as usize];
+                let src = &self.buffer.get_ref()[buffer_offset..(buffer_offset + aligned_bytes)];
                 Self::process_data(
                     src,
-                    &mut target[elements_read as usize
-                        ..elements_read as usize + aligned_elements as usize],
-                    aligned_elements as usize,
+                    &mut target[elements_read..elements_read + aligned_elements],
+                    aligned_elements,
                     type_size,
                     &converter,
                 );
                 elements_read += aligned_elements;
             }
             // Handle unaligned bytes that cannot form a complete element.
-            unaligned_bytes = available as i32 - aligned_bytes;
+            unaligned_bytes = available - aligned_bytes;
             if unaligned_bytes > 0 {
                 let buffer = self.buffer.get_mut();
-                let unaligned_start = (buffer_offset + aligned_bytes) as usize;
+                let unaligned_start = buffer_offset + aligned_bytes;
                 // Copy unaligned bytes to the start of the buffer, we would
                 // read these bytes later when buffer/temp_buffer was refilled
                 // again
-                buffer.copy_within(
-                    unaligned_start..unaligned_start + unaligned_bytes as usize,
-                    0,
-                );
+                buffer.copy_within(unaligned_start..unaligned_start + unaligned_bytes, 0);
             }
         }
 
@@ -372,20 +356,18 @@ where
         // If the buffer is used and the remaining bytes are less than the
         // buffer size, refill the buffer.
         if use_buffer && remaining_bytes < self.buffer_size {
-            let start = self.buffer_start + self.length as i64;
+            let start = self.buffer_start + self.length;
             self.refill(unaligned_bytes, start)?;
 
             let available = self.length;
             let readable_elements = (available / type_size).min(remaining_len);
 
             if readable_elements > 0 {
-                let src =
-                    &self.buffer.get_ref()[0..readable_elements as usize * type_size as usize];
+                let src = &self.buffer.get_ref()[0..readable_elements * type_size];
                 Self::process_data(
                     src,
-                    &mut target[elements_read as usize
-                        ..elements_read as usize + readable_elements as usize],
-                    readable_elements as usize,
+                    &mut target[elements_read..elements_read + readable_elements],
+                    readable_elements,
                     type_size,
                     &converter,
                 );
@@ -402,12 +384,12 @@ where
         }
         // If the buffer is not used or the remaining data exceeds the buffer
         // size, read directly from the underlying input
-        let after = self.buffer_start + (self.length + remaining_bytes - unaligned_bytes) as i64;
+        let after = self.buffer_start + (self.length + remaining_bytes - unaligned_bytes);
         if after > self.sub_index_input.length() {
             return Err(LuceneError::eof(format!("read past EOF: {self}")));
         }
         // Prepare a temporary buffer to handle unaligned and remaining bytes.
-        let mut temp_vec = vec![0; (remaining_bytes + unaligned_bytes) as usize];
+        let mut temp_vec = vec![0; remaining_bytes + unaligned_bytes];
         if unaligned_bytes > 0 {
             // If there are unaligned bytes left from the previous buffer,
             // copy them into the beginning of the temporary vector
@@ -424,7 +406,7 @@ where
             // they are preserved when the buffer is refilled with
             // new data.
             temp_vec.copy_from(
-                &self.buffer.get_ref()[(self.buffer_size - unaligned_bytes) as usize..],
+                &self.buffer.get_ref()[(self.buffer_size - unaligned_bytes)..],
                 0,
             );
         }
@@ -432,16 +414,16 @@ where
         temp_buffer.set_position(unaligned_bytes as u64);
         self.sub_index_input.read_internal(
             &mut temp_buffer,
-            (remaining_bytes - unaligned_bytes) as i64,
-            self.buffer_start + self.length as i64,
+            remaining_bytes - unaligned_bytes,
+            self.buffer_start + self.length,
         )?;
 
         debug_assert!(temp_buffer.position() == remaining_bytes as u64);
         let src = temp_buffer.get_ref();
         Self::process_data(
             src,
-            &mut target[elements_read as usize..elements_read as usize + remaining_len as usize],
-            remaining_len as usize,
+            &mut target[elements_read..elements_read + remaining_len],
+            remaining_len,
             type_size,
             &converter,
         );
@@ -474,7 +456,7 @@ where
     /// - Unsafe code is used to cast `dst` to a mutable byte slice when
     ///   `type_size == 1`. The caller must ensure that `dst` has sufficient
     ///   capacity and correct alignment to avoid undefined behavior.
-    fn process_data<D, F>(src: &[u8], dst: &mut [D], len: usize, type_size: i32, converter: &F)
+    fn process_data<D, F>(src: &[u8], dst: &mut [D], len: usize, type_size: usize, converter: &F)
     where
         D: Copy,
         F: Fn(&[u8]) -> D,
@@ -486,8 +468,8 @@ where
             }
         } else {
             for (i, dst_item) in dst.iter_mut().enumerate().take(len) {
-                let chunk_start = i * type_size as usize;
-                *dst_item = converter(&src[chunk_start..chunk_start + type_size as usize]);
+                let chunk_start = i * type_size;
+                *dst_item = converter(&src[chunk_start..chunk_start + type_size]);
             }
         }
     }
@@ -533,21 +515,23 @@ where
     /// This method is particularly efficient for scenarios involving frequent
     /// backward random reads, as it reduces redundant I/O operations by
     /// aligning the buffer with anticipated access patterns.
-    fn resolve_position_in_buffer(&mut self, pos: i64, width: i32) -> Result<()> {
-        let index: i64 = pos - self.buffer_start;
-        if index >= 0 && index <= (self.length as i64 - width as i64) {
+    fn resolve_position_in_buffer(&mut self, pos: usize, width: usize) -> Result<()> {
+        let index_opt = pos.checked_sub(self.buffer_start);
+        if let Some(index) = index_opt
+            && self.length.checked_sub(width).is_some_and(|v| index <= v)
+        {
             return Ok(());
         }
-        if index < 0 {
+
+        if index_opt.is_none() {
             // If we're moving backwards, then try and fill up the previous page
             // rather than starting again at the current pos, to
             // avoid successive backwards reads reloading
             // the same data over and over again.  We also check that we can
             // read `width` bytes without going over the end of the
             // buffer
-            let temp_buffer_start = (self.buffer_start - self.buffer_size as i64)
-                .max(pos + width as i64 - self.buffer_size as i64);
-            self.buffer_start = temp_buffer_start.max(0);
+            let v = self.buffer_start.max(pos + width);
+            self.buffer_start = v.saturating_sub(self.buffer_size);
             self.buffer_start = self.buffer_start.min(pos);
             self.pos = self.buffer_start;
         } else {
@@ -576,92 +560,72 @@ where
         Ok(bytes[0])
     }
 
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
         self.read_bytes_with_buffer(b, offset, len, true)
     }
 
     fn read_bytes_with_buffer(
         &mut self,
         b: &mut [u8],
-        offset: i32,
-        len: i32,
-        use_buffer: bool,
+        offset: usize,
+        len: usize,
+        _use_buffer: bool,
     ) -> Result<()> {
-        self.read_bytes(
-            self.pos,
-            len,
-            &mut b[offset as usize..(offset + len) as usize],
-            use_buffer,
-        )?;
-        self.pos += len as i64;
+        self.read_bytes(self.pos, len, &mut b[offset..(offset + len)], _use_buffer)?;
+        self.pos += len;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
         let mut output = [0; 1];
         self.read_shorts(self.pos, 1, &mut output, true)?;
-        self.pos += BitUtil::SHORT_BYTES as i64;
+        self.pos += BitUtil::SHORT_BYTES;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32> {
         let mut output = [0; 1];
         self.read_ints(self.pos, 1, &mut output, true)?;
-        self.pos += BitUtil::INT_BYTES as i64;
+        self.pos += BitUtil::INT_BYTES;
         Ok(output[0])
     }
 
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
-        let remain =
-            self.buffer
-                .remain_between(self.buffer.position(), self.length as u64) as usize;
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        let remain = self
+            .buffer
+            .remain_between(self.buffer.position().try_convert()?, self.length);
         debug_assert!(self.buffer.position() <= i64::MAX as u64);
         let len = GroupVIntUtil::read_group_vint_i32_with_reader(
             self,
             remain as u64,
-            self.buffer.position() as i64,
+            self.buffer.position().try_convert()?,
             dst,
             offset,
         )?;
-        self.pos += len as i64;
+        self.pos += len;
         Ok(())
     }
 
     fn read_long(&mut self) -> Result<i64> {
         let mut output = [0; 1];
         self.read_longs(self.pos, 1, &mut output, true)?;
-        self.pos += BitUtil::LONG_BYTES as i64;
+        self.pos += BitUtil::LONG_BYTES;
         Ok(output[0])
     }
-    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
-        self.read_longs(
-            self.pos,
-            len,
-            &mut dst[offset as usize..(offset + len) as usize],
-            true,
-        )?;
-        self.pos += len as i64 * BitUtil::LONG_BYTES as i64;
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+        self.read_longs(self.pos, len, &mut dst[offset..(offset + len)], true)?;
+        self.pos += len * BitUtil::LONG_BYTES;
         Ok(())
     }
-    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
-        self.read_ints(
-            self.pos,
-            len,
-            &mut dst[offset as usize..(offset + len) as usize],
-            true,
-        )?;
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+        self.read_ints(self.pos, len, &mut dst[offset..(offset + len)], true)?;
 
-        self.pos += len as i64 * BitUtil::INT_BYTES as i64;
+        self.pos += len * BitUtil::INT_BYTES;
         Ok(())
     }
-    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
-        self.read_floats(
-            self.pos,
-            len,
-            &mut dst[offset as usize..(offset + len) as usize],
-            true,
-        )?;
-        self.pos += len as i64 * BitUtil::FLOAT_BYTES as i64;
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+        self.read_floats(self.pos, len, &mut dst[offset..(offset + len)], true)?;
+        self.pos += len * BitUtil::FLOAT_BYTES;
         Ok(())
     }
 
@@ -673,12 +637,12 @@ where
         true
     }
 
-    fn seek_in_data_input(&mut self, pos: i64) -> Result<()> {
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         debug_assert!(self.is_index_input());
-        IndexInput::seek(self, pos)
+        IndexInput::seek(self, _pos)
     }
 
-    fn get_file_pointer_in_data_input(&self) -> i64 {
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         debug_assert!(self.is_index_input());
         IndexInput::get_file_pointer(self)
     }
@@ -716,12 +680,12 @@ impl<T> IndexInput for BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    fn get_file_pointer(&self) -> i64 {
-        self.pos
+    fn get_file_pointer(&self) -> Result<usize> {
+        Ok(self.pos)
     }
 
-    fn seek(&mut self, pos: i64) -> Result<()> {
-        if pos >= self.buffer_start && pos < (self.buffer_start + self.length as i64) {
+    fn seek(&mut self, pos: usize) -> Result<()> {
+        if pos >= self.buffer_start && pos < (self.buffer_start + self.length) {
             self.pos = pos;
         } else {
             self.pos = pos;
@@ -732,20 +696,20 @@ where
         Ok(())
     }
 
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.sub_index_input.length()
     }
 
     type Slice = BufferedIndexInput<T>;
 
-    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }
 
     type RandomAccessSlice = Self::Slice;
 
-    fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::Slice> {
+    fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
         self.slice("random_access_slice", offset, length)
     }
 }
@@ -754,50 +718,45 @@ impl<T> RandomAccessInput for BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-    fn length(&self) -> i64 {
+    fn length(&self) -> usize {
         self.sub_index_input.length()
     }
 
-    fn read_byte(&mut self, pos: i64) -> Result<u8> {
+    fn read_byte(&mut self, pos: usize) -> Result<u8> {
         let mut bytes = [0; 1];
         self.resolve_position_in_buffer(pos, 1)?;
         self.read_bytes(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_bytes(&mut self, pos: i64, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+    fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
         self.resolve_position_in_buffer(pos, len)?;
-        self.read_bytes(
-            pos,
-            len,
-            &mut b[offset as usize..(offset + len) as usize],
-            true,
-        )?;
+        self.read_bytes(pos, len, &mut buf[offset..(offset + len)], true)?;
         Ok(())
     }
 
-    fn read_short(&mut self, pos: i64) -> Result<i16> {
+    fn read_short(&mut self, pos: usize) -> Result<i16> {
         let mut bytes = [0; BitUtil::SHORT_BYTES];
-        self.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES as i32)?;
+        self.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES)?;
         self.read_shorts(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_int(&mut self, pos: i64) -> Result<i32> {
+    fn read_int(&mut self, pos: usize) -> Result<i32> {
         let mut bytes = [0; BitUtil::INT_BYTES];
-        self.resolve_position_in_buffer(pos, BitUtil::INT_BYTES as i32)?;
+        self.resolve_position_in_buffer(pos, BitUtil::INT_BYTES)?;
         self.read_ints(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn read_long(&mut self, pos: i64) -> Result<i64> {
+    fn read_long(&mut self, pos: usize) -> Result<i64> {
         let mut bytes = [0; BitUtil::LONG_BYTES];
-        self.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES as i32)?;
+        self.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES)?;
         self.read_longs(pos, 1, &mut bytes, true)?;
         Ok(bytes[0])
     }
 
-    fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
 }
@@ -805,9 +764,9 @@ where
 struct SlicedIndexInput {}
 
 /// Default buffer size set to `BUFFER_SIZE`.
-pub const BUFFER_SIZE: i32 = 1024;
+pub const BUFFER_SIZE: usize = 1024;
 /// Minimum buffer size allowed
-pub const MIN_BUFFER_SIZE: i32 = 8;
+pub const MIN_BUFFER_SIZE: usize = 8;
 
 /// A buffer size for merges set to `MERGE_BUFFER_SIZE`.  */
 /// The normal read buffer size defaults to 1024, but
@@ -816,7 +775,7 @@ pub const MIN_BUFFER_SIZE: i32 = 8;
 /// it too much because there are quite a few
 /// BufferedIndexInputs created during merging.  See
 /// LUCENE-888 for details.
-pub const MERGE_BUFFER_SIZE: i32 = 4096;
+pub const MERGE_BUFFER_SIZE: usize = 4096;
 
 #[cfg(test)]
 mod tests {
@@ -838,7 +797,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestBufferedIndexInput;
 
-    const TEST_FILE_LENGTH: i64 = 100 * 1024;
+    const TEST_FILE_LENGTH: usize = 100 * 1024;
 
     #[test]
     // Call readByte() repeatedly, past the buffer boundary, and see that it
@@ -854,7 +813,7 @@ mod tests {
             BUFFER_SIZE,
         )?;
         for i in 0..BUFFER_SIZE * 10 {
-            assert_eq!(byten(i as i64), DataInput::read_byte(&mut input)?);
+            assert_eq!(byten(i), DataInput::read_byte(&mut input)?);
         }
 
         Ok(())
@@ -879,7 +838,7 @@ mod tests {
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, size, pos, &mut buffer)?;
             pos += size;
-            if pos as i64 >= TEST_FILE_LENGTH {
+            if pos >= TEST_FILE_LENGTH {
                 // Wrap around
                 pos = 0;
                 input.seek(0)?;
@@ -893,7 +852,7 @@ mod tests {
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, size, pos, &mut buffer)?;
             pos += size;
-            if pos as i64 >= TEST_FILE_LENGTH {
+            if pos >= TEST_FILE_LENGTH {
                 // Wrap around
                 pos = 0;
                 input.seek(0)?;
@@ -905,7 +864,7 @@ mod tests {
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, 7, pos, &mut buffer)?;
             pos += 7;
-            if pos as i64 >= TEST_FILE_LENGTH {
+            if pos >= TEST_FILE_LENGTH {
                 // Wrap around
                 pos = 0;
                 input.seek(0)?;
@@ -917,51 +876,43 @@ mod tests {
 
     fn check_read_bytes(
         input: &mut impl IndexInput,
-        size: i32,
-        pos: i32,
+        size: usize,
+        pos: usize,
         buffer: &mut Vec<u8>,
     ) -> Result<()> {
         // Just to see that "offset" is treated properly in read_bytes(), we
         // add an arbitrary offset at the beginning of the array
         let offset = size % 10; // arbitrary offset
-        if buffer.len() < (offset + size) as usize {
-            buffer.resize((offset + size) as usize, 0); // Grow the buffer as
+        if buffer.len() < (offset + size) {
+            buffer.resize(offset + size, 0); // Grow the buffer as
             // needed
         }
 
         assert_eq!(
-            pos as i64,
-            input.get_file_pointer(),
+            pos,
+            input.get_file_pointer()?,
             "File pointer does not match expected position"
         );
 
-        let left = TEST_FILE_LENGTH - input.get_file_pointer();
-        if left <= 0 {
+        let left = TEST_FILE_LENGTH.saturating_sub(input.get_file_pointer()?);
+        if left == 0 {
             return Ok(()); // No data left to read
         }
 
-        let size_to_read = if left < size as i64 {
-            left
-        } else {
-            size as i64
-        };
+        let size_to_read = if left < size { left } else { size };
 
-        input.read_bytes(
-            &mut buffer[offset as usize..offset as usize + size_to_read as usize],
-            0,
-            size_to_read as i32,
-        )?;
+        input.read_bytes(&mut buffer[offset..offset + size_to_read], 0, size_to_read)?;
 
         assert_eq!(
-            pos as i64 + size_to_read,
-            input.get_file_pointer(),
+            pos + size_to_read,
+            input.get_file_pointer()?,
             "File pointer does not match after reading"
         );
 
         for i in 0..size_to_read {
-            let file_pos = pos as i64 + i;
+            let file_pos = pos + i;
             let expected_byte = byten(file_pos);
-            let actual_byte = buffer[offset as usize + i as usize];
+            let actual_byte = buffer[offset + i];
             assert_eq!(
                 expected_byte, actual_byte,
                 "Mismatch at pos={}, filepos={}",
@@ -985,7 +936,7 @@ mod tests {
 
         // Verify we can read all bytes in one go
         let mut length = IndexInput::length(&input);
-        check_read_bytes(&mut input, length as i32, 0, &mut buffer)?;
+        check_read_bytes(&mut input, length, 0, &mut buffer)?;
 
         // Attempt to read more than the available bytes for small and large
         // overflows
@@ -994,23 +945,23 @@ mod tests {
         input.seek(pos)?;
 
         // Small overflow: read exactly remaining bytes
-        check_read_bytes(&mut input, 10, pos as i32, &mut buffer)?;
+        check_read_bytes(&mut input, 10, pos, &mut buffer)?;
 
         input.seek(pos)?;
 
         // Test block read past end of file
-        let mut result = check_read_bytes(&mut input, 11, pos as i32, &mut buffer);
+        let mut result = check_read_bytes(&mut input, 11, pos, &mut buffer);
         assert!(matches!(result, Err(LuceneError::Eof(_))));
 
         input.seek(pos)?;
 
-        result = check_read_bytes(&mut input, 50, pos as i32, &mut buffer);
+        result = check_read_bytes(&mut input, 50, pos, &mut buffer);
         // Test large block read past end of file
         assert!(matches!(result, Err(LuceneError::Eof(_))));
 
         input.seek(pos)?;
 
-        result = check_read_bytes(&mut input, 100000, pos as i32, &mut buffer);
+        result = check_read_bytes(&mut input, 100000, pos, &mut buffer);
         // Test massive block read past end of file
         assert!(matches!(result, Err(LuceneError::Eof(_))));
 
@@ -1028,10 +979,15 @@ mod tests {
             BUFFER_SIZE,
         )?;
 
-        let mut i: i64 = 2048;
+        let mut i = 2048;
         while i > 0 {
             assert_eq!(byten(i), RandomAccessInput::read_byte(&mut input, i)?);
-            i -= random.random_range(1..16);
+            let v = random.random_range(1..16) as usize;
+            let next = i.saturating_sub(v);
+            if next == 0 {
+                break;
+            }
+            i = next;
         }
 
         assert_eq!(3, input.get_sub_index_input().read_count);
@@ -1053,17 +1009,19 @@ mod tests {
         let mut i = 2048;
         while i > 0 {
             let mut bb = vec![0u8; 4];
-            bb[0] = byten(i as i64);
-            bb[1] = byten(i as i64 + 1);
-            bb[2] = byten(i as i64 + 2);
-            bb[3] = byten(i as i64 + 3);
+            bb[0] = byten(i);
+            bb[1] = byten(i + 1);
+            bb[2] = byten(i + 2);
+            bb[3] = byten(i + 3);
 
             let expected_value = i32::from_le_bytes(bb.try_into().unwrap());
-            assert_eq!(
-                expected_value,
-                RandomAccessInput::read_int(&mut input, i as i64)?
-            );
-            i -= random.random_range(3..19);
+            assert_eq!(expected_value, RandomAccessInput::read_int(&mut input, i)?);
+            let v = random.random_range(3..19) as usize;
+            let next = i.saturating_sub(v);
+            if next == 0 {
+                break;
+            }
+            i = next;
         }
 
         let actual_read_count = input.get_sub_index_input().read_count;
@@ -1090,22 +1048,24 @@ mod tests {
         let mut i = 2048;
         while i > 0 {
             let mut bb = vec![0u8; 8];
-            bb[0] = byten(i as i64);
-            bb[1] = byten(i as i64 + 1);
-            bb[2] = byten(i as i64 + 2);
-            bb[3] = byten(i as i64 + 3);
-            bb[4] = byten(i as i64 + 4);
-            bb[5] = byten(i as i64 + 5);
-            bb[6] = byten(i as i64 + 6);
-            bb[7] = byten(i as i64 + 7);
+            bb[0] = byten(i);
+            bb[1] = byten(i + 1);
+            bb[2] = byten(i + 2);
+            bb[3] = byten(i + 3);
+            bb[4] = byten(i + 4);
+            bb[5] = byten(i + 5);
+            bb[6] = byten(i + 6);
+            bb[7] = byten(i + 7);
 
             let expected_value = i64::from_le_bytes(bb.try_into().unwrap());
-            assert_eq!(
-                expected_value,
-                RandomAccessInput::read_long(&mut input, i as i64)?
-            );
+            assert_eq!(expected_value, RandomAccessInput::read_long(&mut input, i)?);
 
-            i -= random.random_range(7..23);
+            let v = random.random_range(7..23) as usize;
+            let next = i.saturating_sub(v);
+            if next == 0 {
+                break;
+            }
+            i = next;
         }
 
         let actual_read_count = input.get_sub_index_input().read_count;
@@ -1122,7 +1082,7 @@ mod tests {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
-        let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
+        let sub_index_input = MyBufferedIndexInput::with_len(length);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
@@ -1147,7 +1107,7 @@ mod tests {
                     &mut input,
                     &mut float_buffer[float_offset..],
                     0,
-                    (buffer_length - float_offset) as i32,
+                    buffer_length - float_offset,
                 )?;
 
                 for (idx, &actual_float) in float_buffer
@@ -1159,10 +1119,10 @@ mod tests {
                     let offset = pos + idx * BitUtil::FLOAT_BYTES;
 
                     let bb = [
-                        byten(offset as i64),
-                        byten(offset as i64 + 1),
-                        byten(offset as i64 + 2),
-                        byten(offset as i64 + 3),
+                        byten(offset),
+                        byten(offset + 1),
+                        byten(offset + 2),
+                        byten(offset + 3),
                     ];
 
                     let expected_bits = f32::from_le_bytes(bb).to_bits();
@@ -1184,7 +1144,7 @@ mod tests {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
-        let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
+        let sub_index_input = MyBufferedIndexInput::with_len(length);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
@@ -1209,7 +1169,7 @@ mod tests {
                     &mut input,
                     &mut int_buffer[int_offset..],
                     0,
-                    (buffer_length - int_offset) as i32,
+                    buffer_length - int_offset,
                 )?;
 
                 for (idx, &actual_value) in int_buffer
@@ -1221,10 +1181,10 @@ mod tests {
                     let offset = pos + idx * BitUtil::INT_BYTES;
 
                     let bb = [
-                        byten(offset as i64),
-                        byten(offset as i64 + 1),
-                        byten(offset as i64 + 2),
-                        byten(offset as i64 + 3),
+                        byten(offset),
+                        byten(offset + 1),
+                        byten(offset + 2),
+                        byten(offset + 3),
                     ];
 
                     let expected_value = i32::from_le_bytes(bb);
@@ -1244,7 +1204,7 @@ mod tests {
         let mut random = random();
         let length: usize = 1024 * 8;
         let buffer_length: usize = random.random_range(128..length / 8);
-        let sub_index_input = MyBufferedIndexInput::with_len(length as i64);
+        let sub_index_input = MyBufferedIndexInput::with_len(length);
         let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
@@ -1270,7 +1230,7 @@ mod tests {
                     &mut input,
                     &mut long_buffer[long_offset..],
                     0,
-                    (buffer_length - long_offset) as i32,
+                    buffer_length - long_offset,
                 )?;
 
                 for (idx, actual_value) in long_buffer
@@ -1280,14 +1240,14 @@ mod tests {
                     .skip(long_offset)
                 {
                     let offset = pos + idx * BitUtil::LONG_BYTES;
-                    bb[0] = byten(offset as i64);
-                    bb[1] = byten(offset as i64 + 1);
-                    bb[2] = byten(offset as i64 + 2);
-                    bb[3] = byten(offset as i64 + 3);
-                    bb[4] = byten(offset as i64 + 4);
-                    bb[5] = byten(offset as i64 + 5);
-                    bb[6] = byten(offset as i64 + 6);
-                    bb[7] = byten(offset as i64 + 7);
+                    bb[0] = byten(offset);
+                    bb[1] = byten(offset + 1);
+                    bb[2] = byten(offset + 2);
+                    bb[3] = byten(offset + 3);
+                    bb[4] = byten(offset + 4);
+                    bb[5] = byten(offset + 5);
+                    bb[6] = byten(offset + 6);
+                    bb[7] = byten(offset + 7);
 
                     let expected_value = i64::from_le_bytes(bb.clone().try_into().unwrap());
                     assert_eq!(
@@ -1302,13 +1262,13 @@ mod tests {
         Ok(())
     }
     struct MyBufferedIndexInput {
-        pos: i64,
-        len: i64,
-        read_count: i64,
+        pos: usize,
+        len: usize,
+        read_count: usize,
     }
 
     impl MyBufferedIndexInput {
-        fn with_len(len: i64) -> Self {
+        fn with_len(len: usize) -> Self {
             Self {
                 pos: 0,
                 len,
@@ -1316,7 +1276,7 @@ mod tests {
             }
         }
         fn new() -> Self {
-            Self::with_len(i64::MAX)
+            Self::with_len(i64::MAX as usize)
         }
     }
 
@@ -1328,7 +1288,7 @@ mod tests {
     ///
     /// # Returns
     /// The byte value at the given position.
-    fn byten(n: i64) -> u8 {
+    fn byten(n: usize) -> u8 {
         ((n * n) % 256) as u8
     }
 
@@ -1342,7 +1302,7 @@ mod tests {
     }
 
     impl BufferedIndexInputBase for MyBufferedIndexInput {
-        fn seek_internal(&mut self, pos: i64) -> Result<()> {
+        fn seek_internal(&mut self, pos: usize) -> Result<()> {
             self.pos = pos;
             Ok(())
         }
@@ -1350,12 +1310,12 @@ mod tests {
         fn read_internal(
             &mut self,
             b: &mut Cursor<Vec<u8>>,
-            len: i64,
-            _file_pointer: i64,
+            len: usize,
+            _file_pointer: usize,
         ) -> Result<()> {
             let mut i = 0;
             self.read_count += 1;
-            while b.remain() > 0 && i < len {
+            while b.remain()? > 0 && i < len {
                 b.write_u8(byten(self.pos))?;
                 self.pos += 1;
                 i += 1;
@@ -1368,15 +1328,15 @@ mod tests {
         fn slice(
             &self,
             _slice_description: &str,
-            _offset: i64,
-            _length: i64,
+            _offset: usize,
+            _length: usize,
         ) -> Result<Self::Slice> {
             Err(LuceneError::unsupported_operation(
                 "MyBufferedIndexInput method is not supported".to_string(),
             ))
         }
 
-        fn length(&self) -> i64 {
+        fn length(&self) -> usize {
             self.len
         }
     }

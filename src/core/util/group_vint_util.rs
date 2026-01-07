@@ -43,15 +43,15 @@ impl GroupVIntUtil {
     pub fn read_group_vints_i64(
         input: &mut impl DataInput,
         dst: &mut [i64],
-        limit: i32,
+        limit: usize,
     ) -> Result<()> {
         let mut i = 0;
-        while i <= limit - 4 {
+        while i + 4 <= limit {
             Self::read_group_vint_i64(input, dst, i)?;
             i += 4;
         }
         while i < limit {
-            dst[i as usize] = input.read_vint()? as u32 as i64;
+            dst[i] = input.read_vint()? as u32 as i64;
             i += 1;
         }
         Ok(())
@@ -69,7 +69,7 @@ impl GroupVIntUtil {
     pub fn read_group_vints_i32(
         input: &mut impl DataInput,
         dst: &mut [i32],
-        limit: i32,
+        limit: usize,
     ) -> Result<()> {
         let mut i = 0;
         while i + 4 <= limit {
@@ -78,7 +78,7 @@ impl GroupVIntUtil {
         }
 
         while i < limit {
-            dst[i as usize] = input.read_vint()?;
+            dst[i] = input.read_vint()?;
             i += 1;
         }
         Ok(())
@@ -96,9 +96,8 @@ impl GroupVIntUtil {
     pub fn read_group_vint_i64(
         data_input: &mut impl DataInput,
         dst: &mut [i64],
-        offset: i32,
+        offset: usize,
     ) -> Result<()> {
-        let offset = offset as usize;
         {
             let flag = data_input.read_byte()? as usize;
 
@@ -127,7 +126,7 @@ impl GroupVIntUtil {
     pub fn read_group_vint_i32(
         data_input: &mut impl DataInput,
         dst: &mut [i32],
-        offset: i32,
+        offset: usize,
     ) -> Result<()> {
         {
             let flag = data_input.read_byte()? as usize;
@@ -137,10 +136,10 @@ impl GroupVIntUtil {
             let n3_minus1 = (flag >> 2) & 0x03;
             let n4_minus1 = flag & 0x03;
 
-            dst[offset as usize] = Self::read_int_in_group(data_input, n1_minus1)?;
-            dst[offset as usize + 1] = Self::read_int_in_group(data_input, n2_minus1)?;
-            dst[offset as usize + 2] = Self::read_int_in_group(data_input, n3_minus1)?;
-            dst[offset as usize + 3] = Self::read_int_in_group(data_input, n4_minus1)?;
+            dst[offset] = Self::read_int_in_group(data_input, n1_minus1)?;
+            dst[offset + 1] = Self::read_int_in_group(data_input, n2_minus1)?;
+            dst[offset + 2] = Self::read_int_in_group(data_input, n3_minus1)?;
+            dst[offset + 3] = Self::read_int_in_group(data_input, n4_minus1)?;
 
             Ok(())
         }
@@ -175,10 +174,10 @@ impl GroupVIntUtil {
     pub fn read_group_vint_i64_with_reader(
         data_input: &mut (impl DataInput + RandomAccessInput),
         remaining: u64,
-        mut pos: i64,
+        mut pos: usize,
         dst: &mut [i64],
-        offset: i32,
-    ) -> Result<i32> {
+        offset: usize,
+    ) -> Result<usize> {
         if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
             Self::read_group_vint_i64(data_input, dst, offset)?;
             return Ok(0);
@@ -194,27 +193,23 @@ impl GroupVIntUtil {
         // This code path has fewer conditionals and tends to be significantly
         // faster in benchmarks
 
-        dst[offset as usize] = (RandomAccessInput::read_int(data_input, pos)? as u64
+        dst[offset] = (RandomAccessInput::read_int(data_input, pos)? as u64
             & Self::LONG_MASKS[n1_minus1]) as i64;
-        pos += 1 + n1_minus1 as i64;
+        pos += 1 + n1_minus1;
 
-        dst[offset as usize + 1] = (RandomAccessInput::read_int(data_input, pos)? as u64
+        dst[offset + 1] = (RandomAccessInput::read_int(data_input, pos)? as u64
             & Self::LONG_MASKS[n2_minus1]) as i64;
-        pos += 1 + n2_minus1 as i64;
+        pos += 1 + n2_minus1;
 
-        dst[offset as usize + 2] = (RandomAccessInput::read_int(data_input, pos)? as u64
+        dst[offset + 2] = (RandomAccessInput::read_int(data_input, pos)? as u64
             & Self::LONG_MASKS[n3_minus1]) as i64;
-        pos += 1 + n3_minus1 as i64;
+        pos += 1 + n3_minus1;
 
-        dst[offset as usize + 3] = (RandomAccessInput::read_int(data_input, pos)? as u64
+        dst[offset + 3] = (RandomAccessInput::read_int(data_input, pos)? as u64
             & Self::LONG_MASKS[n4_minus1]) as i64;
-        pos += 1 + n4_minus1 as i64;
+        pos += 1 + n4_minus1;
         let result = pos - pos_start;
-        debug_assert!(
-            result <= i32::MAX as i64,
-            "result: {result} exceeds i32::MAX"
-        );
-        Ok(result as i32)
+        Ok(result)
     }
     /// Faster implementation of reading a single group. It reads values from
     /// the buffer that would not cross boundaries.
@@ -234,10 +229,10 @@ impl GroupVIntUtil {
     pub fn read_group_vint_i32_with_reader(
         data_input: &mut (impl DataInput + RandomAccessInput),
         remaining: u64,
-        mut pos: i64,
+        mut pos: usize,
         dst: &mut [i32],
-        offset: i32,
-    ) -> Result<i32> {
+        offset: usize,
+    ) -> Result<usize> {
         if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
             Self::read_group_vint_i32(data_input, dst, offset)?;
             return Ok(0);
@@ -253,27 +248,23 @@ impl GroupVIntUtil {
         // This code path has fewer conditionals and tends to be significantly
         // faster in benchmarks
 
-        dst[offset as usize] = (RandomAccessInput::read_int(data_input, pos)? as u32
+        dst[offset] = (RandomAccessInput::read_int(data_input, pos)? as u32
             & Self::INT_MASKS[n1_minus1]) as i32;
-        pos += 1 + n1_minus1 as i64;
+        pos += 1 + n1_minus1;
 
-        dst[offset as usize + 1] = (RandomAccessInput::read_int(data_input, pos)? as u32
+        dst[offset + 1] = (RandomAccessInput::read_int(data_input, pos)? as u32
             & Self::INT_MASKS[n2_minus1]) as i32;
-        pos += 1 + n2_minus1 as i64;
+        pos += 1 + n2_minus1;
 
-        dst[offset as usize + 2] = (RandomAccessInput::read_int(data_input, pos)? as u32
+        dst[offset + 2] = (RandomAccessInput::read_int(data_input, pos)? as u32
             & Self::INT_MASKS[n3_minus1]) as i32;
-        pos += 1 + n3_minus1 as i64;
+        pos += 1 + n3_minus1;
 
-        dst[offset as usize + 3] = (RandomAccessInput::read_int(data_input, pos)? as u32
+        dst[offset + 3] = (RandomAccessInput::read_int(data_input, pos)? as u32
             & Self::INT_MASKS[n4_minus1]) as i32;
-        pos += 1 + n4_minus1 as i64;
+        pos += 1 + n4_minus1;
         let result = pos - pos_start;
-        debug_assert!(
-            result <= i32::MAX as i64,
-            "result: {result} exceeds i32::MAX"
-        );
-        Ok(result as i32)
+        Ok(result)
     }
     fn num_bytes(v: i32) -> u32 {
         // | 1 ensures it returns 1 when v = 0
@@ -348,8 +339,7 @@ impl GroupVIntUtil {
             );
             write_pos += n4_minus1 as usize;
 
-            debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
-            data_output.write_bytes_with_len(scratch, write_pos as i32)?;
+            data_output.write_bytes_with_len(scratch, write_pos)?;
             read_pos += 4;
         }
 
@@ -419,8 +409,7 @@ impl GroupVIntUtil {
             );
             write_pos += n4_minus1 as usize;
 
-            debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
-            data_output.write_bytes_with_len(scratch, write_pos as i32)?;
+            data_output.write_bytes_with_len(scratch, write_pos)?;
             read_pos += 4;
         }
 

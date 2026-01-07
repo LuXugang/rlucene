@@ -303,7 +303,7 @@ impl Decompressor for DecompressorImpl {
             bytes.bytes = new_array
         }
         input.skip_bytes(offset as i64)?;
-        input.read_bytes(&mut bytes.bytes, 0, length)?;
+        input.read_bytes(&mut bytes.bytes, 0, length as usize)?;
         bytes.offset = 0;
         bytes.length = length as usize;
         Ok(())

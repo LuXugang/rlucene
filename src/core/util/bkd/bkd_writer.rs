@@ -366,7 +366,7 @@ where
 
         let mut split_packed_values = vec![0u8; num_splits * self.config.bytes_per_dim];
         let mut split_dimension_values = vec![0u8; num_splits];
-        let mut leaf_block_fps = vec![0i64; num_leaves];
+        let mut leaf_block_fps = vec![0usize; num_leaves];
 
         let point_count = self.point_count.try_convert()?;
         let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
@@ -568,7 +568,7 @@ where
 
         // +1 because leaf count is power of 2 (e.g. 8), and innerNodeCount is
         // power of 2 minus 1 (e.g. 7)
-        let mut leaf_block_fps = vec![0i64; num_leaves];
+        let mut leaf_block_fps = vec![0usize; num_leaves];
 
         // Make sure the math above "worked":
         debug_assert!(
@@ -649,8 +649,8 @@ where
         &self,
         split_packed_values: BytesRef<Vec<u8>>,
         split_dimension_values: Vec<u8>,
-        leaf_block_fps: Vec<i64>,
-        data_start_fp: i64,
+        leaf_block_fps: Vec<usize>,
+        data_start_fp: usize,
     ) -> Result<Option<IORunnable>> {
         let leaf_nodes = BKDTreeLeafNodesEnum::MultiDimensions(BKDTreeLeafNodesImpl {
             scratch_bytes_ref1: split_packed_values,
@@ -724,7 +724,7 @@ where
         &self,
         write_buffer: &mut ByteBuffersDataOutput,
         leaf_nodes: &BKDTreeLeafNodesEnum,
-        min_block_fp: i64,
+        min_block_fp: usize,
         blocks: &mut Vec<Option<Vec<u8>>>,
         last_split_values: &mut [u8],
         negative_deltas: &mut [bool],
@@ -742,7 +742,7 @@ where
                     leaf_nodes.num_leaves() == num_leaves || delta > 0,
                     "expected delta > 0; got numLeaves = {num_leaves} and delta={delta}"
                 );
-                write_buffer.write_vlong(delta)?;
+                write_buffer.write_vlong(delta as i64)?;
                 Ok(self.append_block(write_buffer, blocks))
             }
         } else {
@@ -759,7 +759,7 @@ where
                     leaf_nodes.num_leaves() == num_leaves || delta > 0,
                     "expected delta > 0; got numLeaves = {num_leaves} and delta={delta}"
                 );
-                write_buffer.write_vlong(delta)?;
+                write_buffer.write_vlong(delta as i64)?;
             }
 
             let num_left_leaf_nodes = self.get_num_left_leaf_nodes(num_leaves);
@@ -805,11 +805,7 @@ where
             let mut sav_split_value = vec![0u8; suffix];
 
             if suffix > 1 {
-                write_buffer.write_bytes_range(
-                    split_bytes,
-                    (address + prefix + 1) as i32,
-                    (suffix - 1) as i32,
-                )?;
+                write_buffer.write_bytes_range(split_bytes, address + prefix + 1, suffix - 1)?;
             }
 
             let cmp = last_split_values.to_vec();
@@ -901,7 +897,7 @@ where
         packed_index: &[u8],
         data: &IORunnable,
     ) -> Result<()> {
-        let packed_index_len = packed_index.len() as i32;
+        let packed_index_len = packed_index.len();
         CodecUtil::write_header(&mut *meta_out, CODEC_NAME, VERSION_CURRENT)?;
         meta_out.write_vint(self.config.num_dims as i32)?;
         meta_out.write_vint(self.config.num_index_dims as i32)?;
@@ -913,26 +909,26 @@ where
         meta_out.write_bytes_range(
             &self.min_packed_value,
             0,
-            self.config.packed_index_bytes_length() as i32,
+            self.config.packed_index_bytes_length(),
         )?;
         meta_out.write_bytes_range(
             &self.max_packed_value,
             0,
-            self.config.packed_index_bytes_length() as i32,
+            self.config.packed_index_bytes_length(),
         )?;
 
         meta_out.write_vlong(self.point_count)?;
         meta_out.write_vint(self.docs_seen.cardinality() as i32)?;
-        meta_out.write_vint(packed_index_len)?;
-        meta_out.write_long(data.data_start_fp)?;
+        meta_out.write_vint(packed_index_len as i32)?;
+        meta_out.write_long(data.data_start_fp as i64)?;
         let (file_pointer, v) = match &index_out {
             // If metaOut and indexOut are the same file, we account for the fact
             // that writing a long makes the index start 8 bytes later.
-            None => (meta_out.get_file_pointer(), BitUtil::LONG_BYTES as i64),
+            None => (meta_out.get_file_pointer(), BitUtil::LONG_BYTES),
             Some(io) => (io.get_file_pointer(), 0),
         };
 
-        meta_out.write_long(file_pointer + v)?;
+        meta_out.write_long((file_pointer + v) as i64)?;
         match index_out {
             None => {
                 // metaOut and indexOut are the same file
@@ -1065,8 +1061,8 @@ where
                     for j in 0..self.config.num_dims {
                         out.write_bytes_range(
                             &self.scratch,
-                            (j * self.config.bytes_per_dim + self.common_prefix_lengths[j]) as i32,
-                            (self.config.bytes_per_dim - self.common_prefix_lengths[j]) as i32,
+                            j * self.config.bytes_per_dim + self.common_prefix_lengths[j],
+                            self.config.bytes_per_dim - self.common_prefix_lengths[j],
                         )?;
                     }
                     self.scratch.copy_from(
@@ -1085,8 +1081,8 @@ where
         for i in 0..self.config.num_dims {
             out.write_bytes_range(
                 &self.scratch,
-                (i * self.config.bytes_per_dim + self.common_prefix_lengths[i]) as i32,
-                (self.config.bytes_per_dim - self.common_prefix_lengths[i]) as i32,
+                i * self.config.bytes_per_dim + self.common_prefix_lengths[i],
+                self.config.bytes_per_dim - self.common_prefix_lengths[i],
             )?;
         }
 
@@ -1148,8 +1144,8 @@ where
                     suffix_length,
                 )?;
 
-                out.write_bytes_range(&min.bytes, min.offset as i32, min.length as i32)?;
-                out.write_bytes_range(&max.bytes, max.offset as i32, max.length as i32)?;
+                out.write_bytes_range(&min.bytes, min.offset, min.length)?;
+                out.write_bytes_range(&max.bytes, max.offset, max.length)?;
             }
         }
         Ok(())
@@ -1216,8 +1212,8 @@ where
                 let prefix = self.common_prefix_lengths[dim];
                 out.write_bytes_range(
                     bytes_ref,
-                    (offset + (dim * self.config.bytes_per_dim) + prefix).try_convert()?,
-                    (self.config.bytes_per_dim - prefix).try_convert()?,
+                    offset + (dim * self.config.bytes_per_dim) + prefix,
+                    self.config.bytes_per_dim - prefix,
                 )?;
             }
         }
@@ -1253,12 +1249,8 @@ where
             .enumerate()
             .take(self.config.num_dims)
         {
-            out.write_vint(prefix.try_convert()?)?;
-            out.write_bytes_range(
-                packed_value,
-                (dim * self.config.bytes_per_dim).try_convert()?,
-                prefix.try_convert()?,
-            )?;
+            out.write_vint(prefix as i32)?;
+            out.write_bytes_range(packed_value, dim * self.config.bytes_per_dim, prefix)?;
         }
         Ok(())
     }
@@ -1405,7 +1397,7 @@ where
         parent_splits: &mut [i32],
         split_packed_values: &mut [u8],
         split_dimension_values: &mut [u8],
-        leaf_block_fps: &mut [i64],
+        leaf_block_fps: &mut [usize],
         spare_doc_ids: &mut [i32],
     ) -> Result<()>
     where
@@ -1741,7 +1733,7 @@ where
         parent_splits: &mut [i32],
         split_packed_values: &mut [u8],
         split_dimension_values: &mut [u8],
-        leaf_block_fps: &mut [i64],
+        leaf_block_fps: &mut [usize],
         spare_doc_ids: &mut [i32],
     ) -> Result<()> {
         if num_leaves == 1 {
@@ -2015,8 +2007,8 @@ where
     O: IndexOutput,
 {
     data_out: &'a mut O,
-    data_start_fp: i64,
-    leaf_block_fps: Vec<i64>,
+    data_start_fp: usize,
+    leaf_block_fps: Vec<usize>,
     leaf_block_start_values: Vec<Vec<u8>>,
     leaf_values: Vec<u8>,
     leaf_docs: Vec<i32>,
@@ -2568,7 +2560,7 @@ trait BKDTreeLeafNodes {
     /// pointer to the leaf node previously written. Leaves are order from left
     /// to right, so leaf at `index` 0 is the leftmost leaf and the leaf at
     /// `num_leaves()` - 1 is the rightmost
-    fn get_leaf_lp(&self, index: usize) -> i64;
+    fn get_leaf_lp(&self, index: usize) -> usize;
 
     /// split value between two leaves. The split value at position n
     /// corresponds to the leaves at (n -1) and n.
@@ -2582,14 +2574,14 @@ struct BKDTreeLeafNodesOneDimension {
     leaf_block_start_values: Vec<Vec<u8>>,
     offset: usize,
     length: usize,
-    leaf_block_fps: Vec<i64>,
+    leaf_block_fps: Vec<usize>,
 }
 impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
     fn num_leaves(&self) -> usize {
         self.leaf_block_fps.len()
     }
 
-    fn get_leaf_lp(&self, index: usize) -> i64 {
+    fn get_leaf_lp(&self, index: usize) -> usize {
         self.leaf_block_fps[index]
     }
 
@@ -2607,7 +2599,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
 }
 struct BKDTreeLeafNodesImpl {
     scratch_bytes_ref1: BytesRef<Vec<u8>>,
-    leaf_block_fps: Vec<i64>,
+    leaf_block_fps: Vec<usize>,
     split_dimension_values: Vec<u8>,
     bytes_per_dim: usize,
 }
@@ -2616,7 +2608,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesImpl {
         self.leaf_block_fps.len()
     }
 
-    fn get_leaf_lp(&self, index: usize) -> i64 {
+    fn get_leaf_lp(&self, index: usize) -> usize {
         self.leaf_block_fps[index]
     }
 
@@ -2645,7 +2637,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesEnum {
         }
     }
 
-    fn get_leaf_lp(&self, index: usize) -> i64 {
+    fn get_leaf_lp(&self, index: usize) -> usize {
         match self {
             BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_leaf_lp(index),
             BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_leaf_lp(index),
@@ -2670,7 +2662,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesEnum {
 pub struct IORunnable {
     leaf_nodes: BKDTreeLeafNodesEnum,
     count_per_leaf: usize,
-    data_start_fp: i64,
+    data_start_fp: usize,
 }
 
 struct IntersectVisitorImpl<'a, D, O>

@@ -721,7 +721,7 @@ impl PostingsEnum for FreqProxPostingsEnum {
 
             debug_assert!(payload_len <= i32::MAX as usize);
             self.pos_reader
-                .read_bytes(&mut self.payload.bytes_ref.bytes, 0, payload_len as i32)?;
+                .read_bytes(&mut self.payload.bytes_ref.bytes, 0, payload_len)?;
         } else {
             self.has_payload = false;
         }

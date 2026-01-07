@@ -80,9 +80,9 @@ where
         Ok(())
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         debug_assert!(
-            self.pos + length as usize <= self.limit,
+            self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
             self.pos,
             length,
@@ -90,8 +90,8 @@ where
         );
         self.bytes
             .as_slice_mut()
-            .copy_from(&b[offset as usize..(offset + length) as usize], self.pos);
-        self.pos += length as usize;
+            .copy_from(&b[offset..(offset + length)], self.pos);
+        self.pos += length;
         Ok(())
     }
 

@@ -47,7 +47,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`]
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
         self.write_bytes_range(b, 0, len)
     }
     /// Writes an array of bytes.
@@ -59,7 +59,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`].
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
@@ -203,22 +203,21 @@ pub trait DataOutput: Sized {
         let len = utf8_result.length;
         let offset = utf8_result.offset;
         self.write_vint(len as i32)?;
-        self.write_bytes_range(&utf8_result.bytes, offset as i32, len as i32)
+        self.write_bytes_range(&utf8_result.bytes, offset, len)
     }
 
     /// Copy numBytes bytes from input to ourselves.
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
-        let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
+        let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
         let mut left = num_bytes;
         while left > 0 {
-            let to_copy = if left > COPY_BUFFER_SIZE as i64 {
-                COPY_BUFFER_SIZE as i64
+            let to_copy = if left > COPY_BUFFER_SIZE {
+                COPY_BUFFER_SIZE
             } else {
                 left
             };
-            debug_assert!(to_copy <= i32::MAX as i64, "to_copy = {to_copy}");
-            input.read_bytes(&mut buffer, 0, to_copy as i32)?;
-            self.write_bytes_with_len(&buffer, to_copy as i32)?;
+            input.read_bytes(&mut buffer, 0, to_copy)?;
+            self.write_bytes_with_len(&buffer, to_copy)?;
             left -= to_copy;
         }
         Ok(())
@@ -291,7 +290,7 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 }
-const COPY_BUFFER_SIZE: i32 = 16384;
+const COPY_BUFFER_SIZE: usize = 16384;
 
 pub enum DataOutputEnum2<A, B> {
     A(A),
@@ -309,14 +308,14 @@ where
         }
     }
 
-    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+    fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
         match self {
             DataOutputEnum2::A(f) => f.write_bytes_with_len(b, len),
             DataOutputEnum2::B(s) => s.write_bytes_with_len(b, len),
         }
     }
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
         match self {
             DataOutputEnum2::A(f) => f.write_bytes_range(b, offset, length),
             DataOutputEnum2::B(s) => s.write_bytes_range(b, offset, length),
@@ -386,7 +385,7 @@ where
         }
     }
 
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
         match self {
             DataOutputEnum2::A(f) => f.copy_bytes(input, num_bytes),
             DataOutputEnum2::B(s) => s.copy_bytes(input, num_bytes),

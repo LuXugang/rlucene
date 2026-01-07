@@ -50,7 +50,7 @@ impl StringHelper {
     pub fn bytes_difference<AV: SharedAccessVec<u8>>(
         prior_term: &BytesRef<AV>,
         current_term: &BytesRef<AV>,
-    ) -> Result<i32> {
+    ) -> Result<usize> {
         with_other!(
             prior_term.bytes,
             current_term.bytes,
@@ -66,7 +66,7 @@ impl StringHelper {
                         "terms out of order: priorTerm={prior_term}, currentTerm={current_term}"
                     )));
                 }
-                Ok(mismatch)
+                Ok(mismatch as usize)
             }
         )
     }
@@ -85,7 +85,7 @@ impl StringHelper {
     pub fn sort_key_length<AV: SharedAccessVec<u8>>(
         prior_term: &BytesRef<AV>,
         current_term: &BytesRef<AV>,
-    ) -> Result<i32> {
+    ) -> Result<usize> {
         let difference = Self::bytes_difference(prior_term, current_term)?;
         Ok(difference + 1)
     }
