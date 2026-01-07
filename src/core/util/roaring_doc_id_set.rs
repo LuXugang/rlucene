@@ -209,11 +209,13 @@ pub mod builder {
                     let capacity = BLOCK_SIZE - self.current_block_cardinality;
                     let mut excluded_docs: Vec<i16> = vec![0; capacity];
                     self.dense_buffer.flip_range(0, self.dense_buffer.length());
-                    let mut excluded_doc = 0;
+                    let mut excluded_doc: usize = 0;
+
                     for excluded_doc_ref in excluded_docs.iter_mut() {
-                        excluded_doc = self.dense_buffer.next_set_bit(excluded_doc);
-                        assert_ne!(excluded_doc, NO_MORE_DOCS as usize);
-                        *excluded_doc_ref = excluded_doc as i16;
+                        let v = self.dense_buffer.next_set_bit(excluded_doc);
+                        assert_ne!(v, NO_MORE_DOCS as usize);
+                        *excluded_doc_ref = v as i16;
+                        excluded_doc = v + 1;
                     }
 
                     debug_assert!(
