@@ -830,7 +830,7 @@ where
     fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
         if self.reader_values.advance_exact(doc_id)? {
             let seg_ord = self.reader_values.ord_value()?;
-            Ok(self.global_ords.get(seg_ord as i64)?)
+            Ok(self.global_ords.get(seg_ord as usize)?)
         } else {
             Ok(self.missing_ord as i64)
         }

@@ -27,7 +27,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{Sorter, ToInt, TryIntoInt};
+use crate::core::util::{Sorter, ToInt};
 use std::rc::Rc;
 
 pub(crate) type SegmentToGlobalOrds =
@@ -370,12 +370,12 @@ impl OrdinalMap {
 
     /// Given a global ordinal, returns the ordinal of the first segment which contains this
     /// ordinal (the corresponding segment index is returned by [`Self::get_first_segment_number`]).
-    pub fn get_first_segment_ord(&self, global_ord: i64) -> Result<i64> {
-        Ok(global_ord - self.global_ord_deltas.get(global_ord)?)
+    pub fn get_first_segment_ord(&self, global_ord: usize) -> Result<i64> {
+        Ok(global_ord as i64 - self.global_ord_deltas.get(global_ord)?)
     }
 
     /// Given a global ordinal, returns the index of the first segment that contains this term.
-    pub fn get_first_segment_number(&self, global_ord: i64) -> Result<i32> {
+    pub fn get_first_segment_number(&self, global_ord: usize) -> Result<i32> {
         let idx = self.first_segments.get(global_ord)? as usize;
         Ok(self.segment_map.new_to_old(idx))
     }
@@ -407,8 +407,8 @@ impl LongValuesImpl {
     }
 }
 impl LongValues for LongValuesImpl {
-    fn get(&self, ord: i64) -> Result<i64> {
-        Ok(ord + self.new_deltas.get(ord.try_convert()?))
+    fn get(&self, index: usize) -> Result<i64> {
+        Ok(index as i64 + self.new_deltas.get(index))
     }
 }
 
@@ -421,8 +421,8 @@ impl LongValuesImpl1 {
     }
 }
 impl LongValues for LongValuesImpl1 {
-    fn get(&self, ord: i64) -> Result<i64> {
-        Ok(ord + self.deltas.get(ord)?)
+    fn get(&self, index: usize) -> Result<i64> {
+        Ok(index as i64 + self.deltas.get(index)?)
     }
 }
 

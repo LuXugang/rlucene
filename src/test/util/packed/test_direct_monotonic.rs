@@ -113,7 +113,7 @@ pub fn test_simple() -> Result<()> {
         let slice = data_in.random_access_slice(0, data_length)?;
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
-            assert_eq!(v, values.get_mut(i as i64)?);
+            assert_eq!(v, values.get_mut(i)?);
         }
     }
     Ok(())
@@ -155,7 +155,7 @@ pub fn test_constant_slope() -> Result<()> {
         let slice = data_in.random_access_slice(0, data_length)?;
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
-            assert_eq!(v, values.get_mut(i as i64)?);
+            assert_eq!(v, values.get_mut(i)?);
         }
         assert_eq!(0, data_in.get_file_pointer()?);
     }
@@ -268,7 +268,7 @@ fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> 
             let mut values =
                 DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
             for (i, &v) in actual_values.iter().enumerate() {
-                assert_eq!(v, values.get_mut(i as i64)?);
+                assert_eq!(v, values.get_mut(i)?);
             }
         }
     }

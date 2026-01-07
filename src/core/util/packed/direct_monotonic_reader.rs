@@ -31,7 +31,7 @@ where
     R: RandomAccessInput,
 {
     block_shift: i32,
-    block_mask: i64,
+    block_mask: usize,
     readers: Vec<DirectPackedEnum<R>>,
     mins: Vec<i64>,
     avgs: Vec<f32>,
@@ -57,7 +57,7 @@ where
                 "Mismatched array lengths",
             )));
         }
-        let block_mask = (1i64 << block_shift) - 1;
+        let block_mask = (1 << block_shift) - 1;
         Ok(DirectMonotonicReader {
             block_shift,
             block_mask,
@@ -71,9 +71,8 @@ where
 
     /// Get lower/upper bounds for the value at a given index without hitting
     /// the direct reader.
-    fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
-        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_convert()?;
-        let block = block as usize;
+    fn get_bounds(&self, index: usize) -> Result<[i64; 2]> {
+        let block = index >> self.block_shift;
         let block_index = index & self.block_mask;
         let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
         let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
@@ -97,13 +96,13 @@ where
             // Try to run as many iterations of the binary search as possible
             // without hitting the direct readers, since they might
             // hit a page fault.
-            let bounds = self.get_bounds(mid)?;
+            let bounds = self.get_bounds(mid as usize)?;
             if bounds[1] < key {
                 lo = mid + 1;
             } else if bounds[0] > key {
                 hi = mid - 1;
             } else {
-                let mid_val = self.get_mut(mid)?;
+                let mid_val = self.get_mut(mid as usize)?;
                 match mid_val.cmp(&key) {
                     std::cmp::Ordering::Less => lo = mid + 1,
                     std::cmp::Ordering::Greater => hi = mid - 1,
@@ -127,13 +126,13 @@ where
                 readers.push(DirectPackedEnum::P(Zeroes));
             } else if merging
                 && i < meta.num_blocks - 1// we only know the number of values for the last block
-                && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT
+                && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT as i32
             {
                 readers.push(DirectReader::get_merge_instance_with_base_offset(
                     None,
                     bpv as i32,
                     meta.offsets[i],
-                    1i64 << meta.block_shift,
+                    1 << meta.block_shift,
                 ));
             } else {
                 readers.push(DirectReader::get_instance_with_offset(
@@ -157,7 +156,7 @@ impl<R> LongValues for DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
         let delta = self.readers[block].read_from_slice(block_index, Some(&mut self.slice))?;
@@ -176,7 +175,7 @@ pub mod direct_monotonic {
         pub mins: Vec<i64>,
         pub avgs: Vec<f32>,
         pub bpvs: Vec<u8>,
-        pub offsets: Vec<i64>,
+        pub offsets: Vec<usize>,
     }
 
     impl Meta {
@@ -219,7 +218,7 @@ pub fn load_meta(meta_in: &mut impl IndexInput, num_values: i64, block_shift: i3
         meta.mins[i] = min;
         let avg_int = meta_in.read_int()?;
         meta.avgs[i] = f32::from_bits(avg_int as u32);
-        meta.offsets[i] = meta_in.read_long()?;
+        meta.offsets[i] = meta_in.read_long()?.try_convert()?;
         let bpv = meta_in.read_byte()?;
         meta.bpvs[i] = bpv;
         all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);

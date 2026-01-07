@@ -385,10 +385,14 @@ impl PackedInts {
     }
     /// Return the number of blocks required to store `size` values on
     /// `block_size`.
-    pub fn num_blocks(size: i64, block_size: i32) -> Result<i32> {
-        let num_blocks =
-            (size / block_size as i64) + if size % block_size as i64 == 0 { 0 } else { 1 };
-        let result = num_blocks.checked_mul(block_size as i64);
+    pub fn num_blocks(size: usize, block_size: i32) -> Result<i32> {
+        let num_blocks = (size / block_size as usize)
+            + if size.is_multiple_of(block_size as usize) {
+                0
+            } else {
+                1
+            };
+        let result = num_blocks.checked_mul(block_size as usize);
         match result {
             Some(result) => {
                 if result < size {
@@ -396,7 +400,7 @@ impl PackedInts {
                         "size is too large for this block size",
                     ));
                 }
-                debug_assert!(num_blocks <= i32::MAX as i64);
+                debug_assert!(num_blocks <= i32::MAX as usize);
                 Ok(num_blocks as i32)
             },
             None => Err(LuceneError::illegal_argument(format!(
@@ -1869,7 +1873,7 @@ mod tests {
         //     (RamUsageTester::ram_used(&writer) as f64 -
         // writer.ram_bytes_used() as f64).abs() < 8.0 );
 
-        let new_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
+        let new_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
         let copy = writer.resize(new_size)?;
         for i in 0..copy.size() {
             if i < writer.size() {
@@ -1879,7 +1883,7 @@ mod tests {
             }
         }
 
-        let grow_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
+        let grow_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
         let grow = writer.grow_with_size(grow_size)?;
         let grow_len;
         if let Some(new_writer) = grow {
@@ -1947,7 +1951,7 @@ mod tests {
         // RamUsageTester::ram_used(&writer.format) as f64 -
         // writer.ram_bytes_used() as f64).abs() < 8.0 );
 
-        let new_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
+        let new_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
         let copy = writer.resize(new_size)?;
         for i in 0..copy.size() {
             if i < writer.size() {
@@ -1957,7 +1961,7 @@ mod tests {
             }
         }
 
-        let grow_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
+        let grow_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
         let grow_wrapper = writer.grow_with_size(grow_size)?;
         let grow_len;
         if let Some(g) = grow_wrapper {
@@ -2261,7 +2265,7 @@ mod tests {
                 assert_eq!(arr.len(), values.size() as usize);
 
                 for (i, &value) in arr.iter().enumerate() {
-                    assert_eq!(value, values.get(i as i64)?);
+                    assert_eq!(value, values.get(i)?);
                 }
 
                 let mut it = values.iterator();
@@ -2497,11 +2501,11 @@ mod tests {
                 &mut input,
                 PackedInts::VERSION_CURRENT,
                 block_size,
-                value_count as i64,
+                value_count,
             )?;
             assert_eq!(file_pointer, input.get_file_pointer()?);
             for (i, &value) in values.iter().enumerate().take(value_count) {
-                assert_eq!(value, reader.get(i as i64)?);
+                assert_eq!(value, reader.get(i)?);
             }
         }
 

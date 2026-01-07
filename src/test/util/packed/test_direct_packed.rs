@@ -90,9 +90,9 @@ fn test_random() -> Result<()> {
 fn test_random_with_offset() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let offset = TestUtil::next_int(&mut random, 1, 100);
+    let offset = TestUtil::next_usize(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, offset as i64, false)?;
+        do_test_bpv(&mut random, &dir, bpv, offset, false)?;
     }
     Ok(())
 }
@@ -101,7 +101,7 @@ fn test_random_with_offset() -> Result<()> {
 fn test_random_merge() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    for bpv in 1..=1 {
+    for bpv in 1..=64 {
         do_test_bpv(&mut random, &dir, bpv, 0, true)?;
     }
     Ok(())
@@ -111,9 +111,9 @@ fn test_random_merge() -> Result<()> {
 fn test_random_merge_with_offset() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let offset = TestUtil::next_int(&mut random, 1, 100);
+    let offset = TestUtil::next_usize(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random, &dir, bpv, offset as i64, true)?;
+        do_test_bpv(&mut random, &dir, bpv, offset, true)?;
     }
     Ok(())
 }
@@ -122,7 +122,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
     random: &mut R,
     directory: &impl Directory,
     bpv: i32,
-    offset: i64,
+    offset: usize,
     merge: bool,
 ) -> Result<()> {
     let num_iters = if is_night_mode() { 100 } else { 10 };
@@ -154,13 +154,13 @@ fn do_test_bpv<R: Rng + ?Sized>(
                 Some(slice),
                 bits_required,
                 offset,
-                original.len() as i64,
+                original.len(),
             )
         } else {
             DirectReader::get_instance_with_offset(Some(slice), bits_required, offset)?
         };
         for (j, &expected) in original.iter().enumerate() {
-            assert_eq!(expected, reader.get_mut(j as i64)?, "bpv={}", bpv);
+            assert_eq!(expected, reader.get_mut(j)?, "bpv={}", bpv);
         }
     }
     Ok(())

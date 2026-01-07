@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::store::directory::Directory;
-use crate::core::util::ByteBlockPool;
 use crate::core::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
@@ -32,6 +31,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
+use crate::core::util::{ByteBlockPool, TryIntoInt};
 pub struct NodeHash<T>
 where
     T: OutputsBound,
@@ -51,7 +51,7 @@ where
     // store the last fallback table node length in getFallback()
     last_fallback_node_length: i32,
     // store the last fallback table hashtable slot in getFallback()
-    last_fallback_hash_slot: i64,
+    last_fallback_hash_slot: Option<usize>,
 }
 impl<T> NodeHash<T>
 where
@@ -82,12 +82,12 @@ where
             fallback_table: None, // Empty initially
             ram_limit_bytes,
             last_fallback_node_length: 0,
-            last_fallback_hash_slot: 0,
+            last_fallback_hash_slot: Some(0),
         })
     }
     fn get_fallback<O, D>(
         node_in_index: usize,
-        hash: i64,
+        hash: usize,
         fst_compiler: &mut FSTCompiler<O, D>,
     ) -> Result<i64>
     where
@@ -97,7 +97,7 @@ where
         let fallback_table = {
             let node_hash = fst_compiler.dedup_hash.as_mut().unwrap();
             node_hash.last_fallback_node_length = -1;
-            node_hash.last_fallback_hash_slot = -1;
+            node_hash.last_fallback_hash_slot = None;
             &mut node_hash.fallback_table
         };
 
@@ -120,7 +120,7 @@ where
                             let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                             // store the node length for further use
                             node_hash.last_fallback_node_length = length;
-                            node_hash.last_fallback_hash_slot = hash_slot;
+                            node_hash.last_fallback_hash_slot = Some(hash_slot);
                             // frozen version of this node is already here
                             return Ok(node_address);
                         }
@@ -145,9 +145,9 @@ where
     {
         let (mut hash_slot, mut c, hash) = {
             let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
-            let hash = {
+            let hash: usize = {
                 let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
-                node_hash.hash(node_in)?
+                node_hash.hash(node_in)?.try_convert()?
             };
             (hash & node_hash.primary_table.mask, 0, hash)
         };
@@ -163,7 +163,7 @@ where
                 if node_address != 0 {
                     let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                     debug_assert!(
-                        node_hash.last_fallback_hash_slot != -1
+                        node_hash.last_fallback_hash_slot.is_some()
                             && node_hash.last_fallback_node_length != -1
                     );
                     // it was already in fallback -- promote to primary
@@ -173,7 +173,7 @@ where
                     node_hash.primary_table.copy_fallback_node_bytes(
                         hash_slot,
                         node_hash.fallback_table.as_mut().unwrap(),
-                        node_hash.last_fallback_hash_slot,
+                        node_hash.last_fallback_hash_slot.unwrap(),
                         node_hash.last_fallback_node_length,
                     )?;
                 } else {
@@ -203,7 +203,8 @@ where
                     debug_assert_eq!(
                         node_hash
                             .primary_table
-                            .hash(node_address, hash_slot, &fst_compiler.fst)?,
+                            .hash(node_address, hash_slot, &fst_compiler.fst)?
+                            as usize,
                         hash,
                         "Frozen hash mismatch"
                     );
@@ -309,8 +310,7 @@ where
                 h = h.wrapping_add(17);
             }
         }
-
-        Ok(h)
+        Ok(h & i64::MAX)
     }
 }
 
@@ -320,7 +320,7 @@ where
     T: OutputsBound,
 {
     count: i64,
-    mask: i64,
+    mask: usize,
     inner: Inner,
     scratch_arc: Arc<T>,
 }
@@ -343,7 +343,7 @@ impl Inner {
     pub(crate) fn get_bytes_reader(
         &mut self,
         node_address: i64,
-        hash_slot: i64,
+        hash_slot: usize,
     ) -> Result<&mut ByteBlockPoolReverseBytesReader> {
         debug_assert_eq!(self.fst_node_address.get(hash_slot)?, node_address);
         let local_address = self.copied_node_address.get(hash_slot)?;
@@ -365,7 +365,7 @@ where
         Self::build(8, 8, 16, 15)
     }
 
-    pub(crate) fn with_size(last_node_address: i64, size: i64) -> Result<Self> {
+    pub(crate) fn with_size(last_node_address: i64, size: usize) -> Result<Self> {
         let fst_node_address_bits_per_value = PackedInts::bits_required(last_node_address)?;
         let mask = size - 1;
         debug_assert!(
@@ -377,8 +377,8 @@ where
     fn build(
         fst_node_address_bits_per_value: i32,
         copied_node_address_bits_per_value: i32,
-        size: i64,
-        mask: i64,
+        size: usize,
+        mask: usize,
     ) -> Result<Self> {
         let sub_reader = PagedGrowableWriter::with_fill_page(
             fst_node_address_bits_per_value,
@@ -417,7 +417,7 @@ where
     /// # Returns
     ///
     /// The copied byte array
-    pub fn get_bytes(&self, hash_slot: i64, length: i32) -> Result<Vec<u8>> {
+    pub fn get_bytes(&self, hash_slot: usize, length: i32) -> Result<Vec<u8>> {
         let address = self.inner.copied_node_address.get(hash_slot)?;
         debug_assert!(address - length as i64 + 1 >= 0);
 
@@ -429,11 +429,11 @@ where
         Ok(buf)
     }
     /// Get the node address from the provided hash slot.
-    pub fn get_node_address(&self, hash_slot: i64) -> Result<i64> {
+    pub fn get_node_address(&self, hash_slot: usize) -> Result<i64> {
         self.inner.fst_node_address.get(hash_slot)
     }
     /// Set the node address for the given hash slot.
-    pub fn set_node_address(&mut self, hash_slot: i64, node_address: i64) {
+    pub fn set_node_address(&mut self, hash_slot: usize, node_address: i64) {
         debug_assert_eq!(
             self.inner
                 .fst_node_address
@@ -447,7 +447,7 @@ where
     /// Copy the node bytes from the FST.
     pub(crate) fn copy_node_bytes(
         &mut self,
-        hash_slot: i64,
+        hash_slot: usize,
         bytes: &[u8],
         length: i32,
     ) -> Result<()> {
@@ -470,9 +470,9 @@ where
     /// Promote the node bytes from the fallback table.
     pub(crate) fn copy_fallback_node_bytes(
         &mut self,
-        hash_slot: i64,
+        hash_slot: usize,
         fallback_table: &mut PagedGrowableHash<T>,
-        fallback_hash_slot: i64,
+        fallback_hash_slot: usize,
         node_length: i32,
     ) -> Result<()> {
         debug_assert_eq!(self.inner.copied_node_address.get(hash_slot)?, 0);
@@ -522,7 +522,7 @@ where
         for idx in 0..self.inner.fst_node_address.size() {
             let address = self.inner.fst_node_address.get(idx)?;
             if address != 0 {
-                let mut hash_slot = self.hash(address, idx, fst)? & new_mask;
+                let mut hash_slot = self.hash(address, idx, fst)? as usize & new_mask;
                 let mut c = 0;
                 loop {
                     if new_fst_node_address.get(hash_slot)? == 0 {
@@ -544,7 +544,7 @@ where
 
         Ok(())
     }
-    fn hash<O, F>(&mut self, node_address: i64, hash_slot: i64, fst: &FST<O, F>) -> Result<i64>
+    fn hash<O, F>(&mut self, node_address: i64, hash_slot: usize, fst: &FST<O, F>) -> Result<i64>
     where
         O: Outputs<V = T>,
         F: FstReader,
@@ -575,8 +575,7 @@ where
             }
             fst.read_next_real_arc(&mut self.scratch_arc, reader)?;
         }
-
-        Ok(h)
+        Ok(h & i64::MAX)
     }
 
     /// Compares an unfrozen node (`UnCompiledNode`) with a frozen node at byte
@@ -589,7 +588,7 @@ where
     fn nodes_equal<O>(
         &mut self,
         address: i64,
-        hash_slot: i64,
+        hash_slot: usize,
         fst: &FST<O, NullFSTReader>,
         node: &UnCompiledNode<T>,
     ) -> Result<i32>

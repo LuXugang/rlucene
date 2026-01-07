@@ -503,7 +503,7 @@ where
     input: S,
     values: LongValues,
     doc_id: i32,
-    upto: i64,
+    upto: usize,
     num_values: i32,
 }
 impl<S> SortingSortedNumericDocValues<S>
@@ -598,7 +598,7 @@ where
 
 #[derive(Clone)]
 pub(crate) struct LongValues {
-    pub(crate) offsets: Rc<Vec<i64>>,
+    pub(crate) offsets: Rc<Vec<usize>>,
     pub(crate) values: PackedLongValues,
 }
 impl LongValues {
@@ -611,10 +611,10 @@ impl LongValues {
     where
         DM: DocMap,
     {
-        let mut offsets = vec![0i64; max_doc];
+        let mut offsets = vec![0; max_doc];
         let mut value_builder =
             PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
-        let mut offset_index = 1i64;
+        let mut offset_index = 1;
         let mut doc_id;
         loop {
             doc_id = old_values.next_doc()?;

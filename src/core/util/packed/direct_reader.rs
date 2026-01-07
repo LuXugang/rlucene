@@ -25,9 +25,9 @@ use crate::core::util::long_values::{LongValues, LongValuesEnum16, Zeroes};
 /// [`DirectWriter`](crate::core::util::packed::direct_writer::DirectWriter)
 pub struct DirectReader;
 impl DirectReader {
-    pub(crate) const MERGE_BUFFER_SHIFT: i32 = 7;
-    const MERGE_BUFFER_SIZE: i32 = 1 << DirectReader::MERGE_BUFFER_SHIFT;
-    const MERGE_BUFFER_MASK: i32 = DirectReader::MERGE_BUFFER_SIZE - 1;
+    pub(crate) const MERGE_BUFFER_SHIFT: usize = 7;
+    const MERGE_BUFFER_SIZE: usize = 1 << DirectReader::MERGE_BUFFER_SHIFT;
+    const MERGE_BUFFER_MASK: usize = DirectReader::MERGE_BUFFER_SIZE - 1;
 
     /// Retrieves an instance from the specified slice, decoding
     /// `bits_per_value` for each value.
@@ -42,7 +42,7 @@ impl DirectReader {
     pub fn get_instance_with_offset<R>(
         slice: Option<R>,
         bits_per_value: i32,
-        offset: i64,
+        offset: usize,
     ) -> Result<DirectPackedEnum<R>>
     where
         R: RandomAccessInput,
@@ -76,7 +76,7 @@ impl DirectReader {
     pub fn get_merge_instance<R>(
         slice: R,
         bits_per_value: i32,
-        num_values: i64,
+        num_values: usize,
     ) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
@@ -88,9 +88,8 @@ impl DirectReader {
     pub fn get_merge_instance_with_base_offset<R>(
         slice: Option<R>,
         bits_per_value: i32,
-        base_offset: i64,
-
-        num_values: i64,
+        base_offset: usize,
+        num_values: usize,
     ) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
@@ -110,10 +109,10 @@ where
 {
     slice: Option<R>,
     bits_per_value: i32,
-    num_values: i64,
-    base_offset: i64,
+    num_values: usize,
+    base_offset: usize,
     buffer: Vec<i64>,
-    block_index: i64,
+    block_index: Option<usize>,
 }
 impl<R> LongValuesImpl<R>
 where
@@ -122,11 +121,11 @@ where
     fn new(
         slice: Option<R>,
         bits_per_value: i32,
-        num_values: i64,
-        base_offset: i64,
+        num_values: usize,
+        base_offset: usize,
     ) -> LongValuesImpl<R> {
-        let mut buffer = Vec::with_capacity(DirectReader::MERGE_BUFFER_SIZE as usize);
-        for _ in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
+        let mut buffer = Vec::with_capacity(DirectReader::MERGE_BUFFER_SIZE);
+        for _ in 0..DirectReader::MERGE_BUFFER_SIZE {
             buffer.push(-1);
         }
         LongValuesImpl {
@@ -135,11 +134,11 @@ where
             num_values,
             base_offset,
             buffer,
-            block_index: -1,
+            block_index: None,
         }
     }
 
-    fn fill_buffer(&mut self, index: i64, slice: Option<&mut R>) -> Result<()> {
+    fn fill_buffer(&mut self, index: usize, slice: Option<&mut R>) -> Result<()> {
         // NOTE: we're not allowed to read more than 3 bytes past the last value
         let slice = match slice {
             Some(slice) => slice,
@@ -148,16 +147,16 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
+        if index + DirectReader::MERGE_BUFFER_SIZE >= self.num_values {
             // 128 values left or less
             let mut slow_instance = DirectReader::get_instance_with_offset::<R>(
                 None,
                 self.bits_per_value,
                 self.base_offset,
             )?;
-            let num_values_last_block = (self.num_values - index) as usize;
+            let num_values_last_block = self.num_values - index;
             for i in 0..num_values_last_block {
-                self.buffer[i] = slow_instance.read_from_slice(index + i as i64, Some(slice))?;
+                self.buffer[i] = slow_instance.read_from_slice(index + i, Some(slice))?;
             }
         } else if (self.bits_per_value & 0x07) == 0 {
             // bitsPerValue is a multiple of 8
@@ -167,8 +166,8 @@ where
             } else {
                 (1i64 << self.bits_per_value) - 1
             };
-            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
-            for i in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
+            let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
+            for i in 0..DirectReader::MERGE_BUFFER_SIZE {
                 if self.bits_per_value > i32::BITS as i32 {
                     self.buffer[i] = slice.read_long(offset)? & mask;
                 } else if self.bits_per_value > i16::BITS as i32 {
@@ -184,7 +183,7 @@ where
             // bitsPerValue is 1, 2 or 4
             let values_per_long = u64::BITS as i32 / self.bits_per_value;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
+            let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
             let mut i = 0;
             for _ in 0..(2 * self.bits_per_value) {
                 let bits = slice.read_long(offset)?;
@@ -198,8 +197,8 @@ where
             // bitsPerValue is 12, 20 or 28; read values 2 by 2
             let num_bytes_for_2_values = (self.bits_per_value * 2) / i8::BITS as i32;
             let mask = (1i64 << self.bits_per_value) - 1;
-            let mut offset = (self.base_offset + (index * self.bits_per_value as i64) / 8) as usize;
-            for i in (0..DirectReader::MERGE_BUFFER_SIZE as usize).step_by(2) {
+            let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
+            for i in (0..DirectReader::MERGE_BUFFER_SIZE).step_by(2) {
                 let l = if num_bytes_for_2_values > BitUtil::INT_BYTES as i32 {
                     slice.read_long(offset)?
                 } else {
@@ -217,7 +216,7 @@ impl<R> LongValues for LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -225,15 +224,18 @@ impl<R> FromSlice<R> for LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         debug_assert!(index < self.num_values);
         let block_index = index >> DirectReader::MERGE_BUFFER_SHIFT;
-        if self.block_index != block_index {
+        let do_fill = match self.block_index {
+            Some(b) => b != block_index,
+            None => true,
+        };
+        if do_fill {
             self.fill_buffer(block_index << DirectReader::MERGE_BUFFER_SHIFT, slice)?;
-            self.block_index = block_index;
+            self.block_index = Some(block_index);
         }
-        Ok(self.buffer[(index & DirectReader::MERGE_BUFFER_MASK as i64) as usize])
+        Ok(self.buffer[index & DirectReader::MERGE_BUFFER_MASK])
     }
 }
 
@@ -242,13 +244,13 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 impl<R> DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> DirectPackedReader1<R> {
+    pub fn new(input: Option<R>, offset: usize) -> DirectPackedReader1<R> {
         DirectPackedReader1 { input, offset }
     }
 }
@@ -256,7 +258,7 @@ impl<R> LongValues for DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -264,7 +266,7 @@ impl<R> FromSlice<R> for DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let shift = (index & 7) as i32;
         let slice = match slice {
             Some(slice) => slice,
@@ -273,7 +275,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = (slice.read_byte((self.offset + (index >> 3)) as usize)? >> shift) & 0x1;
+        let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
         Ok(result as i64)
     }
 }
@@ -283,14 +285,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader2 { input, offset }
     }
 }
@@ -299,7 +301,7 @@ impl<R> LongValues for DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -307,8 +309,7 @@ impl<R> FromSlice<R> for DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let shift = ((index & 3) as i32) << 1;
         let slice = match slice {
             Some(slice) => slice,
@@ -317,7 +318,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte((self.offset + (index >> 2)) as usize)?;
+        let byte = slice.read_byte(self.offset + (index >> 2))?;
         let result = (byte >> shift) & 0x3;
         Ok(result as i64)
     }
@@ -328,14 +329,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader4 { input, offset }
     }
 }
@@ -344,7 +345,7 @@ impl<R> LongValues for DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -352,8 +353,7 @@ impl<R> FromSlice<R> for DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let shift = ((index & 1) as i32) << 2;
         let slice = match slice {
             Some(slice) => slice,
@@ -362,7 +362,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte((self.offset + (index >> 1)) as usize)?;
+        let byte = slice.read_byte(self.offset + (index >> 1))?;
         let result = (byte >> shift) & 0xF;
         Ok(result as i64)
     }
@@ -373,14 +373,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader8 { input, offset }
     }
 }
@@ -389,7 +389,7 @@ impl<R> LongValues for DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -397,8 +397,7 @@ impl<R> FromSlice<R> for DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -406,7 +405,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let byte = slice.read_byte((self.offset + index) as usize)?;
+        let byte = slice.read_byte(self.offset + index)?;
         let result = byte;
         Ok(result as i64)
     }
@@ -417,14 +416,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader12 { input, offset }
     }
 }
@@ -433,7 +432,7 @@ impl<R> LongValues for DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -441,8 +440,7 @@ impl<R> FromSlice<R> for DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let off = (index * 12) >> 3;
         let shift = ((index & 1) as i32) << 2;
         let slice = match slice {
@@ -452,7 +450,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let short_val = slice.read_short((self.offset + off) as usize)?;
+        let short_val = slice.read_short(self.offset + off)?;
         let result = ((short_val as u16) >> shift) & 0xFFF;
         Ok(result as i64)
     }
@@ -463,14 +461,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader16 { input, offset }
     }
 }
@@ -479,7 +477,7 @@ impl<R> LongValues for DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -487,8 +485,7 @@ impl<R> FromSlice<R> for DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -496,7 +493,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = slice.read_short((self.offset + (index << 1)) as usize)? as u16;
+        let result = slice.read_short(self.offset + (index << 1))? as u16;
         Ok(result as i64)
     }
 }
@@ -505,14 +502,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader20 { input, offset }
     }
 }
@@ -521,7 +518,7 @@ impl<R> LongValues for DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -529,8 +526,7 @@ impl<R> FromSlice<R> for DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let off = (index * 20) >> 3;
         let shift = ((index & 1) as i32) << 2;
         let slice = match slice {
@@ -540,7 +536,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int((self.offset + off) as usize)?;
+        let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFF;
         Ok(result as i64)
     }
@@ -551,14 +547,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader24 { input, offset }
     }
 }
@@ -567,7 +563,7 @@ impl<R> LongValues for DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -575,8 +571,7 @@ impl<R> FromSlice<R> for DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -584,7 +579,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int((self.offset + index * 3) as usize)?;
+        let int_val = slice.read_int(self.offset + index * 3)?;
         let result = int_val & 0xFFFFFF;
         Ok(result as i64)
     }
@@ -595,14 +590,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader28 { input, offset }
     }
 }
@@ -611,7 +606,7 @@ impl<R> LongValues for DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -619,8 +614,7 @@ impl<R> FromSlice<R> for DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let off = (index * 28) >> 3;
         let shift = ((index & 1) as i32) << 2;
         let slice = match slice {
@@ -630,7 +624,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int((self.offset + off) as usize)?;
+        let int_val = slice.read_int(self.offset + off)?;
         let result = (int_val >> shift) & 0xFFFFFFF;
         Ok(result as i64)
     }
@@ -641,14 +635,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader32 { input, offset }
     }
 }
@@ -657,7 +651,7 @@ impl<R> LongValues for DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -665,8 +659,7 @@ impl<R> FromSlice<R> for DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -674,7 +667,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let int_val = slice.read_int((self.offset + (index << 2)) as usize)?;
+        let int_val = slice.read_int(self.offset + (index << 2))?;
         let result = int_val as u32;
         Ok(result as i64)
     }
@@ -685,14 +678,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader40 { input, offset }
     }
 }
@@ -701,7 +694,7 @@ impl<R> LongValues for DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -709,9 +702,7 @@ impl<R> FromSlice<R> for DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
-
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -719,7 +710,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long((self.offset + index * 5) as usize)?;
+        let long_val = slice.read_long(self.offset + index * 5)?;
         let result = long_val & 0xFFFFFFFFFF;
         Ok(result)
     }
@@ -730,14 +721,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader48 { input, offset }
     }
 }
@@ -746,7 +737,7 @@ impl<R> LongValues for DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -754,9 +745,7 @@ impl<R> FromSlice<R> for DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
-
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -764,7 +753,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long((self.offset + index * 6) as usize)?;
+        let long_val = slice.read_long(self.offset + index * 6)?;
         let result = long_val & 0xFFFFFFFFFFFF;
         Ok(result)
     }
@@ -775,14 +764,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader56 { input, offset }
     }
 }
@@ -791,7 +780,7 @@ impl<R> LongValues for DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -799,9 +788,7 @@ impl<R> FromSlice<R> for DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
-
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -809,7 +796,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let long_val = slice.read_long((self.offset + index * 7) as usize)?;
+        let long_val = slice.read_long(self.offset + index * 7)?;
         let result = long_val & 0xFFFFFFFFFFFFFF;
         Ok(result)
     }
@@ -820,14 +807,14 @@ where
     R: RandomAccessInput,
 {
     input: Option<R>,
-    offset: i64,
+    offset: usize,
 }
 
 impl<R> DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    pub fn new(input: Option<R>, offset: i64) -> Self {
+    pub fn new(input: Option<R>, offset: usize) -> Self {
         DirectPackedReader64 { input, offset }
     }
 }
@@ -836,7 +823,7 @@ impl<R> LongValues for DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.read_from_slice(index, None)
     }
 }
@@ -844,9 +831,7 @@ impl<R> FromSlice<R> for DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
-        debug_assert!(index >= 0);
-
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         let slice = match slice {
             Some(slice) => slice,
             None => self
@@ -854,7 +839,7 @@ where
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
         };
-        let result = slice.read_long((self.offset + (index << 3)) as usize)?;
+        let result = slice.read_long(self.offset + (index << 3))?;
         Ok(result)
     }
 }
@@ -882,13 +867,13 @@ pub trait FromSlice<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64>;
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64>;
 }
 impl<R> FromSlice<R> for DirectPackedEnum<R>
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, index: i64, slice: Option<&mut R>) -> Result<i64> {
+    fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
         match self {
             DirectPackedEnum::A(reader) => reader.read_from_slice(index, slice),
             DirectPackedEnum::B(reader) => reader.read_from_slice(index, slice),

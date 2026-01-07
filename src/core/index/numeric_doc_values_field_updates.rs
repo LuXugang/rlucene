@@ -25,7 +25,6 @@ use crate::core::index::doc_values_field_updates::{
     SingleValueDocValuesFieldUpdatesBase,
 };
 use crate::core::index::doc_values_type::DocValuesType;
-use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -84,7 +83,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
 
     fn add_value(&mut self, _doc: i32, value: i64, index: usize) -> Result<()> {
         let _guard = self.lock.lock();
-        self.values.set(index as i64, value - self.min_value);
+        self.values.set(index, value - self.min_value);
         Ok(())
     }
 
@@ -119,8 +118,6 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     }
 
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        let i = i.try_convert()?;
-        let j = j.try_convert()?;
         let tmp_val = self.values.get(j)?;
         let value = self.values.get(i)?;
         self.values.set(j, value);
@@ -129,7 +126,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     }
 
     fn grow(&mut self, size: i32) -> Result<()> {
-        let value_result = self.values.grow_with_size(size as i64)?;
+        let value_result = self.values.grow_with_size(size as usize)?;
         if let Some(values) = value_result {
             self.values = values;
         }
@@ -137,7 +134,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     }
 
     fn resize(&mut self, size: i32) -> Result<()> {
-        self.values = self.values.resize(size as i64)?;
+        self.values = self.values.resize(size as usize)?;
         Ok(())
     }
 
@@ -170,7 +167,7 @@ impl AbstractIteratorNumeric {
     }
 }
 impl AbstractIteratorBase for AbstractIteratorNumeric {
-    fn set(&mut self, idx: i64) -> Result<()> {
+    fn set(&mut self, idx: usize) -> Result<()> {
         self.value = self.values.get(idx)? + self.min_value;
         Ok(())
     }

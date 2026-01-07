@@ -551,7 +551,7 @@ where
             None => return Err(LuceneError::illegal_state("current_values is None")),
         };
 
-        let local_ord = self.values[seg_idx].ord_value()? as i64;
+        let local_ord = self.values[seg_idx].ord_value()? as usize;
 
         let global_ord = self
             .mapping
@@ -564,11 +564,11 @@ where
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         let sub_index: usize = self
             .mapping
-            .get_first_segment_number(ord as i64)?
+            .get_first_segment_number(ord as usize)?
             .try_convert()?;
         let segment_ord = self
             .mapping
-            .get_first_segment_ord(ord as i64)?
+            .get_first_segment_ord(ord as usize)?
             .try_convert()?;
         self.values[sub_index].lookup_ord(segment_ord)
     }
@@ -760,7 +760,7 @@ where
             None => return Err(LuceneError::illegal_state("current_values is None")),
         };
 
-        let segment_ord = self.values[idx].next_ord()?;
+        let segment_ord = self.values[idx].next_ord()? as usize;
         let global = self
             .mapping
             .get_global_ords(self.next_leaf - 1)
@@ -777,8 +777,11 @@ where
     }
 
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let sub_index: usize = self.mapping.get_first_segment_number(ord)?.try_convert()?;
-        let segment_ord = self.mapping.get_first_segment_ord(ord)?;
+        let sub_index: usize = self
+            .mapping
+            .get_first_segment_number(ord as usize)?
+            .try_convert()?;
+        let segment_ord = self.mapping.get_first_segment_ord(ord as usize)?;
         self.values[sub_index].lookup_ord(segment_ord)
     }
 

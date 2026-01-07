@@ -20,7 +20,7 @@ use crate::core::util::packed::direct_reader::FromSlice;
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
-    fn get_mut(&mut self, _index: i64) -> Result<i64> {
+    fn get_mut(&mut self, _index: usize) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "mutable get method not implemented",
         ))
@@ -28,7 +28,7 @@ pub trait LongValues {
 
     /// Add an extra, immutable version of the method.
     /// If you need to call get in an immutable context, you can implement this method.
-    fn get(&self, _index: i64) -> Result<i64> {
+    fn get(&self, _index: usize) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "Immutable get method not implemented",
         ))
@@ -37,22 +37,22 @@ pub trait LongValues {
 
 pub struct Identity;
 impl LongValues for Identity {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
-        Ok(index)
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
+        Ok(index as i64)
     }
 
-    fn get(&self, index: i64) -> Result<i64> {
-        Ok(index)
+    fn get(&self, index: usize) -> Result<i64> {
+        Ok(index as i64)
     }
 }
 
 pub struct Zeroes;
 impl LongValues for Zeroes {
-    fn get_mut(&mut self, _index: i64) -> Result<i64> {
+    fn get_mut(&mut self, _index: usize) -> Result<i64> {
         Ok(0)
     }
 
-    fn get(&self, _index: i64) -> Result<i64> {
+    fn get(&self, _index: usize) -> Result<i64> {
         Ok(0)
     }
 }
@@ -60,7 +60,7 @@ impl<R> FromSlice<R> for Zeroes
 where
     R: RandomAccessInput,
 {
-    fn read_from_slice(&mut self, _index: i64, _slice: Option<&mut R>) -> Result<i64> {
+    fn read_from_slice(&mut self, _index: usize, _slice: Option<&mut R>) -> Result<i64> {
         Ok(0)
     }
 }
@@ -75,13 +75,13 @@ macro_rules! either_long_values {
         where
             $( $T: LongValues ),+
         {
-            fn get_mut(&mut self, index: i64) -> Result<i64> {
+            fn get_mut(&mut self, index: usize) -> Result<i64> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_mut(index), )+
                 }
             }
 
-            fn get(&self, index: i64) -> Result<i64> {
+            fn get(&self, index: usize) -> Result<i64> {
                 match self {
                     $( Self::$Variant(inner) => inner.get(index), )+
                 }

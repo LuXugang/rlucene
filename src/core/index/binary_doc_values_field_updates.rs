@@ -24,7 +24,6 @@ use crate::core::index::doc_values_field_updates::{
 };
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -82,8 +81,8 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
     fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
         let _guard = self.lock.lock();
-        self.offsets.set(index as i64, self.values.length() as i64);
-        self.lengths.set(index as i64, value.length as i64);
+        self.offsets.set(index, self.values.length() as i64);
+        self.lengths.set(index, value.length as i64);
         self.values.append_ref(value);
         Ok(())
     }
@@ -114,8 +113,6 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         ))
     }
     fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        let i = i.try_convert()?;
-        let j = j.try_convert()?;
         let temp_offset = self.offsets.get(j)?;
         let value = self.offsets.get(i)?;
         self.offsets.set(j, value);
@@ -129,21 +126,21 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn grow(&mut self, size: i32) -> Result<()> {
-        let offset_result = self.offsets.grow_with_size(size as i64)?;
+        let offset_result = self.offsets.grow_with_size(size as usize)?;
         if let Some(offsets) = offset_result {
             self.offsets = offsets;
         }
 
-        let length_result = self.lengths.grow_with_size(size as i64)?;
+        let length_result = self.lengths.grow_with_size(size as usize)?;
         if let Some(lengths) = length_result {
             self.lengths = lengths;
         }
         Ok(())
     }
 
-    fn resize(&mut self, _size: i32) -> Result<()> {
-        self.offsets = self.offsets.resize(_size as i64)?;
-        self.lengths = self.lengths.resize(_size as i64)?;
+    fn resize(&mut self, size: i32) -> Result<()> {
+        self.offsets = self.offsets.resize(size as usize)?;
+        self.lengths = self.lengths.resize(size as usize)?;
         Ok(())
     }
 
@@ -178,7 +175,7 @@ impl AbstractIteratorBinary {
     }
 }
 impl AbstractIteratorBase for AbstractIteratorBinary {
-    fn set(&mut self, idx: i64) -> Result<()> {
+    fn set(&mut self, idx: usize) -> Result<()> {
         debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
         self.offset = self.offsets.get(idx)? as i32;
         debug_assert!(self.lengths.get(idx)? <= i32::MAX as i64);

@@ -40,7 +40,7 @@ where
     T: AbstractPagedMutableBase,
 {
     sub_reader: T,
-    size: i64,
+    size: usize,
     page_shift: i32,
     page_mask: i32,
     sub_mutables: Vec<MutableEnum>,
@@ -50,7 +50,7 @@ impl<T> AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase,
 {
-    pub fn new(size: i64, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
+    pub fn new(size: usize, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let page_mask = page_size - 1;
         let num_pages = PackedInts::num_blocks(size, page_size)?;
@@ -87,25 +87,25 @@ where
         }
         Ok(())
     }
-    fn last_page_size(&self, size: i64) -> i32 {
+    fn last_page_size(&self, size: usize) -> i32 {
         let sz = self.index_in_page(size);
         if sz == 0 { self.page_size() } else { sz }
     }
     fn page_size(&self) -> i32 {
         self.page_mask + 1
     }
-    pub fn size(&self) -> i64 {
+    pub fn size(&self) -> usize {
         self.size
     }
-    fn page_index(&self, index: i64) -> usize {
-        (index >> self.page_shift) as usize
+    fn page_index(&self, index: usize) -> usize {
+        index >> self.page_shift
     }
 
-    fn index_in_page(&self, index: i64) -> i32 {
-        (index & self.page_mask as i64) as i32
+    fn index_in_page(&self, index: usize) -> i32 {
+        (index & self.page_mask as usize) as i32
     }
     /// Sets the value at the specified index.
-    pub fn set(&mut self, index: i64, value: i64) {
+    pub fn set(&mut self, index: usize, value: i64) {
         debug_assert!(
             index < self.size,
             "Index out of bounds: index={} size={}",
@@ -122,7 +122,7 @@ where
     /// Create a new copy of size <code>newSize</code> based on the content of
     /// this buffer. This is much more efficient than creating a new
     /// instance and copying values one by one.
-    pub fn resize(&self, new_size: i64) -> Result<AbstractPagedMutable<T>> {
+    pub fn resize(&self, new_size: usize) -> Result<AbstractPagedMutable<T>> {
         let sub = self.sub_reader.new_unfilled_copy();
         let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
         let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
@@ -155,7 +155,7 @@ where
         }
         Ok(copy)
     }
-    pub fn grow_with_size(&self, min_size: i64) -> Result<Option<AbstractPagedMutable<T>>> {
+    pub fn grow_with_size(&self, min_size: usize) -> Result<Option<AbstractPagedMutable<T>>> {
         if min_size <= self.size {
             return Ok(None);
         }
@@ -175,7 +175,7 @@ impl<T> LongValues for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase,
 {
-    fn get(&self, index: i64) -> Result<i64> {
+    fn get(&self, index: usize) -> Result<i64> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);

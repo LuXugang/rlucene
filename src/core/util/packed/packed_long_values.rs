@@ -161,11 +161,10 @@ impl Accountable for PackedLongValues {
     }
 }
 impl LongValues for PackedLongValues {
-    fn get(&self, index: i64) -> Result<i64> {
-        debug_assert!(index >= 0);
-        debug_assert!(index < self.size());
+    fn get(&self, index: usize) -> Result<i64> {
+        debug_assert!(index < self.size() as usize);
         let block = (index >> self.page_shift) as i32;
-        let element = (index & self.page_mask as i64) as i32;
+        let element = (index & self.page_mask as usize) as i32;
         Ok(self.get_value(block, element, 0))
     }
 }

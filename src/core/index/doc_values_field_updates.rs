@@ -89,19 +89,17 @@ impl DocValuesFieldInner {
         })
     }
     pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
-        self.docs = self.docs.resize(size as i64)?;
+        self.docs = self.docs.resize(size as usize)?;
         Ok(())
     }
     pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
-        let result = self.docs.grow_with_size(size as i64)?;
+        let result = self.docs.grow_with_size(size as usize)?;
         if let Some(docs) = result {
             self.docs = docs;
         }
         Ok(())
     }
     pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-        let i = i.try_convert()?;
-        let j = j.try_convert()?;
         let tmp_doc = self.docs.get(j)?;
         let value_i = self.docs.get(i)?;
         self.docs.set(j, value_i);
@@ -202,7 +200,7 @@ where
         inner.finished = true;
         let size = inner.size;
         // shrink wrap
-        if (inner.size as i64) < inner.docs.size() {
+        if inner.size < inner.docs.size() {
             inner.resize(size as i32)?;
             self.sub_update.resize(size as i32)?;
         }
@@ -273,12 +271,12 @@ where
             ));
         }
         // grow the structures to have room for more elements
-        if inner.docs.size() == size as i64 {
+        if inner.docs.size() == size {
             inner.grow(size as i32 + 1)?;
             self.sub_update.grow(size as i32 + 1)?;
         }
         let value = ((doc as i64) << 1) | has_value_mask;
-        inner.docs.set(size as i64, value);
+        inner.docs.set(size, value);
         inner.size += 1;
         Ok(inner.size - 1)
     }
@@ -545,7 +543,7 @@ where
         // same segment, in which case we rely on sort being
         // stable and preserving the original order so the last update to that
         // docID wins
-        let cmp = (self.inner.docs.get(i as i64)? >> 1).cmp(&(self.inner.docs.get(j as i64)? >> 1));
+        let cmp = (self.inner.docs.get(i)? >> 1).cmp(&(self.inner.docs.get(j)? >> 1));
 
         if cmp == std::cmp::Ordering::Equal {
             Ok((self.ords.get(i) - self.ords.get(j)) as i32)
@@ -565,7 +563,7 @@ where
     }
 
     fn set_pivot(&mut self, i: usize) -> Result<()> {
-        self.pivot_doc = self.inner.docs.get(i as i64)? >> 1;
+        self.pivot_doc = self.inner.docs.get(i)? >> 1;
         self.pivot_ord = self.ords.get(i);
         Ok(())
     }
@@ -573,7 +571,7 @@ where
     fn compare_pivot(&mut self, j: usize) -> Result<i32> {
         let mut cmp = self
             .pivot_doc
-            .cmp(&((self.inner.docs.get(j as i64)? as u64 >> 1) as i64));
+            .cmp(&((self.inner.docs.get(j)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
             cmp = (self.pivot_ord - self.ords.get(j)).cmp(&0);
@@ -928,7 +926,7 @@ where
     A: AbstractIteratorBase,
 {
     inner: DocValuesFieldInnerIter,
-    idx: i64,
+    idx: usize,
     doc: i32,
     del_gen: i64,
     has_value: bool,
@@ -962,14 +960,14 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        if self.idx >= self.inner.size as i64 {
+        if self.idx >= self.inner.size {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
         let mut long_doc = self.inner.docs.get(self.idx)?;
         self.idx += 1;
 
-        while self.idx < self.inner.size as i64 {
+        while self.idx < self.inner.size {
             // Scan forward to last update to this doc
             let next_long_doc = self.inner.docs.get(self.idx)?;
             if (long_doc as u64 >> 1) != (next_long_doc as u64 >> 1) {
@@ -1015,7 +1013,7 @@ pub trait AbstractIteratorBase {
     /// # Arguments
     ///
     /// * `idx` - The internal index to set the value to.
-    fn set(&mut self, idx: i64) -> Result<()>;
+    fn set(&mut self, idx: usize) -> Result<()>;
     fn long_value(&self) -> Result<i64>;
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }

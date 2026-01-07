@@ -1471,7 +1471,7 @@ where
 
     shift: i32,
     mul: i64,
-    mask: i64,
+    mask: usize,
 
     block: i64,
     delta: i64,
@@ -1516,7 +1516,7 @@ where
             entry,
             shift,
             mul,
-            mask: mask as i64,
+            mask: mask as usize,
             block: -1,
             delta: 0,
             offset: 0,
@@ -1525,7 +1525,7 @@ where
         })
     }
 
-    fn get_long_value(&mut self, index: i64) -> Result<i64> {
+    fn get_long_value(&mut self, index: usize) -> Result<i64> {
         let block = ((index as u64) >> self.shift) as i64;
 
         let mut result = 0;
@@ -1741,7 +1741,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.vbpv_reader.get_long_value(doc as i64)
+        self.vbpv_reader.get_long_value(doc.try_convert()?)
     }
 }
 pub struct DenseNumericDocValuesBaseImpl2<R>
@@ -1756,7 +1756,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.table[self.values.get_mut(doc as i64)? as usize])
+        Ok(self.table[self.values.get_mut(doc as usize)? as usize])
     }
 }
 pub struct DenseNumericDocValuesBaseImpl3<R>
@@ -1770,7 +1770,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.values.get_mut(doc as i64)
+        self.values.get_mut(doc as usize)
     }
 }
 pub struct DenseNumericDocValuesBaseImpl4<R>
@@ -1786,7 +1786,7 @@ where
     R: RandomAccessInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.mul * self.values.get_mut(doc as i64)? + self.delta)
+        Ok(self.mul * self.values.get_mut(doc as usize)? + self.delta)
     }
 }
 
@@ -1824,7 +1824,7 @@ where
         I: IndexInput,
     {
         let index = disi.index();
-        self.vbpv_reader.get_long_value(index as i64)
+        self.vbpv_reader.get_long_value(index as usize)
     }
 }
 pub struct SparseNumericDocValuesBaseImpl2<R>
@@ -1842,7 +1842,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.table[self.values.get_mut(disi.index() as i64)? as usize])
+        Ok(self.table[self.values.get_mut(disi.index() as usize)? as usize])
     }
 }
 pub struct SparseNumericDocValuesBaseImpl3<R>
@@ -1859,7 +1859,7 @@ where
     where
         I: IndexInput,
     {
-        self.values.get_mut(disi.index() as i64)
+        self.values.get_mut(disi.index() as usize)
     }
 }
 pub struct SparseNumericDocValuesBaseImpl4<R>
@@ -1878,7 +1878,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.mul * self.values.get_mut(disi.index() as i64)? + self.delta)
+        Ok(self.mul * self.values.get_mut(disi.index() as usize)? + self.delta)
     }
 }
 
@@ -1886,7 +1886,7 @@ pub struct LongValuesImpl {
     min_values: i64,
 }
 impl LongValues for LongValuesImpl {
-    fn get(&self, _index: i64) -> Result<i64> {
+    fn get(&self, _index: usize) -> Result<i64> {
         Ok(self.min_values)
     }
 }
@@ -1900,7 +1900,7 @@ impl<R> LongValues for LongValuesImpl1<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         self.vbpv_reader.get_long_value(index)
     }
 }
@@ -1915,7 +1915,7 @@ impl<R> LongValues for LongValuesImpl2<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         Ok(self.table[self.values.get_mut(index)? as usize])
     }
 }
@@ -1931,7 +1931,7 @@ impl<R> LongValues for LongValuesImpl3<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         Ok(self.gcd * self.values.get_mut(index)? + self.min_value)
     }
 }
@@ -1946,7 +1946,7 @@ impl<R> LongValues for LongValuesImpl4<R>
 where
     R: RandomAccessInput,
 {
-    fn get_mut(&mut self, index: i64) -> Result<i64> {
+    fn get_mut(&mut self, index: usize) -> Result<i64> {
         Ok(self.values.get_mut(index)? + self.min_value)
     }
 }
@@ -1990,8 +1990,8 @@ where
     R: RandomAccessInput,
 {
     fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let start_offset = self.addresses.get_mut(doc as i64)?;
-        self.bytes.length = (self.addresses.get_mut((doc + 1) as i64)? - start_offset) as usize;
+        let start_offset = self.addresses.get_mut(doc as usize)?;
+        self.bytes.length = (self.addresses.get_mut((doc + 1) as usize)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
             start_offset as usize,
             &mut self.bytes.bytes,
@@ -2053,7 +2053,7 @@ where
         &mut self,
         disi: &mut IndexedDISI<I, Owned>,
     ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let index = disi.index() as i64;
+        let index = disi.index() as usize;
         let start_offset = self.addresses.get_mut(index)?;
         self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
         self.bytes_slice.read_bytes(
@@ -2128,7 +2128,7 @@ where
     R: RandomAccessInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get_mut(self.doc as i64)? as i32)
+        Ok(self.value.get_mut(self.doc as usize)? as i32)
     }
 
     type TermsEnum<'a>
@@ -2194,7 +2194,7 @@ where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get_mut(self.disi.index() as i64)? as i32)
+        Ok(self.value.get_mut(self.disi.index() as usize)? as i32)
     }
 
     type TermsEnum<'a>
@@ -2404,8 +2404,8 @@ where
     R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.curr = self.addresses.get_mut(target as i64)?;
-        let end = self.addresses.get_mut((target as i64) + 1)?;
+        self.curr = self.addresses.get_mut(target as usize)?;
+        let end = self.addresses.get_mut((target as usize) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
         Ok(true)
@@ -2429,9 +2429,9 @@ where
             self.doc = NO_MORE_DOCS;
             return Ok(NO_MORE_DOCS);
         }
-
-        self.curr = self.addresses.get_mut(target as i64)?;
-        let end = self.addresses.get_mut((target as i64) + 1)?;
+        let target_u = target as usize;
+        self.curr = self.addresses.get_mut(target_u)?;
+        let end = self.addresses.get_mut((target_u) + 1)?;
         self.count = (end - self.curr) as i32;
         self.doc = target;
 
@@ -2448,7 +2448,7 @@ where
     R: RandomAccessInput,
 {
     fn next_ord(&mut self) -> Result<i64> {
-        let ord = self.value.get_mut(self.curr)?;
+        let ord = self.value.get_mut(self.curr as usize)?;
         self.curr += 1;
         Ok(ord)
     }
@@ -2503,8 +2503,8 @@ where
     fn set(&mut self) -> Result<()> {
         if !self.set {
             let index = self.disi.index();
-            self.curr = self.addresses.get_mut(index as i64)?;
-            let end = self.addresses.get_mut((index as i64) + 1)?;
+            self.curr = self.addresses.get_mut(index as usize)?;
+            let end = self.addresses.get_mut((index as usize) + 1)?;
             self.count = (end - self.curr) as i32;
             self.set = true;
         }
@@ -2551,7 +2551,7 @@ where
 {
     fn next_ord(&mut self) -> Result<i64> {
         self.set()?;
-        let ord = self.value.get_mut(self.curr)?;
+        let ord = self.value.get_mut(self.curr as usize)?;
         self.curr += 1;
         Ok(ord)
     }
@@ -2861,12 +2861,10 @@ where
         Ok(sub.into())
     }
 
-    fn get_term_from_index(&mut self, index: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_term_from_index(&mut self, index: usize) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(
-            index >= 0
-                && index
-                    <= ((self.entry.terms_dict_size - 1) as u64
-                        >> self.entry.terms_dict_index_shift) as i64,
+            index
+                <= ((self.entry.terms_dict_size - 1) as usize >> self.entry.terms_dict_index_shift),
             "index {index} out of range"
         );
 
@@ -2889,7 +2887,7 @@ where
 
         while lo <= hi {
             let mid = (lo + hi) >> 1;
-            let term = self.get_term_from_index(mid)?;
+            let term = self.get_term_from_index(mid as usize)?;
             let cmp = term.as_ref().cmp(text).to_int();
             if cmp <= 0 {
                 lo = mid + 1;
@@ -2899,13 +2897,19 @@ where
         }
 
         debug_assert!(
-            hi < 0 || self.get_term_from_index(hi)?.as_ref().cmp(text).to_int() <= 0,
+            hi < 0
+                || self
+                    .get_term_from_index(hi as usize)?
+                    .as_ref()
+                    .cmp(text)
+                    .to_int()
+                    <= 0,
             "hi check failed"
         );
         debug_assert!(
             hi == ((self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift)
                 || self
-                    .get_term_from_index(hi + 1)?
+                    .get_term_from_index((hi + 1) as usize)?
                     .as_ref()
                     .cmp(text)
                     .to_int()
@@ -2919,13 +2923,11 @@ where
         );
         Ok(hi)
     }
-    fn get_first_term_from_block(&mut self, block: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_first_term_from_block(&mut self, block: usize) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(
-            block >= 0
-                && block
-                    <= (((self.entry.terms_dict_size - 1) as u64)
-                        >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
-                        as i64
+            block
+                <= (((self.entry.terms_dict_size - 1) as usize)
+                    >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
         );
 
         let block_address = self.block_addresses.get_mut(block)?;
@@ -2963,7 +2965,7 @@ where
 
         while block_lo <= block_hi {
             let block_mid = ((block_lo + block_hi) as u64 >> 1) as i64;
-            let term = self.get_first_term_from_block(block_mid)?;
+            let term = self.get_first_term_from_block(block_mid as usize)?;
             let cmp = term.as_ref().cmp(text).to_int();
             if cmp <= 0 {
                 block_lo = block_mid + 1;
@@ -2975,7 +2977,7 @@ where
         debug_assert!(
             block_hi < 0
                 || self
-                    .get_first_term_from_block(block_hi)?
+                    .get_first_term_from_block(block_hi as usize)?
                     .as_ref()
                     .cmp(text)
                     .to_int()
@@ -2987,7 +2989,7 @@ where
                     >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT)
                     as i64
                 || self
-                    .get_first_term_from_block(block_hi + 1)?
+                    .get_first_term_from_block((block_hi + 1) as usize)?
                     .as_ref()
                     .cmp(text)
                     .to_int()
@@ -2998,7 +3000,7 @@ where
         // reset ord and bytes to the ceiling block even if
         // text is before the first term (blockHi == -1)
         let block = std::cmp::max(block_hi, 0);
-        let block_address = self.block_addresses.get_mut(block)?;
+        let block_address = self.block_addresses.get_mut(block as usize)?;
         self.ord = block << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
         self.bytes.seek(block_address as usize)?;
         self.decompress_block()?;
@@ -3140,7 +3142,7 @@ where
         if ord < self.ord || block_index != current_block_index {
             // The looked up ord is before the current ord or belongs to a
             // different block, seek again
-            let block_address = self.block_addresses.get_mut(block_index)?;
+            let block_address = self.block_addresses.get_mut(block_index as usize)?;
             self.bytes.seek(block_address as usize)?;
             self.ord = (block_index << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
         }
@@ -3226,8 +3228,8 @@ where
     R: RandomAccessInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.start = self.addresses.get_mut(target as i64)?;
-        self.end = self.addresses.get_mut((target as i64) + 1)?;
+        self.start = self.addresses.get_mut(target as usize)?;
+        self.end = self.addresses.get_mut((target as usize) + 1)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
         Ok(true)
@@ -3252,8 +3254,8 @@ where
             return Ok(NO_MORE_DOCS);
         }
 
-        self.start = self.addresses.get_mut(target as i64)?;
-        self.end = self.addresses.get_mut((target + 1) as i64)?;
+        self.start = self.addresses.get_mut(target as usize)?;
+        self.end = self.addresses.get_mut((target + 1) as usize)?;
         self.count = (self.end - self.start) as i32;
         self.doc = target;
 
@@ -3270,7 +3272,7 @@ where
     R: RandomAccessInput,
 {
     fn next_value(&mut self) -> Result<i64> {
-        let value = self.values.get_mut(self.start)?;
+        let value = self.values.get_mut(self.start as usize)?;
         self.start += 1;
         Ok(value)
     }
@@ -3314,9 +3316,9 @@ where
 
     fn set(&mut self) -> Result<()> {
         if !self.set {
-            let index = self.disi.index();
-            self.start = self.addresses.get_mut(index as i64)?;
-            self.end = self.addresses.get_mut((index as i64) + 1)?;
+            let index = self.disi.index() as usize;
+            self.start = self.addresses.get_mut(index)?;
+            self.end = self.addresses.get_mut((index) + 1)?;
             self.count = (self.end - self.start) as i32;
             self.set = true;
         }
@@ -3361,7 +3363,7 @@ where
 {
     fn next_value(&mut self) -> Result<i64> {
         self.set()?;
-        let value = self.values.get_mut(self.start)?;
+        let value = self.values.get_mut(self.start as usize)?;
         self.start += 1;
         Ok(value)
     }
@@ -3414,10 +3416,10 @@ where
         Ok(DirectReader::get_merge_instance_with_base_offset(
             slice,
             bits_per_value,
-            offset,
-            num_values,
+            offset as usize,
+            num_values as usize,
         ))
     } else {
-        DirectReader::get_instance_with_offset(slice, bits_per_value, offset)
+        DirectReader::get_instance_with_offset(slice, bits_per_value, offset as usize)
     }
 }

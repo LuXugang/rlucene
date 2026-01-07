@@ -37,7 +37,7 @@ const MOD_MASK: i32 = BLOCK_SIZE - 1; //  x % BLOCK_SIZE
 pub struct MonotonicBlockPackedReader {
     block_shift: i32,
     block_mask: u32,
-    value_count: i64,
+    value_count: usize,
     min_values: Vec<i64>,
     averages: Vec<f32>,
     sub_readers: Vec<LongValuesEnum2<Zeroes, MonotonicLongValues>>,
@@ -50,7 +50,7 @@ impl MonotonicBlockPackedReader {
         input: &mut impl IndexInput,
         packed_ints_version: i32,
         block_size: i32,
-        value_count: i64,
+        value_count: usize,
     ) -> Result<Self> {
         Self::new(input, packed_ints_version, block_size, value_count)
     }
@@ -58,7 +58,7 @@ impl MonotonicBlockPackedReader {
         input: &mut impl IndexInput,
         packed_ints_version: i32,
         block_size: i32,
-        value_count: i64,
+        value_count: usize,
     ) -> Result<Self> {
         let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let block_mask = (block_size - 1) as u32;
@@ -83,10 +83,8 @@ impl MonotonicBlockPackedReader {
                 // sub_readers inited with Zeroes,so no-op here
                 continue;
             } else {
-                let size = std::cmp::min(
-                    block_size,
-                    (value_count - i as i64 * block_size as i64) as i32,
-                );
+                let size =
+                    std::cmp::min(block_size, (value_count - i * block_size as usize) as i32);
                 let byte_count = Format::Packed(PackedImpl::new(0)).byte_count(
                     packed_ints_version,
                     size,
@@ -118,7 +116,7 @@ impl MonotonicBlockPackedReader {
         })
     }
     /// Returns the number of values.
-    pub fn size(&self) -> i64 {
+    pub fn size(&self) -> usize {
         self.value_count
     }
 }
@@ -133,9 +131,9 @@ pub struct MonotonicLongValues {
     mask_right: u64,
 }
 impl LongValues for MonotonicLongValues {
-    fn get(&self, index: i64) -> Result<i64> {
+    fn get(&self, index: usize) -> Result<i64> {
         // The abstract index in a bit stream
-        let major_bit_pos = index * self.bits_per_values as i64;
+        let major_bit_pos = index as i64 * self.bits_per_values as i64;
         // The offset of the first block in the backing byte-array
         let mut block_offset = (major_bit_pos >> BLOCK_BITS) as usize;
         let mut end_bits = (major_bit_pos & MOD_MASK as i64) + self.bpv_minus_block_size as i64;
@@ -156,15 +154,15 @@ impl LongValues for MonotonicLongValues {
     }
 }
 impl LongValues for MonotonicBlockPackedReader {
-    fn get(&self, index: i64) -> Result<i64> {
+    fn get(&self, index: usize) -> Result<i64> {
         debug_assert!(
             index < self.value_count,
             "Index out of bounds: {} >= {}",
             index,
             self.value_count
         );
-        let block = (index >> self.block_shift) as usize;
-        let idx = index & self.block_mask as i64;
+        let block = index >> self.block_shift;
+        let idx = index & self.block_mask as usize;
         let expected_value = expected(self.min_values[block], self.averages[block], idx as i32);
         let sub_reader_value = self.sub_readers[block].get(idx)?;
 

@@ -638,7 +638,7 @@ where
     input: S,
     ords: DocOrds,
     doc_id: i32,
-    ord_upto: i64,
+    ord_upto: usize,
     count: i32,
 }
 
@@ -757,7 +757,7 @@ where
 
 #[derive(Clone)]
 pub(crate) struct DocOrds {
-    pub(crate) offsets: Rc<Vec<i64>>,
+    pub(crate) offsets: Rc<Vec<usize>>,
     pub(crate) ords: PackedLongValues,
     pub(crate) doc_value_counts: Rc<GrowableWriter>,
 }
@@ -773,12 +773,12 @@ impl DocOrds {
     where
         DM: DocMap,
     {
-        let mut offsets = vec![0i64; max_doc as usize];
+        let mut offsets = vec![0; max_doc as usize];
         let mut builder =
             PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
         let mut doc_value_counts =
             GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio);
-        let mut ord_offset = 1i64;
+        let mut ord_offset = 1;
         loop {
             let doc_id = old_values.next_doc()?;
             if doc_id == NO_MORE_DOCS {
@@ -788,13 +788,13 @@ impl DocOrds {
             let new_doc_id = sort_map.old_to_new(doc_id)?;
             let start_offset = ord_offset;
             let doc_value_count = old_values.doc_value_count()?;
-            ord_offset += doc_value_count as i64;
+            ord_offset += doc_value_count as usize;
 
             for _ in 0..doc_value_count {
                 builder.add(old_values.next_ord()?)?;
             }
 
-            doc_value_counts.set(new_doc_id, ord_offset - start_offset);
+            doc_value_counts.set(new_doc_id, (ord_offset - start_offset) as i64);
 
             if start_offset != ord_offset {
                 // do we have any values?
