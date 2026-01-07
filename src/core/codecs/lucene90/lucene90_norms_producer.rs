@@ -196,6 +196,7 @@ where
             let docs_with_field_offset = meta.read_long()?;
             let docs_with_field_length = meta.read_long()?;
             let jump_table_entry_count = meta.read_short()?;
+
             let dense_rank_power = meta.read_byte()? as i8;
             let num_docs_with_field = meta.read_int()?.try_convert()?;
             let bytes_per_norm = meta.read_byte()? as i8;
@@ -276,8 +277,8 @@ where
 
             let created = create_jump_table(
                 &self.data,
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
+                entry.docs_with_field_offset as usize,
+                entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
             )?;
 
@@ -292,8 +293,8 @@ where
         } else {
             let jump_table = create_jump_table(
                 &self.data,
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
+                entry.docs_with_field_offset as usize,
+                entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
             )?;
             Ok(jump_table.map(RandomAccessSliceEnum::Owned))
@@ -323,8 +324,8 @@ where
             let new_input = Arc::new(Mutex::new(create_block_slice(
                 &self.data,
                 "docs",
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
+                entry.docs_with_field_offset as usize,
+                entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
             )?));
 
@@ -339,8 +340,8 @@ where
             let input = create_block_slice(
                 &self.data,
                 "docs",
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
+                entry.docs_with_field_offset as usize,
+                entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
             )?;
             Ok(SliceEnum::Owned(input))
@@ -972,12 +973,8 @@ where
         P: IndexedDISIPolicy<I>,
     {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => {
-                Ok(v.read_byte(disi.index() as usize)? as i64)
-            },
-            RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_byte(disi.index() as usize)? as i64)
-            },
+            RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_byte(disi.index_u())? as i64),
+            RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_byte(disi.index_u())? as i64),
         }
     }
 }
@@ -998,10 +995,10 @@ where
     {
         match self.slice {
             RandomAccessSliceEnum::Owned(ref mut v) => {
-                Ok(v.read_short(((disi.index()) << 1) as usize)? as i64)
+                Ok(v.read_short((disi.index_u()) << 1)? as i64)
             },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_short(((disi.index()) << 1) as usize)? as i64)
+                Ok(v.lock().read_short((disi.index_u()) << 1)? as i64)
             },
         }
     }
@@ -1023,10 +1020,10 @@ where
     {
         match self.slice {
             RandomAccessSliceEnum::Owned(ref mut v) => {
-                Ok(v.read_int(((disi.index()) << 2) as usize)? as i64)
+                Ok(v.read_int((disi.index_u()) << 2)? as i64)
             },
             RandomAccessSliceEnum::Shared(ref v) => {
-                Ok(v.lock().read_int(((disi.index()) << 2) as usize)? as i64)
+                Ok(v.lock().read_int((disi.index_u()) << 2)? as i64)
             },
         }
     }
@@ -1047,10 +1044,8 @@ where
         P: IndexedDISIPolicy<I>,
     {
         match self.slice {
-            RandomAccessSliceEnum::Owned(ref mut v) => v.read_long(((disi.index()) << 3) as usize),
-            RandomAccessSliceEnum::Shared(ref v) => {
-                v.lock().read_long(((disi.index()) << 3) as usize)
-            },
+            RandomAccessSliceEnum::Owned(ref mut v) => v.read_long((disi.index_u()) << 3),
+            RandomAccessSliceEnum::Shared(ref v) => v.lock().read_long((disi.index_u()) << 3),
         }
     }
 }

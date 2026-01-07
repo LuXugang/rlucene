@@ -689,7 +689,7 @@ mod tests {
         writer.add_document(doc)?;
 
         let dr = directory_reader_util::open_with_writer(&writer)?;
-        let r = get_only_leaf_reader(dr)?;
+        let r = get_only_leaf_reader(&dr)?;
 
         // ok
         let mut v = DocValues::get_sorted_set(r.as_ref(), "foo")?;

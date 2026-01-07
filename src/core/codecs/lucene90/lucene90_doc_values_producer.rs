@@ -359,6 +359,7 @@ where
         let docs_with_field_offset = meta.read_long()?;
         let docs_with_field_length = meta.read_long()?;
         let jump_table_entry_count = meta.read_short()?;
+
         let dense_rank_power = meta.read_byte()?;
         let num_docs_with_field = meta.read_int()?;
         let min_length = meta.read_int()?;
@@ -556,8 +557,8 @@ where
         } else {
             let disi = IndexedDISI::new(
                 &self.data,
-                entry.docs_with_field_offset,
-                entry.docs_with_field_length,
+                entry.docs_with_field_offset as usize,
+                entry.docs_with_field_length as usize,
                 entry.jump_table_entry_count as i32,
                 entry.dense_rank_power,
                 entry.num_values,
@@ -715,8 +716,8 @@ where
             } else {
                 let disi = IndexedDISI::new(
                     &self.data,
-                    ords_entry.docs_with_field_offset,
-                    ords_entry.docs_with_field_length,
+                    ords_entry.docs_with_field_offset as usize,
+                    ords_entry.docs_with_field_length as usize,
                     ords_entry.jump_table_entry_count as i32,
                     ords_entry.dense_rank_power,
                     ords_entry.num_values,
@@ -776,8 +777,8 @@ where
             // sparse
             let disi = IndexedDISI::new(
                 &self.data,
-                entry.base.docs_with_field_offset,
-                entry.base.docs_with_field_length,
+                entry.base.docs_with_field_offset as usize,
+                entry.base.docs_with_field_length as usize,
                 entry.base.jump_table_entry_count as i32,
                 entry.base.dense_rank_power,
                 entry.num_docs_with_field as i64,
@@ -884,8 +885,8 @@ where
                 } else {
                     let disi = IndexedDISI::new(
                         &self.data,
-                        entry.docs_with_field_offset,
-                        entry.docs_with_field_length,
+                        entry.docs_with_field_offset as usize,
+                        entry.docs_with_field_length as usize,
                         entry.jump_table_entry_count as i32,
                         entry.dense_rank_power as i8,
                         entry.num_docs_with_field as i64,
@@ -1040,8 +1041,8 @@ where
                                 //sparse
                                 let disi = IndexedDISI::new(
                                     &self.data,
-                                    ords_entry.base.docs_with_field_offset,
-                                    ords_entry.base.docs_with_field_length,
+                                    ords_entry.base.docs_with_field_offset as usize,
+                                    ords_entry.base.docs_with_field_length as usize,
                                     ords_entry.base.jump_table_entry_count as i32,
                                     ords_entry.base.dense_rank_power,
                                     ords_entry.num_docs_with_field as i64,
@@ -1823,8 +1824,8 @@ where
     where
         I: IndexInput,
     {
-        let index = disi.index();
-        self.vbpv_reader.get_long_value(index as usize)
+        let index = disi.index_u();
+        self.vbpv_reader.get_long_value(index)
     }
 }
 pub struct SparseNumericDocValuesBaseImpl2<R>
@@ -1842,7 +1843,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.table[self.values.get_mut(disi.index() as usize)? as usize])
+        Ok(self.table[self.values.get_mut(disi.index_u())? as usize])
     }
 }
 pub struct SparseNumericDocValuesBaseImpl3<R>
@@ -1859,7 +1860,7 @@ where
     where
         I: IndexInput,
     {
-        self.values.get_mut(disi.index() as usize)
+        self.values.get_mut(disi.index_u())
     }
 }
 pub struct SparseNumericDocValuesBaseImpl4<R>
@@ -1878,7 +1879,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.mul * self.values.get_mut(disi.index() as usize)? + self.delta)
+        Ok(self.mul * self.values.get_mut(disi.index_u())? + self.delta)
     }
 }
 
@@ -2027,13 +2028,10 @@ where
         &mut self,
         disi: &mut IndexedDISI<I, Owned>,
     ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        let pos = (disi.index() * self.length) as i64;
-        self.bytes_slice.read_bytes(
-            pos as usize,
-            &mut self.bytes.bytes,
-            0,
-            self.length as usize,
-        )?;
+        let length = self.length as usize;
+        let pos = disi.index_u() * length;
+        self.bytes_slice
+            .read_bytes(pos, &mut self.bytes.bytes, 0, length)?;
         Ok(Cow::Borrowed(&self.bytes))
     }
 }
@@ -2194,7 +2192,7 @@ where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
-        Ok(self.value.get_mut(self.disi.index() as usize)? as i32)
+        Ok(self.value.get_mut(self.disi.index_u())? as i32)
     }
 
     type TermsEnum<'a>
@@ -2502,9 +2500,9 @@ where
     }
     fn set(&mut self) -> Result<()> {
         if !self.set {
-            let index = self.disi.index();
-            self.curr = self.addresses.get_mut(index as usize)?;
-            let end = self.addresses.get_mut((index as usize) + 1)?;
+            let index = self.disi.index_u();
+            self.curr = self.addresses.get_mut(index)?;
+            let end = self.addresses.get_mut(index + 1)?;
             self.count = (end - self.curr) as i32;
             self.set = true;
         }
@@ -3316,7 +3314,7 @@ where
 
     fn set(&mut self) -> Result<()> {
         if !self.set {
-            let index = self.disi.index() as usize;
+            let index = self.disi.index_u();
             self.start = self.addresses.get_mut(index)?;
             self.end = self.addresses.get_mut((index) + 1)?;
             self.count = (self.end - self.start) as i32;
