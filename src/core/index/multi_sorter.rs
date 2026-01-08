@@ -157,33 +157,33 @@ impl MultiSorter {
             let remapped = builders[i].build()?;
             let live_docs = readers[i].get_live_docs()?;
 
-            let doc_map = DocMapImpl::new(live_docs, remapped);
+            let doc_map = DocMapImpl1::new(live_docs, remapped);
             doc_maps.push(DocMapEnum2::A(doc_map));
         }
         Ok(Some(doc_maps))
     }
 }
-pub type MultiSorterDocMap<CR> = DocMapImpl<CRBits<CR>>;
+pub type MultiSorterDocMap<CR> = DocMapImpl1<CRBits<CR>>;
 
-pub struct DocMapImpl<B>
+pub struct DocMapImpl1<B>
 where
     B: Bits,
 {
     live_docs: Option<B>,
     remapped: PackedLongValues,
 }
-impl<B> DocMapImpl<B>
+impl<B> DocMapImpl1<B>
 where
     B: Bits,
 {
     fn new(live_docs: Option<B>, remapped: PackedLongValues) -> Self {
-        DocMapImpl {
+        DocMapImpl1 {
             live_docs,
             remapped,
         }
     }
 }
-impl<B> DocMap for DocMapImpl<B>
+impl<B> DocMap for DocMapImpl1<B>
 where
     B: Bits,
 {

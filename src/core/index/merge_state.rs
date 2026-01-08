@@ -99,7 +99,7 @@ where
     }
 }
 
-pub type MergeStateDocMap<CR> = DocMapEnum2<MultiSorterDocMap<CR>, DocMapImpl<CRBits<CR>>>;
+pub type MergeStateDocMap<CR> = DocMapEnum2<MultiSorterDocMap<CR>, DocMapImpl2<CRBits<CR>>>;
 
 // Remap docIDs around deletions
 fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<MergeStateDocMap<CR>>>
@@ -121,7 +121,7 @@ where
 
         let doc_base = total_docs;
 
-        doc_maps.push(DocMapEnum2::B(DocMapImpl::new(
+        doc_maps.push(DocMapEnum2::B(DocMapImpl2::new(
             live_docs,
             del_doc_map,
             doc_base,
@@ -179,7 +179,7 @@ where
     builder.build()
 }
 
-pub struct DocMapImpl<B>
+pub struct DocMapImpl2<B>
 where
     B: Bits,
 {
@@ -187,7 +187,7 @@ where
     del_doc_map: Option<PackedLongValues>,
     doc_base: i32,
 }
-impl<B> DocMapImpl<B>
+impl<B> DocMapImpl2<B>
 where
     B: Bits,
 {
@@ -199,7 +199,7 @@ where
         }
     }
 }
-impl<B> DocMap for DocMapImpl<B>
+impl<B> DocMap for DocMapImpl2<B>
 where
     B: Bits,
 {
