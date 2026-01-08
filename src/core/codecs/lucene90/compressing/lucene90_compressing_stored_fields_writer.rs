@@ -322,7 +322,7 @@ where
             }
             {
                 let raw_docs = reader.get_fields_stream();
-                raw_docs.seek(from_pointer as usize)?;
+                raw_docs.seek(from_pointer)?;
             }
 
             while from_pointer < to_pointer {
@@ -362,9 +362,8 @@ where
                 };
 
                 let raw_docs = reader.get_fields_stream();
-                let num_bytes = end_chunk_pointer - raw_docs.get_file_pointer()? as i64;
-                self.fields_stream
-                    .copy_bytes(&mut *raw_docs, num_bytes as usize)?;
+                let num_bytes = end_chunk_pointer - raw_docs.get_file_pointer()?;
+                self.fields_stream.copy_bytes(&mut *raw_docs, num_bytes)?;
 
                 self.num_chunks += 1;
 

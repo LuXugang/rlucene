@@ -42,7 +42,7 @@ where
     start_pointers_end_pointer: usize,
     docs: DirectMonotonicReader<I::RandomAccessSlice>,
     start_pointers: DirectMonotonicReader<I::RandomAccessSlice>,
-    max_pointer: i64,
+    max_pointer: usize,
 }
 impl<I> FieldsIndexReader<I>
 where
@@ -72,8 +72,8 @@ where
             (v, v)
         };
         let start_pointers_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
-        let start_pointers_end_pointer: usize = meta_in.read_long()?.try_convert()?;
-        let max_pointer = meta_in.read_long()?;
+        let start_pointers_end_pointer: usize = meta_in.read_long()? as usize;
+        let max_pointer = meta_in.read_long()? as usize;
 
         let mut index_input = dir.open_input(
             &IndexFileNames::segment_file_name(&name, suffix, extension),
@@ -146,7 +146,7 @@ where
             start_pointers,
         })
     }
-    pub(crate) fn get_max_pointer(&self) -> i64 {
+    pub(crate) fn get_max_pointer(&self) -> usize {
         self.max_pointer
     }
 }
@@ -180,15 +180,15 @@ where
         Ok(block_index)
     }
 
-    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
-        self.start_pointers.get_mut(block_id as usize)
+    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<usize> {
+        Ok(self.start_pointers.get_mut(block_id as usize)? as usize)
     }
 
-    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
+    fn get_block_length(&mut self, block_id: i64) -> Result<usize> {
         let end_pointer = if block_id == (self.num_chunks - 1) as i64 {
             self.max_pointer
         } else {
-            self.start_pointers.get_mut((block_id + 1) as usize)?
+            self.start_pointers.get_mut((block_id + 1) as usize)? as usize
         };
         Ok(end_pointer - self.get_block_start_pointer(block_id)?)
     }

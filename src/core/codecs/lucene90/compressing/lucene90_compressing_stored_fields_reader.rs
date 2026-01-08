@@ -60,7 +60,7 @@ where
     version: i32,
     field_infos: Arc<FieldInfos>,
     index_reader: FieldsIndexEnum<I>,
-    max_pointer: i64,
+    max_pointer: usize,
     chunk_size: i32,
     compression_mode: CompressionModeEnum,
     decompressor: DecompressorEnum,
@@ -353,7 +353,7 @@ where
     pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
         if !self.state.contains(doc_id) {
             let pointer = self.index_reader.get_start_pointer(doc_id)?;
-            self.state.fields_stream.seek(pointer as usize)?;
+            self.state.fields_stream.seek(pointer)?;
             self.state.reset(doc_id, self.num_docs)?;
         }
 
@@ -385,7 +385,7 @@ where
     pub(crate) fn get_index_reader(&mut self) -> &mut FieldsIndexEnum<I> {
         &mut self.index_reader
     }
-    pub(crate) fn get_max_pointer(&self) -> i64 {
+    pub(crate) fn get_max_pointer(&self) -> usize {
         self.max_pointer
     }
     pub(crate) fn get_fields_stream(&mut self) -> &mut I {
@@ -447,7 +447,7 @@ where
 
         self.state
             .fields_stream
-            .prefetch(block_start_pointer as usize, block_length as usize)?;
+            .prefetch(block_start_pointer, block_length)?;
 
         self.prefetched_block_id_cache
             [self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK] = block_id;

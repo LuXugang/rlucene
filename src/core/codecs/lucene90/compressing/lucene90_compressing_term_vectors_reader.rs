@@ -90,7 +90,7 @@ where
     // cumulative number of docs in incomplete chunks
     num_dirty_docs: i64,
     // end of the data section
-    max_pointer: i64,
+    max_pointer: usize,
     block_state: BlockState,
     // Cache of recently prefetched block IDs. This helps reduce chances of prefetching the same block
     // multiple times, which is otherwise likely due to index sorting or recursive graph bisection
@@ -279,7 +279,7 @@ where
     pub(crate) fn vectors_stream(&mut self) -> &mut I {
         &mut self.vectors_stream
     }
-    pub(crate) fn max_pointer(&self) -> i64 {
+    pub(crate) fn max_pointer(&self) -> usize {
         self.max_pointer
     }
 
@@ -447,7 +447,7 @@ where
         let block_start_pointer = self.index_reader.get_block_start_pointer(block_id)?;
         let block_length = self.index_reader.get_block_length(block_id)?;
         self.vectors_stream
-            .prefetch(block_start_pointer as usize, block_length as usize)?;
+            .prefetch(block_start_pointer, block_length)?;
         let idx = self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK;
         self.prefetched_block_id_cache[idx] = block_id;
         self.prefetched_block_id_cache_index += 1;
@@ -466,7 +466,7 @@ where
         } else {
             self.index_reader.get_start_pointer(doc)?
         };
-        self.vectors_stream.seek(start_pointer as usize)?;
+        self.vectors_stream.seek(start_pointer)?;
         // decode
         // - docBase: first doc ID of the chunk
         // - chunkDocs: number of docs of the chunk
@@ -479,11 +479,8 @@ where
                 doc_base, chunk_docs, doc, &self.vectors_stream
             )));
         }
-        self.block_state = BlockState::new(
-            Some(start_pointer),
-            Some(doc_base.try_convert()?),
-            chunk_docs,
-        );
+        self.block_state =
+            BlockState::new(Some(start_pointer), Some(doc_base as usize), chunk_docs);
         let mut reader =
             BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         let (skip, num_fields, total_fields) = if chunk_docs == 1 {
@@ -966,13 +963,13 @@ where
 }
 
 struct BlockState {
-    start_pointer: Option<i64>,
+    start_pointer: Option<usize>,
     doc_base: Option<usize>,
     chunk_docs: i32,
 }
 impl BlockState {
     pub(crate) fn new(
-        start_pointer: Option<i64>,
+        start_pointer: Option<usize>,
         doc_base: Option<usize>,
         chunk_docs: i32,
     ) -> Self {
