@@ -435,7 +435,7 @@ where
                 let segment_index_sort = info.info.get_index_sort();
 
                 if segment_index_sort.is_none()
-                    || !Self::is_congruent_sort(&index_sort, segment_index_sort.as_ref().unwrap())
+                    || !is_congruent_sort(&index_sort, segment_index_sort.as_ref().unwrap())
                 {
                     return Err(LuceneError::illegal_argument(format!(
                         "cannot change previous indexSort={} (from segment={}) to new indexSort={}",
@@ -448,17 +448,7 @@ where
         }
         Ok(())
     }
-    /// Returns `true` if indexSort is a prefix of otherSort.
-    pub(crate) fn is_congruent_sort(index_sort: &Sort, other_sort: &Sort) -> bool {
-        let fields1 = index_sort.get_sort();
-        let fields2 = other_sort.get_sort();
 
-        if fields1.len() > fields2.len() {
-            return false;
-        }
-
-        fields1 == &fields2[..fields1.len()]
-    }
     /// Loads or returns the already loaded the global field number map for this [`SegmentInfos`].
     /// If this [`SegmentInfos`] has no global field number map the returned instance is empty
     fn get_field_number_map(config: &L, segment_infos: &SegmentInfos<D>) -> Result<FieldNumbers> {

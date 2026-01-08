@@ -16,7 +16,7 @@
  */
 use crate::core::index::codec_reader::{CRBits, CodecReader};
 use crate::core::index::index_sorter::{ComparableProvider, ComparableProviderEnum2, IndexSorter};
-use crate::core::index::merge_state::DocMap;
+use crate::core::index::merge_state::{DocMap, DocMapEnum2, MergeStateDocMap};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::util::bit_set::{BitSet, of};
@@ -35,7 +35,7 @@ use crate::core::util::{LUCENE_10_0_0, ToInt};
 /// index sort order).
 pub struct MultiSorter;
 impl MultiSorter {
-    pub(crate) fn sort<CR>(sort: Sort, readers: &[CR]) -> Result<Option<Vec<MSDocMap<CR>>>>
+    pub(crate) fn sort<CR>(sort: &Sort, readers: &[CR]) -> Result<Option<Vec<MergeStateDocMap<CR>>>>
     where
         CR: CodecReader,
     {
@@ -158,12 +158,12 @@ impl MultiSorter {
             let live_docs = readers[i].get_live_docs()?;
 
             let doc_map = DocMapImpl::new(live_docs, remapped);
-            doc_maps.push(doc_map);
+            doc_maps.push(DocMapEnum2::A(doc_map));
         }
         Ok(Some(doc_maps))
     }
 }
-pub type MSDocMap<CR> = DocMapImpl<CRBits<CR>>;
+pub type MultiSorterDocMap<CR> = DocMapImpl<CRBits<CR>>;
 
 pub struct DocMapImpl<B>
 where
