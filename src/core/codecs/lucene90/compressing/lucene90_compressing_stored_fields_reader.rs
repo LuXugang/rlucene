@@ -550,7 +550,7 @@ where
     sliced: bool,
     offsets: Vec<i64>,
     num_stored_fields: Vec<i64>,
-    start_pointer: i64,
+    start_pointer: usize,
     spare: Option<BytesRef<Vec<u8>>>,
     bytes: Option<BytesRef<Vec<u8>>>,
     merging: bool,
@@ -667,7 +667,7 @@ where
             }
         }
 
-        self.start_pointer = self.fields_stream.get_file_pointer()? as i64;
+        self.start_pointer = self.fields_stream.get_file_pointer()?;
 
         if self.merging {
             let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
@@ -754,7 +754,7 @@ where
                 length,
             ))
         } else {
-            self.fields_stream.seek(self.start_pointer as usize)?;
+            self.fields_stream.seek(self.start_pointer)?;
 
             if self.sliced {
                 self.decompressor.decompress(
