@@ -619,12 +619,12 @@ where
         Ok(self.ord_map.len() as i64)
     }
 
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         D: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
@@ -735,12 +735,12 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
@@ -911,13 +911,13 @@ where
         }
     }
 
-    type TermsEnum<'a>
-        = TermsEnumEnum2<A::TermsEnum<'a>, B::TermsEnum<'a>>
+    type TermsEnumRef<'a>
+        = TermsEnumEnum2<A::TermsEnumRef<'a>, B::TermsEnumRef<'a>>
     where
         A: 'a,
         B: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         match self {
             SortedSetDocValuesEnum2::A(t) => {
                 let terms_enum = t.terms_enum()?;

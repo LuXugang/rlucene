@@ -795,12 +795,12 @@ where
         Ok(self.mapping.get_value_count())
     }
 
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         T: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 

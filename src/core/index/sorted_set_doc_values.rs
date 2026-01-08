@@ -100,14 +100,14 @@ pub trait SortedSetDocValues: DocValuesIterator {
         }
         Ok(-(low + 1)) // key not found
     }
-    type TermsEnum<'a>: TermsEnum
+    type TermsEnumRef<'a>: TermsEnum
     where
         Self: 'a;
     /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
     /// [`TermsEnum::ord()`] and
     /// [`TermsEnum::seek_exact_with_ord()`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>>;
 
     fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<&mut Self>>
     where
@@ -115,7 +115,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     {
         Ok(SortedSetDocValuesTermsEnum::new(self))
     }
-    fn take_terms_enum(self) -> Result<SortedSetDocValuesTermsEnum<Self>>
+    fn default_take_terms_enum(self) -> Result<SortedSetDocValuesTermsEnum<Self>>
     where
         Self: Sized,
     {
@@ -157,12 +157,12 @@ where
         (**self).lookup_term(key)
     }
 
-    type TermsEnum<'a>
-        = <S as SortedSetDocValues>::TermsEnum<'a>
+    type TermsEnumRef<'a>
+        = <S as SortedSetDocValues>::TermsEnumRef<'a>
     where
         Self: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         (**self).terms_enum()
     }
 

@@ -220,12 +220,12 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
