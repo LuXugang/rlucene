@@ -173,7 +173,7 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<'a, Self>
+        = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
@@ -269,7 +269,7 @@ where
     }
 
     type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<'a, Self>
+        = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
@@ -366,7 +366,7 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<'a, Self>
+        = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
@@ -463,7 +463,7 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
     type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<'a, Self>
+        = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
@@ -598,7 +598,7 @@ where
     }
 
     type TermsEnum<'a>
-        = SortedDocValuesTermsEnum<'a, Self>
+        = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 

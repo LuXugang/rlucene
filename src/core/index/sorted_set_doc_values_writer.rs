@@ -620,7 +620,7 @@ where
     }
 
     type TermsEnum<'a>
-        = SortedSetDocValuesTermsEnum<'a, Self>
+        = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         D: 'a;
 
@@ -736,7 +736,7 @@ where
     }
 
     type TermsEnum<'a>
-        = SortedSetDocValuesTermsEnum<'a, Self>
+        = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 

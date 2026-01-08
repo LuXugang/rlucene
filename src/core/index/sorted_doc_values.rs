@@ -101,7 +101,13 @@ pub trait SortedDocValues: DocValuesIterator {
     /// [`TermsEnum::ord`] and
     /// [`TermsEnum::seek_exact_with_ord`].
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
-    fn default_terms_enum(&mut self) -> Result<SortedDocValuesTermsEnum<'_, Self>>
+    fn default_terms_enum(&mut self) -> Result<SortedDocValuesTermsEnum<&mut Self>>
+    where
+        Self: Sized,
+    {
+        Ok(SortedDocValuesTermsEnum::new(self))
+    }
+    fn take_terms_enum(self) -> Result<SortedDocValuesTermsEnum<Self>>
     where
         Self: Sized,
     {
@@ -199,3 +205,38 @@ either_sorted_docvalues!(
     => TermsEnumEnum2
     { A: A, B: B }
 );
+
+impl<S> SortedDocValues for &mut S
+where
+    S: SortedDocValues,
+{
+    #[inline]
+    fn ord_value(&mut self) -> Result<i32> {
+        (**self).ord_value()
+    }
+
+    #[inline]
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        (**self).lookup_ord(ord)
+    }
+
+    #[inline]
+    fn get_value_count(&self) -> Result<i32> {
+        (**self).get_value_count()
+    }
+
+    #[inline]
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+        (**self).lookup_term(key)
+    }
+
+    type TermsEnum<'a>
+        = <S as SortedDocValues>::TermsEnum<'a>
+    where
+        Self: 'a;
+
+    #[inline]
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        (**self).terms_enum()
+    }
+}

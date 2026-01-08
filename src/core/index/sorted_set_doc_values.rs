@@ -109,7 +109,13 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// [`TermsEnum::seek_exact_with_ord()`].
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
 
-    fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<'_, Self>>
+    fn default_terms_enum(&mut self) -> Result<SortedSetDocValuesTermsEnum<&mut Self>>
+    where
+        Self: Sized,
+    {
+        Ok(SortedSetDocValuesTermsEnum::new(self))
+    }
+    fn take_terms_enum(self) -> Result<SortedSetDocValuesTermsEnum<Self>>
     where
         Self: Sized,
     {
@@ -125,5 +131,48 @@ pub trait SortedSetDocValues: DocValuesIterator {
     type SortedDocValues: SortedDocValues;
     fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
         Err(LuceneError::unsupported_operation(""))
+    }
+}
+impl<S> SortedSetDocValues for &mut S
+where
+    S: SortedSetDocValues,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        (**self).next_ord()
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        (**self).doc_value_count()
+    }
+
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        (**self).lookup_ord(ord)
+    }
+
+    fn get_value_count(&self) -> Result<i64> {
+        (**self).get_value_count()
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+        (**self).lookup_term(key)
+    }
+
+    type TermsEnum<'a>
+        = <S as SortedSetDocValues>::TermsEnum<'a>
+    where
+        Self: 'a;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        (**self).terms_enum()
+    }
+
+    fn is_single_valued(&self) -> bool {
+        (**self).is_single_valued()
+    }
+
+    type SortedDocValues = S::SortedDocValues;
+
+    fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+        (**self).get_sorted_doc_values()
     }
 }

@@ -37,3 +37,12 @@ pub trait DocValuesIterator: DocIdSetIterator {
         Err(LuceneError::not_implemented(""))
     }
 }
+impl<S> DocValuesIterator for &mut S
+where
+    S: DocValuesIterator,
+{
+    #[inline]
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        (**self).advance_exact(target)
+    }
+}

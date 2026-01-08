@@ -26,19 +26,19 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 /// Implements a [`TermsEnum `]wrapping a provided [`SortedSetDocValues`].
-pub struct SortedSetDocValuesTermsEnum<'a, S>
+pub struct SortedSetDocValuesTermsEnum<S>
 where
     S: SortedSetDocValues,
 {
-    values: &'a mut S,
+    values: S,
     current_ord: i64,
     scratch: BytesRefBuilder<Vec<u8>>,
 }
-impl<'a, S> SortedSetDocValuesTermsEnum<'a, S>
+impl<S> SortedSetDocValuesTermsEnum<S>
 where
     S: SortedSetDocValues,
 {
-    pub fn new(values: &'a mut S) -> SortedSetDocValuesTermsEnum<'a, S> {
+    pub fn new(values: S) -> SortedSetDocValuesTermsEnum<S> {
         SortedSetDocValuesTermsEnum {
             values,
             current_ord: -1,
@@ -47,7 +47,7 @@ where
     }
 }
 
-impl<'a, S> BytesRefIterator for SortedSetDocValuesTermsEnum<'a, S>
+impl<S> BytesRefIterator for SortedSetDocValuesTermsEnum<S>
 where
     S: SortedSetDocValues,
 {
@@ -62,7 +62,7 @@ where
     }
 }
 
-impl<'a, S> TermsEnum for SortedSetDocValuesTermsEnum<'a, S>
+impl<S> TermsEnum for SortedSetDocValuesTermsEnum<S>
 where
     S: SortedSetDocValues,
 {
