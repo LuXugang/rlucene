@@ -122,20 +122,20 @@ where
         }
     }
 
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    type TermsEnumRef = DummyTermsEnum;
+    type TermsEnum1 = DummyTermsEnum;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))

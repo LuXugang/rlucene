@@ -577,18 +577,18 @@ where
         self.mapping.get_value_count().try_convert()
     }
 
-    type TermsEnum<'a>
+    type TermsEnumRef<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    type TermsEnumRef = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
         self.default_take_terms_enum()
     }
 }

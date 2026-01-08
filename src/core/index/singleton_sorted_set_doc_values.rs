@@ -133,7 +133,7 @@ where
     }
 
     type TermsEnum<'a>
-        = S::TermsEnum<'a>
+        = S::TermsEnumRef<'a>
     where
         S: 'a;
 

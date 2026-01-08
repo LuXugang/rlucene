@@ -93,16 +93,16 @@ pub trait SortedDocValues: DocValuesIterator {
         }
         Ok(-(low + 1)) // key not found
     }
-    type TermsEnum<'a>: TermsEnum
+    type TermsEnumRef<'a>: TermsEnum
     where
         Self: 'a;
-    type TermsEnumRef: TermsEnum;
+    type TermsEnum1: TermsEnum;
     /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
     /// [`TermsEnum::ord`] and
     /// [`TermsEnum::seek_exact_with_ord`].
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>>;
-    fn take_terms_enum(self) -> Result<Self::TermsEnumRef>;
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>>;
+    fn take_terms_enum(self) -> Result<Self::TermsEnum1>;
     fn default_terms_enum(&mut self) -> Result<SortedDocValuesTermsEnum<&mut Self>>
     where
         Self: Sized,
@@ -186,13 +186,13 @@ macro_rules! either_sorted_docvalues {
                 match self { $( Self::$Variant(inner) => inner.lookup_term(key), )+ }
             }
 
-            type TermsEnum<'a> = $terms_enum<$( $T::TermsEnum<'a> ),+>
+            type TermsEnumRef<'a> = $terms_enum<$( $T::TermsEnumRef<'a> ),+>
             where
                 $( $T: 'a ),+;
 
-            type TermsEnumRef = $terms_enum<$( $T::TermsEnumRef ),+>;
+            type TermsEnum1 = $terms_enum<$( $T::TermsEnum1),+>;
 
-            fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+            fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
                 match self {
                     $( Self::$Variant(inner) => {
                         let te = inner.terms_enum()?;
@@ -201,7 +201,7 @@ macro_rules! either_sorted_docvalues {
                 }
             }
 
-            fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
+            fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
                 match self {
                     $( Self::$Variant(inner) => {
                         let te = inner.take_terms_enum()?;
@@ -242,20 +242,20 @@ where
         (**self).lookup_term(key)
     }
 
-    type TermsEnum<'a>
-        = <S as SortedDocValues>::TermsEnum<'a>
+    type TermsEnumRef<'a>
+        = <S as SortedDocValues>::TermsEnumRef<'a>
     where
         Self: 'a;
 
-    type TermsEnumRef = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
 
     #[inline]
-    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         (**self).terms_enum()
     }
 
     #[inline]
-    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
         self.default_take_terms_enum()
     }
 }
