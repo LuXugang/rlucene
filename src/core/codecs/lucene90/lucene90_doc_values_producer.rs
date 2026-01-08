@@ -83,7 +83,7 @@ where
     sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
     sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
     skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
-    data: I,
+    data: Arc<I>,
     max_doc: i32,
     version: i32,
     merging: bool,
@@ -202,7 +202,7 @@ where
             sorted_sets,
             sorted_numerics,
             skippers,
-            data,
+            data: Arc::new(data),
             max_doc,
             version,
             merging: false,
@@ -216,22 +216,22 @@ where
         sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
         sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
         skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
-        data: &I,
+        data: Arc<I>,
         max_doc: i32,
         version: i32,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             numerics,
             binaries,
             sorted,
             sorted_sets,
             sorted_numerics,
             skippers,
-            data: data.try_clone()?,
+            data: data.clone(),
             max_doc,
             version,
             merging: true,
-        })
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -511,8 +511,12 @@ where
                     slice.prefetch(0, 1)?
                 }
                 if entry.block_shift >= 0 {
-                    let vbpv_reader =
-                        VaryingBPVReader::new(entry.clone(), slice, &self.data, self.merging)?;
+                    let vbpv_reader = VaryingBPVReader::new(
+                        entry.clone(),
+                        slice,
+                        self.data.as_ref(),
+                        self.merging,
+                    )?;
                     DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 {
                         vbpv_reader,
                     })
@@ -555,7 +559,7 @@ where
             )))
         } else {
             let disi = IndexedDISI::new(
-                &self.data,
+                self.data.as_ref(),
                 entry.docs_with_field_offset as usize,
                 entry.docs_with_field_length,
                 entry.jump_table_entry_count as i32,
@@ -580,7 +584,7 @@ where
                         vbpv_reader: VaryingBPVReader::new(
                             entry.clone(),
                             slice,
-                            &self.data,
+                            self.data.as_ref(),
                             self.merging,
                         )?,
                     })
@@ -645,7 +649,7 @@ where
                     vbpv_reader: VaryingBPVReader::new(
                         entry.clone(),
                         slice,
-                        &self.data,
+                        self.data.as_ref(),
                         self.merging,
                     )?,
                 })
@@ -712,7 +716,7 @@ where
                 BaseSortedDocValuesEnum::Dense(DenseBaseSortedDocValues::new(self.max_doc, values))
             } else {
                 let disi = IndexedDISI::new(
-                    &self.data,
+                    self.data.as_ref(),
                     ords_entry.docs_with_field_offset as usize,
                     ords_entry.docs_with_field_length,
                     ords_entry.jump_table_entry_count as i32,
@@ -721,12 +725,12 @@ where
                 )?;
                 BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
             };
-            return BaseSortedDocValues::new(entry.clone(), &self.data, sub, self.merging);
+            return BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging);
         }
 
         let ords = self.get_numeric(ords_entry.clone())?;
         let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesImpl::new(ords));
-        BaseSortedDocValues::new(entry.clone(), &self.data, sub, self.merging)
+        BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)
     }
 
     fn get_sorted_numeric(
@@ -772,7 +776,7 @@ where
         } else {
             // sparse
             let disi = IndexedDISI::new(
-                &self.data,
+                self.data.as_ref(),
                 entry.base.docs_with_field_offset as usize,
                 entry.base.docs_with_field_length,
                 entry.base.jump_table_entry_count as i32,
@@ -879,7 +883,7 @@ where
                     )))
                 } else {
                     let disi = IndexedDISI::new(
-                        &self.data,
+                        self.data.as_ref(),
                         entry.docs_with_field_offset as usize,
                         entry.docs_with_field_length,
                         entry.jump_table_entry_count as i32,
@@ -1034,7 +1038,7 @@ where
                             } else {
                                 //sparse
                                 let disi = IndexedDISI::new(
-                                    &self.data,
+                                    self.data.as_ref(),
                                     ords_entry.base.docs_with_field_offset as usize,
                                     ords_entry.base.docs_with_field_length,
                                     ords_entry.base.jump_table_entry_count as i32,
@@ -1047,7 +1051,7 @@ where
                             };
                             return Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
-                                &self.data,
+                                self.data.clone(),
                                 sub,
                                 self.merging,
                             )?));
@@ -1058,7 +1062,7 @@ where
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
                         Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
                             entry_clone,
-                            &self.data,
+                            self.data.clone(),
                             sub,
                             self.merging,
                         )?))
@@ -1098,7 +1102,7 @@ where
     }
 
     fn check_integrity(&self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&self.data)?;
+        CodecUtil::checksum_entire_file(self.data.as_ref())?;
         Ok(())
     }
 
@@ -1113,10 +1117,10 @@ where
             self.sorted_sets.clone(),
             self.sorted_numerics.clone(),
             self.skippers.clone(),
-            &self.data,
+            self.data.clone(),
             self.max_doc,
             self.version,
-        )?))
+        )))
     }
 }
 #[derive(Debug, Clone, Copy)]
@@ -2279,6 +2283,8 @@ where
     entry: Arc<SortedEntry>,
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedDocValuesEnum<I>,
+    data: Arc<I>,
+    merging: bool,
 }
 
 impl<I> BaseSortedDocValues<I>
@@ -2287,15 +2293,17 @@ where
 {
     fn new(
         entry: Arc<SortedEntry>,
-        data: &I,
+        data: Arc<I>,
         sub: BaseSortedDocValuesEnum<I>,
         merging: bool,
     ) -> Result<Self> {
-        let terms_enum = TermsDict::new(entry.terms_dict_entry.clone(), data, merging)?;
+        let terms_enum = TermsDict::new(entry.terms_dict_entry.clone(), data.as_ref(), merging)?;
         Ok(Self {
             entry,
             terms_enum,
             sub,
+            data,
+            merging,
         })
     }
 }
@@ -2361,14 +2369,16 @@ where
         }
     }
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = BaseTermsEnum<TermsDict<I>>
     where
         I: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        Err(LuceneError::unsupported_operation(
-            "Bug! should not be here",
-        ))
+        TermsDict::new(
+            self.entry.terms_dict_entry.clone(),
+            self.data.as_ref(),
+            self.merging,
+        )
     }
 }
 pub struct DenseBaseSortedSetDocValues<R>
@@ -2651,6 +2661,8 @@ where
     entry: Arc<SortedSetEntry>,
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedSetDocValuesEnum<I>,
+    data: Arc<I>,
+    merging: bool,
 }
 
 impl<I> BaseSortedSetDocValues<I>
@@ -2659,7 +2671,7 @@ where
 {
     fn new(
         entry: Arc<SortedSetEntry>,
-        data: &I,
+        data: Arc<I>,
         sub: BaseSortedSetDocValuesEnum<I>,
         merging: bool,
     ) -> Result<Self> {
@@ -2671,11 +2683,13 @@ where
                 ));
             },
         };
-        let terms_enum = TermsDict::new(terms_dict_entry, data, merging)?;
+        let terms_enum = TermsDict::new(terms_dict_entry, data.as_ref(), merging)?;
         Ok(Self {
             entry,
             terms_enum,
             sub,
+            data,
+            merging,
         })
     }
 }
@@ -2747,14 +2761,20 @@ where
     }
 
     type TermsEnum<'a>
-        = DummyTermsEnum
+        = BaseTermsEnum<TermsDict<I>>
     where
         I: 'a;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-        Err(LuceneError::unsupported_operation(
-            "Bug! should not be here",
-        ))
+        let terms_dict_entry = match self.entry.terms_dict_entry {
+            Some(ref entry) => entry.clone(),
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "TermsDictEntry's terms_dict_entry is None",
+                ));
+            },
+        };
+        TermsDict::new(terms_dict_entry, self.data.as_ref(), self.merging)
     }
 
     type SortedDocValues = DummySortedDocValues;
