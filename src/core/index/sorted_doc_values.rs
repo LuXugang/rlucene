@@ -62,7 +62,7 @@ pub trait SortedDocValues: DocValuesIterator {
     /// Returns the number of unique sorted values in this doc values set.
     ///
     /// This is equivalent to one plus the maximum ordinal.
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -170,7 +170,7 @@ macro_rules! either_sorted_docvalues {
                 match self { $( Self::$Variant(inner) => inner.lookup_ord(_ord), )+ }
             }
 
-            fn get_value_count(&mut self) -> Result<i32> {
+            fn get_value_count(&self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.get_value_count(), )+ }
             }
 

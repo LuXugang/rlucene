@@ -69,7 +69,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// # Returns
     /// Number of unique values in this `SortedDocValues`. This is also
     /// equivalent to one plus the maximum ordinal.
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))

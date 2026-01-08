@@ -62,7 +62,7 @@ impl SortedDocValues for DummySortedDocValues {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

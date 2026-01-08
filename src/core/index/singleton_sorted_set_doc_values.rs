@@ -124,8 +124,8 @@ where
         self.inner.as_mut().unwrap().lookup_ord(ord as i32)
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
-        Ok(self.inner.as_mut().unwrap().get_value_count()? as i64)
+    fn get_value_count(&self) -> Result<i64> {
+        Ok(self.inner.as_ref().unwrap().get_value_count()? as i64)
     }
 
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {

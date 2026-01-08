@@ -424,7 +424,7 @@ where
         Ok(Cow::Borrowed(&self.scratch))
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(self.hash.size())
     }
 
@@ -515,7 +515,7 @@ where
         self.input.lookup_ord(ord)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         self.input.get_value_count()
     }
 

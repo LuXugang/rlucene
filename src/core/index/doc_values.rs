@@ -445,7 +445,7 @@ impl SortedDocValues for EmptySorted {
         Ok(Cow::Owned(std::mem::take(&mut self.empty)))
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(0)
     }
 

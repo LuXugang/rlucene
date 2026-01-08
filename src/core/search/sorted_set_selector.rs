@@ -165,7 +165,7 @@ where
         self.inner.lookup_ord(ord as i64)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
@@ -260,7 +260,7 @@ where
         self.inner.lookup_ord(ord as i64)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
@@ -358,7 +358,7 @@ where
         self.inner.lookup_ord(ord as i64)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
@@ -455,7 +455,7 @@ where
         self.inner.lookup_ord(ord as i64)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         Ok(self.inner.get_value_count()? as i32)
     }
 
@@ -577,7 +577,7 @@ where
         }
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         match self {
             SortedDocValuesWrap::Singleton(single) => single.get_value_count(),
             SortedDocValuesWrap::Min(min) => min.get_value_count(),

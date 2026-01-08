@@ -2351,7 +2351,7 @@ where
         self.terms_enum.term()
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         let v: i32 = self.entry.terms_dict_entry.terms_dict_size.try_convert()?;
         Ok(v)
     }
@@ -2741,7 +2741,7 @@ where
         self.terms_enum.term()
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         match self.entry.terms_dict_entry {
             Some(ref entry) => Ok(entry.terms_dict_size),
             None => Err(LuceneError::illegal_state(

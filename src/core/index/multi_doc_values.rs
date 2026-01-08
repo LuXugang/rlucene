@@ -573,7 +573,7 @@ where
         self.values[sub_index].lookup_ord(segment_ord)
     }
 
-    fn get_value_count(&mut self) -> Result<i32> {
+    fn get_value_count(&self) -> Result<i32> {
         self.mapping.get_value_count().try_convert()
     }
 
@@ -785,7 +785,7 @@ where
         self.values[sub_index].lookup_ord(segment_ord)
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         Ok(self.mapping.get_value_count())
     }
 

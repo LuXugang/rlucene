@@ -615,7 +615,7 @@ where
         Ok(Cow::Borrowed(&self.scratch))
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         Ok(self.ord_map.len() as i64)
     }
 
@@ -731,7 +731,7 @@ where
         self.input.lookup_ord(ord)
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         self.input.get_value_count()
     }
 
@@ -897,7 +897,7 @@ where
         }
     }
 
-    fn get_value_count(&mut self) -> Result<i64> {
+    fn get_value_count(&self) -> Result<i64> {
         match self {
             SortedSetDocValuesEnum2::A(t) => t.get_value_count(),
             SortedSetDocValuesEnum2::B(s) => s.get_value_count(),
