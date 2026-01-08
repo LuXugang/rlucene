@@ -2556,8 +2556,8 @@ where
         // yet this is also required if any MergePolicy modifies the liveDocs since this is
         // what the segDocMap is build on.
         if let Some(current_hard_live_docs) = current_hard_live_docs {
-            let carry_over_delete = |doc_id: i32| -> bool {
-                seg_doc_map.get(doc_id) != -1 && !current_hard_live_docs.get(doc_id as usize)
+            let carry_over_delete = |doc_id: i32| -> Result<bool> {
+                Ok(seg_doc_map.get(doc_id)? != -1 && !current_hard_live_docs.get(doc_id as usize))
             };
 
             if let Some(prev_hard_live_docs) = prev_hard_live_docs {
@@ -2598,8 +2598,8 @@ where
                 // This segment had no deletes before but now it
                 // does:
                 for j in 0..max_doc {
-                    if carry_over_delete(j) {
-                        merged_readers_and_updates.delete(seg_doc_map.get(j), info, None)?;
+                    if carry_over_delete(j)? {
+                        merged_readers_and_updates.delete(seg_doc_map.get(j)?, info, None)?;
                     }
                 }
             }
@@ -4287,7 +4287,7 @@ pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
 #[derive(Default)]
 pub struct DocMapIndexWriter;
 impl DocMap for DocMapIndexWriter {
-    fn get(&self, _doc_id: i32) -> i32 {
+    fn get(&self, _doc_id: i32) -> Result<i32> {
         todo!()
     }
 }

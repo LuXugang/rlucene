@@ -749,8 +749,8 @@ pub struct DocMapMock {
     cur_doc_id_base: i32,
 }
 impl DocMap for DocMapMock {
-    fn get(&self, doc_id: i32) -> i32 {
-        self.cur_doc_id_base + doc_id
+    fn get(&self, doc_id: i32) -> Result<i32> {
+        Ok(self.cur_doc_id_base + doc_id)
     }
 }
 

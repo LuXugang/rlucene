@@ -289,7 +289,7 @@ where
                 self.mapped_doc_id = NO_MORE_DOCS;
                 return Ok(NO_MORE_DOCS);
             }
-            let mapped_doc = self.sub.get_doc_map()?.get(doc);
+            let mapped_doc = self.sub.get_doc_map()?.get(doc)?;
             if mapped_doc != -1 {
                 self.mapped_doc_id = mapped_doc;
                 return Ok(mapped_doc);
@@ -412,8 +412,8 @@ pub mod tests {
         doc_base: usize,
     }
     impl DocMap for DocMapMock1 {
-        fn get(&self, doc_id: i32) -> i32 {
-            self.doc_base as i32 + doc_id
+        fn get(&self, doc_id: i32) -> Result<i32> {
+            Ok(self.doc_base as i32 + doc_id)
         }
     }
 
@@ -498,12 +498,12 @@ pub mod tests {
         }
     }
     impl DocMap for DocMapMock2 {
-        fn get(&self, doc_id: i32) -> i32 {
+        fn get(&self, doc_id: i32) -> Result<i32> {
             let mapped = self.doc_map[doc_id as usize];
             if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped as usize) {
-                mapped
+                Ok(mapped)
             } else {
-                -1
+                Ok(-1)
             }
         }
     }

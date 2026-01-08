@@ -29,6 +29,7 @@ use crate::core::index::index_writer::DocMapIndexWriter;
 use crate::core::index::tests::DocMapMock2;
 use crate::core::store::IndexInput;
 use crate::core::util::bits::BitsEnum;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
@@ -52,7 +53,7 @@ where
 /// A map of doc IDs.
 pub trait DocMap {
     /// Return the mapped docID or -1 if the given doc is not mapped.
-    fn get(&self, doc_id: i32) -> i32;
+    fn get(&self, doc_id: i32) -> Result<i32>;
 }
 
 pub enum DocMapEnum {
@@ -73,7 +74,7 @@ impl Default for DocMapEnum {
     }
 }
 impl DocMap for DocMapEnum {
-    fn get(&self, doc_id: i32) -> i32 {
+    fn get(&self, doc_id: i32) -> Result<i32> {
         match self {
             #[cfg(test)]
             DocMapEnum::Mock(doc_map) => doc_map.get(doc_id),

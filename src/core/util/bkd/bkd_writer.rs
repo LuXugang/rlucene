@@ -2419,7 +2419,7 @@ impl<S: PointValues> MergeReader<S> {
             let mapped_doc_id = if self.doc_map.is_none() {
                 old_doc_id
             } else {
-                self.doc_map.as_ref().unwrap().get(old_doc_id)
+                self.doc_map.as_ref().unwrap().get(old_doc_id)?
             };
 
             if mapped_doc_id != -1 {
