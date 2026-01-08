@@ -349,14 +349,13 @@ where
         doc_base <= doc_id && doc_id < doc_base + bs.chunk_docs
     }
     fn position_index(
-        skip: i32,
+        skip: usize,
         num_fields: usize,
         num_terms: &mut impl LongValues,
         term_freqs: &[usize],
     ) -> Result<Vec<Vec<usize>>> {
         let mut position_index = vec![Vec::new(); num_fields];
         let mut term_index = 0;
-        let skip = skip as usize;
         for i in 0..skip {
             let term_count = num_terms.get_mut(i)?;
             term_index += term_count;
@@ -378,7 +377,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn read_positions(
         &mut self,
-        skip: i32,
+        skip: usize,
         num_fields: usize,
         flags: &mut impl LongValues,
         num_terms: &mut impl LongValues,
@@ -389,17 +388,13 @@ where
     ) -> Result<Vec<Vec<usize>>> {
         let mut positions = vec![Vec::new(); num_fields];
         // reset reader
-        let mut reader = BlockPackedReaderIterator::new(
-            self.packed_ints_version,
-            PACKED_BLOCK_SIZE as usize,
-            0,
-        )?;
+        let mut reader =
+            BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         reader.reset(total_positions);
 
         // skip
         let mut to_skip = 0;
         let mut term_index = 0;
-        let skip = skip as usize;
         for i in 0..skip {
             let f = flags.get_mut(i)? as i32;
             let term_count = num_terms.get_mut(i)? as usize;
@@ -489,11 +484,8 @@ where
             Some(doc_base.try_convert()?),
             chunk_docs,
         );
-        let mut reader = BlockPackedReaderIterator::new(
-            self.packed_ints_version,
-            PACKED_BLOCK_SIZE as usize,
-            0,
-        )?;
+        let mut reader =
+            BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         let (skip, num_fields, total_fields) = if chunk_docs == 1 {
             let nf = self.vectors_stream.read_vint()? as usize;
             (0, nf, nf)
@@ -542,7 +534,7 @@ where
         };
 
         // read field numbers and flags
-        let mut field_num_offs = vec![0i32; num_fields];
+        let mut field_num_offs = vec![0; num_fields];
         let mut flags = {
             let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
             let mut all_field_num_offs =
@@ -558,11 +550,9 @@ where
                     let mut writer =
                         DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
                     for i in 0..total_fields {
-                        let field_num_off = all_field_num_offs.get_mut(i)?;
-                        debug_assert!(
-                            field_num_off >= 0 && (field_num_off as usize) < field_nums.len()
-                        );
-                        writer.add(field_flags.get_mut(field_num_off as usize)?)?;
+                        let field_num_off = all_field_num_offs.get_mut(i)? as usize;
+                        debug_assert!(field_num_off < field_nums.len());
+                        writer.add(field_flags.get_mut(field_num_off)?)?;
                     }
                     writer.finish()?;
                     DirectReader::get_instance(out.get_data_input_owner()?, *FLAGS_BITS)?
@@ -577,7 +567,7 @@ where
                 },
             };
             for (slot, off) in field_num_offs.iter_mut().zip((skip..).take(num_fields)) {
-                *slot = all_field_num_offs.get_mut(off)? as i32;
+                *slot = all_field_num_offs.get_mut(off)? as usize;
             }
             flags
         };
@@ -707,13 +697,12 @@ where
         }
 
         // position index
-        let position_index =
-            Self::position_index(skip as i32, num_fields, &mut num_terms, &term_freqs)?;
+        let position_index = Self::position_index(skip, num_fields, &mut num_terms, &term_freqs)?;
 
         // positions
         let mut positions = if total_positions > 0 {
             self.read_positions(
-                skip as i32,
+                skip,
                 num_fields,
                 &mut flags,
                 &mut num_terms,
@@ -733,7 +722,7 @@ where
             }
 
             let mut start_offsets = self.read_positions(
-                skip as i32,
+                skip,
                 num_fields,
                 &mut flags,
                 &mut num_terms,
@@ -744,7 +733,7 @@ where
             )?;
 
             let mut lengths = self.read_positions(
-                skip as i32,
+                skip,
                 num_fields,
                 &mut flags,
                 &mut num_terms,
@@ -759,7 +748,7 @@ where
                 let f_positions = &positions[i];
                 // patch offsets from positions
                 if !f_start_offsets.is_empty() && !f_positions.is_empty() {
-                    let field_chars_per_term = chars_per_term[field_num_offs[i] as usize];
+                    let field_chars_per_term = chars_per_term[field_num_offs[i]];
                     for j in 0..f_start_offsets.len() {
                         f_start_offsets[j] +=
                             (field_chars_per_term * f_positions[j] as f32) as usize;
@@ -774,8 +763,8 @@ where
                     for j in 0..term_count {
                         // delta-decode start offsets and  patch lengths using term lengths
                         let term_length = f_prefix_lengths[j] + f_suffix_lengths[j];
-                        let pos_start = position_index[i][j] as usize;
-                        let pos_end = position_index[i][j + 1] as usize;
+                        let pos_start = position_index[i][j];
+                        let pos_end = position_index[i][j + 1];
                         f_lengths[pos_start] += term_length;
                         for k in (pos_start + 1)..pos_end {
                             f_start_offsets[k] += f_start_offsets[k - 1];
@@ -799,9 +788,7 @@ where
                     let term_count = num_terms.get_mut(skip + i)? as usize;
                     for j in 0..term_count {
                         // delta-decode start offsets
-                        for k in
-                            (f_position_index[j] as usize + 1)..f_position_index[j + 1] as usize
-                        {
+                        for k in (f_position_index[j] + 1)..f_position_index[j + 1] {
                             f_positions[k] += f_positions[k - 1];
                         }
                     }
@@ -839,7 +826,7 @@ where
                 let term_count = num_terms.get_mut(skip + i)? as usize;
                 if (f & PAYLOADS) != 0 {
                     let total_freq = position_index[i][term_count];
-                    let mut field_payload_index = vec![0; (total_freq + 1) as usize];
+                    let mut field_payload_index = vec![0; total_freq + 1];
                     let mut pos_idx = 0;
                     field_payload_index[pos_idx] = payload_len;
                     for j in 0..term_count {
@@ -852,7 +839,7 @@ where
                             field_payload_index[pos_idx] = payload_len;
                         }
                     }
-                    debug_assert_eq!(pos_idx, total_freq as usize);
+                    debug_assert_eq!(pos_idx, total_freq);
                     payload_index[i] = field_payload_index;
                 }
                 term_index += term_count;
@@ -1000,7 +987,7 @@ impl BlockState {
 pub struct TVFields {
     field_nums: Vec<i32>,
     field_flags: Vec<i32>,
-    field_num_offs: Vec<i32>,
+    field_num_offs: Vec<usize>,
     num_terms: Vec<usize>,
     field_lengths: Vec<usize>,
 
@@ -1024,7 +1011,7 @@ impl TVFields {
     pub(crate) fn new(
         field_nums: Vec<i32>,
         field_flags: Vec<i32>,
-        field_num_offs: Vec<i32>,
+        field_num_offs: Vec<usize>,
         num_terms: Vec<usize>,
         field_lengths: Vec<usize>,
         prefix_lengths: Vec<Rc<Vec<usize>>>,
@@ -1041,7 +1028,7 @@ impl TVFields {
     ) -> Result<Self> {
         let mut names = Vec::new();
         for i in 0..field_num_offs.len() {
-            let field_num = field_nums[field_num_offs[i] as usize];
+            let field_num = field_nums[field_num_offs[i]];
             let field_info = field_infos.field_info_by_number(field_num)?;
             match field_info {
                 Some(fi) => {
@@ -1094,7 +1081,7 @@ impl Fields for TVFields {
 
         let mut idx = None;
         for (i, &off) in self.field_num_offs.iter().enumerate() {
-            if self.field_nums[off as usize] == field_info.number {
+            if self.field_nums[off] == field_info.number {
                 idx = Some(i);
                 break;
             }
@@ -1270,7 +1257,7 @@ impl Terms for TVTerms {
 
 pub struct TVTermsEnum {
     num_terms: usize,
-    start_pos: i32,
+    start_pos: usize,
     ord: Option<usize>,
 
     prefix_lengths: Rc<Vec<usize>>,
@@ -1317,7 +1304,7 @@ impl TVTermsEnum {
             payload_index,
             payloads,
             input,
-            start_pos: start_pos as i32,
+            start_pos,
             ord: None,
             term: BytesRef::with_capacity(16),
         };
@@ -1327,7 +1314,7 @@ impl TVTermsEnum {
     }
     pub fn reset(&mut self) {
         self.term.length = 0;
-        self.input.set_position(self.start_pos as usize);
+        self.input.set_position(self.start_pos);
         self.ord = None;
     }
 }

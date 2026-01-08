@@ -178,7 +178,7 @@ where
             payload_lengths_buf: vec![0; 1024],
             term_suffixes: ByteBuffersDataOutput::new_resettable_instance(),
             payload_bytes: ByteBuffersDataOutput::new_resettable_instance(),
-            writer: AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE as usize, BlockPackedWriter)?,
+            writer: AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?,
             max_docs_per_chunk,
             scratch_buffer: ByteBuffersDataOutput::new_resettable_instance(),
         })
@@ -1116,7 +1116,7 @@ pub(crate) const VERSION_START: i32 = 0;
 pub(crate) const VERSION_CURRENT: i32 = VERSION_START;
 pub(crate) const META_VERSION_START: i32 = 0;
 
-pub(crate) const PACKED_BLOCK_SIZE: i32 = 64;
+pub(crate) const PACKED_BLOCK_SIZE: usize = 64;
 
 pub(crate) const POSITIONS: i32 = 0x01;
 pub(crate) const OFFSETS: i32 = 0x02;
