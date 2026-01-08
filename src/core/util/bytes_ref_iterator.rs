@@ -66,3 +66,18 @@ impl BytesRefIterator for EmptyBytesRefIterator {
 impl EmptyBytesRefIterator {
     pub const EMPTY: Self = EmptyBytesRefIterator;
 }
+
+impl<T> BytesRefIterator for &mut T
+where
+    T: BytesRefIterator + ?Sized,
+{
+    #[inline]
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        (**self).next()
+    }
+
+    #[inline]
+    fn set_next(&mut self) -> Result<bool> {
+        (**self).set_next()
+    }
+}

@@ -294,6 +294,99 @@ impl TermsEnum for EmptyTermsEnum {
     }
 }
 
+impl<T> TermsEnum for &mut T
+where
+    T: TermsEnum + ?Sized,
+{
+    type AttributeSource = T::AttributeSource;
+    type PostingsEnum = T::PostingsEnum;
+    type ImpactsEnum = T::ImpactsEnum;
+    type TermState = T::TermState;
+
+    #[inline]
+    fn attributes(&self) -> Result<Self::AttributeSource> {
+        (**self).attributes()
+    }
+
+    #[inline]
+    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+        (**self).seek_exact(term)
+    }
+
+    #[inline]
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+        (**self).prepare_seek_exact(text)
+    }
+
+    #[inline]
+    fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+        (**self).get_prepare_seek_exact_status(target)
+    }
+
+    #[inline]
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        (**self).seek_ceil(term)
+    }
+
+    #[inline]
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+        (**self).seek_exact_with_ord(ord)
+    }
+
+    #[inline]
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Vec<u8>>,
+        state: &Self::TermState,
+    ) -> Result<()> {
+        (**self).seek_exact_with_state(term, state)
+    }
+
+    #[inline]
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        (**self).term()
+    }
+
+    #[inline]
+    fn ord(&self) -> Result<i64> {
+        (**self).ord()
+    }
+
+    #[inline]
+    fn doc_freq(&mut self) -> Result<i32> {
+        (**self).doc_freq()
+    }
+
+    #[inline]
+    fn total_term_freq(&mut self) -> Result<i64> {
+        (**self).total_term_freq()
+    }
+
+    #[inline]
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+        (**self).postings(reuse)
+    }
+
+    #[inline]
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        (**self).postings_with_flags(reuse, flags)
+    }
+
+    #[inline]
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        (**self).impacts(flags)
+    }
+
+    #[inline]
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        (**self).term_state()
+    }
+}
+
 // TermsEnum
 pub enum TermsEnumEnum2<A, B> {
     A(A),
