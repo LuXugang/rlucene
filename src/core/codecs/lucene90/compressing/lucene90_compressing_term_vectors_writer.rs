@@ -228,10 +228,8 @@ where
         }
 
         // write the index file
-        self.index_writer.write_index(
-            chunk_docs as i32,
-            self.vectors_stream.get_file_pointer() as i64,
-        )?;
+        self.index_writer
+            .write_index(chunk_docs as i32, self.vectors_stream.get_file_pointer())?;
 
         let doc_base = self.num_docs - chunk_docs as i32;
         self.vectors_stream.write_vint(doc_base)?;

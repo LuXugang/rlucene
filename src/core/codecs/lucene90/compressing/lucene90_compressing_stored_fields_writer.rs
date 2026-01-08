@@ -215,7 +215,7 @@ where
 
         self.index_writer.write_index(
             self.num_buffered_docs,
-            self.fields_stream.get_file_pointer() as i64,
+            self.fields_stream.get_file_pointer(),
         )?;
 
         // convert end offsets into lengths
@@ -339,7 +339,7 @@ where
                     }
                     // write a new index entry and new header for this chunk.
                     self.index_writer
-                        .write_index(buffered_docs, self.fields_stream.get_file_pointer() as i64)?;
+                        .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
                     self.fields_stream.write_vint(self.doc_base as i32)?;
                     self.fields_stream.write_vint(code)?;
                     doc_id += buffered_docs;

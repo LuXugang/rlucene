@@ -42,7 +42,7 @@ where
     file_pointers_out: Option<O>,
     total_docs: i32,
     total_chunks: i32,
-    previous_fp: i64,
+    previous_fp: usize,
 }
 pub(crate) mod fields_index_writer_const {
     pub(crate) const VERSION_START: i32 = 0;
@@ -98,7 +98,7 @@ where
             previous_fp: 0,
         })
     }
-    pub(crate) fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<()> {
+    pub(crate) fn write_index(&mut self, num_docs: i32, start_pointer: usize) -> Result<()> {
         debug_assert!(start_pointer >= self.previous_fp);
         debug_assert!(self.docs_out.is_some());
         debug_assert!(self.file_pointers_out.is_some());
@@ -106,7 +106,7 @@ where
         self.file_pointers_out
             .as_mut()
             .unwrap()
-            .write_vlong(start_pointer - self.previous_fp)?;
+            .write_vlong((start_pointer - self.previous_fp) as i64)?;
         self.previous_fp = start_pointer;
         self.total_docs += num_docs;
         self.total_chunks += 1;
