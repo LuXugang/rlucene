@@ -127,7 +127,15 @@ where
     where
         I: 'a;
 
+    type TermsEnumRef = DummyTermsEnum;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))

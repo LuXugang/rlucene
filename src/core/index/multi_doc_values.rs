@@ -582,8 +582,14 @@ where
     where
         S: 'a;
 
+    type TermsEnumRef = SortedDocValuesTermsEnum<Self>;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
+        self.default_take_terms_enum()
     }
 }
 

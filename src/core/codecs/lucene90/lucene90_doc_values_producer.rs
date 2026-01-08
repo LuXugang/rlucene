@@ -2139,7 +2139,15 @@ where
     where
         R: 'a;
 
+    type TermsEnumRef = DummyTermsEnum;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2205,7 +2213,15 @@ where
     where
         I: 'a;
 
+    type TermsEnumRef = DummyTermsEnum;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2269,7 +2285,15 @@ where
     where
         I: 'a;
 
+    type TermsEnumRef = DummyTermsEnum;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        Err(LuceneError::unsupported_operation(
+            "Bug! should not be here",
+        ))
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2373,7 +2397,17 @@ where
     where
         I: 'a;
 
+    type TermsEnumRef = BaseTermsEnum<TermsDict<I>>;
+
     fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+        TermsDict::new(
+            self.entry.terms_dict_entry.clone(),
+            self.data.as_ref(),
+            self.merging,
+        )
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnumRef> {
         TermsDict::new(
             self.entry.terms_dict_entry.clone(),
             self.data.as_ref(),
