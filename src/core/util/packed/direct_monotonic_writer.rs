@@ -35,7 +35,7 @@ where
     meta: &'a mut I1,
     data: &'a mut I2,
     num_values: i64,
-    base_data_pointer: i64,
+    base_data_pointer: usize,
     buffer: Vec<i64>,
     buffer_size: i32,
     count: i64,
@@ -85,7 +85,7 @@ where
         let block_size = 1i64 << block_shift;
         let buffer_len = std::cmp::min(num_values, block_size) as i32;
         let buffer = vec![0i64; buffer_len as usize];
-        let base_data_pointer = data_out.get_file_pointer() as i64;
+        let base_data_pointer = data_out.get_file_pointer();
 
         Ok(DirectMonotonicWriter {
             meta: meta_out,
@@ -127,7 +127,7 @@ where
         self.meta.write_long(min)?;
         self.meta.write_int(avg_inc.to_bits() as i32)?;
         self.meta
-            .write_long(self.data.get_file_pointer() as i64 - self.base_data_pointer)?;
+            .write_long((self.data.get_file_pointer() - self.base_data_pointer) as i64)?;
         if max_delta == 0 {
             self.meta.write_byte(0)?;
         } else {

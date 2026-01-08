@@ -116,7 +116,7 @@ where
     pub(crate) fn finish<D>(
         &mut self,
         num_docs: i32,
-        max_pointer: i64,
+        max_pointer: usize,
         meta_out: &mut O,
         dir: &D,
     ) -> Result<()>
@@ -225,12 +225,12 @@ where
                     fp += file_pointers_in.read_vlong()?;
                     file_pointers.add(fp)?;
                 }
-                if max_pointer < fp {
+                if max_pointer < fp as usize {
                     return Err(LuceneError::corrupt_index(
                         "File pointers don't add up".to_string(),
                     ));
                 }
-                file_pointers.add(max_pointer)?;
+                file_pointers.add(max_pointer as i64)?;
                 file_pointers.finish()?;
                 Ok(())
             })();
@@ -245,7 +245,7 @@ where
         }
         dir.delete_file(&file_pointers_out_file_name)?;
         meta_out.write_long(data_out.get_file_pointer() as i64)?;
-        meta_out.write_long(max_pointer)?;
+        meta_out.write_long(max_pointer as i64)?;
         CodecUtil::write_footer(&mut data_out)?;
         Ok(())
     }

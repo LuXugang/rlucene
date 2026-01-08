@@ -843,7 +843,7 @@ where
 
         self.index_writer.finish(
             num_docs,
-            self.vectors_stream.get_file_pointer() as i64,
+            self.vectors_stream.get_file_pointer(),
             &mut self.meta_stream,
             dir,
         )?;

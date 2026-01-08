@@ -551,7 +551,7 @@ where
 
         self.index_writer.finish(
             num_docs,
-            self.fields_stream.get_file_pointer() as i64,
+            self.fields_stream.get_file_pointer(),
             &mut self.meta_stream,
             dir,
         )?;

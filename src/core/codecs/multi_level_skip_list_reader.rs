@@ -44,7 +44,7 @@ where
     skip_stream: Vec<Option<I>>,
 
     /// The start pointer of each skip level.
-    skip_pointer: Vec<i64>,
+    skip_pointer: Vec<usize>,
 
     /// skipInterval of each level.
     skip_interval: Vec<i32>,
@@ -60,10 +60,10 @@ where
     last_doc: i32,
 
     /// Child pointer of current skip entry per level.
-    child_pointer: Vec<i64>,
+    child_pointer: Vec<usize>,
 
     /// childPointer of last read skip entry with docId <= target.
-    last_child_pointer: i64,
+    last_child_pointer: usize,
 
     skip_multiplier: i32,
 }
@@ -135,7 +135,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
                     let fp = self.skip_stream[lower]
                         .as_ref()
                         .unwrap()
-                        .get_file_pointer()? as i64;
+                        .get_file_pointer()?;
                     if self.last_child_pointer > fp {
                         self.seek_child(lower)?;
                     }
@@ -170,7 +170,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         self.skip_doc[level] = self.skip_doc[level].wrapping_add(delta);
 
         if level != 0 {
-            let ptr = self.read_child_pointer(level)?;
+            let ptr = self.read_child_pointer(level)? as usize;
             self.child_pointer[level] = ptr + self.skip_pointer[level - 1];
         }
 
@@ -178,12 +178,11 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
     }
 
     /// Initializes the reader, for reuse on a new term.
-    pub fn init(&mut self, skip_pointer: i64, df: i32) -> Result<()> {
+    pub fn init(&mut self, skip_pointer: usize, df: i32) -> Result<()> {
         self.skip_pointer[0] = skip_pointer;
         self.doc_count = df;
         debug_assert!(
-            skip_pointer >= 0
-                && skip_pointer <= self.skip_stream[0].as_ref().unwrap().length() as i64,
+            skip_pointer <= self.skip_stream[0].as_ref().unwrap().length(),
             "invalid skip pointer: {}, length={}",
             skip_pointer,
             self.skip_stream[0].as_ref().unwrap().length()
@@ -213,20 +212,20 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         }
         // take ownership to void borrow issue, return to self.skip_stream later
         let mut stream0 = self.skip_stream[0].take().unwrap();
-        stream0.seek(self.skip_pointer[0] as usize)?;
+        stream0.seek(self.skip_pointer[0])?;
         for i in (1..self.number_of_skip_levels as usize).rev() {
             // the length of the current level
-            let length = self.read_level_length(&mut stream0)?;
+            let length = self.read_level_length(&mut stream0)? as usize;
             // the start pointer of the current level
-            self.skip_pointer[i] = stream0.get_file_pointer()? as i64;
+            self.skip_pointer[i] = stream0.get_file_pointer()?;
             // clone this stream, it is already at the start of the current
             // level
             self.skip_stream[i] = Some(stream0.try_clone()?);
             // move base stream beyond the current level
-            stream0.seek((stream0.get_file_pointer()? as i64 + length) as usize)?;
+            stream0.seek(stream0.get_file_pointer()? + length)?;
         }
         // use base stream for the lowest level
-        self.skip_pointer[0] = stream0.get_file_pointer()? as i64;
+        self.skip_pointer[0] = stream0.get_file_pointer()?;
         // return to self.skip_stream
         self.skip_stream[0] = Some(stream0);
         Ok(())
@@ -271,12 +270,12 @@ where
     }
     fn seek_child(&mut self, level: usize) -> Result<()> {
         let stream = self.skip_stream[level].as_mut().unwrap();
-        stream.seek(self.last_child_pointer as usize)?;
+        stream.seek(self.last_child_pointer)?;
         self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
         self.skip_doc[level] = self.last_doc;
         if level > 0 {
             self.child_pointer[level] =
-                self.read_child_pointer(level)? + self.skip_pointer[level - 1];
+                self.read_child_pointer(level)? as usize + self.skip_pointer[level - 1];
         }
         Ok(())
     }
