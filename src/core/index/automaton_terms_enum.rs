@@ -369,7 +369,7 @@ impl AutomatonTermsEnum {
     }
 }
 impl FilteredTermsEnumBase for AutomatonTermsEnum {
-    fn accept(&mut self, term: &BytesRef<Vec<u8>>) -> Result<AcceptStatus> {
+    fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
         let suffix_ok = match &self.common_suffix_ref {
             None => true,
             Some(suffix) => StringHelper::ends_with(term, suffix),

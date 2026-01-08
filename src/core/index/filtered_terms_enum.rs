@@ -121,7 +121,10 @@ where
                 };
             }
             // check if term is accepted
-            match self.sub.accept(self.actual_term.as_ref().unwrap())? {
+            match self
+                .sub
+                .accept(self.actual_term.as_ref().unwrap(), self.ord()?)?
+            {
                 AcceptStatus::YesAndSeek => {
                     self.do_seek = true;
                     return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
@@ -244,7 +247,7 @@ pub enum AcceptStatus {
 pub trait FilteredTermsEnumBase {
     /// Return if term is accepted, not accepted or the iteration should ended
     /// (and possibly seek).
-    fn accept(&mut self, term: &BytesRef<Vec<u8>>) -> Result<AcceptStatus>;
+    fn accept(&mut self, term: &BytesRef<Vec<u8>>, ord: i64) -> Result<AcceptStatus>;
     fn next_seek_term(
         &mut self,
         _current: Option<&BytesRef<Vec<u8>>>,

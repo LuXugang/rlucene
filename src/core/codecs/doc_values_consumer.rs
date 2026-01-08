@@ -29,17 +29,22 @@ use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::filtered_terms_enum::{
+    AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
+};
 use crate::core::index::merge_state::{DocMapEnum, MergeState};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexInput;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::long_bit_set::LongBitSet;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -119,6 +124,27 @@ pub trait DocValuesConsumer {
         _merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         todo!()
+    }
+}
+pub struct BitsFilteredTermsEnum {
+    live_terms: LongBitSet,
+}
+impl BitsFilteredTermsEnum {
+    fn new<TE>(in_: TE, live_terms: LongBitSet) -> FilteredTermsEnum<TE, Self>
+    where
+        TE: TermsEnum,
+    {
+        let sub = Self { live_terms };
+        FilteredTermsEnum::new(in_, sub)
+    }
+}
+impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
+    fn accept(&mut self, _term: &BytesRef<Vec<u8>>, ord: i64) -> Result<AcceptStatus> {
+        if self.live_terms.get(ord as usize) {
+            Ok(AcceptStatus::Yes)
+        } else {
+            Ok(AcceptStatus::No)
+        }
     }
 }
 
