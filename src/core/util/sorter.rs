@@ -75,7 +75,7 @@ pub trait Sorter {
     fn merge_in_place(&mut self, mut from: usize, mid: usize, mut to: usize) -> Result<()> {
         if from == mid || mid == to || self.compare(mid - 1, mid)? <= 0 {
             return Ok(());
-        } else if to - from == 2 {
+        } else if to == 2 + from {
             self.swap(mid - 1, mid)?;
             return Ok(());
         }
@@ -108,74 +108,78 @@ pub trait Sorter {
         Ok(())
     }
 
-    fn lower(&mut self, mut from: usize, to: usize, val: usize) -> Result<usize> {
-        let mut len = to - from;
+    fn lower(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
+        let mut from_i32 = from as i32;
+        let mut len: i32 = (to - from) as i32;
         while len > 0 {
             let half = len >> 1;
-            let mid = from + half;
-            if self.compare(mid, val)? < 0 {
-                from = mid + 1;
+            let mid = from_i32 + half;
+            if self.compare(mid as usize, val)? < 0 {
+                from_i32 = mid + 1;
                 len = len - half - 1;
             } else {
                 len = half;
             }
         }
-        Ok(from)
+        Ok(from_i32 as usize)
     }
 
-    fn upper(&mut self, mut from: usize, to: usize, val: usize) -> Result<usize> {
-        let mut len = to - from;
+    fn upper(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
+        let mut from_i32 = from as i32;
+        let mut len: i32 = (to - from) as i32;
         while len > 0 {
             let half = len >> 1;
-            let mid = from + half;
-            if self.compare(val, mid)? < 0 {
+            let mid = from_i32 + half;
+            if self.compare(val, mid as usize)? < 0 {
                 len = half;
             } else {
-                from = mid + 1;
+                from_i32 = mid + 1;
                 len = len - half - 1;
             }
         }
-        Ok(from)
+        Ok(from_i32 as usize)
     }
     // faster than lower when val is at the end of [from:to[
     fn lower2(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
-        let mut f = to - 1;
-        let mut t = to;
+        let mut f: i32 = to as i32 - 1;
+        let mut t: i32 = to as i32;
+        let from_i32 = from as i32;
 
-        while f > from {
-            if self.compare(f, val)? < 0 {
-                return self.lower(f, t, val);
+        while f > from_i32 {
+            if self.compare(f as usize, val)? < 0 {
+                return self.lower(f as usize, t as usize, val);
             }
             let delta = t - f;
             t = f;
             f -= delta << 1
         }
 
-        self.lower(from, t, val)
+        self.lower(from, t as usize, val)
     }
 
     // faster than upper when val is at the beginning of [from:to[
     fn upper2(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
-        let mut f = from;
+        let mut f = from as i32;
         let mut t = f + 1;
 
-        while t < to {
-            if self.compare(t, val)? > 0 {
-                return self.upper(f, t, val);
+        while t < to as i32 {
+            if self.compare(t as usize, val)? > 0 {
+                return self.upper(f as usize, t as usize, val);
             }
             let delta = t - f;
             f = t;
             t += delta << 1;
         }
 
-        self.upper(f, to, val)
+        self.upper(f as usize, to, val)
     }
 
-    fn reverse(&mut self, mut from: usize, to: usize) -> Result<()> {
-        let mut to = to - 1;
-        while from < to {
-            self.swap(from, to)?;
-            from += 1;
+    fn reverse(&mut self, from: usize, to: usize) -> Result<()> {
+        let mut to = to as i32 - 1;
+        let mut from_i32 = from as i32;
+        while from_i32 < to {
+            self.swap(from_i32 as usize, to as usize)?;
+            from_i32 += 1;
             to -= 1;
         }
         Ok(())
@@ -190,7 +194,7 @@ pub trait Sorter {
     }
 
     fn do_rotate(&mut self, mut lo: usize, mut mid: usize, hi: usize) -> Result<()> {
-        if mid - lo == hi - mid {
+        if mid + mid == hi + lo {
             while mid < hi {
                 self.swap(lo, mid)?;
                 lo += 1;
