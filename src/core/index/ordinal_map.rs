@@ -96,6 +96,7 @@ impl OrdinalMap {
     /// Returns an error if an I/O error occurs while building the map.
     pub fn build<TE>(
         owner: Option<CacheKey>,
+        // wrap with Option for easy taken
         subs: Vec<Option<TE>>,
         weights: &[i64],
         acceptable_overhead_ratio: f32,

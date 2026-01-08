@@ -24,27 +24,38 @@ use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocVa
 use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
 };
+use crate::core::codecs::lucene90_doc_values_producer::Lucene90SortedDocValuesEnum;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
+use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
+use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
     AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
 use crate::core::index::merge_state::{DocMapEnum, MergeState};
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
-use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::IndexInput;
 use crate::core::util::CoreHelper;
+use crate::core::util::bits::Bits;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
+use crate::core::util::long_values::LongValues;
+use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -113,14 +124,80 @@ pub trait DocValuesConsumer {
     }
     fn merge_sorted_field<I: IndexInput>(
         &mut self,
-        _merge_field_info: &Arc<FieldInfo>,
-        _merge_state: &mut MergeState<I>,
+        field_info: &Arc<FieldInfo>,
+        merge_state: &mut MergeState<I>,
     ) -> Result<()> {
-        todo!()
+        let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
+
+        for i in 0..merge_state.doc_values_producers.len() {
+            let mut values = None;
+
+            if let Some(doc_values_producer) = &merge_state.doc_values_producers[i]
+                && let Some(reader_field_info) =
+                    merge_state.field_infos[i].field_info_by_name(&field_info.name)
+                && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
+            {
+                values = Some(SortedDocValuesEnum2::A(
+                    doc_values_producer.get_sorted(&reader_field_info)?,
+                ));
+            }
+            if values.is_none() {
+                values = Some(SortedDocValuesEnum2::B(DocValues::empty_sorted()));
+            }
+            to_merge.push(values.unwrap());
+        }
+
+        let num_readers = to_merge.len();
+        // step 1: iterate thru each sub and mark terms still in use
+        let mut live_terms = Vec::with_capacity(num_readers);
+        let mut weights: Vec<i64> = vec![0; num_readers];
+
+        for (sub, mut dvs) in to_merge.into_iter().enumerate() {
+            let live_docs_opt = merge_state.live_docs[sub].as_ref();
+
+            match live_docs_opt {
+                None => {
+                    let value_count = dvs.get_value_count()?;
+                    weights[sub] = value_count as i64;
+                    let terms_enum = dvs.take_terms_enum()?;
+                    live_terms.push(Some(TermsEnumEnum2::A(terms_enum)));
+                },
+                Some(live_docs) => {
+                    let value_count = dvs.get_value_count()? as usize;
+                    let mut bitset = LongBitSet::new(value_count)?;
+
+                    loop {
+                        let doc_id = dvs.next_doc()?;
+                        if doc_id == NO_MORE_DOCS {
+                            break;
+                        }
+                        if live_docs.get(doc_id as usize) {
+                            let ord = dvs.ord_value()?;
+                            if ord >= 0 {
+                                bitset.set(ord as usize);
+                            }
+                        }
+                    }
+
+                    let cardinality = bitset.cardinality();
+                    weights[sub] = cardinality as i64;
+                    let terms_enum = BitsFilteredTermsEnum::new(dvs.take_terms_enum()?, bitset);
+                    live_terms.push(Some(TermsEnumEnum2::B(terms_enum)));
+                },
+            }
+        }
+        // step 2: create ordinal map (this conceptually does the "merging")
+        let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
+        let producer = EmptyDocValuesProducerMerge4 {
+            field_info: field_info.clone(),
+            merge_state,
+            map: Rc::new(ordinal_map),
+        };
+        self.add_sorted_field(field_info, &producer)
     }
     fn merge_sorted_set_field<I: IndexInput>(
         &mut self,
-        _merge_field_info: &Arc<FieldInfo>,
+        _field_info: &Arc<FieldInfo>,
         _merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         todo!()
@@ -283,7 +360,7 @@ where
     type NumericDocValues = NumericDocValuesMerge<I>;
 
     fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if Arc::ptr_eq(field_info, &self.merge_field_info) {
+        if !Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
@@ -457,7 +534,7 @@ where
     type BinaryDocValues = BinaryDocValuesMerge<I>;
 
     fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        if Arc::ptr_eq(field_info, &self.merge_field_info) {
+        if !Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
@@ -651,7 +728,7 @@ where
         &self,
         field_info: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
-        if Arc::ptr_eq(field_info, &self.merge_field_info) {
+        if !Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong FieldInfo"));
         }
         // We must make new iterators + DocIDMerger for each iterator:
@@ -745,5 +822,352 @@ where
         current: None,
         doc_id_merger,
         final_cost: cost,
+    })
+}
+// 4. SortedDocValues
+struct SortedDocValuesSub<I>
+where
+    I: IndexInput,
+{
+    values: Lucene90SortedDocValuesEnum<I>,
+    map: Rc<SegmentToGlobalOrds>,
+    doc_map: Rc<DocMapEnum>,
+}
+impl<I> SortedDocValuesSub<I>
+where
+    I: IndexInput,
+{
+    fn new(
+        doc_map: Rc<DocMapEnum>,
+        values: Lucene90SortedDocValuesEnum<I>,
+        map: Rc<SegmentToGlobalOrds>,
+    ) -> Self {
+        debug_assert!(values.doc_id() == -1);
+        SortedDocValuesSub {
+            values,
+            map,
+            doc_map,
+        }
+    }
+}
+
+impl<I> SubBase for SortedDocValuesSub<I>
+where
+    I: IndexInput,
+{
+    fn next_doc(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+        Ok(&self.doc_map)
+    }
+}
+
+pub(crate) struct EmptyDocValuesProducerMerge4<'a, I>
+where
+    I: IndexInput,
+{
+    field_info: Arc<FieldInfo>,
+    merge_state: &'a mut MergeState<I>,
+    map: Rc<OrdinalMap>,
+}
+
+impl<I> Clone for EmptyDocValuesProducerMerge4<'_, I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
+impl<I> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, I>
+where
+    I: IndexInput,
+{
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = DummyBinaryDocValues;
+    type SortedDocValues = SortedDocValuesMerge<I>;
+
+    fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+        if !Arc::ptr_eq(field, &self.field_info) {
+            return Err(LuceneError::illegal_argument("wrong FieldInfo"));
+        }
+
+        // We must make new iterators + DocIDMerger for each iterator:
+        let mut subs = Vec::with_capacity(self.merge_state.doc_values_producers.len());
+
+        for i in 0..self.merge_state.doc_values_producers.len() {
+            let mut values = None;
+
+            if let Some(doc_values_producer) = &self.merge_state.doc_values_producers[i]
+                && let Some(reader_field_info) =
+                    self.merge_state.field_infos[i].field_info_by_name(&self.field_info.name)
+                && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
+            {
+                values = Some(Lucene90SortedDocValuesEnum::A(
+                    doc_values_producer.get_sorted(&reader_field_info)?,
+                ));
+            }
+            if values.is_none() {
+                values = Some(Lucene90SortedDocValuesEnum::B(DocValues::empty_sorted()));
+            }
+
+            let doc_map = self.merge_state.doc_maps[i].clone();
+            let map = self.map.get_global_ords(i).clone();
+
+            subs.push(Sub::new(SortedDocValuesSub::new(
+                doc_map,
+                values.unwrap(),
+                map,
+            )));
+        }
+
+        merge_sorted_values(subs, self.merge_state.needs_index_sort, self.map.clone())
+    }
+
+    type SortedNumericDocValues = DummySortedNumericDocValues;
+    type SortedSetDocValues = DummySortedSetDocValues;
+    type DocValuesSkipper = DummyDocValuesSkipper;
+}
+
+pub struct SortedDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    doc_id: i32,
+    current: Option<usize>,
+    doc_id_merger: DocIDMergerEnum<SortedDocValuesSub<I>>,
+    final_cost: i64,
+    map: Rc<OrdinalMap>,
+}
+
+impl<I> DocValuesIterator for SortedDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<I> DocIdSetIterator for SortedDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.current = self.doc_id_merger.next()?;
+        match self.current {
+            Some(ref current) => {
+                let v = self.doc_id_merger.get_subs()[*current].mapped_doc_id;
+                self.doc_id = v;
+                Ok(self.doc_id)
+            },
+            None => {
+                self.doc_id = NO_MORE_DOCS;
+                Ok(NO_MORE_DOCS)
+            },
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.final_cost)
+    }
+}
+
+impl<I> SortedDocValues for SortedDocValuesMerge<I>
+where
+    I: IndexInput,
+{
+    fn ord_value(&mut self) -> Result<i32> {
+        let current = *self.current.as_ref().unwrap();
+        let current_sub = &mut self.doc_id_merger.get_subs_mut()[current];
+        let sub_ord = current_sub.sub.values.ord_value()?;
+        debug_assert!(sub_ord != -1);
+        Ok(current_sub.sub.map.get(sub_ord as usize)? as i32)
+    }
+
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        let segment_number = self.map.get_first_segment_number(ord as usize)?;
+        let segment_ord = self.map.get_first_segment_ord(ord as usize)? as i32;
+        self.doc_id_merger.get_subs_mut()[segment_number as usize]
+            .sub
+            .values
+            .lookup_ord(segment_ord)
+    }
+
+    fn get_value_count(&self) -> Result<i32> {
+        Ok(self.map.get_value_count() as i32)
+    }
+
+    type TermsEnumRef<'a>
+        = MergedTermsEnum<<Lucene90SortedDocValuesEnum<I> as SortedDocValues>::TermsEnumRef<'a>>
+    where
+        Self: 'a;
+    type TermsEnum1 =
+        MergedTermsEnum<<Lucene90SortedDocValuesEnum<I> as SortedDocValues>::TermsEnum1>;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+        let subs = self.doc_id_merger.get_subs_mut();
+        let mut terms_enum_subs = Vec::with_capacity(subs.len());
+        for sub in subs {
+            terms_enum_subs.push(sub.sub.values.terms_enum()?);
+        }
+        Ok(MergedTermsEnum::new(self.map.clone(), terms_enum_subs))
+    }
+
+    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+        let subs = self.doc_id_merger.take_subs();
+        let mut terms_enum_subs = Vec::with_capacity(subs.len());
+        for sub in subs {
+            terms_enum_subs.push(sub.sub.values.take_terms_enum()?);
+        }
+        Ok(MergedTermsEnum::new(self.map.clone(), terms_enum_subs))
+    }
+}
+/// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls
+/// [`SortedDocValues::lookup_ord`] or [`SortedSetDocValues::lookup_ord`] on every call to
+/// [`TermsEnum::next`].
+pub struct MergedTermsEnum<TE>
+where
+    TE: TermsEnum,
+{
+    subs: Vec<TE>,
+    ordinal_map: Rc<OrdinalMap>,
+    value_count: i64,
+    ord: i64,
+    term: BytesRef<Vec<u8>>,
+}
+impl<TE> MergedTermsEnum<TE>
+where
+    TE: TermsEnum,
+{
+    fn new(ordinal_map: Rc<OrdinalMap>, subs: Vec<TE>) -> Self {
+        Self {
+            subs,
+            ordinal_map,
+            value_count: 0,
+            ord: -1,
+            term: BytesRef::new(),
+        }
+    }
+}
+
+impl<TE> BytesRefIterator for MergedTermsEnum<TE>
+where
+    TE: TermsEnum,
+{
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.ord += 1;
+        if self.ord >= self.value_count {
+            return Ok(None);
+        }
+        let ord = self.ord as usize;
+        let sub_num = self.ordinal_map.get_first_segment_number(ord)?;
+        let sub_ord = self.ordinal_map.get_first_segment_ord(ord)?;
+
+        let sub = &mut self.subs[sub_num as usize];
+        let mut end;
+        loop {
+            end = sub.next()?.is_none();
+            if sub.ord()? >= sub_ord {
+                debug_assert!(sub.ord()? == sub_ord);
+                return if end {
+                    Ok(None)
+                } else {
+                    self.term = sub.term()?.into_owned();
+                    Ok(Some(Cow::Borrowed(&self.term)))
+                };
+            }
+        }
+    }
+}
+
+impl<TE> TermsEnum for MergedTermsEnum<TE>
+where
+    TE: TermsEnum,
+{
+    type AttributeSource = DummyAttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+        Ok(Cow::Borrowed(&self.term))
+    }
+
+    fn ord(&self) -> Result<i64> {
+        Ok(self.ord)
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type PostingsEnum = DummyPostingsEnum;
+
+    fn postings_with_flags(
+        &mut self,
+        _reuse: Option<Self::PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type ImpactsEnum = DummyImpactsEnum;
+
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type TermState = DummyTermState;
+
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+fn merge_sorted_values<I>(
+    subs: Vec<Sub<SortedDocValuesSub<I>>>,
+    index_is_sorted: bool,
+    map: Rc<OrdinalMap>,
+) -> Result<SortedDocValuesMerge<I>>
+where
+    I: IndexInput,
+{
+    let mut cost = 0;
+    for sub in &subs {
+        cost += sub.sub.values.cost()?;
+    }
+    let final_cost = cost;
+
+    let doc_id_merger = of(subs, index_is_sorted)?;
+    Ok(SortedDocValuesMerge {
+        doc_id: -1,
+        current: None,
+        doc_id_merger,
+        final_cost,
+        map,
     })
 }

@@ -29,7 +29,7 @@ use crate::core::codecs::lucene90_doc_values_format::{
 };
 use crate::core::index::base_terms_enum::BaseTermsEnum;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
-use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
+use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
@@ -44,7 +44,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::{
     SortedNumericDocValues, SortedNumericDocValuesEnum4,
 };
@@ -3486,6 +3486,8 @@ pub type Lucene90SortedSetDocValuesEnum<I> = SortedSetDocValuesEnum2<
     SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
     BaseSortedSetDocValues<I>,
 >;
+// 5. SortedDocValues
+pub type Lucene90SortedDocValuesEnum<I> = SortedDocValuesEnum2<BaseSortedDocValues<I>, EmptySorted>;
 
 fn get_direct_reader_instance<R>(
     merging: bool,
