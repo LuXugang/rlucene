@@ -290,6 +290,7 @@ pub trait CodecReader: LeafReader {
         Ok(())
     }
 }
+pub type CRBits<CR> = <CR as LeafReader>::Bits;
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
 pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 

@@ -881,6 +881,7 @@ macro_rules! either_comparable_provider {
         }
     };
 }
+either_comparable_provider!(pub ComparableProviderEnum2 { A1: A, B1: B});
 either_comparable_provider!(pub ComparableProviderEnum3 { SortedNumeric: A, SortedSet: B, Sorter: C});
 either_comparable_provider!(pub ComparableProviderEnum5 { Int: A, Long: B, Float: C, Double: D, String: E });
 either_comparable_provider!(pub ComparableProviderEnum4 { Int: A, Long: B, Float: C, Double: D});
