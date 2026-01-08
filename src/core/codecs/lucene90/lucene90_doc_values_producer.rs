@@ -443,20 +443,20 @@ where
 
         entry.max_term_length = meta.read_int()?;
         entry.max_block_length = meta.read_int()?;
-        entry.terms_data_offset = meta.read_long()?;
-        entry.terms_data_length = meta.read_long()?;
-        entry.terms_addresses_offset = meta.read_long()?;
-        entry.terms_addresses_length = meta.read_long()?;
+        entry.terms_data_offset = meta.read_long()? as usize;
+        entry.terms_data_length = meta.read_long()? as usize;
+        entry.terms_addresses_offset = meta.read_long()? as usize;
+        entry.terms_addresses_length = meta.read_long()? as usize;
         entry.terms_dict_index_shift = meta.read_int()?;
 
         let index_size = (entry.terms_dict_size + (1 << entry.terms_dict_index_shift) - 1)
             >> entry.terms_dict_index_shift;
 
         entry.terms_index_addresses_meta = Some(load_meta(meta, 1 + index_size, block_shift)?);
-        entry.terms_index_offset = meta.read_long()?;
-        entry.terms_index_length = meta.read_long()?;
-        entry.terms_index_addresses_offset = meta.read_long()?;
-        entry.terms_index_addresses_length = meta.read_long()?;
+        entry.terms_index_offset = meta.read_long()? as usize;
+        entry.terms_index_length = meta.read_long()? as usize;
+        entry.terms_index_addresses_offset = meta.read_long()? as usize;
+        entry.terms_index_addresses_length = meta.read_long()? as usize;
 
         Ok(())
     }
@@ -1168,16 +1168,16 @@ pub struct TermsDictEntry {
     pub terms_dict_size: i64,
     pub terms_addresses_meta: Option<Meta>,
     pub max_term_length: i32,
-    pub terms_data_offset: i64,
-    pub terms_data_length: i64,
-    pub terms_addresses_offset: i64,
-    pub terms_addresses_length: i64,
+    pub terms_data_offset: usize,
+    pub terms_data_length: usize,
+    pub terms_addresses_offset: usize,
+    pub terms_addresses_length: usize,
     pub terms_dict_index_shift: i32,
     pub terms_index_addresses_meta: Option<Meta>,
-    pub terms_index_offset: i64,
-    pub terms_index_length: i64,
-    pub terms_index_addresses_offset: i64,
-    pub terms_index_addresses_length: i64,
+    pub terms_index_offset: usize,
+    pub terms_index_length: usize,
+    pub terms_index_addresses_offset: usize,
+    pub terms_index_addresses_length: usize,
     pub max_block_length: i32,
 }
 
@@ -2779,8 +2779,8 @@ where
     block_input: ByteArrayDataInput<Vec<u8>>,
     block_buffer_offset: usize,
     block_buffer_length: usize,
-    current_compressed_block_start: i64,
-    current_compressed_block_end: i64,
+    current_compressed_block_start: Option<usize>,
+    current_compressed_block_end: Option<usize>,
 }
 
 impl<I> TermsDict<I>
@@ -2790,10 +2790,8 @@ where
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
     pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
-        let addresses_slice = data.random_access_slice(
-            entry.terms_addresses_offset as usize,
-            entry.terms_addresses_length as usize,
-        )?;
+        let addresses_slice =
+            data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
 
         let block_addresses = match entry.terms_addresses_meta {
             Some(ref meta) => {
@@ -2806,17 +2804,13 @@ where
             },
         };
 
-        let bytes = data.slice(
-            "terms",
-            entry.terms_data_offset as usize,
-            entry.terms_data_length as usize,
-        )?;
+        let bytes = data.slice("terms", entry.terms_data_offset, entry.terms_data_length)?;
 
         let block_mask = (1u64 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
 
         let index_addresses_slice = data.random_access_slice(
-            entry.terms_index_addresses_offset as usize,
-            entry.terms_index_addresses_length as usize,
+            entry.terms_index_addresses_offset,
+            entry.terms_index_addresses_length,
         )?;
 
         let index_addresses = match entry.terms_index_addresses_meta {
@@ -2832,10 +2826,8 @@ where
             },
         };
 
-        let index_bytes = data.random_access_slice(
-            entry.terms_index_offset as usize,
-            entry.terms_index_length as usize,
-        )?;
+        let index_bytes =
+            data.random_access_slice(entry.terms_index_offset, entry.terms_index_length)?;
 
         let term = BytesRef::with_capacity(entry.max_term_length as usize);
         // add the max term length for the dictionary
@@ -2858,8 +2850,8 @@ where
             block_input,
             block_buffer_offset: 0,
             block_buffer_length: buffer_size as usize,
-            current_compressed_block_start: -1,
-            current_compressed_block_end: -1,
+            current_compressed_block_start: None,
+            current_compressed_block_end: None,
         };
         Ok(sub.into())
     }
@@ -3019,10 +3011,10 @@ where
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
         })?;
-        let offset = self.bytes.get_file_pointer()? as i64;
-        if offset < self.entry.terms_data_length - 1 {
+        let offset = self.bytes.get_file_pointer()?;
+        if offset + 1 < self.entry.terms_data_length {
             // Avoid decompressing again if reading the same block
-            if self.current_compressed_block_start != offset {
+            if self.current_compressed_block_start != Some(offset) {
                 let block_buffer_offset = self.term.length;
                 let block_buffer_len = self.bytes.read_vint()?;
 
@@ -3046,12 +3038,14 @@ where
                     Ok::<(), LuceneError>(())
                 })?;
 
-                self.current_compressed_block_start = offset;
-                self.current_compressed_block_end = self.bytes.get_file_pointer()? as i64;
+                self.current_compressed_block_start = Some(offset);
+                self.current_compressed_block_end = Some(self.bytes.get_file_pointer()?);
             } else {
                 // Seek to block end if already decompressed
                 self.bytes
-                    .seek(self.current_compressed_block_end as usize)?;
+                    .seek(self.current_compressed_block_end.ok_or_else(|| {
+                        LuceneError::illegal_argument("current_compressed_block_end not init yet")
+                    })?)?;
             }
 
             // Reset buffer reader
