@@ -37,7 +37,7 @@ pub trait DocValuesSkipper {
 
     /// Return the number of levels. This number may change when moving to a
     /// different interval.
-    fn num_levels(&self) -> i32;
+    fn num_levels(&self) -> usize;
 
     /// Return the minimum doc ID of the interval on the given level, inclusive.
     ///
@@ -45,7 +45,7 @@ pub trait DocValuesSkipper {
     /// not been called yet and `NO_MORE_DOCS` if the iterator is exhausted.
     /// This method is non-increasing when `level` increases.
     /// In other words: `min_doc_id(level+1) <= min_doc_id(level)`.
-    fn min_doc_id_with_level(&self, level: i32) -> i32;
+    fn min_doc_id_with_level(&self, level: usize) -> i32;
 
     /// Return the maximum doc ID of the interval on the given level, inclusive.
     ///
@@ -53,25 +53,25 @@ pub trait DocValuesSkipper {
     /// not been called yet and [`NO_MORE_DOCS`] if the iterator is
     /// exhausted. This method is non-decreasing when `level` decreases.
     /// In other words: `max_doc_id(level+1) >= max_doc_id(level)`.
-    fn max_doc_id_with_level(&self, level: i32) -> i32;
+    fn max_doc_id_with_level(&self, level: usize) -> i32;
 
     /// Return the minimum value of the interval at the given level, inclusive.
     ///
     /// NOTE: It is only guaranteed that values in this interval are greater
     /// than or equal to the returned value. There is no guarantee that one
     /// document actually has this value.
-    fn min_value_with_level(&self, level: i32) -> i64;
+    fn min_value_with_level(&self, level: usize) -> i64;
 
     /// Return the maximum value of the interval at the given level, inclusive.
     ///
     /// NOTE: It is only guaranteed that values in this interval are less than
     /// or equal to the returned value. There is no guarantee that one
     /// document actually has this value.
-    fn max_value_with_level(&self, level: i32) -> i64;
+    fn max_value_with_level(&self, level: usize) -> i64;
 
     /// Return the number of documents that have a value in the interval
     /// associated with the given level.
-    fn doc_count_with_level(&self, level: i32) -> i32;
+    fn doc_count_with_level(&self, level: usize) -> i32;
 
     /// Return the global minimum value.
     ///
@@ -136,32 +136,32 @@ macro_rules! either_docvalues_skipper {
             }
 
 
-            fn num_levels(&self) -> i32 {
+            fn num_levels(&self) -> usize{
                 match self { $( Self::$Variant(inner) => inner.num_levels(), )+ }
             }
 
 
-            fn min_doc_id_with_level(&self, level: i32) -> i32 {
+            fn min_doc_id_with_level(&self, level: usize) -> i32 {
                 match self { $( Self::$Variant(inner) => inner.min_doc_id_with_level(level), )+ }
             }
 
 
-            fn max_doc_id_with_level(&self, level: i32) -> i32 {
+            fn max_doc_id_with_level(&self, level: usize) -> i32 {
                 match self { $( Self::$Variant(inner) => inner.max_doc_id_with_level(level), )+ }
             }
 
 
-            fn min_value_with_level(&self, level: i32) -> i64 {
+            fn min_value_with_level(&self, level: usize) -> i64 {
                 match self { $( Self::$Variant(inner) => inner.min_value_with_level(level), )+ }
             }
 
 
-            fn max_value_with_level(&self, level: i32) -> i64 {
+            fn max_value_with_level(&self, level: usize) -> i64 {
                 match self { $( Self::$Variant(inner) => inner.max_value_with_level(level), )+ }
             }
 
 
-            fn doc_count_with_level(&self, level: i32) -> i32 {
+            fn doc_count_with_level(&self, level: usize) -> i32 {
                 match self { $( Self::$Variant(inner) => inner.doc_count_with_level(level), )+ }
             }
 

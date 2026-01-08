@@ -23,27 +23,27 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn num_levels(&self) -> i32 {
+    fn num_levels(&self) -> usize {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn min_doc_id_with_level(&self, _level: i32) -> i32 {
+    fn min_doc_id_with_level(&self, _level: usize) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn max_doc_id_with_level(&self, _level: i32) -> i32 {
+    fn max_doc_id_with_level(&self, _level: usize) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn min_value_with_level(&self, _level: i32) -> i64 {
+    fn min_value_with_level(&self, _level: usize) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn max_value_with_level(&self, _level: i32) -> i64 {
+    fn max_value_with_level(&self, _level: usize) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn doc_count_with_level(&self, _level: i32) -> i32 {
+    fn doc_count_with_level(&self, _level: usize) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -321,7 +321,7 @@ where
     }
     fn read_numeric_with_entry(meta: &mut impl IndexInput, entry: &mut NumericEntry) -> Result<()> {
         entry.docs_with_field_offset = meta.read_long()?;
-        entry.docs_with_field_length = meta.read_long()?;
+        entry.docs_with_field_length = meta.read_long()? as usize;
         entry.jump_table_entry_count = meta.read_short()?;
         entry.dense_rank_power = meta.read_byte()? as i8;
         entry.num_values = meta.read_long()? as usize;
@@ -354,10 +354,10 @@ where
         Ok(())
     }
     fn read_binary(meta: &mut impl IndexInput) -> Result<BinaryEntry> {
-        let data_offset = meta.read_long()?;
-        let data_length = meta.read_long()?;
+        let data_offset = meta.read_long()? as usize;
+        let data_length = meta.read_long()? as usize;
         let docs_with_field_offset = meta.read_long()?;
-        let docs_with_field_length = meta.read_long()?;
+        let docs_with_field_length = meta.read_long()? as usize;
         let jump_table_entry_count = meta.read_short()?;
 
         let dense_rank_power = meta.read_byte()?;
@@ -370,12 +370,12 @@ where
         let mut addresses_length = 0;
 
         if min_length < max_length {
-            addresses_offset = meta.read_long()?;
+            addresses_offset = meta.read_long()? as usize;
             // Old count of uncompressed addresses
             let num_addresses = num_docs_with_field as i64 + 1;
-            let block_shift = meta.read_vint()?; // 注意这里是 VInt
+            let block_shift = meta.read_vint()?;
             addresses_meta = Some(load_meta(meta, num_addresses, block_shift)?);
-            addresses_length = meta.read_long()?;
+            addresses_length = meta.read_long()? as usize;
         }
 
         Ok(BinaryEntry {
@@ -479,14 +479,14 @@ where
         entry.addresses_length = 0;
 
         if entry.num_docs_with_field as usize != entry.base.num_values {
-            entry.addresses_offset = meta.read_long()?;
+            entry.addresses_offset = meta.read_long()? as usize;
             let block_shift = meta.read_vint()?;
             entry.addresses_meta = Some(load_meta(
                 meta,
                 entry.num_docs_with_field as i64 + 1,
                 block_shift,
             )?);
-            entry.addresses_length = meta.read_long()?;
+            entry.addresses_length = meta.read_long()? as usize;
         }
         Ok(())
     }
@@ -557,7 +557,7 @@ where
             let disi = IndexedDISI::new(
                 &self.data,
                 entry.docs_with_field_offset as usize,
-                entry.docs_with_field_length as usize,
+                entry.docs_with_field_length,
                 entry.jump_table_entry_count as i32,
                 entry.dense_rank_power,
                 entry.num_values as i64,
@@ -714,7 +714,7 @@ where
                 let disi = IndexedDISI::new(
                     &self.data,
                     ords_entry.docs_with_field_offset as usize,
-                    ords_entry.docs_with_field_length as usize,
+                    ords_entry.docs_with_field_length,
                     ords_entry.jump_table_entry_count as i32,
                     ords_entry.dense_rank_power,
                     ords_entry.num_values as i64,
@@ -742,10 +742,9 @@ where
             ));
         }
 
-        let mut addresses_input = self.data.random_access_slice(
-            entry.addresses_offset as usize,
-            entry.addresses_length as usize,
-        )?;
+        let mut addresses_input = self
+            .data
+            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
         // Prefetch the first page of data. Following pages are expected to get
         // prefetched through read-ahead.
         if addresses_input.length() > 0 {
@@ -775,7 +774,7 @@ where
             let disi = IndexedDISI::new(
                 &self.data,
                 entry.base.docs_with_field_offset as usize,
-                entry.base.docs_with_field_length as usize,
+                entry.base.docs_with_field_length,
                 entry.base.jump_table_entry_count as i32,
                 entry.base.dense_rank_power,
                 entry.num_docs_with_field as i64,
@@ -828,7 +827,7 @@ where
                 }
                 let mut bytes_slice = self
                     .data
-                    .random_access_slice(entry.data_offset as usize, entry.data_length as usize)?;
+                    .random_access_slice(entry.data_offset, entry.data_length)?;
                 // Prefetch the first page of data. Following pages are expected
                 // to get prefetched through read-ahead.
                 if bytes_slice.length() > 0 {
@@ -845,10 +844,9 @@ where
                         };
                         DenseBinaryDocValuesBaseEnum::Dense(base)
                     } else {
-                        let mut addresses_data = self.data.random_access_slice(
-                            entry.data_offset as usize,
-                            entry.data_length as usize,
-                        )?;
+                        let mut addresses_data = self
+                            .data
+                            .random_access_slice(entry.data_offset, entry.data_length)?;
                         // Prefetch the first page of data. Following pages are
                         // expected to get prefetched through
                         // read-ahead.
@@ -883,7 +881,7 @@ where
                     let disi = IndexedDISI::new(
                         &self.data,
                         entry.docs_with_field_offset as usize,
-                        entry.docs_with_field_length as usize,
+                        entry.docs_with_field_length,
                         entry.jump_table_entry_count as i32,
                         entry.dense_rank_power as i8,
                         entry.num_docs_with_field as i64,
@@ -903,10 +901,9 @@ where
                         })
                     } else {
                         // variable-length
-                        let mut addresses_data = self.data.random_access_slice(
-                            entry.addresses_offset as usize,
-                            entry.addresses_length as usize,
-                        )?;
+                        let mut addresses_data = self
+                            .data
+                            .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
                         if addresses_data.length() > 0 {
                             addresses_data.prefetch(0, 1)?;
                         }
@@ -997,8 +994,8 @@ where
                             }
 
                             let mut addresses_input = self.data.random_access_slice(
-                                ords_entry.addresses_offset as usize,
-                                ords_entry.addresses_length as usize,
+                                ords_entry.addresses_offset,
+                                ords_entry.addresses_length,
                             )?;
                             if addresses_input.length() > 0 {
                                 addresses_input.prefetch(0, 1)?;
@@ -1039,7 +1036,7 @@ where
                                 let disi = IndexedDISI::new(
                                     &self.data,
                                     ords_entry.base.docs_with_field_offset as usize,
-                                    ords_entry.base.docs_with_field_length as usize,
+                                    ords_entry.base.docs_with_field_length,
                                     ords_entry.base.jump_table_entry_count as i32,
                                     ords_entry.base.dense_rank_power,
                                     ords_entry.num_docs_with_field as i64,
@@ -1137,7 +1134,7 @@ pub struct NumericEntry {
     pub block_shift: i32,
     pub bits_per_value: u8,
     pub docs_with_field_offset: i64,
-    pub docs_with_field_length: i64,
+    pub docs_with_field_length: usize,
     pub jump_table_entry_count: i16,
     pub dense_rank_power: i8,
     pub num_values: usize,
@@ -1149,17 +1146,17 @@ pub struct NumericEntry {
 }
 
 pub struct BinaryEntry {
-    pub data_offset: i64,
-    pub data_length: i64,
+    pub data_offset: usize,
+    pub data_length: usize,
     pub docs_with_field_offset: i64,
-    pub docs_with_field_length: i64,
+    pub docs_with_field_length: usize,
     pub jump_table_entry_count: i16,
     pub dense_rank_power: u8,
     pub num_docs_with_field: i32,
     pub min_length: i32,
     pub max_length: i32,
-    pub addresses_offset: i64,
-    pub addresses_length: i64,
+    pub addresses_offset: usize,
+    pub addresses_length: usize,
     pub addresses_meta: Option<Meta>,
 }
 
@@ -1197,8 +1194,8 @@ pub struct SortedNumericEntry {
     pub base: Arc<NumericEntry>,
     pub num_docs_with_field: i32,
     pub addresses_meta: Option<Meta>,
-    pub addresses_offset: i64,
-    pub addresses_length: i64,
+    pub addresses_offset: usize,
+    pub addresses_length: usize,
 }
 pub struct DenseNumericDocValues<R>
 where
@@ -1604,7 +1601,7 @@ where
     min_value: [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
     max_value: [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
     doc_count: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
-    levels: i32,
+    levels: usize,
     input: I::Slice,
     entry: Arc<DocValuesSkipperEntry>,
 }
@@ -1644,11 +1641,10 @@ where
             );
 
             loop {
-                self.levels = self.input.read_byte()? as i32;
+                self.levels = self.input.read_byte()? as usize;
 
                 debug_assert!(
-                    self.levels <= Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL as i32
-                        && self.levels > 0,
+                    self.levels <= Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL && self.levels > 0,
                     "level out of range [{}]",
                     self.levels
                 );
@@ -1657,7 +1653,7 @@ where
 
                 // check if current interval is competitive or we can jump to
                 // the next position
-                for level in (0..self.levels as usize).rev() {
+                for level in (0..self.levels).rev() {
                     let max_doc = self.input.read_int()?;
                     self.max_doc_id[level] = max_doc;
                     if max_doc < target {
@@ -1676,8 +1672,8 @@ where
 
                 if valid {
                     // adjust levels
-                    while (self.levels as usize) < Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL
-                        && self.max_doc_id[self.levels as usize] >= target
+                    while self.levels < Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL
+                        && self.max_doc_id[self.levels] >= target
                     {
                         self.levels += 1;
                     }
@@ -1688,28 +1684,28 @@ where
         Ok(())
     }
 
-    fn num_levels(&self) -> i32 {
+    fn num_levels(&self) -> usize {
         self.levels
     }
 
-    fn min_doc_id_with_level(&self, level: i32) -> i32 {
-        self.min_doc_id[level as usize]
+    fn min_doc_id_with_level(&self, level: usize) -> i32 {
+        self.min_doc_id[level]
     }
 
-    fn max_doc_id_with_level(&self, level: i32) -> i32 {
-        self.max_doc_id[level as usize]
+    fn max_doc_id_with_level(&self, level: usize) -> i32 {
+        self.max_doc_id[level]
     }
 
-    fn min_value_with_level(&self, level: i32) -> i64 {
-        self.min_value[level as usize]
+    fn min_value_with_level(&self, level: usize) -> i64 {
+        self.min_value[level]
     }
 
-    fn max_value_with_level(&self, level: i32) -> i64 {
-        self.max_value[level as usize]
+    fn max_value_with_level(&self, level: usize) -> i64 {
+        self.max_value[level]
     }
 
-    fn doc_count_with_level(&self, level: i32) -> i32 {
-        self.doc_count[level as usize]
+    fn doc_count_with_level(&self, level: usize) -> i32 {
+        self.doc_count[level]
     }
 
     fn min_value(&self) -> i64 {

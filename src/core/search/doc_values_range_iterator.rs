@@ -213,7 +213,7 @@ where
 
 pub struct RangeNoGapsApproximation;
 impl ApproximationBase for RangeNoGapsApproximation {
-    fn match_<TPI, DVS>(&self, level: i32, base: &Approximation<TPI, DVS>) -> Result<Match>
+    fn match_<TPI, DVS>(&self, level: usize, base: &Approximation<TPI, DVS>) -> Result<Match>
     where
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper,
@@ -240,7 +240,7 @@ impl ApproximationBase for RangeNoGapsApproximation {
 }
 pub struct RangeWithGapsApproximation;
 impl ApproximationBase for RangeWithGapsApproximation {
-    fn match_<TPI, DVS>(&self, level: i32, base: &Approximation<TPI, DVS>) -> Result<Match>
+    fn match_<TPI, DVS>(&self, level: usize, base: &Approximation<TPI, DVS>) -> Result<Match>
     where
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper,
@@ -260,7 +260,7 @@ pub enum ApproximationBaseEnum {
     RangeWithGaps(RangeWithGapsApproximation),
 }
 impl ApproximationBase for ApproximationBaseEnum {
-    fn match_<TPI, DVS>(&self, level: i32, base: &Approximation<TPI, DVS>) -> Result<Match>
+    fn match_<TPI, DVS>(&self, level: usize, base: &Approximation<TPI, DVS>) -> Result<Match>
     where
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper,
@@ -272,7 +272,7 @@ impl ApproximationBase for ApproximationBaseEnum {
     }
 }
 pub trait ApproximationBase {
-    fn match_<TPI, DVS>(&self, level: i32, base: &Approximation<TPI, DVS>) -> Result<Match>
+    fn match_<TPI, DVS>(&self, level: usize, base: &Approximation<TPI, DVS>) -> Result<Match>
     where
         TPI: TwoPhaseIterator,
         DVS: DocValuesSkipper;
@@ -681,8 +681,8 @@ mod tests {
             }
         }
 
-        fn range_log(&self, level: i32) -> i32 {
-            9 - self.num_levels() + level
+        fn range_log(&self, level: usize) -> i32 {
+            (9 - self.num_levels() + level) as i32
         }
     }
 
@@ -692,11 +692,11 @@ mod tests {
             Ok(())
         }
 
-        fn num_levels(&self) -> i32 {
+        fn num_levels(&self) -> usize {
             if self.do_levels { 3 } else { 1 }
         }
 
-        fn min_doc_id_with_level(&self, level: i32) -> i32 {
+        fn min_doc_id_with_level(&self, level: usize) -> i32 {
             let range_log = self.range_log(level);
 
             if self.doc < 0 {
@@ -709,7 +709,7 @@ mod tests {
             }
         }
 
-        fn max_doc_id_with_level(&self, level: i32) -> i32 {
+        fn max_doc_id_with_level(&self, level: usize) -> i32 {
             let range_log = self.range_log(level);
             let min_doc_id = self.min_doc_id_with_level(level);
 
@@ -720,7 +720,7 @@ mod tests {
             }
         }
         #[allow(clippy::if_same_then_else)]
-        fn min_value_with_level(&self, _level: i32) -> i64 {
+        fn min_value_with_level(&self, _level: usize) -> i64 {
             let d = self.doc % 1024;
             if d < 128 {
                 self.query_min
@@ -733,7 +733,7 @@ mod tests {
             }
         }
 
-        fn max_value_with_level(&self, _level: i32) -> i64 {
+        fn max_value_with_level(&self, _level: usize) -> i64 {
             let d = self.doc % 1024;
             if d < 128 {
                 self.query_max
@@ -746,7 +746,7 @@ mod tests {
             }
         }
 
-        fn doc_count_with_level(&self, level: i32) -> i32 {
+        fn doc_count_with_level(&self, level: usize) -> i32 {
             let range_log = self.range_log(level);
 
             if self.doc < 1024 {
