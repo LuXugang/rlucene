@@ -97,7 +97,7 @@ where
 
         for (i, sub) in self.subs.iter().enumerate() {
             let terms_enum = sub.iterator()?;
-            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_convert()?));
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i));
         }
 
         if !terms_enums.is_empty() {
@@ -119,7 +119,7 @@ where
 
         for (i, sub) in self.subs.iter().enumerate() {
             let terms_enum = sub.intersect(compiled, start_term)?;
-            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i.try_convert()?));
+            terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i));
         }
         if !terms_enums.is_empty() {
             let v = MultiTermsEnum::new(self.sub_slices.clone())?;

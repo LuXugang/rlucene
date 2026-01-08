@@ -178,7 +178,7 @@ where
             payload_lengths_buf: vec![0; 1024],
             term_suffixes: ByteBuffersDataOutput::new_resettable_instance(),
             payload_bytes: ByteBuffersDataOutput::new_resettable_instance(),
-            writer: AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?,
+            writer: AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE as usize, BlockPackedWriter)?,
             max_docs_per_chunk,
             scratch_buffer: ByteBuffersDataOutput::new_resettable_instance(),
         })

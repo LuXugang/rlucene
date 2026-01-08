@@ -27,7 +27,7 @@ pub(crate) struct AbstractBlockPackedWriter<D: AbstractBlockPackedWriterBase> {
     values: Vec<i64>,
     blocks: Vec<u8>,
     off: i32,
-    ord: i64,
+    ord: usize,
     finished: bool,
     sub_writer: D,
 }
@@ -44,11 +44,11 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
     /// # Errors
     ///
     /// Returns an error if `block_size` is not valid.
-    pub fn new(block_size: i32, sub_writer: D) -> Result<Self> {
-        PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+    pub fn new(block_size: usize, sub_writer: D) -> Result<Self> {
+        PackedInts::check_block_size(block_size as i32, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
 
         Ok(Self {
-            values: vec![0; block_size as usize],
+            values: vec![0; block_size],
             blocks: Vec::new(),
             off: 0,
             ord: 0,
@@ -115,7 +115,7 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
         self.values.fill(0);
         debug_assert!(self.values.len() <= i32::MAX as usize);
         self.off = self.values.len() as i32;
-        self.ord += self.values.len() as i64;
+        self.ord += self.values.len();
         Ok(())
     }
     /// Flushes all buffered data to the output stream. After calling this
@@ -135,7 +135,7 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
         Ok(())
     }
     /// Returns the number of values that have been added.
-    pub fn ord(&self) -> i64 {
+    pub fn ord(&self) -> usize {
         self.ord
     }
     /// Encodes and writes the current values to the output stream.

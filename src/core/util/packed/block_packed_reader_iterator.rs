@@ -34,12 +34,12 @@ use crate::core::util::packed::{Decoder, Format, FormatBehavior, PackedImpl, Pac
 /// This is an internal implementation detail.
 pub struct BlockPackedReaderIterator {
     packed_ints_version: i32,
-    value_count: i64,
-    block_size: i32,
+    value_count: usize,
+    block_size: usize,
     values_ref: LongsRef,
     blocks: Vec<u8>,
-    off: i32,
-    ord: i64,
+    off: usize,
+    ord: usize,
 }
 
 impl BlockPackedReaderIterator {
@@ -69,9 +69,9 @@ impl BlockPackedReaderIterator {
         Ok(l as i64 | ((last_byte as i64 & 0xFF) << 56))
     }
 
-    pub fn new(packed_ints_version: i32, block_size: i32, value_count: i64) -> Result<Self> {
-        PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
-        let values = vec![0; block_size as usize];
+    pub fn new(packed_ints_version: i32, block_size: usize, value_count: usize) -> Result<Self> {
+        PackedInts::check_block_size(block_size as i32, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+        let values = vec![0; block_size];
         let long_ref = LongsRef::from_slice(values, 0, 0);
         Ok(Self {
             packed_ints_version,
@@ -90,8 +90,7 @@ impl BlockPackedReaderIterator {
     ///
     /// * `data_input` - The new input stream to read from.
     /// * `value_count` - The number of values to read from the input.
-    pub fn reset(&mut self, value_count: i64) {
-        debug_assert!(value_count >= 0);
+    pub fn reset(&mut self, value_count: usize) {
         self.value_count = value_count;
         self.off = self.block_size;
         self.ord = 0;
@@ -106,15 +105,15 @@ impl BlockPackedReaderIterator {
     ///
     /// Returns a `LuceneError` if `count` is invalid or if there is an issue
     /// reading the input.
-    pub fn skip(&mut self, mut count: i64, data_input: &mut impl DataInput) -> Result<()> {
-        debug_assert!(count >= 0);
+    pub fn skip(&mut self, mut count: usize, data_input: &mut impl DataInput) -> Result<()> {
+        // debug_assert!(count >= 0);
         if self.ord + count > self.value_count {
             return Err(LuceneError::eof("Attempt to skip past end of file"));
         }
 
         // 1. Skip buffered values
-        let skip_buffer = std::cmp::min(count, (self.block_size - self.off) as i64);
-        self.off += skip_buffer as i32;
+        let skip_buffer = std::cmp::min(count, self.block_size - self.off);
+        self.off += skip_buffer;
         self.ord += skip_buffer;
         count -= skip_buffer;
         if count == 0 {
@@ -123,7 +122,7 @@ impl BlockPackedReaderIterator {
 
         // 2. Skip as many blocks as necessary
         debug_assert_eq!(self.off, self.block_size);
-        while count >= self.block_size as i64 {
+        while count >= self.block_size {
             let token = data_input.read_byte()? as i32;
             let bits_per_value = token >> BPV_SHIFT;
 
@@ -137,23 +136,23 @@ impl BlockPackedReaderIterator {
 
             let block_bytes = Format::Packed(PackedImpl::new(0)).byte_count(
                 self.packed_ints_version,
-                self.block_size,
+                self.block_size as i32,
                 bits_per_value,
             );
             self.skip_bytes(block_bytes, data_input)?;
-            self.ord += self.block_size as i64;
-            count -= self.block_size as i64;
+            self.ord += self.block_size;
+            count -= self.block_size;
         }
 
         if count == 0 {
             return Ok(());
         }
         // 3. Skip last values
-        debug_assert!(count < self.block_size as i64);
+        debug_assert!(count < self.block_size);
         self.refill(data_input)?;
         self.ord += count;
-        debug_assert!(count <= i32::MAX as i64);
-        self.off += count as i32;
+        debug_assert!(count <= i32::MAX as usize);
+        self.off += count;
         Ok(())
     }
     fn skip_bytes(&mut self, count: i64, data_input: &mut impl DataInput) -> Result<()> {
@@ -163,7 +162,7 @@ impl BlockPackedReaderIterator {
         } else {
             // Use a temporary buffer to skip bytes
             if self.blocks.is_empty() {
-                self.blocks = vec![0u8; self.block_size as usize];
+                self.blocks = vec![0u8; self.block_size];
             }
 
             let mut skipped = 0;
@@ -196,7 +195,7 @@ impl BlockPackedReaderIterator {
         if self.off == self.block_size {
             self.refill(data_input)?;
         }
-        let value = self.values_ref.longs[self.off as usize];
+        let value = self.values_ref.longs[self.off];
         self.off += 1;
         self.ord += 1;
         Ok(value)
@@ -220,7 +219,7 @@ impl BlockPackedReaderIterator {
     /// stream.
     pub fn next_batch(
         &mut self,
-        mut count: i32,
+        mut count: usize,
         data_input: &mut impl DataInput,
     ) -> Result<&LongsRef> {
         debug_assert!(count > 0);
@@ -231,12 +230,12 @@ impl BlockPackedReaderIterator {
             self.refill(data_input)?;
         }
         count = count.min(self.block_size - self.off);
-        count = count.min((self.value_count - self.ord) as i32);
+        count = count.min(self.value_count - self.ord);
 
-        self.values_ref.offset = self.off as usize;
-        self.values_ref.length = count as usize;
+        self.values_ref.offset = self.off;
+        self.values_ref.length = count;
         self.off += count;
-        self.ord += count as i64;
+        self.ord += count;
         Ok(&self.values_ref)
     }
 
@@ -264,19 +263,18 @@ impl BlockPackedReaderIterator {
                 bits_per_value,
             )?;
 
-            let iterations = self.block_size / Decoder::byte_value_count(decoder);
+            let iterations = self.block_size as i32 / Decoder::byte_value_count(decoder);
             let blocks_size = iterations * Decoder::byte_block_count(decoder);
 
             if self.blocks.len() < blocks_size as usize {
                 self.blocks = vec![0; blocks_size as usize];
             }
 
-            let value_count =
-                std::cmp::min(self.value_count - self.ord, self.block_size as i64) as i32;
+            let value_count = std::cmp::min(self.value_count - self.ord, self.block_size);
 
             let blocks_count = Format::Packed(PackedImpl::new(0)).byte_count(
                 self.packed_ints_version,
-                value_count,
+                value_count as i32,
                 bits_per_value,
             );
             data_input.read_bytes(&mut self.blocks, 0, blocks_count as usize)?;
@@ -295,7 +293,7 @@ impl BlockPackedReaderIterator {
     ///
     /// # Returns
     /// The current global position (`ord`) in the value stream.
-    pub fn ord(&self) -> i64 {
+    pub fn ord(&self) -> usize {
         self.ord
     }
 }

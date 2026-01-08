@@ -2297,7 +2297,7 @@ mod tests {
         let iters = at_least(&mut random, 2);
         for _ in 0..iters {
             let block_size = 1 << TestUtil::next_int(&mut random, 6, 18);
-            let value_count: i32 = if is_night_mode() {
+            let value_count: usize = if is_night_mode() {
                 random.random_range(0..(1 << 18))
             } else {
                 random.random_range(0..(1 << 15))
@@ -2306,7 +2306,7 @@ mod tests {
             let mut values = vec![0i64; value_count as usize];
             let mut min_value = 0;
             let mut bpv = 0;
-
+            #[allow(clippy::needless_range_loop)]
             for i in 0..value_count {
                 if i % block_size == 0 {
                     min_value = if rarely(&mut random) {
@@ -2318,7 +2318,7 @@ mod tests {
                     };
                     bpv = random.random_range(0..=64);
                 }
-                values[i as usize] = if bpv == 0 {
+                values[i] = if bpv == 0 {
                     min_value
                 } else if bpv == 64 {
                     random.random()
@@ -2335,9 +2335,9 @@ mod tests {
                     assert_eq!(i, writer.ord() as usize);
                     writer.add(value, &mut out)?;
                 }
-                assert_eq!(value_count as i64, writer.ord());
+                assert_eq!(value_count, writer.ord());
                 writer.finish(&mut out)?;
-                assert_eq!(value_count as i64, writer.ord());
+                assert_eq!(value_count, writer.ord());
                 fp = out.get_file_pointer();
             }
 
@@ -2351,26 +2351,26 @@ mod tests {
                 let mut it = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,
                     block_size,
-                    value_count as i64,
+                    value_count,
                 )?;
 
-                let mut i: i32 = 0;
+                let mut i = 0;
                 while i < value_count {
                     if random.random_bool(0.5) {
-                        assert_eq!(values[i as usize], it.next_value(&mut in_ref)?);
+                        assert_eq!(values[i], it.next_value(&mut in_ref)?);
                         i += 1;
                     } else {
                         let next_values =
-                            it.next_batch(TestUtil::next_int(&mut random, 1, 1024), &mut in_ref)?;
+                            it.next_batch(TestUtil::next_usize(&mut random, 1, 1024), &mut in_ref)?;
                         for j in 0..next_values.length as usize {
                             assert_eq!(
-                                values[i as usize + j],
+                                values[i + j],
                                 next_values.longs[j + next_values.offset as usize]
                             );
                         }
-                        i += next_values.length as i32;
+                        i += next_values.length;
                     }
-                    assert_eq!(i as i64, it.ord());
+                    assert_eq!(i, it.ord());
                 }
                 let result = it.next_value(&mut in_ref);
                 assert!(matches!(result, Err(LuceneError::Eof(_))));
@@ -2379,18 +2379,18 @@ mod tests {
                 let mut it2 = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,
                     block_size,
-                    value_count as i64,
+                    value_count,
                 )?;
                 i = 0;
                 loop {
-                    let skip = TestUtil::next_int(&mut random, 0, value_count - i);
-                    it2.skip(skip as i64, &mut in_ref)?;
+                    let skip = TestUtil::next_usize(&mut random, 0, value_count - i);
+                    it2.skip(skip, &mut in_ref)?;
                     i += skip;
-                    assert_eq!(i as i64, it2.ord());
+                    assert_eq!(i, it2.ord());
                     if i == value_count {
                         break;
                     } else {
-                        assert_eq!(values[i as usize], it2.next_value(&mut in_ref)?);
+                        assert_eq!(values[i], it2.next_value(&mut in_ref)?);
                         i += 1;
                     }
                 }
@@ -2404,26 +2404,26 @@ mod tests {
                 let mut it = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,
                     block_size,
-                    value_count as i64,
+                    value_count as usize,
                 )?;
 
                 let mut i = 0;
                 while i < value_count {
                     if random.random_bool(0.5) {
-                        assert_eq!(values[i as usize], it.next_value(&mut in_ref)?);
+                        assert_eq!(values[i], it.next_value(&mut in_ref)?);
                         i += 1;
                     } else {
                         let next_values =
                             it.next_batch(random.random_range(1..=1024), &mut in_ref)?;
                         for j in 0..next_values.length {
                             assert_eq!(
-                                values[i as usize + j],
+                                values[i + j],
                                 next_values.longs[(j + next_values.offset) as usize]
                             );
                         }
-                        i += next_values.length as i32;
+                        i += next_values.length;
                     }
-                    assert_eq!(i as i64, it.ord());
+                    assert_eq!(i, it.ord());
                 }
                 let result = it.next_value(&mut in_ref);
                 assert!(matches!(result, Err(LuceneError::Eof(_))));
@@ -2433,18 +2433,18 @@ mod tests {
                 let mut it2 = BlockPackedReaderIterator::new(
                     PackedInts::VERSION_CURRENT,
                     block_size,
-                    value_count as i64,
+                    value_count,
                 )?;
                 i = 0;
                 loop {
                     let skip = random.random_range(0..=value_count - i);
-                    it2.skip(skip as i64, &mut in_ref)?;
+                    it2.skip(skip, &mut in_ref)?;
                     i += skip;
-                    assert_eq!(i as i64, it2.ord());
+                    assert_eq!(i, it2.ord());
                     if i == value_count {
                         break;
                     } else {
-                        assert_eq!(values[i as usize], it2.next_value(&mut in_ref)?);
+                        assert_eq!(values[i], it2.next_value(&mut in_ref)?);
                         i += 1;
                     }
                 }
@@ -2488,19 +2488,19 @@ mod tests {
                 let mut writer =
                     AbstractBlockPackedWriter::new(block_size, MonotonicBlockPackedWriter)?;
                 for (i, &value) in values.iter().enumerate().take(value_count) {
-                    assert_eq!(i as i64, writer.ord());
+                    assert_eq!(i, writer.ord());
                     writer.add(value, &mut out)?;
                 }
-                assert_eq!(value_count as i64, writer.ord());
+                assert_eq!(value_count, writer.ord());
                 writer.finish(&mut out)?;
-                assert_eq!(value_count as i64, writer.ord());
+                assert_eq!(value_count, writer.ord());
                 file_pointer = out.get_file_pointer();
             }
             let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
             let reader = MonotonicBlockPackedReader::of(
                 &mut input,
                 PackedInts::VERSION_CURRENT,
-                block_size,
+                block_size as i32,
                 value_count,
             )?;
             assert_eq!(file_pointer, input.get_file_pointer()?);
@@ -2517,23 +2517,23 @@ mod tests {
             return Ok(());
         }
         let mut random = random();
-        let value_count = TestUtil::next_long(
+        let value_count = TestUtil::next_usize(
             &mut random,
-            1 + i64::from(i32::MAX),
-            i64::from(i32::MAX) * 2,
+            1 + i64::from(i32::MAX) as usize,
+            (i64::from(i32::MAX) * 2) as usize,
         );
         let block_size = 1 << TestUtil::next_long(&mut random, 20, 22);
         let dir = new_directory_shared(&mut random)?;
-        let value_offset = TestUtil::next_long(&mut random, 0, value_count - 1);
+        let value_offset = TestUtil::next_usize(&mut random, 0, value_count - 1);
         let value = random.random::<i64>() & 0xFFFFFFFF;
 
         {
             let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
-            let mut writer = AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter)?;
+            let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
 
             let mut i = 0;
             while i < value_count {
-                assert_eq!({ i }, writer.ord());
+                assert_eq!(i, writer.ord());
                 if (i & (block_size - 1)) == 0
                     && (i + block_size < value_offset
                         || (i > value_offset && i + block_size < value_count))
@@ -2551,12 +2551,9 @@ mod tests {
         }
 
         let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
-        debug_assert!(block_size <= u32::MAX as i64);
-        let mut reader = BlockPackedReaderIterator::new(
-            PackedInts::VERSION_CURRENT,
-            block_size as i32,
-            value_count,
-        )?;
+        debug_assert!(block_size <= u32::MAX as usize);
+        let mut reader =
+            BlockPackedReaderIterator::new(PackedInts::VERSION_CURRENT, block_size, value_count)?;
 
         reader.skip(value_offset, &mut input)?;
         assert_eq!(value, reader.next_value(&mut input,)?);

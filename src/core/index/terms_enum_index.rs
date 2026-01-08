@@ -29,7 +29,7 @@ pub struct TermsEnumIndex<TE>
 where
     TE: TermsEnum,
 {
-    pub(crate) sub_index: i32,
+    pub(crate) sub_index: usize,
     pub(crate) terms_enum: Option<TE>,
     current_term: Option<BytesRef<Vec<u8>>>,
     current_term_prefix8: i64,
@@ -38,7 +38,7 @@ impl<TE> TermsEnumIndex<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(terms_enum: Option<TE>, sub_index: i32) -> Self {
+    pub fn new(terms_enum: Option<TE>, sub_index: usize) -> Self {
         Self {
             sub_index,
             terms_enum,

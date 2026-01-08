@@ -220,7 +220,7 @@ impl OrdinalMap {
         let mut queue = PriorityQueue::new(subs.len(), TermsEnumPriorityQueueCmp)?;
         for i in 0..sub_len {
             let mapped = segment_map.new_to_old(i);
-            let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i as i32);
+            let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i);
             if sub.next()?.is_some() {
                 queue.add(sub)?;
             }
@@ -239,7 +239,7 @@ impl OrdinalMap {
             loop {
                 let segment_ord = top.terms_enum.as_ref().unwrap().ord()?;
                 let delta = global_ord - segment_ord;
-                let segment_index = top.sub_index as usize;
+                let segment_index = top.sub_index;
                 // We compute the least segment where the term occurs. In case the
                 // first segment contains most (or better all) values, this will
                 // help save significant memory

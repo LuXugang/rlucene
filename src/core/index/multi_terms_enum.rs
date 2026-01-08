@@ -66,8 +66,7 @@ where
         let mut sub_docs = Vec::with_capacity(len);
         let mut all_terms_enum_with_slice = Vec::with_capacity(len);
         for (i, slice) in slices.into_iter().enumerate() {
-            all_terms_enum_with_slice
-                .push(TermsEnumWithSlice::new(i.try_convert()?, slice.clone()));
+            all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i, slice.clone()));
             sub_docs.push(EnumWithSlice::with_slice(slice));
             subs[i] = i;
         }
@@ -101,7 +100,7 @@ where
 
         for mut terms_enum_index in terms_enums_index.into_iter() {
             if (terms_enum_index.next()?).is_some() {
-                let sub_idx = terms_enum_index.sub_index as usize;
+                let sub_idx = terms_enum_index.sub_index;
                 let entry_idx = self.subs[sub_idx];
                 let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
                 entry.base.reset(terms_enum_index);
@@ -426,7 +425,7 @@ where
             let entry_idx = self.top[i];
             let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
 
-            let sub_index = entry.base.sub_index as usize;
+            let sub_index = entry.base.sub_index;
             debug_assert!(
                 sub_index < docs_enum.sub_postings_enums.len(),
                 "{} vs {}; {}",
@@ -498,7 +497,7 @@ impl<TE> TermsEnumWithSlice<TE>
 where
     TE: TermsEnum,
 {
-    pub fn new(index: i32, sub_slice: Rc<ReaderSlice>) -> Self {
+    pub fn new(index: usize, sub_slice: Rc<ReaderSlice>) -> Self {
         debug_assert!(sub_slice.length >= 0, "length={}", sub_slice.length);
 
         Self {
