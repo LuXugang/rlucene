@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
+use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::index::codec_reader::{CRBits, CodecReader};
@@ -51,6 +52,7 @@ where
     pub stored_fields_readers: Vec<StoredFieldsReaderType<I>>,
     pub norms_producers: Vec<Option<NormsProducerType<I>>>,
     pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<I>>>,
+    pub fields_producers: Vec<FieldsProducerType<I>>,
     pub field_infos: Vec<Arc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,

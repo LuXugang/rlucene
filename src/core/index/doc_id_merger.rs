@@ -233,12 +233,25 @@ where
             DocIDMergerEnum::Sorted(merger) => &mut merger.queue.compare.subs,
         }
     }
+    pub(crate) fn get_subs_vec(&mut self) -> &mut Vec<Sub<S>> {
+        match self {
+            DocIDMergerEnum::Sequential(merger) => &mut merger.subs,
+            DocIDMergerEnum::Sorted(merger) => &mut merger.queue.compare.subs,
+        }
+    }
+    pub(crate) fn clear_subs(&mut self) {
+        match self {
+            DocIDMergerEnum::Sequential(merger) => merger.subs.clear(),
+            DocIDMergerEnum::Sorted(merger) => merger.queue.compare.subs.clear(),
+        }
+    }
     pub(crate) fn take_subs(self) -> Vec<Sub<S>> {
         match self {
             DocIDMergerEnum::Sequential(merger) => merger.subs,
             DocIDMergerEnum::Sorted(merger) => merger.queue.compare.subs,
         }
     }
+
     pub(crate) fn get_subs(&self) -> &[Sub<S>] {
         match self {
             DocIDMergerEnum::Sequential(merger) => &merger.subs,
@@ -272,7 +285,7 @@ where
     S: SubBase,
 {
     /// Mapped doc ID
-    pub sub: S,
+    pub(crate) sub: S,
     pub mapped_doc_id: i32,
 }
 impl<S> Sub<S>
@@ -335,7 +348,7 @@ where
 }
 
 /// Construct this from the provided subs, specifying the maximum sub count.
-fn of_with_max_count<S: SubBase>(
+pub(crate) fn of_with_max_count<S: SubBase>(
     subs: Vec<Sub<S>>,
     max_count: usize,
     index_is_sorted: bool,

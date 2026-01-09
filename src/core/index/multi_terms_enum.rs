@@ -441,7 +441,7 @@ where
                 .unwrap()
                 .postings_with_flags(docs_enum.sub_postings_enums[sub_index].take(), flags)?;
             docs_enum.sub_postings_enums[sub_index] = Some(sub_postings_enum);
-            self.sub_docs[upto].postings_enum = sub_index;
+            self.sub_docs[upto].postings_enum_idx = sub_index;
             self.sub_docs[upto].slice = entry.sub_slice.clone();
             upto += 1;
         }

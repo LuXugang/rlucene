@@ -69,7 +69,7 @@ where
         self.num_subs = num_subs;
 
         for (i, sub) in subs.iter().enumerate().take(num_subs as usize) {
-            self.subs[i].postings_enum = sub.postings_enum;
+            self.subs[i].postings_enum_idx = sub.postings_enum_idx;
             self.subs[i].slice = sub.slice.clone();
         }
 
@@ -86,6 +86,12 @@ where
     /// Returns sub-readers we are merging.
     pub fn get_subs(&self) -> &[EnumWithSlice] {
         &self.subs
+    }
+    pub fn take_postings_enums(&mut self) -> Vec<Option<PE>> {
+        std::mem::take(&mut self.sub_postings_enums)
+    }
+    pub fn postings_enums_mut(&mut self) -> &mut [Option<PE>] {
+        self.sub_postings_enums.as_mut()
     }
 }
 
@@ -111,7 +117,7 @@ where
                 }
             }
 
-            let idx = self.subs[self.current.unwrap()].postings_enum;
+            let idx = self.subs[self.current.unwrap()].postings_enum_idx;
             let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
             if doc != NO_MORE_DOCS {
                 self.doc = self.current_base as i32 + doc;
@@ -128,12 +134,12 @@ where
             if let Some(idx) = self.current {
                 let doc = if target < self.current_base as i32 {
                     // target was in the previous slice but there was no matching doc after it
-                    self.sub_postings_enums[self.subs[idx].postings_enum]
+                    self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                         .as_mut()
                         .unwrap()
                         .next_doc()?
                 } else {
-                    self.sub_postings_enums[self.subs[idx].postings_enum]
+                    self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                         .as_mut()
                         .unwrap()
                         .advance(target - self.current_base as i32)?
@@ -160,7 +166,7 @@ where
     fn cost(&self) -> Result<i64> {
         let mut cost: i64 = 0;
         for i in 0..(self.num_subs as usize) {
-            let pe_idx = self.subs[i].postings_enum;
+            let pe_idx = self.subs[i].postings_enum_idx;
             cost += self.sub_postings_enums[pe_idx].as_ref().unwrap().cost()?;
         }
         Ok(cost)
@@ -173,7 +179,7 @@ where
 {
     fn freq(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                 .as_mut()
                 .unwrap()
                 .freq(),
@@ -183,7 +189,7 @@ where
 
     fn next_position(&mut self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                 .as_mut()
                 .unwrap()
                 .next_position(),
@@ -193,7 +199,7 @@ where
 
     fn start_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                 .as_ref()
                 .unwrap()
                 .start_offset(),
@@ -203,7 +209,7 @@ where
 
     fn end_offset(&self) -> Result<i32> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                 .as_ref()
                 .unwrap()
                 .end_offset(),
@@ -213,7 +219,7 @@ where
 
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self.current {
-            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum]
+            Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
                 .as_ref()
                 .unwrap()
                 .get_payload(),
@@ -238,9 +244,10 @@ where
     }
 }
 /// Holds a [`PostingsEnum`] along with the corresponding [`ReaderSlice`].
+#[derive(Clone)]
 pub struct EnumWithSlice {
     /// [`PostingsEnum`]'s idx for this sub-reader
-    pub(crate) postings_enum: usize,
+    pub(crate) postings_enum_idx: usize,
     /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
     pub(crate) slice: Rc<ReaderSlice>,
 }
@@ -248,13 +255,13 @@ impl EnumWithSlice {
     /// Creates a new `EnumWithSlice`.
     pub fn new() -> Self {
         Self {
-            postings_enum: 0,
+            postings_enum_idx: 0,
             slice: Rc::new(ReaderSlice::default()),
         }
     }
     pub fn with_slice(slice: Rc<ReaderSlice>) -> Self {
         Self {
-            postings_enum: 0,
+            postings_enum_idx: 0,
             slice,
         }
     }
