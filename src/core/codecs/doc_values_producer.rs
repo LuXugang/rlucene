@@ -110,7 +110,14 @@ pub trait DocValuesProducer: Clone {
         Ok(None)
     }
 }
-pub type DocValuesProducerType<I> = Lucene90DocValuesProducer<I>;
+pub type DefaultDocValuesProducer<I> = Lucene90DocValuesProducer<I>;
+pub type DefaultBinary<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::BinaryDocValues;
+pub type DefaultNumeric<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::NumericDocValues;
+pub type DefaultSorted<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedDocValues;
+pub type DefaultSortedNumeric<I> =
+    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedNumericDocValues;
+pub type DefaultSortedSet<I> =
+    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedSetDocValues;
 
 impl<T> DocValuesProducer for Arc<T>
 where
