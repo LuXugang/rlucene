@@ -56,7 +56,7 @@ impl OrdinalMap {
             weights.push(count);
         }
 
-        OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
+        OrdinalMap::build(owner, &mut subs, &weights, acceptable_overhead_ratio)
     }
     /// Create an ordinal map that uses the number of unique values of each
     /// [`SortedSetDocValues`] instance as a weight.
@@ -80,7 +80,7 @@ impl OrdinalMap {
             weights.push(count);
         }
 
-        OrdinalMap::build(owner, subs, &weights, acceptable_overhead_ratio)
+        OrdinalMap::build(owner, &mut subs, &weights, acceptable_overhead_ratio)
     }
 
     /// Creates an ordinal map that allows mapping ords to/from a merged space from `subs`.
@@ -97,7 +97,7 @@ impl OrdinalMap {
     pub fn build<TE>(
         owner: Option<CacheKey>,
         // wrap with Option for easy taken
-        subs: Vec<Option<TE>>,
+        subs: &mut [Option<TE>],
         weights: &[i64],
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -188,7 +188,7 @@ impl OrdinalMap {
     fn new<TE>(
         owner: Option<CacheKey>,
         // wrap with Option for easy taken
-        mut subs: Vec<Option<TE>>,
+        subs: &mut [Option<TE>],
         segment_map: SegmentMap,
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -218,26 +218,34 @@ impl OrdinalMap {
         let mut segment_ords = vec![0i64; sub_len];
 
         //  queue of term enums
-        let mut queue = PriorityQueue::new(subs.len(), TermsEnumPriorityQueueCmp)?;
+        let mut terms_enum_indices = Vec::with_capacity(subs.len());
         for i in 0..sub_len {
             let mapped = segment_map.new_to_old(i);
             let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i);
             if sub.next()?.is_some() {
-                queue.add(sub)?;
+                terms_enum_indices.push(sub);
             }
+        }
+        let len = terms_enum_indices.len();
+        let cmp = TermsEnumPriorityQueueCmp::new(terms_enum_indices);
+        let mut queue = PriorityQueue::new(subs.len(), cmp)?;
+        for i in 0..len {
+            queue.add(i)?;
         }
 
         let mut top_state = TermState::new();
         let mut global_ord: i64 = 0;
         let mut ord_delta_bits_has_value = false;
+        let mut top_idx;
         while queue.size() != 0 {
-            let mut top = queue.top_mut().unwrap();
-            top_state.copy_from(top)?;
+            top_idx = *queue.top().unwrap();
+            top_state.copy_from(&queue.compare.terms_enum_indices[top_idx])?;
 
             let mut first_segment_index = i32::MAX;
             let mut global_ord_delta = i64::MAX;
             // Advance past this term, recording the per-segment ord deltas:
             loop {
+                let top = &mut queue.compare.terms_enum_indices[top_idx];
                 let segment_ord = top.terms_enum.as_ref().unwrap().ord()?;
                 let delta = global_ord - segment_ord;
                 let segment_index = top.sub_index;
@@ -268,12 +276,11 @@ impl OrdinalMap {
                     if queue.size() == 0 {
                         break;
                     }
-                    top = queue.top_mut().unwrap();
+                    top_idx = *queue.top().unwrap();
                 } else {
-                    top = queue.update_top()?;
+                    top_idx = *queue.update_top()?;
                 }
-
-                if !top.term_equals(&top_state)? {
+                if !queue.compare.terms_enum_indices[top_idx].term_equals(&top_state)? {
                     break;
                 }
             }
@@ -427,13 +434,26 @@ impl LongValues for LongValuesImpl1 {
     }
 }
 
-struct TermsEnumPriorityQueueCmp;
-impl<TE> Compare<TermsEnumIndex<TE>> for TermsEnumPriorityQueueCmp
+struct TermsEnumPriorityQueueCmp<TE>
 where
     TE: TermsEnum,
 {
-    fn less_than(&self, a: &TermsEnumIndex<TE>, b: &TermsEnumIndex<TE>) -> Result<bool> {
-        Ok(a.compare_term_to(b)? < 0)
+    terms_enum_indices: Vec<TermsEnumIndex<TE>>,
+}
+impl<TE> TermsEnumPriorityQueueCmp<TE>
+where
+    TE: TermsEnum,
+{
+    fn new(terms_enum_indices: Vec<TermsEnumIndex<TE>>) -> Self {
+        Self { terms_enum_indices }
+    }
+}
+impl<TE> Compare<usize> for TermsEnumPriorityQueueCmp<TE>
+where
+    TE: TermsEnum,
+{
+    fn less_than(&self, a: &usize, b: &usize) -> Result<bool> {
+        Ok(self.terms_enum_indices[*a].compare_term_to(&self.terms_enum_indices[*b])? < 0)
     }
 }
 

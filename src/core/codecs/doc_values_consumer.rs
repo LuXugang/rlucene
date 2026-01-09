@@ -192,7 +192,7 @@ pub trait DocValuesConsumer {
             }
         }
         // step 2: create ordinal map (this conceptually does the "merging")
-        let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
+        let ordinal_map = OrdinalMap::build(None, &mut live_terms, &weights, PackedInts::COMPACT)?;
         let producer = EmptyDocValuesProducerMerge4 {
             field_info: field_info.clone(),
             merge_state,
@@ -269,7 +269,7 @@ pub trait DocValuesConsumer {
         }
 
         // step 2: create ordinal map (this conceptually does the "merging")
-        let _ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
+        let _ordinal_map = OrdinalMap::build(None, &mut live_terms, &weights, PackedInts::COMPACT)?;
         todo!()
     }
 }
