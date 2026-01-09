@@ -74,8 +74,8 @@ where
     I: IndexInput,
 {
     field_infos: Arc<FieldInfos>,
-    index_reader: FieldsIndexEnum<I>,
-    vectors_stream: I,
+    pub(crate) index_reader: FieldsIndexEnum<I>,
+    pub(crate) vectors_stream: I,
     version: i32,
     packed_ints_version: i32,
     compression_mode: CompressionModeEnum,
@@ -256,34 +256,27 @@ where
         })
     }
 
-    pub(crate) fn compression_mode(&self) -> &CompressionModeEnum {
+    pub(crate) fn get_compression_mode(&self) -> &CompressionModeEnum {
         &self.compression_mode
     }
 
-    pub(crate) fn chunk_size(&self) -> i32 {
+    pub(crate) fn get_chunk_size(&self) -> i32 {
         self.chunk_size
     }
 
-    pub(crate) fn packed_ints_version(&self) -> i32 {
+    pub(crate) fn get_packed_ints_version(&self) -> i32 {
         self.packed_ints_version
     }
 
-    pub(crate) fn version(&self) -> i32 {
+    pub(crate) fn get_version(&self) -> i32 {
         self.version
     }
 
-    pub(crate) fn index_reader(&self) -> &FieldsIndexEnum<I> {
-        &self.index_reader
-    }
-
-    pub(crate) fn vectors_stream(&mut self) -> &mut I {
-        &mut self.vectors_stream
-    }
-    pub(crate) fn max_pointer(&self) -> usize {
+    pub(crate) fn get_max_pointer(&self) -> usize {
         self.max_pointer
     }
 
-    pub(crate) fn num_dirty_docs(&self) -> Result<i64> {
+    pub(crate) fn get_num_dirty_docs(&self) -> Result<i64> {
         if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_dirty_docs should only ever get called when the reader is on the current version",
@@ -293,7 +286,7 @@ where
         Ok(self.num_dirty_docs)
     }
 
-    pub(crate) fn num_dirty_chunks(&self) -> Result<i64> {
+    pub(crate) fn get_num_dirty_chunks(&self) -> Result<i64> {
         if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_dirty_chunks should only ever get called when the reader is on the current version",
@@ -303,7 +296,7 @@ where
         Ok(self.num_dirty_chunks)
     }
 
-    pub(crate) fn num_chunks(&self) -> Result<i64> {
+    pub(crate) fn get_num_chunks(&self) -> Result<i64> {
         if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_chunks should only ever get called when the reader is on the current version",

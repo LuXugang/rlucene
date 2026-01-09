@@ -29,7 +29,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, TryIntoInt};
-
+#[derive(Debug)]
 pub struct LZ4WithPresetDictCompressionMode;
 impl LZ4WithPresetDictCompressionMode {
     // Shoot for 10 sub blocks

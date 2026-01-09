@@ -246,7 +246,7 @@ where
         Ok(Status::Yes)
     }
 }
-
+#[derive(Debug)]
 pub struct NoCompression;
 
 impl Display for NoCompression {

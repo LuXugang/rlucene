@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
+use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::index::codec_reader::{CRBits, CodecReader};
 #[cfg(test)]
 use crate::core::index::doc_id_merger::tests::DocMapMock1;
@@ -50,6 +51,7 @@ where
     pub doc_maps: Vec<Rc<DocMapEnum>>,
     pub merge_field_infos: Arc<FieldInfos>,
     pub stored_fields_readers: Vec<StoredFieldsReaderType<I>>,
+    pub term_vectors_readers: Vec<Option<TermVectorsReaderType<I>>>,
     pub norms_producers: Vec<Option<NormsProducerType<I>>>,
     pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<I>>>,
     pub fields_producers: Vec<Option<FieldsProducerType<I>>>,
@@ -68,6 +70,8 @@ where
             fields_producers_len: self.fields_producers.len(),
             doc_maps: self.doc_maps.clone(),
             needs_index_sort: self.needs_index_sort,
+            merge_field_infos: self.merge_field_infos.clone(),
+            field_infos: self.field_infos.clone(),
         }
     }
     fn build_doc_maps<CR>(
@@ -291,4 +295,6 @@ pub struct MergeStateMeta {
     pub(crate) fields_producers_len: usize,
     pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
     pub needs_index_sort: bool,
+    pub merge_field_infos: Arc<FieldInfos>,
+    pub field_infos: Vec<Arc<FieldInfos>>,
 }

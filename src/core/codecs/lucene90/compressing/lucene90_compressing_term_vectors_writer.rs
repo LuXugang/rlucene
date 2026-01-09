@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
+use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::BULK_MERGE_ENABLED;
+use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::Lucene90CompressingTermVectorsReader;
 use crate::core::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, CompressorEnum,
 };
 use crate::core::codecs::compression::compressor::Compressor;
+use crate::core::codecs::compression::matching_readers::MatchingReaders;
+use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
+use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::{DocMapEnum, MergeState};
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::index::term_vectors::TermVectors;
+use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexOutput};
+use crate::core::store::{
+    ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
+};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -37,6 +47,7 @@ use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
+use std::rc::Rc;
 
 pub(crate) static FLAGS_BITS: Lazy<i32> =
     Lazy::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
@@ -677,6 +688,160 @@ where
 
         self.writer.finish(&mut self.vectors_stream)
     }
+    fn copy_chunks<I: IndexInput>(
+        &mut self,
+        merge_state: &mut MergeState<I>,
+        sub: &CompressingTermVectorsSub,
+        from_doc_id: i32,
+        to_doc_id: i32,
+    ) -> Result<()> {
+        let merge_state_meta = merge_state.get_meta();
+        let reader = merge_state.term_vectors_readers[sub.reader_index]
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
+
+        debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
+        debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);
+        debug_assert_eq!(*reader.get_compression_mode(), self.compression_mode);
+        debug_assert!(!self.too_dirty(reader)?);
+        debug_assert!(merge_state.live_docs[sub.reader_index].is_none());
+
+        let mut doc_id = from_doc_id;
+
+        // copy docs that belong to the previous chunk
+        while doc_id < to_doc_id && reader.is_loaded(doc_id) {
+            let fields = reader.get(doc_id)?;
+            self.add_all_doc_vectors(fields.as_ref(), &merge_state_meta)?;
+            doc_id += 1;
+        }
+
+        if doc_id >= to_doc_id {
+            return Ok(());
+        }
+
+        // copy chunks
+        let mut from_pointer = reader.index_reader.get_start_pointer(doc_id)?;
+        let to_pointer = if to_doc_id == sub.max_doc {
+            reader.get_max_pointer()
+        } else {
+            reader.index_reader.get_start_pointer(to_doc_id)?
+        };
+
+        if from_pointer < to_pointer {
+            // flush any pending chunks
+            if !self.pending_docs.is_empty() {
+                self.flush(true)?;
+            }
+
+            reader.vectors_stream.seek(from_pointer)?;
+
+            loop {
+                // iterate over each chunk. we use the vectors index to find chunk boundaries,
+                // read the docstart + doccount from the chunk header (we write a new header, since doc
+                // numbers will change),
+                // and just copy the bytes directly.
+                // read header
+                let base = reader.vectors_stream.read_vint()?;
+                if base != doc_id {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "invalid state: base={}, docID={}",
+                        base, doc_id
+                    )));
+                }
+
+                let code = reader.vectors_stream.read_vint()?;
+                let buffered_docs = (code as u32 >> 1) as i32;
+
+                // write a new index entry and new header for this chunk.
+                self.index_writer
+                    .write_index(buffered_docs, self.vectors_stream.get_file_pointer())?;
+                self.vectors_stream.write_vint(self.num_docs)?;
+                self.vectors_stream.write_vint(code)?;
+
+                doc_id += buffered_docs;
+                self.num_docs += buffered_docs;
+
+                if doc_id > to_doc_id {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "invalid state: base={}, count={}, toDocID={}",
+                        base, buffered_docs, to_doc_id
+                    )));
+                }
+
+                // copy bytes until the next chunk boundary (or end of chunk data).
+                // using the stored fields index for this isn't the most efficient, but fast enough
+                // and is a source of redundancy for detecting bad things.
+                let end = if doc_id == sub.max_doc {
+                    reader.get_max_pointer()
+                } else {
+                    reader.index_reader.get_start_pointer(doc_id)?
+                };
+
+                let len = end - reader.vectors_stream.get_file_pointer()?;
+                self.vectors_stream
+                    .copy_bytes(&mut reader.vectors_stream, len)?;
+                self.num_chunks += 1;
+                let dirty_chunk = (code & 1) != 0;
+                if dirty_chunk {
+                    self.num_dirty_chunks += 1;
+                    self.num_dirty_docs += buffered_docs as i64;
+                }
+                from_pointer = end;
+                if from_pointer >= to_pointer {
+                    break;
+                }
+            }
+        }
+
+        // copy leftover docs that don't form a complete chunk
+        debug_assert!(!reader.is_loaded(doc_id));
+        while doc_id < to_doc_id {
+            let fields = reader.get(doc_id)?;
+            self.add_all_doc_vectors(fields.as_ref(), &merge_state_meta)?;
+            doc_id += 1;
+        }
+
+        Ok(())
+    }
+    /// Returns `true` if this reader should be recompressed, even though bulk
+    /// merging of compressed data would otherwise be possible.
+    ///
+    /// The last chunk written for a segment is typically incomplete, so without
+    /// recompressing, in some worst-case situations (for example frequent reopen
+    /// operations with very small flushes), the compression ratio can degrade
+    /// over time. This method acts as a safety switch.
+    ///
+    /// A segment is considered *dirty* only if:
+    /// - it has enough dirty documents to fill at least one full chunk, **and**
+    /// - more than 1% of its chunks are dirty.
+    fn too_dirty<I: IndexInput>(
+        &self,
+        candidate: &Lucene90CompressingTermVectorsReader<I>,
+    ) -> Result<bool> {
+        Ok(
+            candidate.get_num_dirty_docs()? > self.max_docs_per_chunk as i64
+                && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
+        )
+    }
+    fn can_perform_bulk_merge<I: IndexInput>(
+        &self,
+        merge_state: &MergeState<I>,
+        matching_readers: &MatchingReaders,
+        reader_index: usize,
+    ) -> Result<bool> {
+        let reader = merge_state.term_vectors_readers[reader_index]
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
+        let v = *BULK_MERGE_ENABLED
+            && matching_readers.matching_readers[reader_index]
+            && *reader.get_compression_mode() == self.compression_mode
+            && reader.get_chunk_size() == self.chunk_size
+            && reader.get_version() == VERSION_CURRENT
+            && reader.get_packed_ints_version() == PackedInts::VERSION_CURRENT
+            && merge_state.live_docs[reader_index].is_none()
+            && !self.too_dirty(reader)?;
+        Ok(v)
+    }
 }
 
 impl<O> Accountable for Lucene90CompressingTermVectorsWriter<O>
@@ -954,6 +1119,127 @@ where
             }
         }
         Ok(())
+    }
+
+    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
+    where
+        I: IndexInput,
+        D: Directory,
+    {
+        let num_readers = merge_state.term_vectors_readers.len();
+        let matching_readers = MatchingReaders::new(merge_state)?;
+        let mut subs = Vec::with_capacity(num_readers);
+        for reader_index in 0..num_readers {
+            if let Some(reader) = &merge_state.term_vectors_readers[reader_index] {
+                reader.check_integrity()?;
+            }
+
+            let bulk_merge =
+                self.can_perform_bulk_merge(merge_state, &matching_readers, reader_index)?;
+            subs.push(Sub::new(CompressingTermVectorsSub::new(
+                merge_state,
+                bulk_merge,
+                reader_index,
+            )));
+        }
+
+        let mut doc_count = 0;
+
+        let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+
+        let mut sub_opt = doc_id_merger.next()?;
+        while let Some(sub_idx) = sub_opt {
+            let sub = &doc_id_merger.get_subs()[sub_idx];
+
+            debug_assert!(
+                sub.mapped_doc_id == doc_count,
+                "{} != {}",
+                sub.mapped_doc_id,
+                doc_count
+            );
+
+            if sub.sub.can_perform_bulk_merge {
+                let from_doc_id = sub.sub.doc_id;
+                let mut to_doc_id = from_doc_id;
+                let current_idx = sub_idx;
+                // consume all contiguous docs from the same sub
+                loop {
+                    let next = doc_id_merger.next()?;
+                    match next {
+                        Some(idx) if idx == current_idx => {
+                            to_doc_id += 1;
+                            debug_assert!(doc_id_merger.get_subs()[idx].sub.doc_id == to_doc_id);
+                        },
+                        other => {
+                            sub_opt = other;
+                            break;
+                        },
+                    }
+                }
+
+                to_doc_id += 1; // exclusive bound
+                self.copy_chunks(
+                    merge_state,
+                    &doc_id_merger.get_subs()[current_idx].sub,
+                    from_doc_id,
+                    to_doc_id,
+                )?;
+
+                doc_count += to_doc_id - from_doc_id;
+            } else {
+                let vectors = match merge_state.term_vectors_readers[sub.sub.reader_index] {
+                    Some(ref mut reader) => reader.get(sub.sub.doc_id)?,
+                    None => None,
+                };
+
+                self.add_all_doc_vectors(vectors.as_ref(), &merge_state.get_meta())?;
+                doc_count += 1;
+                sub_opt = doc_id_merger.next()?;
+            }
+        }
+        self.finish(doc_count, dir)?;
+        Ok(doc_count)
+    }
+}
+pub struct CompressingTermVectorsSub {
+    max_doc: i32,
+    reader_index: usize,
+    can_perform_bulk_merge: bool,
+    doc_id: i32,
+    doc_map: Rc<DocMapEnum>,
+}
+
+impl CompressingTermVectorsSub {
+    pub fn new<I>(
+        merge_state: &MergeState<I>,
+        can_perform_bulk_merge: bool,
+        reader_index: usize,
+    ) -> Self
+    where
+        I: IndexInput,
+    {
+        Self {
+            max_doc: merge_state.max_docs[reader_index],
+            reader_index,
+            can_perform_bulk_merge,
+            doc_id: -1,
+            doc_map: merge_state.doc_maps[reader_index].clone(),
+        }
+    }
+}
+
+impl SubBase for CompressingTermVectorsSub {
+    fn next_doc(&mut self) -> Result<i32> {
+        self.doc_id += 1;
+        if self.doc_id == self.max_doc {
+            Ok(NO_MORE_DOCS)
+        } else {
+            Ok(self.doc_id)
+        }
+    }
+
+    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+        Ok(&self.doc_map)
     }
 }
 

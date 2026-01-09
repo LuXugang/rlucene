@@ -67,6 +67,7 @@ pub(crate) trait CompressionModeBase: Display + Clone {
 /// compression ratio might remain high, compression and decompression are very
 /// fast. Use this mode with indices that have a high update rate but should be
 /// able to load documents from disk quickly.
+#[derive(Debug)]
 pub struct LZ4FastCompressionMode;
 
 impl Display for LZ4FastCompressionMode {
@@ -94,6 +95,7 @@ impl CompressionModeBase for LZ4FastCompressionMode {
 /// compression and decompression might be slow, this compression mode should
 /// provide a good compression ratio. This mode might be interesting if/when
 /// your index size is much bigger than your OS cache.
+#[derive(Debug)]
 pub struct DeflateCompressionMode;
 
 impl Display for DeflateCompressionMode {
@@ -122,6 +124,7 @@ impl CompressionModeBase for DeflateCompressionMode {
 /// compressing in order to improve the compression ratio. This compression mode
 /// is best used with indices that have a low update rate but should be able to
 /// load documents from disk quickly.
+#[derive(Debug)]
 pub struct LZ4HighCompressionMode;
 
 impl Display for LZ4HighCompressionMode {
@@ -145,7 +148,7 @@ impl CompressionModeBase for LZ4HighCompressionMode {
         DecompressorEnum::LZ4(LZ4Decompressor)
     }
 }
-
+#[derive(Debug)]
 pub enum CompressionModeEnum {
     Fast(LZ4FastCompressionMode),
     High(LZ4HighCompressionMode),
@@ -198,6 +201,20 @@ impl Clone for CompressionModeEnum {
         }
     }
 }
+impl PartialEq for CompressionModeEnum {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::Fast(_), Self::Fast(_))
+                | (Self::High(_), Self::High(_))
+                | (Self::Deflate(_), Self::Deflate(_))
+                | (Self::LZ4Dict(_), Self::LZ4Dict(_))
+                | (Self::Impl(_), Self::Impl(_))
+        )
+    }
+}
+
+impl Eq for CompressionModeEnum {}
 
 pub struct LZ4Decompressor;
 

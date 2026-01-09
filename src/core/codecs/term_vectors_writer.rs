@@ -16,11 +16,20 @@
  */
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::fields::Fields;
+use crate::core::index::merge_state::{MergeState, MergeStateMeta};
+use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::store::DataInput;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, IndexInput};
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::iterator::IteratorExt;
 
 pub trait TermVectorsWriter: Accountable {
     fn start_document(&mut self, num_vector_fields: i32) -> Result<()>;
@@ -107,6 +116,133 @@ pub trait TermVectorsWriter: Accountable {
 
             self.add_position(position, start_offset, end_offset, this_payload)?;
         }
+
+        Ok(())
+    }
+    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
+    where
+        I: IndexInput,
+        D: Directory;
+    /// Safe (but, slowish) default method to write every vector field in the document.
+    fn add_all_doc_vectors<F>(
+        &mut self,
+        vectors: Option<&F>,
+        merge_state: &MergeStateMeta,
+    ) -> Result<()>
+    where
+        F: Fields,
+    {
+        if vectors.is_none() {
+            self.start_document(0)?;
+            self.finish_document()?;
+            return Ok(());
+        }
+
+        let vectors = vectors.unwrap();
+
+        let mut num_fields = vectors.size()?;
+        if num_fields == -1 {
+            // count manually
+            num_fields = 0;
+            let mut it = vectors.iterator()?;
+            while it.has_next()? {
+                it.next()?;
+                num_fields += 1;
+            }
+        }
+
+        self.start_document(num_fields)?;
+
+        let mut last_field_name: Option<String> = None;
+
+        let mut field_count = 0;
+
+        let mut fields_iter = vectors.iterator()?;
+        while fields_iter.has_next()? {
+            let field_name = fields_iter.next()?.unwrap();
+            field_count += 1;
+
+            let field_info = merge_state
+                .merge_field_infos
+                .field_info_by_name(field_name)
+                .ok_or_else(|| LuceneError::illegal_state("missing FieldInfo"))?;
+
+            if let Some(ref last) = last_field_name {
+                debug_assert!(
+                    field_name > last,
+                    "lastFieldName={} fieldName={}",
+                    last,
+                    field_name
+                );
+            }
+            last_field_name = Some(field_name.clone());
+
+            let Some(terms) = vectors.terms(field_name)? else {
+                // Fields iterator should not lie
+                continue;
+            };
+
+            let has_positions = terms.has_positions();
+            let has_offsets = terms.has_offsets();
+            let has_payloads = terms.has_payloads();
+            debug_assert!(!has_payloads || has_positions);
+
+            let mut num_terms = terms.size()? as i32;
+            if num_terms == -1 {
+                num_terms = 0;
+                let mut terms_enum = terms.iterator()?;
+                // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
+                // function
+                while terms_enum.next()?.is_some() {
+                    num_terms += 1;
+                }
+            }
+
+            self.start_field(
+                field_info.as_ref(),
+                num_terms as usize,
+                has_positions,
+                has_offsets,
+                has_payloads,
+            )?;
+
+            let mut terms_enum = terms.iterator()?;
+            let mut term_count = 0;
+
+            while let Some(_term) = terms_enum.next()? {
+                term_count += 1;
+
+                let freq = terms_enum.total_term_freq()? as i32;
+                self.start_term(terms_enum.term()?.as_ref(), freq)?;
+
+                if has_positions || has_offsets {
+                    let mut postings =
+                        terms_enum.postings_with_flags(None, (OFFSETS | PAYLOADS) as i32)?;
+
+                    let doc_id = postings.next_doc()?;
+                    debug_assert!(doc_id != NO_MORE_DOCS);
+                    debug_assert!(postings.freq()? == freq);
+
+                    for _ in 0..freq {
+                        let pos = postings.next_position()?;
+                        let start_offset = postings.start_offset()?;
+                        let end_offset = postings.end_offset()?;
+                        let payload = postings.get_payload()?;
+
+                        debug_assert!(!has_positions || pos >= 0);
+                        self.add_position(pos, start_offset, end_offset, payload.as_deref())?;
+                    }
+                }
+
+                self.finish_term()?;
+            }
+
+            debug_assert!(term_count == num_terms);
+            self.finish_field()?;
+        }
+
+        debug_assert!(field_count == num_fields);
+        self.finish_document()?;
 
         Ok(())
     }
