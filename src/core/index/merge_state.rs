@@ -277,3 +277,11 @@ impl DocMap for DocMapEnum {
         }
     }
 }
+
+// for shared
+#[derive(Clone)]
+pub struct MergeStateMeta {
+    pub(crate) fields_producers_len: usize,
+    pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
+    pub needs_index_sort: bool,
+}

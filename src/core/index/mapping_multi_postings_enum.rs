@@ -15,41 +15,37 @@
  * limitations under the License.
  */
 use crate::core::index::index_writer::MAX_POSITION;
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
+use crate::core::index::merge_state::{DocMapEnum, MergeStateMeta};
 use crate::core::index::multi_postings_enum::MultiPostingsEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of_with_max_count};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments, remapping docIDs (this is used for segment merging).
-pub struct MappingMultiPostingsEnum<'a, I, PE>
+pub struct MappingMultiPostingsEnum<PE>
 where
-    I: IndexInput,
     PE: PostingsEnum,
 {
     // for easy taken
     multi_docs_and_positions_enum: Option<MultiPostingsEnum<PE>>,
-    merge_state: &'a mut MergeState<I>,
-    field: String,
+    pub(crate) field: String,
     doc_id_merger: DocIDMergerEnum<MappingPostingsSub<PE>>,
     current: Option<usize>,
     all_subs: Vec<MappingPostingsSub<PE>>,
     idxs: Vec<(usize, usize)>,
 }
-impl<'a, I, PE> MappingMultiPostingsEnum<'a, I, PE>
+impl<PE> MappingMultiPostingsEnum<PE>
 where
-    I: IndexInput,
     PE: PostingsEnum,
 {
-    pub(crate) fn new(field: String, merge_state: &'a mut MergeState<I>) -> Result<Self> {
-        let mut all_subs = Vec::with_capacity(merge_state.fields_producers.len());
+    pub(crate) fn new(field: String, merge_state: &MergeStateMeta) -> Result<Self> {
+        let mut all_subs = Vec::with_capacity(merge_state.fields_producers_len);
 
-        for i in 0..merge_state.fields_producers.len() {
+        for i in 0..merge_state.fields_producers_len {
             all_subs.push(MappingPostingsSub::new(merge_state.doc_maps[i].clone()));
         }
         let subs: Vec<Sub<MappingPostingsSub<PE>>> = Vec::new();
@@ -58,7 +54,6 @@ where
 
         Ok(Self {
             multi_docs_and_positions_enum: None,
-            merge_state,
             field,
             doc_id_merger,
             current: None,
@@ -109,9 +104,8 @@ where
     }
 }
 
-impl<I, PE> DocIdSetIterator for MappingMultiPostingsEnum<'_, I, PE>
+impl<PE> DocIdSetIterator for MappingMultiPostingsEnum<PE>
 where
-    I: IndexInput,
     PE: PostingsEnum,
 {
     fn doc_id(&self) -> i32 {
@@ -144,9 +138,8 @@ where
     }
 }
 
-impl<I, PE> PostingsEnum for MappingMultiPostingsEnum<'_, I, PE>
+impl<PE> PostingsEnum for MappingMultiPostingsEnum<PE>
 where
-    I: IndexInput,
     PE: PostingsEnum,
 {
     fn freq(&mut self) -> Result<i32> {

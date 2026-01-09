@@ -54,6 +54,7 @@ where
         }
     }
 }
+pub type MultiFieldsTerms<T> = Rc<MultiTerms<T>>;
 impl<F> Fields for MultiFields<F>
 where
     F: Fields,
@@ -71,7 +72,7 @@ where
         MergedIterator::new(sub_iterators)
     }
 
-    type Terms = Rc<MultiTerms<<F as Fields>::Terms>>;
+    type Terms = MultiFieldsTerms<<F as Fields>::Terms>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         if let Some(v) = self.terms.borrow().get(field) {

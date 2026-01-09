@@ -32,14 +32,14 @@ where
     F: Fields,
 {
     /// The underlying Fields instance.
-    inner: F,
+    pub(crate) in_: F,
 }
 impl<F> FilterFields<F>
 where
     F: Fields,
 {
     pub fn new(inner: F) -> FilterFields<F> {
-        Self { inner }
+        Self { in_: inner }
     }
 }
 impl<F> Fields for FilterFields<F>
@@ -52,17 +52,17 @@ where
         F: 'a;
 
     fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        self.inner.iterator()
+        self.in_.iterator()
     }
 
     type Terms = F::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        self.inner.terms(field)
+        self.in_.terms(field)
     }
 
     fn size(&self) -> Result<i32> {
-        self.inner.size()
+        self.in_.size()
     }
 }
 
@@ -76,7 +76,7 @@ where
     T: Terms,
 {
     /// The underlying `Terms` instance.
-    pub(crate) inner: T,
+    pub(crate) in_: T,
 }
 
 impl<T> FilterTerms<T>
@@ -84,7 +84,7 @@ where
     T: Terms,
 {
     pub fn new(inner: T) -> Self {
-        Self { inner }
+        Self { in_: inner }
     }
 }
 impl<T> Terms for FilterTerms<T>
@@ -94,7 +94,7 @@ where
     type TermsEnum = T::TermsEnum;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        self.inner.iterator()
+        self.in_.iterator()
     }
 
     type IntersectIter
@@ -112,39 +112,39 @@ where
     }
 
     fn size(&self) -> Result<i64> {
-        self.inner.size()
+        self.in_.size()
     }
 
     fn get_sum_total_term_freq(&self) -> Result<i64> {
-        self.inner.get_sum_total_term_freq()
+        self.in_.get_sum_total_term_freq()
     }
 
     fn get_sum_doc_freq(&self) -> Result<i64> {
-        self.inner.get_sum_doc_freq()
+        self.in_.get_sum_doc_freq()
     }
 
     fn get_doc_count(&self) -> Result<i32> {
-        self.inner.get_doc_count()
+        self.in_.get_doc_count()
     }
 
     fn has_freqs(&self) -> bool {
-        self.inner.has_freqs()
+        self.in_.has_freqs()
     }
 
     fn has_offsets(&self) -> bool {
-        self.inner.has_offsets()
+        self.in_.has_offsets()
     }
 
     fn has_positions(&self) -> bool {
-        self.inner.has_positions()
+        self.in_.has_positions()
     }
 
     fn has_payloads(&self) -> bool {
-        self.inner.has_payloads()
+        self.in_.has_payloads()
     }
 
     fn get_stats(&self) -> Result<String> {
-        self.inner.get_stats()
+        self.in_.get_stats()
     }
 }
 
@@ -153,14 +153,14 @@ pub struct FilterTermsEnum<T>
 where
     T: TermsEnum,
 {
-    terms_enum: T,
+    pub(crate) in_: T,
 }
 impl<T> FilterTermsEnum<T>
 where
     T: TermsEnum,
 {
     pub fn new(terms_enum: T) -> Self {
-        Self { terms_enum }
+        Self { in_: terms_enum }
     }
 }
 
@@ -169,7 +169,7 @@ where
     T: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.terms_enum.next()
+        self.in_.next()
     }
 }
 
@@ -180,19 +180,19 @@ where
     type AttributeSource = T::AttributeSource;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
-        self.terms_enum.attributes()
+        self.in_.attributes()
     }
 
     fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.terms_enum.seek_exact(term)
+        self.in_.seek_exact(term)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        self.terms_enum.seek_ceil(term)
+        self.in_.seek_ceil(term)
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.terms_enum.seek_exact_with_ord(ord)
+        self.in_.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(
@@ -200,23 +200,23 @@ where
         term: &BytesRef<Vec<u8>>,
         state: &Self::TermState,
     ) -> Result<()> {
-        self.terms_enum.seek_exact_with_state(term, state)
+        self.in_.seek_exact_with_state(term, state)
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.terms_enum.term()
+        self.in_.term()
     }
 
     fn ord(&self) -> Result<i64> {
-        self.terms_enum.ord()
+        self.in_.ord()
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
-        self.terms_enum.doc_freq()
+        self.in_.doc_freq()
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
-        self.terms_enum.total_term_freq()
+        self.in_.total_term_freq()
     }
 
     type PostingsEnum = T::PostingsEnum;
@@ -226,18 +226,18 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        self.terms_enum.postings_with_flags(reuse, flags)
+        self.in_.postings_with_flags(reuse, flags)
     }
 
     type ImpactsEnum = T::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.terms_enum.impacts(flags)
+        self.in_.impacts(flags)
     }
 
     type TermState = T::TermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        self.terms_enum.term_state()
+        self.in_.term_state()
     }
 }
