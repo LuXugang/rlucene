@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::core::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{DefaultNormNumericDocValues, NormsProducer};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{DocMapEnum, MergeState};
@@ -131,7 +131,7 @@ impl<I> NormsProducer for NormsProducerMerge<'_, I>
 where
     I: IndexInput,
 {
-    type NumericDocValues = NumericDocValuesMerge<I>;
+    type NumericDocValues = NumericDocValuesMerge<DefaultNormNumericDocValues<I>>;
 
     fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -174,27 +174,27 @@ where
     }
 }
 
-pub struct NumericDocValuesMerge<I>
+pub struct NumericDocValuesMerge<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
     doc_id: i32,
     current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<I>>,
+    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N>>,
 }
 
-impl<I> DocValuesIterator for NumericDocValuesMerge<I>
+impl<N> DocValuesIterator for NumericDocValuesMerge<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<I> DocIdSetIterator for NumericDocValuesMerge<I>
+impl<N> DocIdSetIterator for NumericDocValuesMerge<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -224,9 +224,9 @@ where
     }
 }
 
-impl<I> NumericDocValues for NumericDocValuesMerge<I>
+impl<N> NumericDocValues for NumericDocValuesMerge<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
@@ -239,26 +239,26 @@ where
     }
 }
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<I>
+struct NumericDocValuesSub<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
-    values: Lucene90NormNumericDocValuesEnum<I>,
+    values: N,
     doc_map: Rc<DocMapEnum>,
 }
 
-impl<I> NumericDocValuesSub<I>
+impl<N> NumericDocValuesSub<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NormNumericDocValuesEnum<I>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: N) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
 }
-impl<I> SubBase for NumericDocValuesSub<I>
+impl<N> SubBase for NumericDocValuesSub<N>
 where
-    I: IndexInput,
+    N: NumericDocValues,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()

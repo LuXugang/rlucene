@@ -52,3 +52,4 @@ pub trait NormsProducer: Clone {
     }
 }
 pub type NormsProducerType<I> = Lucene90NormsProducer<I>;
+pub type DefaultNormNumericDocValues<I> = <NormsProducerType<I> as NormsProducer>::NumericDocValues;
