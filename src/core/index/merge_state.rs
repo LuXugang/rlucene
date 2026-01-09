@@ -52,7 +52,7 @@ where
     pub stored_fields_readers: Vec<StoredFieldsReaderType<I>>,
     pub norms_producers: Vec<Option<NormsProducerType<I>>>,
     pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<I>>>,
-    pub fields_producers: Vec<FieldsProducerType<I>>,
+    pub fields_producers: Vec<Option<FieldsProducerType<I>>>,
     pub field_infos: Vec<Arc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
@@ -63,6 +63,13 @@ impl<I> MergeState<I>
 where
     I: IndexInput,
 {
+    pub(crate) fn get_meta(&self) -> MergeStateMeta {
+        MergeStateMeta {
+            fields_producers_len: self.fields_producers.len(),
+            doc_maps: self.doc_maps.clone(),
+            needs_index_sort: self.needs_index_sort,
+        }
+    }
     fn build_doc_maps<CR>(
         &mut self,
         readers: &[CR],

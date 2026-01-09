@@ -131,3 +131,29 @@ either_fields!(
     pub FieldsEnum2 => { fi: FieldIterEnum2, te: TermsEnum2 }
     { A: A, B: B }
 );
+impl<T> Fields for &T
+where
+    T: Fields,
+{
+    type FieldIter<'a>
+        = <T as Fields>::FieldIter<'a>
+    where
+        Self: 'a;
+
+    #[inline]
+    fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+        (**self).iterator()
+    }
+
+    type Terms = <T as Fields>::Terms;
+
+    #[inline]
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        (**self).terms(field)
+    }
+
+    #[inline]
+    fn size(&self) -> Result<i32> {
+        (**self).size()
+    }
+}

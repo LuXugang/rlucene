@@ -20,38 +20,47 @@ use crate::core::index::fields::Fields;
 use crate::core::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
-use crate::core::index::merge_state::MergeStateMeta;
+use crate::core::index::merge_state::{MergeState, MergeStateMeta};
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_terms::IteratorType;
 use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
+use crate::core::store::IndexInput;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
+
 /// A [`Fields`] implementation that merges multiple `Fields` into one,
 /// while accounting for deleted documents.
 ///
 /// This implementation is used during index merging.
-pub struct MappedMultiFields<F>
+pub struct MappedMultiFields<'a, F>
 where
     F: Fields,
 {
-    merge_state: MergeStateMeta,
-    base: FilterFields<MultiFields<F>>,
+    merge_state_meta: MergeStateMeta,
+    base: FilterFields<&'a MultiFields<F>>,
 }
 
-impl<F> MappedMultiFields<F>
+impl<'a, F> MappedMultiFields<'a, F>
 where
     F: Fields,
 {
-    pub fn new(merge_state: MergeStateMeta, multi_fields: MultiFields<F>) -> Self {
+    pub fn new<I>(merge_state: &MergeState<I>, multi_fields: &'a MultiFields<F>) -> Self
+    where
+        I: IndexInput,
+    {
+        let merge_state_meta = merge_state.get_meta();
         let base = FilterFields::new(multi_fields);
-        MappedMultiFields { merge_state, base }
+        MappedMultiFields {
+            merge_state_meta,
+            base,
+        }
     }
 }
-impl<F> Fields for MappedMultiFields<F>
+impl<F> Fields for MappedMultiFields<'_, F>
 where
     F: Fields,
 {
@@ -71,7 +80,7 @@ where
         match terms {
             Some(v) => Ok(Some(MappedMultiTerms::new(
                 field.to_string(),
-                self.merge_state.clone(),
+                self.merge_state_meta.clone(),
                 v,
             ))),
             None => Ok(None),
