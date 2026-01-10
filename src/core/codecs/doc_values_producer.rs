@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::core::codecs::lucene90_doc_values_producer::{
+    Lucene90BinaryDocValuesEnum, Lucene90DocValuesProducer, Lucene90NumericDocValuesEnum,
+    Lucene90SortedDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
+    Lucene90SortedSetDocValuesEnum,
+};
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
@@ -111,13 +115,11 @@ pub trait DocValuesProducer: Clone {
     }
 }
 pub type DefaultDocValuesProducer<I> = Lucene90DocValuesProducer<I>;
-pub type DefaultBinary<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::BinaryDocValues;
-pub type DefaultNumeric<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::NumericDocValues;
-pub type DefaultSorted<I> = <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedDocValues;
-pub type DefaultSortedNumeric<I> =
-    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedNumericDocValues;
-pub type DefaultSortedSet<I> =
-    <DefaultDocValuesProducer<I> as DocValuesProducer>::SortedSetDocValues;
+pub type DefaultBinary<I> = Lucene90BinaryDocValuesEnum<I>;
+pub type DefaultNumeric<I> = Lucene90NumericDocValuesEnum<I>;
+pub type DefaultSorted<I> = Lucene90SortedDocValuesEnum<I>;
+pub type DefaultSortedNumeric<I> = Lucene90SortedNumericDocValuesEnum<I>;
+pub type DefaultSortedSet<I> = Lucene90SortedSetDocValuesEnum<I>;
 
 impl<T> DocValuesProducer for Arc<T>
 where
