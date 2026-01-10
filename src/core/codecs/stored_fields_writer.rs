@@ -24,7 +24,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IndexInput, IndexOutput};
+use crate::core::store::{DataInput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
@@ -103,10 +103,10 @@ pub trait StoredFieldsWriter {
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
     /// documents that were written. Implementations can override this
     /// method for more sophisticated merging (bulk-byte copying, etc.).
-    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
+    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
         D: Directory,
+        D1: Directory,
         Self: Sized,
     {
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
@@ -203,9 +203,9 @@ pub(crate) struct MergeVisitor {
     remapper: Option<Arc<FieldInfos>>,
 }
 impl MergeVisitor {
-    pub(crate) fn new<I>(merge_state: &MergeState<I>, reader_index: usize) -> Result<Self>
+    pub(crate) fn new<D>(merge_state: &MergeState<D>, reader_index: usize) -> Result<Self>
     where
-        I: IndexInput,
+        D: Directory,
     {
         for fi in merge_state.field_infos[reader_index].as_ref() {
             if let Some(other) = merge_state
@@ -416,9 +416,9 @@ where
         }
     }
 
-    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &D1) -> Result<i32>
+    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
+        D: Directory,
         D1: Directory,
         Self: Sized,
     {

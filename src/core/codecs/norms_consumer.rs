@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::core::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::core::codecs::norms_producer::{DefaultNormNumericDocValues, NormsProducer};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -24,7 +23,8 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::store::IndexOutput;
+use crate::core::store::directory::Directory;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
@@ -66,9 +66,9 @@ pub trait NormsConsumer {
     ///
     /// Implementations can override this method for more sophisticated merging
     /// (e.g. bulk-byte copying).
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<()>
+    fn merge<D>(&mut self, merge_state: &mut MergeState<D>) -> Result<()>
     where
-        I: IndexInput,
+        D: Directory,
     {
         for producer in merge_state.norms_producers.iter_mut().flatten() {
             producer.check_integrity()?;
@@ -87,13 +87,13 @@ pub trait NormsConsumer {
     /// The default implementation calls
     /// [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
     /// that merges and filters deleted documents on the fly.
-    fn merge_norms_field<I>(
+    fn merge_norms_field<D>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()>
     where
-        I: IndexInput,
+        D: Directory,
     {
         let mut norms_producer = NormsProducerMerge {
             merge_field_info: merge_field_info.clone(),
@@ -106,17 +106,17 @@ pub trait NormsConsumer {
     }
 }
 
-struct NormsProducerMerge<'a, I>
+struct NormsProducerMerge<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
 }
 
-impl<I> Clone for NormsProducerMerge<'_, I>
+impl<D> Clone for NormsProducerMerge<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -127,11 +127,11 @@ where
     }
 }
 
-impl<I> NormsProducer for NormsProducerMerge<'_, I>
+impl<D> NormsProducer for NormsProducerMerge<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
-    type NumericDocValues = NumericDocValuesMerge<DefaultNormNumericDocValues<I>>;
+    type NumericDocValues = NumericDocValuesMerge<DefaultNormNumericDocValues<D::IndexInput>>;
 
     fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -143,7 +143,7 @@ where
             self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
-            let mut norms: Option<Lucene90NormNumericDocValuesEnum<I>> = None;
+            let mut norms = None;
             let norms_producer_opt = &self.merge_state.norms_producers[i];
             if let Some(norms_producer) = norms_producer_opt {
                 let reader_field_info =

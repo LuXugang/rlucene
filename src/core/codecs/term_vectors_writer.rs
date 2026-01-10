@@ -24,8 +24,8 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IndexInput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -119,10 +119,10 @@ pub trait TermVectorsWriter: Accountable {
 
         Ok(())
     }
-    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
+    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
-        D: Directory;
+        D: Directory,
+        D1: Directory;
     /// Safe (but, slowish) default method to write every vector field in the document.
     fn add_all_doc_vectors<F>(
         &mut self,

@@ -688,9 +688,9 @@ where
 
         self.writer.finish(&mut self.vectors_stream)
     }
-    fn copy_chunks<I: IndexInput>(
+    fn copy_chunks<D: Directory>(
         &mut self,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
         sub: &CompressingTermVectorsSub,
         from_doc_id: i32,
         to_doc_id: i32,
@@ -823,9 +823,9 @@ where
                 && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
         )
     }
-    fn can_perform_bulk_merge<I: IndexInput>(
+    fn can_perform_bulk_merge<D: Directory>(
         &self,
-        merge_state: &MergeState<I>,
+        merge_state: &MergeState<D>,
         matching_readers: &MatchingReaders,
         reader_index: usize,
     ) -> Result<bool> {
@@ -1121,10 +1121,10 @@ where
         Ok(())
     }
 
-    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
+    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
         D: Directory,
+        D1: Directory,
     {
         let num_readers = merge_state.term_vectors_readers.len();
         let matching_readers = MatchingReaders::new(merge_state)?;
@@ -1210,13 +1210,13 @@ pub struct CompressingTermVectorsSub {
 }
 
 impl CompressingTermVectorsSub {
-    pub fn new<I>(
-        merge_state: &MergeState<I>,
+    pub fn new<D>(
+        merge_state: &MergeState<D>,
         can_perform_bulk_merge: bool,
         reader_index: usize,
     ) -> Self
     where
-        I: IndexInput,
+        D: Directory,
     {
         Self {
             max_doc: merge_state.max_docs[reader_index],

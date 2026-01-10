@@ -18,8 +18,8 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
+use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IndexInput};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyStoredFieldsWriter;
@@ -76,10 +76,10 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn merge<I, D>(&mut self, _merge_state: &mut MergeState<I>, _dir: &D) -> Result<i32>
+    fn merge<D, D1>(&mut self, _merge_state: &mut MergeState<D>, _dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
         D: Directory,
+        D1: Directory,
         Self: Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")

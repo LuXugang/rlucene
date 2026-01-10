@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::merge_state::MergeState;
-use crate::core::store::IndexInput;
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStream;
 
@@ -32,9 +32,9 @@ pub struct MatchingReaders {
 }
 
 impl MatchingReaders {
-    pub fn new<I>(merge_state: &MergeState<I>) -> Result<Self>
+    pub fn new<D>(merge_state: &MergeState<D>) -> Result<Self>
     where
-        I: IndexInput,
+        D: Directory,
     {
         // If the i'th reader is a SegmentReader and has
         // identical fieldName -> number mapping, then this

@@ -26,7 +26,7 @@ use crate::core::index::multi_terms::IteratorType;
 use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
-use crate::core::store::IndexInput;
+use crate::core::store::directory::Directory;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -48,9 +48,9 @@ impl<'a, F> MappedMultiFields<'a, F>
 where
     F: Fields,
 {
-    pub fn new<I>(merge_state: &MergeState<I>, multi_fields: &'a MultiFields<F>) -> Self
+    pub fn new<D>(merge_state: &MergeState<D>, multi_fields: &'a MultiFields<F>) -> Self
     where
-        I: IndexInput,
+        D: Directory,
     {
         let merge_state_meta = merge_state.get_meta();
         let base = FilterFields::new(multi_fields);

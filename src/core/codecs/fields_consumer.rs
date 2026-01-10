@@ -24,7 +24,7 @@ use crate::core::index::mapped_multi_fields::MappedMultiFields;
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::multi_fields::MultiFields;
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::store::IndexInput;
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
@@ -55,9 +55,9 @@ pub trait FieldsConsumer {
     ///
     /// Implementations may override this method to perform more sophisticated
     /// merging strategies (such as bulk byte copying, etc.).
-    fn merge<I, N>(&mut self, merge_state: &MergeState<I>, norms: &Option<N>) -> Result<()>
+    fn merge<D, N>(&mut self, merge_state: &MergeState<D>, norms: &Option<N>) -> Result<()>
     where
-        I: IndexInput,
+        D: Directory,
         N: NormsProducer,
     {
         let mut fields = Vec::new();

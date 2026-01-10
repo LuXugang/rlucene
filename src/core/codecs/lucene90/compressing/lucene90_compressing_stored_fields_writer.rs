@@ -275,9 +275,9 @@ where
 
         Ok(())
     }
-    fn copy_chunks<I: IndexInput>(
+    fn copy_chunks<D: Directory>(
         &mut self,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
         sub: &CompressingStoredFieldsMergeSub,
         from_doc_id: i32,
         to_doc_id: i32,
@@ -402,14 +402,14 @@ where
                 && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
         )
     }
-    fn get_merge_strategy<I>(
+    fn get_merge_strategy<D>(
         &self,
-        merge_state: &MergeState<I>,
+        merge_state: &MergeState<D>,
         matching_readers: &MatchingReaders,
         reader_index: usize,
     ) -> Result<MergeStrategy>
     where
-        I: IndexInput,
+        D: Directory,
     {
         let candidate = &merge_state.stored_fields_readers[reader_index];
         // Currently we only allow to hanlde same version
@@ -568,9 +568,9 @@ where
         Ok(())
     }
 
-    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &D1) -> Result<i32>
+    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
     where
-        I: IndexInput,
+        D: Directory,
         D1: Directory,
         Self: Sized,
     {
@@ -680,8 +680,8 @@ struct CompressingStoredFieldsMergeSub {
 }
 
 impl CompressingStoredFieldsMergeSub {
-    fn new<I: IndexInput>(
-        merge_state: &MergeState<I>,
+    fn new<D: Directory>(
+        merge_state: &MergeState<D>,
         merge_strategy: MergeStrategy,
         reader_index: usize,
     ) -> Self {

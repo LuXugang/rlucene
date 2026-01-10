@@ -51,7 +51,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexInput;
+use crate::core::store::directory::Directory;
 use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -89,13 +89,13 @@ pub trait DocValuesConsumer {
     where
         D: DocValuesProducer;
 
-    fn merge_numeric_field<I>(
+    fn merge_numeric_field<D>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()>
     where
-        I: IndexInput,
+        D: Directory,
     {
         let producer = EmptyDocValuesProducerMerge1 {
             merge_field_info: merge_field_info.clone(),
@@ -104,10 +104,10 @@ pub trait DocValuesConsumer {
         self.add_numeric_field(merge_field_info, &producer)?;
         Ok(())
     }
-    fn merge_binary_filed<I: IndexInput>(
+    fn merge_binary_filed<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()> {
         let producer = EmptyDocValuesProducerMerge2 {
             merge_field_info: merge_field_info.clone(),
@@ -115,10 +115,10 @@ pub trait DocValuesConsumer {
         };
         self.add_binary_field(merge_field_info, &producer)
     }
-    fn merge_sorted_numeric_field<I: IndexInput>(
+    fn merge_sorted_numeric_field<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()> {
         let producer = EmptyDocValuesProducerMerge3 {
             merge_field_info: merge_field_info.clone(),
@@ -126,10 +126,10 @@ pub trait DocValuesConsumer {
         };
         self.add_sorted_numeric_field(merge_field_info, &producer)
     }
-    fn merge_sorted_field<I: IndexInput>(
+    fn merge_sorted_field<D: Directory>(
         &mut self,
         field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()> {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
@@ -199,10 +199,10 @@ pub trait DocValuesConsumer {
         };
         self.add_sorted_field(field_info, &producer)
     }
-    fn merge_sorted_set_field<I: IndexInput>(
+    fn merge_sorted_set_field<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<I>,
+        merge_state: &mut MergeState<D>,
     ) -> Result<()> {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
@@ -391,17 +391,17 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge1<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge1<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
 }
 
-impl<I> Clone for EmptyDocValuesProducerMerge1<'_, I>
+impl<D> Clone for EmptyDocValuesProducerMerge1<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -412,11 +412,11 @@ where
     }
 }
 
-impl<I> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
-    type NumericDocValues = NumericDocValuesMerge<DefaultNumeric<I>>;
+    type NumericDocValues = NumericDocValuesMerge<DefaultNumeric<D::IndexInput>>;
 
     fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -553,17 +553,17 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge2<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge2<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
 }
 
-impl<I> Clone for EmptyDocValuesProducerMerge2<'_, I>
+impl<D> Clone for EmptyDocValuesProducerMerge2<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -574,12 +574,12 @@ where
     }
 }
 
-impl<I> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     type NumericDocValues = DummyNumericDocValues;
-    type BinaryDocValues = BinaryDocValuesMerge<DefaultBinary<I>>;
+    type BinaryDocValues = BinaryDocValuesMerge<DefaultBinary<D::IndexInput>>;
 
     fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -738,17 +738,17 @@ where
 
     type NumericDocValues = DummyNumericDocValues;
 }
-pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
 }
 
-impl<I> Clone for EmptyDocValuesProducerMerge3<'_, I>
+impl<D> Clone for EmptyDocValuesProducerMerge3<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -759,9 +759,9 @@ where
     }
 }
 
-impl<I> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
@@ -772,12 +772,12 @@ where
                 NumericDocValuesEnum4<
                     DummyNumericDocValues,
                     DummyNumericDocValues,
-                    Lucene90NumericDocValuesEnum<I>,
+                    Lucene90NumericDocValuesEnum<D::IndexInput>,
                     EmptyNumeric,
                 >,
             >,
         >,
-        SortedNumericDocValuesMerge<Lucene90SortedNumericDocValuesEnum<I>>,
+        SortedNumericDocValuesMerge<Lucene90SortedNumericDocValuesEnum<D::IndexInput>>,
     >;
 
     fn get_sorted_numeric(
@@ -910,18 +910,18 @@ where
     }
 }
 
-pub(crate) struct EmptyDocValuesProducerMerge4<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge4<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
     map: Rc<OrdinalMap>,
 }
 
-impl<I> Clone for EmptyDocValuesProducerMerge4<'_, I>
+impl<D> Clone for EmptyDocValuesProducerMerge4<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -932,14 +932,14 @@ where
     }
 }
 
-impl<I> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues =
-        SortedDocValuesMerge<SortedDocValuesEnum2<DefaultSorted<I>, EmptySorted>>;
+        SortedDocValuesMerge<SortedDocValuesEnum2<DefaultSorted<D::IndexInput>, EmptySorted>>;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         if !Arc::ptr_eq(field, &self.field_info) {
@@ -1362,18 +1362,18 @@ where
     where
         Self: 'a;
 }
-pub(crate) struct EmptyDocValuesProducerMerge5<'a, I>
+pub(crate) struct EmptyDocValuesProducerMerge5<'a, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<I>,
+    merge_state: &'a mut MergeState<D>,
     map: Rc<OrdinalMap>,
 }
 
-impl<I> Clone for EmptyDocValuesProducerMerge5<'_, I>
+impl<D> Clone for EmptyDocValuesProducerMerge5<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -1384,9 +1384,9 @@ where
     }
 }
 
-impl<I> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;

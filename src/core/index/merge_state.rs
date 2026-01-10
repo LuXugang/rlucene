@@ -30,7 +30,6 @@ use crate::core::index::segment_info::SegmentInfo;
 #[cfg(test)]
 use crate::core::index::tests::DocMapMock2;
 use crate::core::search::sort::Sort;
-use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -44,26 +43,27 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-pub struct MergeState<I>
+pub struct MergeState<D>
 where
-    I: IndexInput,
+    D: Directory,
 {
+    pub segment_info: SegmentInfo<D>,
     pub doc_maps: Vec<Rc<DocMapEnum>>,
     pub merge_field_infos: Arc<FieldInfos>,
-    pub stored_fields_readers: Vec<StoredFieldsReaderType<I>>,
-    pub term_vectors_readers: Vec<Option<TermVectorsReaderType<I>>>,
-    pub norms_producers: Vec<Option<NormsProducerType<I>>>,
-    pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<I>>>,
-    pub fields_producers: Vec<Option<FieldsProducerType<I>>>,
+    pub stored_fields_readers: Vec<StoredFieldsReaderType<D::IndexInput>>,
+    pub term_vectors_readers: Vec<Option<TermVectorsReaderType<D::IndexInput>>>,
+    pub norms_producers: Vec<Option<NormsProducerType<D::IndexInput>>>,
+    pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
+    pub fields_producers: Vec<Option<FieldsProducerType<D::IndexInput>>>,
     pub field_infos: Vec<Arc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
     pub max_docs: Vec<i32>,
     pub info_stream: Arc<InfoStreamEnum>,
 }
-impl<I> MergeState<I>
+impl<D> MergeState<D>
 where
-    I: IndexInput,
+    D: Directory,
 {
     pub(crate) fn get_meta(&self) -> MergeStateMeta {
         MergeStateMeta {
