@@ -191,7 +191,7 @@ where
 
     type PointValuesType = Arc<BKDReader<I>>;
 
-    fn get_values(&self, field_name: &str) -> Result<Self::PointValuesType> {
+    fn get_values(&self, field_name: &str) -> Result<Option<Self::PointValuesType>> {
         match self.field_infos.field_info_by_name(field_name) {
             Some(field_info) => {
                 if field_info.get_point_dimension_count() == 0 {
@@ -201,7 +201,7 @@ where
                     )));
                 }
                 match self.readers.get(&field_info.number) {
-                    Some(reader) => Ok(reader.clone()),
+                    Some(reader) => Ok(Some(reader.clone())),
                     None => Err(LuceneError::illegal_state(format!(
                         "No BKDReader found for field: {}",
                         field_name

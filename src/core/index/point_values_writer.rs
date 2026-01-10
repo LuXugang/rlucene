@@ -25,7 +25,6 @@ use crate::core::index::point_values::{
     IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::DataOutput;
 use crate::core::store::directory::Directory;
@@ -118,7 +117,7 @@ impl PointValuesWriter {
     }
     pub(crate) fn flush<D1, D2, DM, PW>(
         &mut self,
-        state: &SegmentWriteState<D1>,
+        state: &D1,
         sort_map: Option<Arc<DM>>,
         writer: &mut PW,
         segment_info: &SegmentInfo<D2>,
@@ -200,12 +199,12 @@ where
 
     type PointValuesType = PointValuesImpl<DM>;
 
-    fn get_values(&self, field_name: &str) -> Result<Self::PointValuesType> {
+    fn get_values(&self, field_name: &str) -> Result<Option<Self::PointValuesType>> {
         if !field_name.eq(self.field_info.name.as_str()) {
             return Err(LuceneError::illegal_argument("fieldName must be the same"));
         }
         let values = self.values.take();
-        Ok(PointValuesImpl::new(values))
+        Ok(Some(PointValuesImpl::new(values)))
     }
 }
 

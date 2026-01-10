@@ -148,7 +148,7 @@ where
         &mut self,
         field_info: &Arc<FieldInfo>,
         reader: &mut PR,
-        write_state: &SegmentWriteState<D1>,
+        dir: &D1,
         segment_info: &SegmentInfo<D2>,
     ) -> Result<()>
     where
@@ -156,7 +156,10 @@ where
         D1: Directory,
         D2: Directory,
     {
-        let mut values = reader.get_values(&field_info.name)?.get_point_tree()?;
+        let mut values = reader
+            .get_values(&field_info.name)?
+            .ok_or_else(|| LuceneError::illegal_state("PointValues is None"))?
+            .get_point_tree()?;
         let config = BKDConfig::new(
             field_info.get_point_index_dimension_count(),
             field_info.get_point_index_dimension_count(),
@@ -165,7 +168,7 @@ where
         )?;
         let mut writer = BKDWriter::new(
             segment_info.max_doc()?,
-            write_state.directory,
+            dir,
             &segment_info.name,
             config,
             self.max_mb_sort_in_heap,

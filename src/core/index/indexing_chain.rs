@@ -479,7 +479,7 @@ where
                             points_writer = Some(fmt.fields_writer(state, info)?);
                         }
                         per_field.point_values_writer.as_mut().unwrap().flush(
-                            state,
+                            state.directory,
                             sort_map.clone(),
                             points_writer.as_mut().unwrap(),
                             info,

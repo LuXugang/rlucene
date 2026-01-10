@@ -17,6 +17,7 @@
 use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::norms_producer::NormsProducerType;
+use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::index::codec_reader::{CRBits, CodecReader};
@@ -55,6 +56,7 @@ where
     pub(crate) norms_producers: Vec<Option<NormsProducerType<D::IndexInput>>>,
     pub(crate) doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
     pub(crate) fields_producers: Vec<Option<FieldsProducerType<D::IndexInput>>>,
+    pub(crate) points_readers: Vec<Option<PointsReaderType<D::IndexInput>>>,
     pub(crate) field_infos: Vec<Arc<FieldInfos>>,
     pub(crate) live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub(crate) needs_index_sort: bool,

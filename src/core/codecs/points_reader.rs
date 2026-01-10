@@ -26,7 +26,7 @@ pub trait PointsReader: Clone {
     fn check_integrity(&self) -> Result<()>;
 
     type PointValuesType: PointValues;
-    fn get_values(&self, field: &str) -> Result<Self::PointValuesType>;
+    fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>>;
 
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned

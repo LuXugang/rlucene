@@ -252,7 +252,7 @@ pub trait CodecReader: LeafReader {
             .get_points_reader()?
             .ok_or_else(|| LuceneError::illegal_state("points reader is None"))?;
 
-        Ok(Some(reader.get_values(field)?))
+        reader.get_values(field)
     }
 
     fn default_check_integrity(&self) -> Result<()> {
