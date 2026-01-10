@@ -22,6 +22,7 @@ use crate::core::codecs::norms_consumer::NormsConsumer;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
+use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
@@ -89,12 +90,11 @@ where
         Ok(())
     }
     fn merge_points(&self, segment_write_state: &SegmentWriteState<D>) -> Result<()> {
-        let _writer = LATEST_CODEC
+        let mut writer = LATEST_CODEC
             .points_format()
             .fields_writer(segment_write_state, &self.merge_state.segment_info)?;
 
-        // TODO IMPORTANT
-        // writer.merge(&mut self.merge_state)?;
+        writer.merge(&self.merge_state, &self.directory)?;
 
         Ok(())
     }
@@ -373,18 +373,4 @@ where
 
         Ok(())
     }
-}
-pub trait Merger {
-    fn merge(&mut self) -> Result<i32>;
-}
-
-pub trait VoidMerger<D>
-where
-    D: Directory,
-{
-    fn merge(
-        &mut self,
-        segment_write_state: &SegmentWriteState<D>,
-        segment_read_state: &SegmentReadState<D>,
-    ) -> Result<()>;
 }
