@@ -736,7 +736,6 @@ where
         }
     }
 
-    // TODO: is it correct?
     type NumericDocValues = DummyNumericDocValues;
 }
 pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
@@ -829,7 +828,6 @@ where
             // We specialize for that case since it makes it easier for codecs
             // to optimize for single-valued fields.
             let mut single_valued_subs = vec![];
-            // TODO IMPORTANT 这里不对
             for mut sub in subs {
                 let single_valued_values = sub.sub.values.get_numeric_doc_values()?;
                 single_valued_subs.push(Sub::new(NumericDocValuesSub::new(
@@ -904,7 +902,7 @@ where
     S: SortedDocValues,
 {
     fn next_doc(&mut self) -> Result<i32> {
-        todo!()
+        self.values.next_doc()
     }
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
@@ -1066,7 +1064,7 @@ where
         = MergedTermsEnum<<S as SortedDocValues>::TermsEnumRef<'a>>
     where
         Self: 'a;
-    type TermsEnum1 = MergedTermsEnum<<S as SortedDocValues>::TermsEnum1>;
+    type TermsEnum = MergedTermsEnum<<S as SortedDocValues>::TermsEnum>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         let subs = self.doc_id_merger.get_subs_mut();
@@ -1077,7 +1075,7 @@ where
         Ok(MergedTermsEnum::new(self.map.clone(), terms_enum_subs))
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         let subs = self.doc_id_merger.take_subs();
         let mut terms_enum_subs = Vec::with_capacity(subs.len());
         for sub in subs {

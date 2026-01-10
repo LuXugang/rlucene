@@ -157,7 +157,7 @@ where
     R: RandomAccessInput,
 {
     fn get_mut(&mut self, index: usize) -> Result<i64> {
-        let block = ((index as u64) >> self.block_shift) as usize;
+        let block = index >> self.block_shift;
         let block_index = index & self.block_mask;
         let delta = self.readers[block].read_from_slice(block_index, Some(&mut self.slice))?;
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)

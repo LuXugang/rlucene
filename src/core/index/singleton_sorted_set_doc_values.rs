@@ -137,7 +137,7 @@ where
     where
         S: 'a;
 
-    type TermsEnum = <S as SortedDocValues>::TermsEnum1;
+    type TermsEnum = <S as SortedDocValues>::TermsEnum;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.inner.as_mut().unwrap().terms_enum()

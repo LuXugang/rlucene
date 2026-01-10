@@ -177,13 +177,13 @@ where
     where
         S: 'a;
 
-    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum = SortedDocValuesTermsEnum<Self>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         self.default_take_terms_enum()
     }
 }
@@ -279,13 +279,13 @@ where
     where
         S: 'a;
 
-    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum = SortedDocValuesTermsEnum<Self>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         self.default_take_terms_enum()
     }
 }
@@ -382,13 +382,13 @@ where
     where
         S: 'a;
 
-    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum = SortedDocValuesTermsEnum<Self>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         self.default_take_terms_enum()
     }
 }
@@ -485,13 +485,13 @@ where
     where
         S: 'a;
 
-    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum = SortedDocValuesTermsEnum<Self>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         self.default_take_terms_enum()
     }
 }
@@ -626,13 +626,13 @@ where
     where
         S: 'a;
 
-    type TermsEnum1 = SortedDocValuesTermsEnum<Self>;
+    type TermsEnum = SortedDocValuesTermsEnum<Self>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         self.default_take_terms_enum()
     }
 }

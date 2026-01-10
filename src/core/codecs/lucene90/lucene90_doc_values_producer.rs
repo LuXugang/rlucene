@@ -2139,7 +2139,7 @@ where
     where
         R: 'a;
 
-    type TermsEnum1 = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         Err(LuceneError::unsupported_operation(
@@ -2147,7 +2147,7 @@ where
         ))
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2213,7 +2213,7 @@ where
     where
         I: 'a;
 
-    type TermsEnum1 = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         Err(LuceneError::unsupported_operation(
@@ -2221,7 +2221,7 @@ where
         ))
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2285,7 +2285,7 @@ where
     where
         I: 'a;
 
-    type TermsEnum1 = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         Err(LuceneError::unsupported_operation(
@@ -2293,7 +2293,7 @@ where
         ))
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2397,7 +2397,7 @@ where
     where
         I: 'a;
 
-    type TermsEnum1 = BaseTermsEnum<TermsDict<I>>;
+    type TermsEnum = BaseTermsEnum<TermsDict<I>>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         TermsDict::new(
@@ -2407,7 +2407,7 @@ where
         )
     }
 
-    fn take_terms_enum(self) -> Result<Self::TermsEnum1> {
+    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
         TermsDict::new(
             self.entry.terms_dict_entry.clone(),
             self.data.as_ref(),
