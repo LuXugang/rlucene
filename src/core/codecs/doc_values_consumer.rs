@@ -1107,7 +1107,6 @@ where
         = MergedTermsEnum<<S as SortedDocValues>::TermsEnumRef<'a>>
     where
         Self: 'a;
-    type TermsEnum = DummyTermsEnum;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         let subs = self.doc_id_merger.get_subs_mut();
@@ -1116,10 +1115,6 @@ where
             terms_enum_subs.push(sub.sub.values.terms_enum()?);
         }
         Ok(MergedTermsEnum::new(self.map.clone(), terms_enum_subs))
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        Err(LuceneError::unsupported_operation(""))
     }
 }
 /// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls

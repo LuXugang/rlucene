@@ -177,14 +177,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
@@ -279,14 +273,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
@@ -382,14 +370,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
@@ -485,14 +467,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 }
 
@@ -626,14 +602,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 }
 #[cfg(test)]
