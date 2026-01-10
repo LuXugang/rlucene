@@ -66,11 +66,11 @@ pub trait NormsConsumer {
     ///
     /// Implementations can override this method for more sophisticated merging
     /// (e.g. bulk-byte copying).
-    fn merge<D>(&mut self, merge_state: &mut MergeState<D>) -> Result<()>
+    fn merge<D>(&mut self, merge_state: &MergeState<D>) -> Result<()>
     where
         D: Directory,
     {
-        for producer in merge_state.norms_producers.iter_mut().flatten() {
+        for producer in merge_state.norms_producers.iter().flatten() {
             producer.check_integrity()?;
         }
 
@@ -90,7 +90,7 @@ pub trait NormsConsumer {
     fn merge_norms_field<D>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -111,7 +111,7 @@ where
     D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
 }
 
 impl<D> Clone for NormsProducerMerge<'_, D>

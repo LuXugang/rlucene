@@ -527,7 +527,7 @@ where
                     self.state.last_committed_bytes_used.load(Ordering::SeqCst),
                 ))?;
                 let mut flush_state = SegmentWriteState::new(
-                    Some(self.info_stream.clone()),
+                    self.info_stream.clone(),
                     self.directory.as_ref(),
                     Arc::new(self.field_infos.finish()?),
                     &io_context,

@@ -47,19 +47,19 @@ pub struct MergeState<D>
 where
     D: Directory,
 {
-    pub segment_info: SegmentInfo<D>,
-    pub doc_maps: Vec<Rc<DocMapEnum>>,
-    pub merge_field_infos: Arc<FieldInfos>,
-    pub stored_fields_readers: Vec<StoredFieldsReaderType<D::IndexInput>>,
-    pub term_vectors_readers: Vec<Option<TermVectorsReaderType<D::IndexInput>>>,
-    pub norms_producers: Vec<Option<NormsProducerType<D::IndexInput>>>,
-    pub doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
-    pub fields_producers: Vec<Option<FieldsProducerType<D::IndexInput>>>,
-    pub field_infos: Vec<Arc<FieldInfos>>,
-    pub live_docs: Vec<Option<Rc<BitsEnum>>>,
-    pub needs_index_sort: bool,
-    pub max_docs: Vec<i32>,
-    pub info_stream: Arc<InfoStreamEnum>,
+    pub(crate) segment_info: SegmentInfo<D>,
+    pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
+    pub(crate) merge_field_infos: Arc<FieldInfos>,
+    pub(crate) stored_fields_readers: Vec<StoredFieldsReaderType<D::IndexInput>>,
+    pub(crate) term_vectors_readers: Vec<Option<TermVectorsReaderType<D::IndexInput>>>,
+    pub(crate) norms_producers: Vec<Option<NormsProducerType<D::IndexInput>>>,
+    pub(crate) doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
+    pub(crate) fields_producers: Vec<Option<FieldsProducerType<D::IndexInput>>>,
+    pub(crate) field_infos: Vec<Arc<FieldInfos>>,
+    pub(crate) live_docs: Vec<Option<Rc<BitsEnum>>>,
+    pub(crate) needs_index_sort: bool,
+    pub(crate) max_docs: Vec<i32>,
+    pub(crate) info_stream: Arc<InfoStreamEnum>,
 }
 impl<D> MergeState<D>
 where

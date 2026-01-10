@@ -137,6 +137,7 @@ mod segment_doc_values;
 pub(crate) mod segment_doc_values_producer;
 pub mod segment_info;
 pub mod segment_infos;
+pub(crate) mod segment_merger;
 pub mod segment_read_state;
 pub mod segment_reader;
 pub mod segment_write_state;

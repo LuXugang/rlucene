@@ -55,7 +55,7 @@ use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::function::Function;
-use crate::core::util::info_stream::InfoStream;
+use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::{CoreHelper, IOUtils};
 use parking_lot::Mutex;
 use std::borrow::Cow;
@@ -446,7 +446,7 @@ where
             let tracking_dir = TrackingDirectoryWrapper::new(&dir);
 
             let state = SegmentWriteState::with_suffix(
-                None,
+                Arc::new(InfoStreamEnum::default()),
                 &tracking_dir,
                 field_infos,
                 &updates_context,

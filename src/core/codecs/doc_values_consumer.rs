@@ -88,11 +88,48 @@ pub trait DocValuesConsumer {
     ) -> Result<()>
     where
         D: DocValuesProducer;
+    fn merge<D>(&mut self, merge_state: &MergeState<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        for producer in merge_state.doc_values_producers.iter().flatten() {
+            producer.check_integrity()?;
+        }
+        for merge_field_info in merge_state.merge_field_infos.clone().iter() {
+            let dv_type = merge_field_info.get_doc_values_type();
+
+            if *dv_type == DocValuesType::None {
+                continue;
+            }
+
+            match *dv_type {
+                DocValuesType::Numeric => {
+                    self.merge_numeric_field(merge_field_info, merge_state)?;
+                },
+                DocValuesType::Binary => {
+                    self.merge_binary_field(merge_field_info, merge_state)?;
+                },
+                DocValuesType::Sorted => {
+                    self.merge_sorted_field(merge_field_info, merge_state)?;
+                },
+                DocValuesType::SortedSet => {
+                    self.merge_sorted_set_field(merge_field_info, merge_state)?;
+                },
+                DocValuesType::SortedNumeric => {
+                    self.merge_sorted_numeric_field(merge_field_info, merge_state)?;
+                },
+
+                _ => return Err(LuceneError::illegal_state(format!("type= {}", dv_type))),
+            }
+        }
+
+        Ok(())
+    }
 
     fn merge_numeric_field<D>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -104,10 +141,10 @@ pub trait DocValuesConsumer {
         self.add_numeric_field(merge_field_info, &producer)?;
         Ok(())
     }
-    fn merge_binary_filed<D: Directory>(
+    fn merge_binary_field<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()> {
         let producer = EmptyDocValuesProducerMerge2 {
             merge_field_info: merge_field_info.clone(),
@@ -118,7 +155,7 @@ pub trait DocValuesConsumer {
     fn merge_sorted_numeric_field<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()> {
         let producer = EmptyDocValuesProducerMerge3 {
             merge_field_info: merge_field_info.clone(),
@@ -129,7 +166,7 @@ pub trait DocValuesConsumer {
     fn merge_sorted_field<D: Directory>(
         &mut self,
         field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()> {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
@@ -202,7 +239,7 @@ pub trait DocValuesConsumer {
     fn merge_sorted_set_field<D: Directory>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &mut MergeState<D>,
+        merge_state: &MergeState<D>,
     ) -> Result<()> {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
@@ -396,7 +433,7 @@ where
     D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
 }
 
 impl<D> Clone for EmptyDocValuesProducerMerge1<'_, D>
@@ -558,7 +595,7 @@ where
     D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
 }
 
 impl<D> Clone for EmptyDocValuesProducerMerge2<'_, D>
@@ -743,7 +780,7 @@ where
     D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
 }
 
 impl<D> Clone for EmptyDocValuesProducerMerge3<'_, D>
@@ -915,7 +952,7 @@ where
     D: Directory,
 {
     field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
     map: Rc<OrdinalMap>,
 }
 
@@ -1367,7 +1404,7 @@ where
     D: Directory,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a mut MergeState<D>,
+    merge_state: &'a MergeState<D>,
     map: Rc<OrdinalMap>,
 }
 

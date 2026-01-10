@@ -29,7 +29,7 @@ where
     D: Directory,
 {
     /// InfoStream used for debugging messages.
-    pub info_stream: Option<InfoStreamMT>,
+    pub info_stream: InfoStreamMT,
 
     /// Directory where this segment will be written to.
     pub directory: &'a D,
@@ -69,7 +69,7 @@ where
 {
     /// Constructor without suffix.
     pub(crate) fn new(
-        info_stream: Option<InfoStreamMT>,
+        info_stream: InfoStreamMT,
         directory: &'a D,
         field_infos: Arc<FieldInfos>,
         context: &'a IOContext,
@@ -79,7 +79,7 @@ where
 
     /// Constructor with segment suffix.
     pub(crate) fn with_suffix(
-        info_stream: Option<InfoStreamMT>,
+        info_stream: InfoStreamMT,
         directory: &'a D,
         field_infos: Arc<FieldInfos>,
         context: &'a IOContext,
