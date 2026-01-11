@@ -122,12 +122,12 @@ where
         }
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -212,12 +212,12 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))

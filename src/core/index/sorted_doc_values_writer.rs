@@ -428,12 +428,12 @@ where
         Ok(self.hash.size())
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         D: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
@@ -519,12 +519,12 @@ where
         self.input.get_value_count()
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }

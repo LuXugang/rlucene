@@ -133,12 +133,12 @@ where
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedSetDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 

@@ -2134,12 +2134,12 @@ where
         Ok(self.value.get_mut(self.doc as usize)? as i32)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         R: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2200,12 +2200,12 @@ where
         Ok(self.value.get_mut(self.disi.index_u())? as i32)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2264,12 +2264,12 @@ where
         Ok(self.ords.long_value()? as i32)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2368,12 +2368,12 @@ where
             },
         }
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = BaseTermsEnum<TermsDict<I>>
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         TermsDict::new(
             self.entry.terms_dict_entry.clone(),
             self.data.as_ref(),
@@ -2466,12 +2466,12 @@ where
         Ok(self.count)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         R: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2570,12 +2570,12 @@ where
         Ok(self.count)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2640,12 +2640,12 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = DummyTermsEnum
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         Err(LuceneError::unsupported_operation(
             "Bug! should not be here",
         ))
@@ -2760,12 +2760,12 @@ where
         }
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = BaseTermsEnum<TermsDict<I>>
     where
         I: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         let terms_dict_entry = match self.entry.terms_dict_entry {
             Some(ref entry) => entry.clone(),
             None => {

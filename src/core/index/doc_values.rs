@@ -449,9 +449,9 @@ impl SortedDocValues for EmptySorted {
         Ok(0)
     }
 
-    type TermsEnumRef<'a> = SortedDocValuesTermsEnum<&'a mut Self>;
+    type TermsEnum<'a> = SortedDocValuesTermsEnum<&'a mut Self>;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }

@@ -1102,12 +1102,12 @@ where
         Ok(self.map.get_value_count() as i32)
     }
 
-    type TermsEnumRef<'a>
-        = MergedTermsEnum<<S as SortedDocValues>::TermsEnumRef<'a>>
+    type TermsEnum<'a>
+        = MergedTermsEnum<<S as SortedDocValues>::TermsEnum<'a>>
     where
         Self: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         let subs = self.doc_id_merger.get_subs_mut();
         let mut terms_enum_subs = Vec::with_capacity(subs.len());
         for sub in subs {
@@ -1359,7 +1359,7 @@ where
         Ok(self.map.get_value_count())
     }
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         let mut subs = Vec::with_capacity(self.to_merge.len());
         for dv in self.to_merge.iter_mut() {
             subs.push(dv.terms_enum()?);
@@ -1376,8 +1376,8 @@ where
             .doc_value_count()
     }
 
-    type TermsEnumRef<'a>
-        = MergedTermsEnum<<S as SortedSetDocValues>::TermsEnumRef<'a>>
+    type TermsEnum<'a>
+        = MergedTermsEnum<<S as SortedSetDocValues>::TermsEnum<'a>>
     where
         Self: 'a;
 }

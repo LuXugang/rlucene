@@ -172,12 +172,12 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
@@ -268,12 +268,12 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
@@ -365,12 +365,12 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
@@ -462,12 +462,12 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
@@ -597,12 +597,12 @@ where
         }
     }
 
-    type TermsEnumRef<'a>
+    type TermsEnum<'a>
         = SortedDocValuesTermsEnum<&'a mut Self>
     where
         S: 'a;
 
-    fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
         self.default_terms_enum()
     }
 }
