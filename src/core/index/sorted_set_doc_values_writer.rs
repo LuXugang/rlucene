@@ -624,14 +624,8 @@ where
     where
         D: 'a;
 
-    type TermsEnum = SortedSetDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 
     type SortedDocValues = DummySortedDocValues;
@@ -746,14 +740,8 @@ where
     where
         S: 'a;
 
-    type TermsEnum = SortedSetDocValuesTermsEnum<Self>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         self.default_terms_enum()
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        self.default_take_terms_enum()
     }
 
     fn is_single_valued(&self) -> bool {
@@ -929,8 +917,6 @@ where
         A: 'a,
         B: 'a;
 
-    type TermsEnum = TermsEnumEnum2<A::TermsEnum, B::TermsEnum>;
-
     fn terms_enum(&mut self) -> Result<Self::TermsEnumRef<'_>> {
         match self {
             SortedSetDocValuesEnum2::A(t) => {
@@ -939,19 +925,6 @@ where
             },
             SortedSetDocValuesEnum2::B(s) => {
                 let terms_enum = s.terms_enum()?;
-                Ok(TermsEnumEnum2::B(terms_enum))
-            },
-        }
-    }
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        match self {
-            SortedSetDocValuesEnum2::A(t) => {
-                let terms_enum = t.take_terms_enum()?;
-                Ok(TermsEnumEnum2::A(terms_enum))
-            },
-            SortedSetDocValuesEnum2::B(s) => {
-                let terms_enum = s.take_terms_enum()?;
                 Ok(TermsEnumEnum2::B(terms_enum))
             },
         }

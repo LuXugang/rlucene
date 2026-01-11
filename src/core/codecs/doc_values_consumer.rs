@@ -33,7 +33,6 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::dummy::dummy_term_state_type::DummyTermState;
-use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
     AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
@@ -1367,7 +1366,6 @@ where
         }
         Ok(MergedTermsEnum::new(self.map.clone(), subs))
     }
-    type TermsEnum = DummyTermsEnum;
     type SortedDocValues = DummySortedDocValues;
 
     fn doc_value_count(&mut self) -> Result<i32> {
@@ -1382,10 +1380,6 @@ where
         = MergedTermsEnum<<S as SortedSetDocValues>::TermsEnumRef<'a>>
     where
         Self: 'a;
-
-    fn take_terms_enum(self) -> Result<Self::TermsEnum> {
-        Err(LuceneError::unsupported_operation(""))
-    }
 }
 pub(crate) struct EmptyDocValuesProducerMerge5<'a, D>
 where
