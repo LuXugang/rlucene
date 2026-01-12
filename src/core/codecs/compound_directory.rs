@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::index::index_reader::{Identity, SameInstance};
 use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
@@ -158,48 +157,52 @@ pub trait CompoundDirectoryBase {
     fn check_integrity(&self) -> Result<()>;
 }
 
-pub enum CompoundDirectoryEnum<'a, D>
+pub enum CompoundDirectoryEnum<'a, A, B>
 where
-    D: Directory,
+    A: Directory,
+    B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
-    Compound(&'a CompoundDirectory<Lucene90CompoundReader<D>>),
-    D(&'a D),
+    A(&'a A),
+    B(&'a B),
 }
 
-impl<D> Display for CompoundDirectoryEnum<'_, D>
+impl<A, B> Display for CompoundDirectoryEnum<'_, A, B>
 where
-    D: Directory,
+    A: Directory,
+    B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.fmt(f),
-            CompoundDirectoryEnum::D(dir) => dir.fmt(f),
+            CompoundDirectoryEnum::A(dir) => dir.fmt(f),
+            CompoundDirectoryEnum::B(dir) => dir.fmt(f),
         }
     }
 }
 
-impl<D> Closeable for CompoundDirectoryEnum<'_, D>
+impl<A, B> Closeable for CompoundDirectoryEnum<'_, A, B>
 where
-    D: Directory,
+    A: Directory,
+    B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
     fn close(&mut self) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.close(),
-            CompoundDirectoryEnum::D(dir) => dir.close(),
+            CompoundDirectoryEnum::A(dir) => dir.close(),
+            CompoundDirectoryEnum::B(dir) => dir.close(),
         }
     }
 }
 
-impl<D> SameInstance for CompoundDirectoryEnum<'_, D>
+impl<A, B> SameInstance for CompoundDirectoryEnum<'_, A, B>
 where
-    D: Directory,
+    A: Directory,
+    B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
     fn same_instance(&self, other: &Self) -> bool {
         match (self, other) {
-            (CompoundDirectoryEnum::Compound(dir1), CompoundDirectoryEnum::Compound(dir2)) => {
+            (CompoundDirectoryEnum::A(dir1), CompoundDirectoryEnum::A(dir2)) => {
                 dir1.same_instance(dir2)
             },
-            (CompoundDirectoryEnum::D(dir1), CompoundDirectoryEnum::D(dir2)) => {
+            (CompoundDirectoryEnum::B(dir1), CompoundDirectoryEnum::B(dir2)) => {
                 dir1.same_instance(dir2)
             },
             _ => false,
@@ -207,39 +210,40 @@ where
     }
 }
 
-impl<D> Directory for CompoundDirectoryEnum<'_, D>
+impl<A, B> Directory for CompoundDirectoryEnum<'_, A, B>
 where
-    D: Directory,
+    A: Directory,
+    B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.list_all(),
-            CompoundDirectoryEnum::D(dir) => dir.list_all(),
+            CompoundDirectoryEnum::A(dir) => dir.list_all(),
+            CompoundDirectoryEnum::B(dir) => dir.list_all(),
         }
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.delete_file(name),
-            CompoundDirectoryEnum::D(dir) => dir.delete_file(name),
+            CompoundDirectoryEnum::A(dir) => dir.delete_file(name),
+            CompoundDirectoryEnum::B(dir) => dir.delete_file(name),
         }
     }
 
     fn file_length(&self, name: &str) -> Result<usize> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.file_length(name),
-            CompoundDirectoryEnum::D(dir) => dir.file_length(name),
+            CompoundDirectoryEnum::A(dir) => dir.file_length(name),
+            CompoundDirectoryEnum::B(dir) => dir.file_length(name),
         }
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.create_output(name, context),
-            CompoundDirectoryEnum::D(dir) => dir.create_output(name, context),
+            CompoundDirectoryEnum::A(dir) => dir.create_output(name, context),
+            CompoundDirectoryEnum::B(dir) => dir.create_output(name, context),
         }
     }
 
-    type IndexOutput = D::IndexOutput;
+    type IndexOutput = A::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -248,8 +252,8 @@ where
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.create_temp_output(prefix, suffix, context),
-            CompoundDirectoryEnum::D(dir) => dir.create_temp_output(prefix, suffix, context),
+            CompoundDirectoryEnum::A(dir) => dir.create_temp_output(prefix, suffix, context),
+            CompoundDirectoryEnum::B(dir) => dir.create_temp_output(prefix, suffix, context),
         }
     }
 
@@ -258,31 +262,31 @@ where
         T: IntoIterator<Item = &'a String>,
     {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.sync(names),
-            CompoundDirectoryEnum::D(dir) => dir.sync(names),
+            CompoundDirectoryEnum::A(dir) => dir.sync(names),
+            CompoundDirectoryEnum::B(dir) => dir.sync(names),
         }
     }
 
     fn sync_metadata(&self) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.sync_metadata(),
-            CompoundDirectoryEnum::D(dir) => dir.sync_metadata(),
+            CompoundDirectoryEnum::A(dir) => dir.sync_metadata(),
+            CompoundDirectoryEnum::B(dir) => dir.sync_metadata(),
         }
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.rename(source, dest),
-            CompoundDirectoryEnum::D(dir) => dir.rename(source, dest),
+            CompoundDirectoryEnum::A(dir) => dir.rename(source, dest),
+            CompoundDirectoryEnum::B(dir) => dir.rename(source, dest),
         }
     }
 
-    type IndexInput = D::IndexInput;
+    type IndexInput = A::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.open_input(name, context),
-            CompoundDirectoryEnum::D(dir) => dir.open_input(name, context),
+            CompoundDirectoryEnum::A(dir) => dir.open_input(name, context),
+            CompoundDirectoryEnum::B(dir) => dir.open_input(name, context),
         }
     }
 
@@ -291,17 +295,17 @@ where
         name: &str,
     ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.open_checksum_input(name),
-            CompoundDirectoryEnum::D(dir) => dir.open_checksum_input(name),
+            CompoundDirectoryEnum::A(dir) => dir.open_checksum_input(name),
+            CompoundDirectoryEnum::B(dir) => dir.open_checksum_input(name),
         }
     }
 
-    type Lock = D::Lock;
+    type Lock = A::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.obtain_lock(name),
-            CompoundDirectoryEnum::D(dir) => dir.obtain_lock(name),
+            CompoundDirectoryEnum::A(dir) => dir.obtain_lock(name),
+            CompoundDirectoryEnum::B(dir) => dir.obtain_lock(name),
         }
     }
 
@@ -313,36 +317,36 @@ where
         context: &IOContext,
     ) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.copy_from(from, src, dest, context),
-            CompoundDirectoryEnum::D(dir) => dir.copy_from(from, src, dest, context),
+            CompoundDirectoryEnum::A(dir) => dir.copy_from(from, src, dest, context),
+            CompoundDirectoryEnum::B(dir) => dir.copy_from(from, src, dest, context),
         }
     }
 
     fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.delete_files_ignoring_exceptions(files),
-            CompoundDirectoryEnum::D(dir) => dir.delete_files_ignoring_exceptions(files),
+            CompoundDirectoryEnum::A(dir) => dir.delete_files_ignoring_exceptions(files),
+            CompoundDirectoryEnum::B(dir) => dir.delete_files_ignoring_exceptions(files),
         }
     }
 
     fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.get_pending_deletions(),
-            CompoundDirectoryEnum::D(dir) => dir.get_pending_deletions(),
+            CompoundDirectoryEnum::A(dir) => dir.get_pending_deletions(),
+            CompoundDirectoryEnum::B(dir) => dir.get_pending_deletions(),
         }
     }
 
     fn is_fs_directory(&self) -> bool {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.is_fs_directory(),
-            CompoundDirectoryEnum::D(dir) => dir.is_fs_directory(),
+            CompoundDirectoryEnum::A(dir) => dir.is_fs_directory(),
+            CompoundDirectoryEnum::B(dir) => dir.is_fs_directory(),
         }
     }
 
     fn ensure_open(&self) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Compound(dir) => dir.ensure_open(),
-            CompoundDirectoryEnum::D(dir) => dir.ensure_open(),
+            CompoundDirectoryEnum::A(dir) => dir.ensure_open(),
+            CompoundDirectoryEnum::B(dir) => dir.ensure_open(),
         }
     }
 }

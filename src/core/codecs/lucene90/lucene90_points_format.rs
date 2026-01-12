@@ -17,12 +17,11 @@
 use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter;
 use crate::core::codecs::points_format::PointsFormat;
-use crate::core::codecs::points_reader::PointsReaderType;
-use crate::core::codecs::points_writer::PointsWriterType;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 9.0 point format, which encodes dimensional values in a block KD-tree structure for fast
 /// 1D range and N-dimensional shape intersection filtering. See the [BKD paper] for details.
@@ -60,11 +59,13 @@ impl Lucene90PointsFormat {
 }
 
 impl PointsFormat for Lucene90PointsFormat {
+    type PointsWriter<T: IndexOutput> = Lucene90PointsWriter<T>;
+
     fn fields_writer<D1, D2>(
         &self,
         state: &SegmentWriteState<D1>,
         info: &SegmentInfo<D2>,
-    ) -> Result<PointsWriterType<D1::IndexOutput>>
+    ) -> Result<Self::PointsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,
@@ -72,11 +73,13 @@ impl PointsFormat for Lucene90PointsFormat {
         Lucene90PointsWriter::with_default_config(state, info)
     }
 
+    type PointsReader<T: IndexInput> = Lucene90PointsReader<T>;
+
     fn fields_reader<D1, D2>(
         &self,
         state: &SegmentReadState<D1>,
         info: &SegmentInfo<D2>,
-    ) -> Result<PointsReaderType<D1::IndexInput>>
+    ) -> Result<Self::PointsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,

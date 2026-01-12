@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_norms_producer::Lucene90NormsProducer;
+use crate::core::codecs::DefaultNormsFormat;
+use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::util::error::lucene_error::Result;
@@ -51,5 +52,7 @@ pub trait NormsProducer: Clone {
         Ok(None)
     }
 }
-pub type NormsProducerType<I> = Lucene90NormsProducer<I>;
-pub type DefaultNormNumericDocValues<I> = <NormsProducerType<I> as NormsProducer>::NumericDocValues;
+
+pub type DefaultNormProducer<I> = <DefaultNormsFormat as NormsFormat>::NormsProducer<I>;
+pub type DefaultNormNumericDocValues<I> =
+    <DefaultNormProducer<I> as NormsProducer>::NumericDocValues;

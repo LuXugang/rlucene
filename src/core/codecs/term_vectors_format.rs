@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderType};
-use crate::core::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
+use crate::core::codecs::term_vectors_reader::TermVectorsReader;
+use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// Controls the format of term vectors
 pub trait TermVectorsFormat {
-    type TermVectorsReader<T:IndexInput>: TermVectorsReader;
+    type TermVectorsReader<T: IndexInput>: TermVectorsReader;
 
     /// Returns a [`TermVectorsReader`] to read term vectors.
     fn vectors_reader<D1, D2>(
@@ -40,7 +40,7 @@ pub trait TermVectorsFormat {
         D1: Directory,
         D2: Directory;
 
-    type TermVectorsWriter<T:IndexOutput>: TermVectorsWriter;
+    type TermVectorsWriter<T: IndexOutput>: TermVectorsWriter;
     /// Returns a [`TermVectorsWriter`] to write term vectors.
     fn vectors_writer<D1, D2>(
         &self,

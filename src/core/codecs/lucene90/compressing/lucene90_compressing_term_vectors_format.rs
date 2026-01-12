@@ -19,12 +19,10 @@ use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
-use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;

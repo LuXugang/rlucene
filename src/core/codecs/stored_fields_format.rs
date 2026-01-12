@@ -14,79 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
+use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// Controls the format of stored fields.
 pub trait StoredFieldsFormat {
-    /// Returns a [`StoredFieldsReader`](crate::core::codecs::stored_fields_reader::StoredFieldsReader) to load stored fields.
+    type StoredFieldsReader<T: IndexInput>: StoredFieldsReader;
+    /// Returns a [`StoredFieldsReader`] to load stored fields.
     fn fields_reader<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
+    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;
-
-    /// Returns a [`StoredFieldsWriter`](crate::core::codecs::stored_fields_writer::StoredFieldsWriter) to write stored fields.
+    type StoredFieldsWriter<T: IndexOutput>: StoredFieldsWriter;
+    /// Returns a [`StoredFieldsWriter`] to write stored fields.
     fn fields_writer<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
+    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory;
-}
-
-pub enum StoredFieldsFormatEnum {
-    Lucene90Compressing(Lucene90CompressingStoredFieldsFormat),
-}
-impl StoredFieldsFormat for StoredFieldsFormatEnum {
-    fn fields_reader<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &SegmentInfo<D2>,
-        field_infos: Arc<FieldInfos>,
-        context: &IOContext,
-    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        match self {
-            StoredFieldsFormatEnum::Lucene90Compressing(format) => {
-                format.fields_reader(directory, segment_info, field_infos, context)
-            },
-        }
-    }
-
-    fn fields_writer<D1, D2>(
-        &self,
-        directory: &D1,
-        segment_info: &mut SegmentInfo<D2>,
-        context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
-    where
-        D1: Directory,
-        D2: Directory,
-    {
-        match self {
-            StoredFieldsFormatEnum::Lucene90Compressing(format) => {
-                format.fields_writer(directory, segment_info, context)
-            },
-        }
-    }
 }

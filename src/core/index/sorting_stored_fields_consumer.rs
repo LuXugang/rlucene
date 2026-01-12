@@ -23,7 +23,7 @@ use crate::core::codecs::compression::decompressor::Decompressor;
 use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
-use crate::core::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
+use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
@@ -49,7 +49,7 @@ where
     D: Directory,
 {
     pub(crate) writer: Option<
-        StoredFieldsWriterEnum<
+        DefaultStoredFieldsWriter<
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,

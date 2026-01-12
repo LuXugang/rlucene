@@ -83,13 +83,13 @@ pub fn get_default_code() -> Lucene101Codec {
 }
 
 pub type DefaultCodec = Lucene101Codec;
-pub type DefaultCodecPostingsFormat = <DefaultCodec as Codec>::PostingsFormat;
-pub type DefaultCodecDocValuesFormat = <DefaultCodec as Codec>::DocValuesFormat;
-pub type DefaultCodecStoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
-pub type DefaultCodecTermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
-pub type DefaultCodecFieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
-pub type DefaultCodecSegmentInfoFormat = <DefaultCodec as Codec>::SegmentInfoFormat;
-pub type DefaultCodecNormsFormat = <DefaultCodec as Codec>::NormsFormat;
-pub type DefaultCodecLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
-pub type DefaultCodecCompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
-pub type DefaultCodecPointsFormat = <DefaultCodec as Codec>::PointsFormat;
+pub type DefaultPostingsFormat = <DefaultCodec as Codec>::PostingsFormat;
+pub type DefaultDocValuesFormat = <DefaultCodec as Codec>::DocValuesFormat;
+pub type DefaultStoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
+pub type DefaultTermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
+pub type DefaultFieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
+pub type DefaultSegmentInfoFormat = <DefaultCodec as Codec>::SegmentInfoFormat;
+pub type DefaultNormsFormat = <DefaultCodec as Codec>::NormsFormat;
+pub type DefaultLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
+pub type DefaultCompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
+pub type DefaultPointsFormat = <DefaultCodec as Codec>::PointsFormat;

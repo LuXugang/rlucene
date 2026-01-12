@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codec;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
-use crate::core::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
+use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
+use crate::core::codecs::{Codec, get_default_code};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -34,7 +34,7 @@ where
     D: Directory,
 {
     directory: Arc<D>,
-    pub(crate) writer: Option<StoredFieldsWriterEnum<D::IndexOutput>>,
+    pub(crate) writer: Option<DefaultStoredFieldsWriter<D::IndexOutput>>,
     last_doc: i32,
     sub: Option<SortingStoredFieldsConsumer<D>>,
 }
@@ -50,11 +50,7 @@ where
             sub,
         }
     }
-    fn init_stored_fields_writer<D1>(
-        &mut self,
-        codec: &impl Codec,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
+    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
     where
         D1: Directory,
     {
@@ -66,7 +62,7 @@ where
             },
             None => {
                 if self.writer.is_none() {
-                    let writer = codec.stored_fields_format().fields_writer(
+                    let writer = get_default_code().stored_fields_format().fields_writer(
                         self.directory.as_ref(),
                         info,
                         &IOContext::default_io_context()?,
@@ -80,7 +76,6 @@ where
 
     pub(crate) fn start_document<D1>(
         &mut self,
-        codec: &impl Codec,
         doc_id: i32,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>
@@ -88,7 +83,7 @@ where
         D1: Directory,
     {
         debug_assert!(self.last_doc < doc_id);
-        self.init_stored_fields_writer(codec, info)?;
+        self.init_stored_fields_writer(info)?;
 
         match self.sub {
             Some(ref mut sub) => {
@@ -174,17 +169,12 @@ where
         Ok(())
     }
 
-    pub(crate) fn finish<D1>(
-        &mut self,
-        codec: &impl Codec,
-        max_doc: i32,
-        info: &mut SegmentInfo<D1>,
-    ) -> Result<()>
+    pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
     where
         D1: Directory,
     {
         while self.last_doc < max_doc - 1 {
-            self.start_document(codec, self.last_doc + 1, info)?;
+            self.start_document(self.last_doc + 1, info)?;
             self.finish_document()?;
         }
         Ok(())

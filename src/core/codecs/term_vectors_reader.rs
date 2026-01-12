@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compressing::lucene90_compressing_term_vectors_reader::Lucene90CompressingTermVectorsReader;
+use crate::core::codecs::DefaultTermVectorsFormat;
+use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
@@ -35,7 +36,8 @@ pub trait TermVectorsReader: TermVectors + Clone {
         Ok(None)
     }
 }
-pub type TermVectorsReaderType<I> = Lucene90CompressingTermVectorsReader<I>;
+pub type DefaultTermVectorsReader<I> =
+    <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
 
 #[cfg(test)]
 mod tests {

@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 use crate::core::codecs::compound_directory::CompoundDirectoryBase;
-use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
+use crate::core::codecs::doc_values_producer::{
+    DefaultDocValuesProducer, DocValuesProducer, DocValuesProducerEnum2,
+};
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
-use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::codecs::norms_producer::{DefaultNormProducer, NormsProducer};
-use crate::core::codecs::points_reader::{PointsReader, PointsReaderType};
+use crate::core::codecs::points_reader::{DefaultPointsReader, PointsReader};
 
 use crate::core::codecs::fields_producer::DefaultFieldsProducer;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
+use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
@@ -327,7 +328,7 @@ where
 }
 pub type DocValuesProducers<D> = DocValuesProducerEnum2<
     SegmentDocValuesProducer<D>,
-    Arc<Lucene90DocValuesProducer<<D as Directory>::IndexInput>>,
+    Arc<DefaultDocValuesProducer<<D as Directory>::IndexInput>>,
 >;
 
 impl<D> Display for SegmentReader<D>
@@ -530,12 +531,12 @@ impl<D> CodecReader for SegmentReader<D>
 where
     D: Directory,
 {
-    type StoredFieldsReader = StoredFieldsReaderType<D::IndexInput>;
-    type TermVectorsReader = TermVectorsReaderType<D::IndexInput>;
+    type StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>;
+    type TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>;
     type NormsProducer = DefaultNormProducer<D::IndexInput>;
     type DocValuesProducer = DocValuesProducers<D>;
     type FieldsProducer = DefaultFieldsProducer<D::IndexInput>;
-    type PointsReader = PointsReaderType<D::IndexInput>;
+    type PointsReader = DefaultPointsReader<D::IndexInput>;
 
     fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
         self.ensure_open()?;

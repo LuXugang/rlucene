@@ -347,11 +347,7 @@ where
 
         // finish & flush stored fields
         let t0 = Instant::now();
-        self.stored_fields_consumer.finish(
-            index_writer_config.get_codec(),
-            max_doc,
-            segment_info,
-        )?;
+        self.stored_fields_consumer.finish(max_doc, segment_info)?;
         self.stored_fields_consumer.flush(
             state,
             sort_map.clone(),
@@ -653,13 +649,12 @@ where
         &mut self,
         doc_id: i32,
         info: &mut SegmentInfo<D1>,
-        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         D1: Directory,
     {
         self.stored_fields_consumer
-            .start_document(index_writer_config.get_codec(), doc_id, info)
+            .start_document(doc_id, info)
             .map(|_| ())
             .inspect_err(|_| {
                 self.has_hit_aborting_exception = true;
@@ -699,7 +694,7 @@ where
         // (i.e., we cannot have more than one TokenStream
         // running "at once"):
         self.terms_hash.start_document()?;
-        self.start_stored_fields(doc_id, info, index_writer_config)?;
+        self.start_stored_fields(doc_id, info)?;
 
         let mut document: Vec<Fields> = document.into_iter().collect();
         // 1st pass over doc fields – verify that doc schema matches the index schema
@@ -782,7 +777,6 @@ where
             self.finish_stored_fields()?;
             self.terms_hash.finish_document(
                 doc_id,
-                index_writer_config.get_codec(),
                 info,
                 &mut self.per_fields,
                 &mut self.context.term_vectors_int_pool,

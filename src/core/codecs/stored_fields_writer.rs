@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
+use crate::core::codecs::DefaultStoredFieldsFormat;
+use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -23,9 +24,8 @@ use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IndexOutput};
-use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -144,6 +144,8 @@ pub trait StoredFieldsWriter {
         Ok(doc_count)
     }
 }
+pub type DefaultStoredFieldsWriter<I> =
+    <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<I>;
 struct StoredFieldsMergeSub {
     pub reader_index: usize,
     pub max_doc: i32,
@@ -329,111 +331,5 @@ impl StoredFieldVisitor for MergeVisitor {
         _writer: Option<&mut S>,
     ) -> Result<Status> {
         Ok(Status::Yes)
-    }
-}
-
-pub enum StoredFieldsWriterEnum<O>
-where
-    O: IndexOutput,
-{
-    Lucene90(Lucene90CompressingStoredFieldsWriter<O>),
-}
-impl<O> StoredFieldsWriter for StoredFieldsWriterEnum<O>
-where
-    O: IndexOutput,
-{
-    fn start_document(&mut self) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.start_document(),
-        }
-    }
-
-    fn finish_document(&mut self) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish_document(),
-        }
-    }
-
-    fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_i32(field_info, value),
-        }
-    }
-
-    fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_i64(field_info, value),
-        }
-    }
-
-    fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_f32(field_info, value),
-        }
-    }
-
-    fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_f64(field_info, value),
-        }
-    }
-
-    fn write_field_with_input(
-        &mut self,
-        field_info: &FieldInfo,
-        input: &mut impl DataInput,
-        length: i32,
-    ) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => {
-                writer.write_field_with_input(field_info, input, length)
-            },
-        }
-    }
-
-    fn write_field_bytes(
-        &mut self,
-        field_info: &FieldInfo,
-        value: &BytesRef<Vec<u8>>,
-    ) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_bytes(field_info, value),
-        }
-    }
-
-    fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_str(field_info, value),
-        }
-    }
-
-    fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
-    where
-        D1: Directory,
-    {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish(num_docs, dir),
-        }
-    }
-
-    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
-    where
-        D: Directory,
-        D1: Directory,
-        Self: Sized,
-    {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.merge(merge_state, dir),
-        }
-    }
-}
-impl<O> Accountable for StoredFieldsWriterEnum<O>
-where
-    O: IndexOutput,
-{
-    fn ram_bytes_used(&self) -> Result<i64> {
-        match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.ram_bytes_used(),
-        }
     }
 }

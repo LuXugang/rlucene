@@ -14,25 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::points_reader::PointsReaderType;
-use crate::core::codecs::points_writer::PointsWriterType;
+use crate::core::codecs::points_reader::PointsReader;
+use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes indexed points.
 pub trait PointsFormat {
+    type PointsWriter<T: IndexOutput>: PointsWriter;
     fn fields_writer<D1, D2>(
         &self,
         state: &SegmentWriteState<D1>,
         info: &SegmentInfo<D2>,
-    ) -> Result<PointsWriterType<D1::IndexOutput>>
+    ) -> Result<Self::PointsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory;
 
+    type PointsReader<T: IndexInput>: PointsReader;
     /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
     ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
     ///  the execution of this call before there is a chance to open them. Under these circumstances an
@@ -42,7 +45,7 @@ pub trait PointsFormat {
         &self,
         state: &SegmentReadState<D1>,
         info: &SegmentInfo<D2>,
-    ) -> Result<PointsReaderType<D1::IndexInput>>
+    ) -> Result<Self::PointsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;

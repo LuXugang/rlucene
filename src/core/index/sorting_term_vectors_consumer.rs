@@ -19,7 +19,7 @@ use crate::core::codecs::compressing::lucene90_compressing_term_vectors_format::
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
-use crate::core::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
+use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
@@ -49,7 +49,7 @@ where
     D: Directory,
 {
     pub(crate) writer: Option<
-        TermVectorsWriterEnum<
+        DefaultTermVectorsWriter<
             <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
         >,
     >,

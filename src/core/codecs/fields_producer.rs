@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
-use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
+use crate::core::codecs::DefaultPostingsFormat;
+use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::fields::Fields;
 use crate::core::util::error::lucene_error::Result;
 pub trait FieldsProducer: Fields + Clone {
@@ -34,4 +34,4 @@ pub trait FieldsProducer: Fields + Clone {
         Ok(None)
     }
 }
-pub type FieldsProducerType<I> = Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
+pub type DefaultFieldsProducer<I> = <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>;

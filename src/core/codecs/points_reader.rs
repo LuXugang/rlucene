@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_points_reader::Lucene90PointsReader;
+use crate::core::codecs::DefaultPointsFormat;
+use crate::core::codecs::points_format::PointsFormat;
 use crate::core::index::point_values::PointValues;
 use crate::core::util::error::lucene_error::Result;
 /// Abstract API to visit point values.
@@ -39,4 +40,4 @@ pub trait PointsReader: Clone {
         Ok(None)
     }
 }
-pub type PointsReaderType<I> = Lucene90PointsReader<I>;
+pub type DefaultPointsReader<I> = <DefaultPointsFormat as PointsFormat>::PointsReader<I>;

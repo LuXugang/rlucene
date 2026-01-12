@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
+use crate::core::codecs::DefaultTermVectorsFormat;
+use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::merge_state::{MergeState, MergeStateMeta};
@@ -247,8 +248,8 @@ pub trait TermVectorsWriter: Accountable {
         Ok(())
     }
 }
-pub type DefaultTermVectorsWriter<O> = Lucene90CompressingTermVectorsWriter<O>;
-pub type TermVectorsWriterEnum<O> = Lucene90CompressingTermVectorsWriter<O>;
+pub type DefaultTermVectorsWriter<O> =
+    <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<O>;
 
 #[cfg(test)]
 mod tests {

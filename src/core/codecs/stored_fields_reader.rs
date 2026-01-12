@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
+use crate::core::codecs::DefaultStoredFieldsFormat;
+use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::util::error::lucene_error::Result;
 
@@ -42,4 +43,5 @@ pub trait StoredFieldsReader: StoredFields + Clone {
     }
 }
 
-pub type StoredFieldsReaderType<I> = Lucene90CompressingStoredFieldsReader<I>;
+pub type DefaultStoredFieldsReader<I> =
+    <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<I>;

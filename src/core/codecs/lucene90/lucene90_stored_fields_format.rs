@@ -19,14 +19,12 @@ use crate::core::codecs::compression::compression_mode::{
     CompressionModeEnum, DeflateCompressionMode,
 };
 use crate::core::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
-use crate::core::codecs::stored_fields_format::{StoredFieldsFormat, StoredFieldsFormatEnum};
+use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -121,37 +119,39 @@ impl Lucene90StoredFieldsFormat {
         Self { mode }
     }
 
-    fn stored_fields_format_impl(&self, mode: &Mode) -> Result<StoredFieldsFormatEnum> {
+    fn stored_fields_format_impl(
+        &self,
+        mode: &Mode,
+    ) -> Result<Lucene90CompressingStoredFieldsFormat> {
         match mode {
-            Mode::BestSpeed => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
-                Lucene90CompressingStoredFieldsFormat::new(
-                    "Lucene90StoredFieldsFastData",
-                    BEST_SPEED_MODE.clone(),
-                    Self::BEST_SPEED_BLOCK_LENGTH as i32,
-                    1024,
-                    10,
-                )?,
-            )),
-            Mode::BestCompression => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
-                Lucene90CompressingStoredFieldsFormat::new(
-                    "Lucene90StoredFieldsHighData",
-                    BEST_COMPRESSION_MODE.clone(),
-                    Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
-                    4096,
-                    10,
-                )?,
-            )),
+            Mode::BestSpeed => Lucene90CompressingStoredFieldsFormat::new(
+                "Lucene90StoredFieldsFastData",
+                BEST_SPEED_MODE.clone(),
+                Self::BEST_SPEED_BLOCK_LENGTH as i32,
+                1024,
+                10,
+            ),
+            Mode::BestCompression => Lucene90CompressingStoredFieldsFormat::new(
+                "Lucene90StoredFieldsHighData",
+                BEST_COMPRESSION_MODE.clone(),
+                Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
+                4096,
+                10,
+            ),
         }
     }
 }
 impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
+    type StoredFieldsReader<T: IndexInput> =
+        <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<T>;
+
     fn fields_reader<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
+    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,
@@ -171,12 +171,15 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
         format.fields_reader(directory, segment_info, field_infos, context)
     }
 
+    type StoredFieldsWriter<T: IndexOutput> =
+        <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<T>;
+
     fn fields_writer<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
+    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::DefaultCompoundFormat;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -45,4 +46,4 @@ pub trait CompoundFormat {
     where
         D: Directory;
 }
-pub struct SizedFileQueue;
+pub type DefaultCompoundReader<D> = <DefaultCompoundFormat as CompoundFormat>::Directory<D>;

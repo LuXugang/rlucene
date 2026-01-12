@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compound_directory::{CompoundDirectory, CompoundDirectoryEnum};
+use crate::core::codecs::compound_directory::CompoundDirectoryEnum;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::fields_producer::FieldsProducerType;
-use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
+use crate::core::codecs::fields_producer::DefaultFieldsProducer;
 use crate::core::codecs::norms_format::NormsFormat;
-use crate::core::codecs::norms_producer::NormsProducerType;
+use crate::core::codecs::norms_producer::DefaultNormProducer;
 use crate::core::codecs::points_format::PointsFormat;
-use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
-use crate::core::codecs::{Codec, CompoundFormat, get_default_code};
+use crate::core::codecs::{Codec, CompoundFormat, DefaultCompoundReader, get_default_code};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -35,8 +33,9 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
+use crate::core::codecs::points_reader::DefaultPointsReader;
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
+use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -47,12 +46,12 @@ where
     D: Directory,
 {
     pub(crate) r#ref: AtomicI32,
-    pub(crate) fields: Option<FieldsProducerType<D::IndexInput>>,
-    pub(crate) norms_producer: Option<NormsProducerType<D::IndexInput>>,
-    pub(crate) fields_reader_orig: StoredFieldsReaderType<D::IndexInput>,
-    pub(crate) term_vectors_reader_orig: Option<TermVectorsReaderType<D::IndexInput>>,
-    pub(crate) points_reader: Option<PointsReaderType<D::IndexInput>>,
-    pub(crate) cfs_reader: Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
+    pub(crate) fields: Option<DefaultFieldsProducer<D::IndexInput>>,
+    pub(crate) norms_producer: Option<DefaultNormProducer<D::IndexInput>>,
+    pub(crate) fields_reader_orig: DefaultStoredFieldsReader<D::IndexInput>,
+    pub(crate) term_vectors_reader_orig: Option<DefaultTermVectorsReader<D::IndexInput>>,
+    pub(crate) points_reader: Option<DefaultPointsReader<D::IndexInput>>,
+    pub(crate) cfs_reader: Option<DefaultCompoundReader<D>>,
     pub(crate) segment: String,
     /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
     /// in the case of DV updates, SR may hold a newer version.
@@ -77,8 +76,8 @@ where
             };
 
             let cfs_dir = match cfs_reader.as_ref() {
-                Some(reader) => CompoundDirectoryEnum::Compound(reader),
-                None => CompoundDirectoryEnum::D(dir),
+                Some(reader) => CompoundDirectoryEnum::A(reader),
+                None => CompoundDirectoryEnum::B(dir),
             };
 
             let segment = si.info.name.to_string();

@@ -17,9 +17,9 @@
 use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
 use crate::core::codecs::fields_producer::DefaultFieldsProducer;
 use crate::core::codecs::norms_producer::DefaultNormProducer;
-use crate::core::codecs::points_reader::PointsReaderType;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
+use crate::core::codecs::points_reader::DefaultPointsReader;
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
+use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::codec_reader::{CRBits, CodecReader};
 #[cfg(test)]
 use crate::core::index::doc_id_merger::tests::DocMapMock1;
@@ -51,12 +51,12 @@ where
     pub(crate) segment_info: SegmentInfo<D>,
     pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
     pub(crate) merge_field_infos: Arc<FieldInfos>,
-    pub(crate) stored_fields_readers: Vec<StoredFieldsReaderType<D::IndexInput>>,
-    pub(crate) term_vectors_readers: Vec<Option<TermVectorsReaderType<D::IndexInput>>>,
+    pub(crate) stored_fields_readers: Vec<DefaultStoredFieldsReader<D::IndexInput>>,
+    pub(crate) term_vectors_readers: Vec<Option<DefaultTermVectorsReader<D::IndexInput>>>,
     pub(crate) norms_producers: Vec<Option<DefaultNormProducer<D::IndexInput>>>,
     pub(crate) doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
     pub(crate) fields_producers: Vec<Option<DefaultFieldsProducer<D::IndexInput>>>,
-    pub(crate) points_readers: Vec<Option<PointsReaderType<D::IndexInput>>>,
+    pub(crate) points_readers: Vec<Option<DefaultPointsReader<D::IndexInput>>>,
     pub(crate) field_infos: Vec<Arc<FieldInfos>>,
     pub(crate) live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub(crate) needs_index_sort: bool,

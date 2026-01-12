@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codec;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
+use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
+use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
@@ -43,7 +43,7 @@ where
     D: Directory,
 {
     directory: Arc<D>,
-    pub(crate) writer: Option<TermVectorsWriterEnum<D::IndexOutput>>,
+    pub(crate) writer: Option<DefaultTermVectorsWriter<D::IndexOutput>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
     has_vectors: bool,
@@ -138,7 +138,6 @@ where
     pub(crate) fn finish_document<D1>(
         &mut self,
         doc_id: i32,
-        codec: &impl Codec,
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
         int_pool: &mut IntBlockPool,
@@ -157,7 +156,7 @@ where
             self.num_vector_fields.try_convert()?,
         )?;
 
-        self.init_term_vectors_writer(codec, info)?;
+        self.init_term_vectors_writer(info)?;
         self.fill(doc_id)?;
         // Append term vectors to the real outputs:
         match self.sub {
@@ -269,11 +268,7 @@ where
         Ok(())
     }
 
-    fn init_term_vectors_writer<D1>(
-        &mut self,
-        codec: &impl Codec,
-        info: &SegmentInfo<D1>,
-    ) -> Result<()>
+    fn init_term_vectors_writer<D1>(&mut self, info: &SegmentInfo<D1>) -> Result<()>
     where
         D1: Directory,
     {
@@ -293,11 +288,12 @@ where
                     let flush_info = FlushInfo::new(self.last_doc_id, self.base.bytes_used.get());
                     let context = IOContext::with_flush(flush_info)?;
 
-                    self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                        self.directory.as_ref(),
-                        info,
-                        &context,
-                    )?);
+                    self.writer =
+                        Option::from(get_default_code().term_vectors_format().vectors_writer(
+                            self.directory.as_ref(),
+                            info,
+                            &context,
+                        )?);
                     self.last_doc_id = 0;
                 }
             },

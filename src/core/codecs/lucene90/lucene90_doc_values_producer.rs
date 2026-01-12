@@ -1076,7 +1076,7 @@ where
         }
     }
 
-    type DocValuesSkipper = DocValuesSkipperImpl<I>;
+    type DocValuesSkipper = Lucene90Skipper<I>;
 
     fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         let entry = self.skippers.get(&field.number);
@@ -3416,6 +3416,9 @@ pub type Lucene90SortedSetDocValuesEnum<I> = SortedSetDocValuesEnum2<
 >;
 // 5. SortedDocValues
 pub type Lucene90SortedDocValuesEnum<I> = BaseSortedDocValues<I>;
+
+// 6. skipper
+pub type Lucene90Skipper<I> = DocValuesSkipperImpl<I>;
 
 fn get_direct_reader_instance<R>(
     merging: bool,

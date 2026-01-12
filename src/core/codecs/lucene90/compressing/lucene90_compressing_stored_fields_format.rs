@@ -19,12 +19,10 @@ use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer:
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
-use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
-use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
@@ -140,13 +138,15 @@ impl Lucene90CompressingStoredFieldsFormat {
     }
 }
 impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
+    type StoredFieldsReader<T: IndexInput> = Lucene90CompressingStoredFieldsReader<T>;
+
     fn fields_reader<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderType<D1::IndexInput>>
+    ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,
@@ -162,29 +162,29 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
         )
     }
 
+    type StoredFieldsWriter<T: IndexOutput> = Lucene90CompressingStoredFieldsWriter<T>;
+
     fn fields_writer<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D1::IndexOutput>>
+    ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,
     {
-        Ok(StoredFieldsWriterEnum::Lucene90(
-            Lucene90CompressingStoredFieldsWriter::new(
-                directory,
-                segment_info,
-                &self.segment_suffix,
-                context,
-                &self.format_name,
-                self.compression_mode.clone(),
-                self.chunk_size,
-                self.max_docs_per_chunk,
-                self.block_shift,
-            )?,
-        ))
+        Lucene90CompressingStoredFieldsWriter::new(
+            directory,
+            segment_info,
+            &self.segment_suffix,
+            context,
+            &self.format_name,
+            self.compression_mode.clone(),
+            self.chunk_size,
+            self.max_docs_per_chunk,
+            self.block_shift,
+        )
     }
 }
 impl fmt::Display for Lucene90CompressingStoredFieldsFormat {
