@@ -34,7 +34,6 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
@@ -58,7 +57,7 @@ where
     merging: bool,
 
     // reused slice while merging
-    disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::Slice>>>>,
+    disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I>>>>,
     #[allow(clippy::type_complexity)]
     disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,
     data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
@@ -353,8 +352,8 @@ pub enum SliceEnum<I>
 where
     I: IndexInput,
 {
-    Shared(Arc<Mutex<I::Slice>>),
-    Owned(I::Slice),
+    Shared(Arc<Mutex<I>>),
+    Owned(I),
 }
 impl<I> Display for Lucene90NormsProducer<I>
 where
@@ -369,7 +368,7 @@ pub struct IndexInputImpl<I>
 where
     I: IndexInput,
 {
-    inf: Arc<Mutex<I::Slice>>,
+    inf: Arc<Mutex<I>>,
     offset: usize,
 }
 
@@ -439,14 +438,7 @@ where
         self.inf.lock().length()
     }
 
-    type Slice = DummyIndexInput;
-
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: usize,
-        _length: usize,
-    ) -> Result<Self::Slice> {
+    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
         Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
     }
 

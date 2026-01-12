@@ -207,16 +207,14 @@ where
         self.data_input.length()
     }
 
-    type Slice = ByteBuffersIndexInput<B>;
-
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,
         ))
     }
 
-    type RandomAccessSlice = Self::Slice;
+    type RandomAccessSlice = ByteBuffersIndexInput<B>;
 
     fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
         self.slice("", offset, length)

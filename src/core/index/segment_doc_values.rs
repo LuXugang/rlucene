@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compound_directory::CompoundDirectory;
+use crate::core::codecs::compound_directory::{CompoundDirectory, CompoundDirectoryEnum};
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
-use crate::core::index::segment_core_readers::CfsOrBaseInput;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::IOContext;
-use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ref_count::RefCount;
 use num_bigint::BigInt;
@@ -43,7 +42,7 @@ pub(crate) struct Inner<D>
 where
     D: Directory,
 {
-    gen_dv_producers: HashMap<i64, RefCount<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>,
+    gen_dv_producers: HashMap<i64, RefCount<Arc<Lucene90DocValuesProducer<D::IndexInput>>>>,
 }
 
 impl<D> SegmentDocValues<D>
@@ -63,19 +62,19 @@ where
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         r#gen: i64,
         infos: Arc<FieldInfos>,
-    ) -> Result<RefCount<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>
+    ) -> Result<RefCount<Arc<Lucene90DocValuesProducer<D::IndexInput>>>>
     where
         D: Directory,
     {
         let mut dv_dir = match dir {
-            Some(d) => DirectoryEnum2::A(d),
-            None => DirectoryEnum2::B(si.info.dir.as_ref()),
+            Some(d) => CompoundDirectoryEnum::Compound(d),
+            None => CompoundDirectoryEnum::D(si.info.dir.as_ref()),
         };
         let mut segment_suffix = "".to_string();
 
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
-            dv_dir = DirectoryEnum2::B(si.info.dir.as_ref());
+            dv_dir = CompoundDirectoryEnum::D(si.info.dir.as_ref());
             let v = BigInt::from(r#gen).to_str_radix(36);
             segment_suffix = v.to_string();
         }
@@ -97,7 +96,7 @@ where
         si: &SegmentCommitInfo<D>,
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         infos: Arc<FieldInfos>,
-    ) -> Result<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> {
+    ) -> Result<Arc<Lucene90DocValuesProducer<D::IndexInput>>> {
         let mut inner = self.inner.lock();
 
         if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {

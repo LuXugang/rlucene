@@ -295,7 +295,7 @@ pub struct BKDPointTree<I: IndexInput> {
     /// time.
     level: usize,
     /// Used to read the packed tree off-heap.
-    inner_nodes: I::Slice,
+    inner_nodes: I,
     /// Used to read the packed leaves off-heap.
     leaf_nodes: Arc<Mutex<I>>,
     /// Holds the minimum (left-most) leaf block file pointer for each level
@@ -351,7 +351,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        inner_nodes: I::Slice,
+        inner_nodes: I,
         leaf_nodes: Arc<Mutex<I>>,
         config: BKDConfig,
         num_leaves: i32,
@@ -389,7 +389,7 @@ where
     }
     #[allow(clippy::too_many_arguments)]
     fn with_scratch_iterator(
-        inner_nodes: I::Slice,
+        inner_nodes: I,
         leaf_nodes: Arc<Mutex<I>>,
         config: BKDConfig,
         num_leaves: i32,

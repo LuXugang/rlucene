@@ -1488,15 +1488,15 @@ pub trait BaseDirectoryTestCase {
         for i in (0..num).step_by(16) {
             let mut slice1 = input.slice("slice1", i, num - i)?;
             assert_eq!(0, slice1.get_file_pointer()?);
-            assert_eq!((num - i), slice1.length());
+            assert_eq!((num - i), IndexInput::length(&slice1));
 
             // seek to a random spot shouldn't impact slicing.
-            slice1.seek(TestUtil::next_usize(random, 0, slice1.length()))?;
+            slice1.seek(TestUtil::next_usize(random, 0, IndexInput::length(&slice1)))?;
 
-            for j in (0..slice1.length()).step_by(16) {
+            for j in (0..IndexInput::length(&slice1)).step_by(16) {
                 let mut slice2 = slice1.slice("slice2", j, (num - i) - j)?;
                 assert_eq!(0, slice2.get_file_pointer()?);
-                assert_eq!((num - i) - j, slice2.length());
+                assert_eq!((num - i) - j, IndexInput::length(&slice2));
 
                 let mut data = vec![0u8; num];
                 data.copy_from(&bytes[..i + j], 0);
@@ -2026,7 +2026,7 @@ pub trait BaseDirectoryTestCase {
             if random.random_bool(0.5) {
                 let prefetch_length =
                     random.random_range(1..=(IndexInput::length(&input) - offset));
-                input.prefetch(offset, prefetch_length)?;
+                IndexInput::prefetch(&mut input, offset, prefetch_length)?;
             }
 
             input.seek(offset)?;

@@ -64,14 +64,7 @@ impl IndexInput for DummyIndexInput {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Slice = DummyIndexInput;
-
-    fn slice(
-        &self,
-        _slice_description: &str,
-        __offset: usize,
-        _length: usize,
-    ) -> Result<Self::Slice> {
+    fn slice(&self, _slice_description: &str, __offset: usize, _length: usize) -> Result<Self> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

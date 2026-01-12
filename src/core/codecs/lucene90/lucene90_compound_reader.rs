@@ -245,7 +245,7 @@ where
         ))
     }
 
-    type IndexInput = <D::IndexInput as IndexInput>::Slice;
+    type IndexInput = D::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         let id = IndexFileNames::strip_segment_name(name);

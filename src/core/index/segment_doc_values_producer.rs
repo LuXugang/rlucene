@@ -28,7 +28,6 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
-use crate::core::index::segment_core_readers::CfsOrBaseInput;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -42,9 +41,8 @@ pub struct SegmentDocValuesProducer<D>
 where
     D: Directory,
 {
-    pub(crate) dv_producers_by_field:
-        HashMap<i32, Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
-    pub(crate) dv_producers: HashSet<IdentityArc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
+    pub(crate) dv_producers_by_field: HashMap<i32, Arc<Lucene90DocValuesProducer<D::IndexInput>>>,
+    pub(crate) dv_producers: HashSet<IdentityArc<Lucene90DocValuesProducer<D::IndexInput>>>,
     pub(crate) dv_gens: Vec<i64>,
 }
 impl<D> SegmentDocValuesProducer<D>
@@ -62,7 +60,7 @@ where
         let mut dv_producers = HashSet::new();
         let mut dv_gens = Vec::new();
 
-        let mut base_producer: Option<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> = None;
+        let mut base_producer: Option<Arc<Lucene90DocValuesProducer<D::IndexInput>>> = None;
 
         let result: Result<()> = (|| {
             for fi in all_infos {
@@ -140,7 +138,7 @@ impl<D> DocValuesProducer for SegmentDocValuesProducer<D>
 where
     D: Directory,
 {
-    type NumericDocValues = Lucene90NumericDocValuesEnum<CfsOrBaseInput<D>>;
+    type NumericDocValues = Lucene90NumericDocValuesEnum<D::IndexInput>;
 
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -148,7 +146,7 @@ where
         dv_producer.as_ref().unwrap().get_numeric(field)
     }
 
-    type BinaryDocValues = Lucene90BinaryDocValuesEnum<CfsOrBaseInput<D>>;
+    type BinaryDocValues = Lucene90BinaryDocValuesEnum<D::IndexInput>;
 
     fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -156,7 +154,7 @@ where
         dv_producer.as_ref().unwrap().get_binary(field)
     }
 
-    type SortedDocValues = BaseSortedDocValues<CfsOrBaseInput<D>>;
+    type SortedDocValues = BaseSortedDocValues<D::IndexInput>;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -164,7 +162,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted(field)
     }
 
-    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<CfsOrBaseInput<D>>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<D::IndexInput>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -172,7 +170,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted_numeric(field)
     }
 
-    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<CfsOrBaseInput<D>>;
+    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<D::IndexInput>;
 
     fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -180,7 +178,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted_set(field)
     }
 
-    type DocValuesSkipper = DocValuesSkipperImpl<CfsOrBaseInput<D>>;
+    type DocValuesSkipper = DocValuesSkipperImpl<D::IndexInput>;
 
     fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);

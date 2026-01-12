@@ -700,14 +700,12 @@ where
         self.sub_index_input.length()
     }
 
-    type Slice = BufferedIndexInput<T>;
-
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }
 
-    type RandomAccessSlice = Self::Slice;
+    type RandomAccessSlice = BufferedIndexInput<T>;
 
     fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
         self.slice("random_access_slice", offset, length)

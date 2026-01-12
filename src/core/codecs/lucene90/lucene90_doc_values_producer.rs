@@ -1606,14 +1606,14 @@ where
     max_value: [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
     doc_count: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
     levels: usize,
-    input: I::Slice,
+    input: I,
     entry: Arc<DocValuesSkipperEntry>,
 }
 impl<I> DocValuesSkipperImpl<I>
 where
     I: IndexInput,
 {
-    pub fn new(input: I::Slice, entry: Arc<DocValuesSkipperEntry>) -> Self {
+    pub fn new(input: I, entry: Arc<DocValuesSkipperEntry>) -> Self {
         Self {
             min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
             max_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
@@ -2786,7 +2786,7 @@ where
 {
     entry: Arc<TermsDictEntry>,
     block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
-    bytes: I::Slice,
+    bytes: I,
     block_mask: u64,
     index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     index_bytes: I::RandomAccessSlice,

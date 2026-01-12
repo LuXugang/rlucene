@@ -81,8 +81,7 @@ pub trait IndexInput: DataInput + TryClone {
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.
-    type Slice: IndexInput;
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice>;
+    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self>;
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used
     /// by [`CompoundFormat`](crate::core::codecs::compound_format)
     /// implementations to honor the [`ReadAdvice`] of each file within the
@@ -101,7 +100,7 @@ pub trait IndexInput: DataInput + TryClone {
         offset: usize,
         length: usize,
         read_advice: &ReadAdvice,
-    ) -> Result<Self::Slice> {
+    ) -> Result<Self> {
         self.default_slice_with_read_advice(description, offset, length, read_advice)
     }
     fn default_slice_with_read_advice(
@@ -110,7 +109,7 @@ pub trait IndexInput: DataInput + TryClone {
         offset: usize,
         length: usize,
         _read_advice: &ReadAdvice,
-    ) -> Result<Self::Slice> {
+    ) -> Result<Self> {
         self.slice(description, offset, length)
     }
     type RandomAccessSlice: RandomAccessInput;
@@ -372,9 +371,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            type Slice = $name<$( $T::Slice ),+>;
-
-            fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
+            fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(
                         inner.slice(slice_description, offset, length)?,
@@ -388,7 +385,7 @@ macro_rules! either_index_input {
                 offset: usize,
                 length: usize,
                 read_advice: &ReadAdvice,
-            ) -> Result<Self::Slice> {
+            ) -> Result<Self> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(inner.slice_with_read_advice(
                         description,
@@ -405,7 +402,7 @@ macro_rules! either_index_input {
                 offset: usize,
                 length: usize,
                 _read_advice: &ReadAdvice,
-            ) -> Result<Self::Slice> {
+            ) -> Result<Self> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(
                         inner.default_slice_with_read_advice(description, offset, length, _read_advice)?,
@@ -735,25 +732,18 @@ mod tests {
             self.len
         }
 
-        type Slice = DummyIndexInput;
-
-        fn slice(
-            &self,
-            _slice_description: &str,
-            _offset: usize,
-            _length: usize,
-        ) -> Result<Self::Slice> {
+        fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
             Err(LuceneError::unsupported_operation(""))
         }
 
-        type RandomAccessSlice = Self::Slice;
+        type RandomAccessSlice = DummyIndexInput;
 
         fn random_access_slice(
             &self,
-            offset: usize,
-            length: usize,
+            _offset: usize,
+            _length: usize,
         ) -> Result<Self::RandomAccessSlice> {
-            self.slice("random_access_slice", offset, length)
+            Err(LuceneError::unsupported_operation(""))
         }
     }
 }

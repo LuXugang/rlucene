@@ -35,7 +35,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_core_readers::{
-    CfsOrBaseInput, SegmentCoreReaders, SegmentCoreReadersCacheHelperImpl,
+    SegmentCoreReaders, SegmentCoreReadersCacheHelperImpl,
 };
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::index::segment_doc_values_producer::SegmentDocValuesProducer;
@@ -327,7 +327,7 @@ where
 }
 pub type DocValuesProducers<D> = DocValuesProducerEnum2<
     SegmentDocValuesProducer<D>,
-    Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
+    Arc<Lucene90DocValuesProducer<<D as Directory>::IndexInput>>,
 >;
 
 impl<D> Display for SegmentReader<D>
@@ -530,12 +530,12 @@ impl<D> CodecReader for SegmentReader<D>
 where
     D: Directory,
 {
-    type StoredFieldsReader = StoredFieldsReaderType<CfsOrBaseInput<D>>;
-    type TermVectorsReader = TermVectorsReaderType<CfsOrBaseInput<D>>;
-    type NormsProducer = NormsProducerType<CfsOrBaseInput<D>>;
+    type StoredFieldsReader = StoredFieldsReaderType<D::IndexInput>;
+    type TermVectorsReader = TermVectorsReaderType<D::IndexInput>;
+    type NormsProducer = NormsProducerType<D::IndexInput>;
     type DocValuesProducer = DocValuesProducers<D>;
-    type FieldsProducer = FieldsProducerType<CfsOrBaseInput<D>>;
-    type PointsReader = PointsReaderType<CfsOrBaseInput<D>>;
+    type FieldsProducer = FieldsProducerType<D::IndexInput>;
+    type PointsReader = PointsReaderType<D::IndexInput>;
 
     fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
         self.ensure_open()?;
