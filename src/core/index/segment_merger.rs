@@ -32,19 +32,25 @@ use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::field_infos::FieldNumbers;
+use crate::core::index::field_infos::FieldNumbersLock;
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::store::Context::Merge;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use std::sync::Arc;
 use std::time::Instant;
-
+/// The `SegmentMerger` class combines two or more segments, represented by
+/// `IndexReader`s, into a single segment. Call the `merge` method to combine
+/// the segments.
+///
+/// See [`SegmentMerger::merge`].
 pub(crate) struct SegmentMerger<'a, D, CR>
 where
     D: Directory,
@@ -59,7 +65,7 @@ where
     field_infos_builder: Builder,
 }
 
-impl<D, CR> SegmentMerger<'_, D, CR>
+impl<'a, D, CR> SegmentMerger<'a, D, CR>
 where
     D: Directory,
     CR: CodecReader<
@@ -68,14 +74,62 @@ where
         >,
 {
     pub(crate) fn new(
-        _readers: &[CR],
-        _segment_info: SegmentInfo<D>,
-        _info_stream: InfoStreamMT,
-        _directory: Arc<D>,
-        _field_numbers: FieldNumbers,
-        _context: IOContext,
+        readers: &'a [CR],
+        segment_info: SegmentInfo<D>,
+        info_stream: InfoStreamMT,
+        directory: Arc<D>,
+        field_numbers: FieldNumbersLock,
+        context: IOContext,
     ) -> Result<Self> {
-        todo!()
+        if *context.get_context() != Merge {
+            return Err(LuceneError::illegal_argument(format!(
+                "IOContext.context should be MERGE; got: {:?}",
+                context.get_context()
+            )));
+        }
+
+        let mut merge_state = MergeState::new(readers, segment_info, info_stream)?;
+
+        let field_infos_builder = Builder::new(field_numbers);
+
+        let mut min_version = Some(LATEST.clone());
+        for reader in readers {
+            let leaf_min_version = reader.get_metadata()?.get_min_version();
+            match leaf_min_version {
+                Some(v) => {
+                    if let Some(cur) = &mut min_version
+                        && cur.on_or_after(v)
+                    {
+                        *cur = v.clone();
+                    }
+                },
+                None => {
+                    min_version = None;
+                    break;
+                },
+            }
+        }
+
+        debug_assert!(
+            merge_state.segment_info.min_version.is_none(),
+            "The min version should be set by SegmentMerger for merged segments"
+        );
+        merge_state.segment_info.min_version = min_version;
+
+        if merge_state.info_stream.enabled("SM")
+            && let Some(sort) = merge_state.segment_info.get_index_sort()
+        {
+            merge_state
+                .info_stream
+                .message("SM", &format!("index sort during merge: {}", sort));
+        }
+
+        Ok(Self {
+            directory,
+            context,
+            merge_state,
+            field_infos_builder,
+        })
     }
     fn merge_field_infos_with_state(
         &self,
@@ -265,6 +319,7 @@ where
         Ok(())
     }
 
+    /// True if any merging should happen
     pub(crate) fn should_merge(&self) -> Result<bool> {
         Ok(self.merge_state.segment_info.max_doc()? > 0)
     }
