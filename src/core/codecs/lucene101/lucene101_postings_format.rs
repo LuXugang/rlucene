@@ -21,8 +21,6 @@ use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90B
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_writer::{
     DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
 };
-use crate::core::codecs::fields_consumer::FieldsConsumerEnum;
-use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
@@ -33,6 +31,7 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::term_state::TermState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 10.1 postings format, which encodes postings in packed integer blocks for fast decode.
@@ -322,11 +321,14 @@ impl Lucene101PostingsFormat {
 }
 
 impl PostingsFormat for Lucene101PostingsFormat {
+    type FieldsConsumer<O: IndexOutput> =
+        Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
+
     fn fields_consumer<D1, D2>(
         &self,
         state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsConsumerEnum<D1::IndexOutput>>
+    ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,
@@ -343,11 +345,14 @@ impl PostingsFormat for Lucene101PostingsFormat {
         Ok(ret)
     }
 
+    type FieldsProducer<I: IndexInput> =
+        Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
+
     fn fields_producer<D1: Directory, D2: Directory>(
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsProducerType<D1::IndexInput>> {
+    ) -> Result<Self::FieldsProducer<D1::IndexInput>> {
         let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
         let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
         Ok(ret)

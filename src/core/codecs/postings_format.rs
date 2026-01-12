@@ -14,24 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::fields_consumer::FieldsConsumerEnum;
-use crate::core::codecs::fields_producer::FieldsProducerType;
+use crate::core::codecs::fields_consumer::FieldsConsumer;
+use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 /// Encodes/decodes terms, postings, and proximity data.
 pub trait PostingsFormat {
+    type FieldsConsumer<T: IndexOutput>: FieldsConsumer;
     /// Writes a new segment
     fn fields_consumer<D1, D2>(
         &self,
         state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsConsumerEnum<D1::IndexOutput>>
+    ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory;
+    type FieldsProducer<T: IndexInput>: FieldsProducer;
     /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
     /// to use; else, those files may be deleted. Additionally, required files may be deleted during
     /// the execution of this call before there is a chance to open them. Under these circumstances an
@@ -41,5 +44,5 @@ pub trait PostingsFormat {
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<FieldsProducerType<D1::IndexInput>>;
+    ) -> Result<Self::FieldsProducer<D1::IndexInput>>;
 }
