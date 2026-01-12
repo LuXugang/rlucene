@@ -440,3 +440,49 @@ where
         Ok(())
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::index::merge_state::remove_deletes;
+    use crate::core::util::bit_set::BitSet;
+    use crate::core::util::bits::Bits;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::fixed_bit_set::FixedBitSet;
+    use crate::core::util::long_values::LongValues;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::util::test_util::TestUtil;
+    use rand::Rng;
+    #[allow(dead_code)] // for quick search
+    struct TestSegmentMerger;
+
+    #[test]
+    fn test_build_doc_map() -> Result<()> {
+        let mut random = random();
+        let max_doc = TestUtil::next_usize(&mut random, 1, 128);
+        let num_docs = TestUtil::next_usize(&mut random, 0, max_doc);
+
+        let mut live_docs = FixedBitSet::new(max_doc);
+        for _ in 0..num_docs {
+            loop {
+                let doc_id = random.random_range(0..max_doc);
+                if !live_docs.get(doc_id) {
+                    live_docs.set(doc_id);
+                    break;
+                }
+            }
+        }
+
+        let doc_map = remove_deletes(max_doc as i32, &live_docs)?;
+
+        let mut del = 0;
+        for i in 0..max_doc {
+            if !live_docs.get(i) {
+                del += 1;
+            } else {
+                assert_eq!(i - del, doc_map.get(i)? as usize);
+            }
+        }
+
+        Ok(())
+    }
+    // TODO IMPORTANT 还有未完成的测试
+}
