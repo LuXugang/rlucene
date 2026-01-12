@@ -29,6 +29,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_doc_values::SegmentDocValues;
+use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, IdentityArc};
@@ -37,25 +38,28 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Encapsulates multiple producers when there are docvalues updates as one producer
-pub struct SegmentDocValuesProducer<D>
+pub struct SegmentDocValuesProducer<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
-    pub(crate) dv_producers_by_field: HashMap<i32, Arc<Lucene90DocValuesProducer<D::IndexInput>>>,
-    pub(crate) dv_producers: HashSet<IdentityArc<Lucene90DocValuesProducer<D::IndexInput>>>,
+    pub(crate) dv_producers_by_field: HashMap<i32, Arc<Lucene90DocValuesProducer<I>>>,
+    pub(crate) dv_producers: HashSet<IdentityArc<Lucene90DocValuesProducer<I>>>,
     pub(crate) dv_gens: Vec<i64>,
 }
-impl<D> SegmentDocValuesProducer<D>
+impl<I> SegmentDocValuesProducer<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
-    pub(crate) fn new(
+    pub(crate) fn new<D>(
         si: &SegmentCommitInfo<D>,
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         core_infos: Arc<FieldInfos>,
         all_infos: &FieldInfos,
         seg_doc_values: &SegmentDocValues<D>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        D: Directory<IndexInput = I>,
+    {
         let mut dv_producers_by_field = HashMap::new();
         let mut dv_producers = HashSet::new();
         let mut dv_gens = Vec::new();
@@ -121,9 +125,9 @@ where
     }
 }
 
-impl<D> Clone for SegmentDocValuesProducer<D>
+impl<I> Clone for SegmentDocValuesProducer<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -134,11 +138,11 @@ where
     }
 }
 
-impl<D> DocValuesProducer for SegmentDocValuesProducer<D>
+impl<I> DocValuesProducer for SegmentDocValuesProducer<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
-    type NumericDocValues = Lucene90NumericDocValuesEnum<D::IndexInput>;
+    type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -146,7 +150,7 @@ where
         dv_producer.as_ref().unwrap().get_numeric(field)
     }
 
-    type BinaryDocValues = Lucene90BinaryDocValuesEnum<D::IndexInput>;
+    type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
 
     fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -154,7 +158,7 @@ where
         dv_producer.as_ref().unwrap().get_binary(field)
     }
 
-    type SortedDocValues = BaseSortedDocValues<D::IndexInput>;
+    type SortedDocValues = BaseSortedDocValues<I>;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -162,7 +166,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted(field)
     }
 
-    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<D::IndexInput>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -170,7 +174,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted_numeric(field)
     }
 
-    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<D::IndexInput>;
+    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
 
     fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -178,7 +182,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted_set(field)
     }
 
-    type DocValuesSkipper = DocValuesSkipperImpl<D::IndexInput>;
+    type DocValuesSkipper = DocValuesSkipperImpl<I>;
 
     fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -194,9 +198,9 @@ where
     }
 }
 
-impl<D> Display for SegmentDocValuesProducer<D>
+impl<I> Display for SegmentDocValuesProducer<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(

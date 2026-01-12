@@ -69,7 +69,7 @@ where
     /// True if we are holding RAM only liveDocs or DV updates,
     /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
     is_nrt: bool,
-    doc_values_producer: Option<DocValuesProducers<D>>,
+    doc_values_producer: Option<DocValuesProducers<D::IndexInput>>,
     field_infos: Arc<FieldInfos>,
     base: IndexReaderBase,
     reader_cache_helper: CacheHelperImpl,
@@ -262,7 +262,7 @@ where
         field_infos: Arc<FieldInfos>,
         seg_doc_values: &SegmentDocValues<D>,
         core: &SegmentCoreReaders<D>,
-    ) -> Result<Option<DocValuesProducers<D>>> {
+    ) -> Result<Option<DocValuesProducers<D::IndexInput>>> {
         if !field_infos.has_doc_values() {
             return Ok(None);
         }
@@ -325,10 +325,8 @@ where
         &self.original_si_id
     }
 }
-pub type DocValuesProducers<D> = DocValuesProducerEnum2<
-    SegmentDocValuesProducer<D>,
-    Arc<Lucene90DocValuesProducer<<D as Directory>::IndexInput>>,
->;
+pub type DocValuesProducers<I> =
+    DocValuesProducerEnum2<SegmentDocValuesProducer<I>, Arc<Lucene90DocValuesProducer<I>>>;
 
 impl<D> Display for SegmentReader<D>
 where
@@ -533,7 +531,7 @@ where
     type StoredFieldsReader = StoredFieldsReaderType<D::IndexInput>;
     type TermVectorsReader = TermVectorsReaderType<D::IndexInput>;
     type NormsProducer = NormsProducerType<D::IndexInput>;
-    type DocValuesProducer = DocValuesProducers<D>;
+    type DocValuesProducer = DocValuesProducers<D::IndexInput>;
     type FieldsProducer = FieldsProducerType<D::IndexInput>;
     type PointsReader = PointsReaderType<D::IndexInput>;
 
