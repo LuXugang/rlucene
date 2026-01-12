@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::norms_consumer::NormsConsumerEnum;
-use crate::core::codecs::norms_producer::NormsProducerType;
+use crate::core::codecs::norms_consumer::NormsConsumer;
+use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes per-document score normalization values.
 pub trait NormsFormat {
+    type NormsConsumer<T: IndexOutput>: NormsConsumer;
     /// Returns a [`NormsConsumer`](crate::core::codecs::norms_consumer::NormsConsumer) to write norms to the index.
     ///
     /// # Arguments
@@ -32,11 +34,12 @@ pub trait NormsFormat {
         &self,
         state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<NormsConsumerEnum<D1::IndexOutput>>
+    ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory;
 
+    type NormsProducer<T: IndexInput>: NormsProducer;
     /// Returns a [`NormsProducer`](crate::core::codecs::norms_producer::NormsProducer) to read norms from the index.
     ///
     /// # Notes
@@ -54,7 +57,7 @@ pub trait NormsFormat {
         &self,
         state: &SegmentReadState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<NormsProducerType<D1::IndexInput>>
+    ) -> Result<Self::NormsProducer<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;

@@ -16,13 +16,13 @@
  */
 use crate::core::codecs::lucene90::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::core::codecs::lucene90_norms_producer::Lucene90NormsProducer;
-use crate::core::codecs::norms_consumer::NormsConsumerEnum;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducerType;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 9.0 Score normalization format.
 ///
@@ -105,11 +105,13 @@ impl Lucene90NormsFormat {
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 }
 impl NormsFormat for Lucene90NormsFormat {
+    type NormsConsumer<T: IndexOutput> = Lucene90NormsConsumer<T>;
+
     fn norms_consumer<D1, D2>(
         &self,
         state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
-    ) -> Result<NormsConsumerEnum<D1::IndexOutput>>
+    ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,
@@ -122,8 +124,10 @@ impl NormsFormat for Lucene90NormsFormat {
             Self::METADATA_EXTENSION,
             segment_info,
         )?;
-        Ok(NormsConsumerEnum::Lucene90(norms_consumer))
+        Ok(norms_consumer)
     }
+
+    type NormsProducer<T: IndexInput> = Lucene90NormsProducer<T>;
 
     fn norms_producer<D1, D2>(
         &self,

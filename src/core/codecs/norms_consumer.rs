@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::core::codecs::norms_producer::{DefaultNormNumericDocValues, NormsProducer};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
@@ -23,7 +22,6 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -266,28 +264,5 @@ where
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
         Ok(&self.doc_map)
-    }
-}
-
-pub enum NormsConsumerEnum<O>
-where
-    O: IndexOutput,
-{
-    Lucene90(Lucene90NormsConsumer<O>),
-}
-impl<O> NormsConsumer for NormsConsumerEnum<O>
-where
-    O: IndexOutput,
-{
-    fn add_norms_field(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        norms_producer: &mut impl NormsProducer,
-    ) -> Result<()> {
-        match self {
-            NormsConsumerEnum::Lucene90(consumer) => {
-                consumer.add_norms_field(field, norms_producer)
-            },
-        }
     }
 }
