@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
+use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
 use crate::core::index::point_values::{
     IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
@@ -868,7 +869,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     }
 
     let mut to_merge: Option<Vec<i64>> = None;
-    let mut doc_maps: Option<Vec<Rc<DocMapEnum>>> = None;
+    let mut doc_maps = None;
     let mut seg = 0;
 
     let max_docs = if random.random_bool(0.5) {
@@ -946,7 +947,9 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             doc_maps
                 .as_mut()
                 .unwrap()
-                .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+                .push(Rc::new(DocMapEnum::<DummyCodecReader>::Mock(DocMapMock {
+                    cur_doc_id_base,
+                })));
 
             let finalizer = writer.finish(&mut out)?.unwrap();
             to_merge

@@ -16,6 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
 use crate::core::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
@@ -36,21 +37,24 @@ use std::borrow::Cow;
 /// while accounting for deleted documents.
 ///
 /// This implementation is used during index merging.
-pub struct MappedMultiFields<'a, F>
+pub struct MappedMultiFields<'a, F, CR>
 where
     F: Fields,
+    CR: CodecReader,
 {
-    merge_state_meta: MergeStateMeta,
+    merge_state_meta: MergeStateMeta<CR>,
     base: FilterFields<&'a MultiFields<F>>,
 }
 
-impl<'a, F> MappedMultiFields<'a, F>
+impl<'a, F, CR> MappedMultiFields<'a, F, CR>
 where
     F: Fields,
+    CR: CodecReader,
 {
-    pub fn new<D>(merge_state: &MergeState<D>, multi_fields: &'a MultiFields<F>) -> Self
+    pub fn new<D>(merge_state: &MergeState<D, CR>, multi_fields: &'a MultiFields<F>) -> Self
     where
         D: Directory,
+        CR: CodecReader,
     {
         let merge_state_meta = merge_state.get_meta();
         let base = FilterFields::new(multi_fields);
@@ -60,9 +64,10 @@ where
         }
     }
 }
-impl<F> Fields for MappedMultiFields<'_, F>
+impl<F, CR> Fields for MappedMultiFields<'_, F, CR>
 where
     F: Fields,
+    CR: CodecReader,
 {
     type FieldIter<'a>
         = <FilterFields<MultiFields<F>> as Fields>::FieldIter<'a>
@@ -73,7 +78,7 @@ where
         self.base.iterator()
     }
 
-    type Terms = MappedMultiTerms<<F as Fields>::Terms>;
+    type Terms = MappedMultiTerms<<F as Fields>::Terms, CR>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         let terms = self.base.in_.terms(field)?;
@@ -92,21 +97,23 @@ where
     }
 }
 
-pub struct MappedMultiTerms<T>
+pub struct MappedMultiTerms<T, CR>
 where
     T: Terms,
+    CR: CodecReader,
 {
-    merge_state: MergeStateMeta,
+    merge_state: MergeStateMeta<CR>,
     field: String,
     base: FilterTerms<MultiFieldsTerms<T>>,
 }
-impl<T> MappedMultiTerms<T>
+impl<T, CR> MappedMultiTerms<T, CR>
 where
     T: Terms,
+    CR: CodecReader,
 {
     pub fn new(
         field: String,
-        merge_state: MergeStateMeta,
+        merge_state: MergeStateMeta<CR>,
         multi_terms: MultiFieldsTerms<T>,
     ) -> Self {
         let base = FilterTerms::new(multi_terms);
@@ -117,25 +124,26 @@ where
         }
     }
 }
-pub type MappedMultiTermsTE<T> =
-    TermsEnumEnum2<EmptyTermsEnum, MappedMultiTermsEnum<<T as Terms>::TermsEnum>>;
-impl<T> Terms for MappedMultiTerms<T>
+pub type MappedMultiTermsTE<T, CR> =
+    TermsEnumEnum2<EmptyTermsEnum, MappedMultiTermsEnum<<T as Terms>::TermsEnum, CR>>;
+impl<T, CR> Terms for MappedMultiTerms<T, CR>
 where
     T: Terms,
+    CR: CodecReader,
 {
-    type TermsEnum = MappedMultiTermsTE<T>;
+    type TermsEnum = MappedMultiTermsTE<T, CR>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
         let iterator = self.base.in_.iterator()?;
         match iterator {
-            IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T>::A(empty)),
+            IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T, CR>::A(empty)),
             IteratorType::<T>::A(v) => match v {
                 MultiTermsEnumType::A(v) => {
                     let v =
                         MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), v);
-                    Ok(MappedMultiTermsTE::<T>::B(v))
+                    Ok(MappedMultiTermsTE::<T, CR>::B(v))
                 },
-                MultiTermsEnumType::B(empty) => Ok(MappedMultiTermsTE::<T>::A(empty)),
+                MultiTermsEnumType::B(empty) => Ok(MappedMultiTermsTE::<T, CR>::A(empty)),
             },
         }
     }
@@ -199,21 +207,23 @@ where
     }
 }
 
-pub struct MappedMultiTermsEnum<TE>
+pub struct MappedMultiTermsEnum<TE, CR>
 where
     TE: TermsEnum,
+    CR: CodecReader,
 {
     field: String,
-    merge_state_meta: MergeStateMeta,
+    merge_state_meta: MergeStateMeta<CR>,
     base: FilterTermsEnum<MultiTermsEnum<TE>>,
 }
-impl<TE> MappedMultiTermsEnum<TE>
+impl<TE, CR> MappedMultiTermsEnum<TE, CR>
 where
     TE: TermsEnum,
+    CR: CodecReader,
 {
     pub fn new(
         field: String,
-        merge_state: MergeStateMeta,
+        merge_state: MergeStateMeta<CR>,
         multi_terms_enum: MultiTermsEnum<TE>,
     ) -> Self {
         let base = FilterTermsEnum::new(multi_terms_enum);
@@ -225,11 +235,17 @@ where
     }
 }
 
-impl<TE> BytesRefIterator for MappedMultiTermsEnum<TE> where TE: TermsEnum {}
-
-impl<TE> TermsEnum for MappedMultiTermsEnum<TE>
+impl<TE, CR> BytesRefIterator for MappedMultiTermsEnum<TE, CR>
 where
     TE: TermsEnum,
+    CR: CodecReader,
+{
+}
+
+impl<TE, CR> TermsEnum for MappedMultiTermsEnum<TE, CR>
+where
+    TE: TermsEnum,
+    CR: CodecReader,
 {
     type AttributeSource = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::AttributeSource;
 
@@ -281,7 +297,7 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnum = MappingMultiPostingsEnum<<TE as TermsEnum>::PostingsEnum>;
+    type PostingsEnum = MappingMultiPostingsEnum<<TE as TermsEnum>::PostingsEnum, CR>;
 
     fn postings_with_flags(
         &mut self,

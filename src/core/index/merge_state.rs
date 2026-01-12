@@ -14,25 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
-use crate::core::codecs::fields_producer::DefaultFieldsProducer;
-use crate::core::codecs::norms_producer::DefaultNormProducer;
-use crate::core::codecs::points_reader::DefaultPointsReader;
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
-use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
-use crate::core::index::codec_reader::{CRBits, CodecReader};
-#[cfg(test)]
-use crate::core::index::doc_id_merger::tests::DocMapMock1;
-use crate::core::index::dummy::dummy_doc_map::DummyDocMap;
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
+use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::points_reader::PointsReader;
+use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
+use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::index::codec_reader::{
+    CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader, CodecReader,
+};
+
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_writer::{DocMapIndexWriter, is_congruent_sort};
+use crate::core::index::index_writer::is_congruent_sort;
 use crate::core::index::multi_sorter::{MultiSorter, MultiSorterDocMap};
 use crate::core::index::segment_info::SegmentInfo;
-#[cfg(test)]
-use crate::core::index::tests::DocMapMock2;
-use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
-use crate::core::util::bits::{Bits, BitsEnum};
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::long_values::LongValues;
@@ -40,34 +37,164 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
+use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-pub struct MergeState<D>
+pub struct MergeState<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     pub(crate) segment_info: SegmentInfo<D>,
-    pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
+    pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
     pub(crate) merge_field_infos: Arc<FieldInfos>,
-    pub(crate) stored_fields_readers: Vec<DefaultStoredFieldsReader<D::IndexInput>>,
+    pub(crate) stored_fields_readers: Vec<Option<DefaultStoredFieldsReader<D::IndexInput>>>,
     pub(crate) term_vectors_readers: Vec<Option<DefaultTermVectorsReader<D::IndexInput>>>,
-    pub(crate) norms_producers: Vec<Option<DefaultNormProducer<D::IndexInput>>>,
-    pub(crate) doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
-    pub(crate) fields_producers: Vec<Option<DefaultFieldsProducer<D::IndexInput>>>,
-    pub(crate) points_readers: Vec<Option<DefaultPointsReader<D::IndexInput>>>,
+    pub(crate) norms_producers: Vec<Option<Cow<'a, CRNormsProducer<CR>>>>,
+    pub(crate) doc_values_producers: Vec<Option<Cow<'a, CRDocValuesProducer<CR>>>>,
+    pub(crate) fields_producers: Vec<Option<Cow<'a, CRFieldsProducer<CR>>>>,
+    pub(crate) points_readers: Vec<Option<Cow<'a, CRPointsReader<CR>>>>,
     pub(crate) field_infos: Vec<Arc<FieldInfos>>,
-    pub(crate) live_docs: Vec<Option<Rc<BitsEnum>>>,
+    pub(crate) live_docs: Vec<Option<CRBits<CR>>>,
     pub(crate) needs_index_sort: bool,
     pub(crate) max_docs: Vec<i32>,
     pub(crate) info_stream: Arc<InfoStreamEnum>,
 }
-impl<D> MergeState<D>
+impl<'a, D, CR> MergeState<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
-    pub(crate) fn get_meta(&self) -> MergeStateMeta {
+    pub(crate) fn new(
+        readers: &'a [CR],
+        mut segment_info: SegmentInfo<D>,
+        info_stream: Arc<InfoStreamEnum>,
+    ) -> Result<Self>
+    where
+        CR: CodecReader<
+                StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>,
+                TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
+            >,
+    {
+        verify_index_sort(readers, &segment_info)?;
+
+        let num_readers = readers.len();
+
+        let mut max_docs = Vec::with_capacity(num_readers);
+        let mut fields_producers = Vec::with_capacity(num_readers);
+        let mut norms_producers = Vec::with_capacity(num_readers);
+        let mut stored_fields_readers = Vec::with_capacity(num_readers);
+        let mut term_vectors_readers = Vec::with_capacity(num_readers);
+        let mut points_readers = Vec::with_capacity(num_readers);
+        let mut doc_values_producers = Vec::with_capacity(num_readers);
+        let mut field_infos = Vec::with_capacity(num_readers);
+        let mut live_docs = Vec::with_capacity(num_readers);
+
+        let mut num_docs = 0;
+
+        for reader in readers {
+            max_docs.push(reader.max_doc()?);
+            live_docs.push(reader.get_live_docs()?);
+            field_infos.push(reader.get_field_infos()?);
+
+            let norms = if let Some(norms_reader) = reader.get_norms_reader()? {
+                if let Some(n) = norms_reader.get_merge_instance()? {
+                    Some(Cow::Owned(n))
+                } else {
+                    Some(norms_reader)
+                }
+            } else {
+                None
+            };
+            norms_producers.push(norms);
+
+            let doc_values = if let Some(dv_reader) = reader.get_doc_values_reader()? {
+                if let Some(dv) = dv_reader.get_merge_instance()? {
+                    Some(Cow::Owned(dv))
+                } else {
+                    Some(dv_reader)
+                }
+            } else {
+                None
+            };
+            doc_values_producers.push(doc_values);
+
+            let stored_fields = if let Some(stored_reader) = reader.get_fields_reader()? {
+                Some(
+                    stored_reader
+                        .get_merge_instance()?
+                        .ok_or_else(|| LuceneError::illegal_argument("stored_reader is None"))?,
+                )
+            } else {
+                None
+            };
+
+            stored_fields_readers.push(stored_fields);
+
+            let term_vectors =
+                if let Some(tv_reader) = reader.get_term_vectors_reader()? {
+                    Some(tv_reader.get_merge_instance()?.ok_or_else(|| {
+                        LuceneError::illegal_argument("term_verctors_reader is None")
+                    })?)
+                } else {
+                    None
+                };
+            term_vectors_readers.push(term_vectors);
+
+            let postings = if let Some(postings_reader) = reader.get_postings_reader()? {
+                if let Some(p) = postings_reader.get_merge_instance()? {
+                    Some(Cow::Owned(p))
+                } else {
+                    Some(postings_reader)
+                }
+            } else {
+                None
+            };
+            fields_producers.push(postings);
+
+            let points = if let Some(points_reader) = reader.get_points_reader()? {
+                if let Some(p) = points_reader.get_merge_instance()? {
+                    Some(Cow::Owned(p))
+                } else {
+                    Some(points_reader)
+                }
+            } else {
+                None
+            };
+            points_readers.push(points);
+
+            num_docs += reader.num_docs()?;
+
+            // TODO IMPORTANT KNN未实现
+        }
+
+        segment_info.set_max_doc(num_docs)?;
+
+        let doc_maps = Vec::new();
+        // let doc_maps = build_doc_maps(readers, segment_info.index_sort());
+
+        let mut merge_state = Self {
+            segment_info,
+            doc_maps,
+            merge_field_infos: Arc::new(FieldInfos::default()),
+            stored_fields_readers,
+            term_vectors_readers,
+            norms_producers,
+            doc_values_producers,
+            fields_producers,
+            points_readers,
+            field_infos,
+            live_docs,
+            needs_index_sort: false,
+            max_docs,
+            info_stream,
+        };
+        merge_state.build_doc_maps(readers)?;
+        Ok(merge_state)
+    }
+    pub(crate) fn get_meta(&self) -> MergeStateMeta<CR> {
         MergeStateMeta {
             fields_producers_len: self.fields_producers.len(),
             doc_maps: self.doc_maps.clone(),
@@ -76,21 +203,17 @@ where
             field_infos: self.field_infos.clone(),
         }
     }
-    fn build_doc_maps<CR>(
-        &mut self,
-        readers: &[CR],
-        index_sort: Option<Sort>,
-    ) -> Result<Vec<MergeStateDocMap<CR>>>
+    fn build_doc_maps(&mut self, readers: &[CR]) -> Result<()>
     where
         CR: CodecReader,
     {
-        if let Some(ref sort) = index_sort {
+        let _v = if let Some(ref sort) = self.segment_info.index_sort {
             // do a merge sort of the incoming leaves:
             let t0 = SystemTime::now();
             match MultiSorter::sort(sort, readers)? {
                 None => {
                     // already sorted, fall back to deletion-only mapping
-                    build_deletion_doc_maps(readers)
+                    build_deletion_doc_maps(readers)?
                 },
                 Some(result) => {
                     self.needs_index_sort = true;
@@ -103,14 +226,15 @@ where
                             &format!("{:.2} msec to build merge sorted DocMaps", elapsed),
                         );
                     }
-                    Ok(result)
+                    result
                 },
             }
         } else {
             // no index sort ... we only must map around deletions, and rebase to the merged segment's
             // docID space
-            build_deletion_doc_maps(readers)
-        }
+            build_deletion_doc_maps(readers)?
+        };
+        todo!()
     }
 }
 
@@ -238,6 +362,14 @@ pub trait DocMap {
     /// Return the mapped docID or -1 if the given doc is not mapped.
     fn get(&self, doc_id: i32) -> Result<i32>;
 }
+impl<T> DocMap for Rc<T>
+where
+    T: DocMap,
+{
+    fn get(&self, doc_id: i32) -> Result<i32> {
+        (**self).get(doc_id)
+    }
+}
 macro_rules! either_doc_map {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
@@ -259,44 +391,49 @@ macro_rules! either_doc_map {
 }
 either_doc_map!(pub DocMapEnum2 { A: A, B: B});
 
-pub enum DocMapEnum {
+pub enum DocMapEnum<CR>
+where
+    CR: CodecReader,
+{
     #[cfg(test)]
     Mock(DocMapMock),
-    #[cfg(test)]
-    MocK1(DocMapMock1),
-    #[cfg(test)]
-    MocK2(DocMapMock2),
-    DocMapImpl(DocMapIndexWriter),
-    Dummy(DummyDocMap),
+    Merge(MergeStateDocMap<CR>),
 }
-/// # Note:
-/// Default value used for padding
-impl Default for DocMapEnum {
-    fn default() -> Self {
-        DocMapEnum::Dummy(DummyDocMap)
-    }
-}
-impl DocMap for DocMapEnum {
+impl<CR> DocMap for DocMapEnum<CR>
+where
+    CR: CodecReader,
+{
     fn get(&self, doc_id: i32) -> Result<i32> {
         match self {
             #[cfg(test)]
-            DocMapEnum::Mock(doc_map) => doc_map.get(doc_id),
-            #[cfg(test)]
-            DocMapEnum::MocK1(doc_map) => doc_map.get(doc_id),
-            #[cfg(test)]
-            DocMapEnum::MocK2(doc_map) => doc_map.get(doc_id),
-            DocMapEnum::DocMapImpl(doc_map) => doc_map.get(doc_id),
-            DocMapEnum::Dummy(doc_map) => doc_map.get(doc_id),
+            DocMapEnum::Mock(inner) => inner.get(doc_id),
+            DocMapEnum::Merge(inner) => inner.get(doc_id),
         }
     }
 }
 
 // for shared
-#[derive(Clone)]
-pub struct MergeStateMeta {
+pub struct MergeStateMeta<CR>
+where
+    CR: CodecReader,
+{
     pub(crate) fields_producers_len: usize,
-    pub(crate) doc_maps: Vec<Rc<DocMapEnum>>,
+    pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
     pub needs_index_sort: bool,
     pub merge_field_infos: Arc<FieldInfos>,
     pub field_infos: Vec<Arc<FieldInfos>>,
+}
+impl<CR> Clone for MergeStateMeta<CR>
+where
+    CR: CodecReader,
+{
+    fn clone(&self) -> Self {
+        Self {
+            fields_producers_len: self.fields_producers_len,
+            doc_maps: self.doc_maps.clone(),
+            needs_index_sort: self.needs_index_sort,
+            merge_field_infos: self.merge_field_infos.clone(),
+            field_infos: self.field_infos.clone(),
+        }
+    }
 }

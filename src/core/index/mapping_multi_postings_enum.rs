@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::MAX_POSITION;
-use crate::core::index::merge_state::{DocMapEnum, MergeStateMeta};
+use crate::core::index::merge_state::{MergeStateDocMap, MergeStateMeta};
 use crate::core::index::multi_postings_enum::MultiPostingsEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of_with_max_count};
@@ -26,29 +27,31 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments, remapping docIDs (this is used for segment merging).
-pub struct MappingMultiPostingsEnum<PE>
+pub struct MappingMultiPostingsEnum<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
     // for easy taken
     multi_docs_and_positions_enum: Option<MultiPostingsEnum<PE>>,
     pub(crate) field: String,
-    doc_id_merger: DocIDMergerEnum<MappingPostingsSub<PE>>,
+    doc_id_merger: DocIDMergerEnum<MappingPostingsSub<PE, CR>>,
     current: Option<usize>,
-    all_subs: Vec<MappingPostingsSub<PE>>,
+    all_subs: Vec<MappingPostingsSub<PE, CR>>,
     idxs: Vec<(usize, usize)>,
 }
-impl<PE> MappingMultiPostingsEnum<PE>
+impl<PE, CR> MappingMultiPostingsEnum<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
-    pub(crate) fn new(field: String, merge_state: &MergeStateMeta) -> Result<Self> {
+    pub(crate) fn new(field: String, merge_state: &MergeStateMeta<CR>) -> Result<Self> {
         let mut all_subs = Vec::with_capacity(merge_state.fields_producers_len);
 
         for i in 0..merge_state.fields_producers_len {
             all_subs.push(MappingPostingsSub::new(merge_state.doc_maps[i].clone()));
         }
-        let subs: Vec<Sub<MappingPostingsSub<PE>>> = Vec::new();
+        let subs = Vec::new();
 
         let doc_id_merger = of_with_max_count(subs, all_subs.len(), merge_state.needs_index_sort)?;
 
@@ -104,9 +107,10 @@ where
     }
 }
 
-impl<PE> DocIdSetIterator for MappingMultiPostingsEnum<PE>
+impl<PE, CR> DocIdSetIterator for MappingMultiPostingsEnum<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         match self.current {
@@ -138,9 +142,10 @@ where
     }
 }
 
-impl<PE> PostingsEnum for MappingMultiPostingsEnum<PE>
+impl<PE, CR> PostingsEnum for MappingMultiPostingsEnum<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
     fn freq(&mut self) -> Result<i32> {
         let v = self.current.unwrap();
@@ -211,27 +216,30 @@ where
             .get_payload()
     }
 }
-pub(crate) struct MappingPostingsSub<PE>
+pub(crate) struct MappingPostingsSub<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
     postings: Option<PE>,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
-impl<PE> MappingPostingsSub<PE>
+impl<PE, CR> MappingPostingsSub<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>) -> Self {
         Self {
             postings: None,
             doc_map,
         }
     }
 }
-impl<PE> SubBase for MappingPostingsSub<PE>
+impl<PE, CR> SubBase for MappingPostingsSub<PE, CR>
 where
     PE: PostingsEnum,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         match self.postings {
@@ -240,7 +248,9 @@ where
         }
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }

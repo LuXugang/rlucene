@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
 
-use crate::core::index::merge_state::{DocMap, DocMapEnum};
+use crate::core::index::merge_state::DocMap;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -320,7 +319,8 @@ pub trait SubBase {
     /// Returns the next document ID from this sub reader,
     /// and `DocIdSetIterator::NO_MORE_DOCS` when done
     fn next_doc(&mut self) -> Result<i32>;
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>>;
+    type DocMap: DocMap;
+    fn get_doc_map(&self) -> Result<&Self::DocMap>;
 }
 
 struct SubCompare<S>
@@ -379,7 +379,7 @@ pub mod tests {
     use rand::Rng;
 
     use crate::core::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
-    use crate::core::index::merge_state::{DocMap, DocMapEnum};
+    use crate::core::index::merge_state::DocMap;
     use crate::core::index::of;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::util::bit_set::BitSet;
@@ -395,11 +395,11 @@ pub mod tests {
         doc_id: i32,
         value_start: i32,
         max_doc: i32,
-        doc_map: Rc<DocMapEnum>,
+        doc_map: Rc<DocMapMock1>,
     }
 
     impl TestSubUnsorted {
-        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, value_start: i32) -> Self {
+        pub fn new(doc_map: Rc<DocMapMock1>, max_doc: i32, value_start: i32) -> Self {
             Self {
                 doc_id: -1,
                 value_start,
@@ -423,7 +423,9 @@ pub mod tests {
             }
         }
 
-        fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+        type DocMap = DocMapMock1;
+
+        fn get_doc_map(&self) -> Result<&Self::DocMap> {
             Ok(&self.doc_map)
         }
     }
@@ -446,9 +448,9 @@ pub mod tests {
         for _ in 0..sub_count {
             let max_doc = TestUtil::next_int(&mut random, 1, 1000);
             let doc_base = value_start;
-            let doc_map = Rc::new(DocMapEnum::MocK1(DocMapMock1 {
+            let doc_map = Rc::new(DocMapMock1 {
                 doc_base: doc_base as usize,
-            }));
+            });
             let sub = Sub::new(TestSubUnsorted::new(doc_map.clone(), max_doc, value_start));
             subs.push(sub);
             value_start += max_doc;
@@ -473,11 +475,11 @@ pub mod tests {
         max_doc: i32,
         #[allow(dead_code)]
         index: i32,
-        pub(crate) doc_map: Rc<DocMapEnum>,
+        pub(crate) doc_map: Rc<DocMapMock2>,
     }
 
     impl TestSubSorted {
-        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, index: i32) -> Self {
+        pub fn new(doc_map: Rc<DocMapMock2>, max_doc: i32, index: i32) -> Self {
             Self {
                 doc_id: -1,
                 max_doc,
@@ -497,7 +499,9 @@ pub mod tests {
             }
         }
 
-        fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+        type DocMap = DocMapMock2;
+
+        fn get_doc_map(&self) -> Result<&Self::DocMap> {
             Ok(&self.doc_map)
         }
     }
@@ -577,10 +581,7 @@ pub mod tests {
 
         for (i, doc_map) in completed_subs.iter().enumerate() {
             let len = doc_map.len();
-            let doc_map_enum = Rc::new(DocMapEnum::MocK2(DocMapMock2::new(
-                doc_map.clone(),
-                &live_docs,
-            )));
+            let doc_map_enum = Rc::new(DocMapMock2::new(doc_map.clone(), &live_docs));
 
             let sub = Sub::new(TestSubSorted::new(doc_map_enum, len as i32, i as i32));
 

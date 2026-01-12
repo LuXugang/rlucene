@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::merge_state::MergeState;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -32,9 +33,10 @@ pub struct MatchingReaders {
 }
 
 impl MatchingReaders {
-    pub fn new<D>(merge_state: &MergeState<D>) -> Result<Self>
+    pub fn new<D, CR>(merge_state: &MergeState<D, CR>) -> Result<Self>
     where
         D: Directory,
+        CR: CodecReader,
     {
         // If the i'th reader is a SegmentReader and has
         // identical fieldName -> number mapping, then this

@@ -17,9 +17,10 @@
 use crate::core::codecs::DefaultStoredFieldsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
@@ -103,24 +104,32 @@ pub trait StoredFieldsWriter {
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
     /// documents that were written. Implementations can override this
     /// method for more sophisticated merging (bulk-byte copying, etc.).
-    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
+    fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
     where
         D: Directory,
         D1: Directory,
+        CR: CodecReader,
         Self: Sized,
     {
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
         for i in 0..merge_state.stored_fields_readers.len() {
             {
-                let reader = &mut merge_state.stored_fields_readers[i];
+                let reader = match merge_state.stored_fields_readers[i] {
+                    Some(ref mut r) => r,
+                    _ => {
+                        return Err(LuceneError::illegal_state(
+                            "Expected Lucene90CompressingStoredFieldsReader",
+                        ));
+                    },
+                };
                 reader.check_integrity()?;
             }
             let visitor = MergeVisitor::new(merge_state, i)?;
 
-            subs.push(Sub::new(StoredFieldsMergeSub::new(
+            subs.push(Sub::new(StoredFieldsMergeSub::<CR>::new(
                 visitor,
-                Rc::clone(&merge_state.doc_maps[i]),
+                merge_state.doc_maps[i].clone(),
                 i,
                 merge_state.max_docs[i],
             )));
@@ -134,7 +143,14 @@ pub trait StoredFieldsWriter {
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
 
             self.start_document()?;
-            let reader = &mut merge_state.stored_fields_readers[sub.sub.reader_index];
+            let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
+                Some(ref mut r) => r,
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Expected Lucene90CompressingStoredFieldsReader",
+                    ));
+                },
+            };
             reader.document_with_visitor(sub.sub.doc_id, &mut sub.sub.visitor, Some(self))?;
             self.finish_document()?;
             doc_count += 1;
@@ -146,18 +162,24 @@ pub trait StoredFieldsWriter {
 }
 pub type DefaultStoredFieldsWriter<I> =
     <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<I>;
-struct StoredFieldsMergeSub {
+struct StoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
     pub reader_index: usize,
     pub max_doc: i32,
     pub visitor: MergeVisitor,
     pub doc_id: i32,
-    pub doc_map: Rc<DocMapEnum>,
+    pub doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl StoredFieldsMergeSub {
+impl<CR> StoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
     fn new(
         visitor: MergeVisitor,
-        doc_map: Rc<DocMapEnum>,
+        doc_map: Rc<MergeStateDocMap<CR>>,
         reader_index: usize,
         max_doc: i32,
     ) -> Self {
@@ -173,7 +195,10 @@ impl StoredFieldsMergeSub {
         self.reader_index
     }
 }
-impl SubBase for StoredFieldsMergeSub {
+impl<CR> SubBase for StoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
     fn next_doc(&mut self) -> Result<i32> {
         self.doc_id += 1;
         if self.doc_id == self.max_doc {
@@ -183,20 +208,10 @@ impl SubBase for StoredFieldsMergeSub {
         }
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        todo!()
-    }
-}
-// use for padding
-impl Default for StoredFieldsMergeSub {
-    fn default() -> Self {
-        Self {
-            reader_index: 0,
-            max_doc: 0,
-            visitor: MergeVisitor::default(),
-            doc_id: -1,
-            doc_map: Rc::new(DocMapEnum::default()),
-        }
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
+        Ok(self.doc_map.as_ref())
     }
 }
 /// A visitor that adds every field it sees.
@@ -205,9 +220,10 @@ pub(crate) struct MergeVisitor {
     remapper: Option<Arc<FieldInfos>>,
 }
 impl MergeVisitor {
-    pub(crate) fn new<D>(merge_state: &MergeState<D>, reader_index: usize) -> Result<Self>
+    pub(crate) fn new<D, CR>(merge_state: &MergeState<D, CR>, reader_index: usize) -> Result<Self>
     where
         D: Directory,
+        CR: CodecReader,
     {
         for fi in merge_state.field_infos[reader_index].as_ref() {
             if let Some(other) = merge_state

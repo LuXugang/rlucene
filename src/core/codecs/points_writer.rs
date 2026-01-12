@@ -17,8 +17,9 @@
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter;
 use crate::core::codecs::points_reader::PointsReader;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{DocMap, DocMapEnum, MergeState};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::point_values::Relation::CellCrossesQuery;
 use crate::core::index::point_values::{
     IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
@@ -30,6 +31,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// Write points
 pub trait PointsWriter {
     /// Write all values contained in the provided reader
@@ -48,15 +50,16 @@ pub trait PointsWriter {
     /// Called once at the end before close
     fn finish(&mut self) -> Result<()>;
 
-    fn merge_one_field<D1, D2>(
+    fn merge_one_field<D1, D2, CR>(
         &mut self,
-        merge_state: &MergeState<D1>,
+        merge_state: &MergeState<D1, CR>,
         field_info: &Arc<FieldInfo>,
         dir: &D2,
     ) -> Result<()>
     where
         D1: Directory,
         D2: Directory,
+        CR: CodecReader,
     {
         let mut max_point_count = 0;
         let mut point_values = Vec::with_capacity(merge_state.points_readers.len());
@@ -86,7 +89,7 @@ pub trait PointsWriter {
             point_values.push(values);
             doc_maps.push(merge_state.doc_maps[i].clone())
         }
-        let mut points_reader =
+        let mut points_reader: PointsReaderImpl<_, CR> =
             PointsReaderImpl::new(field_info.clone(), max_point_count, point_values, doc_maps);
         self.write_field(
             field_info,
@@ -97,10 +100,11 @@ pub trait PointsWriter {
         Ok(())
     }
     /// Default merge implementation to merge incoming points readers by visiting all their points and adding to this writer
-    fn merge<D1, D2>(&mut self, merge_state: &MergeState<D1>, dir: &D2) -> Result<()>
+    fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
     where
         D1: Directory,
         D2: Directory,
+        CR: CodecReader,
     {
         // check each incoming reader
         for reader in merge_state.points_readers.iter().flatten() {
@@ -117,24 +121,26 @@ pub trait PointsWriter {
 }
 pub type PointsWriterType<O> = Lucene90PointsWriter<O>;
 
-struct PointsReaderImpl<P>
+struct PointsReaderImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     field_info: Arc<FieldInfo>,
     final_max_point_count: usize,
     point_value: Vec<P>,
-    doc_map: Vec<Rc<DocMapEnum>>,
+    doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
-impl<P> PointsReaderImpl<P>
+impl<P, CR> PointsReaderImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn new(
         field_info: Arc<FieldInfo>,
         final_max_point_count: usize,
         point_value: Vec<P>,
-        doc_map: Vec<Rc<DocMapEnum>>,
+        doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
     ) -> Self {
         Self {
             field_info,
@@ -145,24 +151,26 @@ where
     }
 }
 
-impl<P> Clone for PointsReaderImpl<P>
+impl<P, CR> Clone for PointsReaderImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         todo!()
     }
 }
 
-impl<P> PointsReader for PointsReaderImpl<P>
+impl<P, CR> PointsReader for PointsReaderImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointValuesType = PointValuesImpl<P>;
+    type PointValuesType = PointValuesImpl<P, CR>;
 
     fn get_values(&self, field_name: &str) -> Result<Option<Self::PointValuesType>> {
         if field_name != self.field_info.name {
@@ -178,22 +186,24 @@ where
     }
 }
 
-struct PointValuesImpl<P>
+struct PointValuesImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     final_max_point_count: usize,
     point_value: Vec<P>,
-    doc_map: Vec<Rc<DocMapEnum>>,
+    doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
-impl<P> PointValuesImpl<P>
+impl<P, CR> PointValuesImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn new(
         final_max_point_count: usize,
         point_value: Vec<P>,
-        doc_map: Vec<Rc<DocMapEnum>>,
+        doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
     ) -> Self {
         Self {
             final_max_point_count,
@@ -203,18 +213,20 @@ where
     }
 }
 
-impl<P> Clone for PointValuesImpl<P>
+impl<P, CR> Clone for PointValuesImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         todo!()
     }
 }
 
-impl<P> PointValues for PointValuesImpl<P>
+impl<P, CR> PointValues for PointValuesImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
         Err(LuceneError::unsupported_operation(""))
@@ -244,7 +256,7 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointTree = PointTreeImpl<P>;
+    type PointTree = PointTreeImpl<P, CR>;
     type MutablePointTree = DummyMutablePointTree;
 
     fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
@@ -256,21 +268,23 @@ where
     }
 }
 
-struct PointTreeImpl<P>
+struct PointTreeImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     final_max_point_count: usize,
-    doc_map: Vec<Rc<DocMapEnum>>,
+    doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
     point_value: Vec<P>,
 }
-impl<P> PointTreeImpl<P>
+impl<P, CR> PointTreeImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn new(
         final_max_point_count: usize,
-        doc_map: Vec<Rc<DocMapEnum>>,
+        doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
         point_value: Vec<P>,
     ) -> Self {
         Self {
@@ -281,9 +295,10 @@ where
     }
 }
 
-impl<P> TryClone for PointTreeImpl<P>
+impl<P, CR> TryClone for PointTreeImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn try_clone(&self) -> Result<Self>
     where
@@ -293,9 +308,10 @@ where
     }
 }
 
-impl<P> PointTree for PointTreeImpl<P>
+impl<P, CR> PointTree for PointTreeImpl<P, CR>
 where
     P: PointValues + Clone,
+    CR: CodecReader,
 {
     fn move_to_child(&mut self) -> Result<bool> {
         Ok(false)
@@ -333,34 +349,38 @@ where
         IV: IntersectVisitor,
     {
         for (i, values) in self.point_value.iter().enumerate() {
-            let mut v = IntersectVisitorImpl::new(self.doc_map[i].as_ref(), visitor);
+            let mut v: IntersectVisitorImpl<'_, _, CR> =
+                IntersectVisitorImpl::new(self.doc_map[i].as_ref(), visitor);
             values.get_point_tree()?.visit_doc_values(&mut v)?;
         }
         Ok(())
     }
 }
 
-struct IntersectVisitorImpl<'a, I>
+struct IntersectVisitorImpl<'a, I, CR>
 where
     I: IntersectVisitor,
+    CR: CodecReader,
 {
-    doc_map: &'a DocMapEnum,
+    doc_map: &'a MergeStateDocMap<CR>,
     merged_visitor: &'a mut I,
 }
-impl<'a, I> IntersectVisitorImpl<'a, I>
+impl<'a, I, CR> IntersectVisitorImpl<'a, I, CR>
 where
     I: IntersectVisitor,
+    CR: CodecReader,
 {
-    fn new(doc_map: &'a DocMapEnum, merged_visitor: &'a mut I) -> Self {
+    fn new(doc_map: &'a MergeStateDocMap<CR>, merged_visitor: &'a mut I) -> Self {
         Self {
             doc_map,
             merged_visitor,
         }
     }
 }
-impl<'a, I> IntersectVisitor for IntersectVisitorImpl<'a, I>
+impl<'a, I, CR> IntersectVisitor for IntersectVisitorImpl<'a, I, CR>
 where
     I: IntersectVisitor,
+    CR: CodecReader,
 {
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         Err(LuceneError::illegal_state(""))

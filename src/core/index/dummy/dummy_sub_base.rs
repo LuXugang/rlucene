@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
 
 use crate::core::index::doc_id_merger::SubBase;
-use crate::core::index::merge_state::DocMapEnum;
+use crate::core::index::dummy::dummy_doc_map::DummyDocMap;
 use crate::core::util::error::lucene_error::Result;
 pub struct DummySubBase;
 impl SubBase for DummySubBase {
@@ -25,7 +24,9 @@ impl SubBase for DummySubBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = DummyDocMap;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -32,8 +32,9 @@ use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{MergeVisitor, StoredFieldsWriter};
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
@@ -275,14 +276,25 @@ where
 
         Ok(())
     }
-    fn copy_chunks<D: Directory>(
+    fn copy_chunks<D, CR>(
         &mut self,
-        merge_state: &mut MergeState<D>,
-        sub: &CompressingStoredFieldsMergeSub,
+        merge_state: &mut MergeState<D, CR>,
+        sub: &CompressingStoredFieldsMergeSub<CR>,
         from_doc_id: i32,
         to_doc_id: i32,
-    ) -> Result<()> {
-        let reader = &mut merge_state.stored_fields_readers[sub.reader_index];
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
+        let reader = match merge_state.stored_fields_readers[sub.reader_index] {
+            Some(ref mut r) => r,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "Expected Lucene90CompressingStoredFieldsReader",
+                ));
+            },
+        };
 
         debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
         debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);
@@ -402,16 +414,24 @@ where
                 && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
         )
     }
-    fn get_merge_strategy<D>(
+    fn get_merge_strategy<D, CR>(
         &self,
-        merge_state: &MergeState<D>,
+        merge_state: &MergeState<D, CR>,
         matching_readers: &MatchingReaders,
         reader_index: usize,
     ) -> Result<MergeStrategy>
     where
         D: Directory,
+        CR: CodecReader,
     {
-        let candidate = &merge_state.stored_fields_readers[reader_index];
+        let candidate = match merge_state.stored_fields_readers[reader_index] {
+            Some(ref r) => r,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "Expected Lucene90CompressingStoredFieldsReader",
+                ));
+            },
+        };
         // Currently we only allow to hanlde same version
         let (is_lucene90_compressing_stored_fields_reader, same_version) = { (false, false) };
         if !matching_readers.matching_readers[reader_index]
@@ -568,10 +588,11 @@ where
         Ok(())
     }
 
-    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
+    fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
     where
         D: Directory,
         D1: Directory,
+        CR: CodecReader,
         Self: Sized,
     {
         let matching_readers = MatchingReaders::new(merge_state)?;
@@ -580,7 +601,7 @@ where
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
         for (i, reader) in merge_state.stored_fields_readers.iter().enumerate() {
-            reader.check_integrity()?;
+            reader.as_ref().unwrap().check_integrity()?;
             let strategy = self.get_merge_strategy(merge_state, &matching_readers, i)?;
             if strategy == MergeStrategy::Visitor {
                 visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
@@ -598,8 +619,14 @@ where
         while let Some(sub_idx) = doc_id_merger.next()? {
             let sub = &doc_id_merger.get_subs()[sub_idx];
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
-            let reader = &mut merge_state.stored_fields_readers[sub.sub.reader_index];
-
+            let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
+                Some(ref mut r) => r,
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Expected Lucene90CompressingStoredFieldsReader",
+                    ));
+                },
+            };
             match sub.sub.merge_strategy {
                 MergeStrategy::Bulk => {
                     let from_doc = sub.sub.doc_id;
@@ -671,20 +698,30 @@ enum MergeStrategy {
     /// Copy field by field of decompressed documents.
     Visitor,
 }
-struct CompressingStoredFieldsMergeSub {
+struct CompressingStoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
     pub reader_index: usize,
     pub max_doc: i32,
     pub merge_strategy: MergeStrategy,
     pub doc_id: i32,
-    pub doc_map: Rc<DocMapEnum>,
+    pub doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl CompressingStoredFieldsMergeSub {
-    fn new<D: Directory>(
-        merge_state: &MergeState<D>,
+impl<CR> CompressingStoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
+    fn new<D>(
+        merge_state: &MergeState<D, CR>,
         merge_strategy: MergeStrategy,
         reader_index: usize,
-    ) -> Self {
+    ) -> Self
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         Self {
             reader_index,
             merge_strategy,
@@ -695,7 +732,10 @@ impl CompressingStoredFieldsMergeSub {
     }
 }
 
-impl SubBase for CompressingStoredFieldsMergeSub {
+impl<CR> SubBase for CompressingStoredFieldsMergeSub<CR>
+where
+    CR: CodecReader,
+{
     fn next_doc(&mut self) -> Result<i32> {
         self.doc_id += 1;
         if self.doc_id == self.max_doc {
@@ -705,20 +745,10 @@ impl SubBase for CompressingStoredFieldsMergeSub {
         }
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
-    }
-}
-// used for padding
-impl Default for CompressingStoredFieldsMergeSub {
-    fn default() -> Self {
-        Self {
-            reader_index: 0,
-            max_doc: 0,
-            merge_strategy: MergeStrategy::Doc,
-            doc_id: -1,
-            doc_map: Rc::new(DocMapEnum::default()),
-        }
     }
 }
 

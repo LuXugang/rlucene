@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::{
-    DefaultBinary, DefaultNumeric, DefaultSorted, DefaultSortedSet, DocValuesProducer,
-};
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
-use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
-    Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
-};
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::codec_reader::{CRDocValuesProducer, CodecReader};
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -37,8 +33,8 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
     AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
-use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum4};
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
@@ -88,9 +84,10 @@ pub trait DocValuesConsumer {
     ) -> Result<()>
     where
         D: DocValuesProducer;
-    fn merge<D>(&mut self, merge_state: &MergeState<D>) -> Result<()>
+    fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
     where
         D: Directory,
+        CR: CodecReader,
     {
         for producer in merge_state.doc_values_producers.iter().flatten() {
             producer.check_integrity()?;
@@ -126,13 +123,14 @@ pub trait DocValuesConsumer {
         Ok(())
     }
 
-    fn merge_numeric_field<D>(
+    fn merge_numeric_field<D, CR>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
+        merge_state: &MergeState<D, CR>,
     ) -> Result<()>
     where
         D: Directory,
+        CR: CodecReader,
     {
         let producer = EmptyDocValuesProducerMerge1 {
             merge_field_info: merge_field_info.clone(),
@@ -141,33 +139,45 @@ pub trait DocValuesConsumer {
         self.add_numeric_field(merge_field_info, &producer)?;
         Ok(())
     }
-    fn merge_binary_field<D: Directory>(
+    fn merge_binary_field<D, CR>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
-    ) -> Result<()> {
+        merge_state: &MergeState<D, CR>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let producer = EmptyDocValuesProducerMerge2 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
         self.add_binary_field(merge_field_info, &producer)
     }
-    fn merge_sorted_numeric_field<D: Directory>(
+    fn merge_sorted_numeric_field<D, CR>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
-    ) -> Result<()> {
+        merge_state: &MergeState<D, CR>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let producer = EmptyDocValuesProducerMerge3 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
         self.add_sorted_numeric_field(merge_field_info, &producer)
     }
-    fn merge_sorted_field<D: Directory>(
+    fn merge_sorted_field<D, CR>(
         &mut self,
         field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
-    ) -> Result<()> {
+        merge_state: &MergeState<D, CR>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
         for i in 0..merge_state.doc_values_producers.len() {
@@ -236,11 +246,15 @@ pub trait DocValuesConsumer {
         };
         self.add_sorted_field(field_info, &producer)
     }
-    fn merge_sorted_set_field<D: Directory>(
+    fn merge_sorted_set_field<D, CR>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
-    ) -> Result<()> {
+        merge_state: &MergeState<D, CR>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
 
         for i in 0..merge_state.doc_values_producers.len() {
@@ -338,58 +352,66 @@ impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
 
 // 1. NumericDocValues
 /// Tracks state of one numeric sub-reader that we are merging.
-pub(crate) struct NumericDocValuesSub<N>
+pub(crate) struct NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     values: N,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<N> NumericDocValuesSub<N>
+impl<N, CR> NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: N) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: N) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
 }
-impl<N> SubBase for NumericDocValuesSub<N>
+impl<N, CR> SubBase for NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }
 
-pub struct NumericDocValuesMerge<N>
+pub struct NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N>>,
+    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, CR>>,
     final_cost: i64,
 }
 
-impl<N> DocValuesIterator for NumericDocValuesMerge<N>
+impl<N, CR> DocValuesIterator for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<N> DocIdSetIterator for NumericDocValuesMerge<N>
+impl<N, CR> DocIdSetIterator for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -419,9 +441,10 @@ where
     }
 }
 
-impl<N> NumericDocValues for NumericDocValuesMerge<N>
+impl<N, CR> NumericDocValues for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
@@ -433,17 +456,19 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge1<'a, D>
+pub(crate) struct EmptyDocValuesProducerMerge1<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D> Clone for EmptyDocValuesProducerMerge1<'_, D>
+impl<D, CR> Clone for EmptyDocValuesProducerMerge1<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -454,11 +479,13 @@ where
     }
 }
 
-impl<D> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D>
+impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
-    type NumericDocValues = NumericDocValuesMerge<DefaultNumeric<D::IndexInput>>;
+    type NumericDocValues =
+        NumericDocValuesMerge<<CRDocValuesProducer<CR> as DocValuesProducer>::NumericDocValues, CR>;
 
     fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -499,59 +526,67 @@ where
 }
 // 2. BinaryDocValues
 /// Tracks state of one binary sub-reader that we are merging.
-struct BinaryDocValuesSub<B>
+struct BinaryDocValuesSub<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     values: B,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<B> BinaryDocValuesSub<B>
+impl<B, CR> BinaryDocValuesSub<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: B) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: B) -> Self {
         debug_assert!(values.doc_id() == -1);
         BinaryDocValuesSub { values, doc_map }
     }
 }
 
-impl<B> SubBase for BinaryDocValuesSub<B>
+impl<B, CR> SubBase for BinaryDocValuesSub<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }
 
-pub struct BinaryDocValuesMerge<B>
+pub struct BinaryDocValuesMerge<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<BinaryDocValuesSub<B>>,
+    doc_id_merger: DocIDMergerEnum<BinaryDocValuesSub<B, CR>>,
     final_cost: i64,
 }
 
-impl<B> DocValuesIterator for BinaryDocValuesMerge<B>
+impl<B, CR> DocValuesIterator for BinaryDocValuesMerge<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<B> DocIdSetIterator for BinaryDocValuesMerge<B>
+impl<B, CR> DocIdSetIterator for BinaryDocValuesMerge<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -581,9 +616,10 @@ where
     }
 }
 
-impl<B> BinaryDocValues for BinaryDocValuesMerge<B>
+impl<B, CR> BinaryDocValues for BinaryDocValuesMerge<B, CR>
 where
     B: BinaryDocValues,
+    CR: CodecReader,
 {
     fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self.current {
@@ -595,17 +631,19 @@ where
         }
     }
 }
-pub(crate) struct EmptyDocValuesProducerMerge2<'a, D>
+pub(crate) struct EmptyDocValuesProducerMerge2<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D> Clone for EmptyDocValuesProducerMerge2<'_, D>
+impl<D, CR> Clone for EmptyDocValuesProducerMerge2<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -616,12 +654,14 @@ where
     }
 }
 
-impl<D> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D>
+impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     type NumericDocValues = DummyNumericDocValues;
-    type BinaryDocValues = BinaryDocValuesMerge<DefaultBinary<D::IndexInput>>;
+    type BinaryDocValues =
+        BinaryDocValuesMerge<<CRDocValuesProducer<CR> as DocValuesProducer>::BinaryDocValues, CR>;
 
     fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -672,59 +712,67 @@ where
 }
 // 3. SortedNumericDocValues
 /// Tracks state of one sorted numeric sub-reader that we are merging.
-struct SortedNumericDocValuesSub<SN>
+struct SortedNumericDocValuesSub<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     values: SN,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<SN> SortedNumericDocValuesSub<SN>
+impl<SN, CR> SortedNumericDocValuesSub<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: SN) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: SN) -> Self {
         debug_assert!(values.doc_id() == -1);
         SortedNumericDocValuesSub { values, doc_map }
     }
 }
 
-impl<SN> SubBase for SortedNumericDocValuesSub<SN>
+impl<SN, CR> SubBase for SortedNumericDocValuesSub<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }
 
-pub struct SortedNumericDocValuesMerge<SN>
+pub struct SortedNumericDocValuesMerge<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current_sub: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<SN>>,
+    doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<SN, CR>>,
     final_cost: i64,
 }
 
-impl<SN> DocValuesIterator for SortedNumericDocValuesMerge<SN>
+impl<SN, CR> DocValuesIterator for SortedNumericDocValuesMerge<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<SN> DocIdSetIterator for SortedNumericDocValuesMerge<SN>
+impl<SN, CR> DocIdSetIterator for SortedNumericDocValuesMerge<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -754,9 +802,10 @@ where
     }
 }
 
-impl<SN> SortedNumericDocValues for SortedNumericDocValuesMerge<SN>
+impl<SN, CR> SortedNumericDocValues for SortedNumericDocValuesMerge<SN, CR>
 where
     SN: SortedNumericDocValues,
+    CR: CodecReader,
 {
     fn next_value(&mut self) -> Result<i64> {
         match self.current_sub {
@@ -780,17 +829,19 @@ where
 
     type NumericDocValues = DummyNumericDocValues;
 }
-pub(crate) struct EmptyDocValuesProducerMerge3<'a, D>
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D> Clone for EmptyDocValuesProducerMerge3<'_, D>
+impl<D, CR> Clone for EmptyDocValuesProducerMerge3<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -800,26 +851,28 @@ where
         )
     }
 }
-
-impl<D> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, D>
+pub type MergeSortedNumeric<CR> =
+    <CRDocValuesProducer<CR> as DocValuesProducer>::SortedNumericDocValues;
+pub type MergeNumeric<CR> = <MergeSortedNumeric<CR> as SortedNumericDocValues>::NumericDocValues;
+impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<
-            NumericDocValuesMerge<
-                NumericDocValuesEnum4<
-                    DummyNumericDocValues,
-                    DummyNumericDocValues,
-                    Lucene90NumericDocValuesEnum<D::IndexInput>,
-                    EmptyNumeric,
-                >,
-            >,
+            NumericDocValuesMerge<NumericDocValuesEnum2<MergeNumeric<CR>, EmptyNumeric>, CR>,
         >,
-        SortedNumericDocValuesMerge<Lucene90SortedNumericDocValuesEnum<D::IndexInput>>,
+        SortedNumericDocValuesMerge<
+            SortedNumericDocValuesEnum2<
+                MergeSortedNumeric<CR>,
+                SingletonSortedNumericDocValues<EmptyNumeric>,
+            >,
+            CR,
+        >,
     >;
 
     fn get_sorted_numeric(
@@ -843,12 +896,14 @@ where
                 if let Some(reader_field_info) = reader_field_info
                     && *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric
                 {
-                    values = Some(doc_values_producer.get_sorted_numeric(&reader_field_info)?);
+                    values = Some(SortedNumericDocValuesEnum2::A(
+                        doc_values_producer.get_sorted_numeric(&reader_field_info)?,
+                    ));
                 }
             }
 
             if values.is_none() {
-                values = Some(Lucene90SortedNumericDocValuesEnum::D(
+                values = Some(SortedNumericDocValuesEnum2::B(
                     DocValues::empty_sorted_numeric()?,
                 ));
             }
@@ -897,12 +952,13 @@ where
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) fn merge_numeric_values<N>(
-    mut subs: Vec<Sub<NumericDocValuesSub<N>>>,
+pub(crate) fn merge_numeric_values<N, CR>(
+    mut subs: Vec<Sub<NumericDocValuesSub<N, CR>>>,
     index_is_sorted: bool,
-) -> Result<NumericDocValuesMerge<N>>
+) -> Result<NumericDocValuesMerge<N, CR>>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     let mut cost = 0;
     for sub in &mut subs {
@@ -917,19 +973,21 @@ where
     })
 }
 // 4. SortedDocValues
-struct SortedDocValuesSub<S>
+struct SortedDocValuesSub<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     values: S,
     map: Rc<SegmentToGlobalOrds>,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
-impl<S> SortedDocValuesSub<S>
+impl<S, CR> SortedDocValuesSub<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
         debug_assert!(values.doc_id() == -1);
         SortedDocValuesSub {
             values,
@@ -939,31 +997,36 @@ where
     }
 }
 
-impl<S> SubBase for SortedDocValuesSub<S>
+impl<S, CR> SubBase for SortedDocValuesSub<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }
 
-pub(crate) struct EmptyDocValuesProducerMerge4<'a, D>
+pub(crate) struct EmptyDocValuesProducerMerge4<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
     map: Rc<OrdinalMap>,
 }
 
-impl<D> Clone for EmptyDocValuesProducerMerge4<'_, D>
+impl<D, CR> Clone for EmptyDocValuesProducerMerge4<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -974,14 +1037,20 @@ where
     }
 }
 
-impl<D> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D>
+impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues =
-        SortedDocValuesMerge<SortedDocValuesEnum2<DefaultSorted<D::IndexInput>, EmptySorted>>;
+    type SortedDocValues = SortedDocValuesMerge<
+        SortedDocValuesEnum2<
+            <CRDocValuesProducer<CR> as DocValuesProducer>::SortedDocValues,
+            EmptySorted,
+        >,
+        CR,
+    >;
 
     fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         if !Arc::ptr_eq(field, &self.field_info) {
@@ -1025,29 +1094,32 @@ where
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct SortedDocValuesMerge<S>
+pub struct SortedDocValuesMerge<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<SortedDocValuesSub<S>>,
+    doc_id_merger: DocIDMergerEnum<SortedDocValuesSub<S, CR>>,
     final_cost: i64,
     map: Rc<OrdinalMap>,
 }
 
-impl<S> DocValuesIterator for SortedDocValuesMerge<S>
+impl<S, CR> DocValuesIterator for SortedDocValuesMerge<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<S> DocIdSetIterator for SortedDocValuesMerge<S>
+impl<S, CR> DocIdSetIterator for SortedDocValuesMerge<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -1077,9 +1149,10 @@ where
     }
 }
 
-impl<S> SortedDocValues for SortedDocValuesMerge<S>
+impl<S, CR> SortedDocValues for SortedDocValuesMerge<S, CR>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     fn ord_value(&mut self) -> Result<i32> {
         let current = *self.current.as_ref().unwrap();
@@ -1226,13 +1299,14 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 }
-fn merge_sorted_values<S>(
-    subs: Vec<Sub<SortedDocValuesSub<S>>>,
+fn merge_sorted_values<S, CR>(
+    subs: Vec<Sub<SortedDocValuesSub<S, CR>>>,
     index_is_sorted: bool,
     map: Rc<OrdinalMap>,
-) -> Result<SortedDocValuesMerge<S>>
+) -> Result<SortedDocValuesMerge<S, CR>>
 where
     S: SortedDocValues,
+    CR: CodecReader,
 {
     let mut cost = 0;
     for sub in &subs {
@@ -1250,20 +1324,22 @@ where
     })
 }
 // 4. SortedSetDocValues
-struct SortedSetDocValuesSub<S>
+struct SortedSetDocValuesSub<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     values: S,
     map: Rc<SegmentToGlobalOrds>,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<S> SortedSetDocValuesSub<S>
+impl<S, CR> SortedSetDocValuesSub<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
         debug_assert!(values.doc_id() == -1);
         Self {
             values,
@@ -1273,33 +1349,38 @@ where
     }
 }
 
-impl<S> SubBase for SortedSetDocValuesSub<S>
+impl<S, CR> SubBase for SortedSetDocValuesSub<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Ok(&self.doc_map)
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
+        Ok(self.doc_map.as_ref())
     }
 }
-pub struct SortedSetDocValuesMerge<S>
+pub struct SortedSetDocValuesMerge<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current_sub: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<SortedSetDocValuesSub<S>>,
+    doc_id_merger: DocIDMergerEnum<SortedSetDocValuesSub<S, CR>>,
     final_cost: i64,
     map: Rc<OrdinalMap>,
     to_merge: Vec<S>,
 }
 
-impl<S> DocIdSetIterator for SortedSetDocValuesMerge<S>
+impl<S, CR> DocIdSetIterator for SortedSetDocValuesMerge<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -1329,18 +1410,20 @@ where
     }
 }
 
-impl<S> DocValuesIterator for SortedSetDocValuesMerge<S>
+impl<S, CR> DocValuesIterator for SortedSetDocValuesMerge<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<S> SortedSetDocValues for SortedSetDocValuesMerge<S>
+impl<S, CR> SortedSetDocValues for SortedSetDocValuesMerge<S, CR>
 where
     S: SortedSetDocValues,
+    CR: CodecReader,
 {
     fn next_ord(&mut self) -> Result<i64> {
         let current = *self.current_sub.as_ref().unwrap();
@@ -1381,18 +1464,20 @@ where
     where
         Self: 'a;
 }
-pub(crate) struct EmptyDocValuesProducerMerge5<'a, D>
+pub(crate) struct EmptyDocValuesProducerMerge5<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
     map: Rc<OrdinalMap>,
 }
 
-impl<D> Clone for EmptyDocValuesProducerMerge5<'_, D>
+impl<D, CR> Clone for EmptyDocValuesProducerMerge5<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -1402,10 +1487,14 @@ where
         )
     }
 }
-
-impl<D> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, D>
+pub type CRSortedSetDocValues<CR> =
+    <CRDocValuesProducer<CR> as DocValuesProducer>::SortedSetDocValues;
+pub type CRSSDVSortedDocValues<CR> =
+    <CRSortedSetDocValues<CR> as SortedSetDocValues>::SortedDocValues;
+impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
@@ -1414,15 +1503,11 @@ where
 
     type SortedSetDocValues = SortedSetDocValuesEnum2<
         SingletonSortedSetDocValues<
-            SortedDocValuesMerge<
-                SortedDocValuesEnum2<
-                    SortedDocValuesEnum2<DefaultSorted<D::IndexInput>, DummySortedDocValues>,
-                    EmptySorted,
-                >,
-            >,
+            SortedDocValuesMerge<SortedDocValuesEnum2<CRSSDVSortedDocValues<CR>, EmptySorted>, CR>,
         >,
         SortedSetDocValuesMerge<
-            SortedSetDocValuesEnum2<DefaultSortedSet<D::IndexInput>, EmptySortedSet>,
+            SortedSetDocValuesEnum2<CRSortedSetDocValues<CR>, EmptySortedSet>,
+            CR,
         >,
     >;
 

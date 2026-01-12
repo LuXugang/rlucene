@@ -19,6 +19,7 @@ use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::push_postings_writer_base::PushPostingsWriterBase;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
 use crate::core::index::mapped_multi_fields::MappedMultiFields;
 use crate::core::index::merge_state::MergeState;
@@ -27,6 +28,7 @@ use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
+
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
 /// implementations of this actually do "something" with the postings (write it into the index in a
 /// specific format).
@@ -55,10 +57,11 @@ pub trait FieldsConsumer {
     ///
     /// Implementations may override this method to perform more sophisticated
     /// merging strategies (such as bulk byte copying, etc.).
-    fn merge<D, N>(&mut self, merge_state: &MergeState<D>, norms: &Option<N>) -> Result<()>
+    fn merge<D, N, CR>(&mut self, merge_state: &MergeState<D, CR>, norms: &Option<N>) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
+        CR: CodecReader,
     {
         let mut fields = Vec::new();
         let mut slices = Vec::new();
@@ -76,7 +79,7 @@ pub trait FieldsConsumer {
                     max_doc as i32,
                     reader_index as i32,
                 )));
-                fields.push(f);
+                fields.push(f.as_ref());
             }
 
             doc_base += max_doc;

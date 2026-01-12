@@ -26,8 +26,9 @@ use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
@@ -688,13 +689,17 @@ where
 
         self.writer.finish(&mut self.vectors_stream)
     }
-    fn copy_chunks<D: Directory>(
+    fn copy_chunks<D, CR>(
         &mut self,
-        merge_state: &mut MergeState<D>,
-        sub: &CompressingTermVectorsSub,
+        merge_state: &mut MergeState<D, CR>,
+        sub: &CompressingTermVectorsSub<CR>,
         from_doc_id: i32,
         to_doc_id: i32,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let merge_state_meta = merge_state.get_meta();
         let reader = merge_state.term_vectors_readers[sub.reader_index]
             .as_mut()
@@ -823,12 +828,16 @@ where
                 && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
         )
     }
-    fn can_perform_bulk_merge<D: Directory>(
+    fn can_perform_bulk_merge<D, CR>(
         &self,
-        merge_state: &MergeState<D>,
+        merge_state: &MergeState<D, CR>,
         matching_readers: &MatchingReaders,
         reader_index: usize,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D: Directory,
+        CR: CodecReader,
+    {
         let reader = merge_state.term_vectors_readers[reader_index]
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
@@ -1121,10 +1130,11 @@ where
         Ok(())
     }
 
-    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
+    fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
     where
         D: Directory,
         D1: Directory,
+        CR: CodecReader,
     {
         let num_readers = merge_state.term_vectors_readers.len();
         let matching_readers = MatchingReaders::new(merge_state)?;
@@ -1201,22 +1211,29 @@ where
         Ok(doc_count)
     }
 }
-pub struct CompressingTermVectorsSub {
+pub struct CompressingTermVectorsSub<CR>
+where
+    CR: CodecReader,
+{
     max_doc: i32,
     reader_index: usize,
     can_perform_bulk_merge: bool,
     doc_id: i32,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl CompressingTermVectorsSub {
+impl<CR> CompressingTermVectorsSub<CR>
+where
+    CR: CodecReader,
+{
     pub fn new<D>(
-        merge_state: &MergeState<D>,
+        merge_state: &MergeState<D, CR>,
         can_perform_bulk_merge: bool,
         reader_index: usize,
     ) -> Self
     where
         D: Directory,
+        CR: CodecReader,
     {
         Self {
             max_doc: merge_state.max_docs[reader_index],
@@ -1228,7 +1245,10 @@ impl CompressingTermVectorsSub {
     }
 }
 
-impl SubBase for CompressingTermVectorsSub {
+impl<CR> SubBase for CompressingTermVectorsSub<CR>
+where
+    CR: CodecReader,
+{
     fn next_doc(&mut self) -> Result<i32> {
         self.doc_id += 1;
         if self.doc_id == self.max_doc {
@@ -1238,7 +1258,9 @@ impl SubBase for CompressingTermVectorsSub {
         }
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }

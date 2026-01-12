@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::DefaultTermVectorsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::merge_state::{MergeState, MergeStateMeta};
@@ -120,18 +121,21 @@ pub trait TermVectorsWriter: Accountable {
 
         Ok(())
     }
-    fn merge<D, D1>(&mut self, merge_state: &mut MergeState<D>, dir: &D1) -> Result<i32>
+    fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
     where
         D: Directory,
-        D1: Directory;
+        D1: Directory,
+        CR: CodecReader;
+
     /// Safe (but, slowish) default method to write every vector field in the document.
-    fn add_all_doc_vectors<F>(
+    fn add_all_doc_vectors<F, CR>(
         &mut self,
         vectors: Option<&F>,
-        merge_state: &MergeStateMeta,
+        merge_state: &MergeStateMeta<CR>,
     ) -> Result<()>
     where
         F: Fields,
+        CR: CodecReader,
     {
         if vectors.is_none() {
             self.start_document(0)?;

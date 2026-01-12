@@ -298,7 +298,14 @@ pub trait CodecReader: LeafReader {
         Ok(())
     }
 }
+pub type CRFieldsProducer<CR> = <CR as CodecReader>::FieldsProducer;
+pub type CRDocValuesProducer<CR> = <CR as CodecReader>::DocValuesProducer;
+pub type CRNormsProducer<CR> = <CR as CodecReader>::NormsProducer;
+pub type CRPointsReader<CR> = <CR as CodecReader>::PointsReader;
+pub type CRTermVectorsReader<CR> = <CR as CodecReader>::TermVectorsReader;
+pub type CRStoredFieldsReader<CR> = <CR as CodecReader>::StoredFieldsReader;
 pub type CRBits<CR> = <CR as LeafReader>::Bits;
+
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
 pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 

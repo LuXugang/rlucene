@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::norms_producer::{DefaultNormNumericDocValues, NormsProducer};
+use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::index::codec_reader::{CRNormsProducer, CodecReader};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{DocMapEnum, MergeState};
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -64,9 +65,10 @@ pub trait NormsConsumer {
     ///
     /// Implementations can override this method for more sophisticated merging
     /// (e.g. bulk-byte copying).
-    fn merge<D>(&mut self, merge_state: &MergeState<D>) -> Result<()>
+    fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
     where
         D: Directory,
+        CR: CodecReader,
     {
         for producer in merge_state.norms_producers.iter().flatten() {
             producer.check_integrity()?;
@@ -85,13 +87,14 @@ pub trait NormsConsumer {
     /// The default implementation calls
     /// [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
     /// that merges and filters deleted documents on the fly.
-    fn merge_norms_field<D>(
+    fn merge_norms_field<D, CR>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
-        merge_state: &MergeState<D>,
+        merge_state: &MergeState<D, CR>,
     ) -> Result<()>
     where
         D: Directory,
+        CR: CodecReader,
     {
         let mut norms_producer = NormsProducerMerge {
             merge_field_info: merge_field_info.clone(),
@@ -104,17 +107,19 @@ pub trait NormsConsumer {
     }
 }
 
-struct NormsProducerMerge<'a, D>
+struct NormsProducerMerge<'a, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     merge_field_info: Arc<FieldInfo>,
-    merge_state: &'a MergeState<D>,
+    merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D> Clone for NormsProducerMerge<'_, D>
+impl<D, CR> Clone for NormsProducerMerge<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
     fn clone(&self) -> Self {
         unreachable!(
@@ -125,11 +130,13 @@ where
     }
 }
 
-impl<D> NormsProducer for NormsProducerMerge<'_, D>
+impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>
 where
     D: Directory,
+    CR: CodecReader,
 {
-    type NumericDocValues = NumericDocValuesMerge<DefaultNormNumericDocValues<D::IndexInput>>;
+    type NumericDocValues =
+        NumericDocValuesMerge<<CRNormsProducer<CR> as NormsProducer>::NumericDocValues, CR>;
 
     fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -172,27 +179,30 @@ where
     }
 }
 
-pub struct NumericDocValuesMerge<N>
+pub struct NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     doc_id: i32,
     current: Option<usize>,
-    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N>>,
+    doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, CR>>,
 }
 
-impl<N> DocValuesIterator for NumericDocValuesMerge<N>
+impl<N, CR> DocValuesIterator for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl<N> DocIdSetIterator for NumericDocValuesMerge<N>
+impl<N, CR> DocIdSetIterator for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn doc_id(&self) -> i32 {
         self.doc_id
@@ -222,9 +232,10 @@ where
     }
 }
 
-impl<N> NumericDocValues for NumericDocValuesMerge<N>
+impl<N, CR> NumericDocValues for NumericDocValuesMerge<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn long_value(&mut self) -> Result<i64> {
         match self.current {
@@ -237,32 +248,37 @@ where
     }
 }
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<N>
+struct NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     values: N,
-    doc_map: Rc<DocMapEnum>,
+    doc_map: Rc<MergeStateDocMap<CR>>,
 }
 
-impl<N> NumericDocValuesSub<N>
+impl<N, CR> NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: N) -> Self {
+    fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: N) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
 }
-impl<N> SubBase for NumericDocValuesSub<N>
+impl<N, CR> SubBase for NumericDocValuesSub<N, CR>
 where
     N: NumericDocValues,
+    CR: CodecReader,
 {
     fn next_doc(&mut self) -> Result<i32> {
         self.values.next_doc()
     }
 
-    fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
+    type DocMap = MergeStateDocMap<CR>;
+
+    fn get_doc_map(&self) -> Result<&Self::DocMap> {
         Ok(&self.doc_map)
     }
 }
