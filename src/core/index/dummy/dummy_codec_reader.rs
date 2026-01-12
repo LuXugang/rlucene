@@ -201,7 +201,7 @@ impl CodecReader for DummyCodecReader {
         Lucene90BlockTreeTermsReader<DummyIndexInput, Lucene101PostingsReader<DummyIndexInput>>;
     type PointsReader = Lucene90PointsReader<DummyIndexInput>;
 
-    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

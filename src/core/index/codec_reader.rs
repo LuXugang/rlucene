@@ -45,7 +45,7 @@ pub trait CodecReader: LeafReader {
     type PointsReader: PointsReader;
 
     /// Expert: retrieve underlying StoredFieldsReader
-    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>>;
+    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>>;
 
     /// Expert: retrieve underlying TermVectorsReader
     fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>>;
@@ -64,11 +64,18 @@ pub trait CodecReader: LeafReader {
 
     fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
         let reader = self.get_fields_reader()?;
-        debug_assert!(matches!(reader, Cow::Owned(_)));
-        Ok(StoredFieldsImpl {
-            reader: self.get_fields_reader()?.into_owned(),
-            max_doc: self.max_doc()?,
-        })
+        match reader {
+            None => Err(LuceneError::illegal_state(
+                "stored fields reader is None".to_string(),
+            )),
+            Some(r) => {
+                debug_assert!(matches!(r, Cow::Owned(_)));
+                Ok(StoredFieldsImpl {
+                    reader: r.into_owned(),
+                    max_doc: self.max_doc()?,
+                })
+            },
+        }
     }
 
     fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
@@ -270,8 +277,9 @@ pub trait CodecReader: LeafReader {
         }
 
         // stored fields
-        self.get_fields_reader()?.check_integrity()?;
-
+        if let Some(v) = self.get_fields_reader()? {
+            v.check_integrity()?;
+        }
         // term vectors
         if let Some(v) = self.get_term_vectors_reader()? {
             v.check_integrity()?;
@@ -334,7 +342,7 @@ where
     type FieldsProducer = CR::FieldsProducer;
     type PointsReader = CR::PointsReader;
 
-    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
         (**self).get_fields_reader()
     }
 

@@ -537,9 +537,9 @@ where
     type FieldsProducer = FieldsProducerType<CfsOrBaseInput<D>>;
     type PointsReader = PointsReaderType<CfsOrBaseInput<D>>;
 
-    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
         self.ensure_open()?;
-        Ok(Cow::Owned(self.core.fields_reader_orig.clone()))
+        Ok(Some(Cow::Owned(self.core.fields_reader_orig.clone())))
     }
 
     fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
