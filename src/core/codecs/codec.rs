@@ -81,3 +81,15 @@ pub fn get_default_code() -> Lucene101Codec {
     debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
     codec
 }
+
+pub type DefaultCodec = Lucene101Codec;
+pub type DefaultCodecPostingsFormat = <DefaultCodec as Codec>::PostingsFormat;
+pub type DefaultCodecDocValuesFormat = <DefaultCodec as Codec>::DocValuesFormat;
+pub type DefaultCodecStoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
+pub type DefaultCodecTermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
+pub type DefaultCodecFieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
+pub type DefaultCodecSegmentInfoFormat = <DefaultCodec as Codec>::SegmentInfoFormat;
+pub type DefaultCodecNormsFormat = <DefaultCodec as Codec>::NormsFormat;
+pub type DefaultCodecLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
+pub type DefaultCodecCompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
+pub type DefaultCodecPointsFormat = <DefaultCodec as Codec>::PointsFormat;

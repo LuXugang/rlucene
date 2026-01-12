@@ -23,7 +23,7 @@ use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::IOContext;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -96,13 +96,15 @@ impl Lucene90CompressingTermVectorsFormat {
 }
 
 impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
+    type TermVectorsReader<T: IndexInput> = Lucene90CompressingTermVectorsReader<T>;
+
     fn vectors_reader<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Arc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<TermVectorsReaderType<D1::IndexInput>>
+    ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,
@@ -118,12 +120,14 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         )
     }
 
+    type TermVectorsWriter<T: IndexOutput> = Lucene90CompressingTermVectorsWriter<T>;
+
     fn vectors_writer<D1, D2>(
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
-    ) -> Result<TermVectorsWriterEnum<D1::IndexOutput>>
+    ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
     where
         D1: Directory,
         D2: Directory,

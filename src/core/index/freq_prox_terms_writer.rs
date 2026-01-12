@@ -186,7 +186,6 @@ where
     pub(crate) fn finish_document<D1>(
         &mut self,
         doc_id: i32,
-        codec: &impl Codec,
         info: &SegmentInfo<D1>,
         per_fields: &mut [PerField],
         int_pool: &mut IntBlockPool,
@@ -196,7 +195,7 @@ where
         D1: Directory,
     {
         self.next_terms_hash
-            .finish_document(doc_id, codec, info, per_fields, int_pool, byte_pool)?;
+            .finish_document(doc_id, info, per_fields, int_pool, byte_pool)?;
         Ok(())
     }
     pub(crate) fn start_document(&mut self) -> Result<()> {

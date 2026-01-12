@@ -247,7 +247,7 @@ pub trait TermVectorsWriter: Accountable {
         Ok(())
     }
 }
-
+pub type DefaultTermVectorsWriter<O> = Lucene90CompressingTermVectorsWriter<O>;
 pub type TermVectorsWriterEnum<O> = Lucene90CompressingTermVectorsWriter<O>;
 
 #[cfg(test)]

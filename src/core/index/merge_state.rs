@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
-use crate::core::codecs::fields_producer::FieldsProducerType;
-use crate::core::codecs::norms_producer::NormsProducerType;
+use crate::core::codecs::fields_producer::DefaultFieldsProducer;
+use crate::core::codecs::norms_producer::DefaultNormProducer;
 use crate::core::codecs::points_reader::PointsReaderType;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
@@ -53,9 +53,9 @@ where
     pub(crate) merge_field_infos: Arc<FieldInfos>,
     pub(crate) stored_fields_readers: Vec<StoredFieldsReaderType<D::IndexInput>>,
     pub(crate) term_vectors_readers: Vec<Option<TermVectorsReaderType<D::IndexInput>>>,
-    pub(crate) norms_producers: Vec<Option<NormsProducerType<D::IndexInput>>>,
+    pub(crate) norms_producers: Vec<Option<DefaultNormProducer<D::IndexInput>>>,
     pub(crate) doc_values_producers: Vec<Option<DefaultDocValuesProducer<D::IndexInput>>>,
-    pub(crate) fields_producers: Vec<Option<FieldsProducerType<D::IndexInput>>>,
+    pub(crate) fields_producers: Vec<Option<DefaultFieldsProducer<D::IndexInput>>>,
     pub(crate) points_readers: Vec<Option<PointsReaderType<D::IndexInput>>>,
     pub(crate) field_infos: Vec<Arc<FieldInfos>>,
     pub(crate) live_docs: Vec<Option<Rc<BitsEnum>>>,

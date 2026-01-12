@@ -17,12 +17,12 @@
 use crate::core::codecs::compound_directory::CompoundDirectoryBase;
 use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::fields_producer::FieldsProducerType;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
-use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerType};
+use crate::core::codecs::norms_producer::{DefaultNormProducer, NormsProducer};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderType};
 
+use crate::core::codecs::fields_producer::DefaultFieldsProducer;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderType;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderType;
 use crate::core::codecs::{Codec, get_default_code};
@@ -69,7 +69,7 @@ where
     /// True if we are holding RAM only liveDocs or DV updates,
     /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
     is_nrt: bool,
-    doc_values_producer: Option<DocValuesProducers<D::IndexInput>>,
+    doc_values_producer: Option<DocValuesProducers<D>>,
     field_infos: Arc<FieldInfos>,
     base: IndexReaderBase,
     reader_cache_helper: CacheHelperImpl,
@@ -262,7 +262,7 @@ where
         field_infos: Arc<FieldInfos>,
         seg_doc_values: &SegmentDocValues<D>,
         core: &SegmentCoreReaders<D>,
-    ) -> Result<Option<DocValuesProducers<D::IndexInput>>> {
+    ) -> Result<Option<DocValuesProducers<D>>> {
         if !field_infos.has_doc_values() {
             return Ok(None);
         }
@@ -325,8 +325,10 @@ where
         &self.original_si_id
     }
 }
-pub type DocValuesProducers<I> =
-    DocValuesProducerEnum2<SegmentDocValuesProducer<I>, Arc<Lucene90DocValuesProducer<I>>>;
+pub type DocValuesProducers<D> = DocValuesProducerEnum2<
+    SegmentDocValuesProducer<D>,
+    Arc<Lucene90DocValuesProducer<<D as Directory>::IndexInput>>,
+>;
 
 impl<D> Display for SegmentReader<D>
 where
@@ -530,9 +532,9 @@ where
 {
     type StoredFieldsReader = StoredFieldsReaderType<D::IndexInput>;
     type TermVectorsReader = TermVectorsReaderType<D::IndexInput>;
-    type NormsProducer = NormsProducerType<D::IndexInput>;
-    type DocValuesProducer = DocValuesProducers<D::IndexInput>;
-    type FieldsProducer = FieldsProducerType<D::IndexInput>;
+    type NormsProducer = DefaultNormProducer<D::IndexInput>;
+    type DocValuesProducer = DocValuesProducers<D>;
+    type FieldsProducer = DefaultFieldsProducer<D::IndexInput>;
     type PointsReader = PointsReaderType<D::IndexInput>;
 
     fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {

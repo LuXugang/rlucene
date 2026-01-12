@@ -35,7 +35,6 @@ impl Display for Lucene101Codec {
         write!(f, "Lucene101Codec")
     }
 }
-
 impl Codec for Lucene101Codec {
     type PostingsFormat = Lucene101PostingsFormat;
     type DocValuesFormat = Lucene90DocValuesFormat;
