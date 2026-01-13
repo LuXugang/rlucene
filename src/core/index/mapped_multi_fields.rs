@@ -240,6 +240,9 @@ where
     TE: TermsEnum,
     CR: CodecReader,
 {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+        self.base.next()
+    }
 }
 
 impl<TE, CR> TermsEnum for MappedMultiTermsEnum<TE, CR>

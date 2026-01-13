@@ -615,8 +615,8 @@ where
 
         let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
         let mut doc_count = 0;
-
-        while let Some(sub_idx) = doc_id_merger.next()? {
+        let mut sub_opt = doc_id_merger.next()?;
+        while let Some(sub_idx) = sub_opt {
             let sub = &doc_id_merger.get_subs()[sub_idx];
             debug_assert_eq!(sub.mapped_doc_id, doc_count);
             let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
@@ -633,12 +633,15 @@ where
                     let mut to_doc_id = from_doc;
                     let current = sub_idx;
 
-                    while let Some(next_sub) = doc_id_merger.next()? {
-                        if next_sub == current {
+                    loop {
+                        sub_opt = doc_id_merger.next()?;
+                        if sub_opt.is_none() || sub_opt.unwrap() != current {
                             break;
                         }
                         to_doc_id += 1;
-                        debug_assert!(doc_id_merger.get_subs()[next_sub].sub.doc_id == to_doc_id)
+                        debug_assert!(
+                            doc_id_merger.get_subs()[sub_opt.unwrap()].sub.doc_id == to_doc_id
+                        )
                     }
                     to_doc_id += 1; // exclusive bound
                     self.copy_chunks(
@@ -652,6 +655,7 @@ where
                 MergeStrategy::Doc => {
                     self.copy_one_doc(reader, sub.sub.doc_id)?;
                     doc_count += 1;
+                    sub_opt = doc_id_merger.next()?;
                 },
                 MergeStrategy::Visitor => {
                     debug_assert!(visitors[sub.sub.reader_index].is_some());
@@ -668,6 +672,7 @@ where
                             ));
                         },
                     }
+                    sub_opt = doc_id_merger.next()?;
                 },
             }
         }

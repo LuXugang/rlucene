@@ -139,7 +139,7 @@ where
         NumericDocValuesMerge<<CRNormsProducer<CR> as NormsProducer>::NumericDocValues, CR>;
 
     fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if Arc::ptr_eq(field_info, &self.merge_field_info) {
+        if !Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 

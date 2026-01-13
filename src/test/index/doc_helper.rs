@@ -27,10 +27,10 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use once_cell::sync::Lazy;
-use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -328,12 +328,12 @@ pub struct Data {
     all: HashMap<String, Fields>,
     indexed: HashMap<String, Fields>,
     stored: HashMap<String, Fields>,
-    unstored: HashMap<String, Fields>,
+    pub(crate) unstored: HashMap<String, Fields>,
     unindexed: HashMap<String, Fields>,
     term_vector: HashMap<String, Fields>,
     no_term_vector: HashMap<String, Fields>,
     lazy: HashMap<String, Fields>,
-    no_norms: HashMap<String, Fields>,
+    pub(crate) no_norms: HashMap<String, Fields>,
     no_tf: HashMap<String, Fields>,
 }
 
@@ -350,7 +350,7 @@ impl DocHelper {
             doc.add(f.clone());
         }
     }
-    pub fn write_doc<D, A, S, R: Rng + ?Sized>(dir: Arc<D>, doc: Document) -> Result<usize>
+    pub fn write_doc<D>(dir: Arc<D>, doc: Document) -> Result<SegmentCommitInfo<D>>
     where
         D: Directory,
     {
@@ -360,12 +360,13 @@ impl DocHelper {
         let writer = IndexWriter::new(dir.clone(), config)?;
         writer.add_document(doc)?;
         writer.commit()?;
-        let inner = writer.inner.lock();
-        let newest_segment_idx = inner.segment_infos.segments_idx.len() - 1;
         writer.close()?;
-        Ok(newest_segment_idx)
+        let inner = writer.inner.lock();
+        debug_assert!(inner.segment_infos.segments.len() == 1);
+        let v = inner.segment_infos.info_idx(0).unwrap().clone();
+        Ok(v)
     }
-    fn num_fields(doc: &Document) -> usize {
+    pub(crate) fn num_fields(doc: &Document) -> usize {
         doc.get_fields().len()
     }
     pub fn create_document(n: i32, index_name: &str, num_fields: usize) -> Document {

@@ -70,6 +70,7 @@ where
         let count = postings_enum.get_num_subs() as usize;
 
         self.doc_id_merger.clear_subs();
+        self.idxs.clear();
         #[allow(clippy::needless_range_loop)]
         for i in 0..count {
             let enum_with_slice = &subs_array[i];

@@ -913,7 +913,7 @@ where
         }
         b.copy_from(
             &self.bytes.bytes[self.bytes.offset..(self.bytes.offset + len)],
-            len,
+            offset,
         );
         self.bytes.offset += len;
         self.bytes.length -= len;

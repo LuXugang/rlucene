@@ -207,7 +207,7 @@ where
     where
         CR: CodecReader,
     {
-        let _v = if let Some(ref sort) = self.segment_info.index_sort {
+        let v = if let Some(ref sort) = self.segment_info.index_sort {
             // do a merge sort of the incoming leaves:
             let t0 = SystemTime::now();
             match MultiSorter::sort(sort, readers)? {
@@ -234,7 +234,11 @@ where
             // docID space
             build_deletion_doc_maps(readers)?
         };
-        todo!()
+        self.doc_maps = v
+            .into_iter()
+            .map(Rc::new)
+            .collect::<Vec<Rc<MergeStateDocMap<CR>>>>();
+        Ok(())
     }
 }
 

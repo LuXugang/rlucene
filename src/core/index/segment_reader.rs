@@ -590,4 +590,41 @@ impl CacheHelper for CacheHelperImpl {
 }
 
 #[cfg(test)]
-mod tests {}
+pub(crate) mod tests {
+
+    use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+    use crate::core::index::index_options::IndexOptions;
+    use crate::core::index::indexable_field::IndexableField;
+    use crate::core::index::indexable_field_type::IndexableFieldType;
+    use crate::core::index::leaf_reader::LeafReader;
+    use crate::core::index::multi_doc_values::MultiDocValues;
+    use crate::core::index::multi_reader::MultiReader;
+
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::index::doc_helper::{DATA, FIELDS};
+
+    pub(crate) struct TestSegmentReader;
+    impl TestSegmentReader {
+        pub(crate) fn check_norms<LR>(reader: LR) -> Result<()>
+        where
+            LR: LeafReader + Clone,
+        {
+            let multi_readers: MultiReader<_, DummyCompositeReader<LR>> =
+                MultiReader::with_leaf_reader(vec![reader.clone()])?;
+            for f in FIELDS.iter() {
+                if *f.field_type().index_options() != IndexOptions::None {
+                    let field_name = f.name();
+                    let norms_opt = reader.get_norm_values(field_name)?;
+                    assert_eq!(norms_opt.is_some(), !f.field_type().omit_norms());
+                    assert_eq!(norms_opt.is_some(), !DATA.no_norms.contains_key(field_name));
+                    if norms_opt.is_none() {
+                        // test for norms of null
+                        let norms2 = MultiDocValues::get_norm_values(&multi_readers, field_name)?;
+                        assert!(norms2.is_none());
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
