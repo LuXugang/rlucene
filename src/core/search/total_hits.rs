@@ -31,7 +31,7 @@ use std::fmt;
 ///   [`Relation`] is equal to [`Relation::EqualTo`]), or a lower bound of the
 ///   total hit count (in which case [`Relation`] is equal to
 ///   [`Relation::GreaterThanOrEqualTo`]).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TotalHits {
     pub value: usize,
     pub relation: Relation,
@@ -65,10 +65,76 @@ impl fmt::Display for TotalHits {
     }
 }
 /// How the `TotalHits::value` should be interpreted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relation {
     /// The total hit count is equal to `TotalHits::value`.
     EqualTo,
     /// The total hit count is greater than or equal to `TotalHits::value`.
     GreaterThanOrEqualTo,
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
+    use crate::core::search::total_hits::TotalHits;
+    use crate::core::util::CoreHelper;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use rand::Rng;
+    use rand::prelude::IndexedRandom;
+    #[allow(dead_code)] // for quick search
+    struct TestTotalHits;
+    #[test]
+    fn test_equals_and_hashcode() {
+        let mut random = random();
+        let total_hits1 = random_total_hits(&mut random);
+
+        assert_eq!(total_hits1, total_hits1);
+
+        assert_eq!(
+            CoreHelper::calculate_hash(&total_hits1),
+            CoreHelper::calculate_hash(&total_hits1)
+        );
+
+        let total_hits2 = TotalHits::new(total_hits1.value(), total_hits1.relation());
+
+        assert_eq!(total_hits1, total_hits2);
+        assert_eq!(total_hits2, total_hits1);
+        assert_eq!(
+            CoreHelper::calculate_hash(&total_hits1),
+            CoreHelper::calculate_hash(&total_hits2)
+        );
+
+        let total_hits4 = random_total_hits(&mut random);
+
+        if total_hits4.value() == total_hits1.value()
+            && total_hits4.relation() == total_hits1.relation()
+        {
+            assert_eq!(total_hits1, total_hits4);
+            assert_eq!(total_hits2, total_hits4);
+            assert_eq!(
+                CoreHelper::calculate_hash(&total_hits1),
+                CoreHelper::calculate_hash(&total_hits4)
+            );
+            assert_eq!(
+                CoreHelper::calculate_hash(&total_hits2),
+                CoreHelper::calculate_hash(&total_hits4)
+            );
+        } else {
+            assert_ne!(total_hits1, total_hits4);
+            assert_ne!(total_hits2, total_hits4);
+            assert_ne!(
+                CoreHelper::calculate_hash(&total_hits1),
+                CoreHelper::calculate_hash(&total_hits4)
+            );
+            assert_ne!(
+                CoreHelper::calculate_hash(&total_hits2),
+                CoreHelper::calculate_hash(&total_hits4)
+            );
+        }
+    }
+    fn random_total_hits<R: Rng + ?Sized>(random: &mut R) -> TotalHits {
+        let value = random.random_range(0..i64::MAX) as usize;
+        let relation = *[EqualTo, GreaterThanOrEqualTo].choose(random).unwrap();
+
+        TotalHits::new(value, relation)
+    }
 }
