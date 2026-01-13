@@ -325,16 +325,16 @@ pub static DATA: Lazy<Data> = Lazy::new(|| {
 });
 #[derive(Default)]
 pub struct Data {
-    all: HashMap<String, Fields>,
-    indexed: HashMap<String, Fields>,
-    stored: HashMap<String, Fields>,
+    pub(crate) all: HashMap<String, Fields>,
+    pub(crate) indexed: HashMap<String, Fields>,
+    pub(crate) stored: HashMap<String, Fields>,
     pub(crate) unstored: HashMap<String, Fields>,
-    unindexed: HashMap<String, Fields>,
-    term_vector: HashMap<String, Fields>,
-    no_term_vector: HashMap<String, Fields>,
-    lazy: HashMap<String, Fields>,
+    pub(crate) unindexed: HashMap<String, Fields>,
+    pub(crate) term_vector: HashMap<String, Fields>,
+    pub(crate) no_term_vector: HashMap<String, Fields>,
+    pub(crate) lazy: HashMap<String, Fields>,
     pub(crate) no_norms: HashMap<String, Fields>,
-    no_tf: HashMap<String, Fields>,
+    pub(crate) no_tf: HashMap<String, Fields>,
 }
 
 fn add(map: &mut HashMap<String, Fields>, f: Fields) {
