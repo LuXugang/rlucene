@@ -286,7 +286,8 @@ where
     }
 
     fn do_close(&self) -> Result<()> {
-        todo!()
+        // TODO
+        Ok(())
     }
 
     type ReaderCacheHelper = CacheHelperImpl;
