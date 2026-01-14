@@ -18,6 +18,7 @@ use crate::core::codecs::DefaultPointsFormat;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::index::point_values::PointValues;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 /// Abstract API to visit point values.
 pub trait PointsReader: Clone {
     /// Checks consistency of this reader.
@@ -41,3 +42,29 @@ pub trait PointsReader: Clone {
     }
 }
 pub type DefaultPointsReader<I> = <DefaultPointsFormat as PointsFormat>::PointsReader<I>;
+
+impl<T> PointsReader for Arc<T>
+where
+    T: PointsReader,
+{
+    fn check_integrity(&self) -> Result<()> {
+        (**self).check_integrity()
+    }
+
+    type PointValuesType = T::PointValuesType;
+
+    fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
+        (**self).get_values(field)
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        let v = match (**self).get_merge_instance()? {
+            Some(v) => Arc::new(v),
+            None => return Ok(None),
+        };
+        Ok(Some(v))
+    }
+}

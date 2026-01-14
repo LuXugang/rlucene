@@ -18,6 +18,7 @@ use crate::core::codecs::DefaultPostingsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::fields::Fields;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 pub trait FieldsProducer: Fields + Clone {
     /// Checks consistency of this reader.
     ///
@@ -35,3 +36,23 @@ pub trait FieldsProducer: Fields + Clone {
     }
 }
 pub type DefaultFieldsProducer<I> = <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>;
+
+impl<T> FieldsProducer for Arc<T>
+where
+    T: FieldsProducer,
+{
+    fn check_integrity(&self) -> Result<()> {
+        (**self).check_integrity()
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        let v = match (**self).get_merge_instance()? {
+            Some(v) => Arc::new(v),
+            None => return Ok(None),
+        };
+        Ok(Some(v))
+    }
+}

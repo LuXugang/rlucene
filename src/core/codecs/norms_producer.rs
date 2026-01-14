@@ -56,3 +56,29 @@ pub trait NormsProducer: Clone {
 pub type DefaultNormProducer<I> = <DefaultNormsFormat as NormsFormat>::NormsProducer<I>;
 pub type DefaultNormNumericDocValues<I> =
     <DefaultNormProducer<I> as NormsProducer>::NumericDocValues;
+
+impl<T> NormsProducer for Arc<T>
+where
+    T: NormsProducer,
+{
+    type NumericDocValues = T::NumericDocValues;
+
+    fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        (**self).get_norms(field)
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        (**self).check_integrity()
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        let v = match (**self).get_merge_instance()? {
+            Some(v) => Arc::new(v),
+            None => return Ok(None),
+        };
+        Ok(Some(v))
+    }
+}
