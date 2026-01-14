@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 
@@ -26,6 +28,10 @@ pub trait Counter {
     /// # Returns
     /// The counter's updated value.
     fn add_and_get(&self, delta: i64) -> i64;
+
+    fn add_and_get_mut(&mut self, _delta: i64) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
     /// Returns the counter's current value.
     ///
     /// # Returns
@@ -57,6 +63,35 @@ impl Counter for AtomicCounter {
     }
     fn get(&self) -> i64 {
         self.count.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+pub struct SerialCounter {
+    count: i64,
+}
+impl Default for SerialCounter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SerialCounter {
+    pub fn new() -> SerialCounter {
+        SerialCounter { count: 0 }
+    }
+}
+impl Counter for SerialCounter {
+    fn add_and_get(&self, _delta: i64) -> i64 {
+        unreachable!("")
+    }
+
+    fn add_and_get_mut(&mut self, delta: i64) -> Result<i64> {
+        self.count += delta;
+        Ok(self.count)
+    }
+
+    fn get(&self) -> i64 {
+        self.count
     }
 }
 

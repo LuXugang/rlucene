@@ -31,6 +31,7 @@ use crate::core::index::index_writer_config::{
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
@@ -56,6 +57,9 @@ pub trait LiveIndexWriterConfig: Display {
 
     type Similarity: Similarity;
     fn get_similarity(&self) -> &Self::Similarity;
+
+    type MergeScheduler: MergeScheduler;
+    fn get_merge_scheduler(&self) -> &Self::MergeScheduler;
 
     type Codec: Codec;
     fn get_codec(&self) -> &Self::Codec;
@@ -168,6 +172,7 @@ pub struct LiveIndexWriterConfigBase {
     pub parent_field: Option<String>,
     pub index_sort: Option<Arc<Sort>>,
     pub index_sort_fields: HashSet<String>,
+    pub merge_scheduler: MergeSchedulerEnum,
 }
 impl Default for LiveIndexWriterConfigBase {
     fn default() -> Self {
@@ -199,6 +204,8 @@ impl LiveIndexWriterConfigBase {
             parent_field: None,
             index_sort: None,
             index_sort_fields: HashSet::new(),
+            // TODO IMPORTANT 这里的默认不对
+            merge_scheduler: MergeSchedulerEnum::default(),
         }
     }
 }

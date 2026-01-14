@@ -22,9 +22,9 @@ use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-    MergeContext, MergeSpecificationNoReader, OneMergeBase, OneMergeSR,
+    MergeContext, MergeReaderSR, MergeSpecificationNoReader, OneMergeBase, OneMergeSR,
 };
-use crate::core::index::merge_scheduler::MergeSource;
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
@@ -1179,6 +1179,105 @@ where
     #[cfg(test)]
     pub fn flush_deletes_count(&self) -> i32 {
         self.flush_deletes_count.load(Ordering::Acquire)
+    }
+
+    /// Does the actual (time-consuming) work of the merge, but without holding synchronized lock on IndexWriter instance
+    fn merge_middle(
+        &self,
+        merge: &mut OneMergeSR<D>,
+        _merge_policy: &L::MergePolicy,
+    ) -> Result<i32> {
+        self.test_point("mergeMiddleStart");
+        {
+            let inner = self.inner.lock();
+            merge.check_aborted(&inner.segment_infos)?;
+        }
+
+        let merge_directory = self
+            .config
+            .get_merge_scheduler()
+            .wrap_for_merge(self.directory.as_ref())?;
+
+        let context = IOContext::with_merge(merge.get_store_merge_info())?;
+
+        let _dir_wrapper = TrackingDirectoryWrapper::new(&merge_directory);
+        let _success = false;
+        merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
+            let rld = {
+                let inner = self.inner.lock();
+                let sci = inner.segment_infos.info(sci_id).ok_or_else(|| {
+                    LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
+                })?;
+                let rld_opt = self.get_pooled_instance(sci, true, None)?;
+                match rld_opt {
+                    Some(v) => v,
+                    None => {
+                        return Err(LuceneError::illegal_state(
+                            "failed to get pooled instance for merge",
+                        ));
+                    },
+                }
+            };
+            rld.set_is_merging();
+            let reader = {
+                let mut inner = self.inner.lock();
+                let sci = inner.segment_infos.info(sci_id).ok_or_else(|| {
+                    LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
+                })?;
+                let reader = rld.get_reader_for_merge(&context, sci)?;
+                inner
+                    .deleter
+                    .inc_ref_files(reader.reader.get_segment_info().files()?);
+                reader
+            };
+
+            Ok(reader)
+        })?;
+        // Let the merge wrap readers
+        let mut merge_readers = Vec::new();
+        let _soft_delete_count = SerialCounter::new();
+        for merge_reader in merge.get_merge_reader().iter() {
+            let reader = &merge_reader.reader;
+            let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
+            self.validate_merge_reader(&wrapped_reader)?;
+            if self.soft_deletes_enabled {
+                // TODO IMPORTANT softDeletesEnabled不支持
+                return Err(LuceneError::unsupported_operation(
+                    "softDeletesEnabled is not supported yet",
+                ));
+            }
+            merge_readers.push(wrapped_reader);
+        }
+
+        // let mut reorder_doc_maps = None;
+        // Don't reorder if an explicit sort is configured.
+        let has_index_sort = self.config.get_index_sort().is_some();
+        // Don't reorder if blocks can't be identified using the parent field.
+        let has_blocks_but_no_parent_field = {
+            let mut any_block = false;
+            let mut any_parent_missing = false;
+
+            for r in &merge_readers {
+                if r.get_metadata()?.get_has_blocks() {
+                    any_block = true;
+                }
+
+                if r.get_field_infos()?.get_parent_field().is_none() {
+                    any_parent_missing = true;
+                }
+
+                if any_block && any_parent_missing {
+                    break;
+                }
+            }
+            any_block && any_parent_missing
+        };
+
+        if !has_index_sort {
+            let _ = !has_blocks_but_no_parent_field;
+        }
+
+        todo!()
     }
 
     pub(crate) fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
@@ -4378,6 +4477,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::reader_pool::ReaderPool;
@@ -4403,7 +4503,7 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
-use crate::core::util::{BYTE_BLOCK_SIZE, LATEST, StringHelper};
+use crate::core::util::{BYTE_BLOCK_SIZE, LATEST, SerialCounter, StringHelper};
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};

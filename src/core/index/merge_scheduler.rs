@@ -14,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 pub trait MergeScheduler: Closeable {
     fn merge<MS, D, L, B>(
         &self,
@@ -37,18 +34,12 @@ pub trait MergeScheduler: Closeable {
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase;
-    type Directory: Directory;
-    fn wrap_for_merge<D, CR>(
-        &self,
-        _merge: OneMerge<D, CR>,
-        _in_: Arc<D>,
-    ) -> Result<Option<Self::Directory>>
+    type Directory<D>: Directory
     where
-        D: Directory,
-        CR: CodecReader,
-    {
-        Ok(None)
-    }
+        D: Directory;
+    fn wrap_for_merge<D>(&self, _in_: D) -> Result<Self::Directory<D>>
+    where
+        D: Directory;
 }
 
 /// Provides access to new merges and executes the actual merge
@@ -98,6 +89,11 @@ pub enum MergeSchedulerEnum {
     Serial(SerialMergeScheduler),
     No(NoMergeScheduler),
 }
+impl Default for MergeSchedulerEnum {
+    fn default() -> Self {
+        Self::No(NoMergeScheduler)
+    }
+}
 
 impl Closeable for MergeSchedulerEnum {
     fn close(&mut self) -> Result<()> {
@@ -127,35 +123,21 @@ impl MergeScheduler for MergeSchedulerEnum {
         }
     }
 
-    type Directory = DirectoryEnum2<
-        <SerialMergeScheduler as MergeScheduler>::Directory,
-        <NoMergeScheduler as MergeScheduler>::Directory,
-    >;
+    type Directory<D>
+        = DirectoryEnum2<
+        <SerialMergeScheduler as MergeScheduler>::Directory<D>,
+        <NoMergeScheduler as MergeScheduler>::Directory<D>,
+    >
+    where
+        D: Directory;
 
-    fn wrap_for_merge<D, CR>(
-        &self,
-        merge: OneMerge<D, CR>,
-        in_: Arc<D>,
-    ) -> Result<Option<Self::Directory>>
+    fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
     where
         D: Directory,
-        CR: CodecReader,
     {
         match self {
-            MergeSchedulerEnum::Serial(s) => {
-                let v = s.wrap_for_merge(merge, in_)?;
-                match v {
-                    Some(e) => Ok(Some(DirectoryEnum2::A(e))),
-                    None => Ok(None),
-                }
-            },
-            MergeSchedulerEnum::No(n) => {
-                let v = n.wrap_for_merge(merge, in_)?;
-                match v {
-                    Some(e) => Ok(Some(DirectoryEnum2::B(e))),
-                    None => Ok(None),
-                }
-            },
+            MergeSchedulerEnum::Serial(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
+            MergeSchedulerEnum::No(n) => Ok(DirectoryEnum2::B(n.wrap_for_merge(in_)?)),
         }
     }
 }

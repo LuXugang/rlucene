@@ -19,6 +19,7 @@ use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_flush_policy::DummyFlushPolicy;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
+use crate::core::index::dummy::dummy_merge_scheduler::DummyMergeScheduler;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::live_index_writer_config::{
@@ -79,6 +80,12 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     type Similarity = DummySimilarity;
 
     fn get_similarity(&self) -> &Self::Similarity {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type MergeScheduler = DummyMergeScheduler;
+
+    fn get_merge_scheduler(&self) -> &Self::MergeScheduler {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

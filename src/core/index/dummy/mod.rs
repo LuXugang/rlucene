@@ -35,6 +35,7 @@ pub mod dummy_indexable_field_type;
 pub mod dummy_leaf_reader;
 pub mod dummy_live_index_writer_config;
 pub mod dummy_merge_policy;
+pub mod dummy_merge_scheduler;
 pub mod dummy_point_tree;
 pub mod dummy_point_value_base;
 pub mod dummy_postings_enum;

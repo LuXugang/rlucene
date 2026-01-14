@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::leaf_reader::LeafReader;
@@ -26,6 +25,7 @@ use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::tiered_merge_policy::SegmentCommitInfoMeta;
 use crate::core::store::directory::Directory;
+use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -35,6 +35,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -694,6 +695,14 @@ where
 
         Ok(s)
     }
+    pub fn get_store_merge_info(&self) -> MergeInfo {
+        MergeInfo::new(
+            self.total_max_doc,
+            self.estimated_merge_bytes.load(Relaxed),
+            self.is_external,
+            self.stat.max_num_segments,
+        )
+    }
     pub fn is_aborted(&self) -> bool {
         // TODO
         todo!()
@@ -715,7 +724,12 @@ impl<D> OneMergeBase<D, Arc<SegmentReader<D>>> for OneMerge<D, Arc<SegmentReader
 where
     D: Directory,
 {
-    type CodecReader = DummyCodecReader;
+    type CodecReader = Arc<SegmentReader<D>>;
+
+    fn wrap_for_merge(&self, reader: Arc<SegmentReader<D>>) -> Result<Self::CodecReader> {
+        Ok(reader.clone())
+    }
+
     type DocMap = DummyDocMap;
 
     fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
@@ -752,9 +766,7 @@ where
         Ok(())
     }
     type CodecReader: CodecReader;
-    fn wrap_for_merge(&self, _reader: CR) -> Result<Option<Self::CodecReader>> {
-        Ok(None)
-    }
+    fn wrap_for_merge(&self, _reader: CR) -> Result<Self::CodecReader>;
     // TODO IMPORTANT 多线程参数未定义
     type DocMap: DocMap;
     fn reorder(&self, _dir: D) -> Result<Option<Self::DocMap>> {
@@ -988,8 +1000,8 @@ where
     CR: CodecReader,
     B: Bits,
 {
-    codec_reader: CR,
-    hard_live_docs: Option<B>,
+    pub(crate) reader: CR,
+    pub(crate) hard_live_docs: Option<B>,
 }
 impl<CR, B> MergeReader<CR, B>
 where
@@ -998,7 +1010,7 @@ where
 {
     pub(crate) fn new(codec_reader: CR, hard_live_docs: Option<B>) -> Self {
         Self {
-            codec_reader,
+            reader: codec_reader,
             hard_live_docs,
         }
     }

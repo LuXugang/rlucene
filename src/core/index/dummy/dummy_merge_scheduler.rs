@@ -19,59 +19,45 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
 
-/// A [`MergeScheduler`] that simply does each merge sequentially, using the current thread.
-pub struct SerialMergeScheduler;
-impl Default for SerialMergeScheduler {
-    fn default() -> Self {
-        Self::new()
+pub struct DummyMergeScheduler;
+
+impl Closeable for DummyMergeScheduler {
+    fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
-impl SerialMergeScheduler {
-    pub fn new() -> Self {
-        SerialMergeScheduler
-    }
-}
-
-impl Closeable for SerialMergeScheduler {
-    fn close(&mut self) -> Result<()> {
-        todo!()
-    }
-}
-/// Just do the merges in sequence.
-/// We do this "synchronized" so that even if the application is using multiple threads,
-/// only one merge may run at a time.
-impl MergeScheduler for SerialMergeScheduler {
+impl MergeScheduler for DummyMergeScheduler {
     fn merge<MS, D, L, B>(
         &self,
-        merge_source: &mut MS,
+        _merge_source: &mut MS,
         _trigger: MergeTrigger,
-        index_writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
+        _writer: &IndexWriter<D, L, B>,
+    ) -> crate::core::util::error::lucene_error::Result<()>
     where
         MS: MergeSource,
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        match merge_source.get_next_merge(index_writer)? {
-            Some(merge) => merge_source.merge(merge, index_writer),
-            None => Ok(()),
-        }
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Directory<D>
-        = D
+        = DummyDirectory
     where
         D: Directory;
 
-    fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
+    fn wrap_for_merge<D>(
+        &self,
+        _in_: D,
+    ) -> crate::core::util::error::lucene_error::Result<Self::Directory<D>>
     where
         D: Directory,
     {
-        Ok(in_)
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -23,6 +23,7 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::live_index_writer_config::{
     LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::sort::Sort;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
@@ -65,6 +66,12 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
 
     fn get_similarity(&self) -> &Self::Similarity {
         self.base.similarity.as_ref()
+    }
+
+    type MergeScheduler = MergeSchedulerEnum;
+
+    fn get_merge_scheduler(&self) -> &Self::MergeScheduler {
+        &self.base.merge_scheduler
     }
 
     type Codec = Lucene101Codec;
