@@ -155,7 +155,7 @@ where
     }
 }
 
-impl<T: Bits + ?Sized> Bits for &T {
+impl<T: Bits> Bits for &T {
     fn get(&self, index: usize) -> bool {
         <T as Bits>::get(*self, index)
     }
