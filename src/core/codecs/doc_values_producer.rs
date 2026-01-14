@@ -34,7 +34,7 @@ use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
-pub trait DocValuesProducer: Clone {
+pub trait DocValuesProducer {
     type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`] for this field. The returned instance need
     /// not be thread-safe: it will only be used by a single thread. The
@@ -175,7 +175,6 @@ where
 }
 macro_rules! either_docvaluesproducer {
     ($vis:vis $name:ident { A: $A:ident, B: $B:ident }) => {
-        #[derive(Clone)]
         $vis enum $name<$A, $B> {
             A($A),
             B($B),

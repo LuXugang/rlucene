@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A trait that produces field normalization values.
-pub trait NormsProducer: Clone {
+pub trait NormsProducer {
     type NumericDocValues: NumericDocValues;
     /// Returns `NumericDocValues` for the given field.
     ///

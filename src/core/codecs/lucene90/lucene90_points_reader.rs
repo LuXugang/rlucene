@@ -23,7 +23,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
-use crate::core::util::CoreHelper;
 use crate::core::util::bkd::bkd_reader::BKDReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
@@ -163,19 +162,6 @@ where
             readers,
             field_infos: read_state.field_infos.clone(),
         })
-    }
-}
-
-impl<I> Clone for Lucene90PointsReader<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

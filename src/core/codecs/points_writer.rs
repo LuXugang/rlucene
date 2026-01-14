@@ -151,16 +151,6 @@ where
     }
 }
 
-impl<P, CR> Clone for PointsReaderImpl<P, CR>
-where
-    P: PointValues + Clone,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
-
 impl<P, CR> PointsReader for PointsReaderImpl<P, CR>
 where
     P: PointValues + Clone,

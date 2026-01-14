@@ -17,20 +17,9 @@
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::util::CoreHelper;
 use std::sync::Arc;
 
 pub struct DummyNormsProducer;
-
-impl Clone for DummyNormsProducer {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
 
 impl NormsProducer for DummyNormsProducer {
     type NumericDocValues = DummyNumericDocValues;

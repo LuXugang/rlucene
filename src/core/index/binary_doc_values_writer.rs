@@ -45,8 +45,8 @@ use crate::core::util::paged_bytes::{
     PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, get_data_input, get_data_output,
 };
 use crate::core::util::{
-    AtomicCounter, ByteBlockPool, BytesRefArray, CoreHelper, Counter, SharedCounter,
-    SortableBytesRefArray, TryIntoInt,
+    AtomicCounter, ByteBlockPool, BytesRefArray, Counter, SharedCounter, SortableBytesRefArray,
+    TryIntoInt,
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -229,16 +229,6 @@ impl DocValuesProducerImpl {
             docs_with_field,
             sorted,
         })
-    }
-}
-
-impl Clone for DocValuesProducerImpl {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

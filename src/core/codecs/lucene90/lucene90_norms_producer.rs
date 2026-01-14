@@ -37,9 +37,9 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, TryIntoInt};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -458,20 +458,6 @@ where
         Ok(())
     }
 }
-
-impl<I> Clone for Lucene90NormsProducer<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<I> NormsProducer for Lucene90NormsProducer<I>
 where
     I: IndexInput,

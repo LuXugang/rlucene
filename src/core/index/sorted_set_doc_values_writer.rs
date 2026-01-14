@@ -53,9 +53,7 @@ use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
-use crate::core::util::{
-    BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter, TryIntoInt,
-};
+use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -410,17 +408,6 @@ impl DocValuesProducerImpl1 {
         }
     }
 }
-
-impl Clone for DocValuesProducerImpl1 {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl DocValuesProducer for DocValuesProducerImpl1 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
@@ -474,16 +461,6 @@ impl DocValuesProducerImpl2 {
         Self {
             single_value_producer,
         }
-    }
-}
-
-impl Clone for DocValuesProducerImpl2 {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

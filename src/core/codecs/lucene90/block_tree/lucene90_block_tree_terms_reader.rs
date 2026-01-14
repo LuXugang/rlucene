@@ -27,7 +27,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
-use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::fmt;
@@ -328,20 +327,6 @@ where
             "Lucene90BlockTreeTermsReader(fields={}, delegate={})",
             self.field_map.len(),
             self.terms_reader.postings_reader
-        )
-    }
-}
-
-impl<I, PR> Clone for Lucene90BlockTreeTermsReader<I, PR>
-where
-    I: IndexInput,
-    PR: PostingsReaderBase,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
         )
     }
 }

@@ -24,8 +24,8 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
+use crate::core::util::IdentityArc;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, IdentityArc};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -115,19 +115,6 @@ where
             dv_producers,
             dv_gens,
         })
-    }
-}
-
-impl<D> Clone for SegmentDocValuesProducer<D>
-where
-    D: Directory,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

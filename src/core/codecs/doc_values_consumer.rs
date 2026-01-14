@@ -48,7 +48,6 @@ use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, o
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -465,20 +464,6 @@ where
     merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Clone for EmptyDocValuesProducerMerge1<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D, CR>
 where
     D: Directory,
@@ -638,20 +623,6 @@ where
 {
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a MergeState<'a, D, CR>,
-}
-
-impl<D, CR> Clone for EmptyDocValuesProducerMerge2<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
 }
 
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D, CR>
@@ -838,19 +809,6 @@ where
     merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Clone for EmptyDocValuesProducerMerge3<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
 pub type MergeSortedNumeric<CR> =
     <CRDocValuesProducer<CR> as DocValuesProducer>::SortedNumericDocValues;
 pub type MergeNumeric<CR> = <MergeSortedNumeric<CR> as SortedNumericDocValues>::NumericDocValues;
@@ -1021,20 +979,6 @@ where
     field_info: Arc<FieldInfo>,
     merge_state: &'a MergeState<'a, D, CR>,
     map: Rc<OrdinalMap>,
-}
-
-impl<D, CR> Clone for EmptyDocValuesProducerMerge4<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
 }
 
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D, CR>
@@ -1474,19 +1418,6 @@ where
     map: Rc<OrdinalMap>,
 }
 
-impl<D, CR> Clone for EmptyDocValuesProducerMerge5<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
 pub type CRSortedSetDocValues<CR> =
     <CRDocValuesProducer<CR> as DocValuesProducer>::SortedSetDocValues;
 pub type CRSSDVSortedDocValues<CR> =

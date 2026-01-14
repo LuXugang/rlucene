@@ -24,7 +24,6 @@ use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -114,20 +113,6 @@ where
 {
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a MergeState<'a, D, CR>,
-}
-
-impl<D, CR> Clone for NormsProducerMerge<'_, D, CR>
-where
-    D: Directory,
-    CR: CodecReader,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
 }
 
 impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>

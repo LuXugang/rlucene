@@ -791,18 +791,6 @@ where
     }
 }
 
-impl<I> Clone for Lucene90DocValuesProducer<I>
-where
-    I: IndexInput,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "Lucene90DocValuesProducer does not implement the Clone logic.
-The purpose of implementing the Clone trait is to make it could be used with Cow"
-        )
-    }
-}
-
 impl<I> DocValuesProducer for Lucene90DocValuesProducer<I>
 where
     I: IndexInput,

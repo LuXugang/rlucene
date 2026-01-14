@@ -52,11 +52,11 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::function::Function;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
-use crate::core::util::{CoreHelper, IOUtils};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -1149,19 +1149,6 @@ where
     }
 }
 
-impl<D> Clone for DocValuesProducerBinary<'_, D>
-where
-    D: Directory,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<'a, D> DocValuesProducer for DocValuesProducerBinary<'a, D>
 where
     D: Directory,
@@ -1218,20 +1205,6 @@ where
         }
     }
 }
-
-impl<D> Clone for DocValuesProducerNumeric<'_, D>
-where
-    D: Directory,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<'a, D> DocValuesProducer for DocValuesProducerNumeric<'a, D>
 where
     D: Directory,

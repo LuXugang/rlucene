@@ -58,7 +58,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::core::util::packed::direct_writer::{DirectWriter, unsigned_bits_required};
-use crate::core::util::{CoreHelper, StringHelper, TryIntoInt};
+use crate::core::util::{StringHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -1215,19 +1215,6 @@ where
     values_producer: &'a D,
 }
 
-impl<D> Clone for EmptyDocValuesProducerSub1<'_, D>
-where
-    D: DocValuesProducer,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
     D: DocValuesProducer,
@@ -1249,19 +1236,6 @@ where
     D: DocValuesProducer,
 {
     values_producer: &'a D,
-}
-
-impl<D> Clone for EmptyDocValuesProducerSub2<'_, D>
-where
-    D: DocValuesProducer,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
 }
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
@@ -1291,19 +1265,6 @@ where
     values_producer: &'a D,
 }
 
-impl<D> Clone for EmptyDocValuesProducerSub3<'_, D>
-where
-    D: DocValuesProducer,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
-}
-
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
     D: DocValuesProducer,
@@ -1327,19 +1288,6 @@ where
     D: DocValuesProducer,
 {
     values_producer: &'a D,
-}
-
-impl<D> Clone for EmptyDocValuesProducerSub4<'_, D>
-where
-    D: DocValuesProducer,
-{
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
-    }
 }
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>

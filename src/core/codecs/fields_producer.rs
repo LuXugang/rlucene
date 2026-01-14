@@ -19,7 +19,7 @@ use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::fields::Fields;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
-pub trait FieldsProducer: Fields + Clone {
+pub trait FieldsProducer: Fields {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing

@@ -37,7 +37,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{CoreHelper, Counter, SharedCounter};
+use crate::core::util::{Counter, SharedCounter};
 use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
@@ -145,16 +145,6 @@ impl NormsProducerImpl {
             docs_with_field,
             values,
         })
-    }
-}
-
-impl Clone for NormsProducerImpl {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

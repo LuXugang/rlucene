@@ -46,9 +46,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::core::util::{
-    BYTE_BLOCK_SIZE, ByteBlockPool, CoreHelper, Counter, SharedCounter, TryIntoInt,
-};
+use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -287,16 +285,6 @@ impl DocValuesProducerImpl {
             writer_field_info,
             sorted,
         })
-    }
-}
-
-impl Clone for DocValuesProducerImpl {
-    fn clone(&self) -> Self {
-        unreachable!(
-            "{} {}",
-            std::any::type_name::<Self>(),
-            CoreHelper::CLONE_WARRING
-        )
     }
 }
 

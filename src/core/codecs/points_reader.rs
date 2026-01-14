@@ -20,7 +20,7 @@ use crate::core::index::point_values::PointValues;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 /// Abstract API to visit point values.
-pub trait PointsReader: Clone {
+pub trait PointsReader {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
