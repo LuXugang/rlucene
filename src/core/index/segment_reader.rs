@@ -70,7 +70,7 @@ where
     /// True if we are holding RAM only liveDocs or DV updates,
     /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
     is_nrt: bool,
-    doc_values_producer: Option<DocValuesProducers<D>>,
+    doc_values_producer: Option<Arc<DocValuesProducers<D>>>,
     field_infos: Arc<FieldInfos>,
     base: IndexReaderBase,
     reader_cache_helper: CacheHelperImpl,
@@ -263,7 +263,7 @@ where
         field_infos: Arc<FieldInfos>,
         seg_doc_values: &SegmentDocValues<D>,
         core: &SegmentCoreReaders<D>,
-    ) -> Result<Option<DocValuesProducers<D>>> {
+    ) -> Result<Option<Arc<DocValuesProducers<D>>>> {
         if !field_infos.has_doc_values() {
             return Ok(None);
         }
@@ -286,7 +286,7 @@ where
             )?),
         };
 
-        Ok(Some(producer))
+        Ok(Some(Arc::new(producer)))
     }
     /// init most recent FieldInfos for the current commit
     fn init_field_infos(
@@ -377,7 +377,7 @@ where
         if self.core.dec_ref().is_err()
             && let Some(dv) = &self.doc_values_producer
         {
-            match dv {
+            match dv.as_ref() {
                 DocValuesProducerEnum2::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens)?,
                 DocValuesProducerEnum2::B(_) => {
                     let gens = vec![-1_i64, 1];
@@ -554,22 +554,26 @@ where
 
     fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
         self.ensure_open()?;
-        Ok(self.core.norms_producer.as_ref().map(Cow::Borrowed))
+        todo!()
+        // Ok(self.core.norms_producer.as_ref().map(Cow::Borrowed))
     }
 
     fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
         self.ensure_open()?;
-        Ok(self.doc_values_producer.as_ref().map(Cow::Borrowed))
+        todo!()
+        // Ok(self.doc_values_producer.as_ref().map(Cow::Borrowed))
     }
 
     fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
         self.ensure_open()?;
-        Ok(self.core.fields.as_ref().map(Cow::Borrowed))
+        todo!()
+        // Ok(self.core.fields.as_ref().map(Cow::Borrowed))
     }
 
     fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
         self.ensure_open()?;
-        Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
+        todo!()
+        // Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
     }
 }
 #[derive(Clone)]

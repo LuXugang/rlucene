@@ -46,11 +46,11 @@ where
     D: Directory,
 {
     pub(crate) r#ref: AtomicI32,
-    pub(crate) fields: Option<DefaultFieldsProducer<D::IndexInput>>,
-    pub(crate) norms_producer: Option<DefaultNormProducer<D::IndexInput>>,
+    pub(crate) fields: Option<Arc<DefaultFieldsProducer<D::IndexInput>>>,
+    pub(crate) norms_producer: Option<Arc<DefaultNormProducer<D::IndexInput>>>,
     pub(crate) fields_reader_orig: DefaultStoredFieldsReader<D::IndexInput>,
     pub(crate) term_vectors_reader_orig: Option<DefaultTermVectorsReader<D::IndexInput>>,
-    pub(crate) points_reader: Option<DefaultPointsReader<D::IndexInput>>,
+    pub(crate) points_reader: Option<Arc<DefaultPointsReader<D::IndexInput>>>,
     pub(crate) cfs_reader: Option<DefaultCompoundReader<D>>,
     pub(crate) segment: String,
     /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
@@ -108,22 +108,26 @@ where
             let read_state = SegmentReadState::new(&cfs_dir, core_field_infos.clone(), context);
 
             let fields = if core_field_infos.has_postings() {
-                Some(
+                Some(Arc::new(
                     codec
                         .postings_format()
                         .fields_producer(&read_state, &si.info)?,
-                )
+                ))
             } else {
                 None
             };
 
             let norms_producer = if core_field_infos.has_norms() {
-                Some(codec.norms_format().norms_producer(&read_state, &si.info)?)
+                Some(Arc::new(
+                    codec.norms_format().norms_producer(&read_state, &si.info)?,
+                ))
             } else {
                 None
             };
             let points_reader = if core_field_infos.has_point_values() {
-                Some(codec.points_format().fields_reader(&read_state, &si.info)?)
+                Some(Arc::new(
+                    codec.points_format().fields_reader(&read_state, &si.info)?,
+                ))
             } else {
                 None
             };
