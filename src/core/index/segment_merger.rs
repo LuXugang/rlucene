@@ -59,8 +59,8 @@ where
             TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
         >,
 {
-    directory: Arc<D>,
-    context: IOContext,
+    directory: &'a D,
+    context: &'a IOContext,
     merge_state: MergeState<'a, D, CR>,
     field_infos_builder: Builder,
 }
@@ -75,11 +75,11 @@ where
 {
     pub(crate) fn new(
         readers: &'a [CR],
-        segment_info: SegmentInfo<D>,
+        segment_info: &'a mut SegmentInfo<D>,
         info_stream: InfoStreamMT,
-        directory: Arc<D>,
+        directory: &'a D,
         field_numbers: FieldNumbersLock,
-        context: IOContext,
+        context: &'a IOContext,
     ) -> Result<Self> {
         if *context.get_context() != Merge {
             return Err(LuceneError::illegal_argument(format!(
@@ -88,7 +88,7 @@ where
             )));
         }
 
-        let mut merge_state = MergeState::new(readers, segment_info, info_stream)?;
+        let merge_state = MergeState::new(readers, segment_info, info_stream)?;
 
         let field_infos_builder = Builder::new(field_numbers);
 
@@ -133,40 +133,40 @@ where
     }
     fn merge_field_infos_with_state(
         &self,
-        _segment_write_state: &SegmentWriteState<D>,
-        _segment_read_state: &SegmentReadState<D>,
+        _segment_write_state: &SegmentWriteState<&D>,
+        _segment_read_state: &SegmentReadState<&D>,
     ) -> Result<()> {
         LATEST_CODEC.field_infos_format().write(
-            self.directory.as_ref(),
-            &self.merge_state.segment_info,
+            &self.directory,
+            self.merge_state.segment_info,
             "",
             &self.merge_state.merge_field_infos,
-            &self.context,
+            self.context,
         )
     }
 
-    fn merge_doc_values(&self, segment_write_state: &SegmentWriteState<D>) -> Result<()> {
+    fn merge_doc_values(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
         let mut consumer = LATEST_CODEC
             .doc_values_format()
-            .fields_consumer(segment_write_state, &self.merge_state.segment_info)?;
+            .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
         consumer.merge(&self.merge_state)?;
 
         Ok(())
     }
-    fn merge_points(&self, segment_write_state: &SegmentWriteState<D>) -> Result<()> {
+    fn merge_points(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
         let mut writer = LATEST_CODEC
             .points_format()
-            .fields_writer(segment_write_state, &self.merge_state.segment_info)?;
+            .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 
         writer.merge(&self.merge_state, &self.directory)?;
 
         Ok(())
     }
-    fn merge_norms(&self, segment_write_state: &SegmentWriteState<D>) -> Result<()> {
+    fn merge_norms(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
         let mut consumer = LATEST_CODEC
             .norms_format()
-            .norms_consumer(segment_write_state, &self.merge_state.segment_info)?;
+            .norms_consumer(segment_write_state, self.merge_state.segment_info)?;
 
         consumer.merge(&self.merge_state)?;
 
@@ -174,14 +174,14 @@ where
     }
     fn merge_terms(
         &self,
-        segment_write_state: &SegmentWriteState<D>,
-        segment_read_state: &SegmentReadState<D>,
+        segment_write_state: &SegmentWriteState<&D>,
+        segment_read_state: &SegmentReadState<&D>,
     ) -> Result<()> {
         let mut norms = if self.merge_state.merge_field_infos.has_norms() {
             Some(
                 LATEST_CODEC
                     .norms_format()
-                    .norms_producer(segment_read_state, &self.merge_state.segment_info)?,
+                    .norms_producer(segment_read_state, self.merge_state.segment_info)?,
             )
         } else {
             None
@@ -196,7 +196,7 @@ where
         if self.merge_state.merge_field_infos.has_postings() {
             let mut consumer = LATEST_CODEC
                 .postings_format()
-                .fields_consumer(segment_write_state, &self.merge_state.segment_info)?;
+                .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
             consumer.merge(&self.merge_state, &norms_merge_instance)?;
         }
@@ -224,12 +224,12 @@ where
     /// Returns an error if the index is corrupt or if there is a low-level I/O error.
     fn merge_fields(&mut self) -> Result<i32> {
         let mut fields_writer = LATEST_CODEC.stored_fields_format().fields_writer(
-            self.directory.as_ref(),
-            &mut self.merge_state.segment_info,
-            &self.context,
+            &self.directory,
+            self.merge_state.segment_info,
+            self.context,
         )?;
 
-        fields_writer.merge(&mut self.merge_state, self.directory.as_ref())
+        fields_writer.merge(&mut self.merge_state, &self.directory)
     }
     /// Merge the term vectors from each of the segments into the new one.
     /// # Errors
@@ -237,19 +237,18 @@ where
     /// Returns an error if there is a low-level I/O error.
     fn merge_term_vectors(&mut self) -> Result<i32> {
         let mut term_vectors_writer = LATEST_CODEC.term_vectors_format().vectors_writer(
-            self.directory.as_ref(),
-            &self.merge_state.segment_info,
-            &self.context,
+            &self.directory,
+            self.merge_state.segment_info,
+            self.context,
         )?;
 
-        let num_merged =
-            term_vectors_writer.merge(&mut self.merge_state, self.directory.as_ref())?;
+        let num_merged = term_vectors_writer.merge(&mut self.merge_state, &self.directory)?;
 
         debug_assert_eq!(num_merged, self.merge_state.segment_info.max_doc()?);
 
         Ok(num_merged)
     }
-    fn merge_vector_values(&self, _segment_write_state: &SegmentWriteState<D>) -> Result<()> {
+    fn merge_vector_values(&self, _segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
         // let mut writer =
         //     LATEST_CODEC
         //         .knn_vectors_format()
@@ -287,14 +286,14 @@ where
     }
     fn merge_with_logging_with_name<F, I>(
         merger: F,
-        segment_write_state: &SegmentWriteState<D>,
-        segment_read_state: &SegmentReadState<D>,
+        segment_write_state: &SegmentWriteState<&D>,
+        segment_read_state: &SegmentReadState<&D>,
         format_name: &str,
         num_merged: i32,
         info_stream: &I,
     ) -> Result<()>
     where
-        F: FnOnce(&SegmentWriteState<D>, &SegmentReadState<D>) -> Result<()>,
+        F: FnOnce(&SegmentWriteState<&D>, &SegmentReadState<&D>) -> Result<()>,
         I: InfoStream,
     {
         let mut t0 = None;
@@ -357,15 +356,15 @@ where
 
         let segment_write_state = SegmentWriteState::new(
             self.merge_state.info_stream.clone(),
-            self.directory.as_ref(),
+            &self.directory,
             self.merge_state.merge_field_infos.clone(),
-            &self.context,
+            self.context,
         );
 
         let segment_read_state = SegmentReadState::new(
-            self.directory.as_ref(),
+            &self.directory,
             self.merge_state.merge_field_infos.clone(),
-            &self.context,
+            self.context,
         );
         {
             if self.merge_state.merge_field_infos.has_norms() {
@@ -505,7 +504,7 @@ mod tests {
 
         let merged_dir = new_directory_shared(&mut random)?;
         #[allow(clippy::vec_init_then_push)]
-        let si = SegmentInfo::new(
+        let mut si = SegmentInfo::new(
             merged_dir.clone(),
             Some((*LATEST).clone()),
             None,
@@ -520,16 +519,17 @@ mod tests {
         )?;
         let info_stream = Arc::new(InfoStreamEnum::default());
         let readers = vec![reader1, reader2];
+        let context = new_io_context_with_default(
+            &mut random,
+            &IOContext::with_merge(MergeInfo::new(-1, -1, false, -1))?,
+        )?;
         let mut merger = SegmentMerger::new(
             readers.as_ref(),
-            si,
+            &mut si,
             info_stream,
-            merged_dir.clone(),
+            merged_dir.as_ref(),
             Arc::new(Mutex::new(FieldNumbers::new::<String, String>(None, None)?)),
-            new_io_context_with_default(
-                &mut random,
-                &IOContext::with_merge(MergeInfo::new(-1, -1, false, -1))?,
-            )?,
+            &context,
         )?;
 
         merger.merge()?;
@@ -537,15 +537,7 @@ mod tests {
         assert_eq!(2, docs_merged);
         // Should be able to open a new SegmentReader against the new directory
         let merged_reader = Arc::new(SegmentReader::new(
-            &SegmentCommitInfo::new(
-                merger.merge_state.segment_info,
-                0,
-                0,
-                -1,
-                -1,
-                -1,
-                Some(StringHelper::random_id()),
-            )?,
+            &SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?,
             LATEST.major,
             &new_io_context(&mut random)?,
         )?);

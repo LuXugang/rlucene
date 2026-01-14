@@ -47,7 +47,7 @@ where
     D: Directory,
     CR: CodecReader,
 {
-    pub(crate) segment_info: SegmentInfo<D>,
+    pub(crate) segment_info: &'a mut SegmentInfo<D>,
     pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
     pub(crate) merge_field_infos: Arc<FieldInfos>,
     pub(crate) stored_fields_readers: Vec<Option<DefaultStoredFieldsReader<D::IndexInput>>>,
@@ -69,7 +69,7 @@ where
 {
     pub(crate) fn new(
         readers: &'a [CR],
-        mut segment_info: SegmentInfo<D>,
+        segment_info: &'a mut SegmentInfo<D>,
         info_stream: Arc<InfoStreamEnum>,
     ) -> Result<Self>
     where
@@ -78,7 +78,7 @@ where
                 TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
             >,
     {
-        verify_index_sort(readers, &segment_info)?;
+        verify_index_sort(readers, segment_info)?;
 
         let num_readers = readers.len();
 

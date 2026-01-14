@@ -95,7 +95,7 @@ pub trait PointsWriter {
             field_info,
             &mut points_reader,
             dir,
-            &merge_state.segment_info,
+            merge_state.segment_info,
         )?;
         Ok(())
     }
