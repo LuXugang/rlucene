@@ -137,7 +137,7 @@ where
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
-        sort_map: Option<Arc<DM>>,
+        sort_map: Option<DM>,
         norms: Option<N>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
@@ -147,7 +147,7 @@ where
     ) -> Result<()>
     where
         N: NormsProducer,
-        DM: DocMap,
+        DM: DocMap + Clone,
         D1: Directory,
     {
         self.next_terms_hash.flush(state, &sort_map, codec, info)?;
@@ -211,22 +211,18 @@ where
 pub(crate) struct FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     base: FilterFields<F>,
     field_infos: Arc<FieldInfos>,
-    doc_map: Arc<DM>,
+    doc_map: DM,
 }
 impl<F, DM> FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
-    pub(crate) fn new(
-        base: FilterFields<F>,
-        field_infos: Arc<FieldInfos>,
-        doc_map: Arc<DM>,
-    ) -> Self {
+    pub(crate) fn new(base: FilterFields<F>, field_infos: Arc<FieldInfos>, doc_map: DM) -> Self {
         Self {
             base,
             field_infos,
@@ -237,7 +233,7 @@ where
 impl<F, DM> Fields for FilterFieldsImpl<F, DM>
 where
     F: Fields,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     type FieldIter<'a>
         = F::FieldIter<'a>
@@ -280,18 +276,18 @@ where
 pub(crate) struct SortingTerms<T, DM>
 where
     T: Terms,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     base: FilterTerms<T>,
     index_options: IndexOptions,
-    doc_map: Arc<DM>,
+    doc_map: DM,
 }
 impl<T, DM> SortingTerms<T, DM>
 where
     T: Terms,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
-    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Arc<DM>) -> Self {
+    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: DM) -> Self {
         Self {
             base,
             index_options,
@@ -302,7 +298,7 @@ where
 impl<T, DM> Terms for SortingTerms<T, DM>
 where
     T: Terms,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     type TermsEnum = SortingTermsEnum<T::TermsEnum, DM>;
 
@@ -379,22 +375,18 @@ where
 pub(crate) struct SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     base: FilterTermsEnum<T>,
     index_options: IndexOptions,
-    doc_map: Arc<DM>,
+    doc_map: DM,
 }
 impl<T, DM> SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
-    pub(crate) fn new(
-        base: FilterTermsEnum<T>,
-        index_options: IndexOptions,
-        doc_map: Arc<DM>,
-    ) -> Self {
+    pub(crate) fn new(base: FilterTermsEnum<T>, index_options: IndexOptions, doc_map: DM) -> Self {
         Self {
             base,
             index_options,
@@ -405,7 +397,7 @@ where
 
 impl<T, DM> BytesRefIterator for SortingTermsEnum<T, DM>
 where
-    DM: DocMap,
+    DM: DocMap + Clone,
     T: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
@@ -416,7 +408,7 @@ where
 impl<T, DM> TermsEnum for SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
-    DM: DocMap,
+    DM: DocMap + Clone,
 {
     type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
 
@@ -498,7 +490,7 @@ where
                 >= 0;
 
             wrap_reuse.reset(
-                self.doc_map.as_ref(),
+                &self.doc_map,
                 in_docs_and_positions,
                 store_positions,
                 store_offsets,
@@ -512,7 +504,7 @@ where
         };
         let in_reuse = wrap_reuse.postings_enum.take();
         let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
-        wrap_reuse.reset(self.doc_map.as_ref(), in_docs)?;
+        wrap_reuse.reset(&self.doc_map, in_docs)?;
         Ok(PostingsEnumEnum2::B(wrap_reuse))
     }
 
@@ -763,7 +755,7 @@ where
         store_offsets: bool,
     ) -> Result<()>
     where
-        DM: DocMap,
+        DM: DocMap + Clone,
     {
         self.store_positions = store_positions;
         self.store_offsets = store_offsets;

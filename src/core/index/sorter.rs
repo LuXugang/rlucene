@@ -24,6 +24,7 @@ use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::sorter::Sorter as ASorter;
 use crate::core::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt, TryIntoInt};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
 pub struct Sorter {
@@ -158,6 +159,22 @@ pub trait DocMap {
     /// Return the number of documents in this map.
     /// This must equal the number of documents in the sorted `LeafReader`.
     fn size(&self) -> i32;
+}
+impl<T> DocMap for Arc<T>
+where
+    T: DocMap,
+{
+    fn old_to_new(&self, doc_id: i32) -> Result<i32> {
+        (**self).old_to_new(doc_id)
+    }
+
+    fn new_to_old(&self, doc_id: i32) -> Result<i32> {
+        (**self).new_to_old(doc_id)
+    }
+
+    fn size(&self) -> i32 {
+        (**self).size()
+    }
 }
 
 struct DocValueSorter<'a, DC>
