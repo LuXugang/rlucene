@@ -37,7 +37,6 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::DocMapMock;
-use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -52,10 +51,10 @@ where
     pub(crate) merge_field_infos: Arc<FieldInfos>,
     pub(crate) stored_fields_readers: Vec<Option<DefaultStoredFieldsReader<D::IndexInput>>>,
     pub(crate) term_vectors_readers: Vec<Option<DefaultTermVectorsReader<D::IndexInput>>>,
-    pub(crate) norms_producers: Vec<Option<Cow<'a, CRNormsProducer<CR>>>>,
-    pub(crate) doc_values_producers: Vec<Option<Cow<'a, CRDocValuesProducer<CR>>>>,
-    pub(crate) fields_producers: Vec<Option<Cow<'a, CRFieldsProducer<CR>>>>,
-    pub(crate) points_readers: Vec<Option<Cow<'a, CRPointsReader<CR>>>>,
+    pub(crate) norms_producers: Vec<Option<CRNormsProducer<CR>>>,
+    pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
+    pub(crate) fields_producers: Vec<Option<CRFieldsProducer<CR>>>,
+    pub(crate) points_readers: Vec<Option<CRPointsReader<CR>>>,
     pub(crate) field_infos: Vec<Arc<FieldInfos>>,
     pub(crate) live_docs: Vec<Option<CRBits<CR>>>,
     pub(crate) needs_index_sort: bool,
@@ -101,7 +100,7 @@ where
 
             let norms = if let Some(norms_reader) = reader.get_norms_reader()? {
                 if let Some(n) = norms_reader.get_merge_instance()? {
-                    Some(Cow::Owned(n))
+                    Some(n)
                 } else {
                     Some(norms_reader)
                 }
@@ -112,7 +111,7 @@ where
 
             let doc_values = if let Some(dv_reader) = reader.get_doc_values_reader()? {
                 if let Some(dv) = dv_reader.get_merge_instance()? {
-                    Some(Cow::Owned(dv))
+                    Some(dv)
                 } else {
                     Some(dv_reader)
                 }
@@ -145,7 +144,7 @@ where
 
             let postings = if let Some(postings_reader) = reader.get_postings_reader()? {
                 if let Some(p) = postings_reader.get_merge_instance()? {
-                    Some(Cow::Owned(p))
+                    Some(p)
                 } else {
                     Some(postings_reader)
                 }
@@ -156,7 +155,7 @@ where
 
             let points = if let Some(points_reader) = reader.get_points_reader()? {
                 if let Some(p) = points_reader.get_merge_instance()? {
-                    Some(Cow::Owned(p))
+                    Some(p)
                 } else {
                     Some(points_reader)
                 }

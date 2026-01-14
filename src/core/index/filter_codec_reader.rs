@@ -27,7 +27,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 /// A `FilterCodecReader` contains another `CodecReader`, which it uses as its basic
@@ -236,27 +235,27 @@ where
     type FieldsProducer = CR::FieldsProducer;
     type PointsReader = CR::PointsReader;
 
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
         self.in_.get_fields_reader()
     }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
         self.in_.get_term_vectors_reader()
     }
 
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
         self.in_.get_norms_reader()
     }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
         self.in_.get_doc_values_reader()
     }
 
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
         self.in_.get_postings_reader()
     }
 
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         self.in_.get_points_reader()
     }
 }
@@ -472,27 +471,27 @@ where
     type FieldsProducer = <FilterCodecReader<CR> as CodecReader>::FieldsProducer;
     type PointsReader = <FilterCodecReader<CR> as CodecReader>::PointsReader;
 
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
         self.base.get_fields_reader()
     }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
         self.base.get_term_vectors_reader()
     }
 
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
         self.base.get_norms_reader()
     }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
         self.base.get_doc_values_reader()
     }
 
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
         self.base.get_postings_reader()
     }
 
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         self.base.get_points_reader()
     }
 }

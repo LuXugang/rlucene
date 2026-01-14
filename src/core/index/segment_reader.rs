@@ -45,7 +45,6 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -533,47 +532,39 @@ where
 {
     type StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>;
     type TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>;
-    type NormsProducer = DefaultNormProducer<D::IndexInput>;
-    type DocValuesProducer = DocValuesProducers<D>;
-    type FieldsProducer = DefaultFieldsProducer<D::IndexInput>;
-    type PointsReader = DefaultPointsReader<D::IndexInput>;
+    type NormsProducer = Arc<DefaultNormProducer<D::IndexInput>>;
+    type DocValuesProducer = Arc<DocValuesProducers<D>>;
+    type FieldsProducer = Arc<DefaultFieldsProducer<D::IndexInput>>;
+    type PointsReader = Arc<DefaultPointsReader<D::IndexInput>>;
 
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
         self.ensure_open()?;
-        Ok(Some(Cow::Owned(self.core.fields_reader_orig.clone())))
+        Ok(Some(self.core.fields_reader_orig.clone()))
     }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
         self.ensure_open()?;
-        Ok(self
-            .core
-            .term_vectors_reader_orig
-            .as_ref()
-            .map(|tv| Cow::Owned(tv.clone())))
+        Ok(self.core.term_vectors_reader_orig.clone())
     }
 
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
         self.ensure_open()?;
-        todo!()
-        // Ok(self.core.norms_producer.as_ref().map(Cow::Borrowed))
+        Ok(self.core.norms_producer.clone())
     }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
         self.ensure_open()?;
-        todo!()
-        // Ok(self.doc_values_producer.as_ref().map(Cow::Borrowed))
+        Ok(self.doc_values_producer.clone())
     }
 
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
         self.ensure_open()?;
-        todo!()
-        // Ok(self.core.fields.as_ref().map(Cow::Borrowed))
+        Ok(self.core.fields.clone())
     }
 
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         self.ensure_open()?;
-        todo!()
-        // Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
+        Ok(self.core.points_reader.clone())
     }
 }
 #[derive(Clone)]

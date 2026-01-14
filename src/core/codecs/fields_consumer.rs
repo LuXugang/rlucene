@@ -79,7 +79,7 @@ pub trait FieldsConsumer {
                     max_doc as i32,
                     reader_index as i32,
                 )));
-                fields.push(f.as_ref());
+                fields.push(f);
             }
 
             doc_base += max_doc;

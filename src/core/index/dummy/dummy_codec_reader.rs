@@ -41,7 +41,6 @@ use crate::core::index::term::Term;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -201,27 +200,27 @@ impl CodecReader for DummyCodecReader {
         Lucene90BlockTreeTermsReader<DummyIndexInput, Lucene101PostingsReader<DummyIndexInput>>;
     type PointsReader = Lucene90PointsReader<DummyIndexInput>;
 
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -32,7 +32,6 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term_vectors::{EmptyTermVectors, TermVectorsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, TryIntoInt};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// LeafReader implemented by codec APIs.
@@ -45,22 +44,22 @@ pub trait CodecReader: LeafReader {
     type PointsReader: PointsReader;
 
     /// Expert: retrieve underlying StoredFieldsReader
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>>;
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>>;
 
     /// Expert: retrieve underlying TermVectorsReader
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>>;
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>>;
 
     /// Expert: retrieve underlying NormsProducer
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>>;
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>>;
 
     /// Expert: retrieve underlying DocValuesProducer
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>>;
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>>;
 
     /// Expert: retrieve underlying FieldsProducer (postings)
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>>;
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>>;
 
     /// Expert: retrieve underlying PointsReader
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>>;
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>>;
 
     fn stored_fields(&self) -> Result<StoredFieldsType<Self::StoredFieldsReader>> {
         let reader = self.get_fields_reader()?;
@@ -68,23 +67,17 @@ pub trait CodecReader: LeafReader {
             None => Err(LuceneError::illegal_state(
                 "stored fields reader is None".to_string(),
             )),
-            Some(r) => {
-                debug_assert!(matches!(r, Cow::Owned(_)));
-                Ok(StoredFieldsImpl {
-                    reader: r.into_owned(),
-                    max_doc: self.max_doc()?,
-                })
-            },
+            Some(r) => Ok(StoredFieldsImpl {
+                reader: r,
+                max_doc: self.max_doc()?,
+            }),
         }
     }
 
     fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
         let reader = self.get_term_vectors_reader()?;
         match reader {
-            Some(r) => {
-                debug_assert!(matches!(r, Cow::Owned(_)));
-                Ok(TermVectorsEnum2::B(r.into_owned()))
-            },
+            Some(r) => Ok(TermVectorsEnum2::B(r)),
             None => Ok(TermVectorsEnum2::A(EmptyTermVectors {})),
         }
     }
@@ -349,27 +342,27 @@ where
     type FieldsProducer = CR::FieldsProducer;
     type PointsReader = CR::PointsReader;
 
-    fn get_fields_reader(&self) -> Result<Option<Cow<'_, Self::StoredFieldsReader>>> {
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
         (**self).get_fields_reader()
     }
 
-    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
         (**self).get_term_vectors_reader()
     }
 
-    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
         (**self).get_norms_reader()
     }
 
-    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
         (**self).get_doc_values_reader()
     }
 
-    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
         (**self).get_postings_reader()
     }
 
-    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         (**self).get_points_reader()
     }
 }
