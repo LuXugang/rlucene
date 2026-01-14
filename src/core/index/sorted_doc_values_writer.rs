@@ -49,7 +49,6 @@ use crate::core::util::packed::packed_long_values::{
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 ///  Buffers up pending `[u8]` per doc, deref and sorting via int ord, then flushes when segment flushes.
@@ -264,7 +263,7 @@ pub(crate) struct DocValuesProducerImpl {
     ord_map: Arc<Vec<i32>>,
     docs_with_field: DocsWithFieldSet,
     writer_field_info: Arc<FieldInfo>,
-    sorted: Option<Rc<Vec<i32>>>,
+    sorted: Option<Arc<Vec<i32>>>,
 }
 impl DocValuesProducerImpl {
     pub(crate) fn new(
@@ -274,7 +273,7 @@ impl DocValuesProducerImpl {
         ord_map: Arc<Vec<i32>>,
         docs_with_field: DocsWithFieldSet,
         writer_field_info: Arc<FieldInfo>,
-        sorted: Option<Rc<Vec<i32>>>,
+        sorted: Option<Arc<Vec<i32>>>,
     ) -> Result<Self> {
         Ok(Self {
             hash,
@@ -426,12 +425,12 @@ where
     }
 }
 
-pub(crate) struct SortingSortedDocValues<S>
+pub struct SortingSortedDocValues<S>
 where
     S: SortedDocValues,
 {
     input: S,
-    ords: Rc<Vec<i32>>,
+    ords: Arc<Vec<i32>>,
     doc_id: i32,
 }
 
@@ -439,7 +438,7 @@ impl<S> SortingSortedDocValues<S>
 where
     S: SortedDocValues,
 {
-    pub(crate) fn new(input: S, ords: Rc<Vec<i32>>) -> Self {
+    pub(crate) fn new(input: S, ords: Arc<Vec<i32>>) -> Self {
         Self {
             input,
             ords,
@@ -540,7 +539,7 @@ where
             ord_map.clone(),
             docs_iter,
         );
-        Some(Rc::new(SortedDocValuesWriter::sort_doc_values(
+        Some(Arc::new(SortedDocValuesWriter::sort_doc_values(
             sort_map.size() as usize,
             sort_map.as_ref(),
             &mut old_values,

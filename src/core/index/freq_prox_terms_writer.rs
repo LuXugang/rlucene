@@ -273,7 +273,7 @@ where
 }
 
 // SortingTerms
-pub(crate) struct SortingTerms<T, DM>
+pub struct SortingTerms<T, DM>
 where
     T: Terms,
     DM: DocMap + Clone,
@@ -372,7 +372,7 @@ where
 }
 
 // SortingTermsEnum
-pub(crate) struct SortingTermsEnum<T, DM>
+pub struct SortingTermsEnum<T, DM>
 where
     T: TermsEnum,
     DM: DocMap + Clone,
@@ -521,7 +521,7 @@ where
     }
 }
 // SortingDocsEnum
-pub(crate) struct SortingDocsEnum<P>
+pub struct SortingDocsEnum<P>
 where
     P: PostingsEnum,
 {
@@ -701,7 +701,7 @@ impl TimSorterBase for DocOffsetSorter<'_> {
         Ok(self.tmp_docs[i] - self.docs[j])
     }
 }
-pub(crate) struct SortingPostingsEnum<P>
+pub struct SortingPostingsEnum<P>
 where
     P: PostingsEnum,
 {

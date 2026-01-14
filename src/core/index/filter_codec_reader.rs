@@ -42,7 +42,7 @@ pub struct FilterCodecReader<CR>
 where
     CR: CodecReader,
 {
-    in_: CR,
+    pub(crate) in_: CR,
 }
 impl<CR> FilterCodecReader<CR>
 where

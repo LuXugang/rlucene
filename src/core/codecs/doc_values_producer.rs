@@ -89,7 +89,7 @@ pub trait DocValuesProducer {
     /// The return value is undefined if
     /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
     /// [`DocValuesSkipIndexType::NONE`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
-    fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Checks consistency of this producer.
@@ -154,7 +154,7 @@ where
 
     type DocValuesSkipper = T::DocValuesSkipper;
 
-    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
         (**self).get_skipper(field)
     }
 
@@ -247,12 +247,12 @@ macro_rules! either_docvaluesproducer {
             type DocValuesSkipper =
                 DocValuesSkipperEnum2<$A::DocValuesSkipper, $B::DocValuesSkipper>;
 
-            fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+            fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
                 match self {
-                    $name::A(inner) => inner.get_skipper(field).map(DocValuesSkipperEnum2::A),
-                    $name::B(inner) => inner.get_skipper(field).map(DocValuesSkipperEnum2::B),
-                }
-            }
+                    $name::A(inner) => inner.get_skipper(field).map(|opt| opt.map(DocValuesSkipperEnum2::A)),
+                    $name::B(inner) => inner.get_skipper(field).map(|opt| opt.map(DocValuesSkipperEnum2::B)),
+    }
+}
 
             fn check_integrity(&self) -> Result<()> {
                 match self {

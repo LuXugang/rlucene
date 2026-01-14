@@ -50,7 +50,6 @@ use crate::core::util::{
 };
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending `[u8]` per doc, then flushes when segment flushes.
@@ -345,7 +344,7 @@ where
     }
 }
 
-pub(crate) struct SortingBinaryDocValues {
+pub struct SortingBinaryDocValues {
     dvs: BinaryDVs,
     spare: BytesRefBuilder<Vec<u8>>,
     doc_id: i32,
@@ -404,9 +403,9 @@ impl BinaryDocValues for SortingBinaryDocValues {
 }
 
 #[derive(Clone)]
-pub(crate) struct BinaryDVs {
-    pub(crate) offsets: Rc<Vec<usize>>,
-    pub(crate) values: Rc<BytesRefArray>,
+pub struct BinaryDVs {
+    pub(crate) offsets: Arc<Vec<usize>>,
+    pub(crate) values: Arc<BytesRefArray>,
 }
 
 impl BinaryDVs {
@@ -435,8 +434,8 @@ impl BinaryDVs {
             offset += 1;
         }
         Ok(BinaryDVs {
-            offsets: Rc::new(offsets),
-            values: Rc::new(values),
+            offsets: Arc::new(offsets),
+            values: Arc::new(values),
         })
     }
 }

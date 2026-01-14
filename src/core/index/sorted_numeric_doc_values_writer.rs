@@ -51,7 +51,6 @@ use crate::core::util::packed::packed_long_values::{
 };
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
@@ -244,7 +243,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
             )?;
             Some(LongValues::new(
                 segment_info.max_doc()? as usize,
-                &sort_map,
+                sort_map.as_ref(),
                 &mut v,
                 PackedInts::FASTEST,
             )?)
@@ -476,7 +475,7 @@ where
     type NumericDocValues = DummyNumericDocValues;
 }
 
-pub(crate) struct SortingSortedNumericDocValues<S>
+pub struct SortingSortedNumericDocValues<S>
 where
     S: SortedNumericDocValues,
 {
@@ -577,14 +576,14 @@ where
 }
 
 #[derive(Clone)]
-pub(crate) struct LongValues {
-    pub(crate) offsets: Rc<Vec<usize>>,
+pub struct LongValues {
+    pub(crate) offsets: Arc<Vec<usize>>,
     pub(crate) values: PackedLongValues,
 }
 impl LongValues {
     pub(crate) fn new<DM>(
         max_doc: usize,
-        sort_map: &Arc<DM>,
+        sort_map: &DM,
         old_values: &mut impl SortedNumericDocValues,
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>
@@ -614,7 +613,7 @@ impl LongValues {
         }
 
         Ok(LongValues {
-            offsets: Rc::new(offsets),
+            offsets: Arc::new(offsets),
             values: value_builder.build()?,
         })
     }

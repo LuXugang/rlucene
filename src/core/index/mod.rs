@@ -157,6 +157,7 @@ pub mod sorted_set_doc_values;
 pub(crate) mod sorted_set_doc_values_terms_enum;
 pub(crate) mod sorted_set_doc_values_writer;
 pub mod sorter;
+pub mod sorting_codec_reader;
 pub(crate) mod sorting_stored_fields_consumer;
 pub(crate) mod sorting_term_vectors_consumer;
 pub mod standard_directory_reader;

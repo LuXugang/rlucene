@@ -217,7 +217,7 @@ pub trait CodecReader: LeafReader {
             .get_doc_values_reader()?
             .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
 
-        Ok(Some(reader.get_skipper(&fi)?))
+        reader.get_skipper(&fi)
     }
 
     fn get_norm_values(

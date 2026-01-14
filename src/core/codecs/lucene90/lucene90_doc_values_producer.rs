@@ -1066,7 +1066,7 @@ where
 
     type DocValuesSkipper = Lucene90Skipper<I>;
 
-    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
         let entry = self.skippers.get(&field.number);
         match entry {
             Some(entry) => {
@@ -1080,7 +1080,7 @@ where
                 }
                 // TODO: should we write to disk the actual max level for this
                 // segment?
-                Ok(DocValuesSkipperImpl::new(input, entry.clone()))
+                Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
             },
             None => Err(LuceneError::illegal_state(format!(
                 "Missing skipper entry for field {}",

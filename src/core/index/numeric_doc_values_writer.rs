@@ -45,7 +45,6 @@ use crate::core::util::packed::packed_long_values::{
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
@@ -256,7 +255,7 @@ impl NumericDocValues for BufferedNumericDocValues {
     }
 }
 
-pub(crate) struct SortingNumericDocValues<T>
+pub struct SortingNumericDocValues<T>
 where
     T: BitSet,
 {
@@ -318,12 +317,12 @@ where
     }
 }
 #[derive(Clone)]
-pub(crate) struct NumericDVs<T>
+pub struct NumericDVs<T>
 where
     T: BitSet,
 {
-    pub values: Rc<Vec<i64>>,
-    pub docs_with_field: Option<Rc<T>>,
+    pub values: Arc<Vec<i64>>,
+    pub docs_with_field: Option<Arc<T>>,
     pub max_doc: i32,
 }
 
@@ -331,12 +330,12 @@ impl<T> NumericDVs<T>
 where
     T: BitSet,
 {
-    pub fn new(values: Vec<i64>, docs_with_field: Option<T>) -> Self {
+    pub(crate) fn new(values: Vec<i64>, docs_with_field: Option<T>) -> Self {
         debug_assert!(values.len() <= i32::MAX as usize);
-        let docs_with_field = docs_with_field.map(Rc::new);
+        let docs_with_field = docs_with_field.map(Arc::new);
         let max_doc = values.len() as i32;
         Self {
-            values: Rc::new(values),
+            values: Arc::new(values),
             docs_with_field,
             max_doc,
         }

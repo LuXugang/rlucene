@@ -164,7 +164,7 @@ where
 
     type DocValuesSkipper = DefaultSkipper<D::IndexInput>;
 
-    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
         debug_assert!(dv_producer.is_some());
         dv_producer.as_ref().unwrap().get_skipper(field)

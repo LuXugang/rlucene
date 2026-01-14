@@ -123,7 +123,7 @@ pub type PointsWriterType<O> = Lucene90PointsWriter<O>;
 
 struct PointsReaderImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     field_info: Arc<FieldInfo>,
@@ -133,7 +133,7 @@ where
 }
 impl<P, CR> PointsReaderImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn new(
@@ -153,7 +153,7 @@ where
 
 impl<P, CR> PointsReader for PointsReaderImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn check_integrity(&self) -> Result<()> {
@@ -178,7 +178,7 @@ where
 
 struct PointValuesImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     final_max_point_count: usize,
@@ -187,7 +187,7 @@ where
 }
 impl<P, CR> PointValuesImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn new(
@@ -205,7 +205,7 @@ where
 
 impl<P, CR> Clone for PointValuesImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn clone(&self) -> Self {
@@ -215,7 +215,7 @@ where
 
 impl<P, CR> PointValues for PointValuesImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
@@ -260,7 +260,7 @@ where
 
 struct PointTreeImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     final_max_point_count: usize,
@@ -269,7 +269,7 @@ where
 }
 impl<P, CR> PointTreeImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn new(
@@ -287,7 +287,7 @@ where
 
 impl<P, CR> TryClone for PointTreeImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn try_clone(&self) -> Result<Self>
@@ -300,7 +300,7 @@ where
 
 impl<P, CR> PointTree for PointTreeImpl<P, CR>
 where
-    P: PointValues + Clone,
+    P: PointValues,
     CR: CodecReader,
 {
     fn move_to_child(&mut self) -> Result<bool> {

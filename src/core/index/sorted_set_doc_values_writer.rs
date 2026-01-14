@@ -56,7 +56,6 @@ use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
@@ -608,7 +607,7 @@ where
     type SortedDocValues = DummySortedDocValues;
 }
 
-pub(crate) struct SortingSortedSetDocValues<S>
+pub struct SortingSortedSetDocValues<S>
 where
     S: SortedSetDocValues,
 {
@@ -733,12 +732,12 @@ where
 }
 
 #[derive(Clone)]
-pub(crate) struct DocOrds {
-    pub(crate) offsets: Rc<Vec<usize>>,
+pub struct DocOrds {
+    pub(crate) offsets: Arc<Vec<usize>>,
     pub(crate) ords: PackedLongValues,
-    pub(crate) doc_value_counts: Rc<GrowableWriter>,
+    pub(crate) doc_value_counts: Arc<GrowableWriter>,
 }
-
+pub const START_BITS_PER_VALUE: i32 = 2;
 impl DocOrds {
     pub(crate) fn new<DM>(
         max_doc: i32,
@@ -781,9 +780,9 @@ impl DocOrds {
         let ords = builder.build()?;
 
         Ok(DocOrds {
-            offsets: Rc::new(offsets),
+            offsets: Arc::new(offsets),
             ords,
-            doc_value_counts: Rc::new(doc_value_counts),
+            doc_value_counts: Arc::new(doc_value_counts),
         })
     }
 }
