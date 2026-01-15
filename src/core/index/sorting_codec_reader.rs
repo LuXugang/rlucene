@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::DocValuesProducer;
+use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
-use crate::core::codecs::fields_producer::FieldsProducer;
-use crate::core::codecs::norms_producer::NormsProducer;
-use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
+use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
+use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
-use crate::core::codecs::term_vectors_reader::TermVectorsReader;
+use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
 use crate::core::index::codec_reader::{
     CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader,
@@ -51,7 +51,7 @@ use crate::core::index::sorted_numeric_doc_values_writer::{
 use crate::core::index::sorted_set_doc_values_writer::{
     DocOrds, START_BITS_PER_VALUE, SortingSortedSetDocValues,
 };
-use crate::core::index::sorter::DocMap;
+use crate::core::index::sorter::{DocMap, Sorter};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -60,7 +60,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -1231,7 +1231,8 @@ impl<CR> FilterCodecReaderImpl<CR>
 where
     CR: CodecReader,
 {
-    pub fn new(base: FilterCodecReader<CR>, new_meta_data: LeafMetaData) -> Self {
+    pub fn new(reader: CR, new_meta_data: LeafMetaData) -> Self {
+        let base = FilterCodecReader::new(reader);
         Self {
             base,
             new_meta_data,
@@ -1426,5 +1427,413 @@ where
 
     fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
         self.base.get_points_reader()
+    }
+}
+/// Returns a sorted view of `reader` according to the order defined by `sort`.
+///
+/// If the reader is already sorted, this method may return the reader as-is.
+pub fn wrap<CR, DM>(_reader: CR, _sort: Arc<Sort>) -> Result<SortingCodecReaderEnum<CR, DM>>
+where
+    CR: CodecReader,
+    DM: DocMap + Clone,
+{
+    todo!()
+}
+/// Expert: same as [`wrap_with`] but operates directly on a [`DocMap`].
+pub fn wrap_with_doc_map<CR, DM>(
+    reader: CR,
+    doc_map: Option<DM>,
+    sort: Option<Arc<Sort>>,
+) -> Result<SortingCodecReaderEnum<CR, DM>>
+where
+    CR: CodecReader,
+    DM: DocMap + Clone,
+{
+    let meta_data = reader.get_metadata()?;
+    let new_meta_data = LeafMetaData::new(
+        meta_data.get_created_version_major(),
+        meta_data.get_min_version().clone(),
+        sort,
+        meta_data.get_has_blocks(),
+    )?;
+    match doc_map {
+        Some(doc_map) => {
+            if reader.max_doc()? != doc_map.size() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "reader.maxDoc() should be equal to docMap.size(), got {} != {}",
+                    reader.max_doc()?,
+                    doc_map.size()
+                )));
+            }
+            debug_assert!(Sorter::is_consistent(&doc_map)?);
+            let v = SortingCodecReader::new(reader, doc_map, new_meta_data);
+            Ok(SortingCodecReaderEnum::Sorting(v))
+        },
+        None => Ok(SortingCodecReaderEnum::Filter(FilterCodecReaderImpl::new(
+            reader,
+            new_meta_data,
+        ))),
+    }
+}
+
+pub enum SortingCodecReaderEnum<CR, DM>
+where
+    CR: CodecReader,
+    DM: DocMap + Clone,
+{
+    Filter(FilterCodecReaderImpl<CR>),
+    Sorting(SortingCodecReader<CR, DM>),
+}
+
+impl<CR, DM> LeafReader for SortingCodecReaderEnum<CR, DM>
+where
+    CR: CodecReader,
+    DM: Clone + DocMap,
+{
+    type CacheHelper = DummyCacheHelper;
+
+    fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.get_core_cache_helper_ref(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.get_core_cache_helper_ref(),
+        }
+    }
+
+    fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.get_core_cache_helper(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.get_core_cache_helper(),
+        }
+    }
+
+    type Terms = <FilterCodecReader<CR> as LeafReader>::Terms;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => LeafReader::terms(reader, field),
+            SortingCodecReaderEnum::Sorting(reader) => LeafReader::terms(reader, field),
+        }
+    }
+
+    type NumericDocValues = <FilterCodecReader<CR> as LeafReader>::NumericDocValues;
+
+    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_numeric_doc_values(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_numeric_doc_values(reader, field)
+            },
+        }
+    }
+
+    type BinaryDocValues = <FilterCodecReader<CR> as LeafReader>::BinaryDocValues;
+
+    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_binary_doc_values(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_binary_doc_values(reader, field)
+            },
+        }
+    }
+
+    type SortedDocValues = <FilterCodecReader<CR> as LeafReader>::SortedDocValues;
+
+    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_sorted_doc_values(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_sorted_doc_values(reader, field)
+            },
+        }
+    }
+
+    type SortedNumericDocValues = <FilterCodecReader<CR> as LeafReader>::SortedNumericDocValues;
+
+    fn get_sorted_numeric_doc_values(
+        &self,
+        field: &str,
+    ) -> Result<Option<Self::SortedNumericDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_sorted_numeric_doc_values(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_sorted_numeric_doc_values(reader, field)
+            },
+        }
+    }
+
+    type SortedSetDocValues = <FilterCodecReader<CR> as LeafReader>::SortedSetDocValues;
+
+    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_sorted_set_doc_values(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_sorted_set_doc_values(reader, field)
+            },
+        }
+    }
+
+    type NormNumericDocValues = <FilterCodecReader<CR> as LeafReader>::NormNumericDocValues;
+
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => LeafReader::get_norm_values(reader, field),
+            SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_norm_values(reader, field),
+        }
+    }
+
+    type DocValuesSkipper = <FilterCodecReader<CR> as LeafReader>::DocValuesSkipper;
+
+    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => {
+                LeafReader::get_doc_values_skipper(reader, field)
+            },
+            SortingCodecReaderEnum::Sorting(reader) => {
+                LeafReader::get_doc_values_skipper(reader, field)
+            },
+        }
+    }
+
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.get_field_infos(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.get_field_infos(),
+        }
+    }
+
+    type Bits = BitsEnum2<CRBits<CR>, SortingBitsImpl<CRBits<CR>, DM>>;
+
+    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => Ok(reader.get_live_docs()?.map(BitsEnum2::A)),
+            SortingCodecReaderEnum::Sorting(reader) => {
+                Ok(reader.get_live_docs()?.map(BitsEnum2::B))
+            },
+        }
+    }
+
+    type PointValues = <FilterCodecReader<CR> as LeafReader>::PointValues;
+
+    fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => LeafReader::get_point_values(reader, field),
+            SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_point_values(reader, field),
+        }
+    }
+
+    fn get_metadata(&self) -> Result<&LeafMetaData> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.get_metadata(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.get_metadata(),
+        }
+    }
+}
+
+impl<CR, DM> IndexReader for SortingCodecReaderEnum<CR, DM>
+where
+    CR: CodecReader,
+    DM: Clone + DocMap,
+{
+    type TermVectors = <FilterCodecReader<CR> as IndexReader>::TermVectors;
+
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => IndexReader::term_vectors(reader),
+            SortingCodecReaderEnum::Sorting(reader) => IndexReader::term_vectors(reader),
+        }
+    }
+
+    fn max_doc(&self) -> Result<i32> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.max_doc(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.max_doc(),
+        }
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.num_docs(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.num_docs(),
+        }
+    }
+
+    type StoredFields = <FilterCodecReader<CR> as IndexReader>::StoredFields;
+
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => IndexReader::stored_fields(reader),
+            SortingCodecReaderEnum::Sorting(reader) => IndexReader::stored_fields(reader),
+        }
+    }
+
+    fn do_close(&self) -> Result<()> {
+        match self {
+            SortingCodecReaderEnum::Filter(reader) => reader.do_close(),
+            SortingCodecReaderEnum::Sorting(reader) => reader.do_close(),
+        }
+    }
+
+    type ReaderCacheHelper = DummyCacheHelper;
+
+    fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => v.get_reader_cache_helper(),
+            SortingCodecReaderEnum::Sorting(v) => v.get_reader_cache_helper(),
+        }
+    }
+
+    fn doc_freq(&self, term: &Term) -> Result<i32> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => IndexReader::doc_freq(v, term),
+            SortingCodecReaderEnum::Sorting(v) => IndexReader::doc_freq(v, term),
+        }
+    }
+
+    fn total_term_freq(&self, term: &Term) -> Result<i64> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => IndexReader::total_term_freq(v, term),
+            SortingCodecReaderEnum::Sorting(v) => IndexReader::total_term_freq(v, term),
+        }
+    }
+
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => IndexReader::get_sum_doc_freq(v, field),
+            SortingCodecReaderEnum::Sorting(v) => IndexReader::get_sum_doc_freq(v, field),
+        }
+    }
+
+    fn get_doc_count(&self, field: &str) -> Result<i32> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => IndexReader::get_doc_count(v, field),
+            SortingCodecReaderEnum::Sorting(v) => IndexReader::get_doc_count(v, field),
+        }
+    }
+
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => IndexReader::get_sum_total_term_freq(v, field),
+            SortingCodecReaderEnum::Sorting(v) => IndexReader::get_sum_total_term_freq(v, field),
+        }
+    }
+
+    fn base(&self) -> &IndexReaderBase {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => v.base(),
+            SortingCodecReaderEnum::Sorting(v) => v.base(),
+        }
+    }
+}
+
+impl<CR, DM> Display for SortingCodecReaderEnum<CR, DM>
+where
+    CR: CodecReader,
+    DM: Clone + DocMap,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SortingCodecReaderEnum::Filter(v) => write!(f, "{}", v),
+            SortingCodecReaderEnum::Sorting(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+impl<CR, DM> CodecReader for SortingCodecReaderEnum<CR, DM>
+where
+    CR: CodecReader,
+    DM: DocMap + Clone,
+{
+    type StoredFieldsReader = StoredFieldsReaderEnum2<
+        <FilterCodecReader<CR> as CodecReader>::StoredFieldsReader,
+        <SortingCodecReader<CR, DM> as CodecReader>::StoredFieldsReader,
+    >;
+    type TermVectorsReader = TermVectorsReaderEnum2<
+        <FilterCodecReader<CR> as CodecReader>::TermVectorsReader,
+        <SortingCodecReader<CR, DM> as CodecReader>::TermVectorsReader,
+    >;
+    type NormsProducer = NormsProducerEnum2<
+        <FilterCodecReader<CR> as CodecReader>::NormsProducer,
+        <SortingCodecReader<CR, DM> as CodecReader>::NormsProducer,
+    >;
+    type DocValuesProducer = DocValuesProducerEnum2<
+        <FilterCodecReader<CR> as CodecReader>::DocValuesProducer,
+        <SortingCodecReader<CR, DM> as CodecReader>::DocValuesProducer,
+    >;
+    type FieldsProducer = FieldsProducerEnum2<
+        <FilterCodecReader<CR> as CodecReader>::FieldsProducer,
+        <SortingCodecReader<CR, DM> as CodecReader>::FieldsProducer,
+    >;
+    type PointsReader = PointsReaderEnum2<
+        <FilterCodecReader<CR> as CodecReader>::PointsReader,
+        <SortingCodecReader<CR, DM> as CodecReader>::PointsReader,
+    >;
+
+    fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => {
+                f.get_fields_reader()?.map(StoredFieldsReaderEnum2::A)
+            },
+            SortingCodecReaderEnum::Sorting(s) => {
+                s.get_fields_reader()?.map(StoredFieldsReaderEnum2::B)
+            },
+        })
+    }
+
+    fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => {
+                f.get_term_vectors_reader()?.map(TermVectorsReaderEnum2::A)
+            },
+            SortingCodecReaderEnum::Sorting(s) => {
+                s.get_term_vectors_reader()?.map(TermVectorsReaderEnum2::B)
+            },
+        })
+    }
+
+    fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => f.get_norms_reader()?.map(NormsProducerEnum2::A),
+            SortingCodecReaderEnum::Sorting(s) => s.get_norms_reader()?.map(NormsProducerEnum2::B),
+        })
+    }
+
+    fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => {
+                f.get_doc_values_reader()?.map(DocValuesProducerEnum2::A)
+            },
+            SortingCodecReaderEnum::Sorting(s) => {
+                s.get_doc_values_reader()?.map(DocValuesProducerEnum2::B)
+            },
+        })
+    }
+
+    fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => {
+                f.get_postings_reader()?.map(FieldsProducerEnum2::A)
+            },
+            SortingCodecReaderEnum::Sorting(s) => {
+                s.get_postings_reader()?.map(FieldsProducerEnum2::B)
+            },
+        })
+    }
+
+    fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
+        Ok(match self {
+            SortingCodecReaderEnum::Filter(f) => f.get_points_reader()?.map(PointsReaderEnum2::A),
+            SortingCodecReaderEnum::Sorting(s) => s.get_points_reader()?.map(PointsReaderEnum2::B),
+        })
     }
 }
