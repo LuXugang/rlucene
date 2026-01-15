@@ -49,92 +49,84 @@ pub trait StoredFieldsReader: StoredFields + Clone {
 pub type DefaultStoredFieldsReader<I> =
     <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<I>;
 
-pub enum StoredFieldsReaderEnum2<A, B> {
-    A(A),
-    B(B),
+macro_rules! either_stored_fields_reader {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> StoredFields for $name<$( $T ),+>
+        where
+            $( $T: StoredFieldsReader ),+
+        {
+            fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
+                }
+            }
+
+            fn document(&mut self, doc_id: i32) -> Result<Document> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document(doc_id), )+
+                }
+            }
+
+            fn document_with_visitor<S: StoredFieldsWriter>(
+                &mut self,
+                doc_id: i32,
+                visitor: &mut impl StoredFieldVisitor,
+                writer: Option<&mut S>,
+            ) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
+                }
+            }
+
+            fn document_with_fields(
+                &mut self,
+                doc_id: i32,
+                fields_to_load: &HashSet<String>,
+            ) -> Result<Document> {
+                match self {
+                    $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> Clone for $name<$( $T ),+>
+        where
+            $( $T: StoredFieldsReader ),+
+        {
+            fn clone(&self) -> Self {
+                match self {
+                    $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> StoredFieldsReader for $name<$( $T ),+>
+        where
+            $( $T: StoredFieldsReader ),+
+        {
+            fn check_integrity(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.check_integrity(), )+
+                }
+            }
+
+            fn get_merge_instance(&self) -> Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $( Self::$Variant(inner) => match inner.get_merge_instance()? {
+                        Some(value) => Ok(Some(Self::$Variant(value))),
+                        None => Ok(None),
+                    }, )+
+                }
+            }
+        }
+    };
 }
 
-impl<A, B> StoredFields for StoredFieldsReaderEnum2<A, B>
-where
-    A: StoredFieldsReader,
-    B: StoredFieldsReader,
-{
-    fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => t.prefetch(doc_id),
-            StoredFieldsReaderEnum2::B(s) => s.prefetch(doc_id),
-        }
-    }
-
-    fn document(&mut self, doc_id: i32) -> Result<Document> {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => t.document(doc_id),
-            StoredFieldsReaderEnum2::B(s) => s.document(doc_id),
-        }
-    }
-
-    fn document_with_visitor<S: StoredFieldsWriter>(
-        &mut self,
-        doc_id: i32,
-        visitor: &mut impl StoredFieldVisitor,
-        writer: Option<&mut S>,
-    ) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => t.document_with_visitor(doc_id, visitor, writer),
-            StoredFieldsReaderEnum2::B(s) => s.document_with_visitor(doc_id, visitor, writer),
-        }
-    }
-
-    fn document_with_fields(
-        &mut self,
-        doc_id: i32,
-        fields_to_load: &HashSet<String>,
-    ) -> Result<Document> {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => t.document_with_fields(doc_id, fields_to_load),
-            StoredFieldsReaderEnum2::B(s) => s.document_with_fields(doc_id, fields_to_load),
-        }
-    }
-}
-
-impl<A, B> Clone for StoredFieldsReaderEnum2<A, B>
-where
-    A: StoredFieldsReader,
-    B: StoredFieldsReader,
-{
-    fn clone(&self) -> Self {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => StoredFieldsReaderEnum2::A(t.clone()),
-            StoredFieldsReaderEnum2::B(s) => StoredFieldsReaderEnum2::B(s.clone()),
-        }
-    }
-}
-
-impl<A, B> StoredFieldsReader for StoredFieldsReaderEnum2<A, B>
-where
-    A: StoredFieldsReader,
-    B: StoredFieldsReader,
-{
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => t.check_integrity(),
-            StoredFieldsReaderEnum2::B(s) => s.check_integrity(),
-        }
-    }
-
-    fn get_merge_instance(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        match self {
-            StoredFieldsReaderEnum2::A(t) => match t.get_merge_instance()? {
-                Some(v) => Ok(Some(StoredFieldsReaderEnum2::A(v))),
-                None => Ok(None),
-            },
-            StoredFieldsReaderEnum2::B(s) => match s.get_merge_instance()? {
-                Some(v) => Ok(Some(StoredFieldsReaderEnum2::B(v))),
-                None => Ok(None),
-            },
-        }
-    }
-}
+either_stored_fields_reader!(pub StoredFieldsReaderEnum2 { A: A, B: B });
