@@ -48,7 +48,7 @@ use std::fmt::{Display, Formatter};
 pub struct MultiReader<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     base_composite_reader_base: BaseCompositeReaderBase<LR, CR>,
     index_reader_base: IndexReaderBase,
@@ -63,7 +63,7 @@ impl MultiReader<DummyLeafReader, DummyCompositeReader<DummyLeafReader>> {
 
 impl<LR, CR> MultiReader<LR, CR>
 where
-    CR: CompositeReader<LeafReader = LR> + Clone,
+    CR: CompositeReader<LeafReader = LR>,
     LR: LeafReader + Clone,
 {
     pub fn with_leaf_reader(sub_readers: Vec<LR>) -> Result<Self> {
@@ -95,16 +95,12 @@ where
 }
 impl<LR, CR> IndexReader for MultiReader<LR, CR>
 where
-    CR: CompositeReader<LeafReader = LR> + Clone,
+    CR: CompositeReader<LeafReader = LR>,
     LR: LeafReader + Clone,
 {
-    type TermVectors<'a>
-        = BCRTermVectorsImpl<'a, LR, CR>
-    where
-        CR: 'a,
-        LR: 'a;
+    type TermVectors = BCRTermVectorsImpl<LR, CR>;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         self.base_composite_reader_base.term_vector(self)
     }
 
@@ -116,13 +112,9 @@ where
         self.base_composite_reader_base.num_docs()
     }
 
-    type StoredFields<'a>
-        = BCRStoredFieldsImpl<'a, LR, CR>
-    where
-        CR: 'a,
-        LR: 'a;
+    type StoredFields = BCRStoredFieldsImpl<LR, CR>;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base_composite_reader_base.stored_fields(self)
     }
 
@@ -193,7 +185,7 @@ where
 
 impl<LR, CR> Display for MultiReader<LR, CR>
 where
-    CR: CompositeReader<LeafReader = LR> + Clone,
+    CR: CompositeReader<LeafReader = LR>,
     LR: LeafReader + Clone,
 {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -204,7 +196,7 @@ where
 impl<LR, CR> CompositeReader for MultiReader<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader<LeafReader = LR> + Clone,
+    CR: CompositeReader<LeafReader = LR>,
 {
     type LeafReader = LR;
     type SubCompositeReader = CR;
@@ -222,6 +214,6 @@ where
 impl<LR, CR> BaseCompositeReader for MultiReader<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader<LeafReader = LR> + Clone,
+    CR: CompositeReader<LeafReader = LR>,
 {
 }

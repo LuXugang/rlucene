@@ -59,17 +59,17 @@ pub trait BaseCompositeReader: CompositeReader {}
 pub struct BaseCompositeReaderBase<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
-    pub(crate) sub_reader: Vec<IndexReaderEnum<LR, CR>>,
-    starts: Vec<usize>,
+    pub(crate) sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
+    starts: Arc<Vec<usize>>,
     max_doc: i32,
     num_docs: AtomicI32,
 }
 impl<LR, CR> BaseCompositeReaderBase<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn with_leaf_readers<C>(
         sub_readers: Vec<LR>,
@@ -149,8 +149,8 @@ where
         let sub_reader = sub_readers.into_iter().map(to_index_reader_enum).collect();
 
         Ok(Self {
-            sub_reader,
-            starts,
+            sub_reader: Arc::new(sub_reader),
+            starts: Arc::new(starts),
             max_doc: max_doc_i32 as i32,
             num_docs: AtomicI32::new(-1),
         })
@@ -159,11 +159,11 @@ where
     pub fn term_vector(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRTermVectorsImpl<'_, LR, CR>> {
+    ) -> Result<BCRTermVectorsImpl<LR, CR>> {
         reader.ensure_open()?;
         Ok(TermVectorsImpl::new(
-            self.sub_reader.as_slice(),
-            self.starts.as_slice(),
+            self.sub_reader.clone(),
+            self.starts.clone(),
             self.max_doc,
         ))
     }
@@ -197,11 +197,11 @@ where
     pub fn stored_fields(
         &self,
         reader: &impl BaseCompositeReader,
-    ) -> Result<BCRStoredFieldsImpl<'_, LR, CR>> {
+    ) -> Result<BCRStoredFieldsImpl<LR, CR>> {
         reader.ensure_open()?;
         Ok(StoredFieldsImpl::new(
-            self.sub_reader.as_slice(),
-            self.starts.as_slice(),
+            self.sub_reader.clone(),
+            self.starts.clone(),
             self.max_doc,
         ))
     }
@@ -284,27 +284,27 @@ where
         self.sub_reader.as_slice()
     }
 }
-pub type BCRTermVectorsImpl<'a, IR, CR> = TermVectorsImpl<'a, IR, CR>;
-pub type BCRStoredFieldsImpl<'a, IR, CR> = StoredFieldsImpl<'a, IR, CR>;
+pub type BCRTermVectorsImpl<IR, CR> = TermVectorsImpl<IR, CR>;
+pub type BCRStoredFieldsImpl<IR, CR> = StoredFieldsImpl<IR, CR>;
 
-pub struct TermVectorsImpl<'a, LR, CR>
+pub struct TermVectorsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
-    sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: &'a [usize],
-    sub_term_vectors: Vec<Option<IRTermVectors<'a, LR, CR>>>,
+    sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
+    starts: Arc<Vec<usize>>,
+    sub_term_vectors: Vec<Option<IRTermVectors<LR, CR>>>,
     max_doc: i32,
 }
-impl<'a, LR, CR> TermVectorsImpl<'a, LR, CR>
+impl<LR, CR> TermVectorsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn new(
-        sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: &'a [usize],
+        sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
+        starts: Arc<Vec<usize>>,
         max_doc: i32,
     ) -> Self {
         let mut sub_term_vectors = Vec::with_capacity(starts.len());
@@ -319,13 +319,13 @@ where
         }
     }
 }
-impl<'a, LR, CR> TermVectors for TermVectorsImpl<'a, LR, CR>
+impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
         match self.sub_term_vectors[i] {
             Some(ref mut tv) => tv.prefetch(doc_id - self.starts[i] as i32)?,
             None => {
@@ -337,10 +337,10 @@ where
         Ok(())
     }
 
-    type Fields = <IRTermVectors<'a, LR, CR> as TermVectors>::Fields;
+    type Fields = <IRTermVectors<LR, CR> as TermVectors>::Fields;
 
     fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
-        let i = reader_index(doc_id, self.max_doc, self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 
         if self.sub_term_vectors[i].is_none() {
             let tv = self.sub_reader[i].term_vectors()?;
@@ -350,25 +350,25 @@ where
         tv.get(doc_id - self.starts[i] as i32)
     }
 }
-pub struct StoredFieldsImpl<'a, LR, CR>
+pub struct StoredFieldsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
-    sub_reader: &'a [IndexReaderEnum<LR, CR>],
-    starts: &'a [usize],
-    sub_stored_fields: Vec<Option<IRStoredFields<'a, LR, CR>>>,
+    sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
+    starts: Arc<Vec<usize>>,
+    sub_stored_fields: Vec<Option<IRStoredFields<LR, CR>>>,
     max_doc: i32,
 }
 
-impl<'a, LR, CR> StoredFieldsImpl<'a, LR, CR>
+impl<LR, CR> StoredFieldsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     pub fn new(
-        sub_reader: &'a [IndexReaderEnum<LR, CR>],
-        starts: &'a [usize],
+        sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
+        starts: Arc<Vec<usize>>,
         max_doc: i32,
     ) -> Self {
         let mut sub_stored_fields = Vec::with_capacity(starts.len());
@@ -384,13 +384,13 @@ where
     }
 }
 
-impl<'a, LR, CR> StoredFields for StoredFieldsImpl<'a, LR, CR>
+impl<LR, CR> StoredFields for StoredFieldsImpl<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader + Clone,
+    CR: CompositeReader,
 {
     fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts.as_slice())?;
 
         match self.sub_stored_fields[i] {
             Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i] as i32)?,
@@ -410,7 +410,7 @@ where
         visitor: &mut impl StoredFieldVisitor,
         writer: Option<&mut S>,
     ) -> Result<()> {
-        let i = reader_index(doc_id, self.max_doc, self.starts)?;
+        let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 
         if self.sub_stored_fields[i].is_none() {
             let sf = self.sub_reader[i].stored_fields()?;

@@ -154,12 +154,9 @@ impl<CR> IndexReader for FilterCodecReader<CR>
 where
     CR: CodecReader,
 {
-    type TermVectors<'a>
-        = TermVectorsType<<Self as CodecReader>::TermVectorsReader>
-    where
-        CR: 'a;
+    type TermVectors = TermVectorsType<<Self as CodecReader>::TermVectorsReader>;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         CodecReader::term_vectors(self)
     }
 
@@ -171,12 +168,9 @@ where
         self.in_.num_docs()
     }
 
-    type StoredFields<'a>
-        = StoredFieldsType<<Self as CodecReader>::StoredFieldsReader>
-    where
-        CR: 'a;
+    type StoredFields = StoredFieldsType<<Self as CodecReader>::StoredFieldsReader>;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         CodecReader::stored_fields(self)
     }
 
@@ -388,12 +382,9 @@ where
     B: Bits + Clone,
     CR: CodecReader,
 {
-    type TermVectors<'a>
-        = <FilterCodecReader<CR> as IndexReader>::TermVectors<'a>
-    where
-        Self: 'a;
+    type TermVectors = <FilterCodecReader<CR> as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         IndexReader::term_vectors(&self.base)
     }
 
@@ -405,12 +396,9 @@ where
         Ok(self.num_docs)
     }
 
-    type StoredFields<'a>
-        = <FilterCodecReader<CR> as IndexReader>::StoredFields<'a>
-    where
-        Self: 'a;
+    type StoredFields = <FilterCodecReader<CR> as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         IndexReader::stored_fields(&self.base)
     }
 

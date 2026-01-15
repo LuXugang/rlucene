@@ -2009,12 +2009,9 @@ impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
 where
     D: Directory,
 {
-    type TermVectors<'a>
-        = <DocValuesLeafReader as IndexReader>::TermVectors<'a>
-    where
-        Self: 'a;
+    type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         self.base.term_vectors()
     }
 
@@ -2026,12 +2023,9 @@ where
         self.base.num_docs()
     }
 
-    type StoredFields<'a>
-        = <DocValuesLeafReader as IndexReader>::StoredFields<'a>
-    where
-        Self: 'a;
+    type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base.stored_fields()
     }
 
@@ -2292,12 +2286,9 @@ impl<SFB> IndexReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
     SFB: SortFiledBase,
 {
-    type TermVectors<'a>
-        = <DocValuesLeafReader as IndexReader>::TermVectors<'a>
-    where
-        Self: 'a;
+    type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         self.base.term_vectors()
     }
     fn max_doc(&self) -> Result<i32> {
@@ -2308,12 +2299,9 @@ where
         self.base.num_docs()
     }
 
-    type StoredFields<'a>
-        = <DocValuesLeafReader as IndexReader>::StoredFields<'a>
-    where
-        Self: 'a;
+    type StoredFields = <DocValuesLeafReader as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         self.base.stored_fields()
     }
     fn do_close(&self) -> Result<()> {

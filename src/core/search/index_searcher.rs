@@ -160,7 +160,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache<IRC::LeafReader>,
 {
-    pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields<'_>> {
+    pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()
     }
 

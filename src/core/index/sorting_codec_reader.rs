@@ -225,12 +225,9 @@ where
     CR: CodecReader,
     DM: DocMap + Clone,
 {
-    type TermVectors<'a>
-        = <FilterCodecReader<CR> as IndexReader>::TermVectors<'a>
-    where
-        Self: 'a;
+    type TermVectors = <FilterCodecReader<CR> as IndexReader>::TermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         IndexReader::term_vectors(&self.base)
     }
 
@@ -242,12 +239,9 @@ where
         self.base.num_docs()
     }
 
-    type StoredFields<'a>
-        = <FilterCodecReader<CR> as IndexReader>::StoredFields<'a>
-    where
-        Self: 'a;
+    type StoredFields = <FilterCodecReader<CR> as IndexReader>::StoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         IndexReader::stored_fields(&self.base)
     }
 

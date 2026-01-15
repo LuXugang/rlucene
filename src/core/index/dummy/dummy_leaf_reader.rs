@@ -45,9 +45,9 @@ impl Display for DummyLeafReader {
 }
 
 impl IndexReader for DummyLeafReader {
-    type TermVectors<'a> = DummyTermVectors;
+    type TermVectors = DummyTermVectors;
 
-    fn term_vectors(&self) -> Result<Self::TermVectors<'_>> {
+    fn term_vectors(&self) -> Result<Self::TermVectors> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -59,9 +59,9 @@ impl IndexReader for DummyLeafReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type StoredFields<'a> = DummyStoredFields;
+    type StoredFields = DummyStoredFields;
 
-    fn stored_fields(&self) -> Result<Self::StoredFields<'_>> {
+    fn stored_fields(&self) -> Result<Self::StoredFields> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
