@@ -48,7 +48,7 @@ use std::fmt::{Display, Formatter};
 pub struct MultiReader<LR, CR>
 where
     LR: LeafReader + Clone,
-    CR: CompositeReader,
+    CR: CompositeReader + Clone,
 {
     base_composite_reader_base: BaseCompositeReaderBase<LR, CR>,
     index_reader_base: IndexReaderBase,
