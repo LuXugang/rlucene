@@ -14,16 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_sorter::DocComparator;
+use crate::core::index::index_sorter::{DocComparator, DocComparatorImpl, IndexSorter};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::SortFiledBase;
+use crate::core::util::bit_set::{BitSet, of};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::sorter::Sorter as ASorter;
-use crate::core::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt, TryIntoInt};
+use crate::core::util::{LUCENE_10_0_0, SliceCopyOps, TimSorter, TimSorterBase, ToInt, TryIntoInt};
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
@@ -127,21 +130,70 @@ impl Sorter {
     ///
     /// **Note:** Deleted documents are expected to appear in the mapping as well; they will
     /// still be marked as deleted in the sorted view.
-    pub(crate) fn sort_with_reader<LR>(&self, _reader: &mut LR) -> Result<Option<DocMapImpl>>
+    pub(crate) fn sort_with_reader<LR>(&self, reader: &mut LR) -> Result<Option<DocMapImpl>>
     where
         LR: LeafReader,
     {
-        todo!()
+        let fields = self.sort.get_sort();
+        let mut comparators = Vec::with_capacity(fields.len());
+
+        let meta_data = reader.get_metadata()?;
+        let field_infos = reader.get_field_infos()?;
+
+        let parents_opt = if meta_data.get_has_blocks() {
+            match field_infos.get_parent_field() {
+                None => None,
+                Some(parent_field) => {
+                    let mut dv = reader
+                        .get_numeric_doc_values(parent_field)?
+                        .ok_or_else(|| LuceneError::illegal_state("numeric doc values is None"))?;
+                    Some(Rc::new(of(&mut dv, reader.max_doc()? as usize)?))
+                },
+            }
+        } else {
+            None
+        };
+
+        if meta_data.get_has_blocks()
+            && field_infos.get_parent_field().is_none()
+            && meta_data.get_created_version_major() >= LUCENE_10_0_0.major
+        {
+            return Err(LuceneError::corrupt_index(format!(
+                "parent field is not set but the index has blocks. indexCreatedVersionMajor: {}",
+                meta_data.get_created_version_major()
+            )));
+        }
+
+        for field in fields {
+            let sorter = field.get_index_sorter()?.ok_or_else(|| {
+                LuceneError::illegal_argument(format!(
+                    "Cannot use sortfield {} to sort indexes",
+                    field
+                ))
+            })?;
+
+            let comparator = sorter.get_doc_comparator(reader, reader.max_doc()?)?;
+
+            match parents_opt {
+                Some(ref parents) => comparators.push(DocComparatorEnum::BS(
+                    DocComparatorWrapper::new(comparator, parents.clone()),
+                )),
+                None => comparators.push(DocComparatorEnum::Plain(comparator)),
+            }
+        }
+
+        Self::sort(reader.max_doc()?, comparators)
     }
 
     pub(crate) fn sort<DC>(max_doc: i32, comparators: Vec<DC>) -> Result<Option<DocMapImpl>>
     where
         DC: DocComparator,
     {
-        let composite = DocComparatorImpl::new(comparators);
+        let composite = DocComparatorSorterImpl::new(comparators);
         Self::sort_impl(max_doc, composite)
     }
 }
+
 impl Display for Sorter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.get_id())
@@ -278,21 +330,21 @@ impl DocMap for DocMapImpl {
     }
 }
 
-struct DocComparatorImpl<DC>
+struct DocComparatorSorterImpl<DC>
 where
     DC: DocComparator,
 {
     comparators: Vec<DC>,
 }
-impl<DC> DocComparatorImpl<DC>
+impl<DC> DocComparatorSorterImpl<DC>
 where
     DC: DocComparator,
 {
     pub fn new(comparators: Vec<DC>) -> Self {
-        DocComparatorImpl { comparators }
+        DocComparatorSorterImpl { comparators }
     }
 }
-impl<DC> DocComparator for DocComparatorImpl<DC>
+impl<DC> DocComparator for DocComparatorSorterImpl<DC>
 where
     DC: DocComparator,
 {
@@ -305,5 +357,56 @@ where
         }
         // docid order tiebreak
         doc_id1.cmp(&doc_id2).to_int()
+    }
+}
+
+pub struct DocComparatorWrapper<DC, B>
+where
+    DC: DocComparator,
+    B: BitSet,
+{
+    in_: DC,
+    parents: B,
+}
+impl<DC, B> DocComparatorWrapper<DC, B>
+where
+    DC: DocComparator,
+    B: BitSet,
+{
+    fn new(cmp: DC, parents: B) -> Self {
+        DocComparatorWrapper { in_: cmp, parents }
+    }
+}
+impl<DC, B> DocComparator for DocComparatorWrapper<DC, B>
+where
+    DC: DocComparator,
+    B: BitSet,
+{
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        self.in_.compare(
+            self.parents.next_set_bit(doc_id1),
+            self.parents.next_set_bit(doc_id2),
+        )
+    }
+}
+
+pub enum DocComparatorEnum<DC, B>
+where
+    DC: DocComparator,
+    B: BitSet,
+{
+    Plain(DocComparatorImpl),
+    BS(DocComparatorWrapper<DC, B>),
+}
+impl<DC, B> DocComparator for DocComparatorEnum<DC, B>
+where
+    DC: DocComparator,
+    B: BitSet,
+{
+    fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
+        match self {
+            DocComparatorEnum::Plain(cmp) => cmp.compare(doc_id1, doc_id2),
+            DocComparatorEnum::BS(cmp) => cmp.compare(doc_id1, doc_id2),
+        }
     }
 }
