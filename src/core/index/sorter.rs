@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
 pub struct Sorter {
-    sort: Sort,
+    pub(crate) sort: Sort,
 }
 impl Sorter {
     pub(crate) fn new(sort: Sort) -> Result<Self> {
@@ -130,7 +130,7 @@ impl Sorter {
     ///
     /// **Note:** Deleted documents are expected to appear in the mapping as well; they will
     /// still be marked as deleted in the sorted view.
-    pub(crate) fn sort_with_reader<LR>(&self, reader: &mut LR) -> Result<Option<DocMapImpl>>
+    pub(crate) fn sort_with_reader<LR>(&self, reader: &LR) -> Result<Option<DocMapImpl>>
     where
         LR: LeafReader,
     {

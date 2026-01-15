@@ -51,7 +51,7 @@ use crate::core::index::sorted_numeric_doc_values_writer::{
 use crate::core::index::sorted_set_doc_values_writer::{
     DocOrds, START_BITS_PER_VALUE, SortingSortedSetDocValues,
 };
-use crate::core::index::sorter::{DocMap, Sorter};
+use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -1432,12 +1432,13 @@ where
 /// Returns a sorted view of `reader` according to the order defined by `sort`.
 ///
 /// If the reader is already sorted, this method may return the reader as-is.
-pub fn wrap<CR, DM>(_reader: CR, _sort: Arc<Sort>) -> Result<SortingCodecReaderEnum<CR, DM>>
+pub fn wrap<CR>(reader: CR, sort: Sort) -> Result<SortingCodecReaderEnum<CR, Arc<DocMapImpl>>>
 where
     CR: CodecReader,
-    DM: DocMap + Clone,
 {
-    todo!()
+    let sorter = Sorter::new(sort)?;
+    let doc_map = sorter.sort_with_reader(&reader)?.map(Arc::new);
+    wrap_with_doc_map(reader, doc_map, Some(Arc::new(sorter.sort)))
 }
 /// Expert: same as [`wrap_with`] but operates directly on a [`DocMap`].
 pub fn wrap_with_doc_map<CR, DM>(
