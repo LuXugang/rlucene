@@ -58,14 +58,16 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::sort::Sort;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::packed::PackedInts;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -101,6 +103,8 @@ pub struct Inner {
     cached_field: Option<String>,
     cache_is_norms: bool,
     cached_object: Option<CachedObject>,
+    cache_stats: HashMap<String, i32>,
+    sort: Option<Arc<Sort>>,
 }
 
 impl<CR, DM> SortingCodecReader<CR, DM>
@@ -113,6 +117,8 @@ where
             cached_field: None,
             cache_is_norms: false,
             cached_object: None,
+            cache_stats: HashMap::new(),
+            sort: meta_data.sort.clone(),
         }));
         Self {
             base: FilterCodecReader::new(base),
@@ -725,6 +731,7 @@ where
     if !((inner.cached_field.is_none() || inner.cached_field.as_ref().unwrap() == field)
         && inner.cache_is_norms == norms)
     {
+        debug_assert!(assert_created_only_once(field, norms, &mut inner));
         let new_object = supplier()?;
         inner.cached_field = Some(field.to_string());
         inner.cache_is_norms = norms;
@@ -757,6 +764,50 @@ where
     }
 
     Ok(NumericDVs::new(values, Some(docs_with_field)))
+}
+fn assert_created_only_once(field: &str, norms: bool, inner: &mut MutexGuard<'_, Inner>) -> bool {
+    // this is mainly there to make sure we change anything in the way we merge we realize it early
+    let key = format!("{}N:{}", field, norms);
+
+    let times_cached = {
+        let stats = &mut inner.cache_stats;
+        let entry = stats.entry(key).or_insert(0);
+        *entry += 1;
+        *entry
+    };
+
+    if times_cached > 1 {
+        debug_assert!(!norms, "[{}] norms must not be cached twice", field);
+
+        let mut is_sort_field = false;
+
+        // For things that aren't sort fields, it's possible for sort to be null here
+        // In the event that we accidentally cache twice, its better not to throw an NPE
+        if let Some(ref sort) = inner.sort {
+            for sf in sort.get_sort() {
+                if Some(field) == sf.get_field() {
+                    is_sort_field = true;
+                    break;
+                }
+            }
+        }
+
+        debug_assert!(
+            times_cached == 2,
+            "[{}] must not be cached more than twice but was cached: {} times is_sort_field: {}",
+            field,
+            times_cached,
+            is_sort_field
+        );
+
+        debug_assert!(
+            is_sort_field,
+            "only sort fields should be cached twice but [{}] is not a sort field",
+            field
+        );
+    }
+
+    true
 }
 
 pub struct PointsReaderImpl<PR, DM>
