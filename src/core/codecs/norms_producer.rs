@@ -17,7 +17,7 @@
 use crate::core::codecs::DefaultNormsFormat;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
@@ -82,3 +82,53 @@ where
         Ok(Some(v))
     }
 }
+
+macro_rules! either_normsproducer {
+    ($vis:vis $name:ident { A: $A:ident, B: $B:ident $(,)? }) => {
+        $vis enum $name<$A, $B> {
+            A($A),
+            B($B),
+        }
+
+        impl<$A, $B> NormsProducer for $name<$A, $B>
+        where
+            $A: NormsProducer,
+            $B: NormsProducer,
+        {
+            type NumericDocValues =
+                NumericDocValuesEnum2<$A::NumericDocValues, $B::NumericDocValues>;
+
+            fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+                match self {
+                    Self::A(inner) => inner.get_norms(field).map(NumericDocValuesEnum2::A),
+                    Self::B(inner) => inner.get_norms(field).map(NumericDocValuesEnum2::B),
+                }
+            }
+
+            fn check_integrity(&self) -> Result<()> {
+                match self {
+                    Self::A(inner) => inner.check_integrity(),
+                    Self::B(inner) => inner.check_integrity(),
+                }
+            }
+
+            fn get_merge_instance(&self) -> Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    Self::A(inner) => match inner.get_merge_instance()? {
+                        Some(instance) => Ok(Some(Self::A(instance))),
+                        None => Ok(None),
+                    },
+                    Self::B(inner) => match inner.get_merge_instance()? {
+                        Some(instance) => Ok(Some(Self::B(instance))),
+                        None => Ok(None),
+                    },
+                }
+            }
+        }
+    };
+}
+
+either_normsproducer!(pub NormsProducerEnum2 { A: A, B: B });
