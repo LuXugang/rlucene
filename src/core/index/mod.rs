@@ -145,6 +145,7 @@ pub mod segment_write_state;
 pub mod serial_merge_scheduler;
 pub mod singleton_sorted_numeric_doc_values;
 pub mod singleton_sorted_set_doc_values;
+pub mod slow_codec_reader_wrapper;
 mod slow_composite_codec_reader_wrapper;
 pub mod slow_impacts_enum;
 pub mod sort_field_provider;

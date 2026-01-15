@@ -56,7 +56,7 @@ pub trait LeafReader: IndexReader {
     /// This method returns `0` if the term or field does not exist.
     /// This method does not take into account deleted documents
     /// that have not yet been merged away.
-    fn total_term_freq(&self, term: &Term) -> Result<i64>
+    fn get_total_term_freq(&self, term: &Term) -> Result<i64>
     where
         Self: Sized,
     {
@@ -69,7 +69,7 @@ pub trait LeafReader: IndexReader {
             Ok(0)
         }
     }
-    fn sum_doc_freq(&self, field: &str) -> Result<i64>
+    fn get_sum_doc_freq(&self, field: &str) -> Result<i64>
     where
         Self: Sized,
     {
@@ -80,7 +80,7 @@ pub trait LeafReader: IndexReader {
         }
     }
 
-    fn doc_count(&self, field: &str) -> Result<i32>
+    fn get_doc_count(&self, field: &str) -> Result<i32>
     where
         Self: Sized,
     {
@@ -91,7 +91,7 @@ pub trait LeafReader: IndexReader {
         }
     }
 
-    fn sum_total_term_freq(&self, field: &str) -> Result<i64>
+    fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>
     where
         Self: Sized,
     {

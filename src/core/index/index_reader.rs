@@ -370,21 +370,21 @@ where
 
     fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
         match self {
-            IndexReaderEnum::Leaf(leaf) => leaf.get_sum_doc_freq(field),
+            IndexReaderEnum::Leaf(leaf) => LeafReader::get_sum_doc_freq(leaf, field),
             IndexReaderEnum::Composite(comp) => comp.get_sum_doc_freq(field),
         }
     }
 
     fn get_doc_count(&self, field: &str) -> Result<i32> {
         match self {
-            IndexReaderEnum::Leaf(leaf) => leaf.get_doc_count(field),
+            IndexReaderEnum::Leaf(leaf) => LeafReader::get_doc_count(leaf, field),
             IndexReaderEnum::Composite(comp) => comp.get_doc_count(field),
         }
     }
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         match self {
-            IndexReaderEnum::Leaf(leaf) => leaf.get_sum_total_term_freq(field),
+            IndexReaderEnum::Leaf(leaf) => LeafReader::get_sum_total_term_freq(leaf, field),
             IndexReaderEnum::Composite(comp) => comp.get_sum_total_term_freq(field),
         }
     }

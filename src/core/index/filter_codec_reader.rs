@@ -189,19 +189,19 @@ where
     }
 
     fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        LeafReader::total_term_freq(self, term)
+        LeafReader::get_total_term_freq(self, term)
     }
 
     fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::sum_doc_freq(self, field)
+        LeafReader::get_sum_doc_freq(self, field)
     }
 
     fn get_doc_count(&self, field: &str) -> Result<i32> {
-        LeafReader::doc_count(self, field)
+        LeafReader::get_doc_count(self, field)
     }
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        LeafReader::sum_total_term_freq(self, field)
+        LeafReader::get_sum_total_term_freq(self, field)
     }
 
     fn base(&self) -> &IndexReaderBase {

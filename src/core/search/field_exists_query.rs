@@ -273,7 +273,7 @@ where
         if fi.has_norms() {
             // the field indexes norms
             // If every field has a value then we can shortcut
-            let doc_count = reader.get_doc_count(self.query.get_field())?;
+            let doc_count = LeafReader::get_doc_count(reader, self.query.get_field())?;
             if doc_count == reader.max_doc()? {
                 return reader.num_docs();
             }
