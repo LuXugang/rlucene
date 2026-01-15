@@ -16,7 +16,9 @@
  */
 use crate::core::codecs::DefaultTermVectorsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
+use crate::core::index::fields::{Fields, FieldsEnum2};
 use crate::core::index::term_vectors::TermVectors;
+use crate::core::index::terms::TermsEnum2;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
 pub trait TermVectorsReader: TermVectors + Clone {
@@ -38,6 +40,93 @@ pub trait TermVectorsReader: TermVectors + Clone {
 }
 pub type DefaultTermVectorsReader<I> =
     <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
+
+macro_rules! either_term_vectors_reader {
+    ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> TermVectors for $name<$( $T ),+>
+        where
+            $( $T: TermVectorsReader ),+
+        {
+            type Fields = $fe<$( <$T as TermVectors>::Fields ),+>;
+
+            type Terms = $te<$( <<$T as TermVectors>::Fields as Fields>::Terms ),+>;
+
+            fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
+                }
+            }
+
+            fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let fields = inner.get(doc)?;
+                            Ok(fields.map($fe::$Variant))
+                        }
+                    ),+
+                }
+            }
+
+            fn get_field_terms(
+                &mut self,
+                doc: i32,
+                field: &str,
+            ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let terms = inner.get_field_terms(doc, field)?;
+                            Ok(terms.map($te::$Variant))
+                        }
+                    ),+
+                }
+            }
+        }
+
+        impl<$( $T ),+> Clone for $name<$( $T ),+>
+        where
+            $( $T: TermVectorsReader ),+
+        {
+            fn clone(&self) -> Self {
+                match self {
+                    $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> TermVectorsReader for $name<$( $T ),+>
+        where
+            $( $T: TermVectorsReader ),+
+        {
+            fn check_integrity(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.check_integrity(), )+
+                }
+            }
+
+            fn get_merge_instance(&self) -> Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $( Self::$Variant(inner) => match inner.get_merge_instance()? {
+                        Some(value) => Ok(Some(Self::$Variant(value))),
+                        None => Ok(None),
+                    }, )+
+                }
+            }
+        }
+    };
+}
+
+either_term_vectors_reader!(
+    pub TermVectorsReaderEnum2 => { fe: FieldsEnum2, te: TermsEnum2 } { A: A, B: B }
+);
 
 #[cfg(test)]
 mod tests {
