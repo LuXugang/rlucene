@@ -924,6 +924,16 @@ where
             self.field_infos.clone(),
         )?))
     }
+
+    type Terms = <Self::Fields as Fields>::Terms;
+
+    fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+        self.default_get_field_terms(doc, field)
+    }
 }
 
 impl<I> Clone for Lucene90CompressingTermVectorsReader<I>

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::dummy::dummy_fields::DummyFields;
+use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::fields::Fields;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::error::lucene_error::Result;
@@ -30,6 +31,8 @@ impl TermVectors for DummyTermVectors {
     fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    type Terms = DummyTerms;
 
     fn get_field_terms(
         &mut self,

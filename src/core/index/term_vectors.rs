@@ -16,6 +16,7 @@
  */
 use crate::core::index::dummy::dummy_fields::DummyFields;
 use crate::core::index::fields::{Fields, FieldsEnum2};
+use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::util::error::lucene_error::Result;
 /// API for reading term vectors.
 ///
@@ -44,7 +45,13 @@ pub trait TermVectors {
     ///
     /// The returned [`Fields`] instance acts like a single-document inverted index (the `doc_id` will be
     /// `0`). If offsets are available they are in an [`OffsetAttribute`](crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute) available from the [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum).
+    type Terms: Terms;
     fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>>;
+    fn default_get_field_terms(
         &mut self,
         doc: i32,
         field: &str,
@@ -64,9 +71,18 @@ impl TermVectors for EmptyTermVectors {
     fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
         Ok(None)
     }
+    type Terms = <Self::Fields as Fields>::Terms;
+
+    fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+        self.default_get_field_terms(doc, field)
+    }
 }
 macro_rules! either_term_vectors {
-    ($vis:vis $name:ident => { fe: $fe:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+    ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
             $( $Variant($T), )+
         }
@@ -76,6 +92,8 @@ macro_rules! either_term_vectors {
             $( $T: TermVectors ),+
         {
             type Fields = $fe<$( <$T as TermVectors>::Fields ),+>;
+
+            type Terms = $te<$( <<$T as TermVectors>::Fields as Fields>::Terms ),+>;
 
             fn prefetch(&mut self, doc_id: i32) -> Result<()> {
                 match self {
@@ -93,12 +111,26 @@ macro_rules! either_term_vectors {
                     ),+
                 }
             }
+
+            fn get_field_terms(
+                &mut self,
+                doc: i32,
+                field: &str,
+            ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let terms = inner.get_field_terms(doc, field)?;
+                            Ok(terms.map($te::$Variant))
+                        }
+                    ),+
+                }
+            }
         }
     };
 }
-
 either_term_vectors!(
-    pub TermVectorsEnum2 => { fe: FieldsEnum2 } { A: A, B: B }
+    pub TermVectorsEnum2 => { fe: FieldsEnum2, te: TermsEnum2 } { A: A, B: B }
 );
 
 #[cfg(test)]

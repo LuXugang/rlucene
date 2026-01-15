@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{
     IRStoredFields, IRTermVectors, IndexReader, IndexReaderEnum,
 };
@@ -31,6 +32,7 @@ use crate::core::util::{Comparator, TryIntoInt};
 use std::cmp::Ordering::Equal;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
+
 /// Base trait for implementing [`CompositeReader`]s based on an array of sub-readers.
 ///
 /// User code will most likely use `MultiReader` to build a composite reader
@@ -348,6 +350,16 @@ where
         }
         let tv = self.sub_term_vectors[i].as_mut().unwrap();
         tv.get(doc_id - self.starts[i] as i32)
+    }
+
+    type Terms = <Self::Fields as Fields>::Terms;
+
+    fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+        self.default_get_field_terms(doc, field)
     }
 }
 pub struct StoredFieldsImpl<LR, CR>

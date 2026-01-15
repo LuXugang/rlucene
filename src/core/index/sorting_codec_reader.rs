@@ -413,6 +413,16 @@ where
     fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
         self.delegate.get(self.doc_map.new_to_old(doc)?)
     }
+
+    type Terms = <Self::Fields as Fields>::Terms;
+
+    fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+        self.default_get_field_terms(doc, field)
+    }
 }
 
 impl<T, DM> Clone for TermVectorsReaderImpl<T, DM>

@@ -520,6 +520,16 @@ where
     fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
         self.term_vectors.get(doc)
     }
+
+    type Terms = <Self::Fields as Fields>::Terms;
+
+    fn get_field_terms(
+        &mut self,
+        doc: i32,
+        field: &str,
+    ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+        self.default_get_field_terms(doc, field)
+    }
 }
 
 impl<LR> Clone for TermVectorsReaderImpl<LR>
