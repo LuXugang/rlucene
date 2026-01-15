@@ -16,7 +16,8 @@
  */
 use crate::core::codecs::DefaultPostingsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::index::fields::Fields;
+use crate::core::index::fields::{FieldIterEnum2, Fields};
+use crate::core::index::terms::TermsEnum2;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 pub trait FieldsProducer: Fields {
@@ -36,6 +37,81 @@ pub trait FieldsProducer: Fields {
     }
 }
 pub type DefaultFieldsProducer<I> = <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>;
+
+macro_rules! either_fields_producer {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Fields for $name<$( $T ),+>
+        where
+            $( $T: FieldsProducer ),+
+        {
+            type FieldIter<'a> =
+                FieldIterEnum2<'a, $( <$T as Fields>::FieldIter<'a> ),+>
+            where
+                $( $T: 'a ),+;
+
+            type Terms = TermsEnum2<$( <$T as Fields>::Terms ),+>;
+
+            fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let it = inner.iterator()?;
+                            Ok(FieldIterEnum2::$Variant(it))
+                        }
+                    ),+
+                }
+            }
+
+            fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let terms = inner.terms(field)?;
+                            Ok(terms.map(TermsEnum2::$Variant))
+                        }
+                    ),+
+                }
+            }
+
+            fn size(&self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.size(), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> FieldsProducer for $name<$( $T ),+>
+        where
+            $( $T: FieldsProducer ),+
+        {
+            fn check_integrity(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.check_integrity(), )+
+                }
+            }
+
+            fn get_merge_instance(&self) -> Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $(
+                        Self::$Variant(inner) => match inner.get_merge_instance()? {
+                            Some(value) => Ok(Some(Self::$Variant(value))),
+                            None => Ok(None),
+                        },
+                    )+
+                }
+            }
+        }
+    };
+}
+
+either_fields_producer!(pub FieldsProducerEnum2 { A: A, B: B });
 
 impl<T> FieldsProducer for Arc<T>
 where
