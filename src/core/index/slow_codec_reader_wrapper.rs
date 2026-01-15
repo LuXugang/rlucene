@@ -40,7 +40,7 @@ use std::sync::Arc;
 
 pub struct SlowCodecReaderWrapper;
 impl SlowCodecReaderWrapper {
-    fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
+    pub(crate) fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
     where
         LR: LeafReader + Clone,
     {

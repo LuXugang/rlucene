@@ -633,7 +633,7 @@ where
     }
 
     fn init_count(&mut self) -> Result<()> {
-        debug_assert!(self.ord_upto > 0);
+        debug_assert!(self.doc_id >= 0);
         self.ord_upto = self.ords.offsets[self.doc_id as usize] - 1;
         self.count = self
             .ords
@@ -669,7 +669,7 @@ where
             self.doc_id += 1;
             if (self.doc_id as usize) == self.ords.offsets.len() {
                 self.doc_id = NO_MORE_DOCS;
-                break;
+                return Ok(self.doc_id);
             }
             if self.ords.offsets[self.doc_id as usize] > 0 {
                 break;
