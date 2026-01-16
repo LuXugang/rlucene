@@ -49,6 +49,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
+use std::sync::Arc;
 
 /// A wrapper for `CompositeIndexReader` providing access to `DocValues`.
 ///
@@ -390,11 +391,11 @@ where
     S: SortedDocValues,
 {
     /// docbase for each leaf: parallel with [`values`]
-    pub doc_starts: Vec<usize>,
+    pub doc_starts: Arc<Vec<usize>>,
     /// leaf values
     pub values: Vec<S>,
     /// ordinal map mapping ords from `values` to global ord space
-    pub mapping: OrdinalMap,
+    pub mapping: Arc<OrdinalMap>,
 
     total_cost: i64,
     next_leaf: usize,
@@ -407,12 +408,13 @@ impl<S> MultiSortedDocValues<S>
 where
     S: SortedDocValues,
 {
-    pub fn new(
-        doc_starts: Vec<usize>,
-        values: Vec<S>,
-        mapping: OrdinalMap,
-        total_cost: i64,
-    ) -> Self {
+    pub fn new<T, O>(doc_starts: T, values: Vec<S>, mapping: O, total_cost: i64) -> Self
+    where
+        T: Into<Arc<Vec<usize>>>,
+        O: Into<Arc<OrdinalMap>>,
+    {
+        let doc_starts = doc_starts.into();
+        let mapping = mapping.into();
         Self {
             doc_starts,
             values,
@@ -593,13 +595,13 @@ where
     T: SortedSetDocValues,
 {
     /// docbase for each leaf: parallel with `values`
-    pub doc_starts: Vec<usize>,
+    pub doc_starts: Arc<Vec<usize>>,
 
     /// leaf values
     pub values: Vec<T>,
 
     /// ordinal map mapping ords from `values` to global ord space
-    pub mapping: OrdinalMap,
+    pub mapping: Arc<OrdinalMap>,
 
     total_cost: i64,
     next_leaf: usize,
@@ -612,14 +614,14 @@ impl<T> MultiSortedSetDocValues<T>
 where
     T: SortedSetDocValues,
 {
-    pub fn new(
-        values: Vec<T>,
-        doc_starts: Vec<usize>,
-        mapping: OrdinalMap,
-        total_cost: i64,
-    ) -> Self {
+    pub fn new<V, R>(values: Vec<T>, doc_starts: R, mapping: V, total_cost: i64) -> Self
+    where
+        V: Into<Arc<OrdinalMap>>,
+        R: Into<Arc<Vec<usize>>>,
+    {
+        let doc_starts = doc_starts.into();
+        let mapping = mapping.into();
         debug_assert_eq!(doc_starts.len(), values.len() + 1);
-
         Self {
             doc_starts,
             values,

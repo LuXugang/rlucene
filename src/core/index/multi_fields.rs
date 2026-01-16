@@ -36,7 +36,7 @@ pub struct MultiFields<F>
 where
     F: Fields,
 {
-    subs: Vec<F>,
+    pub(crate) subs: Vec<F>,
     sub_slices: Vec<Rc<ReaderSlice>>,
     terms: RefCell<HashMap<String, Rc<TermsType<F>>>>,
 }

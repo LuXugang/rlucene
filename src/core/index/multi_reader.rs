@@ -18,7 +18,6 @@ use crate::core::index::base_composite_reader::{
     BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
 use crate::core::index::composite_reader::CompositeReader;
-#[cfg(test)]
 use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 #[cfg(test)]
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
@@ -54,10 +53,21 @@ where
     index_reader_base: IndexReaderBase,
     close_sub_readers: bool,
 }
+
 #[cfg(test)]
 impl MultiReader<DummyLeafReader, DummyCompositeReader<DummyLeafReader>> {
     pub fn empty() -> Result<Self> {
         Self::with_leaf_reader(vec![])
+    }
+}
+impl<LR> MultiReader<LR, DummyCompositeReader<LR>>
+where
+    LR: LeafReader + Clone,
+{
+    pub fn with_leaf_reader(sub_readers: Vec<LR>) -> Result<Self> {
+        let base_composite_reader_base =
+            BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(sub_readers, &None)?;
+        Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
     }
 }
 
@@ -66,11 +76,6 @@ where
     CR: CompositeReader<LeafReader = LR>,
     LR: LeafReader + Clone,
 {
-    pub fn with_leaf_reader(sub_readers: Vec<LR>) -> Result<Self> {
-        let base_composite_reader_base =
-            BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(sub_readers, &None)?;
-        Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
-    }
     pub fn with_composite_reader(sub_readers: Vec<CR>) -> Result<Self> {
         let base_composite_reader_base =
             BaseCompositeReaderBase::with_composite_readers::<DummyComparator>(sub_readers, &None)?;

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::doc_values::EmptySorted;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
@@ -23,7 +24,7 @@ use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2};
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
@@ -200,6 +201,8 @@ pub type LRSortedNumericDocValues<LR> = <LR as LeafReader>::SortedNumericDocValu
 pub type LRSortedDocValues<LR> = <LR as LeafReader>::SortedDocValues;
 // SortedSetDocValues
 pub type LRSortedSetDocValues<LR> = <LR as LeafReader>::SortedSetDocValues;
+pub type LRSortedDocValuesEmpty<LR> =
+    SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>;
 // ImpactsEnum
 pub type LRImpactsEnum<LR> =
     <<<LR as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::ImpactsEnum;

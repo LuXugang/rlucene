@@ -1251,9 +1251,9 @@ where
 
         // let mut reorder_doc_maps = None;
         // Don't reorder if an explicit sort is configured.
-        let has_index_sort = self.config.get_index_sort().is_some();
+        let _has_index_sort = self.config.get_index_sort().is_some();
         // Don't reorder if blocks can't be identified using the parent field.
-        let has_blocks_but_no_parent_field = {
+        let _has_blocks_but_no_parent_field = {
             let mut any_block = false;
             let mut any_parent_missing = false;
 
@@ -1273,9 +1273,9 @@ where
             any_block && any_parent_missing
         };
 
-        if !has_index_sort {
-            let _ = !has_blocks_but_no_parent_field;
-        }
+        // if !has_index_sort {
+        //     !has_blocks_but_no_parent_field;
+        // }
 
         todo!()
     }

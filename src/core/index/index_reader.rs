@@ -105,7 +105,9 @@ pub trait IndexReader: Display {
         Ok(())
     }
 
-    fn do_close(&self) -> Result<()>;
+    fn do_close(&self) -> Result<()> {
+        Ok(())
+    }
 
     /// Optional method: Return a [`CacheHelper`] that can be used to cache based on the content of
     /// this reader. Two readers that have different data or different sets of deleted documents will
