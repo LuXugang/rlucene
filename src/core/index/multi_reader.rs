@@ -53,7 +53,7 @@ where
     index_reader_base: IndexReaderBase,
     close_sub_readers: bool,
 }
-
+pub type MultiLeafReader<CR> = MultiReader<CR, DummyCompositeReader<CR>>;
 #[cfg(test)]
 impl MultiReader<DummyLeafReader, DummyCompositeReader<DummyLeafReader>> {
     pub fn empty() -> Result<Self> {

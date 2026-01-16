@@ -443,7 +443,7 @@ where
 mod tests {
     use crate::core::document::document::Document;
     use crate::core::index::BytesRef;
-    use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+
     use crate::core::index::field_infos::FieldNumbers;
     use crate::core::index::fields::Fields;
     use crate::core::index::index_reader::IndexReader;
@@ -475,7 +475,7 @@ mod tests {
         DATA, DocHelper, FIELD_2_FREQS, FIELD_2_TEXT, TEXT_FIELD_2_KEY,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, new_directory_shared, new_io_context, new_io_context_with_default, random,
+        new_directory_shared, new_io_context, new_io_context_with_default, random,
     };
     use crate::test::util::test_util::TestUtil;
     use parking_lot::Mutex;
@@ -555,8 +555,7 @@ mod tests {
             DocHelper::num_fields(&new_doc2),
             DocHelper::num_fields(&doc2) - DATA.unstored.len()
         );
-        let multi_readers: MultiReader<_, DummyCompositeReader<Arc<SegmentReader<DirType>>>> =
-            MultiReader::with_leaf_reader(vec![merged_reader.clone()])?;
+        let multi_readers = MultiReader::with_leaf_reader(vec![merged_reader.clone()])?;
 
         let term_docs = TestUtil::docs_with_reader(
             &mut random,

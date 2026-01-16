@@ -19,7 +19,6 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader::directory_reader_util;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::leaf_reader::LeafReader;
@@ -93,8 +92,7 @@ fn test_bad_seek() -> Result<()> {
             &new_io_context(&mut random)?,
         )?);
         assert!(reader.max_doc()? >= 0);
-        let multi_readers: MultiReader<_, DummyCompositeReader<Arc<SegmentReader<DirType>>>> =
-            MultiReader::with_leaf_reader(vec![reader.clone()])?;
+        let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
 
         let term_docs = TestUtil::docs_with_reader(
             &mut random,
@@ -116,8 +114,7 @@ fn test_bad_seek() -> Result<()> {
             &new_io_context(&mut random)?,
         )?);
         assert!(reader.max_doc()? >= 0);
-        let multi_readers: MultiReader<_, DummyCompositeReader<Arc<SegmentReader<DirType>>>> =
-            MultiReader::with_leaf_reader(vec![reader.clone()])?;
+        let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
         let term_docs = TestUtil::docs_with_reader(
             &mut random,
             &multi_readers,

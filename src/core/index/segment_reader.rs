@@ -582,7 +582,7 @@ impl CacheHelper for CacheHelperImpl {
 pub(crate) mod tests {
     use crate::core::document::document::Document;
     use crate::core::index::BytesRef;
-    use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+
     use crate::core::index::field_infos::get_indexed_fields;
     use crate::core::index::fields::Fields;
     use crate::core::index::index_options::IndexOptions;
@@ -624,8 +624,7 @@ pub(crate) mod tests {
         where
             LR: LeafReader + Clone,
         {
-            let multi_readers: MultiReader<_, DummyCompositeReader<LR>> =
-                MultiReader::with_leaf_reader(vec![reader.clone()])?;
+            let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
             for f in FIELDS.iter() {
                 if *f.field_type().index_options() != IndexOptions::None {
                     let field_name = f.name();
@@ -731,8 +730,7 @@ pub(crate) mod tests {
         let mut random = random();
         let (_dir, _doc, reader) = set_up(&mut random)?;
         let reader = Arc::new(reader);
-        let multi_reader: MultiReader<_, DummyCompositeReader<Arc<SegmentReader<DirType>>>> =
-            MultiReader::with_leaf_reader(vec![reader.clone()])?;
+        let multi_reader = MultiReader::with_leaf_reader(vec![reader.clone()])?;
         let fields = get_indexed_fields(&multi_reader)?;
         for field in fields {
             let terms = get_terms(&multi_reader, &field)?;
@@ -799,8 +797,7 @@ pub(crate) mod tests {
         let (_dir, _doc, reader) = set_up(&mut random)?;
         let reader = Arc::new(reader);
 
-        let multi_reader: MultiReader<_, DummyCompositeReader<Arc<SegmentReader<DirType>>>> =
-            MultiReader::with_leaf_reader(vec![reader.clone()])?;
+        let multi_reader = MultiReader::with_leaf_reader(vec![reader.clone()])?;
 
         let mut term_vectors = multi_reader.term_vectors()?;
         let tv0 = term_vectors.get(0)?.expect("tv0 should exist");
