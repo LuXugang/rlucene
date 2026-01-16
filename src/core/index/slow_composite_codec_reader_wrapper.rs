@@ -25,7 +25,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::{
     CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader, CRStoredFieldsReader,
-    CRTermVectorsReader, CodecReader,
+    CRTermVectorsReader, CodecReader, CodecReaderEnum2,
 };
 use crate::core::index::doc_values::{DocValues, EmptySorted};
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
@@ -68,6 +68,26 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 
+pub(crate) fn wrap<CR>(
+    mut readers: Vec<CR>,
+) -> Result<CodecReaderEnum2<CR, SlowCompositeCodecReaderWrapper<CR>>>
+where
+    CR: CodecReader + Clone,
+{
+    match readers.len() {
+        0 => Err(LuceneError::illegal_argument(
+            "Must take at least one reader, got 0",
+        )),
+        1 => Ok(CodecReaderEnum2::A(readers.pop().unwrap())),
+        _ => Ok(CodecReaderEnum2::B(SlowCompositeCodecReaderWrapper::new(
+            readers,
+        )?)),
+    }
+}
+
+/// A merged [`CodecReader`] view of multiple [`CodecReader`]s.
+///
+/// This view is primarily targeted at merging, not searching.
 pub(crate) struct SlowCompositeCodecReaderWrapper<CR>
 where
     CR: CodecReader + Clone,
