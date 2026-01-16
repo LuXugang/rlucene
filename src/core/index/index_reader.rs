@@ -47,7 +47,7 @@ pub trait IndexReader: Display {
     fn dec_ref(&self) -> Result<()> {
         // only check ref_count here (don't call ensure_open()),
         // so we can still close the reader if it was made invalid by a child.
-        let base = self.base();
+        let base = self.index_base();
         let count = base.ref_count.load(Ordering::Acquire);
         if count <= 0 {
             return Err(LuceneError::already_closed(
@@ -71,7 +71,7 @@ pub trait IndexReader: Display {
     }
 
     fn ensure_open(&self) -> Result<()> {
-        let base = self.base();
+        let base = self.index_base();
         if base.ref_count.load(Ordering::Acquire) <= 0 {
             return Err(LuceneError::already_closed(
                 "this IndexReader is closed".to_string(),
@@ -97,7 +97,7 @@ pub trait IndexReader: Display {
         Ok(self.num_deleted_docs()? > 0)
     }
     fn close(&self) -> Result<()> {
-        let base = self.base();
+        let base = self.index_base();
         if !base.closed.load(Ordering::Acquire) {
             self.dec_ref()?;
             base.closed.store(true, Ordering::Release);
@@ -153,10 +153,10 @@ pub trait IndexReader: Display {
     /// See [`Terms::get_sum_total_term_freq`](crate::core::index::terms::Terms::get_sum_total_term_freq).
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64>;
 
-    fn base(&self) -> &IndexReaderBase;
+    fn index_base(&self) -> &IndexReaderBase;
 
     fn try_inc_ref(&self) -> bool {
-        let base = self.base();
+        let base = self.index_base();
         loop {
             let count = base.ref_count.load(Ordering::Acquire);
             if count <= 0 {
@@ -176,7 +176,7 @@ pub trait IndexReader: Display {
     }
 
     fn get_ref_count(&self) -> i32 {
-        let base = self.base();
+        let base = self.index_base();
         base.ref_count.load(Ordering::Acquire)
     }
 }
@@ -391,10 +391,10 @@ where
         }
     }
 
-    fn base(&self) -> &IndexReaderBase {
+    fn index_base(&self) -> &IndexReaderBase {
         match self {
-            IndexReaderEnum::Leaf(leaf) => leaf.base(),
-            IndexReaderEnum::Composite(comp) => comp.base(),
+            IndexReaderEnum::Leaf(leaf) => leaf.index_base(),
+            IndexReaderEnum::Composite(comp) => comp.index_base(),
         }
     }
 }
@@ -472,8 +472,8 @@ where
         (**self).get_sum_total_term_freq(field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        (**self).base()
+    fn index_base(&self) -> &IndexReaderBase {
+        (**self).index_base()
     }
 }
 impl<IR> IndexReader for Arc<IR>
@@ -550,8 +550,8 @@ where
         (**self).get_sum_total_term_freq(field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        (**self).base()
+    fn index_base(&self) -> &IndexReaderBase {
+        (**self).index_base()
     }
 }
 /// A lightweight identity marker used to distinguish instances by identity,

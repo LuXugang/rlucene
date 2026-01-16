@@ -204,8 +204,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.in_.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        unreachable!("should never be called")
     }
 }
 
@@ -274,6 +274,7 @@ where
     base: FilterCodecReader<CR>,
     live_docs: Option<B>,
     num_docs: i32,
+    index_base: IndexReaderBase,
 }
 impl<CR, B> FilterCodecReaderImpl<CR, B>
 where
@@ -286,6 +287,7 @@ where
             base,
             live_docs,
             num_docs,
+            index_base: IndexReaderBase::new(),
         }
     }
 }
@@ -432,8 +434,8 @@ where
         IndexReader::get_sum_total_term_freq(&self.base, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.base.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 

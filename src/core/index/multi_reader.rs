@@ -183,7 +183,7 @@ where
             .get_sum_total_term_freq(field, self)
     }
 
-    fn base(&self) -> &IndexReaderBase {
+    fn index_base(&self) -> &IndexReaderBase {
         &self.index_reader_base
     }
 }

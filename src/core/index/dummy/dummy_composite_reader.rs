@@ -89,7 +89,7 @@ impl<LR> IndexReader for DummyCompositeReader<LR> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn base(&self) -> &IndexReaderBase {
+    fn index_base(&self) -> &IndexReaderBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

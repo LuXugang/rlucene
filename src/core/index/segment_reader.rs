@@ -71,7 +71,7 @@ where
     is_nrt: bool,
     doc_values_producer: Option<Arc<DocValuesProducers<D>>>,
     field_infos: Arc<FieldInfos>,
-    base: IndexReaderBase,
+    index_base: IndexReaderBase,
     reader_cache_helper: CacheHelperImpl,
 }
 impl<D> SegmentReader<D>
@@ -108,7 +108,7 @@ where
             num_docs,
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
-            base: IndexReaderBase::new(),
+            index_base: IndexReaderBase::new(),
             reader_cache_helper: CacheHelperImpl::new(),
         };
         let result = (|| {
@@ -199,7 +199,7 @@ where
             num_docs,
             field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
-            base: IndexReaderBase::new(),
+            index_base: IndexReaderBase::new(),
             reader_cache_helper: CacheHelperImpl::new(),
         };
         let result = (|| {
@@ -407,8 +407,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        &self.base
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 impl<D> LeafReader for SegmentReader<D>

@@ -95,6 +95,7 @@ where
     doc_map: DM,
     meta_data: LeafMetaData,
     inner: Arc<Mutex<Inner>>,
+    index_base: IndexReaderBase,
 }
 pub struct Inner {
     // we try to cache the last used DV or Norms instance since during merge
@@ -125,6 +126,7 @@ where
             doc_map,
             meta_data,
             inner,
+            index_base: IndexReaderBase::new(),
         }
     }
 }
@@ -274,8 +276,8 @@ where
         IndexReader::get_sum_total_term_freq(&self.base, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.base.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 
@@ -1224,6 +1226,7 @@ where
 {
     base: FilterCodecReader<CR>,
     new_meta_data: LeafMetaData,
+    index_base: IndexReaderBase,
 }
 impl<CR> FilterCodecReaderImpl<CR>
 where
@@ -1234,6 +1237,7 @@ where
         Self {
             base,
             new_meta_data,
+            index_base: IndexReaderBase::new(),
         }
     }
 }
@@ -1378,8 +1382,8 @@ where
         IndexReader::get_sum_total_term_freq(&self.base, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.base.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 
@@ -1727,10 +1731,10 @@ where
         }
     }
 
-    fn base(&self) -> &IndexReaderBase {
+    fn index_base(&self) -> &IndexReaderBase {
         match self {
-            SortingCodecReaderEnum::Filter(v) => v.base(),
-            SortingCodecReaderEnum::Sorting(v) => v.base(),
+            SortingCodecReaderEnum::Filter(v) => v.index_base(),
+            SortingCodecReaderEnum::Sorting(v) => v.index_base(),
         }
     }
 }

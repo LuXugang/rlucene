@@ -61,7 +61,7 @@ where
     // if Some, this reader owns the SegmentInfos, else from IndexWriter
     pub(crate) segment_infos: Option<SegmentInfos<D>>,
     sub_reader_sorter: Option<Arc<C>>,
-    base: IndexReaderBase,
+    index_base: IndexReaderBase,
     closed: Option<Arc<AtomicBool>>,
     cache_helper: CacheHelperImpl,
 }
@@ -90,7 +90,7 @@ where
             write_all_deletes,
             segment_infos: Some(segment_infos),
             sub_reader_sorter: leaf_sorter,
-            base: IndexReaderBase::new(),
+            index_base: IndexReaderBase::new(),
             closed,
             cache_helper: CacheHelperImpl::new(),
         })
@@ -308,8 +308,8 @@ where
             .get_sum_total_term_freq(field, self)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        &self.base
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 

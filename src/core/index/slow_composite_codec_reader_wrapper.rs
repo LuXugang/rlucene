@@ -78,7 +78,7 @@ where
     field_infos: Arc<FieldInfos>,
     live_docs: Option<Arc<BitsType<MultiLeafReader<CR>>>>,
     inner: Mutex<Inner>,
-    base: IndexReaderBase,
+    index_base: IndexReaderBase,
 }
 struct Inner {
     num_docs: i32,
@@ -139,7 +139,7 @@ where
             field_infos,
             live_docs,
             inner,
-            base: IndexReaderBase::new(),
+            index_base: IndexReaderBase::new(),
         })
     }
 }
@@ -304,8 +304,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        &self.base
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 

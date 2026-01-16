@@ -94,7 +94,7 @@ impl IndexReader for DocValuesLeafReader {
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
         LeafReader::get_sum_total_term_freq(self, field)
     }
-    fn base(&self) -> &IndexReaderBase {
+    fn index_base(&self) -> &IndexReaderBase {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

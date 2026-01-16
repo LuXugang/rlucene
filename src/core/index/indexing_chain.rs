@@ -1981,6 +1981,7 @@ where
     index_chain: &'a mut IndexingChain<D>,
     base: DocValuesLeafReader,
     field_info: &'a mut Builder,
+    index_base: IndexReaderBase,
 }
 impl<'a, D> DocValuesLeafReaderImpl1<'a, D>
 where
@@ -1992,6 +1993,7 @@ where
             index_chain,
             base,
             field_info,
+            index_base: IndexReaderBase::new(),
         }
     }
 }
@@ -2059,8 +2061,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.base.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 
@@ -2257,6 +2259,7 @@ where
     dv_type: &'a DocValuesType,
     base: DocValuesLeafReader,
     sort_field: &'a SFB,
+    index_base: IndexReaderBase,
 }
 impl<'a, SFB> DocValuesLeafReaderImpl2<'a, SFB>
 where
@@ -2269,6 +2272,7 @@ where
             dv_type,
             base,
             sort_field,
+            index_base: IndexReaderBase::new(),
         }
     }
 }
@@ -2334,8 +2338,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.base.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 

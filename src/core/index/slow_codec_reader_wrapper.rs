@@ -53,13 +53,17 @@ where
     LR: LeafReader + Clone,
 {
     reader: LR,
+    index_base: IndexReaderBase,
 }
 impl<LR> CodecReaderImpl<LR>
 where
     LR: LeafReader + Clone,
 {
     pub(crate) fn new(reader: LR) -> Self {
-        Self { reader }
+        Self {
+            reader,
+            index_base: IndexReaderBase::new(),
+        }
     }
 }
 
@@ -210,8 +214,8 @@ where
         LeafReader::get_sum_total_term_freq(self, field)
     }
 
-    fn base(&self) -> &IndexReaderBase {
-        self.reader.base()
+    fn index_base(&self) -> &IndexReaderBase {
+        &self.index_base
     }
 }
 
