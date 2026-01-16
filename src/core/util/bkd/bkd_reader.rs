@@ -213,11 +213,11 @@ impl<I> PointValues for BKDReader<I>
 where
     I: IndexInput,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         Ok(Some(Cow::Borrowed(&self.min_packed_value)))
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         Ok(Some(Cow::Borrowed(&self.max_packed_value)))
     }
 

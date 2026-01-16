@@ -884,11 +884,11 @@ where
     PV: PointValues,
     DM: DocMap + Clone,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         self.in_.get_min_packed_value()
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         self.in_.get_max_packed_value()
     }
 

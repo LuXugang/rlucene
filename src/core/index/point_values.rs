@@ -32,11 +32,11 @@ use std::sync::Arc;
 pub trait PointValues: Clone {
     /// Returns minimum value for each dimension, packed, or None if `size()` is
     /// `0`
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>>;
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>>;
 
     /// Returns maximum value for each dimension, packed, or None if `size()` is
     /// `0`
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>>;
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>>;
 
     /// Returns how many dimensions are represented in the values
     fn get_num_dimensions(&self) -> Result<usize>;
@@ -691,14 +691,14 @@ where
     A: PointValues,
     B: PointValues,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         match self {
             PointValuesEnum2::A(values) => values.get_min_packed_value(),
             PointValuesEnum2::B(values) => values.get_min_packed_value(),
         }
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         match self {
             PointValuesEnum2::A(values) => values.get_max_packed_value(),
             PointValuesEnum2::B(values) => values.get_max_packed_value(),
@@ -765,11 +765,11 @@ impl<T> PointValues for Arc<T>
 where
     T: PointValues,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         (**self).get_min_packed_value()
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         (**self).get_max_packed_value()
     }
 

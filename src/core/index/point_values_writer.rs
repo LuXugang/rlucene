@@ -250,11 +250,11 @@ impl<DM> PointValues for PointValuesImpl<DM>
 where
     DM: DocMap,
 {
-    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, Vec<u8>>>> {
+    fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
