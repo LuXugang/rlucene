@@ -315,11 +315,11 @@ where
         Ok(false)
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::unsupported_operation(""))
     }
 

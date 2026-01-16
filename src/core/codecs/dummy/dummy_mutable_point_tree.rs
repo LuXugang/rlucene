@@ -19,6 +19,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::point_values::{IntersectVisitor, PointTree};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 pub struct DummyMutablePointTree;
 
@@ -44,11 +45,11 @@ impl PointTree for DummyMutablePointTree {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

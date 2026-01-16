@@ -18,6 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::point_values::{IntersectVisitor, PointTree};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error;
+use std::borrow::Cow;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
@@ -75,14 +76,14 @@ where
         }
     }
 
-    fn get_min_packed_value(&self) -> lucene_error::Result<&[u8]> {
+    fn get_min_packed_value(&self) -> lucene_error::Result<Cow<'_, [u8]>> {
         match self {
             MutablePointTreeEnum2::A(t) => t.get_min_packed_value(),
             MutablePointTreeEnum2::B(s) => s.get_min_packed_value(),
         }
     }
 
-    fn get_max_packed_value(&self) -> lucene_error::Result<&[u8]> {
+    fn get_max_packed_value(&self) -> lucene_error::Result<Cow<'_, [u8]>> {
         match self {
             MutablePointTreeEnum2::A(t) => t.get_max_packed_value(),
             MutablePointTreeEnum2::B(s) => s.get_max_packed_value(),

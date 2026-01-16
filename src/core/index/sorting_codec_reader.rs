@@ -981,11 +981,11 @@ where
         self.index_tree.move_to_parent()
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         self.index_tree.get_min_packed_value()
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         self.index_tree.get_max_packed_value()
     }
 

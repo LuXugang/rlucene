@@ -479,7 +479,7 @@ fn find_next_value<P>(
 where
     P: PointTree,
 {
-    let cmp = comparator.compare(point_tree.get_max_packed_value()?, 0, value, 0);
+    let cmp = comparator.compare(point_tree.get_max_packed_value()?.as_ref(), 0, value, 0);
 
     if cmp < 0 || (cmp == 0 && !allow_equal) {
         return Ok(None);
@@ -565,7 +565,7 @@ where
             }
         }
 
-        let cmp = comparator.compare(point_tree.get_min_packed_value()?, 0, value, 0);
+        let cmp = comparator.compare(point_tree.get_min_packed_value()?.as_ref(), 0, value, 0);
         if cmp > 0 {
             // This node doesn't have `value`, so next nodes can't either
             break;
@@ -585,7 +585,7 @@ where
             }
         } else {
             loop {
-                let cmp = comparator.compare(next.get_min_packed_value()?, 0, value, 0);
+                let cmp = comparator.compare(next.get_min_packed_value()?.as_ref(), 0, value, 0);
                 if cmp > 0 {
                     // This node doesn't have `value`, so next nodes can't either
                     break;

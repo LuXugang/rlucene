@@ -1189,12 +1189,12 @@ where
         Ok(true)
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
-        Ok(&self.min_packed_value)
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+        Ok(Cow::Borrowed(&self.min_packed_value))
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
-        Ok(&self.max_packed_value)
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+        Ok(Cow::Borrowed(&self.max_packed_value))
     }
 
     fn size(&self) -> Result<usize> {

@@ -330,8 +330,8 @@ where
         point_tree: &mut impl PointTree,
     ) -> Result<()> {
         let relation = visitor.compare(
-            point_tree.get_min_packed_value()?,
-            point_tree.get_max_packed_value()?,
+            point_tree.get_min_packed_value()?.as_ref(),
+            point_tree.get_max_packed_value()?.as_ref(),
         )?;
 
         match relation {

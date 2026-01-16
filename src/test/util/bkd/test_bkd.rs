@@ -1179,8 +1179,8 @@ fn random_point_tree_navigation<R: Rng + ?Sized>(
     tree: &mut impl PointTree,
     random: &mut R,
 ) -> Result<()> {
-    let min_packed_value = tree.get_min_packed_value()?.to_vec();
-    let max_packed_value = tree.get_max_packed_value()?.to_vec();
+    let min_packed_value = tree.get_min_packed_value()?.as_ref().to_vec();
+    let max_packed_value = tree.get_max_packed_value()?.as_ref().to_vec();
     let size = tree.size()?;
 
     if random.random_bool(0.5) && tree.move_to_child()? {
@@ -1192,8 +1192,14 @@ fn random_point_tree_navigation<R: Rng + ?Sized>(
     }
 
     // Ensure we always finish on the same node we started
-    assert_eq!(min_packed_value, tree.get_min_packed_value()?);
-    assert_eq!(max_packed_value, tree.get_max_packed_value()?);
+    assert_eq!(
+        min_packed_value.as_slice(),
+        tree.get_min_packed_value()?.as_ref()
+    );
+    assert_eq!(
+        max_packed_value.as_slice(),
+        tree.get_max_packed_value()?.as_ref()
+    );
     assert_eq!(size, tree.size()?);
 
     Ok(())

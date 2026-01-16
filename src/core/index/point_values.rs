@@ -262,8 +262,8 @@ fn intersect_with_point_tree(
     point_tree: &mut impl PointTree,
 ) -> Result<()> {
     let relation = visitor.compare(
-        point_tree.get_min_packed_value()?,
-        point_tree.get_max_packed_value()?,
+        point_tree.get_min_packed_value()?.as_ref(),
+        point_tree.get_max_packed_value()?.as_ref(),
     )?;
 
     match relation {
@@ -303,8 +303,8 @@ fn estimate_point_count_with_point_tree(
     upper_bound: i64,
 ) -> Result<i64> {
     let relation = visitor.compare(
-        point_tree.get_min_packed_value()?,
-        point_tree.get_max_packed_value()?,
+        point_tree.get_min_packed_value()?.as_ref(),
+        point_tree.get_max_packed_value()?.as_ref(),
     )?;
 
     match relation {
@@ -379,14 +379,14 @@ pub trait PointTree: TryClone {
     }
 
     /// Return the minimum packed value of the current node.
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::need_implemented(
             "get_min_packed_value is not implemented",
         ))
     }
 
     /// Return the maximum packed value of the current node.
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::need_implemented(
             "get_max_packed_value is not implemented",
         ))
@@ -549,14 +549,14 @@ where
         }
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         match self {
             PointTreeEnum::Mutable(mpt) => mpt.get_min_packed_value(),
             PointTreeEnum::Other(pt) => pt.get_min_packed_value(),
         }
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         match self {
             PointTreeEnum::Mutable(mpt) => mpt.get_max_packed_value(),
             PointTreeEnum::Other(pt) => pt.get_max_packed_value(),
@@ -638,14 +638,14 @@ where
         }
     }
 
-    fn get_min_packed_value(&self) -> Result<&[u8]> {
+    fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         match self {
             PointTreeEnum2::A(tree) => tree.get_min_packed_value(),
             PointTreeEnum2::B(tree) => tree.get_min_packed_value(),
         }
     }
 
-    fn get_max_packed_value(&self) -> Result<&[u8]> {
+    fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         match self {
             PointTreeEnum2::A(tree) => tree.get_max_packed_value(),
             PointTreeEnum2::B(tree) => tree.get_max_packed_value(),
