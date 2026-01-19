@@ -2990,14 +2990,9 @@ where
                                 ));
                             },
                         };
-                        e.insert(Arc::new(v));
+                        e.insert(v);
                     }
-                    let mapped_updates_arc = mapped_field.get_mut(&updates.del_gen).unwrap();
-                    let mapped_updates = Arc::get_mut(mapped_updates_arc).ok_or_else(|| {
-                        LuceneError::illegal_state(
-                            "failed to get mutable reference to mapped updates",
-                        )
-                    })?;
+                    let mapped_updates = mapped_field.get_mut(&updates.del_gen).unwrap();
 
                     let mut it = updates.iterator()?;
                     loop {
@@ -3023,14 +3018,7 @@ where
             // Persist the merged DV updates onto the RAU for the merged segment:
             for d in mapped_dv_updates.into_values() {
                 for mut updates in d.into_values() {
-                    {
-                        let v = Arc::get_mut(&mut updates).ok_or_else(|| {
-                            LuceneError::illegal_state(
-                                "failed to get mutable reference to dv updates",
-                            )
-                        })?;
-                        v.finish()?;
-                    }
+                    updates.finish()?;
                     merged_deletes_and_updates.add_dv_update(updates)?;
                 }
             }
