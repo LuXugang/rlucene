@@ -93,7 +93,7 @@ where
     // TODO IMPORTANT 这个字段什么时候释放比较合适呢？
     dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
     deleter: IndexFileDeleter<D>,
-    // list of segmentInfo we will fallback to if the commit fails
+    // list of segmentInfo we will fall back to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
     // increments every time a change is completed
     change_count: i64,
@@ -212,7 +212,7 @@ where
                     };
                 }
 
-                // Try to read first. This is to allow create
+                // Try to read first. This is to allow creation
                 // against an index that's currently open for
                 // searching. In this case we write the next
                 // segments_N file with no segments:
@@ -284,7 +284,7 @@ where
 
             // start with previous field numbers, but new FieldInfos
             // NOTE: this is correct even for an NRT reader because we'll pull FieldInfos
-            // even for the un-committed segments:
+            // even for the uncommitted segments:
             let global_field_number_map = Self::get_field_number_map(&conf, &segment_infos)?;
 
             let fields = global_field_number_map.get_field_names();
@@ -340,7 +340,7 @@ where
 
             if deleter.starting_commit_deleted {
                 // Deletion policy deleted the "head" commit point.
-                // We have to mark ourself as changed so that if we
+                // We have to mark ourselves as changed so that if we
                 // are closed w/o any further changes we write a new
                 // segments_N file.
                 Self::changed(&mut change_count, &mut segment_infos);
@@ -526,7 +526,7 @@ where
     ///   changes may have been lost.
     ///
     /// Note that this may be a costly operation, so try to re-use a single writer instead of
-    /// frequently closing and opening new ones. See [`commit()`](Self::commit) for caveats about write caching done
+    /// frequently closing and opening new ones. See [`commit()`](Self::commit) for caveats about wingite caching done
     /// by some IO devices.
     ///
     /// **NOTE**: You must ensure no other threads are still making changes at the same time
@@ -658,7 +658,7 @@ where
     /// external reader will see all or none of the documents.
     ///
     /// **WARNING**: the index does not currently record which documents were added as a block.
-    /// Currently this is fine, because merging will preserve a block. The order of documents within a
+    /// Curren,tly this is fine, because merging will preserve a block. The order of documents within a
     /// segment will be preserved, even when child documents within a block are deleted. Most search
     /// features (like result grouping and block joining) require you to mark documents; when these
     /// documents are deleted those features will not work as expected. Adding documents to an existing
@@ -822,10 +822,10 @@ where
             None => (false, -1),
         };
         let res: Result<()> = (|| {
-            // this is sneaky - we might hit an exception while dropping a reader but then we have
+            // this is sneaky - we might hit an exception while dropping a reader, but then we have
             // already
             // removed the segment for the segmentInfo and we lost the pendingDocs update due to that.
-            // therefore we execute the adjustPendingNumDocs in a finally block to account for that.
+            // therefore, we execute the adjustPendingNumDocs in a finally block to account for that.
             drop_pending_docs |= self.reader_pool.drop(seg_id)?;
             Ok(())
         })();
@@ -1058,7 +1058,7 @@ where
                     name
                 )));
             }
-            // if this field doesn't exists we try to add it.
+            // if this field doesn't exist we try to add it.
             // if it exists and the DV type doesn't match or it is not DV only field,
             // we will get an error.
             self.global_field_number_map
@@ -1449,7 +1449,7 @@ where
                 }
 
                 // So that, if we hit exc in deleteNewFiles (next) or in commitMerge (later),
-                // we close the per-segment readers in the finally clause below:
+                // we close the per-segment readers in the final clause below:
                 success = false;
                 {
                     let _inner = self.inner.lock();
@@ -1476,7 +1476,7 @@ where
                 }
             } else {
                 // So that, if we hit exc in commitMerge (later), we close the per-segment readers in the
-                // finally clause below:
+                // final clause below:
                 success = false;
             }
             // Have codec write SegmentInfo.  Must do this after
@@ -1532,7 +1532,7 @@ where
         };
 
         // Important to increment change_count so that segment_infos
-        // is written on close. Otherwise we could close, re-open,
+        // is written on close. Otherwise, we could close, re-open,
         // and re-return the same segment name which can cause
         // problems at least with ConcurrentMergeScheduler.
         inner.change_count += 1;
@@ -1599,7 +1599,7 @@ where
     /// Just like [`IndexWriter::force_merge`], except you can specify whether the call
     /// should block until all merging completes.
     ///
-    /// This is only meaningful with a [`MergeScheduler`](crate::core::index::merge_scheduler::MergeScheduler) that is able to run merges
+    /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
     /// in background threads.
     pub fn force_merge_with_wait(&self, max_num_segments: i32, do_wait: bool) -> Result<()> {
         self.ensure_open()?;
@@ -2043,7 +2043,7 @@ where
                 new_segment.get_del_count() == new_segment.info.max_doc()?;
             // we either have a fully hard-deleted segment or one or more docs are soft-deleted. In both
             // cases we need
-            // to go and check if they are fully deleted. This has the nice side-effect that we now have
+            // to go and check if they are fully deleted. This has the nice side effect that we now have
             // accurate numbers
             // for the soft delete right after we flushed to disk.
             if has_initial_soft_deleted || is_fully_hard_deleted {
@@ -2244,7 +2244,7 @@ where
                     // Must clone the segmentInfos while we still
                     // hold fullFlushLock and while sync'd so that
                     // no partial changes (eg a delete w/o
-                    // corresponding add from an updateDocument) can
+                    // corresponding to add from an updateDocument) can
                     // sneak into the commit point:
                     to_commit = Some(inner.segment_infos.try_clone()?);
                     self.pending_commit_change_count
@@ -2380,7 +2380,7 @@ where
     /// Calling this method is considered a **committable change** and will be
     /// [`commit`](Self::commit) committed even if there are no other changes in this writer.
     /// Note that you must call this method **before** [`prepare_commit`](Self::prepare_commit).
-    /// Otherwise it will not be included in the subsequent [`commit`](Self::commit).
+    /// Otherwise it will not be included in the subsequent [`co,mmit`](Self::commit).
     ///
     ///
     /// **NOTE:**
@@ -2415,7 +2415,7 @@ where
             let ram_buffer_size_mb = self.config.get_ram_buffer_size_mb();
             // If the reader pool is > 50% of our IW buffer, then write the updates:
             if ram_buffer_size_mb != DISABLE_AUTO_FLUSH as f64 {
-                let start_ns = std::time::Instant::now();
+                let start_ns = Instant::now();
                 let mut ram_bytes_used = self.reader_pool.ram_bytes_used();
                 let limit = (0.5 * ram_buffer_size_mb * 1024.0 * 1024.0) as i64;
 
@@ -2445,7 +2445,7 @@ where
                         if bytes_used_before == 0 {
                             continue; // nothing to do here - lets not acquire the lock
                         }
-                        // Only acquire IW lock on each write, since this is a time consuming operation.  This
+                        // Only acquire IW lock on each write, since this is a time-consuming operation.  This
                         // way
                         // other threads get a chance to run in between our writes.
                         {
@@ -2903,7 +2903,7 @@ where
         // Lazy init (only when we find a delete or update to carry over):
         let merged_deletes_and_updates =
             self.get_pooled_instance(sci, true, None)?.ok_or_else(|| {
-                LuceneError::illegal_state("failed to get pooled instance for merged segment")
+                LuceneError::illegal_state("failed to get pooled instance for a merged segment")
             })?;
 
         let _ = merged_deletes_and_updates.get_del_count(sci);
@@ -2945,7 +2945,7 @@ where
 
             // Now carry over all doc values updates that were resolved while we were merging, remapping
             // the docIDs to the newly merged docIDs.
-            // We only carry over packets that finished resolving; if any are still running (concurrently)
+            // We only carry over packets that finished resolving; if any are still running (concurrently),
             // they will detect that our merge completed
             // and re-resolve against the newly merged segment:
             let merging_dv_updates = rld.get_merging_dv_updates();
@@ -3058,8 +3058,8 @@ where
         B1: Bits,
         B2: Bits,
     {
-        // if we mix soft and hard deletes we need to make sure that we only carry over deletes
-        // that were not deleted before. Otherwise the segDocMap doesn't contain a mapping.
+        // if we mix soft and hard deletes, we need to make sure that we only carry over deletes
+        // that were not deleted before. Otherwise, the segDocMap doesn't contain a mapping.
         // yet this is also required if any MergePolicy modifies the liveDocs since this is
         // what the segDocMap is build on.
         if let Some(current_hard_live_docs) = current_hard_live_docs {
@@ -3069,13 +3069,13 @@ where
             };
 
             if let Some(prev_hard_live_docs) = prev_hard_live_docs {
-                // If we had deletions on starting the merge we must
+                // If we had deletions on starting the merge, we must
                 // still have deletions now:
                 debug_assert!(prev_hard_live_docs.length() == max_doc as usize);
                 debug_assert!(current_hard_live_docs.length() == max_doc as usize);
 
                 // There were deletes on this segment when the merge
-                // started.  The merge has collapsed away those
+                // started.  The merge has collapsed away this
                 // deletes, but, if new deletes were flushed since
                 // the merge started, we must now carefully keep any
                 // newly flushed deletes but mapping them to the new
@@ -3103,7 +3103,7 @@ where
                 // }
             } else {
                 debug_assert!(current_hard_live_docs.length() == max_doc as usize);
-                // This segment had no deletes before but now it
+                // This segment had no deletes before, but now it
                 // does:
                 for j in 0..max_doc {
                     if carry_over_delete(j)? {
@@ -3135,7 +3135,7 @@ where
         // rollbackTransaction() had been called since our merge
         // started (which results in an unqualified
         // deleter.refresh() call that will remove any index
-        // file that current segments does not reference), we
+        // file that current segments do not reference), we
         // abort this merge
         if merge.is_aborted() {
             // In case we opened and pooled a reader for this
@@ -3145,7 +3145,7 @@ where
             // reader will never be used by any NRT reader, and
             // another thread is currently running close(false)
             // so it will be dropped shortly anyway, but not
-            // doing this  makes  MockDirWrapper angry in
+            // doing this makes  MockDirWrapper angry in
             // TestNRTThreads (LUCENE-5434):
             if let Some(ref info) = merge.info {
                 self.reader_pool.drop(&info.info.get_id_str())?;
@@ -3428,7 +3428,7 @@ where
                 break;
             }
         }
-        // Bind a new segment name here so even with
+        // Bind a new segment name here, so even with
         // ConcurrentMergePolicy we keep deterministic segment
         // names.
         let merge_segment_name = self.new_segment_name(Some(&mut inner));
@@ -3822,7 +3822,7 @@ where
             ticket.mark_published();
             let new_segment = ticket.get_flushed_segment();
             match new_segment {
-                // this is a flushed global deletes package - not a segments
+                // this is a flushed global deletes package - not a segment
                 None => {
                     if let Some(buffered_updates) = buffered_updates
                         && buffered_updates.any()
@@ -4015,8 +4015,9 @@ where
     ) -> Result<bool> {
         if readers_and_updates.is_fully_deleted(info)? {
             debug_assert!(self.inner.is_locked());
-            return Ok(!(readers_and_updates
-                .keep_fully_deleted_segment(self.config.get_merge_policy())?));
+            return Ok(
+                !readers_and_updates.keep_fully_deleted_segment(self.config.get_merge_policy())?
+            );
         }
         Ok(false)
     }
@@ -4039,7 +4040,7 @@ where
         let info = match inner.segment_infos.info_mut(info_id) {
             Some(info) => info,
             None => {
-                // SegmentCommitInfo maybe remove , it's ownership moved to `dropped_segment_commit_infos`
+                // SegmentCommitInfo maybe remove, it's ownership moved to `dropped_segment_commit_infos`
                 match inner.dropped_segment_commit_infos.get_mut(info_id) {
                     Some(info) => info,
                     None => {
@@ -4094,7 +4095,7 @@ where
         if updates.is_applied() {
             return Ok(());
         }
-        let start_ns = std::time::Instant::now();
+        let start_ns = Instant::now();
         debug_assert!(updates.any());
         let mut seen_segments: HashSet<String> = HashSet::new();
         let mut iter: i32 = 0;
@@ -4225,7 +4226,7 @@ where
             }
 
             {
-                // Must sync on writer here so that IW.mergeCommit is not running concurrently, so that if
+                // Must sync on a writer here so that IW.mergeCommit is not running concurrently, so that if
                 // we exit, we know mergeCommit will succeed
                 // in pulling all our delGens into a merge:
                 let _inner = self.inner.lock();
@@ -4516,7 +4517,7 @@ where
             ));
         }
 
-        let _t_start = std::time::Instant::now();
+        let _t_start = Instant::now();
 
         if self.info_stream.enabled("IW") {
             self.info_stream.message("IW", "flush at getReader");
@@ -4535,17 +4536,17 @@ where
         let max_full_flush_merge_wait_millis = self.config.get_max_full_flush_merge_wait_millis();
 
         /*
-         * for releasing a NRT reader we must ensure that
+         * for releasing a NRT reader, we must ensure that
          * DW doesn't add any segments or deletes until we are
          * done with creating the NRT DirectoryReader.
-         * We release the two stage full flush after we are done opening the
+         * We release the two-stage full flush after we are done opening the
          * directory reader!
          */
         // let mut on_get_reader_merges = None;
-        let _stop_collecting_merged_readers = std::sync::atomic::AtomicBool::new(false);
+        let _stop_collecting_merged_readers = AtomicBool::new(false);
         // let mut merged_readers =
         //     std::collections::HashMap::new();
-        let mut opened_read_only_clones = std::collections::HashMap::new();
+        let mut opened_read_only_clones = HashMap::new();
 
         let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
         let _opening_segment_infos: Option<SegmentInfos<D>> = None;
@@ -4555,17 +4556,17 @@ where
              - flush all currently in-memory DWPTs to disk
              - apply all deletes & updates to new and to the existing DWPTs
              - prevent flushes and applying deletes of concurrently indexing DWPTs to be applied
-             - open a SDR on the updated SIS
+             - open an SDR on the updated SIS
 
-            In order to prevent concurrent flushes we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
-            (this enforces a happens before relationship between this and the subsequent full flush) and informs the
+            In order to prevent concurrent flushes, we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
+            (this enforces a happened before relationship between this and the subsequent full flush) and informs the
             FlushControl (#markForFullFlush()) that it should prevent any new DWPTs from flushing until we are done
             (DocumentsWriter#finishFullFlush(boolean)). All this is guarded by the fullFlushLock to prevent multiple
-            full flushes from happening concurrently. Once the DocWriter has initiated a full flush we can sequentially flush
+            full flushes from happening concurrently. Once the DocWriter has initiated a full flush, we can sequentially flush
             and apply deletes & updates to the written segments without worrying about concurrently indexing DWPTs. The important
             aspect is that it all happens between DocumentsWriter#flushAllThread() and DocumentsWriter#finishFullFlush(boolean)
             since once the flush is marked as done deletes start to be applied to the segments on disk without guarantees that
-            the corresponding added documents (in the update case) are flushed and visible when opening a SDR.
+            the corresponding added documents (in the update case) are flushed and visible when opening an SDR.
             */
 
             let mut success = false;
@@ -4589,7 +4590,7 @@ where
 
                         // TODO: we could instead just clone SIS and pull/incref readers in sync'd block, and
                         // then do this w/o IW's lock?
-                        // Must do this sync'd on IW to prevent a merge from completing at the last second and
+                        // Must do this sync's on IW to prevent a merge from completing at the last second and
                         // failing to write its DV updates:
                         self.write_reader_pool(write_all_deletes, &mut inner)?;
                         // Prevent segmentInfos from changing while opening the
@@ -5213,7 +5214,7 @@ pub const ACTUAL_MAX_DOCS: i32 = MAX_DOCS;
 pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
 const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
 pub const WRITE_LOCK_NAME: &str = "write.lock";
-/// Key for the source of a segment in the [`SegmentInfo#get_diagnostics()`](crate::core::index::segment_info::SegmentInfo::get_diagnostics)
+/// Key for the source of a segment in the [`SegmentInfo#get_diagnostics()`](SegmentInfo::get_diagnostics)
 pub const SOURCE: &str = "source";
 /// Source of a segment which results from a merge of other segments.
 pub const SOURCE_MERGE: &str = "merge";
@@ -5283,7 +5284,7 @@ where
     let reader = codec.field_infos_format();
 
     if si.has_field_updates() {
-        // there are updates, we read latest (always outside of CFS)
+        // there are updates, we read latest (always outside CFS)
         let segment_suffix = BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
         reader.read(
             si.info.dir.as_ref(),
