@@ -28,6 +28,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::index_commit::IndexCommit;
 
 use crate::core::index::index_writer::get_actual_max_docs;
+use crate::core::index::merge_policy::OneMergeSR;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
@@ -975,49 +976,79 @@ where
         self.version = new_version;
         Ok(())
     }
-    // /// Applies all changes caused by committing a merge to this
-    // `SegmentInfos`. pub fn apply_merge_changes(
-    //     &mut self,
-    //     merge: &MergePolicy<D, W>,
-    //     drop_segment: bool,
-    // ) -> Result<()> {
-    //     if self.index_created_version_major >= 7 &&
-    // merge.info.info.min_version.is_none() {         return
-    // Err(LuceneError::illegal_argument(             "All segments must
-    // record the minVersion for indices created on or after Lucene 7"
-    //                 .to_string(),
-    //         ));
-    //     }
-    //
-    //     let merged_away: HashSet<_> =
-    // merge.segments.iter().cloned().collect();     let mut inserted =
-    // false;     let mut new_seg_idx = 0;
-    //
-    //     for seg_idx in 0..self.segments.len() {
-    //         debug_assert!(seg_idx >= new_seg_idx);
-    //         let info = &self.segments[seg_idx];
-    //         if merged_away.contains(info) {
-    //             if !inserted && !drop_segment {
-    //                 self.segments[new_seg_idx] = merge.info.clone();
-    //                 inserted = true;
-    //                 new_seg_idx += 1;
-    //             }
-    //         } else {
-    //             self.segments[new_seg_idx] = info.clone();
-    //             new_seg_idx += 1;
-    //         }
-    //     }
-    //
-    //     // Remove duplicate segments from the list
-    //     self.segments.truncate(new_seg_idx);
-    //
-    //     // If we didn't insert the new segment, check if we should add it to
-    // the beginning     if !inserted && !drop_segment {
-    //         self.segments.insert(0, merge.info.clone());
-    //     }
-    //
-    //     Ok(())
-    // }
+    /// Applies all changes caused by committing a merge to this `SegmentInfos`
+    pub(crate) fn apply_merge_changes(
+        &mut self,
+        merge: &mut OneMergeSR<D>,
+        drop_segment: bool,
+    ) -> Result<()> {
+        if self.index_created_version_major >= 7
+            && merge
+                .info
+                .as_ref()
+                .and_then(|sci| sci.info.get_min_version())
+                .is_none()
+        {
+            return Err(LuceneError::illegal_argument(
+                "All segments must record the minVersion for indices created on or after Lucene 7",
+            ));
+        }
+
+        let merged_away: HashSet<String> = merge.stat.segments.iter().cloned().collect();
+
+        let mut inserted = false;
+        let mut new_seg_idx = 0usize;
+
+        let merge_info_id = merge.info.as_mut().unwrap().info.get_id_str();
+
+        let cnt = self.segments_idx.len();
+        for seg_idx in 0..cnt {
+            debug_assert!(seg_idx >= new_seg_idx);
+            let info_id = self.segments_idx[seg_idx].clone();
+            let info = self.segments.remove(&info_id).unwrap();
+            if merged_away.contains(&info_id) {
+                if !inserted && !drop_segment {
+                    self.segments_idx[seg_idx] = merge_info_id.clone();
+                    self.segments
+                        .insert(merge_info_id.clone(), merge.info.take().unwrap());
+                    inserted = true;
+                    new_seg_idx += 1;
+                }
+            } else {
+                self.segments_idx[new_seg_idx] = info_id.clone();
+                self.segments.insert(info_id.clone(), info);
+                new_seg_idx += 1;
+            }
+        }
+
+        // truncate duplicates at the end (do not touch the map, only the list)
+        self.segments_idx.truncate(new_seg_idx);
+
+        debug_assert!(self.segments_idx.len() == self.segments.len());
+        // truncate duplicates at the end (do not touch the map, only the list)
+
+        // Either we found place to insert segment, or, we did
+        // not, but only because all segments we merged becamee
+        // deleted while we are merging, in which case it should
+        // be the case that the new segment is also all deleted,
+        // we insert it at the beginning if it should not be dropped:
+        if !inserted && !drop_segment {
+            let mut new_segments_idx = Vec::with_capacity(self.segments_idx.len() + 1);
+            let mut new_segments = HashMap::with_capacity(self.segments.len() + 1);
+            new_segments_idx.push(merge_info_id.clone());
+            new_segments.insert(merge_info_id, merge.info.take().unwrap());
+            for idx in self.segments_idx.iter() {
+                let v = self.segments.remove(idx).unwrap();
+                new_segments.insert(idx.clone(), v);
+                new_segments_idx.push(idx.clone());
+            }
+            self.segments = new_segments;
+            self.segments_idx = new_segments_idx;
+        }
+
+        Ok(())
+    }
+
     pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info_id in &self.segments_idx {

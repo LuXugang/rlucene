@@ -184,7 +184,11 @@ where
     }
     /// Adds a new resolved (meaning it maps docIDs to new values) doc values packet.
     /// We buffer these in RAM and write to disk when too much RAM is used or when a merge needs to kick off, or a commit/refresh.
-    pub fn add_dv_update(&self, update: DocValuesFieldUpdatesEnum) -> Result<()> {
+    pub fn add_dv_update<T>(&self, update: T) -> Result<()>
+    where
+        T: Into<Arc<DocValuesFieldUpdatesEnum>>,
+    {
+        let update = update.into();
         let mut inner = self.inner.lock();
         if !update.get_finished()? {
             return Err(LuceneError::illegal_argument("call finish first"));
@@ -196,7 +200,6 @@ where
         let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
 
         debug_assert!(self.assert_no_dup_gen(field_updates, &update));
-        let update = Arc::new(update);
         self.ram_bytes_used
             .fetch_add(update_bytes, Ordering::Relaxed);
 
@@ -826,7 +829,7 @@ where
         inner.merging_dv_updates.clear();
         inner.is_merging = false;
     }
-    pub fn take_merging_dv_updates(&self) -> HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>> {
+    pub fn get_merging_dv_updates(&self) -> HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>> {
         // We must atomically (in single sync'd block) clear isMerging when we return the DV updates
         // otherwise we can lose updates:
         let mut inner = self.inner.lock();

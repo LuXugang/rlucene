@@ -1378,6 +1378,7 @@ where
                 }
                 doc_maps
             };
+            debug_assert!(merge.info.is_some());
             let sci = merge.info.as_mut().unwrap();
             debug_assert!(sci.info.max_doc()? > 0);
             // Very important to do this before opening the reader
@@ -2869,6 +2870,179 @@ where
 
         Ok(())
     }
+    /// Carefully merges deletes and updates for the segments we just merged.
+    ///
+    /// This is tricky because, although merging will clear all deletes (compacts
+    /// the documents) and compact all the updates, new deletes and updates may
+    /// have been flushed to the segments since the merge was started.
+    ///
+    /// This method *carries over* such new deletes and updates onto the newly
+    /// merged segment, and saves the resulting deletes and DocValues updates
+    /// files (incrementing the delete and DV generations for `merge.info`).
+    ///
+    /// If no deletes were flushed, no new deletes file is saved.
+    fn commit_merged_deletes_and_updates<DM>(
+        &self,
+        merge: &mut OneMergeSR<D>,
+        doc_maps: &[DM],
+        inner: &mut MutexGuard<'_, Inner<D>>,
+    ) -> Result<Arc<ReadersAndUpdates<D>>>
+    where
+        DM: DocMap,
+    {
+        self.merge_finished_gen.fetch_add(1, Ordering::AcqRel);
+
+        self.test_point("startCommitMergeDeletes");
+
+        let source_segments = merge.stat.segments.as_slice();
+        // Carefully merge deletes that occurred after we
+        // started merging:
+        let mut min_gen: i64 = i64::MAX;
+
+        let sci = merge.info.as_ref().unwrap();
+        // Lazy init (only when we find a delete or update to carry over):
+        let merged_deletes_and_updates =
+            self.get_pooled_instance(sci, true, None)?.ok_or_else(|| {
+                LuceneError::illegal_state("failed to get pooled instance for merged segment")
+            })?;
+
+        let _ = merged_deletes_and_updates.get_del_count(sci);
+
+        // field -> delGen -> dv field updates
+        let mut mapped_dv_updates = HashMap::new();
+        let mut any_dv_updates = false;
+        debug_assert_eq!(source_segments.len(), doc_maps.len());
+        for (i, info_id) in source_segments.iter().enumerate() {
+            let info = inner.segment_infos.info(info_id).ok_or_else(|| {
+                LuceneError::illegal_state(format!("segment info with id={} not found", info_id))
+            })?;
+
+            min_gen = std::cmp::min(info.get_buffered_deletes_gen(), min_gen);
+
+            let _max_doc = info.info.max_doc()?;
+
+            let rld = self
+                .get_pooled_instance(info, false, None)?
+                .ok_or_else(|| {
+                    LuceneError::illegal_state(format!(
+                        "seg={} not found in reader pool",
+                        info.info.name
+                    ))
+                })?;
+
+            let seg_doc_map = &doc_maps[i];
+
+            // TODO IMPORTANT
+            // carry over hard deletes
+            // Self::carry_over_hard_deletes(
+            //     merged_deletes_and_updates.as_ref(),
+            //     max_doc,
+            //     merge.get_merge_reader()[i]
+            //         .hard_live_docs,
+            //     rld.get_hard_live_docs(),
+            //     seg_doc_map,
+            // )?;
+
+            // Now carry over all doc values updates that were resolved while we were merging, remapping
+            // the docIDs to the newly merged docIDs.
+            // We only carry over packets that finished resolving; if any are still running (concurrently)
+            // they will detect that our merge completed
+            // and re-resolve against the newly merged segment:
+            let merging_dv_updates = rld.get_merging_dv_updates();
+            for (field, updates_list) in merging_dv_updates {
+                let mapped_field = mapped_dv_updates
+                    .entry(field.clone())
+                    .or_insert_with(HashMap::new);
+
+                for updates in updates_list {
+                    if self.buffered_updates_stream.still_running(updates.del_gen) {
+                        continue;
+                    }
+                    // sanity check:
+                    debug_assert_eq!(field, updates.field);
+                    if let std::collections::hash_map::Entry::Vacant(e) =
+                        mapped_field.entry(updates.del_gen)
+                    {
+                        let v = match updates.type_ {
+                            DocValuesType::Numeric => {
+                                let sub_update1 = NumericDocValuesFieldUpdates::new()?;
+                                DocValuesFieldUpdates::new(
+                                    merge.info.as_ref().unwrap().info.max_doc()?,
+                                    updates.del_gen,
+                                    updates.field.clone(),
+                                    sub_update1.sub_type(),
+                                    sub_update1,
+                                )?
+                            },
+                            DocValuesType::Binary => {
+                                let sub = BinaryDocValuesFieldUpdates::new()?;
+                                DocValuesFieldUpdates::new(
+                                    merge.info.as_ref().unwrap().info.max_doc()?,
+                                    updates.del_gen,
+                                    updates.field.clone(),
+                                    sub.sub_type(),
+                                    sub,
+                                )?
+                            },
+                            _ => {
+                                return Err(LuceneError::illegal_state(
+                                    "unsupported DocValues type during merge",
+                                ));
+                            },
+                        };
+                        e.insert(Arc::new(v));
+                    }
+                    let mapped_updates_arc = mapped_field.get_mut(&updates.del_gen).unwrap();
+                    let mapped_updates = Arc::get_mut(mapped_updates_arc).ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "failed to get mutable reference to mapped updates",
+                        )
+                    })?;
+
+                    let mut it = updates.iterator()?;
+                    loop {
+                        let doc = it.next_doc()?;
+                        if doc == NO_MORE_DOCS {
+                            break;
+                        }
+                        let mapped_doc = seg_doc_map.get(doc)?;
+                        if mapped_doc != -1 {
+                            if it.has_value()? {
+                                mapped_updates.add_iterator(mapped_doc, &mut it)?;
+                            } else {
+                                mapped_updates.reset(mapped_doc)?;
+                            }
+                            any_dv_updates = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if any_dv_updates {
+            // Persist the merged DV updates onto the RAU for the merged segment:
+            for d in mapped_dv_updates.into_values() {
+                for mut updates in d.into_values() {
+                    {
+                        let v = Arc::get_mut(&mut updates).ok_or_else(|| {
+                            LuceneError::illegal_state(
+                                "failed to get mutable reference to dv updates",
+                            )
+                        })?;
+                        v.finish()?;
+                    }
+                    merged_deletes_and_updates.add_dv_update(updates)?;
+                }
+            }
+        }
+        merge
+            .info
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("merge.info is none"))?
+            .set_buffered_deletes_gen(min_gen)?;
+
+        Ok(merged_deletes_and_updates)
+    }
     /// This method carries over hard-deleted documents that are applied to the source segment during a
     /// merge.
     fn carry_over_hard_deletes<DM, B1, B2>(
@@ -2940,10 +3114,154 @@ where
         }
         Ok(())
     }
-    fn commit_merge<DM>(&self, _merge: &mut OneMergeSR<D>, _doc_maps: &[DM]) -> Result<bool>
+    fn commit_merge<DM>(&self, merge: &mut OneMergeSR<D>, doc_maps: &[DM]) -> Result<bool>
     where
         DM: DocMap,
     {
+        let mut inner = self.inner.lock();
+        merge.on_merge_complete()?;
+        self.test_point("startCommitMerge");
+
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot complete merge: {}",
+                t
+            )));
+        }
+
+        debug_assert!(merge.register_done);
+
+        // If merge was explicitly aborted, or, if rollback() or
+        // rollbackTransaction() had been called since our merge
+        // started (which results in an unqualified
+        // deleter.refresh() call that will remove any index
+        // file that current segments does not reference), we
+        // abort this merge
+        if merge.is_aborted() {
+            // In case we opened and pooled a reader for this
+            // segment, drop it now.  This ensures that we close
+            // the reader before trying to delete any of its
+            // files.  This is not a very big deal, since this
+            // reader will never be used by any NRT reader, and
+            // another thread is currently running close(false)
+            // so it will be dropped shortly anyway, but not
+            // doing this  makes  MockDirWrapper angry in
+            // TestNRTThreads (LUCENE-5434):
+            if let Some(ref info) = merge.info {
+                self.reader_pool.drop(&info.info.get_id_str())?;
+                // Safe: these files must exist
+                self.delete_new_files(info.files()?.iter())?;
+            } else {
+                return Err(LuceneError::illegal_state("merge info is none"));
+            }
+
+            return Ok(false);
+        }
+
+        let merged_updates = if merge.info.as_ref().unwrap().info.max_doc()? == 0 {
+            None
+        } else {
+            Some(self.commit_merged_deletes_and_updates(merge, doc_maps, &mut inner)?)
+        };
+        // If the doc store we are using has been closed and
+        // is in now compound format (but wasn't when we
+        // started), then we will switch to the compound
+        // format as well:
+        let sci = merge.info.as_ref().unwrap();
+        debug_assert!(!inner.segment_infos.contains(&sci.info.get_id_str()));
+
+        let all_deleted = merge.stat.segments.is_empty()
+            || sci.info.max_doc()? == 0
+            || (merged_updates.is_some()
+                && self.is_fully_deleted(merged_updates.as_ref().unwrap().as_ref(), sci)?);
+
+        if self.info_stream.enabled("IW")
+            && all_deleted
+            && let Some(ref info) = merge.info
+        {
+            self.info_stream.message(
+                "IW",
+                &format!("merged segment {} is 100% deleted; skipping insert", info),
+            );
+        }
+        let drop_segment = all_deleted;
+
+        // If we merged no segments then we better be dropping
+        // the new segment:
+        debug_assert!(!merge.stat.segments.is_empty() || drop_segment);
+        debug_assert!(sci.info.max_doc()? != 0 || drop_segment);
+
+        if let Some(merged_updates) = merged_updates {
+            let mut success = false;
+            let res: Result<()> = (|| {
+                if drop_segment {
+                    merged_updates.drop_changes();
+                }
+                // Pass false for assert_live_info because the merged
+                // segment is not yet live (only below do we commit it
+                // to the segment_infos):
+                self.release_with_assert(&merged_updates, false, &mut inner)?;
+                success = true;
+                Ok(())
+            })();
+
+            if res.is_err() {
+                merged_updates.drop_changes();
+                self.reader_pool.drop(&sci.info.get_id_str())?;
+                return Err(res.err().unwrap());
+            }
+        }
+
+        // Must do this after reader_pool.release, in case an
+        // exception is hit e.g. writing the live docs for the
+        // merge segment, in which case we need to abort the
+        // merge:
+        let merge_id = merge.info.as_ref().unwrap().info.get_id_str();
+        inner
+            .segment_infos
+            .apply_merge_changes(merge, drop_segment)?;
+        // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
+        let merge_sci = inner.segment_infos.info(&merge_id).ok_or_else(|| {
+            LuceneError::illegal_state(
+                "merge's SegmentCommitInfo not in IndexWriter#inner#segment_infos",
+            )
+        })?;
+
+        // Now deduct the deleted docs that we just reclaimed from this
+        // merge:
+        let del_doc_count = if drop_segment {
+            // if we drop the segment we have to reduce the pendingNumDocs by merge.totalMaxDocs since we
+            // never drop
+            // the docs when we apply deletes if the segment is currently merged.
+            merge.total_max_doc
+        } else {
+            merge.total_max_doc - merge_sci.info.max_doc()?
+        };
+        debug_assert!(del_doc_count >= 0);
+        self.adjust_pending_num_docs(-(del_doc_count as i64));
+
+        if drop_segment {
+            debug_assert!(!inner.segment_infos.contains(&merge_sci.info.get_id_str()));
+            self.reader_pool.drop(&merge_sci.info.get_id_str())?;
+            // Safe: these files must exist
+            self.delete_new_files(merge_sci.files()?.iter())?;
+        }
+
+        // TODO IMPORTANT close_merge_readers
+
+        if self.info_stream.enabled("IW") {
+            self.info_stream
+                .message("IW", &format!("after commitMerge: {}", self.seg_string()?));
+        }
+
+        if merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS && !drop_segment {
+            // cascade the forceMerge:
+            inner
+                .segments_to_merge
+                .entry(merge_id)
+                .or_insert(Some(false));
+        }
+
         Ok(true)
     }
 
@@ -4821,10 +5139,14 @@ use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC, get_default_code};
 use crate::core::document::fields::Fields;
+use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpdates;
 use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::directory_reader::directory_reader_util;
+use crate::core::index::doc_values_field_updates::{
+    DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
+};
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_update::{
     BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum, NumericDocValuesUpdate,
@@ -4840,6 +5162,7 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -4853,6 +5176,8 @@ use crate::core::index::standard_directory_reader::{
 };
 use crate::core::index::term::Term;
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::query::Query;
 use crate::core::search::sort::Sort;
 use crate::core::store::IOContext;
