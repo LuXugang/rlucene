@@ -268,7 +268,7 @@ impl TieredMergePolicy {
     fn get_sorted_by_segment_size<D, MC>(
         &self,
         infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Vec<SegmentSizeAndDocs>>
     where
         D: Directory,
@@ -637,7 +637,7 @@ impl MergePolicy for TieredMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -762,7 +762,7 @@ impl MergePolicy for TieredMergePolicy {
         infos: &SegmentInfos<D>,
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -956,7 +956,7 @@ impl MergePolicy for TieredMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,

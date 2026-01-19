@@ -1549,7 +1549,7 @@ where
             return Ok(());
         }
 
-        let mut caching_merge_context = CachingMergeContext::new(self);
+        let caching_merge_context = CachingMergeContext::new(self);
         let mut spec_opt: Option<MergeSpecificationNoReader<D>>;
 
         if max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
@@ -1566,7 +1566,7 @@ where
                 &inner.segment_infos,
                 max_num_segments,
                 &inner.segments_to_merge,
-                &mut caching_merge_context,
+                &caching_merge_context,
             )?;
 
             if let Some(ref mut spec) = spec_opt {
@@ -1580,7 +1580,7 @@ where
                     .find_full_flush_merges(
                         trigger,
                         &inner.segment_infos,
-                        &mut caching_merge_context,
+                        &caching_merge_context,
                     )?,
                 MergeTrigger::AddIndexes => {
                     return Err(LuceneError::illegal_state(
@@ -1590,7 +1590,7 @@ where
                 _ => merge_policy.find_merges(
                     trigger,
                     &inner.segment_infos,
-                    &mut caching_merge_context,
+                    &caching_merge_context,
                 )?,
             };
         }
@@ -4132,7 +4132,7 @@ where
     ///
     /// # Parameters
     /// * `info` — the segment to get the number of deletes for.
-    fn num_deletes_to_merge_mut(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+    fn num_deletes_to_merge_mut(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
         self.num_deletes_to_merge(info)
     }
     /// Obtain the number of deleted docs for a pooled reader.

@@ -56,7 +56,7 @@ impl MergePolicy for NoMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -70,7 +70,7 @@ impl MergePolicy for NoMergePolicy {
         _segment_infos: &SegmentInfos<D>,
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, Option<bool>>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -82,7 +82,7 @@ impl MergePolicy for NoMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
@@ -95,7 +95,7 @@ impl MergePolicy for NoMergePolicy {
         &self,
         _infos: &SegmentInfos<D>,
         new_segment: &SegmentCommitInfo<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<bool>
     where
         D: Directory,
@@ -104,7 +104,7 @@ impl MergePolicy for NoMergePolicy {
         Ok(new_segment.info.get_use_compound_file())
     }
 
-    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
+    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
     where
         D: Directory,
         MC: MergeContext<D>,

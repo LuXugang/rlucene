@@ -47,7 +47,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -68,7 +68,7 @@ impl MergePolicy for DummyMergePolicy {
         _segment_infos: &SegmentInfos<D>,
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, Option<bool>>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -80,7 +80,7 @@ impl MergePolicy for DummyMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
@@ -93,7 +93,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -106,7 +106,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _infos: &SegmentInfos<D>,
         _merged_info: &SegmentCommitInfo<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<bool>
     where
         D: Directory,
@@ -115,7 +115,7 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &mut MC) -> Result<i64>
+    fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -127,7 +127,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _infos: &SegmentInfos<D>,
         _info: &SegmentCommitInfo<D>,
-        _merge_context: &mut MC,
+        _merge_context: &MC,
     ) -> Result<bool>
     where
         D: Directory,

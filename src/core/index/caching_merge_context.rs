@@ -19,6 +19,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::info_stream::InfoStreamMT;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
@@ -35,7 +36,7 @@ where
     D: Directory,
 {
     merge_context: &'a T,
-    cached_num_deletes_to_merge: HashMap<String, i32>,
+    cached_num_deletes_to_merge: Mutex<HashMap<String, i32>>,
     _mark: PhantomData<D>,
 }
 impl<'a, T, D> CachingMergeContext<'a, T, D>
@@ -46,7 +47,7 @@ where
     pub fn new(merge_context: &'a T) -> Self {
         CachingMergeContext {
             merge_context,
-            cached_num_deletes_to_merge: HashMap::new(),
+            cached_num_deletes_to_merge: Mutex::new(HashMap::new()),
             _mark: PhantomData,
         }
     }
@@ -64,15 +65,15 @@ where
     }
 
     fn num_deletes_to_merge_mut(
-        &mut self,
+        &self,
         info: &SegmentCommitInfo<D>,
     ) -> crate::core::util::error::lucene_error::Result<i32> {
         let key = info.info.get_id_str();
-        if let Some(v) = self.cached_num_deletes_to_merge.get(&key) {
+        if let Some(v) = self.cached_num_deletes_to_merge.lock().get(&key) {
             return Ok(*v);
         }
         let v = self.merge_context.num_deletes_to_merge(info)?;
-        self.cached_num_deletes_to_merge.insert(key, v);
+        self.cached_num_deletes_to_merge.lock().insert(key, v);
         Ok(v)
     }
 

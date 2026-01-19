@@ -83,7 +83,7 @@ pub trait MergePolicy: Display {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -125,7 +125,7 @@ pub trait MergePolicy: Display {
         segment_infos: &SegmentInfos<D>,
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -139,7 +139,7 @@ pub trait MergePolicy: Display {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         segment_infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         MC: MergeContext<D>,
@@ -180,7 +180,7 @@ pub trait MergePolicy: Display {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
         D: Directory,
@@ -244,7 +244,7 @@ pub trait MergePolicy: Display {
         &self,
         infos: &SegmentInfos<D>,
         merged_info: &SegmentCommitInfo<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<bool>
     where
         D: Directory,
@@ -276,7 +276,7 @@ pub trait MergePolicy: Display {
 
     /// Return the byte size of the provided [`SegmentCommitInfo`], prorated by the
     /// percentage of non-deleted documents that remain.
-    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &mut MC) -> Result<i64>
+    fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
     where
         D: Directory,
         MC: MergeContext<D>,
@@ -327,7 +327,7 @@ pub trait MergePolicy: Display {
         &self,
         infos: &SegmentInfos<D>,
         info: &SegmentCommitInfo<D>,
-        merge_context: &mut MC,
+        merge_context: &MC,
     ) -> Result<bool>
     where
         D: Directory,
@@ -981,7 +981,7 @@ where
     ///
     /// * `info` — the segment to get the number of deletes for
     fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
-    fn num_deletes_to_merge_mut(&mut self, info: &SegmentCommitInfo<D>) -> Result<i32>;
+    fn num_deletes_to_merge_mut(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
 
     /// Returns the number of deleted documents in the given segment.
     fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32;
