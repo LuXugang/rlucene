@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::StoredFields;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 
 pub struct DummyStoredFields;
@@ -46,5 +48,15 @@ impl StoredFields for DummyStoredFields {
         _fields_to_load: &HashSet<String>,
     ) -> Result<Document> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
+impl RawStoredFieldsReader for DummyStoredFields {
+    type IndexInput = DummyIndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "DummyStoredFields has no raw stored fields reader",
+        ))
     }
 }

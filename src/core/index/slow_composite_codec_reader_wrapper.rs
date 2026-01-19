@@ -20,7 +20,7 @@ use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::{
@@ -52,7 +52,7 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{EmptyTermVectors, TermVectors, TermVectorsEnum2};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -443,6 +443,17 @@ where
     }
 }
 
+impl<SF> RawStoredFieldsReader for StoredFieldsImpl<SF>
+where
+    SF: RawStoredFieldsReader + StoredFields,
+{
+    type IndexInput = SF::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        self.reader.raw_stored_fields()
+    }
+}
+
 fn doc_id_to_reader_id(doc: i32, doc_starts: &[usize]) -> Result<usize> {
     CoreHelper::check_index(doc as usize, doc_starts[doc_starts.len() - 1])?;
     match doc_starts.binary_search(&(doc as usize)) {
@@ -525,6 +536,19 @@ where
             r.check_integrity()?;
         }
         Ok(())
+    }
+}
+
+impl<SFR> RawStoredFieldsReader for SlowCompositeStoredFieldsReaderWrapper<SFR>
+where
+    SFR: RawStoredFieldsReader + StoredFieldsReader,
+{
+    type IndexInput = SFR::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "Raw stored fields are not available for composite readers",
+        ))
     }
 }
 

@@ -19,8 +19,9 @@ use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::StoredFields;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 
 /// Codec API for reading stored fields.
@@ -130,3 +131,13 @@ macro_rules! either_stored_fields_reader {
 }
 
 either_stored_fields_reader!(pub StoredFieldsReaderEnum2 { A: A, B: B });
+
+impl<A, B> RawStoredFieldsReader for StoredFieldsReaderEnum2<A, B> {
+    type IndexInput = DummyIndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "Raw stored fields are not available for StoredFieldsReaderEnum2",
+        ))
+    }
+}

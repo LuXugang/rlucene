@@ -18,7 +18,9 @@ use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProdu
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
-use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
+use crate::core::codecs::stored_fields_reader::{
+    DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
+};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
@@ -37,7 +39,7 @@ use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
 use crate::core::index::term_vectors::{EmptyTermVectors, TermVectorsEnum2};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::util::bits::BitsEnum2;
@@ -340,6 +342,17 @@ where
         // Don't trust the codec to do proper checks
         CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
         self.reader.document_with_visitor(doc_id, visitor, writer)
+    }
+}
+
+impl<SF> RawStoredFieldsReader for StoredFieldsImpl<SF>
+where
+    SF: RawStoredFieldsReader + StoredFields,
+{
+    type IndexInput = SF::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        self.reader.raw_stored_fields()
     }
 }
 

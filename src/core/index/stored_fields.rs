@@ -15,18 +15,27 @@
  * limitations under the License.
  */
 use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
+use crate::core::store::index_input::IndexInput;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
+
+pub trait RawStoredFieldsReader {
+    type IndexInput: IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>>;
+}
 
 /// API for reading stored fields.
 ///
 /// **NOTE**: This struct is not thread-safe and should only be consumed in the
 /// thread where it was acquired.
-pub trait StoredFields {
+pub trait StoredFields: RawStoredFieldsReader {
     /// Optional method: Give a hint to this [`StoredFields`] instance that the
     /// given document will be read in the near future. This typically
     /// delegates to
@@ -148,3 +157,13 @@ macro_rules! either_stored_fields {
 either_stored_fields!(
     pub StoredFieldsEnum2 { A: A, B: B}
 );
+
+impl<A, B> RawStoredFieldsReader for StoredFieldsEnum2<A, B> {
+    type IndexInput = DummyIndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "Raw stored fields are not available for StoredFieldsEnum2",
+        ))
+    }
+}

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::fields::Fields;
@@ -24,7 +25,7 @@ use crate::core::index::index_writer::get_actual_max_docs;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -431,6 +432,21 @@ where
 
         let sf = self.sub_stored_fields[i].as_mut().unwrap();
         sf.document_with_visitor(doc_id - self.starts[i] as i32, visitor, writer)
+    }
+}
+
+impl<LR, CR> RawStoredFieldsReader for StoredFieldsImpl<LR, CR>
+where
+    LR: LeafReader + Clone,
+    CR: CompositeReader,
+    IRStoredFields<LR, CR>: RawStoredFieldsReader,
+{
+    type IndexInput = <IRStoredFields<LR, CR> as RawStoredFieldsReader>::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "Raw stored fields are not available for composite readers",
+        ))
     }
 }
 /// Helper method for subclasses to get the corresponding reader for a doc ID

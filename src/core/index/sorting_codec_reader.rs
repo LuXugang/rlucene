@@ -20,7 +20,9 @@ use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
-use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
+use crate::core::codecs::stored_fields_reader::{
+    DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
+};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
@@ -53,7 +55,7 @@ use crate::core::index::sorted_set_doc_values_writer::{
 };
 use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -1144,6 +1146,18 @@ where
 {
     fn check_integrity(&self) -> Result<()> {
         self.delegate.check_integrity()
+    }
+}
+
+impl<SFR, DM> RawStoredFieldsReader for StoredFieldsReaderImpl<SFR, DM>
+where
+    SFR: RawStoredFieldsReader + StoredFieldsReader,
+    DM: DocMap + Clone,
+{
+    type IndexInput = SFR::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        self.delegate.raw_stored_fields()
     }
 }
 

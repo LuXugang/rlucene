@@ -18,7 +18,7 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
@@ -30,7 +30,7 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -462,6 +462,18 @@ where
     ) -> Result<()> {
         self.stored_fields
             .document_with_visitor(doc_id, visitor, writer)
+    }
+}
+
+impl<LR> RawStoredFieldsReader for StoredFieldsReaderImpl<LR>
+where
+    LR: Clone + LeafReader,
+    LR::StoredFields: RawStoredFieldsReader,
+{
+    type IndexInput = <LR::StoredFields as RawStoredFieldsReader>::IndexInput;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        self.stored_fields.raw_stored_fields()
     }
 }
 

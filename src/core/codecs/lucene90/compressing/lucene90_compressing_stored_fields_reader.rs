@@ -28,13 +28,13 @@ use crate::core::codecs::compression::compression_mode::{
 use crate::core::codecs::compression::decompressor::Decompressor;
 use crate::core::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
-use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{
@@ -536,6 +536,17 @@ where
         Ok(Some(Lucene90CompressingStoredFieldsReader::with_reader(
             self, true,
         )?))
+    }
+}
+
+impl<I> RawStoredFieldsReader for Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    type IndexInput = I;
+
+    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Ok(self)
     }
 }
 
