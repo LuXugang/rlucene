@@ -28,7 +28,9 @@ use std::collections::HashSet;
 pub trait RawStoredFieldsReader {
     type IndexInput: IndexInput;
 
-    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>>;
+    fn raw_stored_fields_mut(&mut self)
+    -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>>;
+    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>>;
 }
 
 /// API for reading stored fields.
@@ -161,7 +163,15 @@ either_stored_fields!(
 impl<A, B> RawStoredFieldsReader for StoredFieldsEnum2<A, B> {
     type IndexInput = DummyIndexInput;
 
-    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    fn raw_stored_fields_mut(
+        &mut self,
+    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "Raw stored fields are not available for StoredFieldsEnum2",
+        ))
+    }
+
+    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
         Err(LuceneError::illegal_state(
             "Raw stored fields are not available for StoredFieldsEnum2",
         ))

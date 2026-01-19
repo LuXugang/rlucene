@@ -54,7 +54,15 @@ impl StoredFields for DummyStoredFields {
 impl RawStoredFieldsReader for DummyStoredFields {
     type IndexInput = DummyIndexInput;
 
-    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    fn raw_stored_fields_mut(
+        &mut self,
+    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "DummyStoredFields has no raw stored fields reader",
+        ))
+    }
+
+    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
         Err(LuceneError::illegal_state(
             "DummyStoredFields has no raw stored fields reader",
         ))

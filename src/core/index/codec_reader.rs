@@ -352,7 +352,13 @@ where
 {
     type IndexInput = SF::IndexInput;
 
-    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    fn raw_stored_fields_mut(
+        &mut self,
+    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        self.reader.raw_stored_fields_mut()
+    }
+
+    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
         self.reader.raw_stored_fields()
     }
 }

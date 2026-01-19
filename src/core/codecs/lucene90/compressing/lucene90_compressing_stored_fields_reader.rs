@@ -545,7 +545,13 @@ where
 {
     type IndexInput = I;
 
-    fn raw_stored_fields(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+    fn raw_stored_fields_mut(
+        &mut self,
+    ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
+        Ok(self)
+    }
+
+    fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
         Ok(self)
     }
 }
