@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
+use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{
@@ -27,7 +28,7 @@ use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors::TermVectors;
+use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, TryIntoInt};
 use std::cmp::Ordering::Equal;
@@ -361,6 +362,26 @@ where
         field: &str,
     ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
         self.default_get_field_terms(doc, field)
+    }
+}
+
+impl<LR, CR> RawTermVectors for TermVectorsImpl<LR, CR>
+where
+    LR: LeafReader + Clone,
+    CR: CompositeReader,
+{
+    type IndexInput = <IRTermVectors<LR, CR> as RawTermVectors>::IndexInput;
+
+    fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "raw term vectors reader is not available".to_string(),
+        ))
+    }
+
+    fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
+        Err(LuceneError::illegal_state(
+            "raw term vectors reader is not available".to_string(),
+        ))
     }
 }
 pub struct StoredFieldsImpl<LR, CR>
