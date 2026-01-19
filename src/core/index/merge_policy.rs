@@ -705,7 +705,7 @@ where
     }
     pub fn is_aborted(&self) -> bool {
         // TODO
-        todo!()
+        false
     }
     pub fn check_aborted(&self, segments: &SegmentInfos<D>) -> Result<()> {
         if self.is_aborted() {
@@ -768,8 +768,12 @@ where
     type CodecReader: CodecReader;
     fn wrap_for_merge(&self, _reader: CR) -> Result<Self::CodecReader>;
     // TODO IMPORTANT 多线程参数未定义
-    type DocMap: DocMap;
-    fn reorder(&self, _dir: D) -> Result<Option<Self::DocMap>> {
+    type DocMap: DocMap + Clone;
+    fn reorder<CR1, D1>(&self, _reader: &CR1, _dir: D1) -> Result<Option<Self::DocMap>>
+    where
+        CR1: CodecReader,
+        D1: Directory,
+    {
         Ok(None)
     }
     fn set_merge_info(&mut self, info: SegmentCommitInfo<D>);

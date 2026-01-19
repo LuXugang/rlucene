@@ -49,27 +49,29 @@ use std::time::Instant;
 /// the segments.
 ///
 /// See [`SegmentMerger::merge`].
-pub(crate) struct SegmentMerger<'a, D, CR>
+pub(crate) struct SegmentMerger<'a, D1, D2, CR>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     CR: CodecReader,
 {
-    directory: &'a D,
+    directory: &'a D2,
     context: &'a IOContext,
-    merge_state: MergeState<'a, D, CR>,
+    pub(crate) merge_state: MergeState<'a, D1, CR>,
     field_infos_builder: Builder,
 }
 
-impl<'a, D, CR> SegmentMerger<'a, D, CR>
+impl<'a, D1, D2, CR> SegmentMerger<'a, D1, D2, CR>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     CR: CodecReader,
 {
     pub(crate) fn new(
         readers: &'a [CR],
-        segment_info: &'a mut SegmentInfo<D>,
+        segment_info: &'a mut SegmentInfo<D1>,
         info_stream: InfoStreamMT,
-        directory: &'a D,
+        directory: &'a D2,
         field_numbers: FieldNumbersLock,
         context: &'a IOContext,
     ) -> Result<Self> {
@@ -125,8 +127,8 @@ where
     }
     fn merge_field_infos_with_state(
         &self,
-        _segment_write_state: &SegmentWriteState<&D>,
-        _segment_read_state: &SegmentReadState<&D>,
+        _segment_write_state: &SegmentWriteState<&D2>,
+        _segment_read_state: &SegmentReadState<&D2>,
     ) -> Result<()> {
         LATEST_CODEC.field_infos_format().write(
             &self.directory,
@@ -137,7 +139,7 @@ where
         )
     }
 
-    fn merge_doc_values(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
+    fn merge_doc_values(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
         let mut consumer = LATEST_CODEC
             .doc_values_format()
             .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
@@ -146,7 +148,7 @@ where
 
         Ok(())
     }
-    fn merge_points(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
+    fn merge_points(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
         let mut writer = LATEST_CODEC
             .points_format()
             .fields_writer(segment_write_state, self.merge_state.segment_info)?;
@@ -155,7 +157,7 @@ where
 
         Ok(())
     }
-    fn merge_norms(&self, segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
+    fn merge_norms(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
         let mut consumer = LATEST_CODEC
             .norms_format()
             .norms_consumer(segment_write_state, self.merge_state.segment_info)?;
@@ -166,8 +168,8 @@ where
     }
     fn merge_terms(
         &self,
-        segment_write_state: &SegmentWriteState<&D>,
-        segment_read_state: &SegmentReadState<&D>,
+        segment_write_state: &SegmentWriteState<&D2>,
+        segment_read_state: &SegmentReadState<&D2>,
     ) -> Result<()> {
         let mut norms = if self.merge_state.merge_field_infos.has_norms() {
             Some(
@@ -240,7 +242,7 @@ where
 
         Ok(num_merged)
     }
-    fn merge_vector_values(&self, _segment_write_state: &SegmentWriteState<&D>) -> Result<()> {
+    fn merge_vector_values(&self, _segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
         // let mut writer =
         //     LATEST_CODEC
         //         .knn_vectors_format()
@@ -278,14 +280,14 @@ where
     }
     fn merge_with_logging_with_name<F, I>(
         merger: F,
-        segment_write_state: &SegmentWriteState<&D>,
-        segment_read_state: &SegmentReadState<&D>,
+        segment_write_state: &SegmentWriteState<&D2>,
+        segment_read_state: &SegmentReadState<&D2>,
         format_name: &str,
         num_merged: i32,
         info_stream: &I,
     ) -> Result<()>
     where
-        F: FnOnce(&SegmentWriteState<&D>, &SegmentReadState<&D>) -> Result<()>,
+        F: FnOnce(&SegmentWriteState<&D2>, &SegmentReadState<&D2>) -> Result<()>,
         I: InfoStream,
     {
         let mut t0 = None;
@@ -323,7 +325,7 @@ where
     /// # Errors
     ///
     /// Returns an error if the index is corrupt or if there is a low-level I/O error.
-    fn merge(&mut self) -> Result<()> {
+    pub(crate) fn merge(&mut self) -> Result<()> {
         if !self.should_merge()? {
             return Err(LuceneError::illegal_state(
                 "Merge would result in 0 document segment",

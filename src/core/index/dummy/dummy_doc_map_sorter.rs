@@ -17,6 +17,7 @@
 use crate::core::index::sorter::DocMap;
 use crate::core::util::error::lucene_error::Result;
 
+#[derive(Clone)]
 pub struct DummyDocMap;
 
 impl DocMap for DummyDocMap {
