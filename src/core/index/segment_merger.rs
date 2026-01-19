@@ -25,10 +25,8 @@ use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
@@ -54,10 +52,7 @@ use std::time::Instant;
 pub(crate) struct SegmentMerger<'a, D, CR>
 where
     D: Directory,
-    CR: CodecReader<
-            StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>,
-            TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
-        >,
+    CR: CodecReader,
 {
     directory: &'a D,
     context: &'a IOContext,
@@ -68,10 +63,7 @@ where
 impl<'a, D, CR> SegmentMerger<'a, D, CR>
 where
     D: Directory,
-    CR: CodecReader<
-            StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>,
-            TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
-        >,
+    CR: CodecReader,
 {
     pub(crate) fn new(
         readers: &'a [CR],

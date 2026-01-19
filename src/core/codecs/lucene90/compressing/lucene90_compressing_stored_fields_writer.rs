@@ -36,7 +36,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
@@ -287,7 +287,7 @@ where
         D: Directory,
         CR: CodecReader,
     {
-        let reader = match merge_state.stored_fields_readers[sub.reader_index] {
+        let reader_wrap = match merge_state.stored_fields_readers[sub.reader_index] {
             Some(ref mut r) => r,
             _ => {
                 return Err(LuceneError::illegal_state(
@@ -295,7 +295,7 @@ where
                 ));
             },
         };
-
+        let reader = reader_wrap.raw_stored_fields_mut()?;
         debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
         debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);
         debug_assert!(
@@ -441,7 +441,7 @@ where
             return Ok(MergeStrategy::Visitor);
         }
 
-        let reader = candidate;
+        let reader = candidate.raw_stored_fields()?;
         if *BULK_MERGE_ENABLED
             && discriminant(reader.get_compression_mode()) == discriminant(&self.compression_mode)
             && reader.get_chunk_size() == self.chunk_size
@@ -627,6 +627,7 @@ where
                     ));
                 },
             };
+            let raw_reader = reader.raw_stored_fields_mut()?;
             match sub.sub.merge_strategy {
                 MergeStrategy::Bulk => {
                     let from_doc = sub.sub.doc_id;
@@ -653,7 +654,7 @@ where
                     doc_count += to_doc_id - from_doc;
                 },
                 MergeStrategy::Doc => {
-                    self.copy_one_doc(reader, sub.sub.doc_id)?;
+                    self.copy_one_doc(raw_reader, sub.sub.doc_id)?;
                     doc_count += 1;
                     sub_opt = doc_id_merger.next()?;
                 },
@@ -662,7 +663,11 @@ where
                     self.start_document()?;
                     match visitors[sub.sub.reader_index] {
                         Some(ref mut visitor) => {
-                            reader.document_with_visitor(sub.sub.doc_id, visitor, Some(self))?;
+                            raw_reader.document_with_visitor(
+                                sub.sub.doc_id,
+                                visitor,
+                                Some(self),
+                            )?;
                             self.finish_document()?;
                             doc_count += 1;
                         },

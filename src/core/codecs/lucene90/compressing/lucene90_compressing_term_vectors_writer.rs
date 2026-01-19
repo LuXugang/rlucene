@@ -30,7 +30,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::index::term_vectors::TermVectors;
+use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
@@ -701,9 +701,10 @@ where
         CR: CodecReader,
     {
         let merge_state_meta = merge_state.get_meta();
-        let reader = merge_state.term_vectors_readers[sub.reader_index]
+        let reader_wrap = merge_state.term_vectors_readers[sub.reader_index]
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
+        let reader = reader_wrap.raw_term_vectors_mut()?;
 
         debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
         debug_assert_eq!(reader.get_chunk_size(), self.chunk_size);
@@ -838,9 +839,10 @@ where
         D: Directory,
         CR: CodecReader,
     {
-        let reader = merge_state.term_vectors_readers[reader_index]
+        let reader_wrap = merge_state.term_vectors_readers[reader_index]
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
+        let reader = reader_wrap.raw_term_vectors()?;
         let v = *BULK_MERGE_ENABLED
             && matching_readers.matching_readers[reader_index]
             && *reader.get_compression_mode() == self.compression_mode

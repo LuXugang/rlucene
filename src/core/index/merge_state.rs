@@ -18,10 +18,11 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
-use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::{
-    CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader, CodecReader,
+    CRBits, CRDocValuesProducer, CRFieldsProducer, CRNormsProducer, CRPointsReader,
+    CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
 
 use crate::core::index::field_infos::FieldInfos;
@@ -49,8 +50,8 @@ where
     pub(crate) segment_info: &'a mut SegmentInfo<D>,
     pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
     pub(crate) merge_field_infos: Arc<FieldInfos>,
-    pub(crate) stored_fields_readers: Vec<Option<DefaultStoredFieldsReader<D::IndexInput>>>,
-    pub(crate) term_vectors_readers: Vec<Option<DefaultTermVectorsReader<D::IndexInput>>>,
+    pub(crate) stored_fields_readers: Vec<Option<CRStoredFieldsReader<CR>>>,
+    pub(crate) term_vectors_readers: Vec<Option<CRTermVectorsReader<CR>>>,
     pub(crate) norms_producers: Vec<Option<CRNormsProducer<CR>>>,
     pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
     pub(crate) fields_producers: Vec<Option<CRFieldsProducer<CR>>>,
@@ -72,10 +73,7 @@ where
         info_stream: Arc<InfoStreamEnum>,
     ) -> Result<Self>
     where
-        CR: CodecReader<
-                StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>,
-                TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>,
-            >,
+        CR: CodecReader,
     {
         verify_index_sort(readers, segment_info)?;
 
