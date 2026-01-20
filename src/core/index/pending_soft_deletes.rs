@@ -19,6 +19,7 @@ use crate::core::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::core::index::readers_and_updates::IOSupplierImpl;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -27,6 +28,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
+use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes {
     pub(crate) field: String,
@@ -212,6 +214,20 @@ impl PendingDeletesBase for PendingSoftDeletes {
     {
         // initialize to ensure we have accurate counts - only needed in the soft-delete case
         self.ensure_initialized(reader_io_supplier);
+        todo!()
+    }
+
+    fn num_deletes_to_merge<P, D, F>(
+        &self,
+        _policy: &P,
+        _info: &SegmentCommitInfo<D>,
+        _reader_io_supplier: F,
+    ) -> Result<i32>
+    where
+        P: MergePolicy,
+        D: Directory,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    {
         todo!()
     }
 

@@ -1624,7 +1624,7 @@ where
         {
             let mut inner = self.inner.lock();
 
-            self.reset_merge_exceptions();
+            self.reset_merge_exceptions(&mut inner);
             inner.segments_to_merge.clear();
             {
                 let Inner {
@@ -1758,26 +1758,25 @@ where
         _trigger: MergeTrigger,
         _max_num_segments: i32,
     ) -> Result<()> {
-        // TODO 这里合并逻辑还没有完全实现 暂时返回Ok(())
+        // TODO merge过程还未调试完成
         // self.do_ensure_open(false)?;
-        // if self
-        //     .update_pending_merges(merge_policy, trigger, max_num_segments)?
-        //     .is_some()
-        // {
+        // if self.update_pending_merges(merge_policy, trigger, max_num_segments)? {
         //     self.execute_merge(trigger)?;
         // }
         Ok(())
     }
 
-    pub(crate) fn execute_merge(&self, _trigger: MergeTrigger) -> Result<()> {
-        todo!()
+    pub(crate) fn execute_merge(&self, trigger: MergeTrigger) -> Result<()> {
+        self.config
+            .get_merge_scheduler()
+            .merge(&self.merge_source, trigger, self)
     }
     fn update_pending_merges(
         &self,
         merge_policy: &L::MergePolicy,
         trigger: MergeTrigger,
         max_num_segments: i32,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         // In case infoStream was disabled on init, but then enabled at some
         // point, try again to log the config here:
         let mut inner = self.inner.lock();
@@ -1786,12 +1785,12 @@ where
         debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
         if !inner.merges.are_enabled(&inner) {
-            return Ok(());
+            return Ok(false);
         }
 
         // Do not start new merges if disaster struck
         if self.tragedy.lock().is_some() {
-            return Ok(());
+            return Ok(false);
         }
 
         let caching_merge_context = CachingMergeContext::new(self);
@@ -1811,6 +1810,7 @@ where
                 &inner.segment_infos,
                 max_num_segments,
                 &inner.segments_to_merge,
+                Some(&inner),
                 &caching_merge_context,
             )?;
 
@@ -1825,6 +1825,7 @@ where
                     .find_full_flush_merges(
                         trigger,
                         &inner.segment_infos,
+                        Some(&inner),
                         &caching_merge_context,
                     )?,
                 MergeTrigger::AddIndexes => {
@@ -1835,17 +1836,21 @@ where
                 _ => merge_policy.find_merges(
                     trigger,
                     &inner.segment_infos,
+                    Some(&inner),
                     &caching_merge_context,
                 )?,
             };
         }
 
-        if let Some(spec) = spec_opt {
-            for m in spec.merges.into_iter() {
-                self.register_merge(m, &mut inner)?;
-            }
+        match spec_opt {
+            Some(spec) => {
+                for m in spec.merges.into_iter() {
+                    self.register_merge(m, &mut inner)?;
+                }
+                Ok(true)
+            },
+            _ => Ok(false),
         }
-        Ok(())
     }
     /// **Expert:** the [`MergeScheduler`] calls this method to retrieve the next merge
     /// requested by the [`MergePolicy`].
@@ -2082,8 +2087,7 @@ where
 
         res
     }
-    fn reset_merge_exceptions(&self) {
-        let mut inner = self.inner.lock();
+    fn reset_merge_exceptions(&self, inner: &mut MutexGuard<'_, Inner<D>>) {
         inner.merge_exceptions.clear();
         inner.merge_gen += 1;
     }
@@ -4066,9 +4070,8 @@ where
     ) -> Result<bool> {
         if readers_and_updates.is_fully_deleted(info)? {
             debug_assert!(self.inner.is_locked());
-            return Ok(
-                !readers_and_updates.keep_fully_deleted_segment(self.config.get_merge_policy())?
-            );
+            return Ok(!readers_and_updates
+                .keep_fully_deleted_segment(self.config.get_merge_policy(), info)?);
         }
         Ok(false)
     }
@@ -4850,11 +4853,10 @@ where
         self.do_ensure_open(false)?;
         self.validate(info)?;
 
-        let _merge_policy = self.config.get_merge_policy();
+        let merge_policy = self.config.get_merge_policy();
 
         let num_deletes_to_merge = match self.get_pooled_instance(info, false, None)? {
-            // Some(rld) => rld.num_deletes_to_merge(merge_policy)?,
-            Some(_rld) => todo!(),
+            Some(rld) => rld.num_deletes_to_merge(merge_policy, info)?,
             None => {
                 // If we don't have a pooled instance, just return hard deletes; this is safe.
                 info.get_del_count()
@@ -4896,6 +4898,7 @@ where
     fn get_info_stream(&self) -> InfoStreamMT {
         self.info_stream.clone()
     }
+
     /// **Expert:** to be used by a [`MergePolicy`] to avoid selecting merges for segments already
     /// being merged.
     ///
@@ -4903,8 +4906,11 @@ where
     /// hold `IndexWriter`'s lock (which you do when `IndexWriter` invokes the `MergePolicy`).
     ///
     /// The returned set is **unmodifiable**.
-    fn get_merging_segments(&self) -> HashSet<String> {
-        let inner = self.inner.lock();
+    fn get_merging_segments(&self, inner: Option<&Inner<D>>) -> HashSet<String> {
+        let inner = match inner {
+            Some(i) => i,
+            None => &*self.inner.lock(),
+        };
         inner.merging_segments.clone()
     }
 }

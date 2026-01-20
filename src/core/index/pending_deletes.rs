@@ -22,6 +22,7 @@ use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, M
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::IOSupplierImpl;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -29,10 +30,10 @@ use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::core::util::IOUtils;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
+use crate::core::util::{HasIdentity, IOUtils};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -387,6 +388,22 @@ pub(crate) trait PendingDeletesBase: Display {
     fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
         D: Directory;
+
+    fn num_deletes_to_merge<P, D, F>(
+        &self,
+        policy: &P,
+        info: &SegmentCommitInfo<D>,
+        reader_io_supplier: F,
+    ) -> Result<i32>
+    where
+        P: MergePolicy,
+        D: Directory,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
+    {
+        let dec_count = self.get_del_count(info);
+        policy.num_deletes_to_merge(info, dec_count, reader_io_supplier)
+    }
+
     /// Returns true if the given reader needs to be refreshed to see the latest deletes
     fn needs_refresh<D>(
         &mut self,
@@ -397,25 +414,13 @@ pub(crate) trait PendingDeletesBase: Display {
         D: Directory,
     {
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
-            (None, None) => true,
-            (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
-                (BitsEnum2::A(r_bits), BitsEnum2::A(c_bits)) => Arc::ptr_eq(&r_bits, &c_bits),
-                (BitsEnum2::B(r_bits), BitsEnum2::B(c_bits)) => match (r_bits, c_bits) {
-                    (BitsEnum2::A(r_fixed), BitsEnum2::A(c_fixed)) => {
-                        Arc::ptr_eq(&r_fixed, &c_fixed)
-                    },
-                    (BitsEnum2::B(_), BitsEnum2::B(_)) => {
-                        return Err(LuceneError::illegal_state(
-                            "live docs should be FixedBitSet",
-                        ));
-                    },
-                    _ => false,
-                },
-                _ => false,
+            (None, None) => false,
+            (Some(reader_bits), Some(current_bits)) => {
+                reader_bits.identity() != current_bits.identity()
             },
-            _ => false,
+            _ => true,
         };
-        Ok(!same_live_docs || reader.num_deleted_docs()? != self.get_del_count(info))
+        Ok(same_live_docs || reader.num_deleted_docs()? != self.get_del_count(info))
     }
     /// Returns the number of deleted docs in the segment.
     fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32

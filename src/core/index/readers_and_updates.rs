@@ -313,6 +313,25 @@ where
         }
     }
 
+    pub(crate) fn num_deletes_to_merge<P>(
+        &self,
+        policy: &P,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<i32>
+    where
+        P: MergePolicy,
+    {
+        let inner = self.inner.lock();
+        inner
+            .pending_deletes
+            .num_deletes_to_merge(policy, info, || {
+                self.is_fully_deleted(info)?;
+                let v = self.inner.lock().reader.clone();
+                debug_assert!(v.is_some());
+                Ok(v.unwrap())
+            })
+    }
+
     fn get_latest_read(
         &self,
         info: &SegmentCommitInfo<D>,
@@ -794,7 +813,8 @@ where
             .pending_deletes
             .needs_refresh(reader_arc.as_ref(), info)?
             || reader_arc.get_segment_info().get_del_gen()
-                != inner.pending_deletes.get_del_count(info) as i64;
+            // TODO IMPORTANT 这里跟Java 不一样
+                != info.get_del_gen();
 
         if need_refresh {
             debug_assert!(inner.pending_deletes.get_live_docs().is_some());
@@ -844,9 +864,15 @@ where
     }
     pub(crate) fn keep_fully_deleted_segment(
         &self,
-        _merge_policy: &impl MergePolicy,
+        merge_policy: &impl MergePolicy,
+        info: &SegmentCommitInfo<D>,
     ) -> Result<bool> {
-        // TODO
+        merge_policy.keep_fully_deleted_segment(|| {
+            self.is_fully_deleted(info)?;
+            let v = self.inner.lock().reader.clone();
+            debug_assert!(v.is_some());
+            Ok(v.unwrap())
+        })?;
         Ok(false)
     }
     pub(crate) fn get_info_id(&self) -> &str {

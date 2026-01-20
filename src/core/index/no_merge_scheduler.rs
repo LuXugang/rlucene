@@ -54,7 +54,7 @@ impl Closeable for NoMergeScheduler {
 impl MergeScheduler for NoMergeScheduler {
     fn merge<MS, D, L, B>(
         &self,
-        _merge_source: &mut MS,
+        _merge_source: &MS,
         _trigger: MergeTrigger,
         _index_writer: &IndexWriter<D, L, B>,
     ) -> Result<()>

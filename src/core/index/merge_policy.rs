@@ -17,6 +17,7 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
+use crate::core::index::index_writer::Inner;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -84,6 +85,7 @@ pub trait MergePolicy: Display {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -126,6 +128,7 @@ pub trait MergePolicy: Display {
         segment_infos: &SegmentInfos<D>,
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -140,6 +143,7 @@ pub trait MergePolicy: Display {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -181,6 +185,7 @@ pub trait MergePolicy: Display {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -188,7 +193,7 @@ pub trait MergePolicy: Display {
         MC: MergeContext<D>,
     {
         // This returns natural merges that contain segments below the minimum size
-        let merge_spec = self.find_merges(merge_trigger, segment_infos, merge_context)?;
+        let merge_spec = self.find_merges(merge_trigger, segment_infos, inner, merge_context)?;
 
         match merge_spec {
             None => Ok(None),
@@ -346,10 +351,10 @@ pub trait MergePolicy: Display {
     ///
     /// This is useful for testing, or for merge policies that implement
     /// retention rules for soft deletes.
-    fn keep_fully_deleted_segment<CR, F>(&self, _reader_supplier: F) -> Result<bool>
+    fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
     where
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        D: Directory,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         Ok(false)
     }
@@ -369,7 +374,7 @@ pub trait MergePolicy: Display {
     /// * `info` — the segment being merged
     /// * `del_count` — the current delete count for this segment
     /// * `reader_supplier` — a supplier for obtaining a [`CodecReader`] of this segment
-    fn num_deletes_to_merge<D, CR, F>(
+    fn num_deletes_to_merge<D, F>(
         &self,
         _info: &SegmentCommitInfo<D>,
         del_count: i32,
@@ -377,8 +382,7 @@ pub trait MergePolicy: Display {
     ) -> Result<i32>
     where
         D: Directory,
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         Ok(del_count)
     }
@@ -455,6 +459,7 @@ impl MergePolicy for MergePolicyEnum {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -462,9 +467,11 @@ impl MergePolicy for MergePolicyEnum {
         MC: MergeContext<D>,
     {
         match self {
-            MergePolicyEnum::No(mp) => mp.find_merges(merge_trigger, segment_infos, merge_context),
+            MergePolicyEnum::No(mp) => {
+                mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+            },
             MergePolicyEnum::Tiered(mp) => {
-                mp.find_merges(merge_trigger, segment_infos, merge_context)
+                mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
             },
         }
     }
@@ -474,6 +481,7 @@ impl MergePolicy for MergePolicyEnum {
         segment_infos: &SegmentInfos<D>,
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -485,12 +493,14 @@ impl MergePolicy for MergePolicyEnum {
                 segment_infos,
                 max_segment_count,
                 segments_to_merge,
+                inner,
                 merge_context,
             ),
             MergePolicyEnum::Tiered(mp) => mp.find_forced_merges(
                 segment_infos,
                 max_segment_count,
                 segments_to_merge,
+                inner,
                 merge_context,
             ),
         }
@@ -499,6 +509,7 @@ impl MergePolicy for MergePolicyEnum {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -506,9 +517,11 @@ impl MergePolicy for MergePolicyEnum {
         D: Directory,
     {
         match self {
-            MergePolicyEnum::No(mp) => mp.find_forced_deletes_merges(segment_infos, merge_context),
+            MergePolicyEnum::No(mp) => {
+                mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+            },
             MergePolicyEnum::Tiered(mp) => {
-                mp.find_forced_deletes_merges(segment_infos, merge_context)
+                mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
             },
         }
     }
@@ -517,6 +530,7 @@ impl MergePolicy for MergePolicyEnum {
         &self,
         merge_trigger: MergeTrigger,
         segment_infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -525,10 +539,10 @@ impl MergePolicy for MergePolicyEnum {
     {
         match self {
             MergePolicyEnum::No(mp) => {
-                mp.find_full_flush_merges(merge_trigger, segment_infos, merge_context)
+                mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
             },
             MergePolicyEnum::Tiered(mp) => {
-                mp.find_full_flush_merges(merge_trigger, segment_infos, merge_context)
+                mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
             },
         }
     }
@@ -593,32 +607,31 @@ impl MergePolicy for MergePolicyEnum {
         }
     }
 
-    fn keep_fully_deleted_segment<CR, F>(&self, _reader_supplier: F) -> Result<bool>
+    fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
     where
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        D: Directory,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         match self {
-            MergePolicyEnum::No(mp) => mp.keep_fully_deleted_segment(_reader_supplier),
-            MergePolicyEnum::Tiered(mp) => mp.keep_fully_deleted_segment(_reader_supplier),
+            MergePolicyEnum::No(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+            MergePolicyEnum::Tiered(mp) => mp.keep_fully_deleted_segment(reader_supplier),
         }
     }
 
-    fn num_deletes_to_merge<D, CR, F>(
+    fn num_deletes_to_merge<D, F>(
         &self,
-        _info: &SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D>,
         del_count: i32,
-        _reader_supplier: F,
+        reader_supplier: F,
     ) -> Result<i32>
     where
         D: Directory,
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         match self {
-            MergePolicyEnum::No(mp) => mp.num_deletes_to_merge(_info, del_count, _reader_supplier),
+            MergePolicyEnum::No(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
             MergePolicyEnum::Tiered(mp) => {
-                mp.num_deletes_to_merge(_info, del_count, _reader_supplier)
+                mp.num_deletes_to_merge(info, del_count, reader_supplier)
             },
         }
     }
@@ -969,6 +982,8 @@ where
     type DocMap = DummyDocMap;
 
     fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
+        self.stat.info_id = Some(info.info.get_id_str());
+        self.stat.name = Some(info.info.name.clone());
         self.info = Some(info);
     }
 
@@ -1229,7 +1244,7 @@ where
     fn get_info_stream(&self) -> InfoStreamMT;
 
     /// Returns an unmodifiable set of segments that are currently merging.
-    fn get_merging_segments(&self) -> HashSet<String>;
+    fn get_merging_segments(&self, inner: Option<&Inner<D>>) -> HashSet<String>;
 }
 
 pub type MergeReaderSR<D> =

@@ -47,7 +47,7 @@ impl Closeable for SerialMergeScheduler {
 impl MergeScheduler for SerialMergeScheduler {
     fn merge<MS, D, L, B>(
         &self,
-        merge_source: &mut MS,
+        merge_source: &MS,
         _trigger: MergeTrigger,
         index_writer: &IndexWriter<D, L, B>,
     ) -> Result<()>

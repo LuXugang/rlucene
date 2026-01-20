@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
     MergeContext, MergePolicy, MergePolicyBase, MergeSpecificationNoReader,
 };
@@ -24,6 +25,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+
 /// A [`MergePolicy`] which never returns any merges to execute.
 /// Use this policy if you want to prevent segment merges entirely.
 pub struct NoMergePolicy {
@@ -56,6 +58,7 @@ impl MergePolicy for NoMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -70,6 +73,7 @@ impl MergePolicy for NoMergePolicy {
         _segment_infos: &SegmentInfos<D>,
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, Option<bool>>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -82,6 +86,7 @@ impl MergePolicy for NoMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where

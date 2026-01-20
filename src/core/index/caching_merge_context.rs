@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::MergeContext;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
@@ -77,14 +78,15 @@ where
         self.merge_context.get_info_stream()
     }
 
-    fn get_merging_segments(&self) -> HashSet<String> {
-        self.merge_context.get_merging_segments()
+    fn get_merging_segments(&self, inner: Option<&Inner<D>>) -> HashSet<String> {
+        self.merge_context.get_merging_segments(inner)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::core::index::caching_merge_context::CachingMergeContext;
+    use crate::core::index::index_writer::Inner;
     use crate::core::index::merge_policy::MergeContext;
     use crate::core::index::segment_commit_info::SegmentCommitInfo;
     use crate::core::index::segment_info::SegmentInfo;
@@ -177,7 +179,7 @@ mod tests {
             unreachable!()
         }
 
-        fn get_merging_segments(&self) -> HashSet<String> {
+        fn get_merging_segments(&self, _inner: Option<&Inner<D>>) -> HashSet<String> {
             unreachable!()
         }
     }

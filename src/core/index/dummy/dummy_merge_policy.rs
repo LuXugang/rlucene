@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
     MergeContext, MergePolicy, MergePolicyBase, MergeSpecificationNoReader,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 pub struct DummyMergePolicy;
 
@@ -47,6 +49,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -56,18 +59,12 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    // fn find_merges_readers<CR>(&self, _readers: Vec<CR>) -> Result<Option<MergeSpecification<CR>>>
-    // where
-    //     CR: CodecReader,
-    // {
-    //     unreachable!("Dummy implementation: this method should never be called in real usage")
-    // }
-
     fn find_forced_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
         _max_segment_count: i32,
         _segments_to_merge: &HashMap<String, Option<bool>>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -80,6 +77,7 @@ impl MergePolicy for DummyMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         _segment_infos: &SegmentInfos<D>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -93,6 +91,7 @@ impl MergePolicy for DummyMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         _segment_infos: &SegmentInfos<D>,
+        _inner: Option<&Inner<D>>,
         _merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -136,15 +135,15 @@ impl MergePolicy for DummyMergePolicy {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn keep_fully_deleted_segment<CR, F>(&self, _reader_supplier: F) -> Result<bool>
+    fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
     where
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        D: Directory,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn num_deletes_to_merge<D, CR, F>(
+    fn num_deletes_to_merge<D, F>(
         &self,
         _info: &SegmentCommitInfo<D>,
         _del_count: i32,
@@ -152,8 +151,7 @@ impl MergePolicy for DummyMergePolicy {
     ) -> Result<i32>
     where
         D: Directory,
-        CR: CodecReader,
-        F: Fn() -> Result<CR>,
+        F: Fn() -> Result<Arc<SegmentReader<D>>>,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

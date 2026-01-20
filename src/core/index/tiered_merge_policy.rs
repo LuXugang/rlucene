@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
     DEFAULT_MAX_CFS_SEGMENT_SIZE, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
     MergeSpecificationNoReader, OneMerge,
@@ -637,6 +638,7 @@ impl MergePolicy for TieredMergePolicy {
         &self,
         _merge_trigger: MergeTrigger,
         infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -652,8 +654,8 @@ impl MergePolicy for TieredMergePolicy {
 
         let mut merging_bytes: i64 = 0;
 
+        let merging = merge_context.get_merging_segments(inner);
         let mut sorted_infos = self.get_sorted_by_segment_size(infos, merge_context)?;
-        let merging = merge_context.get_merging_segments();
         sorted_infos.retain(|seg| {
             let seg_bytes = seg.size_in_bytes;
 
@@ -762,6 +764,7 @@ impl MergePolicy for TieredMergePolicy {
         infos: &SegmentInfos<D>,
         max_segment_count: i32,
         segments_to_merge: &HashMap<String, Option<bool>>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -771,7 +774,7 @@ impl MergePolicy for TieredMergePolicy {
         let mut sorted_size_and_docs = self.get_sorted_by_segment_size(infos, merge_context)?;
 
         let mut total_merge_bytes: i64 = 0;
-        let merging = merge_context.get_merging_segments();
+        let merging = merge_context.get_merging_segments(inner);
         let mut force_merge_running = false;
         // Trim the list down, remove if we're respecting max segment size and it's not original.
         // Presumably it's been merged before and is close enough to the max segment size we
@@ -956,6 +959,7 @@ impl MergePolicy for TieredMergePolicy {
     fn find_forced_deletes_merges<D, MC>(
         &self,
         infos: &SegmentInfos<D>,
+        inner: Option<&Inner<D>>,
         merge_context: &MC,
     ) -> Result<Option<MergeSpecificationNoReader<D>>>
     where
@@ -976,7 +980,7 @@ impl MergePolicy for TieredMergePolicy {
             have_work = have_work
                 || (pct_deletes > self.force_merge_deletes_pct_allowed
                     && !merge_context
-                        .get_merging_segments()
+                        .get_merging_segments(inner)
                         .contains(&info.info.name));
         }
 
@@ -988,7 +992,9 @@ impl MergePolicy for TieredMergePolicy {
 
         sorted_infos.retain(|seg| {
             let pct_deletes = 100.0 * (seg.del_count as f64) / (seg.max_doc as f64);
-            !(merge_context.get_merging_segments().contains(&seg.seg_info)
+            !(merge_context
+                .get_merging_segments(inner)
+                .contains(&seg.seg_info)
                 || pct_deletes <= self.force_merge_deletes_pct_allowed)
         });
 
@@ -1027,11 +1033,10 @@ impl SegmentSizeAndDocs {
     where
         D: Directory,
     {
-        let name = info.info.name.clone();
         let max_doc = info.info.max_doc()?;
         Ok(Self {
-            seg_info: info.info.name.clone(),
-            name,
+            seg_info: info.info.get_id_str(),
+            name: info.info.name.clone(),
             size_in_bytes,
             size_in_seg: info.size_in_bytes()?,
             del_count: seg_del_count,

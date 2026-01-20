@@ -132,7 +132,11 @@ macro_rules! either_stored_fields_reader {
 
 either_stored_fields_reader!(pub StoredFieldsReaderEnum2 { A: A, B: B });
 
-impl<A, B> RawStoredFieldsReader for StoredFieldsReaderEnum2<A, B> {
+impl<A, B> RawStoredFieldsReader for StoredFieldsReaderEnum2<A, B>
+where
+    A: RawStoredFieldsReader,
+    B: RawStoredFieldsReader,
+{
     type IndexInput = DummyIndexInput;
 
     fn raw_stored_fields_mut(

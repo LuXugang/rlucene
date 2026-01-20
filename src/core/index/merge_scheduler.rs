@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 pub trait MergeScheduler: Closeable {
     fn merge<MS, D, L, B>(
         &self,
-        merge_source: &mut MS,
+        merge_source: &MS,
         trigger: MergeTrigger,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<()>
@@ -40,6 +40,13 @@ pub trait MergeScheduler: Closeable {
     fn wrap_for_merge<D>(&self, _in_: D) -> Result<Self::Directory<D>>
     where
         D: Directory;
+
+    fn initialize<D>(&mut self, _directory: &D) -> Result<()>
+    where
+        D: Directory,
+    {
+        Ok(())
+    }
 }
 
 /// Provides access to new merges and executes the actual merge
@@ -107,7 +114,7 @@ impl Closeable for MergeSchedulerEnum {
 impl MergeScheduler for MergeSchedulerEnum {
     fn merge<MS, D, L, B>(
         &self,
-        merge_source: &mut MS,
+        merge_source: &MS,
         trigger: MergeTrigger,
         index_writer: &IndexWriter<D, L, B>,
     ) -> Result<()>

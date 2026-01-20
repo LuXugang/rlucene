@@ -33,7 +33,7 @@ impl Closeable for DummyMergeScheduler {
 impl MergeScheduler for DummyMergeScheduler {
     fn merge<MS, D, L, B>(
         &self,
-        _merge_source: &mut MS,
+        _merge_source: &MS,
         _trigger: MergeTrigger,
         _writer: &IndexWriter<D, L, B>,
     ) -> crate::core::util::error::lucene_error::Result<()>
