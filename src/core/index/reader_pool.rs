@@ -174,7 +174,7 @@ where
         &self,
         rld: &ReadersAndUpdates<D>,
         _assert_info_live: bool,
-        info: &mut SegmentCommitInfo<D>,
+        info: Option<&mut SegmentCommitInfo<D>>,
         global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let mut inner = self.inner.lock();
@@ -205,6 +205,7 @@ where
             {
                 // This is the last ref to this RLD, and we're not
                 // pooling, so remove it:
+                let info = info.ok_or_else(|| LuceneError::illegal_state("info is None"))?;
                 if rld.write_live_docs(&self.directory, info)? {
                     // Make sure we only write del docs for a live segment:
                     // TODO
@@ -608,7 +609,7 @@ mod tests {
         pool.release(
             &readers_and_updates,
             random.random_bool(0.5),
-            commit_info,
+            Some(commit_info),
             &field_numbers.lock(),
         )?;
         pool.close()?;
@@ -647,7 +648,7 @@ mod tests {
         pool.release(
             &rau,
             random.random_bool(0.5),
-            commit_info,
+            Some(commit_info),
             &field_numbers.lock(),
         )?;
 
@@ -660,7 +661,7 @@ mod tests {
         pool.release(
             &rau,
             random.random_bool(0.5),
-            commit_info,
+            Some(commit_info),
             &field_numbers.lock(),
         )?;
 
@@ -678,7 +679,12 @@ mod tests {
             let info = segment_infos.info_idx_mut(idx).unwrap();
 
             let rau = pool.get(info, true, None)?.unwrap();
-            pool.release(&rau, random.random_bool(0.5), info, &field_numbers.lock())?;
+            pool.release(
+                &rau,
+                random.random_bool(0.5),
+                Some(info),
+                &field_numbers.lock(),
+            )?;
             // TODO: memory calculation not implemented
             // assert_eq!(
             //     0,
@@ -809,14 +815,14 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    segment_infos.info_idx_mut(idx).unwrap(),
+                    segment_infos.info_idx_mut(idx),
                     &field_numbers.lock(),
                 )?);
             } else if random.random_bool(0.5) {
                 written_to_disk = pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    segment_infos.info_idx_mut(idx).unwrap(),
+                    segment_infos.info_idx_mut(idx),
                     &field_numbers.lock(),
                 )?;
                 assert!(!readers_and_updates.is_merging());
@@ -831,7 +837,7 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    segment_infos.info_idx_mut(idx).unwrap(),
+                    segment_infos.info_idx_mut(idx),
                     &field_numbers.lock(),
                 )?);
             }
@@ -859,7 +865,7 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    commit_info,
+                    Some(commit_info),
                     &field_numbers.lock(),
                 )?);
             }
@@ -938,7 +944,7 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    commit_info,
+                    Some(commit_info),
                     &field_numbers.lock(),
                 )?);
             } else {
@@ -946,7 +952,7 @@ mod tests {
                 written_to_disk = pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    commit_info,
+                    Some(commit_info),
                     &field_numbers.lock(),
                 )?;
             }
@@ -973,7 +979,7 @@ mod tests {
                 assert!(!pool.release(
                     &readers_and_updates,
                     random.random_bool(0.5),
-                    &mut commit_info,
+                    Some(&mut commit_info),
                     &field_numbers.lock(),
                 )?);
             }

@@ -90,8 +90,6 @@ where
     pub(crate) segment_infos: SegmentInfos<D>,
     // After SegmentCommitInfo removed from `segment_infos`,
     // It's ownership move to `dropped_segment_commit_infos` for some uses,
-    // TODO IMPORTANT 这个字段什么时候释放比较合适呢？
-    dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
     deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fall back to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
@@ -386,7 +384,6 @@ where
                 info_stream: info_stream.clone(),
                 inner: Mutex::new(Inner {
                     segment_infos,
-                    dropped_segment_commit_infos: HashMap::new(),
                     deleter,
                     rollback_segments,
                     change_count,
@@ -814,9 +811,7 @@ where
         // we must only remove the docs once!
         let (mut drop_pending_docs, max_doc) = match inner.segment_infos.remove(seg_id) {
             Some(sci) => {
-                let id = sci.info.get_id_str().to_string();
                 let max_doc = sci.info.max_doc()?;
-                inner.dropped_segment_commit_infos.insert(id, sci);
                 (true, max_doc)
             },
             None => (false, -1),
@@ -4112,21 +4107,8 @@ where
     ) -> Result<()> {
         let info_id = &readers_and_updates.info_id;
         let info = match inner.segment_infos.info_mut(info_id) {
-            Some(info) => info,
-            None => {
-                // SegmentCommitInfo maybe remove, it's ownership moved to `dropped_segment_commit_infos`
-                match inner.dropped_segment_commit_infos.get_mut(info_id) {
-                    Some(info) => info,
-                    None => match merge_info {
-                        Some(merge_info) => merge_info,
-                        _ => {
-                            return Err(LuceneError::illegal_state(
-                                "could not find segment info from IndexWriter's segment_infos or dropped_segment_commit_infos or merge_info",
-                            ));
-                        },
-                    },
-                }
-            },
+            Some(info) => Some(info),
+            None => merge_info,
         };
         if self.reader_pool.release(
             readers_and_updates,
