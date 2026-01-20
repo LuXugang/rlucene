@@ -1183,7 +1183,7 @@ where
 
     /// Does the actual (time-consuming) work of the merge, but without holding synchronized lock on IndexWriter instance
     fn merge_middle(
-        &mut self,
+        &self,
         merge: &mut OneMergeSR<D>,
         merge_policy: &L::MergePolicy,
     ) -> Result<i32> {
@@ -2919,7 +2919,7 @@ where
 
             min_gen = std::cmp::min(info.get_buffered_deletes_gen(), min_gen);
 
-            let _max_doc = info.info.max_doc()?;
+            let max_doc = info.info.max_doc()?;
 
             let rld = self
                 .get_pooled_instance(info, false, None)?
@@ -2934,14 +2934,14 @@ where
 
             // TODO IMPORTANT
             // carry over hard deletes
-            // Self::carry_over_hard_deletes(
-            //     merged_deletes_and_updates.as_ref(),
-            //     max_doc,
-            //     merge.get_merge_reader()[i]
-            //         .hard_live_docs,
-            //     rld.get_hard_live_docs(),
-            //     seg_doc_map,
-            // )?;
+            Self::carry_over_hard_deletes(
+                merged_deletes_and_updates.as_ref(),
+                max_doc,
+                merge.get_merge_reader()[i].hard_live_docs.as_ref(),
+                rld.get_hard_live_docs().as_ref(),
+                seg_doc_map,
+                sci,
+            )?;
 
             // Now carry over all doc values updates that were resolved while we were merging, remapping
             // the docIDs to the newly merged docIDs.
@@ -3051,9 +3051,8 @@ where
         // yet this is also required if any MergePolicy modifies the liveDocs since this is
         // what the segDocMap is build on.
         if let Some(current_hard_live_docs) = current_hard_live_docs {
-            let carry_over_delete = |doc_id: i32| -> Result<bool> {
-                Ok(seg_doc_map.get(doc_id)? != -1
-                    && !current_hard_live_docs.get(doc_id as usize)?)
+            let carry_over_delete = |doc_id: usize| -> Result<bool> {
+                Ok(seg_doc_map.get(doc_id as i32)? != -1 && !current_hard_live_docs.get(doc_id)?)
             };
 
             if let Some(prev_hard_live_docs) = prev_hard_live_docs {
@@ -3074,27 +3073,30 @@ where
                 // check if the before/after liveDocs have changed.
                 // If so, we must carefully merge the liveDocs one
                 // doc at a time:
-                // TODO IMPORTANT 这里不对
-                // if !std::ptr::eq(prev_hard_live_docs as *const _, current_hard_live_docs as *const _) {
-                //     // This means this segment received new deletes
-                //     // since we started the merge, so we
-                //     // must merge them:
-                //     for j in 0..max_doc {
-                //         if prev_hard_live_docs.get(j) == false {
-                //             // if the document was deleted before, it better still be deleted!
-                //             debug_assert!(current_hard_live_docs.get(j) == false);
-                //         } else if carry_over_delete(j) {
-                //             // the document was deleted while we were merging:
-                //             merged_readers_and_updates.delete(seg_doc_map.get(j), info, None)?;
-                //         }
-                //     }
-                // }
+                if current_hard_live_docs.identity() == prev_hard_live_docs.identity() {
+                    // This means this segment received new deletes
+                    // since we started the merge, so we
+                    // must merge them:
+                    for j in 0..max_doc as usize {
+                        if !(prev_hard_live_docs.get(j)?) {
+                            // if the document was deleted before, it better still be deleted!
+                            debug_assert!(!(current_hard_live_docs.get(j)?));
+                        } else if carry_over_delete(j)? {
+                            // the document was deleted while we were merging:
+                            merged_readers_and_updates.delete(
+                                seg_doc_map.get(j as i32)?,
+                                info,
+                                None,
+                            )?;
+                        }
+                    }
+                }
             } else {
                 debug_assert!(current_hard_live_docs.length() == max_doc as usize);
                 // This segment had no deletes before, but now it
                 // does:
                 for j in 0..max_doc {
-                    if carry_over_delete(j)? {
+                    if carry_over_delete(j as usize)? {
                         merged_readers_and_updates.delete(seg_doc_map.get(j)?, info, None)?;
                     }
                 }
@@ -3252,6 +3254,64 @@ where
 
         Ok(true)
     }
+    /// Merges the indicated segments, replacing them in the stack with a single segment.
+    fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()> {
+        let mut success = false;
+        let merge_policy = self.config.get_merge_policy();
+        let result = (|| -> Result<()> {
+            let inner_result = (|| -> Result<()> {
+                self.merge_init(&mut merge)?;
+                // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
+                self.merge_middle(&mut merge, merge_policy)?;
+                debug_assert!(merge.info.is_none());
+                self.merge_success(&mut merge)?;
+                success = true;
+                Ok(())
+            })();
+
+            {
+                let mut inner = self.inner.lock();
+                // Readers are already closed in commitMerge if we didn't hit
+                // an exc:
+                if !success {
+                    // TODO IMPORTANT close_merge_readers
+                    // self.close_merge_readers(&mut merge, true, false)?;
+                }
+                self.merge_finish(&mut merge, Some(&mut inner));
+
+                if !success {
+                    if self.info_stream.enabled("IW") {
+                        self.info_stream.message("IW", "hit exception during merge");
+                    }
+                } else if !merge.is_aborted()
+                    && (merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS
+                        || (!self.closed.load(SeqCst) && !self.closing.load(SeqCst)))
+                {
+                    self.update_pending_merges(
+                        merge_policy,
+                        MergeTrigger::MergeFinished,
+                        merge.stat.max_num_segments,
+                    )?;
+                }
+            }
+            match inner_result {
+                Ok(()) => {},
+                Err(e) => {
+                    // TODO IMPORTANT handleMergeException
+                    return Err(e);
+                },
+            }
+            Ok(())
+        })();
+        if let Err(e) = result {
+            self.tragic_event(&e, "merge");
+            return Err(e);
+        }
+        Ok(())
+    }
+    fn merge_success(&self, _merge: &mut OneMergeSR<D>) -> Result<()> {
+        Ok(())
+    }
 
     /// Checks whether this merge involves any segments already participating in a merge.
     /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
@@ -3355,7 +3415,7 @@ where
             if self.info_stream.enabled("IW") {
                 self.info_stream.message("IW", "hit exception in mergeInit");
             }
-            self.merge_finish(merge);
+            self.merge_finish(merge, None);
         }
         result
     }
@@ -3454,8 +3514,11 @@ where
     }
 
     /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
-    fn merge_finish(&self, merge: &mut OneMergeSR<D>) {
-        let mut inner = self.inner.lock();
+    fn merge_finish(&self, merge: &mut OneMergeSR<D>, inner: Option<&mut Inner<D>>) {
+        let inner = match inner {
+            Some(i) => i,
+            None => &mut *self.inner.lock(),
+        };
         // forceMerge, addIndexes or waitForMerges may be waiting
         // on merges to finish.
         self.pausing.notify_all();
@@ -5199,6 +5262,7 @@ use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -5687,7 +5751,7 @@ impl MergeSource for IndexWriterMergeSource {
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        writer.merge_finish(merge)
+        writer.merge_finish(merge, None)
     }
 
     fn has_pending_merges<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
@@ -5699,16 +5763,12 @@ impl MergeSource for IndexWriterMergeSource {
         writer.has_pending_merges()
     }
 
-    fn merge<D, L, B>(
-        &self,
-        _merge: Self::OneMerge<D>,
-        _writer: &IndexWriter<D, L, B>,
-    ) -> Result<()>
+    fn merge<D, L, B>(&self, merge: Self::OneMerge<D>, writer: &IndexWriter<D, L, B>) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        todo!()
+        writer.merge(merge)
     }
 }
