@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::SameInstance;
+use crate::core::index::index_reader::Identity;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
+use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
@@ -38,8 +39,8 @@ impl Closeable for DummyDirectory {
     }
 }
 
-impl SameInstance for DummyDirectory {
-    fn same_instance(&self, _other: &Self) -> bool {
+impl HasIdentity for DummyDirectory {
+    fn identity(&self) -> &Identity {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

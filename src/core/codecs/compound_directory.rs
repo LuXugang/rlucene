@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{Identity, SameInstance};
+use crate::core::index::index_reader::Identity;
 use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
+use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
@@ -69,12 +70,12 @@ where
     }
 }
 
-impl<D> SameInstance for CompoundDirectory<D>
+impl<D> HasIdentity for CompoundDirectory<D>
 where
     D: Directory,
 {
-    fn same_instance(&self, other: &Self) -> bool {
-        self.id == other.id
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 
@@ -192,20 +193,15 @@ where
     }
 }
 
-impl<A, B> SameInstance for CompoundDirectoryEnum<'_, A, B>
+impl<A, B> HasIdentity for CompoundDirectoryEnum<'_, A, B>
 where
     A: Directory,
     B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
-    fn same_instance(&self, other: &Self) -> bool {
-        match (self, other) {
-            (CompoundDirectoryEnum::A(dir1), CompoundDirectoryEnum::A(dir2)) => {
-                dir1.same_instance(dir2)
-            },
-            (CompoundDirectoryEnum::B(dir1), CompoundDirectoryEnum::B(dir2)) => {
-                dir1.same_instance(dir2)
-            },
-            _ => false,
+    fn identity(&self) -> &Identity {
+        match self {
+            CompoundDirectoryEnum::A(dir) => dir.identity(),
+            CompoundDirectoryEnum::B(dir) => dir.identity(),
         }
     }
 }

@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::IndexFileNames;
-use crate::core::index::index_reader::SameInstance;
+use crate::core::index::index_reader::Identity;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::lock::{Lock, LockEnum2};
 use crate::core::store::{IOContext, IndexInputEnum2, IndexOutput, IndexOutputEnum2};
+use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use num_bigint::BigInt;
@@ -50,7 +51,7 @@ use std::sync::Arc;
 /// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Closeable + SameInstance {
+pub trait Directory: Display + Closeable + HasIdentity {
     /// Returns the names of all files stored in this directory. The output must
     /// be sorted in UTF-8 order (using `str::cmp` for comparison).
     ///
@@ -271,13 +272,14 @@ macro_rules! either_directory {
                 }
             }
         }
-        impl<$( $T ),+> SameInstance for $name<$( $T ),+>
+        impl<$( $T ),+> HasIdentity for $name<$( $T ),+>
         where
             $( $T: Directory ),+
         {
-            fn same_instance(&self, _other: &Self) -> bool {
-                // TODO IMPORTANT
-              todo!()
+            fn identity(&self) -> &Identity {
+                match self {
+                    $( Self::$Variant(inner) => inner.identity(), )+
+                }
             }
         }
 
@@ -499,12 +501,6 @@ impl<D: Directory> Closeable for &D {
         Ok(())
     }
 }
-impl<D: Directory> SameInstance for &D {
-    fn same_instance(&self, other: &Self) -> bool {
-        (**self).same_instance(&(**other))
-    }
-}
-
 impl<D: Directory> Directory for Arc<D> {
     fn list_all(&self) -> Result<Vec<String>> {
         (**self).list_all()
@@ -574,10 +570,5 @@ impl<D: Directory> Closeable for Arc<D> {
     fn close(&mut self) -> Result<()> {
         // TODO
         Ok(())
-    }
-}
-impl<D: Directory> SameInstance for Arc<D> {
-    fn same_instance(&self, other: &Self) -> bool {
-        (**self).same_instance(&(**other))
     }
 }

@@ -161,15 +161,6 @@ where
     }
 }
 
-impl<T> HasIdentity for Arc<T>
-where
-    T: Bits,
-{
-    fn identity(&self) -> &Identity {
-        (**self).identity()
-    }
-}
-
 impl<T> Bits for Arc<T>
 where
     T: Bits,
@@ -189,15 +180,11 @@ where
         (**self).as_string()
     }
 }
-impl<T> HasIdentity for &T
+
+impl<T> Bits for &T
 where
     T: Bits,
 {
-    fn identity(&self) -> &Identity {
-        (**self).identity()
-    }
-}
-impl<T: Bits> Bits for &T {
     fn get(&self, index: usize) -> Result<bool> {
         <T as Bits>::get(*self, index)
     }

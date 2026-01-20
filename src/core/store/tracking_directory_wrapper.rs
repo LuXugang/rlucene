@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{Identity, SameInstance};
+use crate::core::index::index_reader::Identity;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::filter_directory::FilterDirectory;
+use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
@@ -82,12 +83,12 @@ where
     }
 }
 
-impl<D> SameInstance for TrackingDirectoryWrapper<D>
+impl<D> HasIdentity for TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    fn same_instance(&self, other: &Self) -> bool {
-        self.id == other.id
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

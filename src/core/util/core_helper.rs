@@ -263,3 +263,20 @@ impl_try_convert!(i64 => u8);
 pub trait HasIdentity {
     fn identity(&self) -> &Identity;
 }
+
+impl<T> HasIdentity for Arc<T>
+where
+    T: HasIdentity,
+{
+    fn identity(&self) -> &Identity {
+        (**self).identity()
+    }
+}
+impl<T> HasIdentity for &T
+where
+    T: HasIdentity,
+{
+    fn identity(&self) -> &Identity {
+        (**self).identity()
+    }
+}

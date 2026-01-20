@@ -23,15 +23,15 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::{fs, io};
 
-use crate::core::index::index_reader::{Identity, SameInstance};
+use crate::core::index::index_reader::Identity;
 use crate::core::store::base_directory::{BaseDirectory, BaseDirectoryBase};
 use crate::core::store::directory::{Directory, get_temp_file_name};
 use crate::core::store::fs_directory_base::FSDirectoryBase;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
-use crate::core::util::IOUtils;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, IOUtils};
 use parking_lot::Mutex;
 
 /// Base trait for `Directory` implementations that store index files in the
@@ -251,13 +251,13 @@ where
     }
 }
 
-impl<D, T> SameInstance for FSDirectory<D, T>
+impl<D, T> HasIdentity for FSDirectory<D, T>
 where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn same_instance(&self, other: &Self) -> bool {
-        self.id == other.id
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

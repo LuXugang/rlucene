@@ -605,11 +605,3 @@ impl Hash for Identity {
         (self.ptr() as usize).hash(state);
     }
 }
-pub trait SameInstance {
-    fn same_instance(&self, other: &Self) -> bool;
-}
-impl SameInstance for Identity {
-    fn same_instance(&self, other: &Self) -> bool {
-        self == other
-    }
-}
