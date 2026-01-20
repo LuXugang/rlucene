@@ -17,12 +17,12 @@
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::live_index_writer_config::{
     LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
+use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::sort::Sort;
@@ -104,7 +104,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
         self.base.parent_field.as_ref()
     }
 
-    type MergePolicy = DummyMergePolicy;
+    type MergePolicy = MergePolicyEnum;
 
     fn get_merge_policy(&self) -> &Self::MergePolicy {
         &self.base.merge_policy

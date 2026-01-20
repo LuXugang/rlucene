@@ -19,7 +19,6 @@ use crate::core::analysis::analyzer::Analyzer;
 use crate::core::codecs::Codec;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
-use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_commit::IndexCommit;
@@ -30,8 +29,9 @@ use crate::core::index::index_writer_config::{
     DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
 };
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
-use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
+use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
@@ -161,7 +161,7 @@ pub struct LiveIndexWriterConfigBase {
     pub similarity: Arc<DummySimilarity>,
     pub codec: Lucene101Codec,
     pub info_stream: InfoStreamMT,
-    pub merge_policy: Arc<DummyMergePolicy>,
+    pub merge_policy: MergePolicyEnum,
     pub flush_policy: Arc<FlushByRamOrCountsPolicy>,
     pub reader_pooling: bool,
     pub per_thread_hard_limit_mb: i32,
@@ -193,7 +193,7 @@ impl LiveIndexWriterConfigBase {
             similarity: Arc::new(DummySimilarity),
             codec: Lucene101Codec,
             info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
-            merge_policy: Arc::new(DummyMergePolicy),
+            merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),
             flush_policy: Arc::new(FlushByRamOrCountsPolicy::new()),
             reader_pooling: DEFAULT_READER_POOLING,
             per_thread_hard_limit_mb: DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
