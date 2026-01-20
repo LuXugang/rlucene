@@ -620,6 +620,12 @@ macro_rules! either_codec_reader {
         where
             $A: CodecReader,
             $B: CodecReader,
+            <$B as CodecReader>::StoredFieldsReader: RawStoredFieldsReader<
+                IndexInput = <<$A as CodecReader>::StoredFieldsReader as RawStoredFieldsReader>::IndexInput,
+            >,
+            <$B as CodecReader>::TermVectorsReader: RawTermVectors<
+                IndexInput = <<$A as CodecReader>::TermVectorsReader as RawTermVectors>::IndexInput,
+            >,
         {
             type StoredFieldsReader =
                 StoredFieldsReaderEnum2<<$A as CodecReader>::StoredFieldsReader, <$B as CodecReader>::StoredFieldsReader>;

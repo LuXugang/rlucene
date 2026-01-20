@@ -20,8 +20,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
-use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 
 /// Codec API for reading stored fields.
@@ -51,23 +50,27 @@ pub type DefaultStoredFieldsReader<I> =
     <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsReader<I>;
 
 macro_rules! either_stored_fields_reader {
-    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
-        $vis enum $name<$( $T ),+> {
+    ($vis:vis $name:ident { $FirstVariant:ident : $First:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$First, $( $T ),+> {
+            $FirstVariant($First),
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> StoredFields for $name<$( $T ),+>
+        impl<$First, $( $T ),+> StoredFields for $name<$First, $( $T ),+>
         where
-            $( $T: StoredFieldsReader ),+
+            $First: StoredFieldsReader,
+            $( $T: StoredFieldsReader + RawStoredFieldsReader<IndexInput = <$First as RawStoredFieldsReader>::IndexInput> ),+
         {
             fn prefetch(&mut self, doc_id: i32) -> Result<()> {
                 match self {
+                    Self::$FirstVariant(inner) => inner.prefetch(doc_id),
                     $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
                 }
             }
 
             fn document(&mut self, doc_id: i32) -> Result<Document> {
                 match self {
+                    Self::$FirstVariant(inner) => inner.document(doc_id),
                     $( Self::$Variant(inner) => inner.document(doc_id), )+
                 }
             }
@@ -79,6 +82,9 @@ macro_rules! either_stored_fields_reader {
                 writer: Option<&mut S>,
             ) -> Result<()> {
                 match self {
+                    Self::$FirstVariant(inner) => {
+                        inner.document_with_visitor(doc_id, visitor, writer)
+                    }
                     $( Self::$Variant(inner) => inner.document_with_visitor(doc_id, visitor, writer), )+
                 }
             }
@@ -89,28 +95,35 @@ macro_rules! either_stored_fields_reader {
                 fields_to_load: &HashSet<String>,
             ) -> Result<Document> {
                 match self {
+                    Self::$FirstVariant(inner) => {
+                        inner.document_with_fields(doc_id, fields_to_load)
+                    }
                     $( Self::$Variant(inner) => inner.document_with_fields(doc_id, fields_to_load), )+
                 }
             }
         }
 
-        impl<$( $T ),+> Clone for $name<$( $T ),+>
+        impl<$First, $( $T ),+> Clone for $name<$First, $( $T ),+>
         where
+            $First: StoredFieldsReader,
             $( $T: StoredFieldsReader ),+
         {
             fn clone(&self) -> Self {
                 match self {
+                    Self::$FirstVariant(inner) => Self::$FirstVariant(inner.clone()),
                     $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
                 }
             }
         }
 
-        impl<$( $T ),+> StoredFieldsReader for $name<$( $T ),+>
+        impl<$First, $( $T ),+> StoredFieldsReader for $name<$First, $( $T ),+>
         where
-            $( $T: StoredFieldsReader ),+
+            $First: StoredFieldsReader,
+            $( $T: StoredFieldsReader + RawStoredFieldsReader<IndexInput = <$First as RawStoredFieldsReader>::IndexInput> ),+
         {
             fn check_integrity(&self) -> Result<()> {
                 match self {
+                    Self::$FirstVariant(inner) => inner.check_integrity(),
                     $( Self::$Variant(inner) => inner.check_integrity(), )+
                 }
             }
@@ -120,6 +133,10 @@ macro_rules! either_stored_fields_reader {
                 Self: Sized,
             {
                 match self {
+                    Self::$FirstVariant(inner) => match inner.get_merge_instance()? {
+                        Some(value) => Ok(Some(Self::$FirstVariant(value))),
+                        None => Ok(None),
+                    },
                     $( Self::$Variant(inner) => match inner.get_merge_instance()? {
                         Some(value) => Ok(Some(Self::$Variant(value))),
                         None => Ok(None),
@@ -135,21 +152,23 @@ either_stored_fields_reader!(pub StoredFieldsReaderEnum2 { A: A, B: B });
 impl<A, B> RawStoredFieldsReader for StoredFieldsReaderEnum2<A, B>
 where
     A: RawStoredFieldsReader,
-    B: RawStoredFieldsReader,
+    B: RawStoredFieldsReader<IndexInput = A::IndexInput>,
 {
-    type IndexInput = DummyIndexInput;
+    type IndexInput = A::IndexInput;
 
     fn raw_stored_fields_mut(
         &mut self,
     ) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "Raw stored fields are not available for StoredFieldsReaderEnum2",
-        ))
+        match self {
+            Self::A(inner) => inner.raw_stored_fields_mut(),
+            Self::B(inner) => inner.raw_stored_fields_mut(),
+        }
     }
 
     fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "Raw stored fields are not available for StoredFieldsReaderEnum2",
-        ))
+        match self {
+            Self::A(inner) => inner.raw_stored_fields(),
+            Self::B(inner) => inner.raw_stored_fields(),
+        }
     }
 }

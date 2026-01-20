@@ -19,8 +19,7 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::fields::{Fields, FieldsEnum2};
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
-use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
 pub trait TermVectorsReader: TermVectors + Clone {
     /// Checks consistency of this reader.
@@ -43,27 +42,40 @@ pub type DefaultTermVectorsReader<I> =
     <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
 
 macro_rules! either_term_vectors_reader {
-    ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
-        $vis enum $name<$( $T ),+> {
+    ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $Variant1:ident : $T1:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$T1, $( $T ),+> {
+            $Variant1($T1),
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> TermVectors for $name<$( $T ),+>
+        impl<$T1, $( $T ),+> TermVectors for $name<$T1, $( $T ),+>
         where
-            $( $T: TermVectorsReader ),+
+            $T1: TermVectorsReader,
+            $( $T: TermVectorsReader + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
         {
-            type Fields = $fe<$( <$T as TermVectors>::Fields ),+>;
+            type Fields = $fe<
+                <$T1 as TermVectors>::Fields,
+                $( <$T as TermVectors>::Fields ),+
+            >;
 
-            type Terms = $te<$( <<$T as TermVectors>::Fields as Fields>::Terms ),+>;
+            type Terms = $te<
+                <<$T1 as TermVectors>::Fields as Fields>::Terms,
+                $( <<$T as TermVectors>::Fields as Fields>::Terms ),+
+            >;
 
             fn prefetch(&mut self, doc_id: i32) -> Result<()> {
                 match self {
+                    Self::$Variant1(inner) => inner.prefetch(doc_id),
                     $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
                 }
             }
 
             fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
                 match self {
+                    Self::$Variant1(inner) => {
+                        let fields = inner.get(doc)?;
+                        Ok(fields.map($fe::$Variant1))
+                    }
                     $(
                         Self::$Variant(inner) => {
                             let fields = inner.get(doc)?;
@@ -79,6 +91,10 @@ macro_rules! either_term_vectors_reader {
                 field: &str,
             ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
                 match self {
+                    Self::$Variant1(inner) => {
+                        let terms = inner.get_field_terms(doc, field)?;
+                        Ok(terms.map($te::$Variant1))
+                    }
                     $(
                         Self::$Variant(inner) => {
                             let terms = inner.get_field_terms(doc, field)?;
@@ -89,23 +105,27 @@ macro_rules! either_term_vectors_reader {
             }
         }
 
-        impl<$( $T ),+> Clone for $name<$( $T ),+>
+        impl<$T1, $( $T ),+> Clone for $name<$T1, $( $T ),+>
         where
+            $T1: TermVectorsReader,
             $( $T: TermVectorsReader ),+
         {
             fn clone(&self) -> Self {
                 match self {
+                    Self::$Variant1(inner) => Self::$Variant1(inner.clone()),
                     $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
                 }
             }
         }
 
-        impl<$( $T ),+> TermVectorsReader for $name<$( $T ),+>
+        impl<$T1, $( $T ),+> TermVectorsReader for $name<$T1, $( $T ),+>
         where
-            $( $T: TermVectorsReader ),+
+            $T1: TermVectorsReader,
+            $( $T: TermVectorsReader + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
         {
             fn check_integrity(&self) -> Result<()> {
                 match self {
+                    Self::$Variant1(inner) => inner.check_integrity(),
                     $( Self::$Variant(inner) => inner.check_integrity(), )+
                 }
             }
@@ -115,6 +135,10 @@ macro_rules! either_term_vectors_reader {
                 Self: Sized,
             {
                 match self {
+                    Self::$Variant1(inner) => match inner.get_merge_instance()? {
+                        Some(value) => Ok(Some(Self::$Variant1(value))),
+                        None => Ok(None),
+                    },
                     $( Self::$Variant(inner) => match inner.get_merge_instance()? {
                         Some(value) => Ok(Some(Self::$Variant(value))),
                         None => Ok(None),
@@ -129,19 +153,25 @@ either_term_vectors_reader!(
     pub TermVectorsReaderEnum2 => { fe: FieldsEnum2, te: TermsEnum2 } { A: A, B: B }
 );
 
-impl<A, B> RawTermVectors for TermVectorsReaderEnum2<A, B> {
-    type IndexInput = DummyIndexInput;
+impl<A, B> RawTermVectors for TermVectorsReaderEnum2<A, B>
+where
+    A: RawTermVectors,
+    B: RawTermVectors<IndexInput = A::IndexInput>,
+{
+    type IndexInput = A::IndexInput;
 
     fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "raw term vectors reader is not available".to_string(),
-        ))
+        match self {
+            Self::A(inner) => inner.raw_term_vectors_mut(),
+            Self::B(inner) => inner.raw_term_vectors_mut(),
+        }
     }
 
     fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
-        Err(LuceneError::illegal_state(
-            "raw term vectors reader is not available".to_string(),
-        ))
+        match self {
+            Self::A(inner) => inner.raw_term_vectors(),
+            Self::B(inner) => inner.raw_term_vectors(),
+        }
     }
 }
 
