@@ -148,6 +148,11 @@ pub trait LiveIndexWriterConfig: Display {
         base.index_sort = Some(sort);
         Ok(self)
     }
+
+    fn set_merge_policy(&mut self, merge_policy: MergePolicyEnum) -> &mut Self {
+        self.get_base_mut().merge_policy = merge_policy;
+        self
+    }
 }
 
 pub struct LiveIndexWriterConfigBase {

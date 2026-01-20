@@ -91,7 +91,7 @@ pub enum MergeSchedulerEnum {
 }
 impl Default for MergeSchedulerEnum {
     fn default() -> Self {
-        Self::No(NoMergeScheduler)
+        Self::Serial(SerialMergeScheduler)
     }
 }
 
