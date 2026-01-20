@@ -125,17 +125,6 @@ where
     }
 }
 
-pub enum BitsEnum {}
-impl Bits for BitsEnum {
-    fn get(&self, _index: usize) -> Result<bool> {
-        todo!()
-    }
-
-    fn length(&self) -> usize {
-        todo!()
-    }
-}
-
 impl<T> Bits for Arc<T>
 where
     T: Bits,
