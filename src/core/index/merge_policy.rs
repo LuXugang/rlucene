@@ -1036,6 +1036,9 @@ where
     fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
     where
         F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
+    fn close(&mut self) -> Result<()> {
+        todo!()
+    }
 }
 pub type MergeSpecificationNoReader<D> = MergeSpecification<D, Arc<SegmentReader<D>>>;
 pub struct MergeSpecification<D, CR>

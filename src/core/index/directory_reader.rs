@@ -214,7 +214,7 @@ pub mod directory_reader_util {
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        open_with_writer_deletes(writer, true, true)
+        open_with_writer_deletes(writer, true, false)
     }
     /// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
     /// controlling whether past deletions should be applied.

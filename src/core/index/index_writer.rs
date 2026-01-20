@@ -1187,6 +1187,7 @@ where
         merge: &mut OneMergeSR<D>,
         merge_policy: &L::MergePolicy,
     ) -> Result<i32> {
+        let mut max_doc = -1;
         self.test_point("mergeMiddleStart");
         {
             let inner = self.inner.lock();
@@ -1380,7 +1381,9 @@ where
             };
             debug_assert!(merge.info.is_some());
             let sci = merge.info.as_mut().unwrap();
-            debug_assert!(sci.info.max_doc()? > 0);
+            max_doc = sci.info.max_doc()?;
+            debug_assert!(max_doc > 0);
+
             // Very important to do this before opening the reader
             // because codec must know if prox was written for
             // this segment:
@@ -1509,7 +1512,7 @@ where
             }
             // TODO IMPORTANT IndexReaderWarmer not supported
 
-            if self.commit_merge(merge, &doc_maps)? {
+            if !self.commit_merge(merge, &doc_maps)? {
                 // commitMerge will return false if this merge was
                 // aborted
                 return Ok(0);
@@ -1518,11 +1521,10 @@ where
             Ok(0)
         })();
         if !success {
-            // TODO IMPORTANT
-            todo!()
+            self.close_merge_readers(merge, true, false)?;
         }
         res?;
-        merge.info.as_ref().unwrap().info.max_doc()
+        Ok(max_doc)
     }
 
     pub(crate) fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
@@ -1760,7 +1762,7 @@ where
     ) -> Result<()> {
         // TODO merge过程还未调试完成
         // self.do_ensure_open(false)?;
-        // if self.update_pending_merges(merge_policy, trigger, max_num_segments)? {
+        // if self.update_pending_merges(merge_policy, trigger, max_num_segments, None)? {
         //     self.execute_merge(trigger)?;
         // }
         Ok(())
@@ -1776,15 +1778,19 @@ where
         merge_policy: &L::MergePolicy,
         trigger: MergeTrigger,
         max_num_segments: i32,
+        inner: Option<&mut Inner<D>>,
     ) -> Result<bool> {
         // In case infoStream was disabled on init, but then enabled at some
         // point, try again to log the config here:
-        let mut inner = self.inner.lock();
+        let inner = match inner {
+            Some(i) => i,
+            None => &mut *self.inner.lock(),
+        };
         self.message_state()?;
 
         debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
-        if !inner.merges.are_enabled(&inner) {
+        if !inner.merges.are_enabled(inner) {
             return Ok(false);
         }
 
@@ -1810,7 +1816,7 @@ where
                 &inner.segment_infos,
                 max_num_segments,
                 &inner.segments_to_merge,
-                Some(&inner),
+                Some(inner),
                 &caching_merge_context,
             )?;
 
@@ -1825,7 +1831,7 @@ where
                     .find_full_flush_merges(
                         trigger,
                         &inner.segment_infos,
-                        Some(&inner),
+                        Some(inner),
                         &caching_merge_context,
                     )?,
                 MergeTrigger::AddIndexes => {
@@ -1836,7 +1842,7 @@ where
                 _ => merge_policy.find_merges(
                     trigger,
                     &inner.segment_infos,
-                    Some(&inner),
+                    Some(inner),
                     &caching_merge_context,
                 )?,
             };
@@ -1845,7 +1851,7 @@ where
         match spec_opt {
             Some(spec) => {
                 for m in spec.merges.into_iter() {
-                    self.register_merge(m, &mut inner)?;
+                    self.register_merge(m, inner)?;
                 }
                 Ok(true)
             },
@@ -3194,14 +3200,15 @@ where
                 // Pass false for assert_live_info because the merged
                 // segment is not yet live (only below do we commit it
                 // to the segment_infos):
-                self.release_with_assert(&merged_updates, false, &mut inner)?;
+                self.release_with_assert(&merged_updates, false, &mut inner, merge.info.as_mut())?;
                 success = true;
                 Ok(())
             })();
 
             if res.is_err() {
                 merged_updates.drop_changes();
-                self.reader_pool.drop(&sci.info.get_id_str())?;
+                self.reader_pool
+                    .drop(&merge.info.as_ref().unwrap().info.get_id_str())?;
                 return Err(res.err().unwrap());
             }
         }
@@ -3242,6 +3249,13 @@ where
         }
 
         // TODO IMPORTANT close_merge_readers
+        {
+            self.checkpoint(&mut inner)?;
+            // Must close before checkpoint, otherwise IFD won't be
+            // able to delete the held-open files from the merge
+            // readers:
+            self.close_merge_readers(merge, false, drop_segment)?;
+        }
 
         if self.info_stream.enabled("IW") {
             self.info_stream
@@ -3278,8 +3292,7 @@ where
                 // Readers are already closed in commitMerge if we didn't hit
                 // an exc:
                 if !success {
-                    // TODO IMPORTANT close_merge_readers
-                    // self.close_merge_readers(&mut merge, true, false)?;
+                    self.close_merge_readers(&merge, true, false)?;
                 }
                 self.merge_finish(&mut merge, Some(&mut inner));
 
@@ -3295,6 +3308,7 @@ where
                         merge_policy,
                         MergeTrigger::MergeFinished,
                         merge.stat.max_num_segments,
+                        Some(&mut inner),
                     )?;
                 }
             }
@@ -3320,11 +3334,7 @@ where
     /// Checks whether this merge involves any segments already participating in a merge.
     /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
     /// and true is returned. Else (the merge conflicts) false is returned.
-    fn register_merge(
-        &self,
-        mut merge: OneMergeSR<D>,
-        inner: &mut MutexGuard<'_, Inner<D>>,
-    ) -> Result<bool> {
+    fn register_merge(&self, mut merge: OneMergeSR<D>, inner: &mut Inner<D>) -> Result<bool> {
         if merge.register_done {
             return Ok(true);
         }
@@ -3537,6 +3547,15 @@ where
         }
 
         inner.running_merges.remove(&merge.stat);
+    }
+
+    fn close_merge_readers(
+        &self,
+        _merge: &OneMergeSR<D>,
+        _suppress_error: bool,
+        _dropper_segment: bool,
+    ) -> Result<()> {
+        todo!()
     }
 
     /// Returns a string description of all segments, for debugging.
@@ -4081,7 +4100,7 @@ where
         readers_and_updates: &ReadersAndUpdates<D>,
         inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
-        self.release_with_assert(readers_and_updates, true, inner)
+        self.release_with_assert(readers_and_updates, true, inner, None)
     }
 
     fn release_with_assert(
@@ -4089,6 +4108,7 @@ where
         readers_and_updates: &ReadersAndUpdates<D>,
         assert_live_info: bool,
         inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+        merge_info: Option<&mut SegmentCommitInfo<D>>,
     ) -> Result<()> {
         let info_id = &readers_and_updates.info_id;
         let info = match inner.segment_infos.info_mut(info_id) {
@@ -4097,10 +4117,13 @@ where
                 // SegmentCommitInfo maybe remove, it's ownership moved to `dropped_segment_commit_infos`
                 match inner.dropped_segment_commit_infos.get_mut(info_id) {
                     Some(info) => info,
-                    None => {
-                        return Err(LuceneError::illegal_state(
-                            "could not find segment info from IndexWriter's segment_infos or dropped_segment_commit_infos",
-                        ));
+                    None => match merge_info {
+                        Some(merge_info) => merge_info,
+                        _ => {
+                            return Err(LuceneError::illegal_state(
+                                "could not find segment info from IndexWriter's segment_infos or dropped_segment_commit_infos or merge_info",
+                            ));
+                        },
                     },
                 }
             },
@@ -4926,14 +4949,14 @@ impl Merges {
 }
 
 impl Merges {
-    pub(crate) fn are_enabled<D>(&self, _inner: &MutexGuard<'_, Inner<D>>) -> bool
+    pub(crate) fn are_enabled<D>(&self, _inner: &Inner<D>) -> bool
     where
         D: Directory,
     {
         self.merges_enabled
     }
 
-    pub(crate) fn disable<D>(&mut self, _inner: &MutexGuard<'_, Inner<D>>)
+    pub(crate) fn disable<D>(&mut self, _inner: &Inner<D>)
     where
         D: Directory,
     {
@@ -4943,7 +4966,7 @@ impl Merges {
     pub(crate) fn enable<D, L, B>(
         &mut self,
         writer: &IndexWriter<D, L, B>,
-        _inner: &MutexGuard<'_, Inner<D>>,
+        _inner: &Inner<D>,
     ) -> Result<()>
     where
         D: Directory,
