@@ -32,7 +32,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
-use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
+use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::sync::Arc;
 
 pub struct IndexWriter<D, L, B>
@@ -57,7 +57,7 @@ where
     pub(crate) global_field_number_map: FieldNumbersLock,
     doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
-    write_doc_values_lock: ReentrantMutex<()>,
+    write_doc_values_lock: Mutex<()>,
 
     pub(crate) closed: Arc<AtomicBool>,
     closing: AtomicBool,
@@ -367,7 +367,7 @@ where
                 global_field_number_map,
                 doc_writer,
                 event_queue,
-                write_doc_values_lock: ReentrantMutex::new(()),
+                write_doc_values_lock: Mutex::new(()),
                 closed: Arc::new(AtomicBool::new(false)),
                 closing: AtomicBool::new(false),
                 maybe_merge: AtomicBool::new(false),

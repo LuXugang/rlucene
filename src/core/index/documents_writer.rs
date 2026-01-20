@@ -127,7 +127,7 @@ where
             ticket_queue: DocumentsWriterFlushQueue::new(),
             pending_changes_in_current_full_flush: AtomicBool::new(false),
             inner: Mutex::new(Inner {
-                delete_queue: delete_queue.clone(),
+                delete_queue,
                 current_full_flush_del_queue: None,
             }),
             flush_control: DocumentsWriterFlushControl::new(config)?,
@@ -186,8 +186,8 @@ where
         // to index.
         let delete_queue = {
             match inner {
-                Some(inner) => inner.delete_queue.clone(),
-                None => self.inner.lock().delete_queue.clone(),
+                Some(inner) => &inner.delete_queue,
+                None => &*self.inner.lock().delete_queue,
             }
         };
         if self.flush_control.get_apply_all_deletes()
@@ -311,16 +311,14 @@ where
             Some(inner) => inner,
             None => &self.inner.lock(),
         };
-        let delete_queue = inner.delete_queue.clone();
-        delete_queue.get_buffered_updates_terms_size()
+        inner.delete_queue.get_buffered_updates_terms_size()
     }
     pub(crate) fn any_deletions(&self, inner: Option<&Inner>) -> bool {
         let inner = match inner {
             Some(inner) => inner,
             None => &self.inner.lock(),
         };
-        let delete_queue = inner.delete_queue.clone();
-        delete_queue.any_changes(None)
+        inner.delete_queue.any_changes(None)
     }
     fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
@@ -468,7 +466,7 @@ where
             let res: Result<_> = (|| {
                 debug_assert!({
                     let current_full_flush_del_queue =
-                        self.inner.lock().current_full_flush_del_queue.clone();
+                        &self.inner.lock().current_full_flush_del_queue;
                     current_full_flush_del_queue.is_none()
                         || Arc::ptr_eq(
                             &flushing_dwpt.state.delete_queue,
@@ -576,7 +574,7 @@ where
         Ok(())
     }
     pub(crate) fn get_next_sequence_number(&self) -> i64 {
-        let delete_queue = self.inner.lock().delete_queue.clone();
+        let delete_queue = &self.inner.lock().delete_queue;
         delete_queue.get_next_sequence_number()
     }
 
@@ -684,9 +682,12 @@ where
         };
         debug_assert!({
             let inner = self.inner.lock();
-            let current_full_flush_del_queue = inner.current_full_flush_del_queue.clone();
+            let current_full_flush_del_queue = &inner.current_full_flush_del_queue;
             current_full_flush_del_queue.is_some()
-                && !Arc::ptr_eq(&inner.delete_queue, &current_full_flush_del_queue.unwrap())
+                && !Arc::ptr_eq(
+                    &inner.delete_queue,
+                    current_full_flush_del_queue.as_ref().unwrap(),
+                )
         });
 
         let mut anything_flushed = false;
@@ -705,7 +706,7 @@ where
                 }
 
                 debug_assert!(self.assert_ticket_queue_modification(&flushing_delete_queue));
-                let supplier = SupplierImpl::new(flushing_delete_queue.clone());
+                let supplier = SupplierImpl::new(&flushing_delete_queue);
                 self.ticket_queue.add_ticket(supplier)?;
             }
             // we can't assert that we don't have any tickets in the queue since we might add a
@@ -818,15 +819,15 @@ pub(crate) trait FlushNotifications {
     fn on_ticket_backlog(&self) -> Result<()>;
 }
 
-struct SupplierImpl {
-    delete_queue: Arc<DocumentsWriterDeleteQueue>,
+struct SupplierImpl<'a> {
+    delete_queue: &'a DocumentsWriterDeleteQueue,
 }
-impl SupplierImpl {
-    pub(crate) fn new(delete_queue: Arc<DocumentsWriterDeleteQueue>) -> Self {
+impl<'a> SupplierImpl<'a> {
+    pub(crate) fn new(delete_queue: &'a DocumentsWriterDeleteQueue) -> Self {
         SupplierImpl { delete_queue }
     }
 }
-impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl
+impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl<'_>
 where
     D: Directory,
 {

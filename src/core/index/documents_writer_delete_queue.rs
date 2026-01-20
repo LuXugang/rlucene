@@ -79,17 +79,17 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// [`DeleteSlice`](crate::core::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)
 pub(crate) struct DocumentsWriterDeleteQueue {
-    pub(crate) inner: Mutex<GlobalState>,
+    pub(crate) inner: Mutex<Inner>,
     pub(crate) generation: i64,
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
-    next_seq_no: Arc<AtomicI64>,
+    next_seq_no: AtomicI64,
     info_stream: InfoStreamMT,
     start_seq_no: i64,
     previous_max_seq_id: i64,
     max_seq_no: AtomicI64,
 }
-pub(crate) struct GlobalState {
+pub(crate) struct Inner {
     tail: Arc<Node>,
     /// Used to record deletes against all prior (already written to disk)
     /// segments. Whenever any segment flushes, we bundle up this set of
@@ -102,7 +102,7 @@ pub(crate) struct GlobalState {
     advanced: bool,
     closed: bool,
 }
-impl GlobalState {
+impl Inner {
     fn new(tail: Arc<Node>, generation: i64) -> Self {
         Self {
             tail: tail.clone(),
@@ -114,7 +114,7 @@ impl GlobalState {
         }
     }
 }
-impl GlobalState {
+impl Inner {
     pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
         self.global_slice
             .apply(&mut self.global_buffered_updates, doc_id_upto)
@@ -136,12 +136,12 @@ impl DocumentsWriterDeleteQueue {
             value <= start_seq_no,
             "illegal max sequence ID: {value} start was: {start_seq_no}"
         );
-        let global_slice = GlobalState::new(tail, generation);
+        let global_slice = Inner::new(tail, generation);
 
         Self {
             inner: Mutex::new(global_slice),
             generation,
-            next_seq_no: Arc::new(AtomicI64::new(start_seq_no)),
+            next_seq_no: AtomicI64::new(start_seq_no),
             info_stream,
             start_seq_no,
             previous_max_seq_id,
@@ -220,7 +220,7 @@ impl DocumentsWriterDeleteQueue {
         Ok(self.get_next_sequence_number())
     }
 
-    pub(crate) fn any_changes(&self, global_state: Option<&GlobalState>) -> bool {
+    pub(crate) fn any_changes(&self, global_state: Option<&Inner>) -> bool {
         let global_state = match global_state {
             Some(state) => state,
             None => &self.inner.lock(),
@@ -298,7 +298,7 @@ impl DocumentsWriterDeleteQueue {
 
     fn freeze_global_buffer_internal(
         &self,
-        global_state: &mut GlobalState,
+        global_state: &mut Inner,
         current_tail: Arc<Node>,
     ) -> Result<Option<FrozenBufferedUpdates>> {
         debug_assert!(self.inner.is_locked());
@@ -338,7 +338,7 @@ impl DocumentsWriterDeleteQueue {
     }
 
     /// Just like updateSlice, but does not assign a sequence number.
-    pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut GlobalState) -> bool {
+    pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut Inner) -> bool {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail) {
             // New deletes arrived since the last check
             global_state.global_slice.slice_tail = global_state.tail.clone();
