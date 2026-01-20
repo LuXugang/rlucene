@@ -43,6 +43,7 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: [u8; StringHelper::ID_LENGTH],
+    id_str: String,
     // Diff to Java Lucene: We need to ensure that there is only one Codec in
     // the index, Therefore, we do not need to explicitly define the Codec
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
@@ -69,12 +70,15 @@ where
 #[cfg(test)]
 impl Default for SegmentInfo<DummyDirectory> {
     fn default() -> Self {
+        let id = [0; 16];
+        let id_str = StringHelper::id_to_string(Some(&id));
         SegmentInfo {
             name: String::new(),
             max_doc: -1,
             dir: Arc::new(DummyDirectory),
             is_compound_file: false,
             id: [0; 16],
+            id_str,
             diagnostics: HashMap::new(),
             attributes: HashMap::new(),
             index_sort: None,
@@ -131,6 +135,7 @@ where
         if id.len() != StringHelper::ID_LENGTH {
             return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
         }
+        let id_str = StringHelper::id_to_string(Some(&id));
         Ok(SegmentInfo {
             dir,
             version,
@@ -141,6 +146,7 @@ where
             has_blocks,
             diagnostics,
             id,
+            id_str,
             attributes,
             index_sort,
             set_files: None,
@@ -348,9 +354,8 @@ where
     pub fn get_id(&self) -> &[u8; StringHelper::ID_LENGTH] {
         &self.id
     }
-    // TODO IMPORTANT 不应该每次调用时生成
     pub fn get_id_str(&self) -> String {
-        StringHelper::id_to_string(Some(&self.id))
+        self.id_str.to_string()
     }
 
     /// Add these files to the set of files written for this segment.
@@ -433,12 +438,15 @@ where
     }
 
     pub(crate) fn dummy(dir: Arc<D>) -> Self {
+        let id = [0u8; StringHelper::ID_LENGTH];
+        let id_str = StringHelper::id_to_string(Some(&id));
         SegmentInfo {
             name: String::new(),
             max_doc: 0,
             dir,
             is_compound_file: false,
-            id: [0u8; StringHelper::ID_LENGTH],
+            id,
+            id_str,
             diagnostics: HashMap::new(),
             attributes: HashMap::new(),
             index_sort: None,
@@ -469,6 +477,7 @@ where
             dir: self.dir.clone(),
             is_compound_file: self.is_compound_file,
             id: self.id,
+            id_str: self.id_str.clone(),
             diagnostics: self.diagnostics.clone(),
             attributes: self.attributes.clone(),
             index_sort: self.index_sort.clone(),

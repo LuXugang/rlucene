@@ -95,7 +95,7 @@ where
         let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
         let seg_doc_values = Arc::new(SegmentDocValues::new());
         let num_docs = si.info.max_doc()? - si.get_del_count();
-        let info_id = si.info.get_id_str().clone();
+        let info_id = si.info.get_id_str();
         let mut segment_reader = Self {
             si,
             original_si_id: info_id,
@@ -186,7 +186,7 @@ where
         let seg_doc_values = sr.seg_doc_values.clone();
         core.inc_ref()?;
         debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
-        let info_id = si.info.get_id_str().clone();
+        let info_id = si.info.get_id_str();
         let mut segment_reader = Self {
             si,
             original_si_id: info_id,
