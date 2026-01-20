@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{SliceCopyOps, TryIntoInt};
+use crate::core::util::{HasIdentity, SliceCopyOps, TryIntoInt};
 
 // TODO
 
@@ -56,6 +57,7 @@ pub struct SparseFixedBitSet {
     length: usize,
     non_zero_long_count: usize,
     ram_bytes_used: i64,
+    id: Identity,
 }
 
 impl SparseFixedBitSet {
@@ -73,6 +75,7 @@ impl SparseFixedBitSet {
             length,
             non_zero_long_count: 0,
             ram_bytes_used,
+            id: Identity::new(),
         })
     }
     fn consistent(&self, index: usize) -> bool {
@@ -387,6 +390,12 @@ fn long_bits(index: usize, bits: &[u64], i64: usize) -> i64 {
         0
     } else {
         bits[(index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones() as usize] as i64
+    }
+}
+
+impl HasIdentity for SparseFixedBitSet {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

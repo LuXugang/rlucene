@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::index::index_reader::Identity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
@@ -258,3 +259,7 @@ impl_try_convert!(i64   => usize);
 impl_try_convert!(i32   => usize);
 impl_try_convert!(u32   => i32);
 impl_try_convert!(i64 => u8);
+
+pub trait HasIdentity {
+    fn identity(&self) -> &Identity;
+}

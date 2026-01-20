@@ -4745,7 +4745,19 @@ where
 {
     hard_live_docs: B1,
     wrapped_live_docs: B2,
+    id: Identity,
 }
+
+impl<B1, B2> HasIdentity for BitsImpl<B1, B2>
+where
+    B1: Bits,
+    B2: Bits,
+{
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl<B1, B2> Bits for BitsImpl<B1, B2>
 where
     B1: Bits,
@@ -5144,7 +5156,7 @@ use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQue
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -5180,7 +5192,9 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
-use crate::core::util::{BYTE_BLOCK_SIZE, CoreHelper, LATEST, SerialCounter, StringHelper};
+use crate::core::util::{
+    BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, LATEST, SerialCounter, StringHelper,
+};
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};

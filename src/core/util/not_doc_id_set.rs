@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
@@ -79,11 +81,21 @@ where
 
 pub struct NotDocIdBits<B: Bits> {
     in_bit: Arc<B>,
+    id: Identity,
 }
 
 impl<B: Bits> NotDocIdBits<B> {
     pub fn new(in_bits: Arc<B>) -> NotDocIdBits<B> {
-        NotDocIdBits { in_bit: in_bits }
+        NotDocIdBits {
+            in_bit: in_bits,
+            id: Identity::new(),
+        }
+    }
+}
+
+impl<B: Bits> HasIdentity for NotDocIdBits<B> {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

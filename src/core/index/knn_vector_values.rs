@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, TryIntoInt};
 
 /// This struct abstracts addressing of document vector values indexed as
 /// [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField) or `KnnByteVectorField`.
@@ -73,6 +74,7 @@ where
     accept_docs: B,
     size: usize,
     map: T,
+    id: Identity,
 }
 impl<B, T> BitsImpl<B, T>
 where
@@ -84,9 +86,21 @@ where
             accept_docs,
             size,
             map,
+            id: Identity::new(),
         }
     }
 }
+
+impl<B, T> HasIdentity for BitsImpl<B, T>
+where
+    B: Bits,
+    T: OrdToDoc,
+{
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl<B, T> Bits for BitsImpl<B, T>
 where
     B: Bits,

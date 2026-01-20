@@ -587,6 +587,11 @@ impl Identity {
         Arc::as_ptr(&self.0)
     }
 }
+impl Default for Identity {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PartialEq for Identity {
     fn eq(&self, other: &Self) -> bool {

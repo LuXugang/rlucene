@@ -16,10 +16,10 @@
  */
 use std::collections::HashSet;
 
-use rand::Rng;
-
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -28,6 +28,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test::util::id_set_common;
 use crate::test::util::id_set_common::clear_range;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use rand::Rng;
 
 pub fn random_set<R: Rng + ?Sized>(
     random: &mut R,
@@ -250,6 +251,7 @@ pub struct RustUtilBitSet {
     bitset: bit_set::BitSet,
     num_bits: usize,
     index_hash_set: HashSet<usize>,
+    id: Identity,
 }
 
 impl RustUtilBitSet {
@@ -263,6 +265,7 @@ impl RustUtilBitSet {
             bitset,
             num_bits,
             index_hash_set,
+            id: Identity::new(),
         }
     }
 }
@@ -276,6 +279,7 @@ impl Clone for RustUtilBitSet {
             bitset,
             num_bits,
             index_hash_set,
+            id: Identity::new(),
         }
     }
 }
@@ -286,6 +290,12 @@ impl PartialEq for RustUtilBitSet {
             return true;
         }
         false
+    }
+}
+
+impl HasIdentity for RustUtilBitSet {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

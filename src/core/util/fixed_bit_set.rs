@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::hash::{Hash, Hasher};
-
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, TryIntoInt};
+use std::hash::{Hash, Hasher};
 // todo
 
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
@@ -43,6 +43,7 @@ pub struct FixedBitSet {
     num_bits: usize,
     // The exact number of longs needed to hold numBits (<= bits.length)
     num_words: usize,
+    id: Identity,
 }
 
 impl Hash for FixedBitSet {
@@ -145,6 +146,7 @@ impl FixedBitSet {
             bits,
             num_bits,
             num_words: exact_size,
+            id: Identity::new(),
         }
     }
     /// Creates a new `FixedBitSet` using the provided `Vec<u64>` array as the
@@ -167,6 +169,7 @@ impl FixedBitSet {
             bits: stored_bits,
             num_bits,
             num_words,
+            id: Identity::new(),
         };
         debug_assert!(Self::verify_ghost_bits_clear(&result));
         Ok(result)
@@ -440,7 +443,13 @@ impl FixedBitSet {
     /// is returned as a [`Bits`] instance, to ensure that consumers cannot
     /// get write access by casting to a [`FixedBitSet`].
     pub fn to_read_only_bits(self) -> FixedBit {
-        FixedBit(self)
+        FixedBit::new(self)
+    }
+}
+
+impl HasIdentity for FixedBitSet {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 
@@ -668,19 +677,37 @@ impl BitSet for FixedBitSet {
     }
 }
 /// Immutable of FixedBitSet.
-#[derive(Clone, Default)]
-pub struct FixedBit(FixedBitSet);
+#[derive(Clone)]
+pub struct FixedBit {
+    pub(crate) fix_bit_set: FixedBitSet,
+    id: Identity,
+}
+impl FixedBit {
+    pub fn new(fix_bit_set: FixedBitSet) -> FixedBit {
+        FixedBit {
+            fix_bit_set,
+            id: Identity::new(),
+        }
+    }
+}
+
+impl HasIdentity for FixedBit {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl Bits for FixedBit {
     fn get(&self, index: usize) -> Result<bool> {
-        self.0.get(index)
+        self.fix_bit_set.get(index)
     }
 
     fn length(&self) -> usize {
-        self.0.length()
+        self.fix_bit_set.length()
     }
 
     fn copy_of(&self) -> Result<FixedBitSet> {
-        self.0.copy_of()
+        self.fix_bit_set.copy_of()
     }
 }
 

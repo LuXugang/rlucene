@@ -20,6 +20,7 @@ use rand::Rng;
 
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::MAX_DOCS;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -28,7 +29,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::{LATEST, StringHelper};
+use crate::core::util::{HasIdentity, LATEST, StringHelper};
 use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 use crate::test::util::test_util::TestUtil;
 
@@ -143,12 +144,23 @@ pub trait BaseLiveDocsFormatTestCase {
 
 pub struct TestBits {
     live_docs: FixedBitSet,
+    id: Identity,
 }
 impl TestBits {
     pub fn new(live_docs: FixedBitSet) -> Self {
-        TestBits { live_docs }
+        TestBits {
+            live_docs,
+            id: Identity::new(),
+        }
     }
 }
+
+impl HasIdentity for TestBits {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl Bits for TestBits {
     fn get(&self, index: usize) -> Result<bool> {
         self.live_docs.get(index)
@@ -163,6 +175,16 @@ enum TestBitsEnum {
     Test(TestBits),
     Fixed(FixedBitSet),
 }
+
+impl HasIdentity for TestBitsEnum {
+    fn identity(&self) -> &Identity {
+        match self {
+            TestBitsEnum::Test(test) => test.identity(),
+            TestBitsEnum::Fixed(fixed) => fixed.identity(),
+        }
+    }
+}
+
 impl Bits for TestBitsEnum {
     fn get(&self, index: usize) -> Result<bool> {
         match self {

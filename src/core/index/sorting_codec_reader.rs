@@ -39,7 +39,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::filter_codec_reader::FilterCodecReader;
 use crate::core::index::filter_leaf_reader::FilterTerms;
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -63,6 +63,7 @@ use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
+use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
@@ -1074,6 +1075,7 @@ where
 {
     in_: B,
     doc_map: DM,
+    id: Identity,
 }
 impl<B, DM> SortingBitsImpl<B, DM>
 where
@@ -1081,9 +1083,24 @@ where
     DM: DocMap + Clone,
 {
     fn new(in_: B, doc_map: DM) -> Self {
-        Self { in_, doc_map }
+        Self {
+            in_,
+            doc_map,
+            id: Identity::new(),
+        }
     }
 }
+
+impl<B, DM> HasIdentity for SortingBitsImpl<B, DM>
+where
+    B: Bits,
+    DM: Clone + DocMap,
+{
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl<B, DM> Bits for SortingBitsImpl<B, DM>
 where
     B: Bits,

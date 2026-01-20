@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::{CompositeReader, CompositeReaderBits, get_context};
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::reader_util::ReaderUtil;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{HasIdentity, TryIntoInt};
 use std::fmt::{Display, Formatter};
 
 /// Concatenates multiple `Bits` together on every lookup.
@@ -34,6 +35,7 @@ where
     subs: Vec<Option<B>>,
     starts: Vec<usize>,
     default_value: bool,
+    id: Identity,
 }
 
 impl<B> MultiBits<B>
@@ -46,6 +48,7 @@ where
             subs,
             starts,
             default_value,
+            id: Identity::new(),
         }
     }
     fn check_length(&self, reader: usize, doc: usize) -> bool {
@@ -61,6 +64,16 @@ where
         true
     }
 }
+
+impl<B> HasIdentity for MultiBits<B>
+where
+    B: Bits,
+{
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl<B> Bits for MultiBits<B>
 where
     B: Bits,

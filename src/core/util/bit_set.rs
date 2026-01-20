@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
@@ -98,6 +99,19 @@ pub trait BitSet: Bits + Accountable {
 pub enum BitSetEnum2<A, B> {
     A(A),
     B(B),
+}
+
+impl<A, B> HasIdentity for BitSetEnum2<A, B>
+where
+    A: BitSet,
+    B: BitSet,
+{
+    fn identity(&self) -> &Identity {
+        match self {
+            BitSetEnum2::A(t) => t.identity(),
+            BitSetEnum2::B(s) => s.identity(),
+        }
+    }
 }
 
 impl<A, B> Bits for BitSetEnum2<A, B>
@@ -296,6 +310,15 @@ where
     }
 }
 
+impl<T> HasIdentity for Rc<T>
+where
+    T: BitSet,
+{
+    fn identity(&self) -> &Identity {
+        (**self).identity()
+    }
+}
+
 impl<T> Bits for Rc<T>
 where
     T: BitSet,
@@ -374,9 +397,9 @@ where
         unreachable!()
     }
 }
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
+use crate::core::util::{HasIdentity, TryIntoInt};
 
 /// Builds a [`BitSet`] from the content of the provided
 /// [`DocIdSetIterator`]. **Note**: This will fully consume the

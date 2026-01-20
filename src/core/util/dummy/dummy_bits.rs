@@ -14,11 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
+use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
 #[derive(Clone)]
 pub struct DummyBits;
+
+impl HasIdentity for DummyBits {
+    fn identity(&self) -> &Identity {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
 impl Bits for DummyBits {
     fn get(&self, _index: usize) -> Result<bool> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

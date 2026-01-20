@@ -35,20 +35,11 @@ where
     base: IndexReaderContextBase,
     pub(crate) top_parent: TopParentMeta,
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TopParentMeta {
     pub(crate) leaves_num: usize,
     pub(crate) max_doc: i32,
     pub(crate) id: Identity,
-}
-impl Default for TopParentMeta {
-    fn default() -> Self {
-        Self {
-            leaves_num: 0,
-            max_doc: 0,
-            id: Identity::new(),
-        }
-    }
 }
 impl<LR> LeafReaderContext<LR>
 where

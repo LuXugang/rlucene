@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
+use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::sync::Arc;
+
 /// Interface for `BitSet`-like structures.
 ///
 /// # Note
 /// This is an experimental API.
-pub trait Bits {
+pub trait Bits: HasIdentity {
     /// Returns the value of the bit at the specified `index`.
     ///
     /// # Arguments
@@ -56,12 +59,23 @@ pub trait Bits {
 /// Bits impl of the specified length with all bits set.
 pub struct MatchAllBits {
     len: usize,
+    id: Identity,
 }
 impl MatchAllBits {
     pub fn new(len: usize) -> MatchAllBits {
-        MatchAllBits { len }
+        MatchAllBits {
+            len,
+            id: Identity::new(),
+        }
     }
 }
+
+impl HasIdentity for MatchAllBits {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl Bits for MatchAllBits {
     fn get(&self, _index: usize) -> Result<bool> {
         Ok(true)
@@ -76,7 +90,15 @@ impl Bits for MatchAllBits {
 #[derive(Default)]
 pub struct MatchNoBits {
     len: usize,
+    id: Identity,
 }
+
+impl HasIdentity for MatchNoBits {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
+
 impl Bits for MatchNoBits {
     fn get(&self, _index: usize) -> Result<bool> {
         Ok(false)
@@ -91,6 +113,20 @@ pub enum BitsEnum2<A, B> {
     A(A),
     B(B),
 }
+
+impl<A, B> HasIdentity for BitsEnum2<A, B>
+where
+    A: Bits,
+    B: Bits,
+{
+    fn identity(&self) -> &Identity {
+        match self {
+            BitsEnum2::A(t) => t.identity(),
+            BitsEnum2::B(s) => s.identity(),
+        }
+    }
+}
+
 impl<A, B> Bits for BitsEnum2<A, B>
 where
     A: Bits,
@@ -125,6 +161,15 @@ where
     }
 }
 
+impl<T> HasIdentity for Arc<T>
+where
+    T: Bits,
+{
+    fn identity(&self) -> &Identity {
+        (**self).identity()
+    }
+}
+
 impl<T> Bits for Arc<T>
 where
     T: Bits,
@@ -144,7 +189,14 @@ where
         (**self).as_string()
     }
 }
-
+impl<T> HasIdentity for &T
+where
+    T: Bits,
+{
+    fn identity(&self) -> &Identity {
+        (**self).identity()
+    }
+}
 impl<T: Bits> Bits for &T {
     fn get(&self, index: usize) -> Result<bool> {
         <T as Bits>::get(*self, index)

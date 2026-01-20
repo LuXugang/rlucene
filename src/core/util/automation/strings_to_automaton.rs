@@ -252,7 +252,7 @@ impl StringsToAutomaton {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct State {
     /// Labels of outgoing transitions. Indexed identically to [`states`].
     /// Labels must be sorted lexicographically.
@@ -266,16 +266,6 @@ pub(crate) struct State {
     pub identity: Identity,
 }
 // for padding
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            labels: Vec::new(),
-            states: Vec::new(),
-            is_final: false,
-            identity: Identity::new(),
-        }
-    }
-}
 
 impl State {
     pub(crate) fn new() -> Self {
