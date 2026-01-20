@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
-use crate::core::store::IndexInput;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 pub(crate) trait FieldsIndex: TryClone {
@@ -38,63 +36,4 @@ pub(crate) trait FieldsIndex: TryClone {
 
     /// Check the integrity of the index.
     fn check_integrity(&self) -> Result<()>;
-}
-
-pub(crate) enum FieldsIndexEnum<I>
-where
-    I: IndexInput,
-{
-    Lucene90(FieldsIndexReader<I>),
-}
-
-impl<I> TryClone for FieldsIndexEnum<I>
-where
-    I: IndexInput,
-{
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => {
-                let cloned_reader = reader.try_clone()?;
-                Ok(FieldsIndexEnum::Lucene90(cloned_reader))
-            },
-        }
-    }
-}
-
-impl<I> FieldsIndex for FieldsIndexEnum<I>
-where
-    I: IndexInput,
-{
-    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_block_id(doc_id),
-        }
-    }
-
-    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<usize> {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_block_start_pointer(block_id),
-        }
-    }
-
-    fn get_block_length(&mut self, block_id: i64) -> Result<usize> {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_block_length(block_id),
-        }
-    }
-
-    fn get_start_pointer(&mut self, doc_id: i32) -> Result<usize> {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.get_start_pointer(doc_id),
-        }
-    }
-
-    fn check_integrity(&self) -> Result<()> {
-        match self {
-            FieldsIndexEnum::Lucene90(reader) => reader.check_integrity(),
-        }
-    }
 }

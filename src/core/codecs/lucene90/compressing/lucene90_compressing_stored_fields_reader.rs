@@ -26,7 +26,7 @@ use crate::core::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, DecompressorEnum,
 };
 use crate::core::codecs::compression::decompressor::Decompressor;
-use crate::core::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
+use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
@@ -59,7 +59,7 @@ where
 {
     version: i32,
     field_infos: Arc<FieldInfos>,
-    index_reader: FieldsIndexEnum<I>,
+    index_reader: FieldsIndexReader<I>,
     max_pointer: usize,
     chunk_size: i32,
     compression_mode: CompressionModeEnum,
@@ -180,7 +180,6 @@ where
                 context,
             )?;
             let max_pointer = fields_index_reader.get_max_pointer();
-            let index_reader = FieldsIndexEnum::Lucene90(fields_index_reader);
 
             let num_chunks = meta.read_vlong()?;
             let num_dirty_chunks = meta.read_vlong()?;
@@ -206,7 +205,7 @@ where
             Ok(Self {
                 version,
                 field_infos,
-                index_reader,
+                index_reader: fields_index_reader,
                 max_pointer,
                 chunk_size,
                 compression_mode,
@@ -382,7 +381,7 @@ where
     pub(crate) fn get_compression_mode(&self) -> &CompressionModeEnum {
         &self.compression_mode
     }
-    pub(crate) fn get_index_reader(&mut self) -> &mut FieldsIndexEnum<I> {
+    pub(crate) fn get_index_reader(&mut self) -> &mut FieldsIndexReader<I> {
         &mut self.index_reader
     }
     pub(crate) fn get_max_pointer(&self) -> usize {

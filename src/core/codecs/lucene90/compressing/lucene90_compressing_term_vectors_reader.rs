@@ -25,7 +25,7 @@ use crate::core::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, DecompressorEnum,
 };
 use crate::core::codecs::compression::decompressor::Decompressor;
-use crate::core::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
+use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
@@ -74,7 +74,7 @@ where
     I: IndexInput,
 {
     field_infos: Arc<FieldInfos>,
-    pub(crate) index_reader: FieldsIndexEnum<I>,
+    pub(crate) index_reader: FieldsIndexReader<I>,
     pub(crate) vectors_stream: I,
     version: i32,
     packed_ints_version: i32,
@@ -173,7 +173,6 @@ where
                 context,
             )?;
             let max_pointer = fields_index_reader.get_max_pointer();
-            let index_reader = FieldsIndexEnum::Lucene90(fields_index_reader);
 
             let num_chunks = meta.read_vlong()?;
             let num_dirty_chunks = meta.read_vlong()?;
@@ -210,7 +209,7 @@ where
                 chunk_size,
                 num_docs,
                 vectors_stream,
-                index_reader,
+                index_reader: fields_index_reader,
                 max_pointer,
                 num_chunks,
                 num_dirty_chunks,
