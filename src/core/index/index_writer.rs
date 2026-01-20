@@ -1227,7 +1227,7 @@ where
                             sci_id
                         ))
                     })?;
-                    let reader = rld.get_reader_for_merge(&context, sci)?;
+                    let reader = rld.get_reader_for_merge(&context, sci, &inner.segment_infos)?;
                     inner
                         .deleter
                         .inc_ref_files(reader.reader.get_segment_info().files()?);

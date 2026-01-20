@@ -897,7 +897,11 @@ mod tests {
         let mut deletes = new_pending_deletes(&commit_info)?;
         let lock = dir.obtain_lock("write_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
-        let rld = ReadersAndUpdates::new(0, new_pending_deletes(&commit_info)?);
+        let rld = ReadersAndUpdates::new(
+            0,
+            commit_info.info.get_id_str(),
+            new_pending_deletes(&commit_info)?,
+        );
         for i in 0..3 {
             assert!(deletes.delete(i, &commit_info)?);
             if random.random_bool(0.5) {

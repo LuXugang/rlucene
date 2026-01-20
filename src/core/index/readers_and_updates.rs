@@ -42,6 +42,7 @@ use crate::core::index::merge_policy::{MergePolicy, MergeReader, MergeReaderSR};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMapImpl;
@@ -114,9 +115,9 @@ where
 {
     pub(crate) fn new(
         index_created_version_major: i32,
+        info_id: String,
         pending_deletes: PendingDeletesEnum,
     ) -> Self {
-        let info_id = pending_deletes.get_info_id().to_string();
         let inner = Mutex::new(Inner {
             reader: None,
             pending_deletes,
@@ -136,16 +137,20 @@ where
     /// Init from a previously opened SegmentReader.
     pub(crate) fn with_reader(
         index_created_version_major: i32,
-        reader: SegmentReader<D>,
+        reader: Arc<SegmentReader<D>>,
         info: &SegmentCommitInfo<D>,
         pending_deletes: PendingDeletesEnum,
     ) -> Result<Self> {
         debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
-        let v = Self::new(index_created_version_major, pending_deletes);
+        let v = Self::new(
+            index_created_version_major,
+            reader.get_original_segment_info_id().to_string(),
+            pending_deletes,
+        );
         {
             let mut inner = v.inner.lock();
             inner.pending_deletes.on_new_reader(&reader, info)?;
-            inner.reader = Some(Arc::new(reader));
+            inner.reader = Some(reader);
         }
         Ok(v)
     }
@@ -787,6 +792,7 @@ where
         &self,
         context: &IOContext,
         info: &SegmentCommitInfo<D>,
+        segment_infos: &SegmentInfos<D>,
     ) -> Result<MergeReaderSR<D>> {
         // We must carry over any still-pending DV updates because they were not
         // successfully written, e.g. because there was a hole in the delGens,
@@ -809,12 +815,17 @@ where
         self.get_reader(context, info, Some(&mut inner))?;
         let mut reader_arc = inner.reader.as_ref().unwrap().clone();
 
-        let need_refresh = inner
+        let mut need_refresh = inner
             .pending_deletes
-            .needs_refresh(reader_arc.as_ref(), info)?
-            || reader_arc.get_segment_info().get_del_gen()
-            // TODO IMPORTANT 这里跟Java 不一样
-                != info.get_del_gen();
+            .needs_refresh(reader_arc.as_ref(), info)?;
+        let pending_info = segment_infos
+            .info(inner.pending_deletes.get_info_id())
+            .ok_or_else(|| {
+                LuceneError::illegal_state(
+                    "pending_deletes's segment info could not find from IndexWriter#segment_infos",
+                )
+            })?;
+        need_refresh |= reader_arc.get_segment_info().get_del_gen() != pending_info.get_del_gen();
 
         if need_refresh {
             debug_assert!(inner.pending_deletes.get_live_docs().is_some());

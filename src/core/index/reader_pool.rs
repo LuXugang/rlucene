@@ -464,6 +464,7 @@ where
             }
             let mut v = ReadersAndUpdates::new(
                 self.index_created_version_major,
+                info.info.get_id_str(),
                 self.new_pending_deletes(info)?,
             );
             v.sort_map = sort_map;
