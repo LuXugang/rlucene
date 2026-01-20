@@ -280,7 +280,7 @@ impl TieredMergePolicy {
             sorted_by_size.push(SegmentSizeAndDocs::new(
                 info,
                 self.size(info, merge_context)?,
-                merge_context.num_deletes_to_merge_mut(info)?,
+                merge_context.num_deletes_to_merge(info)?,
             )?);
         }
 
@@ -968,7 +968,7 @@ impl MergePolicy for TieredMergePolicy {
         let mut total_del_count: i32 = 0;
 
         for info in infos.iter() {
-            let del_count = merge_context.num_deletes_to_merge_mut(info)?;
+            let del_count = merge_context.num_deletes_to_merge(info)?;
             debug_assert!(self.assert_del_count(del_count, info)?);
             total_del_count += del_count;
 

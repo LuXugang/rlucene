@@ -283,7 +283,7 @@ pub trait MergePolicy: Display {
         MC: MergeContext<D>,
     {
         let byte_size = info.size_in_bytes()?;
-        let del_count = merge_context.num_deletes_to_merge_mut(info)?;
+        let del_count = merge_context.num_deletes_to_merge(info)?;
         assert!(self.assert_del_count(del_count, info)?);
         let max_doc = info.info.max_doc()?;
         let del_ratio = if max_doc <= 0 {
@@ -334,7 +334,7 @@ pub trait MergePolicy: Display {
         D: Directory,
         MC: MergeContext<D>,
     {
-        let del_count = merge_context.num_deletes_to_merge_mut(info)?;
+        let del_count = merge_context.num_deletes_to_merge(info)?;
         assert!(self.assert_del_count(del_count, info)?);
 
         Ok(del_count == 0
@@ -1221,7 +1221,6 @@ where
     ///
     /// * `info` — the segment to get the number of deletes for
     fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
-    fn num_deletes_to_merge_mut(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
 
     /// Returns the number of deleted documents in the given segment.
     fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32;

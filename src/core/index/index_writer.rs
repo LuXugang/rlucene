@@ -4840,6 +4840,12 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
+    /// Returns the number of deletes a merge would claim back if the given segment is merged.
+    ///
+    /// See [`MergePolicy::num_deletes_to_merge`].
+    ///
+    /// # Parameters
+    /// * `info` — the segment to get the number of deletes for.
     fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
         self.do_ensure_open(false)?;
         self.validate(info)?;
@@ -4865,15 +4871,6 @@ where
         Ok(num_deletes_to_merge)
     }
 
-    /// Returns the number of deletes a merge would claim back if the given segment is merged.
-    ///
-    /// See [`MergePolicy::num_deletes_to_merge`].
-    ///
-    /// # Parameters
-    /// * `info` — the segment to get the number of deletes for.
-    fn num_deletes_to_merge_mut(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
-        self.num_deletes_to_merge(info)
-    }
     /// Obtain the number of deleted docs for a pooled reader.
     ///
     /// If the reader isn't being pooled, the segmentInfo's `delCount` is returned.
