@@ -28,11 +28,12 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::weight::WeightWrapper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 
@@ -92,7 +93,7 @@ impl QueryBase for BoostQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = QueryWeight<S, IRC>
+        = WeightWrapper<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -114,12 +115,12 @@ impl QueryBase for BoostQuery {
         QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
-        self.query.create_weight(
+        Ok(WeightWrapper::new(self.query.create_weight(
             searcher,
             score_mode,
             self.boost * boost,
             per_reader_term_state,
-        )
+        )?))
     }
 
     type RewriteQuery = DummyQuery;

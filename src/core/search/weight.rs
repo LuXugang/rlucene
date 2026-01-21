@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
@@ -22,6 +23,8 @@ use crate::core::search::bulk_scorer::{
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_matches::DummyMatches;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
@@ -29,7 +32,7 @@ use crate::core::search::matches::{
     MatchesEnum10,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryWeight};
 use crate::core::search::scorer::{
     Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
     ScorerEnum10, TwoPhaseState,
@@ -39,6 +42,7 @@ use crate::core::search::scorer_supplier::{
     ScorerSupplierEnum7, ScorerSupplierEnum8, ScorerSupplierEnum9, ScorerSupplierEnum10,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -760,3 +764,109 @@ either_weight!(
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );
+
+pub struct WeightWrapper<S, IRC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+{
+    pub weight: Box<QueryWeight<S, IRC>>,
+}
+impl<S, IRC> WeightWrapper<S, IRC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+{
+    pub fn new(weight: QueryWeight<S, IRC>) -> Self {
+        Self {
+            weight: Box::new(weight),
+        }
+    }
+}
+
+impl<S, IRC> SegmentCacheable<<IRC as IndexReaderContext>::LeafReader> for WeightWrapper<S, IRC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+{
+    fn is_cacheable(
+        &self,
+        ctx: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+    ) -> Result<bool> {
+        self.weight.is_cacheable(ctx)
+    }
+}
+
+impl<S, IRC> Weight<<IRC as IndexReaderContext>::LeafReader> for WeightWrapper<S, IRC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+{
+    type Matches = DummyMatches;
+
+    fn matches(
+        &self,
+        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        let _v = self.weight.matches(context, doc)?;
+        todo!()
+    }
+
+    fn default_matches(
+        &self,
+        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+        doc: i32,
+    ) -> Result<Option<MatchWithNoTerms>> {
+        self.weight.default_matches(context, doc)
+    }
+
+    fn explain(
+        &self,
+        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
+        self.weight.explain(context, doc)
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        self.weight.get_query()
+    }
+
+    fn scorer(&self, _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::Scorer>>{
+        todo!()
+    }
+
+    type ScorerSupplier = DummyScorerSupplier;
+
+    fn scorer_supplier(
+        &self,
+        _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        todo!()
+        // self.weight.scorer_supplier(context)
+    }
+
+    fn bulk_scorer(&self, _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer>>{
+        todo!()
+        // self.weight.bulk_scorer(context)
+    }
+
+    fn count(
+        &self,
+        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+    ) -> Result<i32> {
+        self.weight.count(context)
+    }
+
+    fn default_count(
+        &self,
+        _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
+    ) -> Result<i32> {
+        self.weight.default_count(_context)
+    }
+
+    fn is_weight_cacheable(&self) -> bool {
+        self.weight.is_weight_cacheable()
+    }
+}
