@@ -29,6 +29,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
@@ -37,6 +38,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
@@ -538,12 +540,12 @@ where
         let query = query.into();
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         if !score_mode.needs_scores() {
-            Ok(WeightEnum2::A(
+            Ok(IndexSearcherWeight::new(WeightEnum2::A(
                 self.query_cache
                     .do_cache(weight, self.query_caching_policy.clone()),
-            ))
+            )))
         } else {
-            Ok(WeightEnum2::B(weight))
+            Ok(IndexSearcherWeight::new(WeightEnum2::B(weight)))
         }
     }
     /// Returns [`TermStatistics`] for a term.
@@ -609,13 +611,115 @@ where
         self.reader_context.reader()
     }
 }
-pub type IndexSearcherWeight<S, IRC, QCP, QC> = WeightEnum2<
+
+type IndexSearcherWeightInner<S, IRC, QCP, QC> = WeightEnum2<
     <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<
         QueryWeight<S, IRC, QCP, QC>,
         QCP,
     >,
     QueryWeight<S, IRC, QCP, QC>,
 >;
+
+pub struct IndexSearcherWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
+{
+    inner: Box<IndexSearcherWeightInner<S, IRC, QCP, QC>>,
+}
+
+impl<S, IRC, QCP, QC> IndexSearcherWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
+{
+    pub fn new(inner: IndexSearcherWeightInner<S, IRC, QCP, QC>) -> Self {
+        Self {
+            inner: Box::new(inner),
+        }
+    }
+}
+
+impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader> for IndexSearcherWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
+{
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
+        self.inner.is_cacheable(ctx)
+    }
+}
+
+impl<S, IRC, QCP, QC> Weight<IRC::LeafReader> for IndexSearcherWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
+{
+    type Matches = <IndexSearcherWeightInner<S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
+    type ScorerSupplier =
+        <IndexSearcherWeightInner<S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::ScorerSupplier;
+
+    fn matches(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        self.inner.matches(context, doc)
+    }
+
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
+        self.inner.explain(context, doc)
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        self.inner.get_query()
+    }
+
+    fn scorer(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::Scorer>> {
+        self.inner.scorer(context)
+    }
+
+    fn scorer_supplier(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        self.inner.scorer_supplier(context)
+    }
+
+    fn bulk_scorer(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::BulkScorer>> {
+        self.inner.bulk_scorer(context)
+    }
+
+    fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+        self.inner.count(context)
+    }
+
+    fn default_count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+        self.inner.default_count(context)
+    }
+
+    fn is_weight_cacheable(&self) -> bool {
+        self.inner.is_weight_cacheable()
+    }
+}
 
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
