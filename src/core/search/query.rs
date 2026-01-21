@@ -316,116 +316,59 @@ impl QueryBase for BaseQuery {
     }
 }
 // To BaseQuery
-impl From<TermQuery> for BaseQuery {
-    fn from(value: TermQuery) -> Self {
-        BaseQuery::Term(value)
-    }
+macro_rules! impl_from_for_base_query {
+    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
+        $(
+            impl From<$ty> for BaseQuery {
+                #[inline]
+                fn from(value: $ty) -> Self {
+                    BaseQuery::$variant(value)
+                }
+            }
+        )+
+    };
 }
-impl From<MatchAllDocsQuery> for BaseQuery {
-    fn from(value: MatchAllDocsQuery) -> Self {
-        BaseQuery::MatchAll(value)
-    }
+
+impl_from_for_base_query! {
+    TermQuery => Term,
+    MatchAllDocsQuery => MatchAll,
+    MatchNoDocsQuery => MatchNoDoc,
+    DummyQuery => Dummy,
+    BoostQuery => Boost,
+    PointRangeQuery => PointRange,
+    SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
+    SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
+    SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
+    IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
+    FieldExistsQuery => FieldExists,
 }
-impl From<MatchNoDocsQuery> for BaseQuery {
-    fn from(value: MatchNoDocsQuery) -> Self {
-        BaseQuery::MatchNoDoc(value)
-    }
-}
-impl From<DummyQuery> for BaseQuery {
-    fn from(value: DummyQuery) -> Self {
-        BaseQuery::Dummy(value)
-    }
-}
-impl From<BoostQuery> for BaseQuery {
-    fn from(value: BoostQuery) -> Self {
-        BaseQuery::Boost(value)
-    }
-}
-impl From<PointRangeQuery> for BaseQuery {
-    fn from(value: PointRangeQuery) -> Self {
-        BaseQuery::PointRange(value)
-    }
-}
-impl From<SortedNumericDocValuesSetQuery> for BaseQuery {
-    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
-        BaseQuery::SortedNumericDocValuesSet(value)
-    }
-}
-impl From<SortedNumericDocValuesRangeQuery> for BaseQuery {
-    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
-        BaseQuery::SortedNumericDocValuesRange(value)
-    }
-}
-impl From<SortedSetDocValuesRangeQuery> for BaseQuery {
-    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
-        BaseQuery::SortedSetDocValuesRange(value)
-    }
-}
-impl From<IndexSortSortedNumericDocValuesRangeQuery> for BaseQuery {
-    fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
-        BaseQuery::IndexSortSortedNumericDocValuesRange(value)
-    }
-}
-impl From<FieldExistsQuery> for BaseQuery {
-    fn from(value: FieldExistsQuery) -> Self {
-        BaseQuery::FieldExists(value)
-    }
-}
+
 // To Query
-impl From<TermQuery> for Query {
-    fn from(value: TermQuery) -> Self {
-        BaseQuery::Term(value).into()
-    }
+macro_rules! impl_from_query_via_base {
+    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
+        $(
+            impl From<$ty> for Query {
+                #[inline]
+                fn from(value: $ty) -> Self {
+                    BaseQuery::$variant(value).into()
+                }
+            }
+        )+
+    };
 }
-impl From<MatchAllDocsQuery> for Query {
-    fn from(value: MatchAllDocsQuery) -> Self {
-        BaseQuery::MatchAll(value).into()
-    }
-}
-impl From<MatchNoDocsQuery> for Query {
-    fn from(value: MatchNoDocsQuery) -> Self {
-        BaseQuery::MatchNoDoc(value).into()
-    }
-}
-impl From<DummyQuery> for Query {
-    fn from(value: DummyQuery) -> Self {
-        BaseQuery::Dummy(value).into()
-    }
-}
-impl From<BoostQuery> for Query {
-    fn from(value: BoostQuery) -> Self {
-        BaseQuery::Boost(value).into()
-    }
-}
-impl From<PointRangeQuery> for Query {
-    fn from(value: PointRangeQuery) -> Self {
-        BaseQuery::PointRange(value).into()
-    }
-}
-impl From<SortedNumericDocValuesSetQuery> for Query {
-    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
-        BaseQuery::SortedNumericDocValuesSet(value).into()
-    }
-}
-impl From<SortedNumericDocValuesRangeQuery> for Query {
-    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
-        BaseQuery::SortedNumericDocValuesRange(value).into()
-    }
-}
-impl From<SortedSetDocValuesRangeQuery> for Query {
-    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
-        BaseQuery::SortedSetDocValuesRange(value).into()
-    }
-}
-impl From<IndexSortSortedNumericDocValuesRangeQuery> for Query {
-    fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
-        BaseQuery::IndexSortSortedNumericDocValuesRange(value).into()
-    }
-}
-impl From<FieldExistsQuery> for Query {
-    fn from(value: FieldExistsQuery) -> Self {
-        BaseQuery::FieldExists(value).into()
-    }
+
+impl_from_query_via_base! {
+    TermQuery => Term,
+    MatchAllDocsQuery => MatchAll,
+    MatchNoDocsQuery => MatchNoDoc,
+    DummyQuery => Dummy,
+    BoostQuery => Boost,
+    PointRangeQuery => PointRange,
+    SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
+    SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
+    SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
+    IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
+    FieldExistsQuery => FieldExists,
 }
 
 pub enum Query {
