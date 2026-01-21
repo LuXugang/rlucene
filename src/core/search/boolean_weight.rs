@@ -25,6 +25,7 @@ use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
+use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -42,6 +43,7 @@ where
     similarity: Arc<S>,
     weighted_clauses: Vec<WeightedBooleanClause<W, LR>>,
     meta: BooleanQueryMeta,
+    score_mode: ScoreMode,
 }
 
 impl<S, LR, W> BooleanWeight<S, W, LR>
@@ -262,8 +264,50 @@ where
 
     fn scorer_supplier(
         &self,
-        _context: &LeafReaderContext<LR>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
+        let mut min_should_match = self.meta.minimum_number_should_match;
+
+        let mut must = Vec::new();
+        let mut should = Vec::new();
+        let mut filter = Vec::new();
+        let mut must_not = Vec::new();
+
+        for wc in &self.weighted_clauses {
+            let sub_supplier = wc.weight.scorer_supplier(context)?;
+            match sub_supplier {
+                None => {
+                    if wc.clause.is_required() {
+                        return Ok(None);
+                    }
+                },
+                Some(sub_scorer) => match wc.clause.occur() {
+                    Occur::Must => must.push(sub_scorer),
+                    Occur::Should => should.push(sub_scorer),
+                    Occur::Filter => filter.push(sub_scorer),
+                    Occur::MustNot => must_not.push(sub_scorer),
+                },
+            }
+        }
+        // scorer simplifications:
+        if (should.len() as i32) == min_should_match {
+            must.append(&mut should);
+            min_should_match = 0;
+        }
+
+        if filter.is_empty() && must.is_empty() && should.is_empty() {
+            return Ok(None);
+        } else if (should.len() as i32) < min_should_match {
+            return Ok(None);
+        }
+
+        if !self.score_mode.needs_scores()
+            && min_should_match == 0
+            && (must.len() + filter.len()) > 0
+        {
+            should.clear();
+        }
+        let _max_doc = context.reader().max_doc()?;
         todo!()
     }
 
