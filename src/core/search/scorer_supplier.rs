@@ -19,10 +19,11 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
     BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum5,
     BulkScorerEnum6, BulkScorerEnum7, BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10,
+    BulkScorerEnum11,
 };
 use crate::core::search::scorer::{
     Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum5, ScorerEnum6, ScorerEnum7,
-    ScorerEnum8, ScorerEnum9, ScorerEnum10,
+    ScorerEnum8, ScorerEnum9, ScorerEnum10, ScorerEnum11,
 };
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -212,4 +213,9 @@ either_scorer_supplier!(
     pub ScorerSupplierEnum10
     => { bulk: BulkScorerEnum10, scorer: ScorerEnum10 }
     { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I,J:J }
+);
+either_scorer_supplier!(
+    pub ScorerSupplierEnum11
+    => { bulk: BulkScorerEnum11, scorer: ScorerEnum11 }
+    { A: A, B: B ,C:C, D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K }
 );

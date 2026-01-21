@@ -156,3 +156,16 @@ either_bulk_scorer!(pub BulkScorerEnum10 {
     I: I1,
     J: J1
 });
+either_bulk_scorer!(pub BulkScorerEnum11 {
+    A: A1,
+    B: B1,
+    C: C1,
+    D: D1,
+    E: E1,
+    F: F1,
+    G: G1,
+    H: H1,
+    I: I1,
+    J: J1,
+    K: K1
+});

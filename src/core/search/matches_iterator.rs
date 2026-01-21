@@ -184,3 +184,8 @@ either_matches_iterator!(
     => { sub: MatchesIteratorEnum10 }
     { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J }
 );
+either_matches_iterator!(
+    pub MatchesIteratorEnum11
+    => { sub: MatchesIteratorEnum11 }
+    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K }
+);

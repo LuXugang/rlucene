@@ -610,8 +610,11 @@ where
     }
 }
 pub type IndexSearcherWeight<S, IRC, QCP, QC> = WeightEnum2<
-    <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<QueryWeight<S, IRC>, QCP>,
-    QueryWeight<S, IRC>,
+    <QC as QueryCache<<IRC as IndexReaderContext>::LeafReader>>::Weight<
+        QueryWeight<S, IRC, QCP, QC>,
+        QCP,
+    >,
+    QueryWeight<S, IRC, QCP, QC>,
 >;
 
 /// Returns the maximum number of clauses permitted, `1024` by default.

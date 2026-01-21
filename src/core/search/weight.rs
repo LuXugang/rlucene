@@ -17,9 +17,10 @@
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::{
     BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum7,
-    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10,
+    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10, BulkScorerEnum11,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -29,17 +30,19 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
     Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4, MatchesEnum7, MatchesEnum8, MatchesEnum9,
-    MatchesEnum10,
+    MatchesEnum10, MatchesEnum11,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryWeight};
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorer::{
     Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
-    ScorerEnum10, TwoPhaseState,
+    ScorerEnum10, ScorerEnum11, TwoPhaseState,
 };
 use crate::core::search::scorer_supplier::{
     ScorerSupplier, ScorerSupplierEnum2, ScorerSupplierEnum3, ScorerSupplierEnum4,
     ScorerSupplierEnum7, ScorerSupplierEnum8, ScorerSupplierEnum9, ScorerSupplierEnum10,
+    ScorerSupplierEnum11,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -818,30 +821,47 @@ either_weight!(
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );
+either_weight!(
+    pub WeightEnum11
+    => {
+        matches: MatchesEnum11,
+        supplier: ScorerSupplierEnum11,
+        scorer: ScorerEnum11,
+        bulk: BulkScorerEnum11
+    }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
+);
 
-pub struct WeightWrapper<S, IRC>
+pub struct WeightWrapper<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
 {
-    pub weight: Box<QueryWeight<S, IRC>>,
+    pub weight: Box<QueryWeight<S, IRC, QCP, QC>>,
 }
-impl<S, IRC> WeightWrapper<S, IRC>
+impl<S, IRC, QCP, QC> WeightWrapper<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
 {
-    pub fn new(weight: QueryWeight<S, IRC>) -> Self {
+    pub fn new(weight: QueryWeight<S, IRC, QCP, QC>) -> Self {
         Self {
             weight: Box::new(weight),
         }
     }
 }
 
-impl<S, IRC> SegmentCacheable<<IRC as IndexReaderContext>::LeafReader> for WeightWrapper<S, IRC>
+impl<S, IRC, QCP, QC> SegmentCacheable<<IRC as IndexReaderContext>::LeafReader>
+    for WeightWrapper<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
 {
     fn is_cacheable(
         &self,
@@ -851,10 +871,13 @@ where
     }
 }
 
-impl<S, IRC> Weight<<IRC as IndexReaderContext>::LeafReader> for WeightWrapper<S, IRC>
+impl<S, IRC, QCP, QC> Weight<<IRC as IndexReaderContext>::LeafReader>
+    for WeightWrapper<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
 {
     type Matches = DummyMatches;
 

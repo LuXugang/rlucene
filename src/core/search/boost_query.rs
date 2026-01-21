@@ -93,7 +93,7 @@ impl QueryBase for BoostQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = WeightWrapper<S, IRC>
+        = WeightWrapper<S, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -115,12 +115,14 @@ impl QueryBase for BoostQuery {
         QC: QueryCache<IRC::LeafReader>,
         Self: Sized,
     {
-        Ok(WeightWrapper::new(self.query.create_weight(
-            searcher,
-            score_mode,
-            self.boost * boost,
-            per_reader_term_state,
-        )?))
+        Ok(WeightWrapper::<S, IRC, QCP, QC>::new(
+            self.query.create_weight(
+                searcher,
+                score_mode,
+                self.boost * boost,
+                per_reader_term_state,
+            )?,
+        ))
     }
 
     type RewriteQuery = DummyQuery;

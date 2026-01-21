@@ -26,13 +26,16 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
 
 use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_leaf_collector::{FilterLeafCollectorRef, FilterSource};
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherWeight};
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -87,8 +90,6 @@ impl Hash for ConstantScoreQuery {
         self.query.hash(state);
     }
 }
-pub type ConstantScoreQueryWeight<S, IRC, QCP, QC> =
-    WeightEnum2<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
 impl QueryBase for ConstantScoreQuery {
     fn as_string(&self, field: &str) -> String {
         let inner = self.query.as_string(field);
@@ -126,13 +127,16 @@ impl QueryBase for ConstantScoreQuery {
         let query = *self.query;
         let inner_weight =
             searcher.create_weight(query, inner_score_mode, 1.0, per_reader_term_state)?;
-        if score_mode.needs_scores() {
-            Ok(ConstantScoreQueryWeight::A(
-                WeightImpl::<S, IRC, QCP, QC>::new(boost, inner_weight, *score_mode),
+        let v = if score_mode.needs_scores() {
+            WeightEnum2::A(WeightImpl::<S, IRC, QCP, QC>::new(
+                boost,
+                inner_weight,
+                *score_mode,
             ))
         } else {
-            Ok(ConstantScoreQueryWeight::B(inner_weight))
-        }
+            WeightEnum2::B(inner_weight)
+        };
+        Ok(ConstantScoreQueryWeight::new(v))
     }
 
     type RewriteQuery = DummyQuery;
@@ -540,5 +544,131 @@ where
 
     fn cost(&mut self) -> Result<i64> {
         self.base.cost()
+    }
+}
+pub type CSQWType<S, IRC, QCP, QC> =
+    WeightEnum2<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
+pub struct ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<IRC::LeafReader>,
+{
+    inner: Box<CSQWType<S, IRC, QCP, QC>>,
+}
+impl<S, IRC, QCP, QC> ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<IRC::LeafReader>,
+{
+    pub fn new(inner: CSQWType<S, IRC, QCP, QC>) -> Self {
+        Self {
+            inner: Box::new(inner),
+        }
+    }
+}
+impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader>
+    for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<IRC::LeafReader>,
+{
+    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
+        match &*self.inner {
+            WeightEnum2::A(w) => w.is_cacheable(ctx),
+            WeightEnum2::B(w) => w.is_cacheable(ctx),
+        }
+    }
+}
+impl<S, IRC, QCP, QC> Weight<IRC::LeafReader> for ConstantScoreQueryWeight<S, IRC, QCP, QC>
+where
+    S: Similarity,
+    IRC: IndexReaderContext,
+    QCP: QueryCachingPolicy,
+    QC: QueryCache<IRC::LeafReader>,
+{
+    type Matches = DummyMatches;
+
+    fn matches(
+        &self,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+        _doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        todo!()
+    }
+
+    fn default_matches(
+        &self,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+        _doc: i32,
+    ) -> Result<Option<MatchWithNoTerms>> {
+        todo!()
+    }
+
+    fn explain(
+        &self,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
+    ) -> Result<Explanation> {
+        match &*self.inner {
+            WeightEnum2::A(w) => w.explain(context, doc),
+            WeightEnum2::B(w) => w.explain(context, doc),
+        }
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        match &*self.inner {
+            WeightEnum2::A(w) => w.get_query(),
+            WeightEnum2::B(w) => w.get_query(),
+        }
+    }
+
+    fn scorer(
+        &self,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::Scorer>> {
+        todo!()
+    }
+
+    type ScorerSupplier = DummyScorerSupplier;
+
+    fn scorer_supplier(
+        &self,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        todo!()
+    }
+
+    fn bulk_scorer(
+        &self,
+        _context: &LeafReaderContext<IRC::LeafReader>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::BulkScorer>> {
+        todo!()
+    }
+
+    fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+        match &*self.inner {
+            WeightEnum2::A(w) => w.count(context),
+            WeightEnum2::B(w) => w.count(context),
+        }
+    }
+
+    fn default_count(&self, _context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+        match &*self.inner {
+            WeightEnum2::A(w) => w.count(_context),
+            WeightEnum2::B(w) => w.count(_context),
+        }
+    }
+
+    fn is_weight_cacheable(&self) -> bool {
+        match &*self.inner {
+            WeightEnum2::A(_) => true,
+            WeightEnum2::B(_) => false,
+        }
     }
 }

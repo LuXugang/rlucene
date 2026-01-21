@@ -18,7 +18,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
     DocIdSetIteratorEnum5, DocIdSetIteratorEnum6, DocIdSetIteratorEnum7, DocIdSetIteratorEnum8,
-    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10,
+    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10, DocIdSetIteratorEnum11,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -318,4 +318,9 @@ either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum10
     => { disi: DocIdSetIteratorEnum10 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
+);
+either_two_phase_iterator_gat!(
+    pub TwoPhaseIteratorEnum11
+    => { disi: DocIdSetIteratorEnum11 }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
 );

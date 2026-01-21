@@ -183,3 +183,6 @@ either_scorable!(
 either_scorable!(
     pub ScorableEnum10 { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );
+either_scorable!(
+    pub ScorableEnum11 { A: A, B: B , C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
+);
