@@ -57,9 +57,6 @@ impl BoostQuery {
     pub fn get_query(&self) -> &Query {
         &self.query
     }
-    pub fn take_query(&mut self) -> Query {
-        std::mem::take(&mut self.query)
-    }
     pub fn get_boost(&self) -> f32 {
         self.boost
     }

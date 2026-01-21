@@ -458,7 +458,7 @@ mod tests {
     use crate::core::index::BytesRef;
     use crate::core::index::buffered_updates::{BufferedUpdates, DeletedTerms};
     use crate::core::index::term::Term;
-    use crate::core::search::query::Query;
+
     use crate::core::search::term_query::TermQuery;
     use crate::core::util::accountable::Accountable;
     use crate::core::util::error::lucene_error::Result;
@@ -485,10 +485,7 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id", BytesRef::from_string(&value));
-            bu.add_query(
-                Arc::new(Query::Term(TermQuery::new(term.clone()))),
-                doc_id_upto,
-            );
+            bu.add_query(Arc::new(TermQuery::new(term.clone()).into()), doc_id_upto);
         }
 
         let terms = at_least(&mut random, 1);

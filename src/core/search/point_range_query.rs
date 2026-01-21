@@ -34,7 +34,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{BaseQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -369,9 +369,10 @@ where
         }
     }
     fn point_range_query(&self) -> Result<&PointRangeQuery> {
-        match self.parent_query.as_ref() {
-            Query::PointRange(q) => Ok(q),
-            _ => Err(LuceneError::illegal_state("should never be here")),
+        if let Query::Base(BaseQuery::PointRange(v)) = self.parent_query.as_ref() {
+            Ok(v)
+        } else {
+            Err(LuceneError::illegal_state(""))
         }
     }
 }

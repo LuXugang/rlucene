@@ -24,14 +24,14 @@ use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{BaseQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -146,8 +146,11 @@ where
     }
 
     fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
-        let Query::MatchNoDoc(parent_query) = self.parent_query.as_ref() else {
-            unreachable!("should never happen");
+        let parent_query = if let Query::Base(BaseQuery::MatchNoDoc(v)) = self.parent_query.as_ref()
+        {
+            v
+        } else {
+            return Err(LuceneError::illegal_state(""));
         };
         Ok(Explanation::no_match(parent_query.reason.clone(), vec![]))
     }

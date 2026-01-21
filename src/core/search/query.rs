@@ -31,6 +31,7 @@ use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
@@ -97,72 +98,358 @@ pub trait QueryBase: Eq + Hash + Debug {
     where
         QV: QueryVisitor;
 }
-pub enum Query {
+pub enum BaseQuery {
     Term(TermQuery),
     MatchAll(MatchAllDocsQuery),
     MatchNoDoc(MatchNoDocsQuery),
     Dummy(DummyQuery),
     Boost(BoostQuery),
-    ConstantScore(ConstantScoreQuery),
     PointRange(PointRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
     FieldExists(FieldExistsQuery),
+}
+#[cfg(test)]
+impl Clone for BaseQuery {
+    fn clone(&self) -> Self {
+        match self {
+            BaseQuery::Term(t) => BaseQuery::Term(t.clone()),
+            BaseQuery::MatchAll(m) => BaseQuery::MatchAll(m.clone()),
+            BaseQuery::MatchNoDoc(m) => BaseQuery::MatchNoDoc(m.clone()),
+            BaseQuery::Dummy(d) => BaseQuery::Dummy(d.clone()),
+            BaseQuery::Boost(b) => BaseQuery::Boost(b.clone()),
+            BaseQuery::PointRange(c) => BaseQuery::PointRange(c.clone()),
+            BaseQuery::SortedNumericDocValuesSet(c) => {
+                BaseQuery::SortedNumericDocValuesSet(c.clone())
+            },
+            BaseQuery::SortedNumericDocValuesRange(c) => {
+                BaseQuery::SortedNumericDocValuesRange(c.clone())
+            },
+            BaseQuery::SortedSetDocValuesRange(c) => BaseQuery::SortedSetDocValuesRange(c.clone()),
+            BaseQuery::IndexSortSortedNumericDocValuesRange(c) => {
+                BaseQuery::IndexSortSortedNumericDocValuesRange(c.clone())
+            },
+            BaseQuery::FieldExists(c) => BaseQuery::FieldExists(c.clone()),
+        }
+    }
+}
+
+impl Eq for BaseQuery {}
+
+impl PartialEq<Self> for BaseQuery {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (BaseQuery::Term(t1), BaseQuery::Term(t2)) => t1 == t2,
+            (BaseQuery::MatchAll(m1), BaseQuery::MatchAll(m2)) => m1 == m2,
+            (BaseQuery::MatchNoDoc(m1), BaseQuery::MatchNoDoc(m2)) => m1 == m2,
+            (BaseQuery::Dummy(d1), BaseQuery::Dummy(d2)) => d1 == d2,
+            (BaseQuery::Boost(b1), BaseQuery::Boost(b2)) => b1 == b2,
+            (BaseQuery::PointRange(c1), BaseQuery::PointRange(c2)) => c1 == c2,
+            (
+                BaseQuery::SortedNumericDocValuesSet(c1),
+                BaseQuery::SortedNumericDocValuesSet(c2),
+            ) => c1 == c2,
+            (
+                BaseQuery::SortedNumericDocValuesRange(c1),
+                BaseQuery::SortedNumericDocValuesRange(c2),
+            ) => c1 == c2,
+            (
+                BaseQuery::IndexSortSortedNumericDocValuesRange(c1),
+                BaseQuery::IndexSortSortedNumericDocValuesRange(c2),
+            ) => c1 == c2,
+            (BaseQuery::FieldExists(c1), BaseQuery::FieldExists(c2)) => c1 == c2,
+            _ => false,
+        }
+    }
+}
+
+impl Hash for BaseQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            BaseQuery::Term(t) => {
+                t.hash(state);
+            },
+            BaseQuery::MatchAll(m) => {
+                m.hash(state);
+            },
+            BaseQuery::MatchNoDoc(m) => {
+                m.hash(state);
+            },
+            BaseQuery::Dummy(d) => {
+                d.hash(state);
+            },
+            BaseQuery::Boost(b) => {
+                b.hash(state);
+            },
+            BaseQuery::PointRange(c) => {
+                c.hash(state);
+            },
+            BaseQuery::SortedNumericDocValuesSet(c) => {
+                c.hash(state);
+            },
+            BaseQuery::SortedNumericDocValuesRange(c) => {
+                c.hash(state);
+            },
+            BaseQuery::SortedSetDocValuesRange(c) => {
+                c.hash(state);
+            },
+            BaseQuery::IndexSortSortedNumericDocValuesRange(c) => {
+                c.hash(state);
+            },
+            BaseQuery::FieldExists(c) => {
+                c.hash(state);
+            },
+        }
+    }
+}
+
+impl Debug for BaseQuery {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BaseQuery::Term(t) => {
+                write!(f, "BaseQuery::Term({:?})", t)
+            },
+            BaseQuery::MatchAll(m) => {
+                write!(f, "BaseQuery::MatchAll({:?})", m)
+            },
+            BaseQuery::MatchNoDoc(m) => {
+                write!(f, "BaseQuery::MatchNoDoc({:?})", m)
+            },
+            BaseQuery::Dummy(d) => {
+                write!(f, "BaseQuery::Dummy({:?})", d)
+            },
+            BaseQuery::Boost(b) => {
+                write!(f, "BaseQuery::Boost({:?})", b)
+            },
+            BaseQuery::PointRange(c) => {
+                write!(f, "BaseQuery::PointRange({:?})", c)
+            },
+            BaseQuery::SortedNumericDocValuesSet(c) => {
+                write!(f, "BaseQuery::SortedNumericDocValuesSet({:?})", c)
+            },
+            BaseQuery::SortedNumericDocValuesRange(c) => {
+                write!(f, "BaseQuery::SortedNumericDocValuesRange({:?})", c)
+            },
+            BaseQuery::SortedSetDocValuesRange(c) => {
+                write!(f, "BaseQuery::SortedSetDocValuesRange({:?})", c)
+            },
+            BaseQuery::IndexSortSortedNumericDocValuesRange(c) => {
+                write!(
+                    f,
+                    "BaseQuery::IndexSortSortedNumericDocValuesRange({:?})",
+                    c
+                )
+            },
+            BaseQuery::FieldExists(c) => {
+                write!(f, "BaseQuery::FieldExists({:?})", c)
+            },
+        }
+    }
+}
+
+impl QueryBase for BaseQuery {
+    fn as_string(&self, field: &str) -> String {
+        match self {
+            BaseQuery::Term(t) => t.as_string(field),
+            BaseQuery::MatchAll(m) => m.as_string(field),
+            BaseQuery::MatchNoDoc(m) => m.as_string(field),
+            BaseQuery::Dummy(d) => d.as_string(field),
+            BaseQuery::Boost(b) => b.as_string(field),
+            BaseQuery::PointRange(c) => c.as_string(field),
+            BaseQuery::SortedNumericDocValuesSet(c) => c.as_string(field),
+            BaseQuery::SortedNumericDocValuesRange(c) => c.as_string(field),
+            BaseQuery::SortedSetDocValuesRange(c) => c.as_string(field),
+            BaseQuery::IndexSortSortedNumericDocValuesRange(c) => c.as_string(field),
+            BaseQuery::FieldExists(c) => c.as_string(field),
+        }
+    }
+
+    type Weight<S, IRC, QCP, QC>
+        = DummyWeight<IRC::LeafReader>
+    where
+        S: Similarity,
+        IRC: IndexReaderContext,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache;
+
+    fn create_weight<S, IRC, QT, QCP, QC>(
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    type RewriteQuery = DummyQuery;
+
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        &self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Option<Self::RewriteQuery>>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+    {
+        todo!()
+    }
+
+    fn visit<QV>(&self, _visitor: &QV)
+    where
+        QV: QueryVisitor,
+    {
+        todo!()
+    }
+}
+// To BaseQuery
+impl From<TermQuery> for BaseQuery {
+    fn from(value: TermQuery) -> Self {
+        BaseQuery::Term(value)
+    }
+}
+impl From<MatchAllDocsQuery> for BaseQuery {
+    fn from(value: MatchAllDocsQuery) -> Self {
+        BaseQuery::MatchAll(value)
+    }
+}
+impl From<MatchNoDocsQuery> for BaseQuery {
+    fn from(value: MatchNoDocsQuery) -> Self {
+        BaseQuery::MatchNoDoc(value)
+    }
+}
+impl From<DummyQuery> for BaseQuery {
+    fn from(value: DummyQuery) -> Self {
+        BaseQuery::Dummy(value)
+    }
+}
+impl From<BoostQuery> for BaseQuery {
+    fn from(value: BoostQuery) -> Self {
+        BaseQuery::Boost(value)
+    }
+}
+impl From<PointRangeQuery> for BaseQuery {
+    fn from(value: PointRangeQuery) -> Self {
+        BaseQuery::PointRange(value)
+    }
+}
+impl From<SortedNumericDocValuesSetQuery> for BaseQuery {
+    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
+        BaseQuery::SortedNumericDocValuesSet(value)
+    }
+}
+impl From<SortedNumericDocValuesRangeQuery> for BaseQuery {
+    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
+        BaseQuery::SortedNumericDocValuesRange(value)
+    }
+}
+impl From<SortedSetDocValuesRangeQuery> for BaseQuery {
+    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
+        BaseQuery::SortedSetDocValuesRange(value)
+    }
+}
+impl From<IndexSortSortedNumericDocValuesRangeQuery> for BaseQuery {
+    fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
+        BaseQuery::IndexSortSortedNumericDocValuesRange(value)
+    }
+}
+impl From<FieldExistsQuery> for BaseQuery {
+    fn from(value: FieldExistsQuery) -> Self {
+        BaseQuery::FieldExists(value)
+    }
+}
+// To Query
+impl From<TermQuery> for Query {
+    fn from(value: TermQuery) -> Self {
+        BaseQuery::Term(value).into()
+    }
+}
+impl From<MatchAllDocsQuery> for Query {
+    fn from(value: MatchAllDocsQuery) -> Self {
+        BaseQuery::MatchAll(value).into()
+    }
+}
+impl From<MatchNoDocsQuery> for Query {
+    fn from(value: MatchNoDocsQuery) -> Self {
+        BaseQuery::MatchNoDoc(value).into()
+    }
+}
+impl From<DummyQuery> for Query {
+    fn from(value: DummyQuery) -> Self {
+        BaseQuery::Dummy(value).into()
+    }
+}
+impl From<BoostQuery> for Query {
+    fn from(value: BoostQuery) -> Self {
+        BaseQuery::Boost(value).into()
+    }
+}
+impl From<PointRangeQuery> for Query {
+    fn from(value: PointRangeQuery) -> Self {
+        BaseQuery::PointRange(value).into()
+    }
+}
+impl From<SortedNumericDocValuesSetQuery> for Query {
+    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
+        BaseQuery::SortedNumericDocValuesSet(value).into()
+    }
+}
+impl From<SortedNumericDocValuesRangeQuery> for Query {
+    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
+        BaseQuery::SortedNumericDocValuesRange(value).into()
+    }
+}
+impl From<SortedSetDocValuesRangeQuery> for Query {
+    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
+        BaseQuery::SortedSetDocValuesRange(value).into()
+    }
+}
+impl From<IndexSortSortedNumericDocValuesRangeQuery> for Query {
+    fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
+        BaseQuery::IndexSortSortedNumericDocValuesRange(value).into()
+    }
+}
+impl From<FieldExistsQuery> for Query {
+    fn from(value: FieldExistsQuery) -> Self {
+        BaseQuery::FieldExists(value).into()
+    }
+}
+
+pub enum Query {
+    Base(BaseQuery),
+    ConstantScore(ConstantScoreQuery),
     Boolean(BooleanQuery),
 }
 #[cfg(test)]
 impl Clone for Query {
     fn clone(&self) -> Self {
         match self {
-            Query::Term(t) => Query::Term(t.clone()),
-            Query::MatchAll(m) => Query::MatchAll(m.clone()),
-            Query::MatchNoDoc(m) => Query::MatchNoDoc(m.clone()),
-            Query::Dummy(d) => Query::Dummy(d.clone()),
-            Query::Boost(b) => Query::Boost(b.clone()),
+            Query::Base(b) => Query::Base(b.clone()),
             Query::ConstantScore(c) => Query::ConstantScore(c.clone()),
-            Query::PointRange(c) => Query::PointRange(c.clone()),
-            Query::SortedNumericDocValuesSet(c) => Query::SortedNumericDocValuesSet(c.clone()),
-            Query::SortedNumericDocValuesRange(c) => Query::SortedNumericDocValuesRange(c.clone()),
-            Query::SortedSetDocValuesRange(c) => Query::SortedSetDocValuesRange(c.clone()),
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                Query::IndexSortSortedNumericDocValuesRange(c.clone())
-            },
-            Query::FieldExists(c) => Query::FieldExists(c.clone()),
             Query::Boolean(c) => Query::Boolean(c.clone()),
         }
     }
 }
-impl Default for Query {
-    fn default() -> Self {
-        Query::Dummy(DummyQuery::default())
-    }
-}
-
 impl Eq for Query {}
 
 impl PartialEq for Query {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Query::Term(t1), Query::Term(t2)) => t1 == t2,
-            (Query::MatchAll(m1), Query::MatchAll(m2)) => m1 == m2,
-            (Query::MatchNoDoc(m1), Query::MatchNoDoc(m2)) => m1 == m2,
-            (Query::Dummy(d1), Query::Dummy(d2)) => d1 == d2,
-            (Query::Boost(b1), Query::Boost(b2)) => b1 == b2,
+            (Query::Base(c1), Query::Base(c2)) => c1 == c2,
             (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
-            (Query::PointRange(c1), Query::PointRange(c2)) => c1 == c2,
-            (Query::SortedNumericDocValuesSet(c1), Query::SortedNumericDocValuesSet(c2)) => {
-                c1 == c2
-            },
-            (Query::SortedNumericDocValuesRange(c1), Query::SortedNumericDocValuesRange(c2)) => {
-                c1 == c2
-            },
-            (
-                Query::IndexSortSortedNumericDocValuesRange(c1),
-                Query::IndexSortSortedNumericDocValuesRange(c2),
-            ) => c1 == c2,
-            (Query::FieldExists(c1), Query::FieldExists(c2)) => c1 == c2,
             (Query::Boolean(c1), Query::Boolean(c2)) => c1 == c2,
             _ => false,
         }
@@ -172,40 +459,10 @@ impl PartialEq for Query {
 impl Hash for Query {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            Query::Term(t) => {
-                t.hash(state);
-            },
-            Query::MatchAll(m) => {
-                m.hash(state);
-            },
-            Query::MatchNoDoc(m) => {
-                m.hash(state);
-            },
-            Query::Dummy(d) => {
-                d.hash(state);
-            },
-            Query::Boost(b) => {
-                b.hash(state);
+            Query::Base(c) => {
+                c.hash(state);
             },
             Query::ConstantScore(c) => {
-                c.hash(state);
-            },
-            Query::PointRange(c) => {
-                c.hash(state);
-            },
-            Query::SortedNumericDocValuesSet(c) => {
-                c.hash(state);
-            },
-            Query::SortedNumericDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::SortedSetDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::FieldExists(c) => {
                 c.hash(state);
             },
             Query::Boolean(c) => {
@@ -217,41 +474,11 @@ impl Hash for Query {
 impl Debug for Query {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Query::Term(t) => {
-                write!(f, "Query::Term({:?})", t)
-            },
-            Query::MatchAll(m) => {
-                write!(f, "Query::MatchAll({:?})", m)
-            },
-            Query::MatchNoDoc(m) => {
-                write!(f, "Query::MatchNoDoc({:?})", m)
-            },
-            Query::Dummy(d) => {
-                write!(f, "Query::Dummy({:?})", d)
-            },
-            Query::Boost(b) => {
-                write!(f, "Query::Boost({:?})", b)
+            Query::Base(c) => {
+                write!(f, "Query::Base({:?})", c)
             },
             Query::ConstantScore(c) => {
                 write!(f, "Query::ConstantScore({:?})", c)
-            },
-            Query::PointRange(c) => {
-                write!(f, "Query::PointRange({:?})", c)
-            },
-            Query::SortedNumericDocValuesSet(c) => {
-                write!(f, "Query::SortedNumericDocValuesSet({:?})", c)
-            },
-            Query::SortedNumericDocValuesRange(c) => {
-                write!(f, "Query::SortedNumericDocValuesRange({:?})", c)
-            },
-            Query::SortedSetDocValuesRange(c) => {
-                write!(f, "Query::SortedSetDocValuesRange({:?})", c)
-            },
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                write!(f, "Query::IndexSortSortedNumericDocValuesRange({:?})", c)
-            },
-            Query::FieldExists(c) => {
-                write!(f, "Query::FieldExists({:?})", c)
             },
             Query::Boolean(c) => {
                 write!(f, "Query::Boolean({:?})", c)
@@ -263,18 +490,8 @@ impl Debug for Query {
 impl QueryBase for Query {
     fn as_string(&self, field: &str) -> String {
         match self {
-            Query::Term(t) => t.as_string(field),
-            Query::MatchAll(m) => m.as_string(field),
-            Query::MatchNoDoc(m) => m.as_string(field),
-            Query::Dummy(d) => d.as_string(field),
-            Query::Boost(b) => b.as_string(field),
+            Query::Base(c) => c.as_string(field),
             Query::ConstantScore(c) => c.as_string(field),
-            Query::PointRange(c) => c.as_string(field),
-            Query::SortedNumericDocValuesSet(c) => c.as_string(field),
-            Query::SortedNumericDocValuesRange(c) => c.as_string(field),
-            Query::SortedSetDocValuesRange(c) => c.as_string(field),
-            Query::IndexSortSortedNumericDocValuesRange(c) => c.as_string(field),
-            Query::FieldExists(c) => c.as_string(field),
             Query::Boolean(c) => c.as_string(field),
         }
     }
@@ -388,29 +605,9 @@ pub type QueryWeight<S, IRC> = BaseQueryWeight<S, IRC>;
 pub type QueryWeightScorerSupplier<S, IRC> =
     <QueryWeight<S, IRC> as Weight<IRCLeafReader<IRC>>>::ScorerSupplier;
 
-impl From<TermQuery> for Query {
-    fn from(value: TermQuery) -> Self {
-        Query::Term(value)
-    }
-}
-impl From<MatchAllDocsQuery> for Query {
-    fn from(value: MatchAllDocsQuery) -> Self {
-        Query::MatchAll(value)
-    }
-}
-impl From<MatchNoDocsQuery> for Query {
-    fn from(value: MatchNoDocsQuery) -> Self {
-        Query::MatchNoDoc(value)
-    }
-}
-impl From<DummyQuery> for Query {
-    fn from(value: DummyQuery) -> Self {
-        Query::Dummy(value)
-    }
-}
-impl From<BoostQuery> for Query {
-    fn from(value: BoostQuery) -> Self {
-        Query::Boost(value)
+impl From<BaseQuery> for Query {
+    fn from(value: BaseQuery) -> Self {
+        Query::Base(value)
     }
 }
 impl From<ConstantScoreQuery> for Query {
@@ -418,36 +615,12 @@ impl From<ConstantScoreQuery> for Query {
         Query::ConstantScore(value)
     }
 }
-impl From<PointRangeQuery> for Query {
-    fn from(value: PointRangeQuery) -> Self {
-        Query::PointRange(value)
+impl From<BooleanQuery> for Query {
+    fn from(value: BooleanQuery) -> Self {
+        Query::Boolean(value)
     }
 }
-impl From<SortedNumericDocValuesSetQuery> for Query {
-    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
-        Query::SortedNumericDocValuesSet(value)
-    }
-}
-impl From<SortedNumericDocValuesRangeQuery> for Query {
-    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
-        Query::SortedNumericDocValuesRange(value)
-    }
-}
-impl From<SortedSetDocValuesRangeQuery> for Query {
-    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
-        Query::SortedSetDocValuesRange(value)
-    }
-}
-impl From<IndexSortSortedNumericDocValuesRangeQuery> for Query {
-    fn from(value: IndexSortSortedNumericDocValuesRangeQuery) -> Self {
-        Query::IndexSortSortedNumericDocValuesRange(value)
-    }
-}
-impl From<FieldExistsQuery> for Query {
-    fn from(value: FieldExistsQuery) -> Self {
-        Query::FieldExists(value)
-    }
-}
+
 #[derive(Clone, Debug)]
 pub struct IdentityQuery {
     pub(crate) query: Arc<Query>,

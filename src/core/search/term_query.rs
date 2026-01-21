@@ -37,7 +37,7 @@ use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{BaseQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -242,8 +242,10 @@ where
             Some(s) => term_states.resolve(s)?,
             None => None,
         };
-        let Query::Term(parent_query) = self.parent_query.as_ref() else {
-            unreachable!("should never happen");
+        let parent_query = if let Query::Base(BaseQuery::Term(v)) = self.parent_query.as_ref() {
+            v
+        } else {
+            return Err(LuceneError::illegal_state(""));
         };
 
         if state.is_none() {
@@ -321,9 +323,13 @@ where
                 };
 
                 let mut norm: i64 = 1;
-                let Query::Term(parent_query) = self.parent_query.as_ref() else {
-                    unreachable!("should never happen");
-                };
+                let parent_query =
+                    if let Query::Base(BaseQuery::Term(v)) = self.parent_query.as_ref() {
+                        v
+                    } else {
+                        return Err(LuceneError::illegal_state(""));
+                    };
+
                 if let Some(mut norms) =
                     context.reader().get_norm_values(&parent_query.term.field)?
                     && norms.advance_exact(doc)?
@@ -380,8 +386,10 @@ where
             "The top-reader used to create Weight is not the same as the current reader's top-reader"
         );
         let state_supplier = self.term_states.lock().get(context)?;
-        let Query::Term(parent_query) = self.parent_query.as_ref() else {
-            unreachable!("should never happen");
+        let parent_query = if let Query::Base(BaseQuery::Term(v)) = self.parent_query.as_ref() {
+            v
+        } else {
+            return Err(LuceneError::illegal_state(""));
         };
 
         match state_supplier {
