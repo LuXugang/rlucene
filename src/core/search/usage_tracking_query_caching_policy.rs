@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::{BaseQuery, Query};
+use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::frequency_tracking_ring_buffer::FrequencyTrackingRingBuffer;
@@ -47,7 +47,7 @@ impl UsageTrackingQueryCachingPolicy {
         false
     }
     pub(crate) fn frequency(&self, query: &Query) -> i32 {
-        debug_assert!(!matches!(query, Query::Base(BaseQuery::Boost(_))));
+        debug_assert!(!matches!(query, Query::Boost(_)));
         debug_assert!(!matches!(query, Query::ConstantScore(_)));
 
         let mut hasher = DefaultHasher::new();
@@ -61,7 +61,7 @@ impl UsageTrackingQueryCachingPolicy {
 impl QueryCachingPolicy for UsageTrackingQueryCachingPolicy {
     fn on_use(&self, query: &Query) {
         debug_assert!(
-            !matches!(query, Query::Base(BaseQuery::Boost(_))),
+            !matches!(query, Query::Boost(_)),
             "BoostQuery should not be passed to on_use()"
         );
         debug_assert!(

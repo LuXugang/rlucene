@@ -394,12 +394,12 @@ where
         let needs_scores = first_collector.score_mode().needs_scores();
         query = Self::rewrite_if_needed_scores(query, needs_scores)?;
         let score_mode = first_collector.score_mode();
-        let weight = Arc::new(self.create_weight(query, score_mode, 1.0, term_state)?);
-        self.search_with_first_collector(weight, collector_manager, first_collector)
+        let weight = self.create_weight(query, score_mode, 1.0, term_state)?;
+        self.search_with_first_collector(&weight, collector_manager, first_collector)
     }
     fn search_with_first_collector<W, CM>(
         &self,
-        weight: Arc<W>,
+        weight: &W,
         collector_manager: &CM,
         first_collector: CM::C,
     ) -> Result<CM::T>
@@ -429,7 +429,7 @@ where
             for i in 0..leaf_slices.len() {
                 let leaves = leaf_slices[i].partitions.as_slice();
                 let mut collector = collectors[i].take().unwrap();
-                self.search_partitions(leaves, weight.clone(), &mut collector)?;
+                self.search_partitions(leaves, weight, &mut collector)?;
                 list_tasks.push(collector)
             }
             collector_manager.reduce(list_tasks)
@@ -439,7 +439,7 @@ where
     pub(crate) fn search_partitions<W, C>(
         &self,
         partitions: &[LeafReaderContextPartition],
-        weight: Arc<W>,
+        weight: &W,
         collector: &mut C,
     ) -> Result<()>
     where
@@ -454,7 +454,7 @@ where
                 partition.ctx,
                 partition.min_doc_id,
                 partition.max_doc_id,
-                weight.as_ref(),
+                weight,
                 collector,
             )?;
         }

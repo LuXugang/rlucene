@@ -31,7 +31,6 @@ use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
-use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
@@ -103,7 +102,6 @@ pub enum BaseQuery {
     MatchAll(MatchAllDocsQuery),
     MatchNoDoc(MatchNoDocsQuery),
     Dummy(DummyQuery),
-    Boost(BoostQuery),
     PointRange(PointRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
@@ -119,7 +117,6 @@ impl Clone for BaseQuery {
             BaseQuery::MatchAll(m) => BaseQuery::MatchAll(m.clone()),
             BaseQuery::MatchNoDoc(m) => BaseQuery::MatchNoDoc(m.clone()),
             BaseQuery::Dummy(d) => BaseQuery::Dummy(d.clone()),
-            BaseQuery::Boost(b) => BaseQuery::Boost(b.clone()),
             BaseQuery::PointRange(c) => BaseQuery::PointRange(c.clone()),
             BaseQuery::SortedNumericDocValuesSet(c) => {
                 BaseQuery::SortedNumericDocValuesSet(c.clone())
@@ -145,7 +142,6 @@ impl PartialEq<Self> for BaseQuery {
             (BaseQuery::MatchAll(m1), BaseQuery::MatchAll(m2)) => m1 == m2,
             (BaseQuery::MatchNoDoc(m1), BaseQuery::MatchNoDoc(m2)) => m1 == m2,
             (BaseQuery::Dummy(d1), BaseQuery::Dummy(d2)) => d1 == d2,
-            (BaseQuery::Boost(b1), BaseQuery::Boost(b2)) => b1 == b2,
             (BaseQuery::PointRange(c1), BaseQuery::PointRange(c2)) => c1 == c2,
             (
                 BaseQuery::SortedNumericDocValuesSet(c1),
@@ -179,9 +175,6 @@ impl Hash for BaseQuery {
             },
             BaseQuery::Dummy(d) => {
                 d.hash(state);
-            },
-            BaseQuery::Boost(b) => {
-                b.hash(state);
             },
             BaseQuery::PointRange(c) => {
                 c.hash(state);
@@ -220,9 +213,6 @@ impl Debug for BaseQuery {
             BaseQuery::Dummy(d) => {
                 write!(f, "BaseQuery::Dummy({:?})", d)
             },
-            BaseQuery::Boost(b) => {
-                write!(f, "BaseQuery::Boost({:?})", b)
-            },
             BaseQuery::PointRange(c) => {
                 write!(f, "BaseQuery::PointRange({:?})", c)
             },
@@ -256,7 +246,6 @@ impl QueryBase for BaseQuery {
             BaseQuery::MatchAll(m) => m.as_string(field),
             BaseQuery::MatchNoDoc(m) => m.as_string(field),
             BaseQuery::Dummy(d) => d.as_string(field),
-            BaseQuery::Boost(b) => b.as_string(field),
             BaseQuery::PointRange(c) => c.as_string(field),
             BaseQuery::SortedNumericDocValuesSet(c) => c.as_string(field),
             BaseQuery::SortedNumericDocValuesRange(c) => c.as_string(field),
@@ -267,7 +256,7 @@ impl QueryBase for BaseQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = DummyWeight<IRC::LeafReader>
+        = BaseQueryWeight<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -276,10 +265,10 @@ impl QueryBase for BaseQuery {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
@@ -289,7 +278,62 @@ impl QueryBase for BaseQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        todo!()
+        match self {
+            BaseQuery::Term(d) => Ok(BaseQueryWeight::A(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::MatchAll(d) => Ok(BaseQueryWeight::B(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::PointRange(d) => Ok(BaseQueryWeight::C(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::MatchNoDoc(d) => Ok(BaseQueryWeight::D(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::SortedNumericDocValuesSet(d) => Ok(BaseQueryWeight::E(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::SortedNumericDocValuesRange(d) => Ok(BaseQueryWeight::F(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::SortedSetDocValuesRange(d) => Ok(BaseQueryWeight::G(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::IndexSortSortedNumericDocValuesRange(d) => Ok(BaseQueryWeight::H(
+                d.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            )),
+            BaseQuery::FieldExists(d) => Ok(BaseQueryWeight::I(d.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            BaseQuery::Dummy(_) => Err(LuceneError::unsupported_operation(
+                "DummyQuery cannot create weight",
+            )),
+        }
     }
 
     type RewriteQuery = DummyQuery;
@@ -334,7 +378,6 @@ impl_from_for_base_query! {
     MatchAllDocsQuery => MatchAll,
     MatchNoDocsQuery => MatchNoDoc,
     DummyQuery => Dummy,
-    BoostQuery => Boost,
     PointRangeQuery => PointRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
@@ -362,7 +405,6 @@ impl_from_query_via_base! {
     MatchAllDocsQuery => MatchAll,
     MatchNoDocsQuery => MatchNoDoc,
     DummyQuery => Dummy,
-    BoostQuery => Boost,
     PointRangeQuery => PointRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
@@ -375,6 +417,7 @@ pub enum Query {
     Base(BaseQuery),
     ConstantScore(ConstantScoreQuery),
     Boolean(BooleanQuery),
+    Boost(BoostQuery),
 }
 #[cfg(test)]
 impl Clone for Query {
@@ -383,6 +426,7 @@ impl Clone for Query {
             Query::Base(b) => Query::Base(b.clone()),
             Query::ConstantScore(c) => Query::ConstantScore(c.clone()),
             Query::Boolean(c) => Query::Boolean(c.clone()),
+            Query::Boost(c) => Query::Boost(c.clone()),
         }
     }
 }
@@ -394,6 +438,7 @@ impl PartialEq for Query {
             (Query::Base(c1), Query::Base(c2)) => c1 == c2,
             (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
             (Query::Boolean(c1), Query::Boolean(c2)) => c1 == c2,
+            (Query::Boost(c1), Query::Boost(c2)) => c1 == c2,
             _ => false,
         }
     }
@@ -411,6 +456,9 @@ impl Hash for Query {
             Query::Boolean(c) => {
                 c.hash(state);
             },
+            Query::Boost(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -426,6 +474,9 @@ impl Debug for Query {
             Query::Boolean(c) => {
                 write!(f, "Query::Boolean({:?})", c)
             },
+            Query::Boost(c) => {
+                write!(f, "Query::Boost({:?})", c)
+            },
         }
     }
 }
@@ -436,6 +487,7 @@ impl QueryBase for Query {
             Query::Base(c) => c.as_string(field),
             Query::ConstantScore(c) => c.as_string(field),
             Query::Boolean(c) => c.as_string(field),
+            Query::Boost(c) => c.as_string(field),
         }
     }
 
@@ -449,10 +501,10 @@ impl QueryBase for Query {
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<S, IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
@@ -462,52 +514,10 @@ impl QueryBase for Query {
         QC: QueryCache,
         Self: Sized,
     {
-        // match self {
-        //     Query::Term(t) => Ok(QueryWeightEnum::Base(BaseQueryWeight::A(t.create_weight(
-        //         searcher,
-        //         score_mode,
-        //         boost,
-        //         per_reader_term_state,
-        //     )?))),
-        //     Query::MatchAll(m) => Ok(QueryWeightEnum::Base(BaseQueryWeight::B(m.create_weight(
-        //         searcher,
-        //         score_mode,
-        //         boost,
-        //         per_reader_term_state,
-        //     )?))),
-        //     Query::PointRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::C(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        //     Query::MatchNoDoc(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::D(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        //     Query::SortedNumericDocValuesSet(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::E(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        //     Query::SortedNumericDocValuesRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::F(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        //     Query::SortedSetDocValuesRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::G(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        //     Query::IndexSortSortedNumericDocValuesRange(p) => {
-        //         Ok(QueryWeightEnum::Base(BaseQueryWeight::H(p.create_weight(
-        //             searcher,
-        //             score_mode,
-        //             boost,
-        //             per_reader_term_state,
-        //         )?)))
-        //     },
-        //     Query::FieldExists(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::I(
-        //         p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        //     ))),
-        // Query::Boost(p) => p.create_weight(searcher, score_mode, boost, per_reader_term_state),
-        // Query::ConstantScore(p) => Ok(CompositeWeight::B(
-        //     p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-        // )),
-        // _ => Err(LuceneError::illegal_argument("")),
-        // }
-        todo!()
+        match self {
+            Query::Base(b) => b.create_weight(searcher, score_mode, boost, per_reader_term_state),
+            Query::ConstantScore(_) | Query::Boolean(_) | Query::Boost(_) => todo!(),
+        }
     }
 
     type RewriteQuery = DummyQuery;
