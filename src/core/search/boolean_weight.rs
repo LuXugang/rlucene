@@ -295,9 +295,9 @@ where
             min_should_match = 0;
         }
 
-        if filter.is_empty() && must.is_empty() && should.is_empty() {
-            return Ok(None);
-        } else if (should.len() as i32) < min_should_match {
+        if (filter.is_empty() && must.is_empty() && should.is_empty())
+            || (should.len() as i32) < min_should_match
+        {
             return Ok(None);
         }
 

@@ -27,6 +27,7 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
+use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::dummy::dummy_query::DummyQuery;
@@ -109,6 +110,7 @@ pub enum Query {
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
     FieldExists(FieldExistsQuery),
+    Boolean(BooleanQuery),
 }
 #[cfg(test)]
 impl Clone for Query {
@@ -128,6 +130,7 @@ impl Clone for Query {
                 Query::IndexSortSortedNumericDocValuesRange(c.clone())
             },
             Query::FieldExists(c) => Query::FieldExists(c.clone()),
+            Query::Boolean(c) => Query::Boolean(c.clone()),
         }
     }
 }
@@ -160,6 +163,7 @@ impl PartialEq for Query {
                 Query::IndexSortSortedNumericDocValuesRange(c2),
             ) => c1 == c2,
             (Query::FieldExists(c1), Query::FieldExists(c2)) => c1 == c2,
+            (Query::Boolean(c1), Query::Boolean(c2)) => c1 == c2,
             _ => false,
         }
     }
@@ -204,6 +208,9 @@ impl Hash for Query {
             Query::FieldExists(c) => {
                 c.hash(state);
             },
+            Query::Boolean(c) => {
+                c.hash(state);
+            },
         }
     }
 }
@@ -246,6 +253,9 @@ impl Debug for Query {
             Query::FieldExists(c) => {
                 write!(f, "Query::FieldExists({:?})", c)
             },
+            Query::Boolean(c) => {
+                write!(f, "Query::Boolean({:?})", c)
+            },
         }
     }
 }
@@ -265,6 +275,7 @@ impl QueryBase for Query {
             Query::SortedSetDocValuesRange(c) => c.as_string(field),
             Query::IndexSortSortedNumericDocValuesRange(c) => c.as_string(field),
             Query::FieldExists(c) => c.as_string(field),
+            Query::Boolean(c) => c.as_string(field),
         }
     }
 

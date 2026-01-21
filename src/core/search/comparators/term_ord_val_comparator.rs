@@ -628,7 +628,7 @@ where
         min_ord: i32,
         max_ord: i32,
     ) -> Result<()> {
-        let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count());
+        let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count() as i32);
         let size = std::cmp::max(0, max_ord - min_ord + 1);
 
         if size > max_terms {

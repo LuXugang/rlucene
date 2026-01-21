@@ -84,6 +84,7 @@ pub(crate) mod abstract_multi_term_query_constant_score_wrapper;
 pub(crate) mod block_max_conjunction_bulk_scorer;
 pub(crate) mod block_max_conjunction_scorer;
 pub mod boolean_clause;
+pub mod boolean_query;
 pub(crate) mod boolean_scorer;
 mod boolean_scorer_supplier;
 pub(crate) mod boolean_weight;

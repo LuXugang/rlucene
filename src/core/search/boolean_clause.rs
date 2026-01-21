@@ -17,9 +17,19 @@
 use crate::core::search::query::Query;
 
 /// A clause in a BooleanQuery.
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct BooleanClause {
     pub query: Query,
     pub occur: Occur,
+}
+#[cfg(test)]
+impl Clone for BooleanClause {
+    fn clone(&self) -> Self {
+        Self {
+            query: self.query.clone(),
+            occur: self.occur,
+        }
+    }
 }
 
 impl BooleanClause {

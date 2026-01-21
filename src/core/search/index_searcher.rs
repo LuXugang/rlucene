@@ -53,11 +53,11 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock};
 use sysinfo::System;
 
-pub(crate) static MAX_CLAUSE_COUNT: AtomicI32 = AtomicI32::new(1024);
+pub(crate) static MAX_CLAUSE_COUNT: AtomicUsize = AtomicUsize::new(1024);
 const TOTAL_HITS_THRESHOLD: usize = 1000;
 /// Thresholds for index slice allocation logic.
 /// To change the default, extend IndexSearcher and use custom values
@@ -619,11 +619,11 @@ pub type IndexSearcherWeight<S, IRC, QCP, QC> = WeightEnum2<
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
 ///
 /// See also [`set_max_clause_count()`].
-pub fn get_max_clause_count() -> i32 {
+pub fn get_max_clause_count() -> usize {
     MAX_CLAUSE_COUNT.load(Ordering::Relaxed)
 }
 /// Set the maximum number of clauses permitted per Query. Default value is 1024.
-pub fn set_max_clause_count(value: i32) {
+pub fn set_max_clause_count(value: usize) {
     MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
 }
 pub fn do_slices<LR>(
