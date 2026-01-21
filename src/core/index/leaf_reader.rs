@@ -214,6 +214,8 @@ pub type LRNormNumericDocValues<LR> = <LR as LeafReader>::NormNumericDocValues;
 pub type LRDocValuesSkipper<LR> = <LR as LeafReader>::DocValuesSkipper;
 // PointValues
 pub type LRPointValues<LR> = <LR as LeafReader>::PointValues;
+// CacherHelp
+pub type LRCacherHelper<LR> = <LR as LeafReader>::CacheHelper;
 
 pub type LRDisis<LR> = DocIdSetIteratorEnum5<
     LRNumericDocValues<LR>,

@@ -92,7 +92,7 @@ impl QueryBase for BoostQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = QueryWeight<S, IRC, QCP, QC>
+        = QueryWeight<S, IRC>
     where
         S: Similarity,
         IRC: IndexReaderContext,

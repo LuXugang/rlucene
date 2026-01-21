@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
-use crate::core::index::index_reader_context::{
-    IRCLeafReader, IRCLeafReaderCacheHelper, IndexReaderContext,
-};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader::{CacheHelper, CacheKey};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::{LRCacherHelper, LeafReader};
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::search::bulk_scorer::BulkScorer;
@@ -34,9 +32,7 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{
-    IdentityQuery, Query, QueryBase, QueryWeight, QueryWeightScorerSupplier,
-};
+use crate::core::search::query::{IdentityQuery, Query, QueryBase};
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::scorable::Scorable;
@@ -44,8 +40,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum3};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightScorerSupplier};
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -586,24 +581,18 @@ impl<P> QueryCache for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta>,
 {
-    type Weight<S, IRC, QCP, QC>
-        = CachingWrapperWeight<S, IRC, QCP, QC, P>
+    type Weight<W, QCP, LR>
+        = CachingWrapperWeight<W, QCP, P, LR>
     where
-        S: Similarity,
-        IRC: IndexReaderContext,
+        W: Weight<LR>,
         QCP: QueryCachingPolicy,
-        QC: QueryCache;
+        LR: LeafReader;
 
-    fn do_cache<S, IRC, QCP, QC>(
-        &self,
-        weight: QueryWeight<S, IRC, QCP, QC>,
-        policy: Arc<QCP>,
-    ) -> Self::Weight<S, IRC, QCP, QC>
+    fn do_cache<W, QCP, LR>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP, LR>
     where
-        S: Similarity,
-        IRC: IndexReaderContext,
+        W: Weight<LR>,
         QCP: QueryCachingPolicy,
-        QC: QueryCache,
+        LR: LeafReader,
     {
         CachingWrapperWeight::new(weight, policy, self.clone())
     }
@@ -682,42 +671,38 @@ impl Accountable for LeafCache {
         todo!()
     }
 }
-pub struct CachingWrapperWeight<S, IRC, QCP, QC, P>
+pub struct CachingWrapperWeight<W, QCP, P, LR>
 where
-    S: Similarity,
-    IRC: IndexReaderContext,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
     P: Predicate<TopParentMeta>,
+    LR: LeafReader,
 {
-    in_: QueryWeight<S, IRC, QCP, QC>,
+    in_: W,
     base: ConstantScoreWeight,
     policy: Arc<QCP>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
+    phantom_data: PhantomData<LR>,
 }
-impl<S, IRC, QCP, QC, P> CachingWrapperWeight<S, IRC, QCP, QC, P>
+impl<W, QCP, P, LR> CachingWrapperWeight<W, QCP, P, LR>
 where
-    S: Similarity,
-    IRC: IndexReaderContext,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
     P: Predicate<TopParentMeta>,
+    LR: LeafReader,
 {
-    pub(crate) fn new(
-        in_: QueryWeight<S, IRC, QCP, QC>,
-        policy: Arc<QCP>,
-        lru_cache: Arc<LRUQueryCache<P>>,
-    ) -> Self {
+    pub(crate) fn new(in_: W, policy: Arc<QCP>, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
         Self {
             in_,
             base: ConstantScoreWeight::new(1.0),
             policy,
             used: AtomicBool::new(false),
             lru_cache,
+            phantom_data: PhantomData,
         }
     }
-    fn should_cache(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
+    fn should_cache(&self, context: &LeafReaderContext<LR>) -> Result<bool> {
         let top_context = ReaderUtil::get_top_level_context(context);
         let max_doc = top_context.max_doc;
         let v = self.cache_entry_has_reasonable_worst_case_size(max_doc)
@@ -737,43 +722,32 @@ where
     }
 }
 
-impl<S, IRC, QCP, QC, P> SegmentCacheable<IRC::LeafReader>
-    for CachingWrapperWeight<S, IRC, QCP, QC, P>
+impl<W, QCP, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
-    S: Similarity,
-    IRC: IndexReaderContext,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
     P: Predicate<TopParentMeta>,
+    LR: LeafReader,
 {
-    fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.in_.is_cacheable(ctx)
     }
 }
 
-impl<S, IRC, QCP, QC, P> Weight<IRC::LeafReader> for CachingWrapperWeight<S, IRC, QCP, QC, P>
+impl<W, QCP, P, LR> Weight<LR> for CachingWrapperWeight<W, QCP, P, LR>
 where
-    S: Similarity,
-    IRC: IndexReaderContext,
+    W: Weight<LR>,
     QCP: QueryCachingPolicy,
-    QC: QueryCache,
     P: Predicate<TopParentMeta>,
+    LR: LeafReader,
 {
-    type Matches = <QueryWeight<S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
+    type Matches = <W as Weight<LR>>::Matches;
 
-    fn matches(
-        &self,
-        context: &LeafReaderContext<IRC::LeafReader>,
-        doc: i32,
-    ) -> Result<Option<Self::Matches>> {
+    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
     }
 
-    fn explain(
-        &self,
-        context: &LeafReaderContext<IRC::LeafReader>,
-        doc: i32,
-    ) -> Result<Explanation> {
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
         let scorer = self.scorer(context)?;
         self.base
             .explain(scorer, doc, self.get_query().as_string(""))
@@ -782,11 +756,11 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = CachingWrapperWeightSupplier<S, IRC, QCP, QC, P>;
+    type ScorerSupplier = CachingWrapperWeightSupplier<W, P, LR>;
 
     fn scorer_supplier(
         &self,
-        context: &LeafReaderContext<IRC::LeafReader>,
+        context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         if self
             .used
@@ -800,28 +774,28 @@ where
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         }
 
         if !self.should_cache(context)? {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         }
         let reader = context.reader();
         let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::A));
+                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
         };
         let cached = {
             let Some(inner_read) = self.lru_cache.inner.try_read() else {
                 return Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::A));
+                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
             };
             self.lru_cache
                 .get(self.get_query().as_ref(), cache_helper, &inner_read)
@@ -850,14 +824,12 @@ where
                         query,
                         reader.get_core_cache_helper()?.unwrap(),
                     )?;
-                    return Ok(Some(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::B(
-                        ss,
-                    )));
+                    return Ok(Some(CachingWrapperWeightSupplier::<W, P, LR>::B(ss)));
                 }
                 Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<S, IRC, QCP, QC, P>::A))
+                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A))
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -873,7 +845,7 @@ where
         }
     }
 
-    fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         let reader = context.reader();
 
         if reader.has_deletions()? {
@@ -1048,14 +1020,9 @@ where
         Ok(self.cost)
     }
 }
-pub type CachingWrapperWeightSupplier<S, IRC, QCP, QC, P> = ScorerSupplierEnum3<
-    <QueryWeight<S, IRC, QCP, QC> as Weight<IRCLeafReader<IRC>>>::ScorerSupplier,
-    ScorerSupplierImpl1<
-        QueryWeightScorerSupplier<S, IRC, QCP, QC>,
-        IRCLeafReaderCacheHelper<IRC>,
-        P,
-        IRCLeafReader<IRC>,
-    >,
+pub type CachingWrapperWeightSupplier<W, P, LR> = ScorerSupplierEnum3<
+    WeightScorerSupplier<W, LR>,
+    ScorerSupplierImpl1<WeightScorerSupplier<W, LR>, LRCacherHelper<LR>, P, LR>,
     ScorerSupplierImpl2,
 >;
 /// Cache of doc ids with a count.

@@ -294,6 +294,7 @@ where
         (**self).is_weight_cacheable()
     }
 }
+pub type WeightScorerSupplier<W, LR> = <W as Weight<LR>>::ScorerSupplier;
 /// Just wraps a Scorer and performs top scoring using it.
 pub struct DefaultBulkScorer<S>
 where

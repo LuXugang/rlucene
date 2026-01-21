@@ -16,7 +16,7 @@
  */
 use crate::core::index::dummy::dummy_query_timeout::DummyQueryTimeout;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
@@ -32,7 +32,7 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -531,11 +531,10 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<IndexSearcherWeight<S, IRC, QCP, QC>>
+    ) -> Result<IndexSearcherWeight<<T as QueryBase>::Weight<S, IRC, QCP, QC>, IRC, QCP, QC>>
     where
-        T: Into<Query>,
+        T: QueryBase,
     {
-        let query = query.into();
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         if !score_mode.needs_scores() {
             Ok(WeightEnum2::A(
@@ -610,8 +609,8 @@ where
     }
 }
 
-pub(crate) type IndexSearcherWeight<S, IRC, QCP, QC> =
-    WeightEnum2<<QC as QueryCache>::Weight<S, IRC, QCP, QC>, QueryWeight<S, IRC, QCP, QC>>;
+pub(crate) type IndexSearcherWeight<W, IRC, QCP, QC> =
+    WeightEnum2<<QC as QueryCache>::Weight<W, QCP, IRCLeafReader<IRC>>, W>;
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
