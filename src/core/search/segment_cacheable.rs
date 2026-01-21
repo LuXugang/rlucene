@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Interface defining whether or not an object can be cached against a [`LeafReader`]
 ///
@@ -35,4 +36,14 @@ where
 {
     /// Returns `Ok(true)` if the object can be cached against a given leaf.
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool>;
+}
+
+impl<LR, T> SegmentCacheable<LR> for Arc<T>
+where
+    LR: LeafReader,
+    T: SegmentCacheable<LR>,
+{
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+        self.as_ref().is_cacheable(ctx)
+    }
 }
