@@ -102,7 +102,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -116,7 +116,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         let inner_score_mode = if score_mode.is_exhaustive() {
@@ -150,7 +150,7 @@ impl QueryBase for ConstantScoreQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         todo!()
     }
@@ -168,7 +168,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     base: ConstantScoreWeight,
     inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
@@ -179,7 +179,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     pub fn new(
         boost: f32,
@@ -198,7 +198,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
@@ -210,7 +210,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     type Matches = <IndexSearcherWeight<S, IRC, QCP, QC> as Weight<IRC::LeafReader>>::Matches;
 
@@ -286,7 +286,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
     score_mode: ScoreMode,
@@ -298,7 +298,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     fn new(
         inner_weight: Arc<IndexSearcherWeight<S, IRC, QCP, QC>>,
@@ -319,7 +319,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     type Scorer = ConstantScoreScorerEnum<S, IRC, QCP, QC>;
     type BulkScorer = BulkScorerEnum<S, IRC, QCP, QC>;
@@ -548,12 +548,13 @@ where
 }
 pub type CSQWType<S, IRC, QCP, QC> =
     WeightEnum2<WeightImpl<S, IRC, QCP, QC>, IndexSearcherWeight<S, IRC, QCP, QC>>;
+
 pub struct ConstantScoreQueryWeight<S, IRC, QCP, QC>
 where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     inner: Box<CSQWType<S, IRC, QCP, QC>>,
 }
@@ -562,7 +563,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     pub fn new(inner: CSQWType<S, IRC, QCP, QC>) -> Self {
         Self {
@@ -576,7 +577,7 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
         match &*self.inner {
@@ -590,15 +591,23 @@ where
     S: Similarity,
     IRC: IndexReaderContext,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
 {
     type Matches = DummyMatches;
 
     fn matches(
         &self,
-        _context: &LeafReaderContext<IRC::LeafReader>,
-        _doc: i32,
+        context: &LeafReaderContext<IRC::LeafReader>,
+        doc: i32,
     ) -> Result<Option<Self::Matches>> {
+        match &*self.inner {
+            WeightEnum2::A(w) => {
+                let _v = w.matches(context, doc)?;
+            },
+            WeightEnum2::B(w) => {
+                let _v = w.matches(context, doc)?;
+            },
+        }
         todo!()
     }
 

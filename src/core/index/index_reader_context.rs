@@ -67,5 +67,7 @@ impl IndexReaderContextBase {
     }
 }
 pub type IRCTermState<IRC> = <<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms as Terms>::TermsEnum as TermsEnum>::TermState;
+pub type IRCLeafReader<IRC> = <IRC as IndexReaderContext>::LeafReader;
+pub type IRCLeafReaderCacheHelper<IRC> = <IRCLeafReader<IRC> as LeafReader>::CacheHelper;
 // Similar to Java's sealed trait pattern
 pub(crate) trait IndexReaderContextSealed {}

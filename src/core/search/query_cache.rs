@@ -14,27 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use std::sync::Arc;
 
 /// A cache for queries.
-pub trait QueryCache<LR> {
-    type Weight<W, QCP>: Weight<LR>
+pub trait QueryCache {
+    type Weight<S, IRC, QCP, QC>: Weight<IRC::LeafReader>
     where
-        W: Weight<LR>,
+        S: Similarity,
+        IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        LR: LeafReader;
+        QC: QueryCache;
 
     /// Return a wrapper around the provided `weight` that will cache matching documents
     /// per-segment according to the given `policy`.
     /// **Note:** The returned weight will only be equivalent if scores are not needed.
     ///
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache<W, QCP>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP>
+    fn do_cache<S, IRC, QCP, QC>(
+        &self,
+        weight: QueryWeight<S, IRC, QCP, QC>,
+        policy: Arc<QCP>,
+    ) -> Self::Weight<S, IRC, QCP, QC>
     where
-        W: Weight<LR>,
+        S: Similarity,
+        IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        LR: LeafReader;
+        QC: QueryCache;
 }

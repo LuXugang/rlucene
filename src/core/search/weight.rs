@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::{
     BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum7,
     BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10, BulkScorerEnum11,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_matches::DummyMatches;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
@@ -33,8 +29,7 @@ use crate::core::search::matches::{
     MatchesEnum10, MatchesEnum11,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryWeight};
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::query::Query;
 use crate::core::search::scorer::{
     Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
     ScorerEnum10, ScorerEnum11, TwoPhaseState,
@@ -45,7 +40,6 @@ use crate::core::search::scorer_supplier::{
     ScorerSupplierEnum11,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -614,6 +608,170 @@ fn next_doc(iter: &mut impl DocIdSetIterator, min: i32) -> Result<i32> {
 #[macro_export]
 macro_rules! either_weight {
     (
+        $(
+            $vis:vis $name:ident
+            => {
+                matches: $matches:ident,
+                supplier: $supplier:ident,
+                scorer: $scorer:ident,
+                bulk: $bulk:ident
+            }
+            { $( $Variant:ident : $T:ident $(=> $MapVariant:ident)? ),+ $(,)? }
+        );+ $(;)?
+    ) => {
+        $(
+            $crate::either_weight! {
+                @single
+                $vis $name
+                => {
+                    matches: $matches,
+                    supplier: $supplier,
+                    scorer: $scorer,
+                    bulk: $bulk
+                }
+                { $( $Variant : $T $(=> $MapVariant)? ),+ }
+            }
+        )+
+    };
+    (
+        @single
+        $vis:vis $name:ident
+        => {
+            matches: $matches:ident,
+            supplier: $supplier:ident,
+            scorer: $scorer:ident,
+            bulk: $bulk:ident
+        }
+        { $( $Variant:ident : $T:ident => $MapVariant:ident ),+ $(,)? }
+    ) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<LR, $( $T ),+> SegmentCacheable<LR> for $name<$( $T ),+>
+        where
+            LR: LeafReader,
+            $( $T: SegmentCacheable<LR> ),+
+        {
+
+            fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+                match self {
+                    $( Self::$Variant(inner) => inner.is_cacheable(ctx), )+
+                }
+            }
+        }
+
+        impl<LR, $( $T ),+> Weight<LR> for $name<$( $T ),+>
+        where
+            LR: LeafReader,
+            $( $T: Weight<LR> ),+
+        {
+            type Matches = $matches<$( <$T as Weight<LR>>::Matches ),+>;
+            type ScorerSupplier = $supplier<$( <$T as Weight<LR>>::ScorerSupplier ),+>;
+
+
+            fn matches(
+                &self,
+                context: &LeafReaderContext<LR>,
+                doc: i32,
+            ) -> Result<Option<Self::Matches>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.matches(context, doc)?;
+                            Ok(opt.map($matches::$MapVariant))
+                        }
+                    ),+
+                }
+            }
+
+
+            fn explain(
+                &self,
+                context: &LeafReaderContext<LR>,
+                doc: i32,
+            ) -> Result<Explanation> {
+                match self {
+                    $( Self::$Variant(inner) => inner.explain(context, doc), )+
+                }
+            }
+
+
+            fn get_query(&self) -> Arc<Query> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_query(), )+
+                }
+            }
+
+
+            fn scorer(
+                &self,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.scorer(context)?;
+                            Ok(opt.map($scorer::$MapVariant))
+                        }
+                    ),+
+                }
+            }
+
+
+            fn scorer_supplier(
+                &self,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<Option<Self::ScorerSupplier>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.scorer_supplier(context)?;
+                            Ok(opt.map($supplier::$MapVariant))
+                        }
+                    ),+
+                }
+            }
+
+
+            fn bulk_scorer(
+                &self,
+                context: &LeafReaderContext<LR>,
+            ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let opt = inner.bulk_scorer(context)?;
+                            Ok(opt.map($bulk::$MapVariant))
+                        }
+                    ),+
+                }
+            }
+
+
+            fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.count(context), )+
+                }
+            }
+
+
+            fn default_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.default_count(context), )+
+                }
+            }
+
+
+            fn is_weight_cacheable(&self) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.is_weight_cacheable(), )+
+                }
+            }
+        }
+    };
+    (
+        @single
         $vis:vis $name:ident
         => {
             matches: $matches:ident,
@@ -762,6 +920,16 @@ either_weight!(
     { A: A, B: B }
 );
 either_weight!(
+    pub QueryWeightEnum
+    => {
+        matches: MatchesEnum2,
+        supplier: ScorerSupplierEnum2,
+        scorer: ScorerEnum2,
+        bulk: BulkScorerEnum2
+    }
+    { Base: A => A, Composite: B => B }
+);
+either_weight!(
     pub WeightEnum3
     => {
         matches: MatchesEnum3,
@@ -831,119 +999,3 @@ either_weight!(
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
 );
-
-pub struct WeightWrapper<S, IRC, QCP, QC>
-where
-    S: Similarity,
-    IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
-    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
-{
-    pub weight: Box<QueryWeight<S, IRC, QCP, QC>>,
-}
-impl<S, IRC, QCP, QC> WeightWrapper<S, IRC, QCP, QC>
-where
-    S: Similarity,
-    IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
-    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
-{
-    pub fn new(weight: QueryWeight<S, IRC, QCP, QC>) -> Self {
-        Self {
-            weight: Box::new(weight),
-        }
-    }
-}
-
-impl<S, IRC, QCP, QC> SegmentCacheable<<IRC as IndexReaderContext>::LeafReader>
-    for WeightWrapper<S, IRC, QCP, QC>
-where
-    S: Similarity,
-    IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
-    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
-{
-    fn is_cacheable(
-        &self,
-        ctx: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-    ) -> Result<bool> {
-        self.weight.is_cacheable(ctx)
-    }
-}
-
-impl<S, IRC, QCP, QC> Weight<<IRC as IndexReaderContext>::LeafReader>
-    for WeightWrapper<S, IRC, QCP, QC>
-where
-    S: Similarity,
-    IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
-    QC: QueryCache<<IRC as IndexReaderContext>::LeafReader>,
-{
-    type Matches = DummyMatches;
-
-    fn matches(
-        &self,
-        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-        doc: i32,
-    ) -> Result<Option<Self::Matches>> {
-        let _v = self.weight.matches(context, doc)?;
-        todo!()
-    }
-
-    fn default_matches(
-        &self,
-        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-        doc: i32,
-    ) -> Result<Option<MatchWithNoTerms>> {
-        self.weight.default_matches(context, doc)
-    }
-
-    fn explain(
-        &self,
-        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-        doc: i32,
-    ) -> Result<Explanation> {
-        self.weight.explain(context, doc)
-    }
-
-    fn get_query(&self) -> Arc<Query> {
-        self.weight.get_query()
-    }
-
-    fn scorer(&self, _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::Scorer>>{
-        todo!()
-    }
-
-    type ScorerSupplier = DummyScorerSupplier;
-
-    fn scorer_supplier(
-        &self,
-        _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-    ) -> Result<Option<Self::ScorerSupplier>> {
-        todo!()
-        // self.weight.scorer_supplier(context)
-    }
-
-    fn bulk_scorer(&self, _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer>>{
-        todo!()
-        // self.weight.bulk_scorer(context)
-    }
-
-    fn count(
-        &self,
-        context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-    ) -> Result<i32> {
-        self.weight.count(context)
-    }
-
-    fn default_count(
-        &self,
-        _context: &LeafReaderContext<<IRC as IndexReaderContext>::LeafReader>,
-    ) -> Result<i32> {
-        self.weight.default_count(_context)
-    }
-
-    fn is_weight_cacheable(&self) -> bool {
-        self.weight.is_weight_cacheable()
-    }
-}

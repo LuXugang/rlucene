@@ -92,7 +92,7 @@ impl QueryBase for FieldExistsQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -106,7 +106,7 @@ impl QueryBase for FieldExistsQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         Ok(FieldExistsWeight::new(boost, self, *score_mode))
@@ -123,7 +123,7 @@ impl QueryBase for FieldExistsQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         todo!()
     }
@@ -713,7 +713,7 @@ mod test {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
     {

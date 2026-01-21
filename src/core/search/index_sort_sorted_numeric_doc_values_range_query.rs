@@ -131,7 +131,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -145,7 +145,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         let query = self.clone();
@@ -1398,7 +1398,7 @@ mod tests {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
     {
@@ -1533,7 +1533,7 @@ mod tests {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         let query = query.into();
 
@@ -1909,7 +1909,7 @@ mod tests {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         for ctx in searcher.get_leaf_contexts()? {
             let c1 = weight1.count(ctx)?;

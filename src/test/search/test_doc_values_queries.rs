@@ -507,7 +507,7 @@ where
     S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
-    QC: QueryCache<IRC::LeafReader>,
+    QC: QueryCache,
     T1: Into<Query>,
     T2: Into<Query>,
 {

@@ -28,12 +28,11 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::weight::WeightWrapper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 
@@ -93,12 +92,12 @@ impl QueryBase for BoostQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = WeightWrapper<S, IRC, QCP, QC>
+        = QueryWeight<S, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -112,17 +111,15 @@ impl QueryBase for BoostQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
-        Ok(WeightWrapper::<S, IRC, QCP, QC>::new(
-            self.query.create_weight(
-                searcher,
-                score_mode,
-                self.boost * boost,
-                per_reader_term_state,
-            )?,
-        ))
+        self.query.create_weight(
+            searcher,
+            score_mode,
+            self.boost * boost,
+            per_reader_term_state,
+        )
     }
 
     type RewriteQuery = DummyQuery;
@@ -136,7 +133,7 @@ impl QueryBase for BoostQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         todo!()
     }

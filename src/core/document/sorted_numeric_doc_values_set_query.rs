@@ -71,7 +71,7 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -85,7 +85,7 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         Ok(SortedNumericDocValuesSetQueryWeight::new(

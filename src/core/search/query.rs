@@ -23,7 +23,7 @@ use crate::core::document::sorted_numeric_doc_values_set_query::{
 use crate::core::document::sorted_set_doc_values_range_query::{
     SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
@@ -44,7 +44,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Weight, WeightEnum11, WeightWrapper};
+use crate::core::search::weight::{QueryWeightEnum, Weight, WeightEnum9};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -58,7 +58,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
@@ -71,7 +71,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
@@ -89,7 +89,7 @@ pub trait QueryBase: Eq + Hash + Debug {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         Ok(None)
     }
@@ -285,7 +285,7 @@ impl QueryBase for Query {
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -299,64 +299,52 @@ impl QueryBase for Query {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         match self {
-            Query::Term(t) => Ok(QueryWeight::<_, _, QCP, QC>::A(t.create_weight(
+            Query::Term(t) => Ok(QueryWeightEnum::Base(BaseQueryWeight::A(t.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
-            )?)),
-            Query::MatchAll(m) => Ok(QueryWeight::<_, _, QCP, QC>::B(m.create_weight(
+            )?))),
+            Query::MatchAll(m) => Ok(QueryWeightEnum::Base(BaseQueryWeight::B(m.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
-            )?)),
-            Query::PointRange(p) => Ok(QueryWeight::<_, _, QCP, QC>::C(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?)),
-            Query::MatchNoDoc(p) => Ok(QueryWeight::<_, _, QCP, QC>::D(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?)),
-            Query::SortedNumericDocValuesSet(p) => Ok(QueryWeight::<_, _, QCP, QC>::E(
+            )?))),
+            Query::PointRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::C(
                 p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-            )),
-            Query::SortedNumericDocValuesRange(p) => Ok(QueryWeight::<_, _, QCP, QC>::F(
+            ))),
+            Query::MatchNoDoc(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::D(
                 p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-            )),
-            Query::SortedSetDocValuesRange(p) => Ok(QueryWeight::<_, _, QCP, QC>::G(
+            ))),
+            Query::SortedNumericDocValuesSet(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::E(
                 p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-            )),
-            Query::IndexSortSortedNumericDocValuesRange(p) => Ok(QueryWeight::<_, _, QCP, QC>::H(
+            ))),
+            Query::SortedNumericDocValuesRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::F(
                 p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-            )),
-            Query::FieldExists(p) => Ok(QueryWeight::<_, _, QCP, QC>::I(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?)),
-            Query::Boost(p) => Ok(QueryWeight::<_, _, QCP, QC>::J(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?)),
-            Query::ConstantScore(p) => Ok(QueryWeight::<_, _, QCP, QC>::K(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?)),
+            ))),
+            Query::SortedSetDocValuesRange(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::G(
+                p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            ))),
+            Query::IndexSortSortedNumericDocValuesRange(p) => {
+                Ok(QueryWeightEnum::Base(BaseQueryWeight::H(p.create_weight(
+                    searcher,
+                    score_mode,
+                    boost,
+                    per_reader_term_state,
+                )?)))
+            },
+            Query::FieldExists(p) => Ok(QueryWeightEnum::Base(BaseQueryWeight::I(
+                p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            ))),
+            // Query::Boost(p) => p.create_weight(searcher, score_mode, boost, per_reader_term_state),
+            // Query::ConstantScore(p) => Ok(CompositeWeight::B(
+            //     p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            // )),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -372,7 +360,7 @@ impl QueryBase for Query {
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         todo!()
     }
@@ -384,7 +372,7 @@ impl QueryBase for Query {
         todo!()
     }
 }
-pub type QueryWeight<S, IRC, QCP, QC> = WeightEnum11<
+pub type BaseQueryWeight<S, IRC> = WeightEnum9<
     TermWeight<S, IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
@@ -394,9 +382,11 @@ pub type QueryWeight<S, IRC, QCP, QC> = WeightEnum11<
     SortedSetDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
-    WeightWrapper<S, IRC, QCP, QC>,
-    ConstantScoreQueryWeight<S, IRC, QCP, QC>,
 >;
+pub type QueryWeight<S, IRC, QCP, QC> =
+    QueryWeightEnum<BaseQueryWeight<S, IRC>, ConstantScoreQueryWeight<S, IRC, QCP, QC>>;
+pub type QueryWeightScorerSupplier<S, IRC, QCP, QC> =
+    <QueryWeight<S, IRC, QCP, QC> as Weight<IRCLeafReader<IRC>>>::ScorerSupplier;
 
 impl From<TermQuery> for Query {
     fn from(value: TermQuery) -> Self {
@@ -494,7 +484,7 @@ where
         S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>;
+        QC: QueryCache;
 
     fn create_weight<S, IRC, QT, QCP, QC>(
         self,
@@ -508,7 +498,7 @@ where
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
         Self: Sized,
     {
         Err(LuceneError::unsupported_operation(format!(
@@ -528,7 +518,7 @@ where
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
-        QC: QueryCache<IRC::LeafReader>,
+        QC: QueryCache,
     {
         (**self).rewrite(searcher)
     }
