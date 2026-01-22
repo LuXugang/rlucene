@@ -1310,7 +1310,7 @@ fn test_point_in_set_query_many_equal_values() -> Result<()> {
     // TODO
     Ok(())
 }
-// TODO IMPORTANT 测试未通过
+#[test]
 fn test_point_range_query_many_equal_values() -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
