@@ -265,12 +265,7 @@ impl IndexableField for IntRange {
 
 impl fmt::Display for IntRange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} <{}:",
-            std::any::type_name::<Self>(),
-            self.parent_field.name()
-        )?;
+        write!(f, "IntRange <{}: ", self.parent_field.name())?;
 
         let dims = self.parent_field.field_type().point_dimension_count() / 2;
 
@@ -278,11 +273,11 @@ impl fmt::Display for IntRange {
             FieldDataEnum::Binary(bytes) => {
                 for dim in 0..dims {
                     if dim > 0 {
-                        write!(f, ",")?;
+                        write!(f, " ")?;
                     }
                     let min = Self::decode_min(&bytes.bytes, dim);
                     let max = Self::decode_max(&bytes.bytes, dim);
-                    write!(f, "[{},{}]", min, max)?;
+                    write!(f, "[{} : {}]", min, max)?;
                 }
             },
             _ => {
@@ -300,5 +295,24 @@ impl Clone for IntRange {
         Self {
             parent_field: self.parent_field.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::document::int_range::IntRange;
+    use crate::core::util::error::lucene_error::Result;
+
+    #[allow(dead_code)] // for quick search
+    struct TestIntRange;
+    #[test]
+    fn test_to_string_int_range() -> Result<()> {
+        let range = IntRange::new("foo", &[1, 11, 21, 31], &[2, 12, 22, 32])?;
+
+        assert_eq!(
+            "IntRange <foo: [1 : 2] [11 : 12] [21 : 22] [31 : 32]>",
+            range.to_string()
+        );
+        Ok(())
     }
 }
