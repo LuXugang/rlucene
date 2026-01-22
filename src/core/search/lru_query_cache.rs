@@ -588,7 +588,7 @@ where
         QCP: QueryCachingPolicy,
         LR: LeafReader;
 
-    fn do_cache<W, QCP, LR>(&self, weight: W, policy: Arc<QCP>) -> Self::Weight<W, QCP, LR>
+    fn do_cache<W, QCP, LR>(&self, weight: W, policy: QCP) -> Self::Weight<W, QCP, LR>
     where
         W: Weight<LR>,
         QCP: QueryCachingPolicy,
@@ -680,7 +680,7 @@ where
 {
     in_: W,
     base: ConstantScoreWeight,
-    policy: Arc<QCP>,
+    policy: QCP,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
     phantom_data: PhantomData<LR>,
@@ -692,7 +692,7 @@ where
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
-    pub(crate) fn new(in_: W, policy: Arc<QCP>, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
+    pub(crate) fn new(in_: W, policy: QCP, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
         Self {
             in_,
             base: ConstantScoreWeight::new(1.0),

@@ -22,6 +22,8 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
 use std::fmt::Display;
+use std::sync::Arc;
+
 /// Similarity defines the components of Lucene scoring.  
 ///
 /// *Expert: Scoring API.*  
@@ -288,3 +290,50 @@ macro_rules! either_sim_scorer {
     };
 }
 either_sim_scorer!(pub SimScorerEnum2 { A: A, B: B});
+
+impl<T> Similarity for Arc<T>
+where
+    T: Similarity,
+{
+    fn get_discount_overlaps(&self) -> bool {
+        (**self).get_discount_overlaps()
+    }
+
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+        (**self).compute_norm(state)
+    }
+
+    type SimScorer = T::SimScorer;
+
+    fn scorer(
+        &self,
+        boost: f32,
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
+    ) -> Self::SimScorer {
+        (**self).scorer(boost, collection_stats, term_stats)
+    }
+}
+impl<T> Similarity for &T
+where
+    T: Similarity,
+{
+    fn get_discount_overlaps(&self) -> bool {
+        (**self).get_discount_overlaps()
+    }
+
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+        (**self).compute_norm(state)
+    }
+
+    type SimScorer = T::SimScorer;
+
+    fn scorer(
+        &self,
+        boost: f32,
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
+    ) -> Self::SimScorer {
+        (**self).scorer(boost, collection_stats, term_stats)
+    }
+}

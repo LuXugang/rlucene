@@ -617,7 +617,7 @@ where
 }
 
 pub(crate) type IndexSearcherWeight<W, IRC, QCP, QC> =
-    WeightEnum2<<QC as QueryCache>::Weight<W, QCP, IRCLeafReader<IRC>>, W>;
+    WeightEnum2<<QC as QueryCache>::Weight<W, Arc<QCP>, IRCLeafReader<IRC>>, W>;
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.

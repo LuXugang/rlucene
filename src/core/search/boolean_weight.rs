@@ -40,7 +40,7 @@ where
     LR: LeafReader,
     W: Weight<LR>,
 {
-    similarity: Arc<S>,
+    similarity: S,
     weighted_clauses: Vec<WeightedBooleanClause<W, LR>>,
     meta: BooleanQueryMeta,
     score_mode: ScoreMode,

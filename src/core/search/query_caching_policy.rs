@@ -16,6 +16,7 @@
  */
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// A policy defining which filters should be cached.
 ///
@@ -36,4 +37,29 @@ pub trait QueryCachingPolicy {
     /// and this method returns `true` then a cache entry will be generated.
     /// Otherwise an uncached scorer will be returned.
     fn should_cache(&self, query: &Query) -> Result<bool>;
+}
+
+impl<T> QueryCachingPolicy for &T
+where
+    T: QueryCachingPolicy,
+{
+    fn on_use(&self, query: &Query) {
+        (**self).on_use(query)
+    }
+
+    fn should_cache(&self, query: &Query) -> Result<bool> {
+        (**self).should_cache(query)
+    }
+}
+impl<T> QueryCachingPolicy for Arc<T>
+where
+    T: QueryCachingPolicy,
+{
+    fn on_use(&self, query: &Query) {
+        (**self).on_use(query)
+    }
+
+    fn should_cache(&self, query: &Query) -> Result<bool> {
+        (**self).should_cache(query)
+    }
 }
