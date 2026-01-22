@@ -22,6 +22,6 @@ pub mod similarities;
 mod test_boolean_or;
 mod test_doc_values_queries;
 mod test_early_termination;
-mod test_point_queries;
+pub(crate) mod test_point_queries;
 mod test_sort_optimization;
 mod test_top_field_collector_early_termination;

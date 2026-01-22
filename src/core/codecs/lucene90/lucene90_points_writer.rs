@@ -190,7 +190,18 @@ where
             },
             PointTreeEnum::Other(mut tree) => {
                 let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
-                tree.visit_doc_values(&mut intersect_visitor)
+                tree.visit_doc_values(&mut intersect_visitor)?;
+                match writer.finish(&mut self.data_out)? {
+                    Some(finalizer) => {
+                        self.meta_out.write_int(field_info.number)?;
+                        writer.write_index(
+                            &mut self.meta_out,
+                            Some(&mut self.index_out),
+                            &finalizer,
+                        )
+                    },
+                    None => Ok(()),
+                }
             },
         }
     }

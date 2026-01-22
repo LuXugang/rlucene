@@ -102,10 +102,10 @@ impl FloatPoint {
         V: AsRef<[f32]>,
     {
         let value = value.as_ref();
-        Self::new_point_range_query(field, value, value)
+        Self::new_range_query(field, value, value)
     }
 
-    pub fn new_point_range_query<T, V>(
+    pub fn new_range_query<T, V>(
         field: T,
         lower_value: V,
         upper_value: V,

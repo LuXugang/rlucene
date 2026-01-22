@@ -51,6 +51,8 @@ use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIter
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
+#[cfg(test)]
+use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -61,7 +63,7 @@ use std::sync::Arc;
 ///
 /// This type is intended for subclasses and works directly on the underlying
 /// binary encoding. For Lucene's standard point types, use the factory methods
-/// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::IntPoint::new_point_range_query) for fields
+/// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::IntPoint::new_range_query) for fields
 /// indexed with [`IntPoint`](crate::core::document::int_point::IntPoint).
 ///
 /// For single-dimensional fields, this represents a simple range query; for
@@ -165,11 +167,11 @@ impl PointRangeQuery {
         sb
     }
     #[cfg(test)]
-    fn get_lower_point(&self) -> &[u8] {
+    pub(crate) fn get_lower_point(&self) -> &[u8] {
         &self.lower_point
     }
     #[cfg(test)]
-    fn get_upper_point(&self) -> &[u8] {
+    pub(crate) fn get_upper_point(&self) -> &[u8] {
         &self.upper_point
     }
 }
@@ -427,8 +429,12 @@ where
         if values.get_doc_count()? == 0 {
             return Ok(None);
         } else {
-            let field_packed_lower = values.get_min_packed_value()?.expect("should be some");
-            let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
+            let field_packed_lower = values
+                .get_min_packed_value()?
+                .ok_or_else(|| LuceneError::illegal_state("min_packed_value is None"))?;
+            let field_packed_upper = values
+                .get_max_packed_value()?
+                .ok_or_else(|| LuceneError::illegal_state("max_packed_value is None"))?;
 
             let q = self.query.as_ref();
             let num_dims = q.num_dims;
@@ -462,8 +468,12 @@ where
         let mut all_docs_match;
 
         if values.get_doc_count()? == reader.max_doc()? {
-            let field_packed_lower = values.get_min_packed_value()?.expect("should be some");
-            let field_packed_upper = values.get_max_packed_value()?.expect("should be some");
+            let field_packed_lower = values
+                .get_min_packed_value()?
+                .ok_or_else(|| LuceneError::illegal_state("min_packed_value is None"))?;
+            let field_packed_upper = values
+                .get_max_packed_value()?
+                .ok_or_else(|| LuceneError::illegal_state("max_packed_value is None"))?;
 
             let q = self.query.as_ref();
             let num_dims = q.num_dims;
@@ -953,6 +963,8 @@ pub enum PointRangeBaseEnum {
     Float(FloatPointRangeQuery),
     Double(DoublePointRangeQuery),
     Binary(BinaryPointRangeQuery),
+    #[cfg(test)]
+    Test(PointRangeQueryBaseImpl),
 }
 impl From<IntPointRangeQuery> for PointRangeBaseEnum {
     fn from(v: IntPointRangeQuery) -> Self {
@@ -979,6 +991,12 @@ impl From<BinaryPointRangeQuery> for PointRangeBaseEnum {
         PointRangeBaseEnum::Binary(v)
     }
 }
+#[cfg(test)]
+impl From<PointRangeQueryBaseImpl> for PointRangeBaseEnum {
+    fn from(v: PointRangeQueryBaseImpl) -> Self {
+        PointRangeBaseEnum::Test(v)
+    }
+}
 impl PointRangeBase for PointRangeBaseEnum {
     fn to_string(&self, dimension: usize, value: &[u8]) -> String {
         match self {
@@ -987,6 +1005,8 @@ impl PointRangeBase for PointRangeBaseEnum {
             PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
             PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
             PointRangeBaseEnum::Binary(q) => q.to_string(dimension, value),
+            #[cfg(test)]
+            PointRangeBaseEnum::Test(q) => q.to_string(dimension, value),
         }
     }
 }

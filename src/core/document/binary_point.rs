@@ -164,10 +164,10 @@ impl BinaryPoint {
     {
         let field = field.into();
         check_args(&field, lower.as_ref(), upper.as_ref())?;
-        Self::new_range_query_nd(field, &[lower], &[upper])
+        Self::new_range_query_multi_dim(field, &[lower], &[upper])
     }
 
-    pub fn new_range_query_nd<T>(
+    pub fn new_range_query_multi_dim<T>(
         field: T,
         lower: &[Vec<u8>],
         upper: &[Vec<u8>],

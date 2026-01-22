@@ -64,7 +64,7 @@ impl MutablePointTreeReaderUtils {
         } else {
             PackedInts::bits_required((max_doc - 1) as i64)?.try_convert()?
         };
-        let max_length = config.packed_bytes_length() + bits_per_doc_id.div_ceil(8);
+        let max_length = config.packed_bytes_length() + (bits_per_doc_id + 7).div_ceil(8);
         let delegate = StableMSBRadixSorterImpl {
             reader,
             config,

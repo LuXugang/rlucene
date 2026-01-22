@@ -534,10 +534,7 @@ where
     /// Writes the BKD tree to the provided `IndexOutput`s and returns an
     /// `IORunnable` that writes the index of the tree if at least one point
     /// has been added, or `None` otherwise.
-    pub fn finish(
-        &mut self,
-        data_out: &mut <TrackingDirectoryWrapper<D> as Directory>::IndexOutput,
-    ) -> Result<Option<IORunnable>> {
+    pub fn finish(&mut self, data_out: &mut impl IndexOutput) -> Result<Option<IORunnable>> {
         if self.finished {
             return Err(LuceneError::illegal_state("already finished"));
         }

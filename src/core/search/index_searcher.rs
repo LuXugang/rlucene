@@ -86,7 +86,7 @@ where
     inner: Mutex<Inner>,
     query_timeout: Option<QT>,
     query_caching_policy: Arc<QCP>,
-    query_cache: QC,
+    query_cache: Option<QC>,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
     // this variable volatile since joining these threads should ensure a happens-before relationship
     // that guarantees that writes become visible on the main thread, but making the variable volatile
@@ -146,7 +146,7 @@ where
             inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
-            query_cache: lru_query_cache,
+            query_cache: Some(lru_query_cache),
             partial_result: AtomicBool::new(false),
         })
     }
@@ -537,9 +537,11 @@ where
         T: QueryBase,
     {
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
-        if !score_mode.needs_scores() {
+        if !score_mode.needs_scores() && self.query_cache.is_some() {
             Ok(WeightEnum2::A(
                 self.query_cache
+                    .as_ref()
+                    .unwrap()
                     .do_cache(weight, self.query_caching_policy.clone()),
             ))
         } else {
@@ -607,6 +609,10 @@ where
     }
     pub fn get_index_reader(&self) -> &IRC::IndexReader {
         self.reader_context.reader()
+    }
+
+    pub fn set_query_cache(&mut self, query_cache: Option<QC>) {
+        self.query_cache = query_cache;
     }
 }
 
