@@ -1470,11 +1470,10 @@ fn test_point_in_set_query_get_packed_points() -> Result<()> {
     // TODO
     Ok(())
 }
-// TODO 测试未通过
+#[test]
 fn test_range_optimizes_if_all_points_match() -> Result<()> {
     let mut random = random();
-    // let num_dims: usize = TestUtil::next_usize(&mut random, 1,3);
-    let num_dims: usize = 2;
+    let num_dims: usize = TestUtil::next_usize(&mut random, 1, 3);
 
     let dir = new_directory_shared(&mut random)?;
     let w = RandomIndexWriter::new(&mut random, dir.clone());

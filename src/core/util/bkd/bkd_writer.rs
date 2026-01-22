@@ -381,6 +381,8 @@ where
             &mut min_packed_value,
             &mut max_packed_value,
         )?;
+        self.min_packed_value = min_packed_value;
+        self.max_packed_value = max_packed_value;
 
         for i in 0..self.point_count as i32 {
             self.docs_seen.set(values.get_doc_id(i as usize) as usize);
@@ -396,8 +398,8 @@ where
             0,
             self.point_count.try_convert()?,
             data_out,
-            &mut min_packed_value,
-            &mut max_packed_value,
+            self.min_packed_value.clone(),
+            self.max_packed_value.clone(),
             &mut parent_splits,
             &mut split_packed_values,
             &mut split_dimension_values,
@@ -1392,8 +1394,8 @@ where
         from: usize,
         to: usize,
         out: &mut impl IndexOutput,
-        min_packed_value: &mut [u8],
-        max_packed_value: &mut [u8],
+        mut min_packed_value: Vec<u8>,
+        mut max_packed_value: Vec<u8>,
         parent_splits: &mut [i32],
         split_packed_values: &mut [u8],
         split_dimension_values: &mut [u8],
@@ -1525,8 +1527,8 @@ where
                 self.config.clone(),
                 count,
                 sorted_dim,
-                min_packed_value,
-                max_packed_value,
+                min_packed_value.as_mut(),
+                max_packed_value.as_mut(),
                 &mut packed_values,
                 spare_doc_ids,
                 0,
@@ -1558,11 +1560,15 @@ where
                         reader,
                         from,
                         to,
-                        min_packed_value,
-                        max_packed_value,
+                        min_packed_value.as_mut(),
+                        max_packed_value.as_mut(),
                     )?;
                 }
-                self.split(min_packed_value, max_packed_value, parent_splits)?
+                self.split(
+                    min_packed_value.as_ref(),
+                    max_packed_value.as_ref(),
+                    parent_splits,
+                )?
             };
             // How many leaves will be in the left tree:
             let num_left_leaf_nodes = self.get_num_left_leaf_nodes(num_leaves);
@@ -1570,9 +1576,9 @@ where
             let mid = from + num_left_leaf_nodes * self.config.max_points_in_leaf_node;
 
             let common_prefix_len = self.common_prefix_comparator.compare(
-                min_packed_value,
+                min_packed_value.as_ref(),
                 split_dim * self.config.bytes_per_dim,
-                max_packed_value,
+                max_packed_value.as_ref(),
                 split_dim * self.config.bytes_per_dim,
             );
 
@@ -1626,7 +1632,7 @@ where
                 mid,
                 out,
                 min_packed_value,
-                &mut max_split_packed_value,
+                max_split_packed_value,
                 parent_splits,
                 split_packed_values,
                 split_dimension_values,
@@ -1640,7 +1646,7 @@ where
                 mid,
                 to,
                 out,
-                &mut min_split_packed_value,
+                min_split_packed_value,
                 max_packed_value,
                 parent_splits,
                 split_packed_values,
