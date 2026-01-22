@@ -525,6 +525,7 @@ where
         // TODO
         Ok(original)
     }
+    #[allow(clippy::type_complexity)]
     pub(crate) fn create_weight<T>(
         &self,
         query: T,

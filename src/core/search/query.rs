@@ -23,13 +23,13 @@ use crate::core::document::sorted_numeric_doc_values_set_query::{
 use crate::core::document::sorted_set_doc_values_range_query::{
     SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
-use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
-use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::constant_score_query::{ConstantScoreQuery, ConstantScoreQueryWeight};
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
@@ -44,7 +44,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
-use crate::core::search::weight::{Weight, WeightEnum9};
+use crate::core::search::weight::{Weight, WeightEnum2, WeightEnum9};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -492,7 +492,7 @@ impl QueryBase for Query {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = QueryWeight<S, IRC>
+        = QueryWeight<S, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -515,8 +515,19 @@ impl QueryBase for Query {
         Self: Sized,
     {
         match self {
-            Query::Base(b) => b.create_weight(searcher, score_mode, boost, per_reader_term_state),
-            Query::ConstantScore(_) | Query::Boolean(_) | Query::Boost(_) => todo!(),
+            Query::Base(b) => Ok(QueryWeight::A(b.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::ConstantScore(v) => Ok(QueryWeight::B(v.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::Boolean(_) | Query::Boost(_) => Err(LuceneError::unsupported_operation("")),
         }
     }
 
@@ -554,9 +565,9 @@ pub type BaseQueryWeight<S, IRC> = WeightEnum9<
     IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
 >;
-pub type QueryWeight<S, IRC> = BaseQueryWeight<S, IRC>;
-pub type QueryWeightScorerSupplier<S, IRC> =
-    <QueryWeight<S, IRC> as Weight<IRCLeafReader<IRC>>>::ScorerSupplier;
+pub type CompositeQueryWeight<S, IRC, QCP, QC> = ConstantScoreQueryWeight<S, IRC, QCP, QC>;
+pub type QueryWeight<S, IRC, QCP, QC> =
+    WeightEnum2<BaseQueryWeight<S, IRC>, CompositeQueryWeight<S, IRC, QCP, QC>>;
 
 impl From<BaseQuery> for Query {
     fn from(value: BaseQuery) -> Self {
