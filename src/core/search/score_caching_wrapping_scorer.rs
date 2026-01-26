@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
-use crate::core::search::filter_leaf_collector::FilterLeafCollectorOwned;
+use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
+
 /// A [`Scorer`](crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
 ///
 /// Successive calls to `score()` will return the same result and will not invoke
@@ -79,15 +80,15 @@ pub struct ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    base: FilterLeafCollectorOwned<LC>,
+    scorer: FilterLeafCollector<LC>,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    pub(crate) fn new(collector: LC) -> Self {
+    pub(crate) fn new(base: LC) -> Self {
         Self {
-            base: collector.into(),
+            scorer: FilterLeafCollector::new(base),
         }
     }
 }
@@ -97,7 +98,7 @@ where
     LC: LeafCollector,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.base.fmt(f)
+        self.scorer.fmt(f)
     }
 }
 
@@ -109,7 +110,7 @@ where
     where
         S: Scorable,
     {
-        self.base.set_scorer(scorer)
+        self.scorer.set_scorer(scorer)
     }
 
     fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
@@ -117,20 +118,20 @@ where
         S: Scorable,
     {
         // TODO IMPORTANT 这里不对
-        self.base.collect(doc, scorer)
+        self.scorer.collect(doc, scorer)
     }
 
     type DocIdSetIteratorRef<'a>
-        = <FilterLeafCollectorOwned<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
+        = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
     where
         Self: 'a,
         LC: 'a;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
-        self.base.competitive_iterator()
+        self.scorer.competitive_iterator()
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.base.finish()
+        self.scorer.finish()
     }
 }

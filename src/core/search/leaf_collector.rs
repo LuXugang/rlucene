@@ -107,6 +107,45 @@ pub trait LeafCollector: Display {
         Ok(())
     }
 }
+impl<T> LeafCollector for &mut T
+where
+    T: LeafCollector + ?Sized,
+{
+    type DocIdSetIteratorRef<'a>
+        = <T as LeafCollector>::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+
+    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        (**self).set_scorer(scorer)
+    }
+
+    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
+    where
+        S: Scorable,
+    {
+        (**self).collect(doc, scorer)
+    }
+
+    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
+    where
+        DS: DocIdStream,
+    {
+        (**self).collect_stream(stream)
+    }
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        (**self).competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        (**self).finish()
+    }
+}
+
 macro_rules! either_leaf_collector {
     (
         $vis:vis $name:ident

@@ -154,17 +154,3 @@ impl SimpleCollector for SimpleCollectorImpl {
         Ok(())
     }
 }
-
-impl LeafCollector for &mut SimpleCollectorImpl {
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        (**self).collect(doc, scorer)
-    }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-}

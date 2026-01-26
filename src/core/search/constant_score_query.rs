@@ -29,7 +29,7 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::filter_leaf_collector::{FilterLeafCollectorRef, FilterSource};
+use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherWeight};
 use crate::core::search::leaf_collector::LeafCollector;
@@ -396,7 +396,7 @@ where
             _marker: PhantomData,
         }
     }
-    fn wrap_collector<LC>(collector: &mut LC, the_score: f32) -> FilterLeafCollectorImpl<'_, LC>
+    fn wrap_collector<LC>(collector: LC, the_score: f32) -> FilterLeafCollectorImpl<LC>
     where
         LC: LeafCollector,
     {
@@ -433,36 +433,37 @@ where
     }
 }
 
-pub struct FilterLeafCollectorImpl<'a, LC>
+pub struct FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
-    base: FilterLeafCollectorRef<'a, LC>,
+    in_: FilterLeafCollector<LC>,
     the_score: f32,
 }
 
-impl<'a, LC> FilterLeafCollectorImpl<'a, LC>
+impl<LC> FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
-    pub fn new(in_: &'a mut LC, the_score: f32) -> Self {
+    pub fn new(in_: LC, the_score: f32) -> Self {
+        let base = FilterLeafCollector::new(in_);
         Self {
-            base: in_.into(),
+            in_: base,
             the_score,
         }
     }
 }
 
-impl<'a, LC> Display for FilterLeafCollectorImpl<'a, LC>
+impl<LC> Display for FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector + Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", std::any::type_name::<Self>(), self.base)
+        write!(f, "{} ({})", std::any::type_name::<Self>(), self.in_)
     }
 }
 
-impl<'a, LC> LeafCollector for FilterLeafCollectorImpl<'a, LC>
+impl<LC> LeafCollector for FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
@@ -471,34 +472,34 @@ where
         S: Scorable,
     {
         let mut v = FilterScorableImpl::new(self.the_score, scorer);
-        self.base.inner.as_mut().set_scorer(&mut v)
+        self.in_.set_scorer(&mut v)
     }
 
     fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
     where
         S: Scorable,
     {
-        self.base.collect(doc, scorer)
+        self.in_.collect(doc, scorer)
     }
 
     fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
     where
         DS: DocIdStream,
     {
-        self.base.collect_stream(stream)
+        self.in_.collect_stream(stream)
     }
 
     type DocIdSetIteratorRef<'b>
-        = <FilterLeafCollectorRef<'a, LC> as LeafCollector>::DocIdSetIteratorRef<'b>
+        = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIteratorRef<'b>
     where
         Self: 'b;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
-        self.base.competitive_iterator()
+        self.in_.competitive_iterator()
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.base.finish()
+        self.in_.finish()
     }
 }
 
