@@ -143,6 +143,48 @@ where
         (**self).match_cost()
     }
 }
+
+impl<T> TwoPhaseIterator for Box<T>
+where
+    T: TwoPhaseIterator + ?Sized,
+{
+    type DocIdSetIterator = T::DocIdSetIterator;
+
+    type DocIdSetIteratorRef<'a>
+        = T::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+
+    type DocIdSetIteratorMut<'a>
+        = T::DocIdSetIteratorMut<'a>
+    where
+        Self: 'a;
+
+    #[inline]
+    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+        (**self).approximation_mut()
+    }
+
+    #[inline]
+    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+        (**self).approximation()
+    }
+
+    #[inline]
+    fn set_empty(&mut self) -> Result<()> {
+        (**self).set_empty()
+    }
+
+    #[inline]
+    fn matches(&mut self) -> Result<bool> {
+        (**self).matches()
+    }
+
+    #[inline]
+    fn match_cost(&self) -> f32 {
+        (**self).match_cost()
+    }
+}
 pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI>
 where
     TPI: TwoPhaseIterator,
