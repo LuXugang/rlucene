@@ -35,6 +35,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -179,6 +180,11 @@ where
     }
 }
 pub type MatchAllSs = MatchAllDocsScorerSupplier;
+pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
+pub type MatchAllSsScorerDisi = <MatchAllSsScorer as Scorer>::DocIdSetIterator;
+pub type MatchAllSsScorerDisiRef<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorRef<'a>;
+pub type MatchAllSsScorerDisiMut<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorMut<'a>;
+
 pub struct MatchAllDocsScorerSupplier {
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,
@@ -197,7 +203,7 @@ impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
 where
     LR: LeafReader,
 {
-    type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
+    type Scorer = MatchAllSsScorer;
     type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
 
     fn get(

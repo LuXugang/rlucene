@@ -229,14 +229,16 @@ where
         self.fallback_query_weight.is_cacheable(ctx)
     }
 }
-pub type IndexSortSortedNumericDocValuesRangeSs<LR> = ScorerSupplierEnum2<
+pub type ISSNDVRQSs<LR> = ScorerSupplierEnum2<
     ScorerSupplierImpl<Disi<LR>>,
     <FallbackQueryWeight<LR> as Weight<LR>>::ScorerSupplier,
 >;
-pub type ISSNDVRSsScorer<LR> =
-    <IndexSortSortedNumericDocValuesRangeSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type ISSNDVRSsScorerDisi<LR> = <ISSNDVRSsScorer<LR> as Scorer>::DocIdSetIterator;
-pub type ISSNDVRSsScorerDisiRef<'a, LR> = <ISSNDVRSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type ISSNDVRQSsScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
+pub type ISSNDVRQSsScorerDisi<LR> = <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
+pub type ISSNDVRQSsScorerDisiRef<'a, LR> =
+    <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type ISSNDVRQSsScorerDisiMut<'a, LR> =
+    <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 
 impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
@@ -258,7 +260,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = IndexSortSortedNumericDocValuesRangeSs<LR>;
+    type ScorerSupplier = ISSNDVRQSs<LR>;
 
     fn scorer_supplier(
         &self,

@@ -41,7 +41,8 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::ScorerSupplierEnum4;
+use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
@@ -273,7 +274,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = SortedNumericDocValuesRangeSs<LR>;
+    type ScorerSupplier = SNDVRQSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -366,7 +367,7 @@ pub type TPI<LR> = TwoPhaseIteratorEnum2<
     TwoPhaseIterator4<SortedNumeric<LR>>,
 >;
 
-pub type SortedNumericDocValuesRangeSs<LR> = ScorerSupplierEnum4<
+pub type SNDVRQSs<LR> = ScorerSupplierEnum4<
     DefaultScorerSupplier<ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>>,
     DefaultScorerSupplier<ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>,
     DefaultScorerSupplier<
@@ -374,6 +375,11 @@ pub type SortedNumericDocValuesRangeSs<LR> = ScorerSupplierEnum4<
     >,
     DefaultScorerSupplier<ConstantScoreScorer<DummyDISI, TPI<LR>>>,
 >;
+pub type SNDVRQSsScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
+pub type SNDVRQSsScorerDisi<LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
+pub type SNDVRQSsScorerDisiRef<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type SNDVRQSsScorerDisiMut<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
+
 pub struct TwoPhaseIterator3<N>
 where
     N: NumericDocValues,

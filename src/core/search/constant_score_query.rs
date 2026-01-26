@@ -553,6 +553,10 @@ pub type ConstantScoreSs<W, IRC, QCP, QC> =
 pub type ConstantScoreSsScorer<W, IRC, QCP, QC> = <ConstantScoreSs<W, IRC, QCP, QC> as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::Scorer;
 pub type ConstantScoreSsScorerDisi<W, IRC, QCP, QC> =
     <ConstantScoreSsScorer<W, IRC, QCP, QC> as Scorer>::DocIdSetIterator;
+pub type ConstantScoreSsScorerDisiRef<'a, W, IRC, QCP, QC> =
+    <ConstantScoreSsScorer<W, IRC, QCP, QC> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type ConstantScoreSsScorerDisiMut<'a, W, IRC, QCP, QC> =
+    <ConstantScoreSsScorer<W, IRC, QCP, QC> as Scorer>::DocIdSetIteratorMut<'a>;
 pub type ConstantScoreSsScorerTpi<W, IRC, QCP, QC> =
     <ConstantScoreSsScorer<W, IRC, QCP, QC> as Scorer>::TwoPhaseIter;
 pub type ConstantScoreSsBulkScorer<W, IRC, QCP, QC> = <ConstantScoreSs<W, IRC, QCP, QC> as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;

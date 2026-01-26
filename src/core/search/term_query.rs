@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{
     LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
 };
@@ -420,6 +420,13 @@ where
     }
 }
 pub type TermSs<IRC, S> = TermScorerSupplier<IRC, S>;
+pub type TermSsScorer<IRC, S> = <TermSs<IRC, S> as ScorerSupplier<IRCLeafReader<IRC>>>::Scorer;
+pub type TermSsScorerDisi<IRC, S> = <TermSsScorer<IRC, S> as Scorer>::DocIdSetIterator;
+pub type TermSsScorerDisiRef<'a, IRC, S> =
+    <TermSsScorer<IRC, S> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type TermSsScorerDisiMut<'a, IRC, S> =
+    <TermSsScorer<IRC, S> as Scorer>::DocIdSetIteratorMut<'a>;
+
 pub struct TermScorerSupplier<IRC, S>
 where
     IRC: IndexReaderContext,

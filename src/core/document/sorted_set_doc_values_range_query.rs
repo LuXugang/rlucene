@@ -197,7 +197,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = SortedSetDocValuesRangeSs<LR>;
+    type ScorerSupplier = SSDVRQSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -320,13 +320,11 @@ where
 
     Ok(doc)
 }
-pub type SortedSetDocValuesRangeSs<LR> = ScorerSupplierImpl3<LR>;
-pub type SortedSetDocValuesRangeSsScorer<LR> =
-    <ScorerSupplierImpl3<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SortedSetDocValuesRangeSsScorerDisi<LR> =
-    <<ScorerSupplierImpl3<LR> as ScorerSupplier<LR>>::Scorer as Scorer>::DocIdSetIterator;
-pub type SortedSetDocValuesRangeSsScorerDisiRef<'a, LR> =
-    <<ScorerSupplierImpl3<LR> as ScorerSupplier<LR>>::Scorer as Scorer>::DocIdSetIteratorRef<'a>;
+pub type SSDVRQSs<LR> = ScorerSupplierImpl3<LR>;
+pub type SSDVRQSsScorer<LR> = <SSDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
+pub type SSDVRQSsScorerDisi<LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
+pub type SSDVRQSsScorerDisiRef<'a, LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type SSDVRQSsScorerDisiMut<'a, LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 pub struct ScorerSupplierImpl3<LR>
 where
     LR: LeafReader,

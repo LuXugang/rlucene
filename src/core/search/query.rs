@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 use crate::core::document::sorted_numeric_doc_values_range_query::{
+    SNDVRQSs, SNDVRQSsScorer, SNDVRQSsScorerDisi, SNDVRQSsScorerDisiMut, SNDVRQSsScorerDisiRef,
     SortedNumericDocValuesRangeQuery, SortedNumericDocValuesRangeQueryWeight,
-    SortedNumericDocValuesRangeSs,
 };
 use crate::core::document::sorted_numeric_doc_values_set_query::{
-    DefaultScorerSupplierSs, SortedNumericDocValuesSetQuery, SortedNumericDocValuesSetQueryWeight,
+    DefaultScorerSupplierSs, SNDVSQSsDisi, SNDVSQSsDisiMut, SNDVSQSsDisiRef, SNDVSQSsScorer,
+    SortedNumericDocValuesSetQuery, SortedNumericDocValuesSetQueryWeight,
 };
 use crate::core::document::sorted_set_doc_values_range_query::{
-    SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight, SortedSetDocValuesRangeSs,
-    SortedSetDocValuesRangeSsScorerDisi,
+    SSDVRQSs, SSDVRQSsScorer, SSDVRQSsScorerDisi, SSDVRQSsScorerDisiMut, SSDVRQSsScorerDisiRef,
+    SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -35,7 +36,8 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_query::{
     ConstantScoreQuery, ConstantScoreQueryWeight, ConstantScoreSs, ConstantScoreSsBulkScorer,
-    ConstantScoreSsScorer, ConstantScoreSsScorerDisi, ConstantScoreSsScorerTpi,
+    ConstantScoreSsScorer, ConstantScoreSsScorerDisi, ConstantScoreSsScorerDisiMut,
+    ConstantScoreSsScorerDisiRef, ConstantScoreSsScorerTpi,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
@@ -44,19 +46,30 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsSs, FieldExistsWeight};
+use crate::core::search::field_exists_query::{
+    FieldExistsESs, FieldExistsQuery, FieldExistsSsScorer, FieldExistsSsScorerDisi,
+    FieldExistsSsScorerDisiMut, FieldExistsSsScorerDisiRef, FieldExistsWeight,
+};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
-    ISSNDVRSsScorerDisi, IndexSortSortedNumericDocValuesRangeQuery,
-    IndexSortSortedNumericDocValuesRangeQueryWeight, IndexSortSortedNumericDocValuesRangeSs,
+    ISSNDVRQSs, ISSNDVRQSsScorer, ISSNDVRQSsScorerDisi, ISSNDVRQSsScorerDisiMut,
+    ISSNDVRQSsScorerDisiRef, IndexSortSortedNumericDocValuesRangeQuery,
+    IndexSortSortedNumericDocValuesRangeQueryWeight,
 };
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllSs, MatchAllWeight};
+use crate::core::search::match_all_docs_query::{
+    MatchAllDocsQuery, MatchAllSs, MatchAllSsScorer, MatchAllSsScorerDisi, MatchAllSsScorerDisiMut,
+    MatchAllSsScorerDisiRef, MatchAllWeight,
+};
 use crate::core::search::match_no_docs_query::{
-    MatchNoDocsQuery, MatchNoDocsSs, MatchNoDocsWeight,
+    MatchNoDocsQuery, MatchNoDocsSs, MatchNoDocsSsScorer, MatchNoDocsSsScorerDisi,
+    MatchNoDocsSsScorerDisiMut, MatchNoDocsSsScorerDisiRef, MatchNoDocsWeight,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::point_range_query::{PointRangeQuery, PointRangeSs, PointRangeWeight};
+use crate::core::search::point_range_query::{
+    PointRangeQuery, PointRangeSs, PointRangeSsScorer, PointRangeSsScorerDisi,
+    PointRangeSsScorerDisiMut, PointRangeSsScorerDisiRef, PointRangeWeight,
+};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -65,7 +78,10 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::term_query::{TermQuery, TermSs, TermWeight};
+use crate::core::search::term_query::{
+    TermQuery, TermSs, TermSsScorer, TermSsScorerDisi, TermSsScorerDisiMut, TermSsScorerDisiRef,
+    TermWeight,
+};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
@@ -372,12 +388,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(Box::new(p.create_weight(
-                searcher,
-                score_mode,
-                boost,
-                per_reader_term_state,
-            )?))),
+            // Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(Box::new(p.create_weight(
+            //     searcher,
+            //     score_mode,
+            //     boost,
+            //     per_reader_term_state,
+            // )?))),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -669,9 +685,32 @@ where
 
     fn scorer(
         &self,
-        _context: &LeafReaderContext<IRC::LeafReader>,
+        context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::Scorer>> {
-        todo!()
+        match self {
+            QueryWeight::Term(w) => Ok(w.scorer(context)?.map(QueryWeightScorer::Term)),
+            QueryWeight::MatchAll(w) => Ok(w.scorer(context)?.map(QueryWeightScorer::MatchAll)),
+            QueryWeight::PointRange(w) => Ok(w.scorer(context)?.map(QueryWeightScorer::PointRange)),
+            QueryWeight::MatchNoDocs(w) => Ok(w.scorer(context)?.map(QueryWeightScorer::MatchNo)),
+            QueryWeight::SortedNumericDocValuesSet(w) => Ok(w
+                .scorer(context)?
+                .map(QueryWeightScorer::SortedNumericDocValuesSet)),
+            QueryWeight::SortedNumericDocValuesRange(w) => Ok(w
+                .scorer(context)?
+                .map(QueryWeightScorer::SortedNumericDocValuesRange)),
+            QueryWeight::SortedSetDocValuesRange(w) => Ok(w
+                .scorer(context)?
+                .map(QueryWeightScorer::SortedSetDocValuesRange)),
+            QueryWeight::IndexSortSortedNumericDocValuesRange(w) => Ok(w
+                .scorer(context)?
+                .map(QueryWeightScorer::IndexSortSortedNumericDocValuesRange)),
+            QueryWeight::FieldExists(w) => {
+                Ok(w.scorer(context)?.map(QueryWeightScorer::FieldExists))
+            },
+            QueryWeight::ConstantScore(w) => Ok(w
+                .scorer(context)?
+                .map(|scorer| QueryWeightScorer::ConstantScore(Box::new(scorer)))),
+        }
     }
 
     type ScorerSupplier = QueryWeightSS<S, IRC, QCP, QC>;
@@ -680,7 +719,36 @@ where
         &self,
         _context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        todo!()
+        match self {
+            QueryWeight::Term(w) => Ok(w.scorer_supplier(_context)?.map(QueryWeightSS::Term)),
+            QueryWeight::MatchAll(w) => {
+                Ok(w.scorer_supplier(_context)?.map(QueryWeightSS::MatchAll))
+            },
+            QueryWeight::PointRange(w) => {
+                Ok(w.scorer_supplier(_context)?.map(QueryWeightSS::PointRange))
+            },
+            QueryWeight::MatchNoDocs(w) => {
+                Ok(w.scorer_supplier(_context)?.map(QueryWeightSS::MatchNoDocs))
+            },
+            QueryWeight::SortedNumericDocValuesSet(w) => Ok(w
+                .scorer_supplier(_context)?
+                .map(QueryWeightSS::SortedNumericDocValuesSet)),
+            QueryWeight::SortedNumericDocValuesRange(w) => Ok(w
+                .scorer_supplier(_context)?
+                .map(QueryWeightSS::SortedNumericDocValuesRange)),
+            QueryWeight::SortedSetDocValuesRange(w) => Ok(w
+                .scorer_supplier(_context)?
+                .map(QueryWeightSS::SortedSetDocValuesRange)),
+            QueryWeight::IndexSortSortedNumericDocValuesRange(w) => Ok(w
+                .scorer_supplier(_context)?
+                .map(QueryWeightSS::IndexSortSortedNumericDocValuesRange)),
+            QueryWeight::FieldExists(w) => {
+                Ok(w.scorer_supplier(_context)?.map(QueryWeightSS::FieldExists))
+            },
+            QueryWeight::ConstantScore(w) => Ok(w
+                .scorer_supplier(_context)?
+                .map(|ss| QueryWeightSS::ConstantScore(Box::new(ss)))),
+        }
     }
 
     fn bulk_scorer(
@@ -776,10 +844,10 @@ where
     PointRange(PointRangeSs<IRC::LeafReader>),
     MatchNoDocs(MatchNoDocsSs),
     SortedNumericDocValuesSet(DefaultScorerSupplierSs<IRC::LeafReader>),
-    SortedNumericDocValuesRange(SortedNumericDocValuesRangeSs<IRC::LeafReader>),
-    SortedSetDocValuesRange(SortedSetDocValuesRangeSs<IRC::LeafReader>),
-    IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader>),
-    FieldExists(FieldExistsSs<IRC::LeafReader>),
+    SortedNumericDocValuesRange(SNDVRQSs<IRC::LeafReader>),
+    SortedSetDocValuesRange(SSDVRQSs<IRC::LeafReader>),
+    IndexSortSortedNumericDocValuesRange(ISSNDVRQSs<IRC::LeafReader>),
+    FieldExists(FieldExistsESs<IRC::LeafReader>),
     ConstantScore(Box<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 impl<S, IRC, QCP, QC> ScorerSupplier<IRC::LeafReader> for QueryWeightSS<S, IRC, QCP, QC>
@@ -790,47 +858,45 @@ where
     QC: QueryCache,
 {
     type Scorer = QueryWeightScorer<S, IRC, QCP, QC>;
-    // type Scorer = DummyScorer;
 
     type BulkScorer = QueryWeightBulkScorer<S, IRC, QCP, QC>;
 
     fn get(
         &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<IRC::LeafReader>,
+        lead_cost: i64,
+        context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::Scorer>> {
-        // match self {
-        //     QueryWeightSS::Term(s) => Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::Term)),
-        //     QueryWeightSS::MatchAll(s) => {
-        //         Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchAll))
-        //     },
-        //     QueryWeightSS::PointRange(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::PointRange)),
-        //     QueryWeightSS::MatchNoDocs(s) => {
-        //         Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchNo))
-        //     },
-        //     QueryWeightSS::SortedNumericDocValuesSet(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::SortedNumericDocValuesSet)),
-        //     QueryWeightSS::SortedNumericDocValuesRange(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::SortedNumericDocValuesRange)),
-        //     QueryWeightSS::SortedSetDocValuesRange(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::SortedSetDocValuesRange)),
-        //     QueryWeightSS::IndexSortSortedNumericDocValuesRange(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::IndexSortSortedNumericDocValuesRange)),
-        //     QueryWeightSS::FieldExists(s) => Ok(s
-        //         .get(lead_cost, context)?
-        //         .map(QueryWeightScorer::FieldExists)),
-        //     QueryWeightSS::ConstantScore(s) => match s.get(lead_cost, context)? {
-        //         Some(sc) => Ok(Some(QueryWeightScorer::ConstantScore(Box::new(sc)))),
-        //         None => Ok(None),
-        //     },
-        // }
-        todo!()
+        match self {
+            QueryWeightSS::Term(s) => Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::Term)),
+            QueryWeightSS::MatchAll(s) => {
+                Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchAll))
+            },
+            QueryWeightSS::PointRange(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::PointRange)),
+            QueryWeightSS::MatchNoDocs(s) => {
+                Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchNo))
+            },
+            QueryWeightSS::SortedNumericDocValuesSet(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::SortedNumericDocValuesSet)),
+            QueryWeightSS::SortedNumericDocValuesRange(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::SortedNumericDocValuesRange)),
+            QueryWeightSS::SortedSetDocValuesRange(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::SortedSetDocValuesRange)),
+            QueryWeightSS::IndexSortSortedNumericDocValuesRange(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::IndexSortSortedNumericDocValuesRange)),
+            QueryWeightSS::FieldExists(s) => Ok(s
+                .get(lead_cost, context)?
+                .map(QueryWeightScorer::FieldExists)),
+            QueryWeightSS::ConstantScore(s) => match s.get(lead_cost, context)? {
+                Some(sc) => Ok(Some(QueryWeightScorer::ConstantScore(Box::new(sc)))),
+                None => Ok(None),
+            },
+        }
     }
 
     fn bulk_scorer(
@@ -908,22 +974,22 @@ where
                 >>::set_top_level_scoring_clause(s)
             },
             QueryWeightSS::SortedNumericDocValuesRange(s) => {
-                <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+                <SNDVRQSs<IRC::LeafReader> as ScorerSupplier<
                     IRC::LeafReader,
                 >>::set_top_level_scoring_clause(s)
             },
             QueryWeightSS::SortedSetDocValuesRange(s) => {
-                <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+                <SSDVRQSs<IRC::LeafReader> as ScorerSupplier<
                     IRC::LeafReader,
                 >>::set_top_level_scoring_clause(s)
             },
             QueryWeightSS::IndexSortSortedNumericDocValuesRange(s) => {
-                <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+                <ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<
                     IRC::LeafReader,
                 >>::set_top_level_scoring_clause(s)
             },
             QueryWeightSS::FieldExists(s) => {
-                <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<
+                <FieldExistsESs<IRC::LeafReader> as ScorerSupplier<
                     IRC::LeafReader,
                 >>::set_top_level_scoring_clause(s)
             },
@@ -943,17 +1009,25 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    Term(<TermSs<IRC,S> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
+    Term(<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
     MatchAll(<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
     PointRange(<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
     MatchNo(<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
-    SortedNumericDocValuesSet(<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
-    SortedNumericDocValuesRange(<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
-    SortedSetDocValuesRange(<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
-    IndexSortSortedNumericDocValuesRange(<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
-    FieldExists(<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
+    SortedNumericDocValuesSet(
+        <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer,
+    ),
+    SortedNumericDocValuesRange(
+        <SNDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer,
+    ),
+    SortedSetDocValuesRange(
+        <SSDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer,
+    ),
+    IndexSortSortedNumericDocValuesRange(
+        <ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer,
+    ),
+    FieldExists(<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
     ConstantScore(Box<ConstantScoreSsBulkScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
- }
+}
 impl<S, IRC, QCP, QC> BulkScorer for QueryWeightBulkScorer<S, IRC, QCP, QC>
 where
     IRC: IndexReaderContext,
@@ -990,7 +1064,9 @@ where
                 s.score(collector, accept_docs, min, max)
             },
             QueryWeightBulkScorer::FieldExists(s) => s.score(collector, accept_docs, min, max),
-            QueryWeightBulkScorer::ConstantScore(s) => s.score(collector, accept_docs, min, max),
+            // TODO IMPORTANT 这里有很大递归问题
+            // QueryWeightBulkScorer::ConstantScore(s) => s.score(collector, accept_docs, min, max),
+            _ => Err(LuceneError::unsupported_operation("")),
         }
     }
 
@@ -1017,25 +1093,15 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    Term(<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer),
-    MatchAll(<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer),
-    PointRange(<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer),
-    MatchNo(<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer),
-    SortedNumericDocValuesSet(
-        <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer,
-    ),
-    SortedNumericDocValuesRange(
-        <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer,
-    ),
-    SortedSetDocValuesRange(
-        <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer,
-    ),
-    IndexSortSortedNumericDocValuesRange(
-        <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer,
-    ),
-    FieldExists(<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer),
+    Term(TermSsScorer<IRC, S>),
+    MatchAll(MatchAllSsScorer),
+    PointRange(PointRangeSsScorer<IRC::LeafReader>),
+    MatchNo(MatchNoDocsSsScorer<IRC::LeafReader>),
+    SortedNumericDocValuesSet(SNDVSQSsScorer<IRC::LeafReader>),
+    SortedNumericDocValuesRange(SNDVRQSsScorer<IRC::LeafReader>),
+    SortedSetDocValuesRange(SSDVRQSsScorer<IRC::LeafReader>),
+    IndexSortSortedNumericDocValuesRange(ISSNDVRQSsScorer<IRC::LeafReader>),
+    FieldExists(FieldExistsSsScorer<IRC::LeafReader>),
     ConstantScore(Box<ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 
@@ -1045,53 +1111,28 @@ where
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     inner: QueryWeightDocIdSetIteratorRef<
-        <<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-        <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-        <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-        <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-            'a,
-        >,
-        <<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
+        TermSsScorerDisiRef<'a, IRC, S>,
+        MatchAllSsScorerDisiRef<'a>,
+        PointRangeSsScorerDisiRef<'a, IRC::LeafReader>,
+        MatchNoDocsSsScorerDisiRef<'a, IRC::LeafReader>,
+        SNDVSQSsDisiRef<'a, IRC::LeafReader>,
+        SNDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+        SSDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+        ISSNDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+        FieldExistsSsScorerDisiRef<'a, IRC::LeafReader>,
+        ConstantScoreSsScorerDisiRef<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
     >,
 }
 
@@ -1101,81 +1142,52 @@ where
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     fn new(
         inner: QueryWeightDocIdSetIteratorRef<
-            <<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-            <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-            <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
-            <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorRef<
-                'a,
-            >,
-            <<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorRef<'a>,
+            TermSsScorerDisiRef<'a, IRC, S>,
+            MatchAllSsScorerDisiRef<'a>,
+            PointRangeSsScorerDisiRef<'a, IRC::LeafReader>,
+            MatchNoDocsSsScorerDisiRef<'a, IRC::LeafReader>,
+            SNDVSQSsDisiRef<'a, IRC::LeafReader>,
+            SNDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+            SSDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+            ISSNDVRQSsScorerDisiRef<'a, IRC::LeafReader>,
+            FieldExistsSsScorerDisiRef<'a, IRC::LeafReader>,
+            ConstantScoreSsScorerDisiRef<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
         >,
     ) -> Self {
         Self { inner }
     }
 }
 
-impl<'a, S, IRC, QCP, QC> DocIdSetIterator for QueryWeightScorerDocIdSetIteratorRef<'a, S, IRC, QCP, QC>
+impl<'a, S, IRC, QCP, QC> DocIdSetIterator
+    for QueryWeightScorerDocIdSetIteratorRef<'a, S, IRC, QCP, QC>
 where
     IRC: IndexReaderContext + 'a,
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
@@ -1204,53 +1216,28 @@ where
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     inner: QueryWeightDocIdSetIteratorMut<
-        <<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-        <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-        <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-        <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-            'a,
-        >,
-        <<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-            IRC::LeafReader,
-        >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
+        TermSsScorerDisiMut<'a, IRC, S>,
+        MatchAllSsScorerDisiMut<'a>,
+        PointRangeSsScorerDisiMut<'a, IRC::LeafReader>,
+        MatchNoDocsSsScorerDisiMut<'a, IRC::LeafReader>,
+        SNDVSQSsDisiMut<'a, IRC::LeafReader>,
+        SNDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+        SSDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+        ISSNDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+        FieldExistsSsScorerDisiMut<'a, IRC::LeafReader>,
+        ConstantScoreSsScorerDisiMut<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
     >,
 }
 
@@ -1260,81 +1247,52 @@ where
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     fn new(
         inner: QueryWeightDocIdSetIteratorMut<
-            <<TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-            <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-            <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
-            <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIteratorMut<
-                'a,
-            >,
-            <<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-                IRC::LeafReader,
-            >>::Scorer as Scorer>::DocIdSetIteratorMut<'a>,
+            TermSsScorerDisiMut<'a, IRC, S>,
+            MatchAllSsScorerDisiMut<'a>,
+            PointRangeSsScorerDisiMut<'a, IRC::LeafReader>,
+            MatchNoDocsSsScorerDisiMut<'a, IRC::LeafReader>,
+            SNDVSQSsDisiMut<'a, IRC::LeafReader>,
+            SNDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+            SSDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+            ISSNDVRQSsScorerDisiMut<'a, IRC::LeafReader>,
+            FieldExistsSsScorerDisiMut<'a, IRC::LeafReader>,
+            ConstantScoreSsScorerDisiMut<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
         >,
     ) -> Self {
         Self { inner }
     }
 }
 
-impl<'a, S, IRC, QCP, QC> DocIdSetIterator for QueryWeightScorerDocIdSetIteratorMut<'a, S, IRC, QCP, QC>
+impl<'a, S, IRC, QCP, QC> DocIdSetIterator
+    for QueryWeightScorerDocIdSetIteratorMut<'a, S, IRC, QCP, QC>
 where
     IRC: IndexReaderContext + 'a,
     S: Similarity + 'a,
     QCP: QueryCachingPolicy + 'a,
     QC: QueryCache + 'a,
-    <TermSs<IRC, S> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer:
-        'a,
-    <SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
-    <FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer: 'a,
-    <ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC> as ScorerSupplier<
-        IRC::LeafReader,
-    >>::Scorer: 'a,
+    TermSsScorer<IRC, S>: 'a,
+    MatchAllSsScorer: 'a,
+    PointRangeSsScorer<IRC::LeafReader>: 'a,
+    MatchNoDocsSsScorer<IRC::LeafReader>: 'a,
+    SNDVSQSsScorer<IRC::LeafReader>: 'a,
+    SNDVRQSsScorer<IRC::LeafReader>: 'a,
+    SSDVRQSsScorer<IRC::LeafReader>: 'a,
+    ISSNDVRQSsScorer<IRC::LeafReader>: 'a,
+    FieldExistsSsScorer<IRC::LeafReader>: 'a,
+    ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
     fn doc_id(&self) -> i32 {
         self.inner.doc_id()
@@ -1469,16 +1427,16 @@ where
         <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterRef<'a>,
-        <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<SNDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterRef<'a>,
-        <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<SSDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterRef<'a>,
-        <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterRef<'a>,
-        <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIterRef<
+        <<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIterRef<
             'a,
         >,
         DummyTwoPhaseIterator,
@@ -1500,16 +1458,16 @@ where
         <<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterMut<'a>,
-        <<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<SNDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterMut<'a>,
-        <<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<SSDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterMut<'a>,
-        <<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+        <<ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIterMut<'a>,
-        <<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIterMut<
+        <<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIterMut<
             'a,
         >,
         DummyTwoPhaseIterator,
@@ -1824,15 +1782,15 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    Term(<<TermSs<IRC,S> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    MatchAll(<<MatchAllSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    PointRange(<<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    MatchNo(<<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    SortedNumericDocValuesSet(<<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    SortedNumericDocValuesRange(<<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
-    SortedSetDocValuesRange(SortedSetDocValuesRangeSsScorerDisi<IRC::LeafReader>),
-    IndexSortSortedNumericDocValuesRange(ISSNDVRSsScorerDisi<IRC::LeafReader>),
-    FieldExists(<<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::DocIdSetIterator),
+    Term(TermSsScorerDisi<IRC, S>),
+    MatchAll(MatchAllSsScorerDisi),
+    PointRange(PointRangeSsScorerDisi<IRC::LeafReader>),
+    MatchNo(MatchNoDocsSsScorerDisi<IRC::LeafReader>),
+    SortedNumericDocValuesSet(SNDVSQSsDisi<IRC::LeafReader>),
+    SortedNumericDocValuesRange(SNDVRQSsScorerDisi<IRC::LeafReader>),
+    SortedSetDocValuesRange(SSDVRQSsScorerDisi<IRC::LeafReader>),
+    IndexSortSortedNumericDocValuesRange(ISSNDVRQSsScorerDisi<IRC::LeafReader>),
+    FieldExists(FieldExistsSsScorerDisi<IRC::LeafReader>),
     ConstantScore(Box<ConstantScoreSsScorerDisi<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 
@@ -1931,12 +1889,12 @@ where
     PointRange(<<PointRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
     MatchNo(<<MatchNoDocsSs as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
     SortedNumericDocValuesSet(<<DefaultScorerSupplierSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
-    SortedNumericDocValuesRange(<<SortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
-    SortedSetDocValuesRange(<<SortedSetDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
-    IndexSortSortedNumericDocValuesRange(<<IndexSortSortedNumericDocValuesRangeSs<IRC::LeafReader> as ScorerSupplier<
+    SortedNumericDocValuesRange(<<SNDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
+    SortedSetDocValuesRange(<<SSDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
+    IndexSortSortedNumericDocValuesRange(<<ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIter),
-    FieldExists(<<FieldExistsSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
+    FieldExists(<<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
     ConstantScore(Box<ConstantScoreSsScorerTpi<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 

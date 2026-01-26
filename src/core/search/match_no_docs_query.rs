@@ -28,6 +28,8 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
@@ -131,6 +133,13 @@ where
     }
 }
 
+pub type MatchNoDocsSs = DummyScorerSupplier;
+pub type MatchNoDocsSsScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::Scorer;
+pub type MatchNoDocsSsScorerDisi<LR> = <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIterator;
+pub type MatchNoDocsSsScorerDisiRef<'a, LR> =
+    <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type MatchNoDocsSsScorerDisiMut<'a, LR> =
+    <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 impl<LR> Weight<LR> for MatchNoDocsWeight<LR>
 where
     LR: LeafReader,
@@ -180,4 +189,3 @@ where
         write!(f, "weight({:?})", self.parent_query)
     }
 }
-pub type MatchNoDocsSs = DummyScorerSupplier;

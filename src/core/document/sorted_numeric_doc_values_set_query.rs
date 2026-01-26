@@ -35,6 +35,8 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
@@ -146,6 +148,11 @@ where
     }
 }
 
+pub type SNDVSQSs<LR> = DefaultScorerSupplierSs<LR>;
+pub type SNDVSQSsScorer<LR> = <SNDVSQSs<LR> as ScorerSupplier<LR>>::Scorer;
+pub type SNDVSQSsDisi<LR> = <SNDVSQSsScorer<LR> as Scorer>::DocIdSetIterator;
+pub type SNDVSQSsDisiRef<'a, LR> = <SNDVSQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type SNDVSQSsDisiMut<'a, LR> = <SNDVSQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 impl<LR> Weight<LR> for SortedNumericDocValuesSetQueryWeight<LR>
 where
     LR: LeafReader,
@@ -166,7 +173,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = DefaultScorerSupplierSs<LR>;
+    type ScorerSupplier = SNDVSQSs<LR>;
 
     fn scorer_supplier(
         &self,
