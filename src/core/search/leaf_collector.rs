@@ -109,7 +109,7 @@ pub trait LeafCollector: Display {
 }
 impl<T> LeafCollector for &mut T
 where
-    T: LeafCollector + ?Sized,
+    T: LeafCollector,
 {
     type DocIdSetIteratorRef<'a>
         = <T as LeafCollector>::DocIdSetIteratorRef<'a>

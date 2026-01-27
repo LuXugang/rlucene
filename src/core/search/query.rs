@@ -506,7 +506,7 @@ impl Hash for IdentityQuery {
 }
 impl<Q> QueryBase for Arc<Q>
 where
-    Q: QueryBase + ?Sized,
+    Q: QueryBase,
 {
     fn as_string(&self, field: &str) -> String {
         (**self).as_string(field)

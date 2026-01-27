@@ -63,7 +63,7 @@ pub trait TwoPhaseIterator {
 
 impl<T> TwoPhaseIterator for &mut T
 where
-    T: TwoPhaseIterator + ?Sized,
+    T: TwoPhaseIterator,
 {
     type DocIdSetIterator = T::DocIdSetIterator;
 
@@ -104,7 +104,7 @@ where
 }
 impl<T> TwoPhaseIterator for &T
 where
-    T: TwoPhaseIterator + ?Sized,
+    T: TwoPhaseIterator,
 {
     type DocIdSetIterator = T::DocIdSetIterator;
 
@@ -146,7 +146,7 @@ where
 
 impl<T> TwoPhaseIterator for Box<T>
 where
-    T: TwoPhaseIterator + ?Sized,
+    T: TwoPhaseIterator,
 {
     type DocIdSetIterator = T::DocIdSetIterator;
 

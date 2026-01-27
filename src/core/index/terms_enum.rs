@@ -296,7 +296,7 @@ impl TermsEnum for EmptyTermsEnum {
 
 impl<T> TermsEnum for &mut T
 where
-    T: TermsEnum + ?Sized,
+    T: TermsEnum,
 {
     type AttributeSource = T::AttributeSource;
     type PostingsEnum = T::PostingsEnum;

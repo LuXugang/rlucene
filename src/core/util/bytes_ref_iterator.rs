@@ -69,7 +69,7 @@ impl EmptyBytesRefIterator {
 
 impl<T> BytesRefIterator for &mut T
 where
-    T: BytesRefIterator + ?Sized,
+    T: BytesRefIterator,
 {
     #[inline]
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

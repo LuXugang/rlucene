@@ -126,7 +126,7 @@ pub type InnerTokenStreams = TokenStreamEnum<WhitespaceAnalyzerTS, DummyTokenStr
 
 impl<T> TokenStream for &mut T
 where
-    T: TokenStream + ?Sized,
+    T: TokenStream,
 {
     fn increment_token(&mut self) -> Result<bool> {
         (**self).increment_token()
