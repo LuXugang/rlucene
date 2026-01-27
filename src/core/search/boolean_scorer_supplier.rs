@@ -24,7 +24,6 @@ use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
-use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;

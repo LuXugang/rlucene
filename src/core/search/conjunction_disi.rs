@@ -16,28 +16,29 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::collection_util::CollectionUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
-pub struct ConjunctionDISI<D>
+pub struct ConjunctionDISI<S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
     lead1: usize,
     lead2: usize,
     others: Vec<usize>,
-    all_disi: Vec<D>,
+    all_disi: Vec<S>,
 }
-impl<D> ConjunctionDISI<D>
+impl<S> ConjunctionDISI<S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    fn new(iterators: Vec<D>) -> Result<Self> {
+    fn new(iterators: Vec<S>) -> Result<Self> {
         debug_assert!(iterators.len() >= 2);
         let mut cost = Vec::with_capacity(iterators.len());
         for idx in 0..iterators.len() {
@@ -60,20 +61,20 @@ where
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
-            debug_assert_eq!(doc, self.all_disi[self.lead1].doc_id());
+            debug_assert_eq!(doc, self.all_disi[self.lead1].iterator().doc_id());
             // find agreement between the two iterators with the lower costs
             // we special case them because they do not need the
             // 'other.docID() < doc' check that the 'others' iterators need
-            let next2 = self.all_disi[self.lead2].advance(doc)?;
+            let next2 = self.all_disi[self.lead2].iterator().advance(doc)?;
             if next2 != doc {
-                doc = self.all_disi[self.lead1].advance(next2)?;
+                doc = self.all_disi[self.lead1].iterator().advance(next2)?;
                 if doc != next2 {
                     continue;
                 }
             }
             // then find agreement with other iterators
             for other_idx in self.others.iter() {
-                let other = &mut self.all_disi[*other_idx];
+                let other = &mut self.all_disi[*other_idx].iterator();
                 let other_doc = other.doc_id();
                 // other.doc may already be equal to doc if we "continued advanceHead"
                 // on the previous iteration and the advance on the lead scorer exactly matched.
@@ -82,7 +83,7 @@ where
 
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest doc.
-                        doc = self.all_disi[self.lead1].advance(next)?;
+                        doc = self.all_disi[self.lead1].iterator().advance(next)?;
                         continue 'advance_head;
                     }
                 }
@@ -92,23 +93,24 @@ where
     }
     // Returns {@code true} if all sub-iterators are on the same doc ID, {@code false} otherwise
     fn assert_iters_on_same_doc(&self) -> bool {
-        let cur_doc = self.all_disi[self.lead1].doc_id();
-        let mut iterators_on_the_same_doc = self.all_disi[self.lead2].doc_id() == cur_doc;
+        let cur_doc = self.all_disi[self.lead1].iterator().doc_id();
+        let mut iterators_on_the_same_doc =
+            self.all_disi[self.lead2].iterator().doc_id() == cur_doc;
         let mut i = 0;
         while i < self.others.len() && iterators_on_the_same_doc {
-            iterators_on_the_same_doc =
-                iterators_on_the_same_doc && (self.all_disi[self.others[i]].doc_id() == cur_doc);
+            iterators_on_the_same_doc = iterators_on_the_same_doc
+                && (self.all_disi[self.others[i]].iterator().doc_id() == cur_doc);
             i += 1;
         }
         iterators_on_the_same_doc
     }
 }
-impl<D> DocIdSetIterator for ConjunctionDISI<D>
+impl<S> DocIdSetIterator for ConjunctionDISI<S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        self.all_disi[self.lead1].doc_id()
+        self.all_disi[self.lead1].iterator().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
@@ -116,7 +118,7 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].next_doc()?;
+        let doc = self.all_disi[self.lead1].iterator().next_doc()?;
         self.do_next(doc)
     }
 
@@ -125,37 +127,41 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].advance(target)?;
+        let doc = self.all_disi[self.lead1].iterator().advance(target)?;
         self.do_next(doc)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.all_disi[self.lead1].cost()
+        self.all_disi[self.lead1].iterator().cost()
     }
 }
 
-struct DisiCmp<'a, D>
+struct DisiCmp<'a, S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    disi: &'a [D],
+    disi: &'a [S],
 }
-impl<'a, D> DisiCmp<'a, D>
+impl<'a, S> DisiCmp<'a, S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    fn new(disi: &'a [D]) -> Self {
+    fn new(disi: &'a [S]) -> Self {
         DisiCmp { disi }
     }
 }
-impl<D> Comparator<usize> for DisiCmp<'_, D>
+impl<S> Comparator<usize> for DisiCmp<'_, S>
 where
-    D: DocIdSetIterator,
+    S: Scorer,
 {
     const TYPE: &'static str = "DisiCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        Ok(self.disi[*a].cost()?.cmp(&self.disi[*b].cost()?).to_int())
+        Ok(self.disi[*a]
+            .iterator()
+            .cost()?
+            .cmp(&self.disi[*b].iterator().cost()?)
+            .to_int())
     }
 }
 /// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
@@ -295,54 +301,68 @@ where
     }
 }
 /// [`TwoPhaseIterator`] implementing a conjunction.
-pub struct ConjunctionTwoPhaseIterator<T, D>
+pub struct ConjunctionTwoPhaseIterator<S>
 where
-    T: TwoPhaseIterator,
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    two_phase_iterators: Vec<T>,
-    approximation: D,
+    two_phase_iterator_idx: Vec<usize>,
+    approximation: ConjunctionDISI<S>,
     match_cost: f32,
 }
-impl<T, D> ConjunctionTwoPhaseIterator<T, D>
+impl<S> ConjunctionTwoPhaseIterator<S>
 where
-    T: TwoPhaseIterator,
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    pub fn new(approximation: D, two_phase_iterators: Vec<T>, match_cost: f32) -> Self {
-        debug_assert!(!two_phase_iterators.is_empty());
-        let mut temp_two_phase_iterators = Vec::with_capacity(two_phase_iterators.len());
-        let mut cost = Vec::with_capacity(two_phase_iterators.len());
-        for (idx, v) in two_phase_iterators.into_iter().enumerate() {
-            cost.push(idx);
-            temp_two_phase_iterators.push(Some(v));
-        }
-        let cmp = TwoPhaseIteratorCmp::new(temp_two_phase_iterators.as_ref());
-        ArrayUtil::tim_sort_with_comparator(&mut cost, cmp).unwrap();
-        let two_phase_iterators = cost
-            .into_iter()
-            .map(|idx| temp_two_phase_iterators[idx].take().unwrap())
-            .collect::<Vec<_>>();
+    pub fn new(mut approximation: ConjunctionDISI<S>) -> Result<Self> {
+        debug_assert!(
+            {
+                let mut has_tpi = false;
+                for x in approximation.all_disi.iter() {
+                    if x.two_phase_iterator()?.is_some() {
+                        has_tpi = true;
+                        break;
+                    }
+                }
+                has_tpi
+            },
+            "ConjunctionTwoPhaseIterator requires at least one TwoPhaseIterator"
+        );
+        let (two_phase_iterator_idx, total_match_cost) = {
+            let mut tpis = Vec::with_capacity(approximation.all_disi.len());
+            let mut two_phase_iterator_idx = Vec::with_capacity(tpis.len());
+            for (idx, x) in approximation.all_disi.iter_mut().enumerate() {
+                if let Some(tpi) = x.two_phase_iterator_mut()? {
+                    two_phase_iterator_idx.push(idx);
+                    tpis.push(tpi);
+                }
+            }
+            let mut total_match_cost = 0.0;
+            for x in tpis.iter_mut() {
+                total_match_cost += x.match_cost();
+            }
+            let cmp = TwoPhaseIteratorCmp::new(tpis.as_mut());
+            ArrayUtil::tim_sort_with_comparator(&mut two_phase_iterator_idx, cmp)?;
+            (two_phase_iterator_idx, total_match_cost)
+        };
 
-        ConjunctionTwoPhaseIterator {
-            two_phase_iterators,
+        Ok(ConjunctionTwoPhaseIterator {
+            two_phase_iterator_idx,
             approximation,
-            match_cost,
-        }
+            match_cost: total_match_cost,
+        })
     }
 }
-impl<T, D> TwoPhaseIterator for ConjunctionTwoPhaseIterator<T, D>
+impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
 where
-    T: TwoPhaseIterator,
-    D: DocIdSetIterator,
+    S: Scorer,
 {
-    type DocIdSetIterator = D;
+    type DocIdSetIterator = ConjunctionDISI<S>;
     type DocIdSetIteratorRef<'a>
-        = &'a D
+        = &'a ConjunctionDISI<S>
     where
         Self: 'a;
     type DocIdSetIteratorMut<'a>
-        = &'a mut D
+        = &'a mut ConjunctionDISI<S>
     where
         Self: 'a;
 
@@ -355,9 +375,14 @@ where
     }
 
     fn matches(&mut self) -> Result<bool> {
-        for x in &mut self.two_phase_iterators {
-            if !x.matches()? {
-                return Ok(false);
+        for idx in self.two_phase_iterator_idx.iter() {
+            match self.approximation.all_disi[*idx].two_phase_iterator_mut()? {
+                Some(ref mut tpi) => {
+                    if !tpi.matches()? {
+                        return Ok(false);
+                    }
+                },
+                None => return Err(LuceneError::illegal_state("TwoPhaseIterator is None")),
             }
         }
         Ok(true)
@@ -371,14 +396,14 @@ struct TwoPhaseIteratorCmp<'a, T>
 where
     T: TwoPhaseIterator,
 {
-    tpi: &'a [Option<T>],
+    tpis: &'a [T],
 }
 impl<'a, T> TwoPhaseIteratorCmp<'a, T>
 where
     T: TwoPhaseIterator,
 {
-    fn new(disi: &'a [Option<T>]) -> Self {
-        TwoPhaseIteratorCmp { tpi: disi }
+    fn new(tpis: &'a [T]) -> Self {
+        TwoPhaseIteratorCmp { tpis }
     }
 }
 impl<T> Comparator<usize> for TwoPhaseIteratorCmp<'_, T>
@@ -388,11 +413,9 @@ where
     const TYPE: &'static str = "TwoPhaseIteratorCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        Ok(self.tpi[*a]
-            .as_ref()
-            .unwrap()
+        Ok(self.tpis[*a]
             .match_cost()
-            .partial_cmp(&self.tpi[*b].as_ref().unwrap().match_cost())
+            .partial_cmp(&self.tpis[*b].match_cost())
             .unwrap()
             .to_int())
     }
