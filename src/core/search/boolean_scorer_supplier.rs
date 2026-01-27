@@ -20,7 +20,6 @@ use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_scorer::BooleanScorer;
 use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2, BulkScorerEnum3};
-use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
@@ -35,7 +34,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
-use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState};
+use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseState};
 use crate::core::search::scorer_supplier::{ScorerSupplier, SsBulkScorer, SsScorer};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::wand_scorer::WANDScorer;
@@ -447,8 +446,9 @@ where
             && top_level_scoring_clause
             && required_scorers.is_empty()
         {
-            let block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
-            return Ok(Req::C(block_max_scorer));
+            let _block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
+            // return Ok(Req::C(block_max_scorer));
+            todo!()
         }
 
         // Ok(Req::D(ConjunctionScorer::new(
@@ -520,12 +520,7 @@ where
 }
 pub type Excl<S1, S2> = ScorerEnum2<S1, ReqExclScorer<S1, S2>>;
 pub type Opt<S> = ScorerEnum3<S, WANDScorer<S>, DisjunctionScorer<S, DisjunctionSumScorer>>;
-pub type Req<S> = ScorerEnum4<
-    S,
-    FilterScorerImpl<S>,
-    BlockMaxConjunctionScorer<S>,
-    ConjunctionScorer<S, ScorerEnum2<S, BlockMaxConjunctionScorer<S>>>,
->;
+pub type Req<S> = ScorerEnum3<S, FilterScorerImpl<S>, BlockMaxConjunctionScorer<S>>;
 impl<SS, LR> ScorerSupplier<LR> for BooleanScorerSupplier<SS, LR>
 where
     SS: ScorerSupplier<LR>,

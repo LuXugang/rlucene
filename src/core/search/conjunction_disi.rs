@@ -32,13 +32,13 @@ where
     lead1: usize,
     lead2: usize,
     others: Vec<usize>,
-    all_disi: Vec<S>,
+    pub(crate) all_disi: Vec<S>,
 }
 impl<S> ConjunctionDISI<S>
 where
     S: Scorer,
 {
-    fn new(iterators: Vec<S>) -> Result<Self> {
+    pub(crate) fn new(iterators: Vec<S>) -> Result<Self> {
         debug_assert!(iterators.len() >= 2);
         let mut cost = Vec::with_capacity(iterators.len());
         for idx in 0..iterators.len() {
@@ -306,14 +306,14 @@ where
     S: Scorer,
 {
     two_phase_iterator_idx: Vec<usize>,
-    approximation: ConjunctionDISI<S>,
+    pub(crate) approximation: ConjunctionDISI<S>,
     match_cost: f32,
 }
 impl<S> ConjunctionTwoPhaseIterator<S>
 where
     S: Scorer,
 {
-    pub fn new(mut approximation: ConjunctionDISI<S>) -> Result<Self> {
+    pub(crate) fn new(mut approximation: ConjunctionDISI<S>) -> Result<Self> {
         debug_assert!(
             {
                 let mut has_tpi = false;
