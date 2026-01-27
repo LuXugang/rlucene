@@ -74,7 +74,23 @@ where
     disi: TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>,
 }
 
-impl<S> WANDScorer<S> where S: Scorer {}
+impl<S> WANDScorer<S>
+where
+    S: Scorer,
+{
+    pub(crate) fn new(
+        scorers: Vec<S>,
+        min_should_match: i32,
+        score_mode: ScoreMode,
+        lead_cost: i64,
+    ) -> Result<WANDScorer<S>> {
+        let v = DocIdSetIteratorImpl::new(scorers, min_should_match, score_mode, lead_cost)?;
+        let tpi = TwoPhaseIteratorImpl::new(v);
+        Ok(WANDScorer {
+            disi: TwoPhaseIteratorAsDocIdSetIterator::new(tpi),
+        })
+    }
+}
 
 impl<S> Scorable for WANDScorer<S>
 where

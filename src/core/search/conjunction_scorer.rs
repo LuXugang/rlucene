@@ -14,4 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct ConjunctionScorer;
+use crate::core::search::scorer::Scorer;
+use crate::core::util::error::lucene_error::Result;
+
+// TODO IMPORTANT scoring也要作为required中的一份
+pub struct ConjunctionScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    required: Vec<S1>,
+    scoring: Vec<S2>,
+}
+impl<S1, S2> ConjunctionScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    pub(crate) fn new(required: Vec<S1>, scoring: Vec<S2>) -> Result<Self> {
+        Ok(Self { required, scoring })
+    }
+}

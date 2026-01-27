@@ -31,6 +31,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -308,6 +309,11 @@ where
             should.clear();
         }
         let _max_doc = context.reader().max_doc()?;
+        let mut scores = HashMap::new();
+        scores.insert(Occur::Must, must);
+        scores.insert(Occur::Should, should);
+        scores.insert(Occur::Filter, filter);
+        scores.insert(Occur::MustNot, must_not);
         todo!()
     }
 
