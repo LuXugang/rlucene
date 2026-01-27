@@ -362,11 +362,7 @@ where
     type Scorer = ScorerType<LR>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
         let mut values = match self.values.take() {
             Some(v) => v,
@@ -406,7 +402,7 @@ where
         if min_ord > max_ord {
             let v =
                 ConstantScoreScorer::with_disi(self.score, self.score_mode, EmptyDISI::default());
-            return Ok(Some(ScorerType::<LR>::A(v)));
+            return Ok(ScorerType::<LR>::A(v));
         }
 
         if let Some(ref skipper) = skipper_opt
@@ -414,7 +410,7 @@ where
         {
             let v =
                 ConstantScoreScorer::with_disi(self.score, self.score_mode, EmptyDISI::default());
-            return Ok(Some(ScorerType::<LR>::A(v)));
+            return Ok(ScorerType::<LR>::A(v));
         }
 
         if let Some(ref skipper) = skipper_opt
@@ -427,7 +423,7 @@ where
                 self.score_mode,
                 AllDISI::new(skipper.doc_count()),
             );
-            return Ok(Some(ScorerType::<LR>::B(v)));
+            return Ok(ScorerType::<LR>::B(v));
         }
         let iterator = if values.is_single_valued() {
             let mut singleton = DocValues::unwrap_singleton_sorted(&mut values)?;
@@ -448,7 +444,7 @@ where
                                 self.score_mode,
                                 ps_iterator,
                             );
-                            return Ok(Some(ScorerType::<LR>::C(v)));
+                            return Ok(ScorerType::<LR>::C(v));
                         },
                         None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator5::new(
                             singleton, min_ord, max_ord,
@@ -466,11 +462,11 @@ where
             Some(skipper) => {
                 let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, false);
                 let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, v);
-                Ok(Some(ScorerType::<LR>::E(scorer)))
+                Ok(ScorerType::<LR>::E(scorer))
             },
             None => {
                 let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, iterator);
-                Ok(Some(ScorerType::<LR>::D(scorer)))
+                Ok(ScorerType::<LR>::D(scorer))
             },
         }
     }

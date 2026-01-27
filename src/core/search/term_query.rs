@@ -514,7 +514,7 @@ where
         &mut self,
         _lead_cost: i64,
         context: &LeafReaderContext<IRC::LeafReader>,
-    ) -> Result<Option<Self::Scorer>> {
+    ) -> Result<Self::Scorer> {
         match self.get_terms_enum(context)? {
             Some(_) => {
                 debug_assert!(self.terms_enum.is_some());
@@ -525,7 +525,7 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    Ok(Some(TermScorerEnum::<
+                    Ok(TermScorerEnum::<
                         IRC::LeafReader,
                         S::SimScorer,
                         EmptyDISI,
@@ -535,7 +535,7 @@ where
                         self.sim_scorer.clone(),
                         norms,
                         self.top_level_scoring_clause,
-                    ))))
+                    )))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
                         FREQS
@@ -543,7 +543,7 @@ where
                         NONE
                     };
 
-                    Ok(Some(TermScorerEnum::<
+                    Ok(TermScorerEnum::<
                         IRC::LeafReader,
                         S::SimScorer,
                         EmptyDISI,
@@ -555,10 +555,10 @@ where
                             .postings_with_flags(None, flags as i32)?,
                         self.sim_scorer.clone(),
                         norms,
-                    ))))
+                    )))
                 }
             },
-            None => Ok(Some(TermScorerEnum::<
+            None => Ok(TermScorerEnum::<
                 IRC::LeafReader,
                 S::SimScorer,
                 EmptyDISI,
@@ -567,7 +567,7 @@ where
                 0.0,
                 self.score_mode,
                 EmptyDISI::default(),
-            )))),
+            ))),
         }
     }
 

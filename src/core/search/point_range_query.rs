@@ -662,11 +662,7 @@ where
     type Scorer = PointRangeWeightScorer;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let reader = context.reader();
         let v: i32 = self.values.size()?.try_convert()?;
         if self.values.get_doc_count()? == reader.max_doc()?
@@ -688,15 +684,19 @@ where
             self.values.intersect(&mut visitor)?;
             let cost = visitor.cost;
             let iterator = BitSetIterator::new(result, cost)?;
-            return Ok(Some(PointRangeWeightScorer::A(
-                ConstantScoreScorer::with_disi(self.score, self.score_mode, iterator),
+            return Ok(PointRangeWeightScorer::A(ConstantScoreScorer::with_disi(
+                self.score,
+                self.score_mode,
+                iterator,
             )));
         }
         self.values.intersect(&mut self.visitor)?;
         let iterator = self.visitor.result.build()?.iterator()?;
         debug_assert!(iterator.is_some());
-        Ok(Some(PointRangeWeightScorer::B(
-            ConstantScoreScorer::with_disi(self.score, self.score_mode, iterator.unwrap()),
+        Ok(PointRangeWeightScorer::B(ConstantScoreScorer::with_disi(
+            self.score,
+            self.score_mode,
+            iterator.unwrap(),
         )))
     }
 
@@ -741,17 +741,13 @@ where
     type Scorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
-        Ok(Some(ConstantScoreScorer::with_disi(
+        Ok(ConstantScoreScorer::with_disi(
             self.score,
             self.score_mode,
             AllDISI::new(self.max_doc),
-        )))
+        ))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {

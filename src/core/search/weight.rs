@@ -91,24 +91,13 @@ where
         };
 
         let mut scorer = scorer_supplier.get(1, context)?;
-        match scorer {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "scorer_supplier returned None Scorer",
-                ));
-            },
-            Some(ref mut scorer) => {
-                if let Some(mut two_phase) = scorer.two_phase_iterator_mut()? {
-                    if two_phase.approximation_mut()?.advance(doc)? != doc
-                        || !two_phase.matches()?
-                    {
-                        return Ok(None);
-                    }
-                } else if scorer.iterator_mut().advance(doc)? != doc {
-                    return Ok(None);
-                }
-            },
-        };
+        if let Some(mut two_phase) = scorer.two_phase_iterator_mut()? {
+            if two_phase.approximation_mut()?.advance(doc)? != doc || !two_phase.matches()? {
+                return Ok(None);
+            }
+        } else if scorer.iterator_mut().advance(doc)? != doc {
+            return Ok(None);
+        }
         Ok(Some(MatchWithNoTerms))
     }
 
@@ -152,7 +141,7 @@ where
             None => return Ok(None),
             Some(s) => s,
         };
-        scorer_supplier.get(i64::MAX, context)
+        Ok(Some(scorer_supplier.get(i64::MAX, context)?))
     }
 
     type ScorerSupplier: ScorerSupplier<LR>;
@@ -392,12 +381,10 @@ where
     type Scorer = S;
     type BulkScorer = DefaultBulkScorer<S>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
-        Ok(self.scorer.take())
+    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        self.scorer
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {

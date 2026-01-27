@@ -432,11 +432,7 @@ where
     type Scorer = ConstantScoreScorer<IteratorAndCountDisi<Disi<LR>>, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let disi = match self.disi.take() {
             Some(disi) => disi,
             None => {
@@ -452,7 +448,7 @@ where
             },
         };
         let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
-        Ok(Some(v))
+        Ok(v)
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {

@@ -944,16 +944,10 @@ where
     type Scorer = ScorerEnum2<S::Scorer, ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
-            return match self.supplier.get(lead_cost, context)? {
-                Some(scorer) => Ok(Some(ScorerEnum2::A(scorer))),
-                None => Ok(None),
-            };
+            let scorer = self.supplier.get(lead_cost, context)?;
+            return Ok(ScorerEnum2::A(scorer));
         };
         let mut bulk_scorer = match self.supplier.bulk_scorer(context)? {
             Some(bulk_scorer) => bulk_scorer,
@@ -967,11 +961,11 @@ where
             Some(disi) => DISI::B(disi),
             None => DISI::A(EmptyDISI::default()),
         };
-        Ok(Some(ScorerEnum2::B(ConstantScoreScorer::with_disi(
+        Ok(ScorerEnum2::B(ConstantScoreScorer::with_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             disi,
-        ))))
+        )))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
@@ -1000,16 +994,12 @@ where
     type Scorer = ConstantScoreScorer<CacheAndCountDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
-        Ok(Some(ConstantScoreScorer::with_disi(
+    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        Ok(ConstantScoreScorer::with_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             std::mem::take(&mut self.disi),
-        )))
+        ))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {

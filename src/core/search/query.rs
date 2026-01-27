@@ -865,37 +865,36 @@ where
         &mut self,
         lead_cost: i64,
         context: &LeafReaderContext<IRC::LeafReader>,
-    ) -> Result<Option<Self::Scorer>> {
+    ) -> Result<Self::Scorer> {
         match self {
-            QueryWeightSS::Term(s) => Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::Term)),
+            QueryWeightSS::Term(s) => Ok(QueryWeightScorer::Term(s.get(lead_cost, context)?)),
             QueryWeightSS::MatchAll(s) => {
-                Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchAll))
+                Ok(QueryWeightScorer::MatchAll(s.get(lead_cost, context)?))
             },
-            QueryWeightSS::PointRange(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::PointRange)),
+            QueryWeightSS::PointRange(s) => {
+                Ok(QueryWeightScorer::PointRange(s.get(lead_cost, context)?))
+            },
             QueryWeightSS::MatchNoDocs(s) => {
-                Ok(s.get(lead_cost, context)?.map(QueryWeightScorer::MatchNo))
+                Ok(QueryWeightScorer::MatchNo(s.get(lead_cost, context)?))
             },
-            QueryWeightSS::SortedNumericDocValuesSet(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::SortedNumericDocValuesSet)),
-            QueryWeightSS::SortedNumericDocValuesRange(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::SortedNumericDocValuesRange)),
-            QueryWeightSS::SortedSetDocValuesRange(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::SortedSetDocValuesRange)),
-            QueryWeightSS::IndexSortSortedNumericDocValuesRange(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::IndexSortSortedNumericDocValuesRange)),
-            QueryWeightSS::FieldExists(s) => Ok(s
-                .get(lead_cost, context)?
-                .map(QueryWeightScorer::FieldExists)),
-            QueryWeightSS::ConstantScore(s) => match s.get(lead_cost, context)? {
-                Some(sc) => Ok(Some(QueryWeightScorer::ConstantScore(Box::new(sc)))),
-                None => Ok(None),
+            QueryWeightSS::SortedNumericDocValuesSet(s) => Ok(
+                QueryWeightScorer::SortedNumericDocValuesSet(s.get(lead_cost, context)?),
+            ),
+            QueryWeightSS::SortedNumericDocValuesRange(s) => Ok(
+                QueryWeightScorer::SortedNumericDocValuesRange(s.get(lead_cost, context)?),
+            ),
+            QueryWeightSS::SortedSetDocValuesRange(s) => Ok(
+                QueryWeightScorer::SortedSetDocValuesRange(s.get(lead_cost, context)?),
+            ),
+            QueryWeightSS::IndexSortSortedNumericDocValuesRange(s) => Ok(
+                QueryWeightScorer::IndexSortSortedNumericDocValuesRange(s.get(lead_cost, context)?),
+            ),
+            QueryWeightSS::FieldExists(s) => {
+                Ok(QueryWeightScorer::FieldExists(s.get(lead_cost, context)?))
             },
+            QueryWeightSS::ConstantScore(s) => Ok(QueryWeightScorer::ConstantScore(Box::new(
+                s.get(lead_cost, context)?,
+            ))),
         }
     }
 

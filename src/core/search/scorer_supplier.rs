@@ -26,7 +26,7 @@ use crate::core::search::scorer::{
     ScorerEnum8, ScorerEnum9, ScorerEnum10, ScorerEnum11,
 };
 use crate::core::search::weight::DefaultBulkScorer;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
 ///
 /// This allows to get an estimate of the cost before building the [`Scorer`].
@@ -38,7 +38,7 @@ where
     type BulkScorer: BulkScorer;
 
     /// Get the [`Scorer`].
-    /// This may not return `None` and must be called at most once.
+    /// This must be called at most once.
     ///
     /// # Parameters
     ///
@@ -48,11 +48,7 @@ where
     ///   [`TwoPhaseIterator::matches`](crate::core::search::two_phase_iterator::TwoPhaseIterator::matches) will be called.
     ///   If in doubt, pass `i64::MAX`, which will produce a [`Scorer`] that has good iteration capabilities.
     /// - `context`: The [`LeafReaderContext`] that this scorer supplier was created for.
-    fn get(
-        &mut self,
-        lead_cost: i64,
-        context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>>;
+    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer>;
 
     /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
     ///
@@ -64,12 +60,8 @@ where
         &mut self,
         context: &LeafReaderContext<LR>,
     ) -> Result<DefaultBulkScorer<Self::Scorer>> {
-        match self.get(i64::MAX, context)? {
-            Some(scorer) => Ok(DefaultBulkScorer::new(scorer)),
-            None => Err(LuceneError::illegal_state(
-                "ScorerSupplier::get returned None",
-            )),
-        }
+        let scorer = self.get(i64::MAX, context)?;
+        Ok(DefaultBulkScorer::new(scorer))
     }
 
     /// Get an estimate of the [`Scorer`] that would be returned by [`ScorerSupplier::get`].
@@ -111,12 +103,12 @@ macro_rules! either_scorer_supplier {
                 &mut self,
                 lead_cost: i64,
                 context: &LeafReaderContext<LR>,
-            ) -> Result<Option<Self::Scorer>> {
+            ) -> Result<Self::Scorer> {
                 match self {
                     $(
                         Self::$Variant(inner) => {
-                            let opt = inner.get(lead_cost, context)?;
-                            Ok(opt.map($scorer::$Variant))
+                            let scorer = inner.get(lead_cost, context)?;
+                            Ok($scorer::$Variant(scorer))
                         }
                     ),+
                 }
@@ -142,12 +134,10 @@ macro_rules! either_scorer_supplier {
             ) -> Result<DefaultBulkScorer<Self::Scorer>> {
                 match self {
                     $(
-                        Self::$Variant(inner) => match inner.get(i64::MAX, context)? {
-                            Some(scorer) => Ok(DefaultBulkScorer::new($scorer::$Variant(scorer))),
-                            None => Err(LuceneError::illegal_state(
-                                "ScorerSupplier::get returned None",
-                            )),
-                        },
+                        Self::$Variant(inner) => {
+                            let scorer = inner.get(i64::MAX, context)?;
+                            Ok(DefaultBulkScorer::new($scorer::$Variant(scorer)))
+                        }
                     )+
                 }
             }

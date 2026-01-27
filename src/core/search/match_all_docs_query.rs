@@ -206,17 +206,13 @@ where
     type Scorer = MatchAllSsScorer;
     type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
-        Ok(Some(ConstantScoreScorer::with_disi(
+        Ok(ConstantScoreScorer::with_disi(
             score,
             self.score_mode,
             AllDISI::new(self.max_doc),
-        )))
+        ))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {

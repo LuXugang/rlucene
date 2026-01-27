@@ -30,11 +30,7 @@ where
     type Scorer = DummyScorer;
     type BulkScorer = DummyBulkScorer;
 
-    fn get(
-        &mut self,
-        _lead_cost: i64,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::Scorer>> {
+    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
