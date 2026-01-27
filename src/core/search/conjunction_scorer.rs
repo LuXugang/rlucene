@@ -26,6 +26,7 @@ pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
     ConjunctionDISI<S>,
     TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>,
 >;
+// TODO IMPORTANT This implementation is quite different from the Java version, and performance is worse in some scenarios.
 /// Scorer for conjunctions, sets of queries, all of which are required.
 pub struct ConjunctionScorer<S>
 where

@@ -589,6 +589,7 @@ where
         IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     ),
     FieldExists(FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreQueryWeight<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader> for QueryWeight<S, IRC, QCP, QC>
@@ -848,6 +849,7 @@ where
     SortedSetDocValuesRange(SSDVRQSs<IRC::LeafReader>),
     IndexSortSortedNumericDocValuesRange(ISSNDVRQSs<IRC::LeafReader>),
     FieldExists(FieldExistsESs<IRC::LeafReader>),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreSs<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 impl<S, IRC, QCP, QC> ScorerSupplier<IRC::LeafReader> for QueryWeightSS<S, IRC, QCP, QC>
@@ -1025,6 +1027,7 @@ where
         <ISSNDVRQSs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer,
     ),
     FieldExists(<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::BulkScorer),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreSsBulkScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 impl<S, IRC, QCP, QC> BulkScorer for QueryWeightBulkScorer<S, IRC, QCP, QC>
@@ -1099,6 +1102,7 @@ where
     SortedSetDocValuesRange(SSDVRQSsScorer<IRC::LeafReader>),
     IndexSortSortedNumericDocValuesRange(ISSNDVRQSsScorer<IRC::LeafReader>),
     FieldExists(FieldExistsSsScorer<IRC::LeafReader>),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 
@@ -1119,6 +1123,7 @@ where
     FieldExistsSsScorer<IRC::LeafReader>: 'a,
     ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
+    #[allow(clippy::type_complexity)]
     inner: QueryWeightDocIdSetIteratorRef<
         TermSsScorerDisiRef<'a, IRC, S>,
         MatchAllSsScorerDisiRef<'a>,
@@ -1132,7 +1137,7 @@ where
         ConstantScoreSsScorerDisiRef<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
     >,
 }
-
+#[allow(clippy::type_complexity)]
 impl<'a, S, IRC, QCP, QC> QueryWeightScorerDocIdSetIteratorRef<'a, S, IRC, QCP, QC>
 where
     IRC: IndexReaderContext + 'a,
@@ -1224,6 +1229,7 @@ where
     FieldExistsSsScorer<IRC::LeafReader>: 'a,
     ConstantScoreSsScorer<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>: 'a,
 {
+    #[allow(clippy::type_complexity)]
     inner: QueryWeightDocIdSetIteratorMut<
         TermSsScorerDisiMut<'a, IRC, S>,
         MatchAllSsScorerDisiMut<'a>,
@@ -1237,7 +1243,7 @@ where
         ConstantScoreSsScorerDisiMut<'a, QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>,
     >,
 }
-
+#[allow(clippy::type_complexity)]
 impl<'a, S, IRC, QCP, QC> QueryWeightScorerDocIdSetIteratorMut<'a, S, IRC, QCP, QC>
 where
     IRC: IndexReaderContext + 'a,
@@ -1788,6 +1794,7 @@ where
     SortedSetDocValuesRange(SSDVRQSsScorerDisi<IRC::LeafReader>),
     IndexSortSortedNumericDocValuesRange(ISSNDVRQSsScorerDisi<IRC::LeafReader>),
     FieldExists(FieldExistsSsScorerDisi<IRC::LeafReader>),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreSsScorerDisi<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 
@@ -1892,6 +1899,7 @@ where
             IRC::LeafReader,
         >>::Scorer as Scorer>::TwoPhaseIter),
     FieldExists(<<FieldExistsESs<IRC::LeafReader> as ScorerSupplier<IRC::LeafReader>>::Scorer as Scorer>::TwoPhaseIter),
+    #[allow(clippy::type_complexity)]
     ConstantScore(Box<ConstantScoreSsScorerTpi<QueryWeight<S, IRC, QCP, QC>, IRC, QCP, QC>>),
 }
 

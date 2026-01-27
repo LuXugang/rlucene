@@ -113,6 +113,7 @@ where
             should_cost,
         ))
     }
+    #[allow(clippy::type_complexity)]
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
@@ -362,6 +363,7 @@ where
             } else {
                 required_scoring.into_iter().map(ScorerEnum2::A).collect()
             };
+        #[allow(clippy::type_complexity)]
         let mut required_no_scoring: Vec<
             ScorerEnum2<SsScorer<SS, LR>, BlockMaxConjunctionScorer<SsScorer<SS, LR>>>,
         > = required_no_scoring
