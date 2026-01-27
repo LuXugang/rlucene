@@ -1064,9 +1064,7 @@ where
                 s.score(collector, accept_docs, min, max)
             },
             QueryWeightBulkScorer::FieldExists(s) => s.score(collector, accept_docs, min, max),
-            // TODO IMPORTANT 这里有很大递归问题
-            // QueryWeightBulkScorer::ConstantScore(s) => s.score(collector, accept_docs, min, max),
-            _ => Err(LuceneError::unsupported_operation("")),
+            QueryWeightBulkScorer::ConstantScore(s) => s.score(collector, accept_docs, min, max),
         }
     }
 

@@ -25,6 +25,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
 
+use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -320,7 +321,8 @@ where
     QC: QueryCache,
 {
     type Scorer = ConstantScoreScorerEnum<W, IRC, QCP, QC>;
-    type BulkScorer = BulkScorerEnum<W, IRC, QCP, QC>;
+    // type BulkScorer = BulkScorerEnum<W, IRC, QCP, QC>;
+    type BulkScorer = DummyBulkScorer;
 
     fn get(
         &mut self,
@@ -351,19 +353,20 @@ where
 
     fn bulk_scorer(
         &mut self,
-        context: &LeafReaderContext<IRC::LeafReader>,
+        _context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::BulkScorer>> {
-        if !self.score_mode.is_exhaustive() {
-            let v = self.default_bulk_scorer(context)?;
-            return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
-        }
-        match self.inner_scorer_supplier.bulk_scorer(context)? {
-            Some(v) => {
-                let v = ConstantBulkScorer::new(v, self.inner_weight.clone(), self.score);
-                Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
-            },
-            None => Ok(None),
-        }
+        // if !self.score_mode.is_exhaustive() {
+        //     let v = self.default_bulk_scorer(context)?;
+        //     return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
+        // }
+        // match self.inner_scorer_supplier.bulk_scorer(context)? {
+        //     Some(v) => {
+        //         let v = ConstantBulkScorer::new(v, self.inner_weight.clone(), self.score);
+        //         Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
+        //     },
+        //     None => Ok(None),
+        // }
+        todo!()
     }
 
     fn cost(&mut self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i64> {
