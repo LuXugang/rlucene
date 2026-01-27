@@ -82,6 +82,7 @@ where
     }
 }
 pub type SsScorer<SS, LR> = <SS as ScorerSupplier<LR>>::Scorer;
+pub type SsBulkScorer<SS, LR> = <SS as ScorerSupplier<LR>>::BulkScorer;
 macro_rules! either_scorer_supplier {
     (
         $vis:vis $name:ident

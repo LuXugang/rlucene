@@ -18,7 +18,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
 use crate::core::search::boolean_clause::Occur;
-use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
+use crate::core::search::boolean_scorer::BooleanScorer;
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2, BulkScorerEnum3};
 use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
@@ -29,13 +30,14 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::filter_scorer::FilterScorer;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
 use crate::core::search::req_excl_scorer::ReqExclScorer;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState};
-use crate::core::search::scorer_supplier::{ScorerSupplier, SsScorer};
+use crate::core::search::scorer_supplier::{ScorerSupplier, SsBulkScorer, SsScorer};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
@@ -112,6 +114,101 @@ where
             min_required_cost.unwrap_or(i64::MAX),
             should_cost,
         ))
+    }
+    fn optional_bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<
+        Option<
+            BulkScorerEnum3<
+                SsBulkScorer<SS, LR>,
+                MaxScoreBulkScorer<SsScorer<SS, LR>>,
+                BooleanScorer<SsScorer<SS, LR>>,
+            >,
+        >,
+    > {
+        let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
+
+        if should_len == 0 {
+            return Ok(None);
+        } else if should_len == 1 && self.min_should_match <= 1 {
+            return match self.subs.get_mut(&Occur::Should).unwrap()[0].bulk_scorer(context)? {
+                None => Ok(None),
+                Some(bs) => return Ok(Some(BulkScorerEnum3::A(bs))),
+            };
+        }
+
+        if self.score_mode == ScoreMode::TopScores && self.min_should_match <= 1 {
+            let mut optional_scorers = Vec::with_capacity(should_len);
+            for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
+                optional_scorers.push(ss.get(i64::MAX, context)?);
+            }
+            let v = BulkScorerEnum3::B(MaxScoreBulkScorer::new(
+                self.max_doc,
+                optional_scorers,
+                None,
+            )?);
+            return Ok(Some(v));
+        }
+
+        let mut optional = Vec::with_capacity(should_len);
+        for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
+            optional.push(ss.get(i64::MAX, context)?);
+        }
+
+        let msm = std::cmp::max(1, self.min_should_match);
+        let v = BulkScorerEnum3::C(BooleanScorer::new(
+            optional,
+            msm as usize,
+            self.score_mode.needs_scores(),
+        )?);
+        Ok(Some(v))
+    }
+    fn filtered_optional_bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<DummyBulkScorer>> {
+        let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
+        let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
+        let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
+
+        if must_len != 0
+            || filter_len == 0
+            || self.score_mode != ScoreMode::TopScores
+            || should_len <= 1
+            || self.min_should_match > 1
+        {
+            return Ok(None);
+        }
+
+        let cost = self.cost(context)?;
+
+        let mut optional_scorers = Vec::with_capacity(should_len);
+        if let Some(v) = self.subs.get_mut(&Occur::Should) {
+            for ss in v.iter_mut() {
+                optional_scorers.push(ss.get(cost, context)?);
+            }
+        }
+
+        let mut filters = Vec::with_capacity(filter_len);
+        if let Some(v) = self.subs.get_mut(&Occur::Filter) {
+            for ss in v.iter_mut() {
+                filters.push(ss.get(cost, context)?);
+            }
+        }
+
+        let filter_scorer = if filters.len() == 1 {
+            filters.pop().unwrap()
+        } else {
+            todo!()
+        };
+
+        let _v = Some(MaxScoreBulkScorer::new(
+            self.max_doc,
+            optional_scorers,
+            Some(filter_scorer),
+        )?);
+        todo!()
     }
     fn required_bulk_scorer(
         &mut self,

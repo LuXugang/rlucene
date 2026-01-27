@@ -19,9 +19,9 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
+use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
@@ -29,7 +29,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::weight::Weight;
+use crate::core::search::weight::{Weight, WeightSs};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -261,7 +261,7 @@ where
         todo!()
     }
 
-    type ScorerSupplier = DummyScorerSupplier;
+    type ScorerSupplier = BooleanScorerSupplier<WeightSs<W, LR>, LR>;
 
     fn scorer_supplier(
         &self,
