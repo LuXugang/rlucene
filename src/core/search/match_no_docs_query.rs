@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -33,13 +34,16 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that matches no documents.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Debug)]
 pub struct MatchNoDocsQuery {
+    id: Identity,
     reason: String,
 }
 
@@ -53,13 +57,37 @@ impl MatchNoDocsQuery {
     /// Default constructor
     pub fn new() -> Self {
         Self {
+            id: Identity::new(),
             reason: String::new(),
         }
     }
 
     /// Provides a reason explaining why this query was used
     pub fn with_reason(reason: String) -> Self {
-        Self { reason }
+        Self {
+            id: Identity::new(),
+            reason,
+        }
+    }
+}
+
+impl PartialEq for MatchNoDocsQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.reason == other.reason
+    }
+}
+
+impl Eq for MatchNoDocsQuery {}
+
+impl Hash for MatchNoDocsQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.reason.hash(state);
+    }
+}
+
+impl HasIdentity for MatchNoDocsQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

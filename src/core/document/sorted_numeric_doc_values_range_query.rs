@@ -16,6 +16,7 @@
  */
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRDocValuesSkipper, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -47,12 +48,15 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct SortedNumericDocValuesRangeQuery {
+    id: Identity,
     field: String,
     lower_value: i64,
     upper_value: i64,
@@ -60,10 +64,33 @@ pub struct SortedNumericDocValuesRangeQuery {
 impl SortedNumericDocValuesRangeQuery {
     pub fn new(field: String, lower_value: i64, upper_value: i64) -> Self {
         Self {
+            id: Identity::new(),
             field,
             lower_value,
             upper_value,
         }
+    }
+}
+impl PartialEq for SortedNumericDocValuesRangeQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.field == other.field
+            && self.lower_value == other.lower_value
+            && self.upper_value == other.upper_value
+    }
+}
+impl Eq for SortedNumericDocValuesRangeQuery {}
+
+impl Hash for SortedNumericDocValuesRangeQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
+        self.lower_value.hash(state);
+        self.upper_value.hash(state);
+    }
+}
+
+impl HasIdentity for SortedNumericDocValuesRangeQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for SortedNumericDocValuesRangeQuery {

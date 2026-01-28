@@ -16,6 +16,7 @@
  */
 use crate::core::document::doc_values_long_hash_set::DocValuesLongHashSet;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -42,14 +43,16 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::accountable::Accountable;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Similar to SortedNumericDocValuesRangeQuery but for a set
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct SortedNumericDocValuesSetQuery {
+    id: Identity,
     field: String,
     numbers: Arc<DocValuesLongHashSet>,
 }
@@ -57,9 +60,29 @@ impl SortedNumericDocValuesSetQuery {
     pub fn new(field: String, mut numbers: Vec<i64>) -> Result<Self> {
         numbers.sort_unstable();
         Ok(SortedNumericDocValuesSetQuery {
+            id: Identity::new(),
             field,
             numbers: Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?),
         })
+    }
+}
+impl PartialEq for SortedNumericDocValuesSetQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.field == other.field && self.numbers == other.numbers
+    }
+}
+impl Eq for SortedNumericDocValuesSetQuery {}
+
+impl Hash for SortedNumericDocValuesSetQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
+        self.numbers.hash(state);
+    }
+}
+
+impl HasIdentity for SortedNumericDocValuesSetQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for SortedNumericDocValuesSetQuery {

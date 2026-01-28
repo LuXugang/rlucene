@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -41,15 +42,18 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that matches all documents.
-#[derive(Hash, PartialEq, Eq, Debug, Clone)]
-pub struct MatchAllDocsQuery;
+#[derive(Debug, Clone)]
+pub struct MatchAllDocsQuery {
+    id: Identity,
+}
 impl Default for MatchAllDocsQuery {
     fn default() -> Self {
         Self::new()
@@ -58,7 +62,28 @@ impl Default for MatchAllDocsQuery {
 
 impl MatchAllDocsQuery {
     pub fn new() -> Self {
-        MatchAllDocsQuery
+        MatchAllDocsQuery {
+            id: Identity::new(),
+        }
+    }
+}
+
+impl PartialEq for MatchAllDocsQuery {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+impl Eq for MatchAllDocsQuery {}
+
+impl Hash for MatchAllDocsQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        0usize.hash(state);
+    }
+}
+
+impl HasIdentity for MatchAllDocsQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 
@@ -176,7 +201,7 @@ where
     LR: LeafReader,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "weight({:?})", MatchAllDocsQuery)
+        write!(f, "weight({:?})", MatchAllDocsQuery::new())
     }
 }
 pub type MatchAllSs = MatchAllDocsScorerSupplier;

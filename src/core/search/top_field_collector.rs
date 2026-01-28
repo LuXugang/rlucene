@@ -1436,12 +1436,12 @@ mod tests {
 
         for sort in sorts {
             let tdc = TopFieldCollectorManager::new(sort.clone(), 10, i32::MAX as usize)?;
-            let td =
-                single_threaded_searcher.search_with_collector_manager(MatchAllDocsQuery, &tdc)?;
+            let td = single_threaded_searcher
+                .search_with_collector_manager(MatchAllDocsQuery::new(), &tdc)?;
 
             let tsdc = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
-            let td2 =
-                concurrent_searcher.search_with_collector_manager(MatchAllDocsQuery, &tsdc)?;
+            let td2 = concurrent_searcher
+                .search_with_collector_manager(MatchAllDocsQuery::new(), &tsdc)?;
 
             let sd = td.score_docs();
             for v in sd {
@@ -1452,7 +1452,11 @@ mod tests {
                 );
             }
 
-            CheckHits::check_equal(&MatchAllDocsQuery.into(), td.score_docs(), td2.score_docs())?;
+            CheckHits::check_equal(
+                &MatchAllDocsQuery::new().into(),
+                td.score_docs(),
+                td2.score_docs(),
+            )?;
         }
 
         Ok(())

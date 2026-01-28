@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 /// A [`Query`] wrapper that allows giving a boost to the wrapped query.
 ///
 /// Boost values that are less than one will give less importance to this query
@@ -33,11 +34,13 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub struct BoostQuery {
+    id: Identity,
     pub(crate) query: Box<Query>,
     boost: f32,
 }
@@ -50,6 +53,7 @@ impl BoostQuery {
             )));
         }
         Ok(Self {
+            id: Identity::new(),
             query: Box::new(query),
             boost,
         })
@@ -65,6 +69,7 @@ impl BoostQuery {
 impl Clone for BoostQuery {
     fn clone(&self) -> Self {
         Self {
+            id: self.id.clone(),
             query: Box::new((*self.query).clone()),
             boost: self.boost,
         }
@@ -132,5 +137,11 @@ impl Hash for BoostQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.query.hash(state);
         self.boost.to_bits().hash(state);
+    }
+}
+
+impl HasIdentity for BoostQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }

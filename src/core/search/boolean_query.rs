@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
@@ -26,6 +27,7 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -33,8 +35,9 @@ use std::hash::{Hash, Hasher};
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
 /// [`TermQuery`](crate::core::search::term_query::TermQuery)s, [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)s or other [`BooleanQuery`]s.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub struct BooleanQuery {
+    id: Identity,
     minimum_number_should_match: i32,
     clauses: Vec<BooleanClause>,
     clause_sets: HashMap<Occur, Vec<Query>>,
@@ -43,6 +46,7 @@ pub struct BooleanQuery {
 impl Clone for BooleanQuery {
     fn clone(&self) -> Self {
         Self {
+            id: self.id.clone(),
             minimum_number_should_match: self.minimum_number_should_match,
             clauses: self.clauses.clone(),
             clause_sets: self.clause_sets.clone(),
@@ -53,6 +57,7 @@ impl Clone for BooleanQuery {
 impl BooleanQuery {
     pub fn new(minimum_number_should_match: i32, clauses: Vec<BooleanClause>) -> BooleanQuery {
         BooleanQuery {
+            id: Identity::new(),
             minimum_number_should_match,
             clauses,
             clause_sets: HashMap::new(),
@@ -97,6 +102,22 @@ impl Hash for BooleanQuery {
         for clause in &self.clause_sets {
             clause.hash(state);
         }
+    }
+}
+
+impl PartialEq for BooleanQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.minimum_number_should_match == other.minimum_number_should_match
+            && self.clauses == other.clauses
+            && self.clause_sets == other.clause_sets
+    }
+}
+
+impl Eq for BooleanQuery {}
+
+impl HasIdentity for BooleanQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for BooleanQuery {

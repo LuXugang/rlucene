@@ -19,6 +19,7 @@ use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
 use crate::core::document::int_point::IntPointRangeQuery;
 use crate::core::document::long_point::LongPointRangeQuery;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRPointValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -47,6 +48,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -72,6 +74,7 @@ use std::sync::Arc;
 /// See also: [`PointValues`]
 #[derive(Debug, Clone)]
 pub struct PointRangeQuery {
+    id: Identity,
     field: String,
     num_dims: usize,
     bytes_per_dim: usize,
@@ -123,6 +126,7 @@ impl PointRangeQuery {
         let bytes_per_dim = lower_point.len() / num_dims;
 
         Ok(Self {
+            id: Identity::new(),
             field,
             num_dims,
             bytes_per_dim,
@@ -196,6 +200,12 @@ impl Hash for PointRangeQuery {
         self.bytes_per_dim.hash(state);
         self.lower_point.hash(state);
         self.upper_point.hash(state);
+    }
+}
+
+impl HasIdentity for PointRangeQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for PointRangeQuery {

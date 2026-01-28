@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{
@@ -48,6 +49,7 @@ use crate::core::search::similarities_impl::similarities::{SimScorer, SimScorerE
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
@@ -57,6 +59,7 @@ use std::sync::Arc;
 /// A Query that matches documents containing a term. This may be combined with other terms with a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
 #[derive(Clone)]
 pub struct TermQuery {
+    id: Identity,
     term: Arc<Term>,
 }
 impl TermQuery {
@@ -64,7 +67,10 @@ impl TermQuery {
     where
         T: Into<Arc<Term>>,
     {
-        Self { term: term.into() }
+        Self {
+            id: Identity::new(),
+            term: term.into(),
+        }
     }
     pub fn get_term(&self) -> Arc<Term> {
         self.term.clone()
@@ -87,6 +93,12 @@ impl Eq for TermQuery {}
 impl Debug for TermQuery {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_string(""))
+    }
+}
+
+impl HasIdentity for TermQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

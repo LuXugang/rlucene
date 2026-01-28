@@ -54,7 +54,7 @@ fn test_early_termination() -> Result<()> {
     for _ in 0..iter {
         let searcher = new_searcher_with_reader(&reader)?;
         searcher.search_with_collector_manager_states(
-            MatchAllDocsQuery,
+            MatchAllDocsQuery::new(),
             &CollectorManagerImpl,
             None,
         )?;

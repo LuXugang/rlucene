@@ -26,6 +26,7 @@ use crate::core::document::sorted_set_doc_values_range_query::{
     SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -64,12 +65,14 @@ use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum4};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct IndexSortSortedNumericDocValuesRangeQuery {
+    id: Identity,
     field: String,
     lower_value: i64,
     upper_value: i64,
@@ -82,6 +85,7 @@ impl IndexSortSortedNumericDocValuesRangeQuery {
         T: Into<FallbackQuery>,
     {
         Self {
+            id: Identity::new(),
             field: field.into(),
             lower_value,
             upper_value,
@@ -106,6 +110,12 @@ impl Hash for IndexSortSortedNumericDocValuesRangeQuery {
         self.lower_value.hash(state);
         self.upper_value.hash(state);
         self.fallback_query.hash(state);
+    }
+}
+
+impl HasIdentity for IndexSortSortedNumericDocValuesRangeQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

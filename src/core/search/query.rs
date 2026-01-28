@@ -26,6 +26,7 @@ use crate::core::document::sorted_set_doc_values_range_query::{
     SSDVRQSs, SSDVRQSsScorer, SSDVRQSsScorerDisi, SSDVRQSsScorerDisiMut, SSDVRQSsScorerDisiRef,
     SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
@@ -85,6 +86,7 @@ use crate::core::search::term_query::{
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
@@ -92,7 +94,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 pub type QueryBaseWeight<Q, S, IRC, QCP, QC> = <Q as QueryBase>::Weight<S, IRC, QCP, QC>;
-pub trait QueryBase: Eq + Hash + Debug {
+pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
     type Weight<S, IRC, QCP, QC>: Weight<IRC::LeafReader>
     where
@@ -253,6 +255,26 @@ impl Hash for Query {
             Query::Boolean(c) => {
                 c.hash(state);
             },
+        }
+    }
+}
+
+impl HasIdentity for Query {
+    fn identity(&self) -> &Identity {
+        match self {
+            Query::Term(t) => t.identity(),
+            Query::MatchAll(m) => m.identity(),
+            Query::MatchNoDoc(m) => m.identity(),
+            Query::Dummy(d) => d.identity(),
+            Query::Boost(b) => b.identity(),
+            Query::ConstantScore(c) => c.identity(),
+            Query::PointRange(c) => c.identity(),
+            Query::SortedNumericDocValuesSet(c) => c.identity(),
+            Query::SortedNumericDocValuesRange(c) => c.identity(),
+            Query::SortedSetDocValuesRange(c) => c.identity(),
+            Query::IndexSortSortedNumericDocValuesRange(c) => c.identity(),
+            Query::FieldExists(c) => c.identity(),
+            Query::Boolean(c) => c.identity(),
         }
     }
 }

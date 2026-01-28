@@ -24,6 +24,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
 
+use crate::core::index::index_reader::Identity;
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -47,6 +48,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum2};
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -56,6 +58,7 @@ use std::sync::Arc;
 /// It therefore simply strips of all scores and always returns 1.
 #[derive(Debug)]
 pub struct ConstantScoreQuery {
+    id: Identity,
     query: Box<Query>,
 }
 impl ConstantScoreQuery {
@@ -65,13 +68,17 @@ impl ConstantScoreQuery {
         T: Into<Box<Query>>,
     {
         let query = query.into();
-        Self { query }
+        Self {
+            id: Identity::new(),
+            query,
+        }
     }
 }
 #[cfg(test)]
 impl Clone for ConstantScoreQuery {
     fn clone(&self) -> Self {
         Self {
+            id: self.id.clone(),
             query: self.query.clone(),
         }
     }
@@ -89,6 +96,12 @@ impl Hash for ConstantScoreQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::any::type_name::<Self>().to_string().hash(state);
         self.query.hash(state);
+    }
+}
+
+impl HasIdentity for ConstantScoreQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for ConstantScoreQuery {

@@ -18,6 +18,7 @@ use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -44,17 +45,19 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A `Query` that matches documents that contain either a `KnnFloatVectorField`,
 /// `org.apache.lucene.document.KnnByteVectorField`, or a field that indexes norms
 /// or doc values.
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct FieldExistsQuery {
+    id: Identity,
     field: String,
 }
 impl FieldExistsQuery {
@@ -64,7 +67,10 @@ impl FieldExistsQuery {
         T: Into<String>,
     {
         let field = field.into();
-        Self { field }
+        Self {
+            id: Identity::new(),
+            field,
+        }
     }
     pub fn get_field(&self) -> &str {
         &self.field
@@ -80,6 +86,25 @@ impl FieldExistsQuery {
         LR: LeafReader,
     {
         todo!()
+    }
+}
+
+impl PartialEq for FieldExistsQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.field == other.field
+    }
+}
+impl Eq for FieldExistsQuery {}
+
+impl Hash for FieldExistsQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
+    }
+}
+
+impl HasIdentity for FieldExistsQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 

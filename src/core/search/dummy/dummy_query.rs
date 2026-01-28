@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
@@ -25,9 +26,44 @@ use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::util::core_helper::HasIdentity;
 
-#[derive(Eq, Hash, PartialEq, Debug, Default, Clone)]
-pub struct DummyQuery {}
+#[derive(Debug, Clone)]
+pub struct DummyQuery {
+    id: Identity,
+}
+impl DummyQuery {
+    pub fn new() -> Self {
+        Self {
+            id: Identity::new(),
+        }
+    }
+}
+impl Default for DummyQuery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PartialEq for DummyQuery {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for DummyQuery {}
+
+impl std::hash::Hash for DummyQuery {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        0usize.hash(state);
+    }
+}
+
+impl HasIdentity for DummyQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
+    }
+}
 impl QueryBase for DummyQuery {
     fn as_string(&self, _field: &str) -> String {
         unreachable!("Dummy implementation: this method should never be called in real usage")

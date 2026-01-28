@@ -18,6 +18,7 @@ use crate::core::document::sorted_numeric_doc_values_range_query::DISI;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRDocValuesSkipper, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -47,12 +48,15 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct SortedSetDocValuesRangeQuery {
+    id: Identity,
     pub field: String,
     pub lower_value: Option<BytesRef<Vec<u8>>>,
     pub upper_value: Option<BytesRef<Vec<u8>>>,
@@ -71,12 +75,39 @@ impl SortedSetDocValuesRangeQuery {
         let upper_inclusive = upper_inclusive && upper_value.is_some();
 
         SortedSetDocValuesRangeQuery {
+            id: Identity::new(),
             field,
             lower_value,
             upper_value,
             lower_inclusive,
             upper_inclusive,
         }
+    }
+}
+impl PartialEq for SortedSetDocValuesRangeQuery {
+    fn eq(&self, other: &Self) -> bool {
+        self.field == other.field
+            && self.lower_value == other.lower_value
+            && self.upper_value == other.upper_value
+            && self.lower_inclusive == other.lower_inclusive
+            && self.upper_inclusive == other.upper_inclusive
+    }
+}
+impl Eq for SortedSetDocValuesRangeQuery {}
+
+impl Hash for SortedSetDocValuesRangeQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
+        self.lower_value.hash(state);
+        self.upper_value.hash(state);
+        self.lower_inclusive.hash(state);
+        self.upper_inclusive.hash(state);
+    }
+}
+
+impl HasIdentity for SortedSetDocValuesRangeQuery {
+    fn identity(&self) -> &Identity {
+        &self.id
     }
 }
 impl QueryBase for SortedSetDocValuesRangeQuery {
