@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
@@ -31,7 +30,10 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::filter_scorable::FilterScorable;
-use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherWeight};
+use crate::core::search::index_searcher::{
+    IndexSearcher, IndexSearcherWeight, IndexSearcherWeightSs, IndexSearcherWeightSsBulkScorer,
+    IndexSearcherWeightSsScorerDisi, IndexSearcherWeightSsScorerTpi,
+};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryBaseWeight};
@@ -48,7 +50,6 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A query that wraps another query and simply returns a constant score equal to 1 for every document that matches the query.
@@ -142,7 +143,7 @@ impl QueryBase for ConstantScoreQuery {
     type RewriteQuery = Query;
 
     fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
+        mut self,
         searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
     ) -> Result<Self::RewriteQuery>
     where
@@ -172,7 +173,8 @@ impl QueryBase for ConstantScoreQuery {
         if let Query::Boost(v) = rewritten {
             return Ok(ConstantScoreQuery::new(v.query).into());
         }
-        Ok(ConstantScoreQuery::new(rewritten).into())
+        self.query = Box::new(rewritten);
+        Ok(self.into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -191,7 +193,7 @@ where
     W: Weight<IRC::LeafReader>,
 {
     base: ConstantScoreWeight,
-    inner_weight: Arc<IndexSearcherWeight<W, IRC, QCP, QC>>,
+    inner_weight: IndexSearcherWeight<W, IRC, QCP, QC>,
     score_mode: ScoreMode,
 }
 impl<W, IRC, QCP, QC> WeightImpl<W, IRC, QCP, QC>
@@ -208,7 +210,7 @@ where
     ) -> Self {
         Self {
             base: ConstantScoreWeight::new(boost),
-            inner_weight: Arc::new(inner_weight),
+            inner_weight,
             score_mode,
         }
     }
@@ -264,7 +266,6 @@ where
     ) -> Result<Option<Self::ScorerSupplier>> {
         match self.inner_weight.scorer_supplier(context)? {
             Some(inner_scorer_supplier) => Ok(Some(ScorerSupplierImpl::new(
-                self.inner_weight.clone(),
                 self.score_mode,
                 inner_scorer_supplier,
                 self.base.score(),
@@ -277,29 +278,14 @@ where
         self.inner_weight.count(context)
     }
 }
-pub type ScorerSupplierAlias<W, IRC, QCP, QC> = <IndexSearcherWeight<W, IRC, QCP, QC> as Weight<
-    <IRC as IndexReaderContext>::LeafReader,
->>::ScorerSupplier;
-pub type Tpi<W, IRC, QCP, QC> = <<ScorerSupplierAlias<W, IRC, QCP, QC> as ScorerSupplier<
-    <IRC as IndexReaderContext>::LeafReader,
->>::Scorer as Scorer>::TwoPhaseIter;
-pub type Disi<W, IRC, QCP, QC> = <<ScorerSupplierAlias<W, IRC, QCP, QC> as ScorerSupplier<
-    <IRC as IndexReaderContext>::LeafReader,
->>::Scorer as Scorer>::DocIdSetIterator;
-pub type BS<W, IRC, QCP, QC> = <ScorerSupplierAlias<W, IRC, QCP, QC> as ScorerSupplier<
-    <IRC as IndexReaderContext>::LeafReader,
->>::BulkScorer;
+
 pub type ConstantScoreScorerEnum<W, IRC, QCP, QC> = ScorerEnum2<
-    ConstantScoreScorer<Disi<W, IRC, QCP, QC>, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DummyDISI, Tpi<W, IRC, QCP, QC>>,
+    ConstantScoreScorer<IndexSearcherWeightSsScorerDisi<W, IRC, QCP, QC>, DummyTwoPhaseIterator>,
+    ConstantScoreScorer<DummyDISI, IndexSearcherWeightSsScorerTpi<W, IRC, QCP, QC>>,
 >;
 pub type BulkScorerEnum<W, IRC, QCP, QC> = BulkScorerEnum2<
     DefaultBulkScorer<ConstantScoreScorerEnum<W, IRC, QCP, QC>>,
-    ConstantBulkScorer<
-        BS<W, IRC, QCP, QC>,
-        IndexSearcherWeight<W, IRC, QCP, QC>,
-        <IRC as IndexReaderContext>::LeafReader,
-    >,
+    ConstantBulkScorer<IndexSearcherWeightSsBulkScorer<W, IRC, QCP, QC>>,
 >;
 pub struct ScorerSupplierImpl<W, IRC, QCP, QC>
 where
@@ -308,9 +294,8 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    inner_weight: Arc<IndexSearcherWeight<W, IRC, QCP, QC>>,
     score_mode: ScoreMode,
-    inner_scorer_supplier: ScorerSupplierAlias<W, IRC, QCP, QC>,
+    inner_scorer_supplier: IndexSearcherWeightSs<W, IRC, QCP, QC>,
     score: f32,
 }
 impl<W, IRC, QCP, QC> ScorerSupplierImpl<W, IRC, QCP, QC>
@@ -321,13 +306,11 @@ where
     QC: QueryCache,
 {
     fn new(
-        inner_weight: Arc<IndexSearcherWeight<W, IRC, QCP, QC>>,
         score_mode: ScoreMode,
-        inner_scorer_supplier: ScorerSupplierAlias<W, IRC, QCP, QC>,
+        inner_scorer_supplier: IndexSearcherWeightSs<W, IRC, QCP, QC>,
         score: f32,
     ) -> Self {
         Self {
-            inner_weight,
             score_mode,
             inner_scorer_supplier,
             score,
@@ -369,20 +352,21 @@ where
 
     fn bulk_scorer(
         &mut self,
-        _context: &LeafReaderContext<IRC::LeafReader>,
+        context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::BulkScorer>> {
-        // if !self.score_mode.is_exhaustive() {
-        //     let v = self.default_bulk_scorer(context)?;
-        //     return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
-        // }
-        // match self.inner_scorer_supplier.bulk_scorer(context)? {
-        //     Some(v) => {
-        //         let v = ConstantBulkScorer::new(v, self.inner_weight.clone(), self.score);
-        //         Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
-        //     },
-        //     None => Ok(None),
-        // }
-        todo!()
+        if !self.score_mode.is_exhaustive() {
+            // let v = self.default_bulk_scorer(context)?;
+            todo!()
+            // return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
+        }
+        match self.inner_scorer_supplier.bulk_scorer(context)? {
+            Some(_v) => {
+                // let v = ConstantBulkScorer::new(v, self.score);
+                todo!()
+                // Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
+            },
+            None => Ok(None),
+        }
     }
 
     fn cost(&mut self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i64> {
@@ -390,29 +374,21 @@ where
     }
 }
 /// We return this as our BulkScorer so that if the CSQ wraps a query with its own optimized top-level scorer (e.g. BooleanScorer) we can use that top-level scorer.
-pub struct ConstantBulkScorer<BS, W, LR>
+pub struct ConstantBulkScorer<BS>
 where
     BS: BulkScorer,
-    W: Weight<LR>,
-    LR: LeafReader,
 {
     bulk_scorer: BS,
-    weight: Arc<W>,
     the_score: f32,
-    _marker: PhantomData<LR>,
 }
-impl<BS, W, LR> ConstantBulkScorer<BS, W, LR>
+impl<BS> ConstantBulkScorer<BS>
 where
     BS: BulkScorer,
-    W: Weight<LR>,
-    LR: LeafReader,
 {
-    pub fn new(bulk_scorer: BS, weight: Arc<W>, the_score: f32) -> Self {
+    pub fn new(bulk_scorer: BS, the_score: f32) -> Self {
         Self {
             bulk_scorer,
-            weight,
             the_score,
-            _marker: PhantomData,
         }
     }
     fn wrap_collector<LC>(collector: LC, the_score: f32) -> FilterLeafCollectorImpl<LC>
@@ -422,11 +398,9 @@ where
         FilterLeafCollectorImpl::new(collector, the_score)
     }
 }
-impl<BS, W, LR> BulkScorer for ConstantBulkScorer<BS, W, LR>
+impl<BS> BulkScorer for ConstantBulkScorer<BS>
 where
     BS: BulkScorer,
-    W: Weight<LR>,
-    LR: LeafReader,
 {
     fn score<LC, B>(
         &mut self,

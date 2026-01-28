@@ -36,6 +36,7 @@ use crate::core::search::query::{Query, QueryBase, QueryBaseWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -618,6 +619,22 @@ where
 
 pub(crate) type IndexSearcherWeight<W, IRC, QCP, QC> =
     WeightEnum2<<QC as QueryCache>::Weight<W, Arc<QCP>, IRCLeafReader<IRC>>, W>;
+pub type IndexSearcherWeightSs<W, IRC, QCP, QC> = <IndexSearcherWeight<W, IRC, QCP, QC> as Weight<
+    <IRC as IndexReaderContext>::LeafReader,
+>>::ScorerSupplier;
+pub type IndexSearcherWeightSsScorer<W, IRC, QCP, QC> =
+    <IndexSearcherWeightSs<W, IRC, QCP, QC> as ScorerSupplier<
+        <IRC as IndexReaderContext>::LeafReader,
+    >>::Scorer;
+pub type IndexSearcherWeightSsBulkScorer<W, IRC, QCP, QC> =
+    <IndexSearcherWeightSs<W, IRC, QCP, QC> as ScorerSupplier<
+        <IRC as IndexReaderContext>::LeafReader,
+    >>::BulkScorer;
+
+pub type IndexSearcherWeightSsScorerTpi<W, IRC, QCP, QC> =
+    <IndexSearcherWeightSsScorer<W, IRC, QCP, QC> as Scorer>::TwoPhaseIter;
+pub type IndexSearcherWeightSsScorerDisi<W, IRC, QCP, QC> =
+    <IndexSearcherWeightSsScorer<W, IRC, QCP, QC> as Scorer>::DocIdSetIterator;
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
