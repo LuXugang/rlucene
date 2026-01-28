@@ -143,6 +143,7 @@ pub trait Scorer: Scorable {
     }
     fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
+pub type ScorerDisi<S> = <S as Scorer>::DocIdSetIterator;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum TwoPhaseState {
     /// Has two_phase_iterator

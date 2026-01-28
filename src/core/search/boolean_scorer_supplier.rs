@@ -16,25 +16,34 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer;
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_scorer::BooleanScorer;
-use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2, BulkScorerEnum3};
+use crate::core::search::bulk_scorer::{
+    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4,
+};
+use crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer;
+use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
-use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
+use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::filter_scorer::FilterScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
+use crate::core::search::req_excl_bulk_scorer::ReqExclBulkScorer;
 use crate::core::search::req_excl_scorer::ReqExclScorer;
+use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
-use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseState};
+use crate::core::search::scorer::{
+    Scorer, ScorerDisi, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState,
+};
 use crate::core::search::scorer_supplier::{ScorerSupplier, SsBulkScorer, SsScorer};
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::wand_scorer::WANDScorer;
@@ -64,6 +73,65 @@ where
     SS: ScorerSupplier<LR>,
     LR: LeafReader,
 {
+    pub(crate) fn new(
+        subs: HashMap<Occur, Vec<SS>>,
+        score_mode: ScoreMode,
+        min_should_match: i32,
+        max_doc: i32,
+    ) -> Result<Self> {
+        if subs.len() != 4
+            || !subs.contains_key(&Occur::Should)
+            || !subs.contains_key(&Occur::Must)
+            || !subs.contains_key(&Occur::Filter)
+            || !subs.contains_key(&Occur::MustNot)
+        {
+            return Err(LuceneError::illegal_argument(
+                "subs must contain exactly 4 keys: SHOULD, MUST, FILTER, MUST_NOT",
+            ));
+        }
+        if min_should_match < 0 {
+            return Err(LuceneError::illegal_argument(format!(
+                "minShouldMatch must be positive, but got: {}",
+                min_should_match
+            )));
+        }
+
+        let should_len = subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0) as i32;
+        let must_len = subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0) as i32;
+        let filter_len = subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0) as i32;
+
+        if min_should_match != 0 && min_should_match >= should_len {
+            return Err(LuceneError::illegal_argument(
+                "minShouldMatch must be strictly less than the number of SHOULD clauses",
+            ));
+        }
+
+        if !score_mode.needs_scores()
+            && min_should_match == 0
+            && should_len > 0
+            && (must_len + filter_len) > 0
+        {
+            return Err(LuceneError::illegal_argument(
+                "Cannot pass purely optional clauses if scores are not needed",
+            ));
+        }
+
+        if should_len + must_len + filter_len == 0 {
+            return Err(LuceneError::illegal_argument(
+                "There should be at least one positive clause",
+            ));
+        }
+
+        Ok(Self {
+            subs,
+            score_mode,
+            min_should_match,
+            max_doc,
+            cost: -1,
+            top_level_scoring_clause: false,
+            _phantom: PhantomData,
+        })
+    }
     fn compute_cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
         let mut min_required_cost: Option<i64> = None;
 
@@ -113,19 +181,228 @@ where
             should_cost,
         ))
     }
-    #[allow(clippy::type_complexity)]
+    fn get_internal(
+        &mut self,
+        mut lead_cost: i64,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<GetInternal<SsScorer<SS, LR>>> {
+        // three cases: conjunction, disjunction, or mix
+        lead_cost = std::cmp::min(lead_cost, self.cost(context)?);
+        let should_empty = self
+            .subs
+            .get(&Occur::Should)
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+
+        let filter_empty = self
+            .subs
+            .get(&Occur::Filter)
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+
+        let must_empty = self
+            .subs
+            .get(&Occur::Must)
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+
+        // pure conjunction
+        if should_empty {
+            let [filter_v, must_v] = self.subs.get_disjoint_mut([&Occur::Filter, &Occur::Must]);
+
+            let filter_slice = filter_v.unwrap().as_mut_slice();
+            let must_slice = must_v.unwrap().as_mut_slice();
+            let req = Self::req(
+                filter_slice,
+                must_slice,
+                lead_cost,
+                self.top_level_scoring_clause,
+                context,
+                &self.score_mode,
+            )?;
+            let v = Self::excl(
+                req,
+                self.subs
+                    .get_mut(&Occur::MustNot)
+                    .map(|v| v.as_mut_slice())
+                    .unwrap_or(&mut []),
+                lead_cost,
+                context,
+            )?;
+            return Ok(GetInternal::A(v));
+        }
+
+        // pure disjunction
+        if filter_empty && must_empty {
+            let opt = Self::opt(
+                self.subs
+                    .get_mut(&Occur::Should)
+                    .map(|v| v.as_mut_slice())
+                    .unwrap_or(&mut []),
+                self.min_should_match,
+                self.score_mode,
+                lead_cost,
+                self.top_level_scoring_clause,
+                context,
+            )?;
+            let v = Self::excl(
+                opt,
+                self.subs
+                    .get_mut(&Occur::MustNot)
+                    .map(|v| v.as_mut_slice())
+                    .unwrap_or(&mut []),
+                lead_cost,
+                context,
+            )?;
+            return Ok(GetInternal::B(v));
+        }
+        //
+        // // conjunction-disjunction mix:
+        // // we create the required and optional pieces, and then
+        // // combine the two: if minNrShouldMatch > 0, then it's a conjunction: because the
+        // // optional side must match. otherwise it's required + optional
+        let [should_v, must_v, filter_v, must_not_v] = self.subs.get_disjoint_mut([
+            &Occur::Should,
+            &Occur::Must,
+            &Occur::Filter,
+            &Occur::MustNot,
+        ]);
+        let should_slice = should_v.unwrap().as_mut_slice();
+        let must_slice = must_v.unwrap().as_mut_slice();
+        let filter_slice = filter_v.unwrap().as_mut_slice();
+        let must_not_slice = must_not_v.unwrap().as_mut_slice();
+        if self.min_should_match > 0 {
+            let req = Self::excl(
+                Self::req(
+                    filter_slice,
+                    must_slice,
+                    lead_cost,
+                    false,
+                    context,
+                    &self.score_mode,
+                )?,
+                must_not_slice,
+                lead_cost,
+                context,
+            )?;
+
+            let opt = Self::opt(
+                should_slice,
+                self.min_should_match,
+                self.score_mode,
+                lead_cost,
+                false,
+                context,
+            )?;
+            let v =
+                ConjunctionScorer::new(vec![ScorerEnum2::A(req), ScorerEnum2::B(opt)], vec![0, 1])?;
+            Ok(GetInternal::C(v))
+        } else {
+            debug_assert!(self.score_mode.needs_scores());
+            let req = Self::excl(
+                Self::req(
+                    filter_slice,
+                    must_slice,
+                    lead_cost,
+                    false,
+                    context,
+                    &self.score_mode,
+                )?,
+                must_not_slice,
+                lead_cost,
+                context,
+            )?;
+
+            let opt = Self::opt(
+                should_slice,
+                self.min_should_match,
+                self.score_mode,
+                lead_cost,
+                false,
+                context,
+            )?;
+
+            let v = ReqOptSumScorer::new(req, opt, self.score_mode)?;
+            Ok(GetInternal::D(v))
+        }
+    }
+
+    fn boolean_scorer(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<BooleanScorerType<SsBulkScorer<SS, LR>, SsScorer<SS, LR>>>> {
+        let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
+        let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
+        let num_required = num_must + self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
+
+        let mut positive = if num_required == 0 {
+            let cost_threshold: i64 = if self.min_should_match <= 1 {
+                // when all clauses are optional, use BooleanScorer aggressively
+                -1
+            } else {
+                // when a minimum number of clauses should match, BooleanScorer is
+                // going to score all windows that have at least minNrShouldMatch
+                // matches in the window. But there is no way to know if there is
+                // an intersection (all clauses might match a different doc ID and
+                // there will be no matches in the end) so we should only use
+                // BooleanScorer if matches are very dense
+                (self.max_doc as i64) / 3
+            };
+
+            if self.cost(context)? < cost_threshold {
+                return Ok(None);
+            }
+            match self.optional_bulk_scorer(context)? {
+                Some(v) => BulkScorerEnum3::A(v),
+                None => return Ok(None),
+            }
+        } else if num_must == 0 && num_optional > 1 && self.min_should_match >= 1 {
+            match self.filtered_optional_bulk_scorer(context)? {
+                Some(v) => BulkScorerEnum3::B(v),
+                None => return Ok(None),
+            }
+        } else if num_required > 0 && num_optional == 0 && self.min_should_match == 0 {
+            match self.required_bulk_scorer(context)? {
+                Some(v) => BulkScorerEnum3::C(v),
+                None => return Ok(None),
+            }
+        } else {
+            return Ok(None);
+        };
+
+        let positive_cost = positive.cost()?;
+
+        let prohibited_suppliers = self
+            .subs
+            .get_mut(&Occur::MustNot)
+            .map(|v| v.as_mut_slice())
+            .unwrap_or(&mut []);
+        if prohibited_suppliers.is_empty() {
+            return Ok(Some(BooleanScorerType::A(positive)));
+        }
+
+        let mut prohibited = Vec::with_capacity(prohibited_suppliers.len());
+        for ss in prohibited_suppliers.iter_mut() {
+            prohibited.push(ss.get(positive_cost, context)?);
+        }
+
+        let prohibited_scorer = if prohibited.len() == 1 {
+            ScorerEnum2::A(prohibited.pop().unwrap())
+        } else {
+            ScorerEnum2::B(DisjunctionScorer::new(
+                prohibited,
+                ScoreMode::CompleteNoScores,
+                DisjunctionSumScorer,
+            )?)
+        };
+        let v = ReqExclBulkScorer::with_scorer(positive, prohibited_scorer)?;
+        Ok(Some(BooleanScorerType::B(v)))
+    }
+
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<
-        Option<
-            BulkScorerEnum3<
-                SsBulkScorer<SS, LR>,
-                MaxScoreBulkScorer<SsScorer<SS, LR>>,
-                BooleanScorer<SsScorer<SS, LR>>,
-            >,
-        >,
-    > {
+    ) -> Result<Option<OptionalBulkScorer<SsBulkScorer<SS, LR>, SsScorer<SS, LR>>>> {
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
         if should_len == 0 {
@@ -142,10 +419,9 @@ where
             for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
                 optional_scorers.push(ss.get(i64::MAX, context)?);
             }
-            let v = BulkScorerEnum3::B(MaxScoreBulkScorer::new(
+            let v = BulkScorerEnum3::B(MaxScoreBulkScorer::with_no_filter(
                 self.max_doc,
                 optional_scorers,
-                None,
             )?);
             return Ok(Some(v));
         }
@@ -166,7 +442,7 @@ where
     fn filtered_optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<DummyBulkScorer>> {
+    ) -> Result<Option<FilteredOptionalBulkScorer<SsScorer<SS, LR>>>> {
         let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
@@ -197,22 +473,18 @@ where
         }
 
         let filter_scorer = if filters.len() == 1 {
-            filters.pop().unwrap()
+            ScorerEnum2::A(filters.pop().unwrap())
         } else {
-            todo!()
+            ScorerEnum2::B(ConjunctionScorer::new(filters, vec![])?)
         };
 
-        let _v = Some(MaxScoreBulkScorer::new(
-            self.max_doc,
-            optional_scorers,
-            Some(filter_scorer),
-        )?);
-        todo!()
+        let v = MaxScoreBulkScorer::new(self.max_doc, optional_scorers, Some(filter_scorer))?;
+        Ok(Some(v))
     }
     fn required_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<DummyBulkScorer>> {
+    ) -> Result<Option<RequiredBulkScorer<SsBulkScorer<SS, LR>, SsScorer<SS, LR>>>> {
         let must_len = {
             self.subs
                 .get_mut(&Occur::Must)
@@ -233,7 +505,7 @@ where
         }
 
         if required_cnt == 1 {
-            let _scorer = if must_len != 0 {
+            let scorer = if must_len != 0 {
                 let must = self.subs.get_mut(&Occur::Must).unwrap();
                 must[0].bulk_scorer(context)?.map(BulkScorerEnum2::A)
             } else {
@@ -250,8 +522,10 @@ where
                     filter[0].bulk_scorer(context)?.map(BulkScorerEnum2::A)
                 }
             };
-            // return Ok(scorer);
-            return Ok(Some(DummyBulkScorer));
+            return match scorer {
+                Some(v) => Ok(Some(RequiredBulkScorer::A(v))),
+                None => Ok(None),
+            };
         }
 
         let mut lead_cost = i64::MAX;
@@ -320,11 +594,9 @@ where
                         filter_scorer.take_iterator(),
                     )));
                 }
-
-                // return Ok(Some(
-                //     BlockMaxConjunctionBulkScorer::new(self.max_doc, wrap_required_scoring)?,
-                // ));
-                return Ok(Some(DummyBulkScorer));
+                return Ok(Some(RequiredBulkScorer::B(
+                    BlockMaxConjunctionBulkScorer::new(self.max_doc, wrap_required_scoring)?,
+                )));
             }
         }
 
@@ -348,10 +620,10 @@ where
             }
 
             if all_scoring_no_two_phase && all_no_scoring_no_two_phase {
-                // return Ok(Some(
-                //     ConjunctionBulkScorer::new(required_scoring, required_no_scoring),
-                // ));
-                return Ok(Some(DummyBulkScorer));
+                return Ok(Some(RequiredBulkScorer::C(ConjunctionBulkScorer::new(
+                    required_scoring,
+                    required_no_scoring,
+                )?)));
             }
         }
 
@@ -371,7 +643,7 @@ where
             .map(ScorerEnum2::A)
             .collect();
 
-        let _conjunction_scorer = if required_scoring.len() + required_no_scoring.len() == 1 {
+        let conjunction_scorer = if required_scoring.len() + required_no_scoring.len() == 1 {
             if required_scoring.len() == 1 {
                 let v = match required_scoring.pop().unwrap() {
                     ScorerEnum2::A(s) => s,
@@ -379,36 +651,40 @@ where
                         return Err(LuceneError::illegal_state(""));
                     },
                 };
-                ScorerEnum2::A(v)
+                ScorerEnum3::A(v)
             } else {
                 let inner = match required_no_scoring.pop().unwrap() {
                     ScorerEnum2::A(s) => s,
                     ScorerEnum2::B(_) => return Err(LuceneError::illegal_state("")),
                 };
                 if self.score_mode.needs_scores() {
-                    ScorerEnum2::B(FilterScorerImpl::new(inner))
+                    ScorerEnum3::B(FilterScorerImpl::new(inner))
                 } else {
-                    ScorerEnum2::A(inner)
+                    ScorerEnum3::A(inner)
                 }
             }
         } else {
-            todo!()
+            let mut required =
+                Vec::with_capacity(required_scoring.len() + required_no_scoring.len());
+            let scoring_scorers_idx = (0..required_scoring.len()).collect::<Vec<_>>();
+            required.extend(required_scoring);
+            required.extend(required_no_scoring);
+            ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
         };
 
-        // Ok(Some(BulkScorer::Default(DefaultBulkScorer::new(
-        //     conjunction_scorer,
-        // ))))
-        todo!()
+        Ok(Some(RequiredBulkScorer::D(DefaultBulkScorer::new(
+            conjunction_scorer,
+        ))))
     }
     /// Create a new scorer for the given required clauses.
     /// Note that requiredScoring is a subset of required containing required clauses that should participate in scoring.
     fn req(
-        &mut self,
         required_no_scoring: &mut [SS],
         required_scoring: &mut [SS],
         lead_cost: i64,
         top_level_scoring_clause: bool,
         context: &LeafReaderContext<LR>,
+        score_mode: &ScoreMode,
     ) -> Result<Req<SsScorer<SS, LR>>> {
         if required_no_scoring.len() + required_scoring.len() == 1 {
             let req = if required_no_scoring.is_empty() {
@@ -417,7 +693,7 @@ where
                 required_no_scoring[0].get(lead_cost, context)?
             };
 
-            if !self.score_mode.needs_scores() {
+            if !score_mode.needs_scores() {
                 return Ok(Req::A(req));
             }
 
@@ -436,31 +712,36 @@ where
         let mut scoring_scorers = Vec::with_capacity(required_scoring.len());
 
         for s in required_no_scoring.iter_mut() {
-            required_scorers.push(s.get(lead_cost, context)?);
+            required_scorers.push(ScorerEnum2::A(s.get(lead_cost, context)?));
         }
 
         for s in required_scoring.iter_mut() {
             let scorer = s.get(lead_cost, context)?;
             scoring_scorers.push(scorer);
         }
-        if self.score_mode == ScoreMode::TopScores
+        let scoring_scorers_idx = if *score_mode == ScoreMode::TopScores
             && scoring_scorers.len() > 1
             && top_level_scoring_clause
-            && required_scorers.is_empty()
         {
-            let _block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
-            // return Ok(Req::C(block_max_scorer));
-            todo!()
-        }
-
-        // Ok(Req::D(ConjunctionScorer::new(
-        //     required_scorers,
-        //     scoring_scorers,
-        // )?))
-        todo!()
+            let block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
+            if required_scorers.is_empty() {
+                return Ok(Req::C(block_max_scorer));
+            } else {
+                required_scorers.push(ScorerEnum2::B(block_max_scorer));
+            }
+            vec![required_scorers.len() - 1]
+        } else {
+            let base = required_scorers.len();
+            let scoring_scorers_idx = (0..scoring_scorers.len())
+                .map(|i| base + i)
+                .collect::<Vec<_>>();
+            required_scorers.extend(scoring_scorers.into_iter().map(ScorerEnum2::A));
+            scoring_scorers_idx
+        };
+        let v = ConjunctionScorer::new(required_scorers, scoring_scorers_idx)?;
+        Ok(Req::D(v))
     }
     fn excl<S>(
-        &mut self,
         main: S,
         prohibited: &mut [SS],
         lead_cost: i64,
@@ -472,13 +753,12 @@ where
         if prohibited.is_empty() {
             Ok(Excl::A(main))
         } else {
-            let opt = self.opt(prohibited, 1, CompleteNoScores, lead_cost, false, context)?;
+            let opt = Self::opt(prohibited, 1, CompleteNoScores, lead_cost, false, context)?;
             Ok(Excl::B(ReqExclScorer::new(main, opt)?))
         }
     }
 
     fn opt(
-        &mut self,
         optional: &mut [SS],
         min_should_match: i32,
         score_mode: ScoreMode,
@@ -522,31 +802,115 @@ where
 }
 pub type Excl<S1, S2> = ScorerEnum2<S1, ReqExclScorer<S1, S2>>;
 pub type Opt<S> = ScorerEnum3<S, WANDScorer<S>, DisjunctionScorer<S, DisjunctionSumScorer>>;
-pub type Req<S> = ScorerEnum3<S, FilterScorerImpl<S>, BlockMaxConjunctionScorer<S>>;
+pub type Req<S> = ScorerEnum4<
+    S,
+    FilterScorerImpl<S>,
+    BlockMaxConjunctionScorer<S>,
+    ConjunctionScorer<ScorerEnum2<S, BlockMaxConjunctionScorer<S>>>,
+>;
+
+pub type OptionalBulkScorer<BS, S> =
+    BulkScorerEnum3<BS, MaxScoreBulkScorer<S, DummyScorer>, BooleanScorer<S>>;
+pub type FilteredOptionalBulkScorer<S> =
+    MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
+pub type RequiredBulkScorer<BS, S> = BulkScorerEnum4<
+    BulkScorerEnum2<BS, BulkScorerImpl<BS>>,
+    BlockMaxConjunctionBulkScorer<
+        ScorerEnum2<S, ConstantScoreScorer<ScorerDisi<S>, DummyTwoPhaseIterator>>,
+    >,
+    ConjunctionBulkScorer<S>,
+    DefaultBulkScorer<
+        ScorerEnum3<
+            S,
+            FilterScorerImpl<S>,
+            ConjunctionScorer<ScorerEnum2<S, BlockMaxConjunctionScorer<S>>>,
+        >,
+    >,
+>;
+
+pub type GetInternal<S> = ScorerEnum4<
+    Excl<Req<S>, Opt<S>>,
+    Excl<Opt<S>, Opt<S>>,
+    ConjunctionScorer<ScorerEnum2<Excl<Req<S>, Opt<S>>, Opt<S>>>,
+    ReqOptSumScorer<Excl<Req<S>, Opt<S>>, Opt<S>>,
+>;
+pub type GetInternalDisi<S> = <GetInternal<S> as Scorer>::DocIdSetIterator;
+pub type GetInternalTpi<S> = <GetInternal<S> as Scorer>::TwoPhaseIter;
+pub type GetType<S> = ScorerEnum2<
+    GetInternal<S>,
+    ScorerEnum2<
+        ConstantScoreScorer<DummyDISI, GetInternalTpi<S>>,
+        ConstantScoreScorer<GetInternalDisi<S>, DummyTwoPhaseIterator>,
+    >,
+>;
+pub type BooleanScorerPositive<BS, S> = BulkScorerEnum3<
+    OptionalBulkScorer<BS, S>,
+    FilteredOptionalBulkScorer<S>,
+    RequiredBulkScorer<BS, S>,
+>;
+pub type BooleanScorerProhibited<S> = ScorerEnum2<S, DisjunctionScorer<S, DisjunctionSumScorer>>;
+pub type BooleanScorerType<BS, S> = BulkScorerEnum2<
+    BooleanScorerPositive<BS, S>,
+    ReqExclBulkScorer<
+        BooleanScorerPositive<BS, S>,
+        <BooleanScorerProhibited<S> as Scorer>::DocIdSetIterator,
+        <BooleanScorerProhibited<S> as Scorer>::TwoPhaseIter,
+    >,
+>;
+
+pub type BulkScorerType<BS, S> =
+    BulkScorerEnum2<BooleanScorerType<BS, S>, DefaultBulkScorer<GetType<S>>>;
+
 impl<SS, LR> ScorerSupplier<LR> for BooleanScorerSupplier<SS, LR>
 where
     SS: ScorerSupplier<LR>,
     LR: LeafReader,
 {
-    type Scorer = DummyScorer;
-    type BulkScorer = DummyBulkScorer;
+    type Scorer = GetType<SsScorer<SS, LR>>;
+    type BulkScorer = BulkScorerType<SsBulkScorer<SS, LR>, SsScorer<SS, LR>>;
 
-    fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
-        todo!()
+    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        let scorer = self.get_internal(lead_cost, context)?;
+
+        if self.score_mode == ScoreMode::TopScores {
+            let should_empty = self
+                .subs
+                .get(&Occur::Should)
+                .map(|v| v.is_empty())
+                .unwrap_or(true);
+            let must_empty = self
+                .subs
+                .get(&Occur::Must)
+                .map(|v| v.is_empty())
+                .unwrap_or(true);
+
+            if should_empty && must_empty {
+                // no scoring clauses but scores are needed so we wrap the scorer in
+                // a constant score in order to allow early termination
+                let v = if scorer.two_phase_iterator()?.is_some() {
+                    let tpi = scorer.take_two_phase_iterator()?.unwrap();
+                    ScorerEnum2::A(ConstantScoreScorer::with_tpi(0.0, self.score_mode, tpi))
+                } else {
+                    let disi = scorer.take_iterator();
+                    ScorerEnum2::B(ConstantScoreScorer::with_disi(0.0, self.score_mode, disi))
+                };
+                return Ok(GetType::B(v));
+            }
+        }
+
+        Ok(GetType::A(scorer))
     }
 
-    fn bulk_scorer(
-        &mut self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::BulkScorer>> {
-        todo!()
-    }
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        if let Some(bs) = self.boolean_scorer(context)? {
+            return Ok(Some(BulkScorerType::A(bs)));
+        }
 
-    fn default_bulk_scorer(
-        &mut self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<DefaultBulkScorer<Self::Scorer>> {
-        todo!()
+        // use a Scorer-based impl (BS2)
+        match self.default_bulk_scorer(context).map(Some)? {
+            Some(v) => Ok(Some(BulkScorerType::B(v))),
+            None => Ok(None),
+        }
     }
 
     fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {

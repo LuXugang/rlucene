@@ -37,7 +37,7 @@ pub(crate) const SET_MASK: usize = SET_SIZE - 1;
 /// `MinimumNumberShouldMatch` and dense clauses.
 ///
 /// This scorer scores documents by batches of **4,096 docs**.
-pub(crate) struct BooleanScorer<S>
+pub struct BooleanScorer<S>
 where
     S: Scorer,
 {
@@ -57,7 +57,11 @@ impl<S> BooleanScorer<S>
 where
     S: Scorer,
 {
-    pub fn new(scorers: Vec<S>, min_should_match: usize, needs_scores: bool) -> Result<Self> {
+    pub(crate) fn new(
+        scorers: Vec<S>,
+        min_should_match: usize,
+        needs_scores: bool,
+    ) -> Result<Self> {
         if min_should_match < 1 || min_should_match > scorers.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "minShouldMatch should be within 1..num_scorers. Got {}",

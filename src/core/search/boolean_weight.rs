@@ -308,13 +308,18 @@ where
         {
             should.clear();
         }
-        let _max_doc = context.reader().max_doc()?;
+        let max_doc = context.reader().max_doc()?;
         let mut scores = HashMap::new();
         scores.insert(Occur::Must, must);
         scores.insert(Occur::Should, should);
         scores.insert(Occur::Filter, filter);
         scores.insert(Occur::MustNot, must_not);
-        todo!()
+        Ok(Some(BooleanScorerSupplier::new(
+            scores,
+            self.score_mode,
+            min_should_match,
+            max_doc,
+        )?))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {

@@ -22,7 +22,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
-pub(crate) struct ReqExclBulkScorer<BS, DISI, TPI>
+pub struct ReqExclBulkScorer<BS, DISI, TPI>
 where
     BS: BulkScorer,
     DISI: DocIdSetIterator,

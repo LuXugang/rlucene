@@ -39,7 +39,7 @@ impl<S> ConjunctionBulkScorer<S>
 where
     S: Scorer,
 {
-    fn new(required_scoring: Vec<S>, required_no_scoring: Vec<S>) -> Result<Self> {
+    pub(crate) fn new(required_scoring: Vec<S>, required_no_scoring: Vec<S>) -> Result<Self> {
         let required_scoring_len = required_scoring.len();
         let num_clauses = required_scoring_len + required_no_scoring.len();
         if num_clauses <= 1 {

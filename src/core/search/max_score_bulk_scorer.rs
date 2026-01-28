@@ -20,6 +20,7 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
+use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
@@ -30,12 +31,13 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::math_util::MathUtil;
 
 const INNER_WINDOW_SIZE: i32 = 1 << 12;
-pub struct MaxScoreBulkScorer<S>
+pub struct MaxScoreBulkScorer<S1, S2>
 where
-    S: Scorer,
+    S1: Scorer,
+    S2: Scorer,
 {
     max_doc: i32,
-    all_scorers: Vec<DisiWrapper<S>>,
+    all_scorers: Vec<DisiWrapper<S1>>,
     // All scorers, sorted by increasing max score.
     pub(crate) all_scorers_idx: Vec<usize>,
     scratch: Vec<usize>,
@@ -51,7 +53,7 @@ where
     cost: i64,
     pub(crate) scorable: Score,
     pub(crate) max_score_sums: Vec<f64>,
-    filter: Option<DisiWrapper<S>>,
+    filter: Option<DisiWrapper<S2>>,
     window_matches: Vec<u64>,
     window_scores: Vec<f64>,
     // Number of outer windows that have been evaluated
@@ -63,16 +65,26 @@ where
     // the per-window overhead under control.
     min_window_size: usize,
 }
-impl<S> MaxScoreBulkScorer<S>
+impl<S1> MaxScoreBulkScorer<S1, DummyScorer>
 where
-    S: Scorer,
+    S1: Scorer,
 {
-    pub fn new(max_doc: i32, scorers: Vec<S>, filter: Option<S>) -> Result<Self> {
+    pub fn with_no_filter(max_doc: i32, scorers: Vec<S1>) -> Result<Self> {
+        Self::new(max_doc, scorers, None)
+    }
+}
+
+impl<S1, S2> MaxScoreBulkScorer<S1, S2>
+where
+    S1: Scorer,
+    S2: Scorer,
+{
+    pub fn new(max_doc: i32, scorers: Vec<S1>, filter: Option<S2>) -> Result<Self> {
         let filter = match filter {
             None => None,
             Some(f) => Some(DisiWrapper::new(f)?),
         };
-        let mut all_scorers: Vec<DisiWrapper<S>> = Vec::with_capacity(scorers.len());
+        let mut all_scorers: Vec<DisiWrapper<S1>> = Vec::with_capacity(scorers.len());
         let mut all_scorers_idx = Vec::with_capacity(scorers.len());
         let mut cost: i64 = 0;
 
@@ -162,7 +174,7 @@ where
         collector: &mut LC,
         accept_docs: Option<&B>,
         max: i32,
-        filter: &mut DisiWrapper<S>,
+        filter: &mut DisiWrapper<S2>,
     ) -> Result<()>
     where
         LC: LeafCollector,
@@ -695,9 +707,10 @@ where
         next
     }
 }
-impl<S> BulkScorer for MaxScoreBulkScorer<S>
+impl<S1, S2> BulkScorer for MaxScoreBulkScorer<S1, S2>
 where
-    S: Scorer,
+    S1: Scorer,
+    S2: Scorer,
 {
     fn score<LC, B>(
         &mut self,
@@ -896,7 +909,7 @@ mod test {
         fox.max_score_up_to = 1200;
 
         let scorers = vec![the, quick, fox];
-        let mut scorer = MaxScoreBulkScorer::new(10_000, scorers, None)?;
+        let mut scorer = MaxScoreBulkScorer::with_no_filter(10_000, scorers)?;
         scorer.all_scorers_idx.shuffle(&mut random);
         scorer.update_max_window_scores(4, 100)?;
         assert!(scorer.partition_scorers()?);
