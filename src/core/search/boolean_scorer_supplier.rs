@@ -326,7 +326,7 @@ where
             Ok(GetInternal::D(v))
         }
     }
-
+    #[allow(clippy::type_complexity)]
     fn boolean_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
@@ -398,7 +398,7 @@ where
         let v = ReqExclBulkScorer::with_scorer(positive, prohibited_scorer)?;
         Ok(Some(BooleanScorerType::B(v)))
     }
-
+    #[allow(clippy::type_complexity)]
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
@@ -481,6 +481,7 @@ where
         let v = MaxScoreBulkScorer::new(self.max_doc, optional_scorers, Some(filter_scorer))?;
         Ok(Some(v))
     }
+    #[allow(clippy::type_complexity)]
     fn required_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
@@ -1262,10 +1263,10 @@ mod tests {
             lead_cost: i64,
             _context: &LeafReaderContext<DummyLeafReader>,
         ) -> Result<Self::Scorer> {
-            if let Some(v) = self.lead_cost {
-                if v != lead_cost {
-                    return Err(LuceneError::illegal_state("triggers assert"));
-                }
+            if let Some(v) = self.lead_cost
+                && v != lead_cost
+            {
+                return Err(LuceneError::illegal_state("triggers assert"));
             }
             Ok(FakeScorer::new(self.cost))
         }
