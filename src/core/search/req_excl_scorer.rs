@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::{
+    Scorer, ScorerDisi, ScorerDisiMut, ScorerDisiRef, TwoPhaseState,
+};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
@@ -188,22 +189,22 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = DummyDISI;
+    type DocIdSetIterator = ScorerDisi<S1>;
     type DocIdSetIteratorRef<'a>
-        = DummyDISI
+        = ScorerDisiRef<'a, S1>
     where
         Self: 'a;
     type DocIdSetIteratorMut<'a>
-        = DummyDISI
+        = ScorerDisiMut<'a, S1>
     where
         Self: 'a;
 
     fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        unreachable!("should not be called");
+        Ok(self.req_scorer.iterator_mut())
     }
 
     fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        unreachable!("should not be called");
+        Ok(self.req_scorer.iterator())
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -270,22 +271,22 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = DummyDISI;
+    type DocIdSetIterator = ScorerDisi<S1>;
     type DocIdSetIteratorRef<'a>
-        = DummyDISI
+        = ScorerDisiRef<'a, S1>
     where
         Self: 'a;
     type DocIdSetIteratorMut<'a>
-        = DummyDISI
+        = ScorerDisiMut<'a, S1>
     where
         Self: 'a;
 
     fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        unreachable!("should not be called");
+        Ok(self.req_scorer.iterator_mut())
     }
 
     fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        unreachable!("should not be called");
+        Ok(self.req_scorer.iterator())
     }
 
     fn matches(&mut self) -> Result<bool> {

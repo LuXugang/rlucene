@@ -60,4 +60,14 @@ impl ScoreMode {
             ScoreMode::TopDocsWithScores => false,
         }
     }
+    #[cfg(test)]
+    pub const fn values() -> &'static [ScoreMode] {
+        &[
+            ScoreMode::Complete,
+            ScoreMode::CompleteNoScores,
+            ScoreMode::TopScores,
+            ScoreMode::TopDocs,
+            ScoreMode::TopDocsWithScores,
+        ]
+    }
 }

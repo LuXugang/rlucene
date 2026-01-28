@@ -51,8 +51,8 @@ where
         }
         let v = ConjunctionDISI::new(required)?;
         let disi = match has_tpi {
-            true => ConjunctionScorerDisi::A(v),
-            false => {
+            false => ConjunctionScorerDisi::A(v),
+            true => {
                 let v =
                     TwoPhaseIteratorAsDocIdSetIterator::new(ConjunctionTwoPhaseIterator::new(v)?);
                 ConjunctionScorerDisi::B(v)

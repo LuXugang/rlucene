@@ -103,4 +103,8 @@ impl Occur {
     pub fn is_prohibited(self) -> bool {
         matches!(self, Occur::MustNot)
     }
+    #[cfg(test)]
+    pub const fn values() -> &'static [Occur] {
+        &[Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot]
+    }
 }
