@@ -38,7 +38,7 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug)]
 pub struct BoostQuery {
-    query: Box<Query>,
+    pub(crate) query: Box<Query>,
     boost: f32,
 }
 impl BoostQuery {
@@ -119,20 +119,6 @@ impl QueryBase for BoostQuery {
     }
 
     type RewriteQuery = DummyQuery;
-
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
-    where
-        IRC: IndexReaderContext,
-        S: Similarity,
-        QT: QueryTimeout,
-        QCP: QueryCachingPolicy,
-        QC: QueryCache,
-    {
-        todo!()
-    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where

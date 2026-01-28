@@ -27,7 +27,6 @@ use crate::core::search::doc_id_stream::DocIdStream;
 
 use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_leaf_collector::FilterLeafCollector;
@@ -60,10 +59,12 @@ pub struct ConstantScoreQuery {
 }
 impl ConstantScoreQuery {
     /// Strips off scores from the passed in Query. The hits will get a constant score of 1.
-    pub fn new(query: Query) -> Self {
-        Self {
-            query: Box::new(query),
-        }
+    pub fn new<T>(query: T) -> Self
+    where
+        T: Into<Box<Query>>,
+    {
+        let query = query.into();
+        Self { query }
     }
 }
 #[cfg(test)]
@@ -138,12 +139,12 @@ impl QueryBase for ConstantScoreQuery {
         Ok(v)
     }
 
-    type RewriteQuery = DummyQuery;
+    type RewriteQuery = Query;
 
     fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
+        self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Self::RewriteQuery>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -151,7 +152,27 @@ impl QueryBase for ConstantScoreQuery {
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
-        todo!()
+        let rewritten = self.query.rewrite(searcher)?;
+
+        let rewritten = match rewritten {
+            Query::Boost(b) => *b.query,
+            Query::ConstantScore(cs) => *cs.query,
+            // TODO IMPORTANT
+            // Query::Boolean(bq) => bq.rewrite_no_scoring()?,
+            q => q,
+        };
+
+        if let Query::MatchNoDoc(v) = rewritten {
+            return Ok(v.into());
+        }
+
+        if matches!(rewritten, Query::ConstantScore(_)) {
+            return Ok(rewritten);
+        }
+        if let Query::Boost(v) = rewritten {
+            return Ok(ConstantScoreQuery::new(v.query).into());
+        }
+        Ok(ConstantScoreQuery::new(rewritten).into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)

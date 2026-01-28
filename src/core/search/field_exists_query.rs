@@ -115,20 +115,6 @@ impl QueryBase for FieldExistsQuery {
 
     type RewriteQuery = DummyQuery;
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
-    where
-        IRC: IndexReaderContext,
-        S: Similarity,
-        QT: QueryTimeout,
-        QCP: QueryCachingPolicy,
-        QC: QueryCache,
-    {
-        todo!()
-    }
-
     fn visit<QV>(&self, _visitor: &QV)
     where
         QV: QueryVisitor,

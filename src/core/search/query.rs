@@ -122,17 +122,18 @@ pub trait QueryBase: Eq + Hash + Debug {
     }
     type RewriteQuery: QueryBase;
     fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
+        self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
+    ) -> Result<Self::RewriteQuery>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
+        Self: Sized,
     {
-        Ok(None)
+        todo!()
     }
     fn visit<QV>(&self, visitor: &QV)
     where
@@ -388,22 +389,22 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
-            // Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(Box::new(p.create_weight(
-            //     searcher,
-            //     score_mode,
-            //     boost,
-            //     per_reader_term_state,
-            // )?))),
+            Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(Box::new(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?))),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
 
-    type RewriteQuery = DummyQuery;
+    type RewriteQuery = Query;
 
     fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
+        self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
+    ) -> Result<Self::RewriteQuery>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -513,9 +514,9 @@ where
     type RewriteQuery = Q::RewriteQuery;
 
     fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Option<Self::RewriteQuery>>
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Self::RewriteQuery>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -523,7 +524,10 @@ where
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
-        (**self).rewrite(searcher)
+        Err(LuceneError::unsupported_operation(format!(
+            "Arc<QueryBase> cannot be used to rewrite directly: {}",
+            std::any::type_name::<Q>()
+        )))
     }
 
     fn visit<QV>(&self, visitor: &QV)

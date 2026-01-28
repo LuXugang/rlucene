@@ -62,9 +62,9 @@ impl QueryBase for DummyQuery {
     type RewriteQuery = DummyQuery;
 
     fn rewrite<IRC, S, QT, QCP, QC>(
-        &self,
+        self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> crate::core::util::error::lucene_error::Result<Option<Self::RewriteQuery>>
+    ) -> crate::core::util::error::lucene_error::Result<Self::RewriteQuery>
     where
         IRC: IndexReaderContext,
         S: Similarity,
