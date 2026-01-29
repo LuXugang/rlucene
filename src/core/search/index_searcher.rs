@@ -50,8 +50,8 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::{Weight, WeightEnum2};
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, TryIntoInt};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -393,7 +393,7 @@ where
         let mut query = query.into();
         let first_collector = collector_manager.new_collector()?;
         let needs_scores = first_collector.score_mode().needs_scores();
-        query = Self::rewrite_if_needed_scores(query, needs_scores)?;
+        query = self.rewrite_with_needs_scores(query, needs_scores)?;
         let score_mode = first_collector.score_mode();
         let weight = self.create_weight(query, score_mode, 1.0, term_state)?;
         self.search_with_first_collector(&weight, collector_manager, first_collector)
@@ -522,7 +522,24 @@ where
         leaf_collector.finish()?;
         Ok(())
     }
-    pub(crate) fn rewrite_if_needed_scores(original: Query, _needs_scores: bool) -> Result<Query> {
+    pub fn rewrite(&self, mut query: Query) -> Result<Query> {
+        let mut query_id = query.identity().clone();
+        loop {
+            query = query.rewrite(self)?;
+            if query.identity() == &query_id {
+                break;
+            }
+            query_id = query.identity().clone();
+        }
+        // query.visit(self.get_num_clauses_check_visitor());
+        Ok(query)
+    }
+
+    pub(crate) fn rewrite_with_needs_scores(
+        &self,
+        original: Query,
+        _needs_scores: bool,
+    ) -> Result<Query> {
         // TODO
         Ok(original)
     }

@@ -678,3 +678,43 @@ where
         self.inner.is_weight_cacheable()
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::core::index::multi_reader::MultiReader;
+    use crate::core::search::constant_score_query::ConstantScoreQuery;
+    use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+    use crate::core::search::query::Query;
+    use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
+
+    #[test]
+    fn test_csq() -> Result<()> {
+        // TODO TermRangeQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_wrapped_2_times() -> Result<()> {
+        // TODO BooleanQuery未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_constant_score_query_and_filter() -> Result<()> {
+        // TODO BooleanQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_rewrite_bubbles_up_match_no_docs_query() -> Result<()> {
+        let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
+        let query: Query = MatchNoDocsQuery::new().into();
+        let query = ConstantScoreQuery::new(query);
+        let rewritten = searcher.rewrite(query.into())?;
+        assert_eq!(rewritten, Query::MatchNoDoc(MatchNoDocsQuery::new()));
+        Ok(())
+    }
+}
