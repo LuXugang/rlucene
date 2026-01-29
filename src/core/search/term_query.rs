@@ -445,6 +445,8 @@ where
     }
 }
 pub type TermSs<IRC, S> = TermScorerSupplier<IRC, S>;
+pub type TermBulkScorer<IRC, S> =
+    <TermSs<IRC, S> as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;
 pub type TermSsScorer<IRC, S> = <TermSs<IRC, S> as ScorerSupplier<IRCLeafReader<IRC>>>::Scorer;
 pub type TermSsScorerDisi<IRC, S> = <TermSsScorer<IRC, S> as Scorer>::DocIdSetIterator;
 pub type TermSsScorerDisiRef<'a, IRC, S> =

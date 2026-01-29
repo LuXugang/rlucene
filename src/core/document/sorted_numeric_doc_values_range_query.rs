@@ -422,6 +422,7 @@ pub type SNDVRQSs<LR> = ScorerSupplierEnum4<
     >,
     DefaultScorerSupplier<ConstantScoreScorer<DummyDISI, TPI<LR>>>,
 >;
+pub type SNDVRQSsBulkScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SNDVRQSsScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type SNDVRQSsScorerDisi<LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type SNDVRQSsScorerDisiRef<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;

@@ -188,6 +188,7 @@ where
 }
 
 pub type SNDVSQSs<LR> = DefaultScorerSupplierSs<LR>;
+pub type SNDVSQSsBulkScorer<LR> = <SNDVSQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SNDVSQSsScorer<LR> = <SNDVSQSs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type SNDVSQSsDisi<LR> = <SNDVSQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type SNDVSQSsDisiRef<'a, LR> = <SNDVSQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;

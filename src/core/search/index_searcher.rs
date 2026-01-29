@@ -538,15 +538,26 @@ where
         T: QueryBase,
     {
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
+        Ok(self.wrap_weight(weight, score_mode))
+    }
+
+    pub(crate) fn wrap_weight<W>(
+        &self,
+        weight: W,
+        score_mode: ScoreMode,
+    ) -> IndexSearcherWeight<W, IRC, QCP, QC>
+    where
+        W: Weight<IRC::LeafReader>,
+    {
         if !score_mode.needs_scores() && self.query_cache.is_some() {
-            Ok(WeightEnum2::A(
+            WeightEnum2::A(
                 self.query_cache
                     .as_ref()
                     .unwrap()
                     .do_cache(weight, self.query_caching_policy.clone()),
-            ))
+            )
         } else {
-            Ok(WeightEnum2::B(weight))
+            WeightEnum2::B(weight)
         }
     }
     /// Returns [`TermStatistics`] for a term.

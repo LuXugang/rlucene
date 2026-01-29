@@ -218,6 +218,8 @@ where
     }
 }
 pub type MatchAllSs = MatchAllDocsScorerSupplier;
+pub type MatchAllSsBulkScorer<IRC> =
+    <MatchAllSs as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;
 pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
 pub type MatchAllSsScorerDisi = <MatchAllSsScorer as Scorer>::DocIdSetIterator;
 pub type MatchAllSsScorerDisiRef<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorRef<'a>;

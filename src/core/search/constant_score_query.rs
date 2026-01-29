@@ -25,7 +25,6 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_stream::DocIdStream;
 
 use crate::core::index::index_reader::Identity;
-use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
@@ -37,7 +36,7 @@ use crate::core::search::index_searcher::{
 };
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryBaseWeight};
+use crate::core::search::query::{Query, QueryBase, QueryWeightNoConstantScore};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -72,6 +71,10 @@ impl ConstantScoreQuery {
             id: Identity::new(),
             query,
         }
+    }
+
+    pub(crate) fn into_inner(self) -> Query {
+        *self.query
     }
 }
 #[cfg(test)]
@@ -111,7 +114,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = ConstantScoreQueryWeight<QueryBaseWeight<Query, S, IRC, QCP, QC>, IRC, QCP, QC>
+        = ConstantScoreQueryWeight<QueryWeightNoConstantScore<S, IRC>, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -138,8 +141,13 @@ impl QueryBase for ConstantScoreQuery {
             ScoreMode::TopDocs
         };
         let query = *self.query;
-        let inner_weight =
-            searcher.create_weight(query, inner_score_mode, 1.0, per_reader_term_state)?;
+        let inner_weight = query.create_weight_no_constant_score(
+            searcher,
+            &inner_score_mode,
+            1.0,
+            per_reader_term_state,
+        )?;
+        let inner_weight = searcher.wrap_weight(inner_weight, inner_score_mode);
         let v = if score_mode.needs_scores() {
             CSQWType::A(WeightImpl::<_, IRC, QCP, QC>::new(
                 boost,
@@ -341,8 +349,7 @@ where
     QC: QueryCache,
 {
     type Scorer = ConstantScoreScorerEnum<W, IRC, QCP, QC>;
-    // type BulkScorer = BulkScorerEnum<W, IRC, QCP, QC>;
-    type BulkScorer = DummyBulkScorer;
+    type BulkScorer = BulkScorerEnum<W, IRC, QCP, QC>;
 
     fn get(
         &mut self,
@@ -371,15 +378,13 @@ where
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::BulkScorer>> {
         if !self.score_mode.is_exhaustive() {
-            // let v = self.default_bulk_scorer(context)?;
-            todo!()
-            // return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
+            let v = self.default_bulk_scorer(context)?;
+            return Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::A(v)));
         }
         match self.inner_scorer_supplier.bulk_scorer(context)? {
-            Some(_v) => {
-                // let v = ConstantBulkScorer::new(v, self.score);
-                todo!()
-                // Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
+            Some(v) => {
+                let v = ConstantBulkScorer::new(v, self.score);
+                Ok(Some(BulkScorerEnum::<W, IRC, QCP, QC>::B(v)))
             },
             None => Ok(None),
         }

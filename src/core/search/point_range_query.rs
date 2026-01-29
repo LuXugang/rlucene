@@ -737,6 +737,7 @@ where
     }
 }
 pub type PointRangeSs<LR> = PointRangeWeightScorerSupplier<LRPointValues<LR>>;
+pub type PointRangeSsBulkScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type PointRangeSsScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type PointRangeSsScorerDisi<LR> = <PointRangeSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type PointRangeSsScorerDisiRef<'a, LR> =

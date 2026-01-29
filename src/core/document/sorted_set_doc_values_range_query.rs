@@ -368,6 +368,7 @@ where
     Ok(doc)
 }
 pub type SSDVRQSs<LR> = ScorerSupplierImpl3<LR>;
+pub type SSDVRQSsBulkScorer<LR> = <SSDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SSDVRQSsScorer<LR> = <SSDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type SSDVRQSsScorerDisi<LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type SSDVRQSsScorerDisiRef<'a, LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;

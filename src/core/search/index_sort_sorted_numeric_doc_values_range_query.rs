@@ -299,6 +299,7 @@ pub type ISSNDVRQSs<LR> = ScorerSupplierEnum2<
     ScorerSupplierImpl<Disi<LR>>,
     <FallbackQueryWeight<LR> as Weight<LR>>::ScorerSupplier,
 >;
+pub type ISSNDVRQSsBulkScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type ISSNDVRQSsScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type ISSNDVRQSsScorerDisi<LR> = <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type ISSNDVRQSsScorerDisiRef<'a, LR> =

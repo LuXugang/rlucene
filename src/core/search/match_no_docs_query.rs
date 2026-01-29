@@ -175,6 +175,7 @@ where
 }
 
 pub type MatchNoDocsSs = DummyScorerSupplier;
+pub type MatchNoDocsSsBulkScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::BulkScorer;
 pub type MatchNoDocsSsScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::Scorer;
 pub type MatchNoDocsSsScorerDisi<LR> = <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type MatchNoDocsSsScorerDisiRef<'a, LR> =

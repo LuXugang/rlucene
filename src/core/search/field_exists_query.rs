@@ -207,6 +207,7 @@ where
 }
 pub type FieldExistsESs<LR> =
     DefaultScorerSupplier<ConstantScoreScorer<Disi<LR>, DummyTwoPhaseIterator>>;
+pub type FieldExistsSsBulkScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type FieldExistsSsScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::Scorer;
 pub type FieldExistsSsScorerDisi<LR> = <FieldExistsSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type FieldExistsSsScorerDisiRef<'a, LR> =
