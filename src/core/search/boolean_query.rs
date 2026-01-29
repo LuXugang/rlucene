@@ -40,7 +40,7 @@ pub struct BooleanQuery {
     id: Identity,
     minimum_number_should_match: i32,
     clauses: Vec<BooleanClause>,
-    clause_sets: HashMap<Occur, Vec<Query>>,
+    clause_sets: HashMap<Occur, Vec<usize>>,
 }
 #[cfg(test)]
 impl Clone for BooleanQuery {
@@ -55,12 +55,19 @@ impl Clone for BooleanQuery {
 }
 
 impl BooleanQuery {
-    pub fn new(minimum_number_should_match: i32, clauses: Vec<BooleanClause>) -> BooleanQuery {
+    fn new(minimum_number_should_match: i32, clauses: Vec<BooleanClause>) -> BooleanQuery {
+        let mut clause_sets = HashMap::new();
+        for (idx, clause) in clauses.iter().enumerate() {
+            clause_sets
+                .entry(clause.occur)
+                .or_insert_with(Vec::new)
+                .push(idx);
+        }
         BooleanQuery {
             id: Identity::new(),
             minimum_number_should_match,
             clauses,
-            clause_sets: HashMap::new(),
+            clause_sets,
         }
     }
 
@@ -75,7 +82,7 @@ impl BooleanQuery {
     }
 
     /// Return the collection of queries for the given [`Occur`].
-    pub fn get_clauses(&self, occur: Occur) -> &[Query] {
+    pub fn get_clauses_idx(&self, occur: Occur) -> &[usize] {
         self.clause_sets
             .get(&occur)
             .map(Vec::as_slice)
@@ -84,7 +91,7 @@ impl BooleanQuery {
     /// Whether this query is a pure disjunction, ie. it only has SHOULD clauses and it is enough for
     /// a single clause to match for this boolean query to match.
     pub(crate) fn is_pure_disjunction(&self) -> bool {
-        self.clauses.len() == self.get_clauses(Occur::Should).len()
+        self.clauses.len() == self.get_clauses_idx(Occur::Should).len()
             && self.minimum_number_should_match <= 1
     }
 
@@ -100,6 +107,9 @@ impl Hash for BooleanQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.minimum_number_should_match.hash(state);
         for clause in &self.clause_sets {
+            for x in clause.1 {
+                self.clauses[*x].hash(state);
+            }
             clause.hash(state);
         }
     }
@@ -109,7 +119,6 @@ impl PartialEq for BooleanQuery {
     fn eq(&self, other: &Self) -> bool {
         self.minimum_number_should_match == other.minimum_number_should_match
             && self.clauses == other.clauses
-            && self.clause_sets == other.clause_sets
     }
 }
 
