@@ -2097,8 +2097,6 @@ fn test_too_many_points_1d() -> Result<()> {
 
 use std::fmt::Debug;
 
-// -------------------- Scorer / ScorerSupplier --------------------
-
 trait Scorer: Debug {
     fn score(&self, doc: i32) -> f32;
 }
@@ -2108,14 +2106,10 @@ trait ScorerSupplier: Debug {
     fn get(&self) -> Self::Scorer;
 }
 
-// -------------------- Weight --------------------
-
 trait Weight: Debug {
     type A: ScorerSupplier;
     fn scorer_supplier(&self) -> Option<Self::A>;
 }
-
-// -------------------- Concrete scorers --------------------
 
 #[derive(Debug, Clone)]
 struct TermScorer {
@@ -2157,8 +2151,6 @@ impl Scorer for QueryScorer {
     }
 }
 
-// -------------------- Concrete scorer suppliers --------------------
-
 #[derive(Debug, Clone)]
 struct TermSS {
     boost: f32,
@@ -2178,8 +2170,6 @@ impl ScorerSupplier for FieldExistsSS {
         FieldExistsScorer
     }
 }
-
-// -------------------- QueryScorerSupplier as enum (3 variants) --------------------
 
 #[derive(Debug, Clone)]
 enum QueryScorerSupplier {
@@ -2213,8 +2203,6 @@ impl ScorerSupplier for QueryScorerSupplier {
         }
     }
 }
-
-// -------------------- Weights --------------------
 
 #[derive(Debug, Clone)]
 struct TermWeight {
@@ -2283,7 +2271,6 @@ impl Weight for Box<QueryWeight> {
     }
 }
 
-// -------------------- demo --------------------
 #[test]
 fn main() {
     // ConstantScore(ConstantScore(Term))

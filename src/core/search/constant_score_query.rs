@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::{
 };
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeightNoConstantScore};
+use crate::core::search::query::{BaseQueryWeight, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -114,7 +114,7 @@ impl QueryBase for ConstantScoreQuery {
     }
 
     type Weight<S, IRC, QCP, QC>
-        = ConstantScoreQueryWeight<QueryWeightNoConstantScore<S, IRC>, IRC, QCP, QC>
+        = ConstantScoreQueryWeight<BaseQueryWeight<S, IRC>, IRC, QCP, QC>
     where
         S: Similarity,
         IRC: IndexReaderContext,
@@ -581,7 +581,7 @@ where
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
-    inner: Box<CSQWType<W, IRC, QCP, QC>>,
+    inner: CSQWType<W, IRC, QCP, QC>,
 }
 impl<W, IRC, QCP, QC> ConstantScoreQueryWeight<W, IRC, QCP, QC>
 where
@@ -591,9 +591,7 @@ where
     QC: QueryCache,
 {
     pub fn new(inner: CSQWType<W, IRC, QCP, QC>) -> Self {
-        Self {
-            inner: Box::new(inner),
-        }
+        Self { inner }
     }
 }
 impl<W, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader>

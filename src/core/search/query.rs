@@ -385,12 +385,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(Box::new(p.create_weight(
+            Query::ConstantScore(p) => Ok(QueryWeight::ConstantScore(p.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
-            )?))),
+            )?)),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -569,7 +569,7 @@ where
     ),
     FieldExists(FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>),
     #[allow(clippy::type_complexity)]
-    ConstantScore(Box<ConstantScoreQueryWeight<QueryWeightNoConstantScore<S, IRC>, IRC, QCP, QC>>),
+    ConstantScore(ConstantScoreQueryWeight<BaseQueryWeight<S, IRC>, IRC, QCP, QC>),
 }
 impl<S, IRC, QCP, QC> SegmentCacheable<IRC::LeafReader> for QueryWeight<S, IRC, QCP, QC>
 where
@@ -593,24 +593,22 @@ where
         }
     }
 }
-impl<S, IRC> SegmentCacheable<IRC::LeafReader> for QueryWeightNoConstantScore<S, IRC>
+impl<S, IRC> SegmentCacheable<IRC::LeafReader> for BaseQueryWeight<S, IRC>
 where
     IRC: IndexReaderContext,
     S: Similarity,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::MatchAll(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::PointRange(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.is_cacheable(ctx),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
-                w.is_cacheable(ctx)
-            },
-            QueryWeightNoConstantScore::FieldExists(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::Term(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::MatchAll(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::PointRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::MatchNoDocs(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeight::FieldExists(w) => w.is_cacheable(ctx),
         }
     }
 }
@@ -718,7 +716,7 @@ where
         SSDVRQSs<IRC::LeafReader>,
         ISSNDVRQSs<IRC::LeafReader>,
         FieldExistsESs<IRC::LeafReader>,
-        ConstantScoreSs<QueryWeightNoConstantScore<S, IRC>, IRC, QCP, QC>,
+        ConstantScoreSs<BaseQueryWeight<S, IRC>, IRC, QCP, QC>,
     >;
 
     fn scorer_supplier(
@@ -828,7 +826,7 @@ where
         }
     }
 }
-pub enum QueryWeightNoConstantScore<S, IRC>
+pub enum BaseQueryWeight<S, IRC>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -851,7 +849,7 @@ where
     ),
     FieldExists(FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>),
 }
-impl<S, IRC> Weight<IRC::LeafReader> for QueryWeightNoConstantScore<S, IRC>
+impl<S, IRC> Weight<IRC::LeafReader> for BaseQueryWeight<S, IRC>
 where
     IRC: IndexReaderContext,
     S: Similarity,
@@ -872,23 +870,17 @@ where
         doc: i32,
     ) -> Result<Option<MatchWithNoTerms>> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.default_matches(context, doc),
-            QueryWeightNoConstantScore::MatchAll(w) => w.default_matches(context, doc),
-            QueryWeightNoConstantScore::PointRange(w) => w.default_matches(context, doc),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.default_matches(context, doc),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => {
+            BaseQueryWeight::Term(w) => w.default_matches(context, doc),
+            BaseQueryWeight::MatchAll(w) => w.default_matches(context, doc),
+            BaseQueryWeight::PointRange(w) => w.default_matches(context, doc),
+            BaseQueryWeight::MatchNoDocs(w) => w.default_matches(context, doc),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.default_matches(context, doc),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.default_matches(context, doc),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.default_matches(context, doc),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => {
                 w.default_matches(context, doc)
             },
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => {
-                w.default_matches(context, doc)
-            },
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => {
-                w.default_matches(context, doc)
-            },
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
-                w.default_matches(context, doc)
-            },
-            QueryWeightNoConstantScore::FieldExists(w) => w.default_matches(context, doc),
+            BaseQueryWeight::FieldExists(w) => w.default_matches(context, doc),
         }
     }
 
@@ -898,31 +890,29 @@ where
         doc: i32,
     ) -> Result<Explanation> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::MatchAll(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::PointRange(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.explain(context, doc),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
-                w.explain(context, doc)
-            },
-            QueryWeightNoConstantScore::FieldExists(w) => w.explain(context, doc),
+            BaseQueryWeight::Term(w) => w.explain(context, doc),
+            BaseQueryWeight::MatchAll(w) => w.explain(context, doc),
+            BaseQueryWeight::PointRange(w) => w.explain(context, doc),
+            BaseQueryWeight::MatchNoDocs(w) => w.explain(context, doc),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.explain(context, doc),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeight::FieldExists(w) => w.explain(context, doc),
         }
     }
 
     fn get_query(&self) -> Arc<Query> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.get_query(),
-            QueryWeightNoConstantScore::MatchAll(w) => w.get_query(),
-            QueryWeightNoConstantScore::PointRange(w) => w.get_query(),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.get_query(),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.get_query(),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.get_query(),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.get_query(),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => w.get_query(),
-            QueryWeightNoConstantScore::FieldExists(w) => w.get_query(),
+            BaseQueryWeight::Term(w) => w.get_query(),
+            BaseQueryWeight::MatchAll(w) => w.get_query(),
+            BaseQueryWeight::PointRange(w) => w.get_query(),
+            BaseQueryWeight::MatchNoDocs(w) => w.get_query(),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.get_query(),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.get_query(),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.get_query(),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.get_query(),
+            BaseQueryWeight::FieldExists(w) => w.get_query(),
         }
     }
 
@@ -931,27 +921,23 @@ where
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::Scorer>> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => Ok(w.scorer(context)?.map(ScorerEnum9::A)),
-            QueryWeightNoConstantScore::MatchAll(w) => Ok(w.scorer(context)?.map(ScorerEnum9::B)),
-            QueryWeightNoConstantScore::PointRange(w) => Ok(w.scorer(context)?.map(ScorerEnum9::C)),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => {
-                Ok(w.scorer(context)?.map(ScorerEnum9::D))
-            },
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => {
+            BaseQueryWeight::Term(w) => Ok(w.scorer(context)?.map(ScorerEnum9::A)),
+            BaseQueryWeight::MatchAll(w) => Ok(w.scorer(context)?.map(ScorerEnum9::B)),
+            BaseQueryWeight::PointRange(w) => Ok(w.scorer(context)?.map(ScorerEnum9::C)),
+            BaseQueryWeight::MatchNoDocs(w) => Ok(w.scorer(context)?.map(ScorerEnum9::D)),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => {
                 Ok(w.scorer(context)?.map(ScorerEnum9::E))
             },
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => {
                 Ok(w.scorer(context)?.map(ScorerEnum9::F))
             },
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => {
+            BaseQueryWeight::SortedSetDocValuesRange(w) => {
                 Ok(w.scorer(context)?.map(ScorerEnum9::G))
             },
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => {
                 Ok(w.scorer(context)?.map(ScorerEnum9::H))
             },
-            QueryWeightNoConstantScore::FieldExists(w) => {
-                Ok(w.scorer(context)?.map(ScorerEnum9::I))
-            },
+            BaseQueryWeight::FieldExists(w) => Ok(w.scorer(context)?.map(ScorerEnum9::I)),
         }
     }
 
@@ -972,31 +958,29 @@ where
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<Self::ScorerSupplier>> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => {
-                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::A))
-            },
-            QueryWeightNoConstantScore::MatchAll(w) => {
+            BaseQueryWeight::Term(w) => Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::A)),
+            BaseQueryWeight::MatchAll(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::B))
             },
-            QueryWeightNoConstantScore::PointRange(w) => {
+            BaseQueryWeight::PointRange(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::C))
             },
-            QueryWeightNoConstantScore::MatchNoDocs(w) => {
+            BaseQueryWeight::MatchNoDocs(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::D))
             },
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => {
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::E))
             },
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::F))
             },
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => {
+            BaseQueryWeight::SortedSetDocValuesRange(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::G))
             },
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::H))
             },
-            QueryWeightNoConstantScore::FieldExists(w) => {
+            BaseQueryWeight::FieldExists(w) => {
                 Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum9::I))
             },
         }
@@ -1007,79 +991,65 @@ where
         context: &LeafReaderContext<IRC::LeafReader>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC::LeafReader>>::BulkScorer>> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => {
-                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::A))
-            },
-            QueryWeightNoConstantScore::MatchAll(w) => {
-                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::B))
-            },
-            QueryWeightNoConstantScore::PointRange(w) => {
-                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::C))
-            },
-            QueryWeightNoConstantScore::MatchNoDocs(w) => {
-                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::D))
-            },
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => {
+            BaseQueryWeight::Term(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::A)),
+            BaseQueryWeight::MatchAll(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::B)),
+            BaseQueryWeight::PointRange(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::C)),
+            BaseQueryWeight::MatchNoDocs(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::D)),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => {
                 Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::E))
             },
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => {
                 Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::F))
             },
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => {
+            BaseQueryWeight::SortedSetDocValuesRange(w) => {
                 Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::G))
             },
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => {
                 Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::H))
             },
-            QueryWeightNoConstantScore::FieldExists(w) => {
-                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::I))
-            },
+            BaseQueryWeight::FieldExists(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum9::I)),
         }
     }
 
     fn count(&self, context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.count(context),
-            QueryWeightNoConstantScore::MatchAll(w) => w.count(context),
-            QueryWeightNoConstantScore::PointRange(w) => w.count(context),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.count(context),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.count(context),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.count(context),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.count(context),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => w.count(context),
-            QueryWeightNoConstantScore::FieldExists(w) => w.count(context),
+            BaseQueryWeight::Term(w) => w.count(context),
+            BaseQueryWeight::MatchAll(w) => w.count(context),
+            BaseQueryWeight::PointRange(w) => w.count(context),
+            BaseQueryWeight::MatchNoDocs(w) => w.count(context),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.count(context),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.count(context),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.count(context),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.count(context),
+            BaseQueryWeight::FieldExists(w) => w.count(context),
         }
     }
 
     fn default_count(&self, _context: &LeafReaderContext<IRC::LeafReader>) -> Result<i32> {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::MatchAll(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::PointRange(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.default_count(_context),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
-                w.default_count(_context)
-            },
-            QueryWeightNoConstantScore::FieldExists(w) => w.default_count(_context),
+            BaseQueryWeight::Term(w) => w.default_count(_context),
+            BaseQueryWeight::MatchAll(w) => w.default_count(_context),
+            BaseQueryWeight::PointRange(w) => w.default_count(_context),
+            BaseQueryWeight::MatchNoDocs(w) => w.default_count(_context),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.default_count(_context),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.default_count(_context),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.default_count(_context),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.default_count(_context),
+            BaseQueryWeight::FieldExists(w) => w.default_count(_context),
         }
     }
 
     fn is_weight_cacheable(&self) -> bool {
         match self {
-            QueryWeightNoConstantScore::Term(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::MatchAll(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::PointRange(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::MatchNoDocs(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::SortedNumericDocValuesSet(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::SortedNumericDocValuesRange(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::SortedSetDocValuesRange(w) => w.is_weight_cacheable(),
-            QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(w) => {
-                w.is_weight_cacheable()
-            },
-            QueryWeightNoConstantScore::FieldExists(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::Term(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::MatchAll(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::PointRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::MatchNoDocs(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::SortedNumericDocValuesSet(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::SortedNumericDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::SortedSetDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::IndexSortSortedNumericDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeight::FieldExists(w) => w.is_weight_cacheable(),
         }
     }
 }
@@ -1091,7 +1061,7 @@ impl Query {
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<QueryWeightNoConstantScore<S, IRC>>
+    ) -> Result<BaseQueryWeight<S, IRC>>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -1100,53 +1070,47 @@ impl Query {
         QC: QueryCache,
     {
         match self {
-            Query::Term(t) => Ok(QueryWeightNoConstantScore::Term(t.create_weight(
+            Query::Term(t) => Ok(BaseQueryWeight::Term(t.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::MatchAll(m) => Ok(QueryWeightNoConstantScore::MatchAll(m.create_weight(
+            Query::MatchAll(m) => Ok(BaseQueryWeight::MatchAll(m.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::PointRange(p) => Ok(QueryWeightNoConstantScore::PointRange(p.create_weight(
+            Query::PointRange(p) => Ok(BaseQueryWeight::PointRange(p.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::MatchNoDoc(p) => Ok(QueryWeightNoConstantScore::MatchNoDocs(p.create_weight(
+            Query::MatchNoDoc(p) => Ok(BaseQueryWeight::MatchNoDocs(p.create_weight(
                 searcher,
                 score_mode,
                 boost,
                 per_reader_term_state,
             )?)),
-            Query::SortedNumericDocValuesSet(p) => {
-                Ok(QueryWeightNoConstantScore::SortedNumericDocValuesSet(
-                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                ))
-            },
+            Query::SortedNumericDocValuesSet(p) => Ok(BaseQueryWeight::SortedNumericDocValuesSet(
+                p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            )),
             Query::SortedNumericDocValuesRange(p) => {
-                Ok(QueryWeightNoConstantScore::SortedNumericDocValuesRange(
+                Ok(BaseQueryWeight::SortedNumericDocValuesRange(
                     p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
                 ))
             },
-            Query::SortedSetDocValuesRange(p) => {
-                Ok(QueryWeightNoConstantScore::SortedSetDocValuesRange(
-                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                ))
-            },
+            Query::SortedSetDocValuesRange(p) => Ok(BaseQueryWeight::SortedSetDocValuesRange(
+                p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            )),
             Query::IndexSortSortedNumericDocValuesRange(p) => {
-                Ok(
-                    QueryWeightNoConstantScore::IndexSortSortedNumericDocValuesRange(
-                        p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                    ),
-                )
+                Ok(BaseQueryWeight::IndexSortSortedNumericDocValuesRange(
+                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+                ))
             },
-            Query::FieldExists(p) => Ok(QueryWeightNoConstantScore::FieldExists(p.create_weight(
+            Query::FieldExists(p) => Ok(BaseQueryWeight::FieldExists(p.create_weight(
                 searcher,
                 score_mode,
                 boost,
