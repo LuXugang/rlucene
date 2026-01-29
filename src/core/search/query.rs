@@ -122,21 +122,18 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
             std::any::type_name::<Self>()
         )))
     }
-    type RewriteQuery: QueryBase;
     fn rewrite<IRC, S, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Self::RewriteQuery>
+    ) -> Result<Query>
     where
         IRC: IndexReaderContext,
         S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
-        Self: Sized,
-    {
-        todo!()
-    }
+        Self: Sized;
+
     fn visit<QV>(&self, visitor: &QV)
     where
         QV: QueryVisitor;
@@ -421,12 +418,10 @@ impl QueryBase for Query {
         }
     }
 
-    type RewriteQuery = Query;
-
     fn rewrite<IRC, S, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Self::RewriteQuery>
+    ) -> Result<Query>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -533,12 +528,10 @@ where
         )))
     }
 
-    type RewriteQuery = Q::RewriteQuery;
-
     fn rewrite<IRC, S, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Self::RewriteQuery>
+    ) -> Result<Query>
     where
         IRC: IndexReaderContext,
         S: Similarity,

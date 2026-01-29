@@ -41,13 +41,14 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     AllDISI, DocIdSetIterator, DocIdSetIteratorEnum4, EmptyDISI, RangeDISI,
 };
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_comparator::{FieldComparator, FieldComparatorEnum};
+use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
 use crate::core::search::pruning::Pruning;
@@ -187,7 +188,62 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ))
     }
 
-    type RewriteQuery = DummyQuery;
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        mut self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
+            return Ok(FieldExistsQuery::new(self.field).into());
+        }
+
+        let fallback_id = self.fallback_query.identity().clone();
+        let rewritten_fallback = self.fallback_query.rewrite(searcher)?;
+
+        if matches!(rewritten_fallback, Query::MatchAll(_)) {
+            return Ok(MatchAllDocsQuery::new().into());
+        }
+
+        if rewritten_fallback.identity() == &fallback_id {
+            let v = match rewritten_fallback {
+                Query::PointRange(p) => FallbackQuery::PointRange(p),
+                Query::SortedNumericDocValuesSet(p) => FallbackQuery::SortedNumericDocValuesSet(p),
+                Query::SortedNumericDocValuesRange(p) => {
+                    FallbackQuery::SortedNumericDocValuesRange(p)
+                },
+                Query::SortedSetDocValuesRange(p) => FallbackQuery::SortedSetDocValuesRange(p),
+                _ => return Err(LuceneError::illegal_state("should not be here")),
+            };
+            self.fallback_query = v;
+            return Ok(self.into());
+        }
+        let v = match rewritten_fallback {
+            Query::PointRange(p) => FallbackQuery::PointRange(p),
+            Query::SortedNumericDocValuesSet(p) => FallbackQuery::SortedNumericDocValuesSet(p),
+            Query::SortedNumericDocValuesRange(p) => FallbackQuery::SortedNumericDocValuesRange(p),
+            Query::SortedSetDocValuesRange(p) => FallbackQuery::SortedSetDocValuesRange(p),
+            _ => {
+                return Err(LuceneError::unsupported_operation(format!(
+                    "unsupported fallback query: {}",
+                    rewritten_fallback.as_string("")
+                )));
+            },
+        };
+        Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
+            self.field,
+            self.lower_value,
+            self.upper_value,
+            v,
+        )
+        .into())
+    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where
@@ -1253,6 +1309,38 @@ pub enum FallbackQuery {
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
 }
+impl FallbackQuery {
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        match self {
+            FallbackQuery::PointRange(prq) => prq.rewrite(searcher),
+            FallbackQuery::SortedNumericDocValuesSet(snqdsq) => snqdsq.rewrite(searcher),
+            FallbackQuery::SortedNumericDocValuesRange(snqdrq) => snqdrq.rewrite(searcher),
+            FallbackQuery::SortedSetDocValuesRange(ssdqrq) => ssdqrq.rewrite(searcher),
+        }
+    }
+}
+impl HasIdentity for FallbackQuery {
+    fn identity(&self) -> &Identity {
+        match self {
+            FallbackQuery::PointRange(prq) => prq.identity(),
+            FallbackQuery::SortedNumericDocValuesSet(sdvsq) => sdvsq.identity(),
+            FallbackQuery::SortedNumericDocValuesRange(sdvrq) => sdvrq.identity(),
+            FallbackQuery::SortedSetDocValuesRange(ssdrq) => ssdrq.identity(),
+        }
+    }
+}
+
 impl From<PointRangeQuery> for FallbackQuery {
     fn from(value: PointRangeQuery) -> Self {
         FallbackQuery::PointRange(value)

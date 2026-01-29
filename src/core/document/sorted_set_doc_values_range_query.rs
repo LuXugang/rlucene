@@ -33,9 +33,9 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, EmptyDISI, RangeDISI};
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
@@ -161,7 +161,23 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         ))
     }
 
-    type RewriteQuery = DummyQuery;
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        if self.lower_value.is_none() && self.upper_value.is_none() {
+            return Ok(FieldExistsQuery::new(self.field).into());
+        }
+        Ok(self.into())
+    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where

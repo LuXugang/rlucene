@@ -28,9 +28,9 @@ use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -119,7 +119,23 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         ))
     }
 
-    type RewriteQuery = DummyQuery;
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        if self.numbers.size() == 0 {
+            return Ok(MatchNoDocsQuery::new().into());
+        }
+        Ok(self.into())
+    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where

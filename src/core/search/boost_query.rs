@@ -27,7 +27,7 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -45,7 +45,11 @@ pub struct BoostQuery {
     boost: f32,
 }
 impl BoostQuery {
-    pub fn new(query: Query, boost: f32) -> Result<Self> {
+    pub fn new<T>(query: T, boost: f32) -> Result<Self>
+    where
+        T: Into<Box<Query>>,
+    {
+        let query = query.into();
         if !boost.is_finite() || boost < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "boost must be a positive float, got {}",
@@ -54,7 +58,7 @@ impl BoostQuery {
         }
         Ok(Self {
             id: Identity::new(),
-            query: Box::new(query),
+            query,
             boost,
         })
     }
@@ -123,7 +127,45 @@ impl QueryBase for BoostQuery {
         )
     }
 
-    type RewriteQuery = DummyQuery;
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        mut self,
+        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        let query_id = self.query.identity().clone();
+
+        let rewritten = self.query.rewrite(searcher)?;
+
+        if self.boost == 1.0 {
+            return Ok(rewritten);
+        }
+
+        if let Query::Boost(in_boost) = rewritten {
+            return Ok(BoostQuery::new(in_boost.query, self.boost * in_boost.boost)?.into());
+        }
+
+        if let Query::MatchNoDoc(_) = rewritten {
+            return Ok(rewritten);
+        }
+
+        if self.boost == 0.0 && !matches!(rewritten, Query::ConstantScore(_)) {
+            let cs = ConstantScoreQuery::new(rewritten).into();
+            return Ok(BoostQuery::new(Box::new(cs), 0.0)?.into());
+        }
+
+        if &query_id != rewritten.identity() {
+            return Ok(BoostQuery::new(Box::new(rewritten), self.boost)?.into());
+        }
+        self.query = Box::new(rewritten);
+        Ok(self.into())
+    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where

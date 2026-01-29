@@ -151,7 +151,20 @@ impl QueryBase for TermQuery {
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
     }
 
-    type RewriteQuery = TermQuery;
+    fn rewrite<IRC, S, QT, QCP, QC>(
+        self,
+        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    ) -> Result<Query>
+    where
+        IRC: IndexReaderContext,
+        S: Similarity,
+        QT: QueryTimeout,
+        QCP: QueryCachingPolicy,
+        QC: QueryCache,
+        Self: Sized,
+    {
+        Ok(self.into())
+    }
 
     fn visit<QV>(&self, _visitor: &QV)
     where

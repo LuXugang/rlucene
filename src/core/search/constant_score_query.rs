@@ -153,12 +153,10 @@ impl QueryBase for ConstantScoreQuery {
         Ok(v)
     }
 
-    type RewriteQuery = Query;
-
     fn rewrite<IRC, S, QT, QCP, QC>(
         mut self,
         searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Self::RewriteQuery>
+    ) -> Result<Query>
     where
         IRC: IndexReaderContext,
         S: Similarity,
@@ -166,6 +164,7 @@ impl QueryBase for ConstantScoreQuery {
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
+        let query_id = self.query.identity().clone();
         let rewritten = self.query.rewrite(searcher)?;
 
         let rewritten = match rewritten {
@@ -178,6 +177,10 @@ impl QueryBase for ConstantScoreQuery {
 
         if let Query::MatchNoDoc(v) = rewritten {
             return Ok(v.into());
+        }
+
+        if rewritten.identity() != &query_id {
+            return Ok(ConstantScoreQuery::new(rewritten).into());
         }
 
         if matches!(rewritten, Query::ConstantScore(_)) {

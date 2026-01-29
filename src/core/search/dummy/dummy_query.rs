@@ -21,7 +21,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::QueryBase;
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -95,12 +95,10 @@ impl QueryBase for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type RewriteQuery = DummyQuery;
-
     fn rewrite<IRC, S, QT, QCP, QC>(
         self,
         _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> crate::core::util::error::lucene_error::Result<Self::RewriteQuery>
+    ) -> crate::core::util::error::lucene_error::Result<Query>
     where
         IRC: IndexReaderContext,
         S: Similarity,
