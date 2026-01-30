@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::nio_fs_index_input::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
-    RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
+    BoxRandomAccessInput, RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
 };
-use crate::core::store::{DataInput, ReadAdvice};
+use crate::core::store::{BufferedIndexInput, DataInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -135,7 +136,349 @@ pub trait IndexInput: DataInput + TryClone {
     fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
+    // for dynamic dispatch
+    fn slice_dyn(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<CustomIndexInput> {
+        Err(LuceneError::unsupported_operation("not support slicing"))
+    }
+    fn slice_with_read_advice_dyn(
+        &self,
+        description: &str,
+        offset: usize,
+        length: usize,
+        _read_advice: &ReadAdvice,
+    ) -> Result<CustomIndexInput> {
+        self.slice_dyn(description, offset, length)
+    }
 }
+pub trait TryCloneIndexInput:
+    IndexInput<RandomAccessSlice = BoxRandomAccessInput, IndexInput = IndexInputEnum>
+{
+    fn try_clone_index_input(&self) -> Result<IndexInputEnum>;
+}
+
+pub type DynIndexInput = dyn TryCloneIndexInput + Send + Sync;
+pub type CustomIndexInput = Box<DynIndexInput>;
+
+pub type IndexInputEnumRandomAccessSlice =
+    RandomAccessInputEnum2<BufferedIndexInput<NIOFSIndexInput>, BoxRandomAccessInput>;
+
+pub enum IndexInputEnum {
+    Fs(BufferedIndexInput<NIOFSIndexInput>),
+    Custom(CustomIndexInput),
+}
+
+impl IndexInputEnum {
+    pub fn custom<I>(input: I) -> Self
+    where
+        I: TryCloneIndexInput + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(input))
+    }
+}
+
+impl DataInput for IndexInputEnum {
+    fn read_byte(&mut self) -> Result<u8> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_byte(inner),
+            IndexInputEnum::Custom(inner) => inner.read_byte(),
+        }
+    }
+
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_bytes(inner, b, offset, len),
+            IndexInputEnum::Custom(inner) => inner.read_bytes(b, offset, len),
+        }
+    }
+
+    fn read_bytes_with_buffer(
+        &mut self,
+        b: &mut [u8],
+        offset: usize,
+        len: usize,
+        _use_buffer: bool,
+    ) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.read_bytes_with_buffer(b, offset, len, _use_buffer),
+            IndexInputEnum::Custom(inner) => {
+                inner.read_bytes_with_buffer(b, offset, len, _use_buffer)
+            },
+        }
+    }
+
+    fn read_short(&mut self) -> Result<i16> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_short(inner),
+            IndexInputEnum::Custom(inner) => inner.read_short(),
+        }
+    }
+
+    fn read_int(&mut self) -> Result<i32> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_int(inner),
+            IndexInputEnum::Custom(inner) => inner.read_int(),
+        }
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.read_group_vint(dst, offset),
+            IndexInputEnum::Custom(inner) => inner.read_group_vint(dst, offset),
+        }
+    }
+
+    fn read_vint(&mut self) -> Result<i32> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_vint(inner),
+            IndexInputEnum::Custom(inner) => inner.read_vint(),
+        }
+    }
+
+    fn read_zint(&mut self) -> Result<i32> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_zint(inner),
+            IndexInputEnum::Custom(inner) => inner.read_zint(),
+        }
+    }
+
+    fn read_long(&mut self) -> Result<i64> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_long(inner),
+            IndexInputEnum::Custom(inner) => inner.read_long(),
+        }
+    }
+
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.read_longs(dst, offset, len),
+            IndexInputEnum::Custom(inner) => inner.read_longs(dst, offset, len),
+        }
+    }
+
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.read_ints(dst, offset, len),
+            IndexInputEnum::Custom(inner) => inner.read_ints(dst, offset, len),
+        }
+    }
+
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.read_floats(dst, offset, len),
+            IndexInputEnum::Custom(inner) => inner.read_floats(dst, offset, len),
+        }
+    }
+
+    fn read_vlong(&mut self) -> Result<i64> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_vlong(inner),
+            IndexInputEnum::Custom(inner) => inner.read_vlong(),
+        }
+    }
+
+    fn read_zlong(&mut self) -> Result<i64> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_zlong(inner),
+            IndexInputEnum::Custom(inner) => inner.read_zlong(),
+        }
+    }
+
+    fn read_string(&mut self) -> Result<String> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_string(inner),
+            IndexInputEnum::Custom(inner) => inner.read_string(),
+        }
+    }
+
+    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_map_of_strings(inner),
+            IndexInputEnum::Custom(inner) => inner.read_map_of_strings(),
+        }
+    }
+
+    fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::read_set_of_strings(inner),
+            IndexInputEnum::Custom(inner) => inner.read_set_of_strings(),
+        }
+    }
+
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => DataInput::skip_bytes(inner, num_bytes),
+            IndexInputEnum::Custom(inner) => DataInput::skip_bytes(inner, num_bytes),
+        }
+    }
+
+    fn is_index_input(&self) -> bool {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.is_index_input(),
+            IndexInputEnum::Custom(inner) => inner.is_index_input(),
+        }
+    }
+
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.seek_in_data_input(_pos),
+            IndexInputEnum::Custom(inner) => inner.seek_in_data_input(_pos),
+        }
+    }
+
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.get_file_pointer_in_data_input(),
+            IndexInputEnum::Custom(inner) => inner.get_file_pointer_in_data_input(),
+        }
+    }
+}
+
+impl Display for IndexInputEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.fmt(f),
+            IndexInputEnum::Custom(inner) => inner.fmt(f),
+        }
+    }
+}
+impl TryClone for IndexInputEnum {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        match self {
+            IndexInputEnum::Fs(inner) => Ok(IndexInputEnum::Fs(inner.try_clone()?)),
+            IndexInputEnum::Custom(inner) => inner.try_clone_index_input(),
+        }
+    }
+}
+
+impl IndexInput for IndexInputEnum {
+    type IndexInput = IndexInputEnum;
+
+    fn get_file_pointer(&self) -> Result<usize> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.get_file_pointer(),
+            IndexInputEnum::Custom(inner) => inner.get_file_pointer(),
+        }
+    }
+
+    fn seek(&mut self, pos: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => inner.seek(pos),
+            IndexInputEnum::Custom(inner) => inner.seek(pos),
+        }
+    }
+
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => IndexInput::skip_bytes(inner, num_bytes),
+            IndexInputEnum::Custom(inner) => inner.skip_bytes(num_bytes),
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            IndexInputEnum::Fs(inner) => IndexInput::length(inner),
+            IndexInputEnum::Custom(inner) => inner.length(),
+        }
+    }
+
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: usize,
+        length: usize,
+    ) -> Result<Self::IndexInput> {
+        match self {
+            IndexInputEnum::Fs(inner) => Ok(IndexInputEnum::Fs(inner.slice(
+                slice_description,
+                offset,
+                length,
+            )?)),
+            IndexInputEnum::Custom(inner) => Ok(IndexInputEnum::Custom(inner.slice_dyn(
+                slice_description,
+                offset,
+                length,
+            )?)),
+        }
+    }
+
+    fn slice_with_read_advice(
+        &self,
+        description: &str,
+        offset: usize,
+        length: usize,
+        _read_advice: &ReadAdvice,
+    ) -> Result<Self::IndexInput> {
+        match self {
+            IndexInputEnum::Fs(inner) => Ok(IndexInputEnum::Fs(inner.slice_with_read_advice(
+                description,
+                offset,
+                length,
+                _read_advice,
+            )?)),
+            IndexInputEnum::Custom(inner) => Ok(IndexInputEnum::Custom(
+                inner.slice_with_read_advice_dyn(description, offset, length, _read_advice)?,
+            )),
+        }
+    }
+
+    type RandomAccessSlice = IndexInputEnumRandomAccessSlice;
+
+    fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+        match self {
+            IndexInputEnum::Fs(inner) => Ok(IndexInputEnumRandomAccessSlice::A(
+                inner.random_access_slice(offset, length)?,
+            )),
+            IndexInputEnum::Custom(inner) => Ok(IndexInputEnumRandomAccessSlice::B(
+                inner.random_access_slice(offset, length)?,
+            )),
+        }
+    }
+
+    fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+        match self {
+            IndexInputEnum::Fs(inner) => IndexInput::prefetch(inner, len, pos),
+            IndexInputEnum::Custom(inner) => inner.prefetch(pos, len),
+        }
+    }
+
+    fn slice_dyn(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<CustomIndexInput> {
+        match self {
+            IndexInputEnum::Fs(_v) => {
+                Err(LuceneError::unsupported_operation("not support slicing"))
+            },
+            IndexInputEnum::Custom(inner) => inner.slice_dyn(_slice_description, _offset, _length),
+        }
+    }
+
+    fn slice_with_read_advice_dyn(
+        &self,
+        description: &str,
+        offset: usize,
+        length: usize,
+        _read_advice: &ReadAdvice,
+    ) -> Result<CustomIndexInput> {
+        match self {
+            IndexInputEnum::Fs(_) => Err(LuceneError::unsupported_operation("not support slicing")),
+            IndexInputEnum::Custom(inner) => {
+                inner.slice_with_read_advice_dyn(description, offset, length, _read_advice)
+            },
+        }
+    }
+}
+
 /// SubStruct call this to get the String for resourceDescription of a slice of
 /// this `IndexInput`.
 pub fn get_full_slice_description(slice_description: &str) -> String {

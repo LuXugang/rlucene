@@ -41,6 +41,8 @@ pub trait RandomAccessInput {
     ///  Prefetch data in the background.
     fn prefetch(&mut self, pos: usize, len: usize) -> Result<()>;
 }
+pub type DynRandomAccessInput = dyn RandomAccessInput + Send + Sync;
+pub type BoxRandomAccessInput = Box<DynRandomAccessInput>;
 
 macro_rules! either_random_access_input {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
@@ -104,3 +106,32 @@ macro_rules! either_random_access_input {
 }
 either_random_access_input!(pub RandomAccessInputEnum2 { A: A, B: B });
 either_random_access_input!(pub RandomAccessInputEnum3 { A: A, B: B, C: C });
+impl<T: ?Sized + RandomAccessInput> RandomAccessInput for Box<T> {
+    fn length(&self) -> usize {
+        (**self).length()
+    }
+
+    fn read_byte(&mut self, pos: usize) -> Result<u8> {
+        (**self).read_byte(pos)
+    }
+
+    fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        (**self).read_bytes(pos, buf, offset, len)
+    }
+
+    fn read_short(&mut self, pos: usize) -> Result<i16> {
+        (**self).read_short(pos)
+    }
+
+    fn read_int(&mut self, pos: usize) -> Result<i32> {
+        (**self).read_int(pos)
+    }
+
+    fn read_long(&mut self, pos: usize) -> Result<i64> {
+        (**self).read_long(pos)
+    }
+
+    fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+        (**self).prefetch(pos, len)
+    }
+}

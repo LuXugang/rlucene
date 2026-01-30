@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
-
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, TryIntoInt};
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///
@@ -504,5 +503,96 @@ where
             DataInputEnum2::A(f) => f.get_file_pointer_in_data_input(),
             DataInputEnum2::B(s) => s.get_file_pointer_in_data_input(),
         }
+    }
+}
+impl<T: ?Sized + DataInput> DataInput for Box<T> {
+    fn read_byte(&mut self) -> Result<u8> {
+        (**self).read_byte()
+    }
+
+    fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+        (**self).read_bytes(b, offset, len)
+    }
+
+    fn read_bytes_with_buffer(
+        &mut self,
+        b: &mut [u8],
+        offset: usize,
+        len: usize,
+        _use_buffer: bool,
+    ) -> Result<()> {
+        (**self).read_bytes_with_buffer(b, offset, len, _use_buffer)
+    }
+
+    fn read_short(&mut self) -> Result<i16> {
+        (**self).read_short()
+    }
+
+    fn read_int(&mut self) -> Result<i32> {
+        (**self).read_int()
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        (**self).read_group_vint(dst, offset)
+    }
+
+    fn read_vint(&mut self) -> Result<i32> {
+        (**self).read_vint()
+    }
+
+    fn read_zint(&mut self) -> Result<i32> {
+        (**self).read_zint()
+    }
+
+    fn read_long(&mut self) -> Result<i64> {
+        (**self).read_long()
+    }
+
+    fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+        (**self).read_longs(dst, offset, len)
+    }
+
+    fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+        (**self).read_ints(dst, offset, len)
+    }
+
+    fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+        (**self).read_floats(dst, offset, len)
+    }
+
+    fn read_vlong(&mut self) -> Result<i64> {
+        (**self).read_vlong()
+    }
+
+    fn read_zlong(&mut self) -> Result<i64> {
+        (**self).read_zlong()
+    }
+
+    fn read_string(&mut self) -> Result<String> {
+        (**self).read_string()
+    }
+
+    fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
+        (**self).read_map_of_strings()
+    }
+
+    fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
+        (**self).read_set_of_strings()
+    }
+
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        (**self).skip_bytes(num_bytes)
+    }
+
+    fn is_index_input(&self) -> bool {
+        (**self).is_index_input()
+    }
+
+    fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
+        (**self).seek_in_data_input(_pos)
+    }
+
+    fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+        (**self).get_file_pointer_in_data_input()
     }
 }
