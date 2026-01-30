@@ -18,15 +18,16 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::similarities_impl::bm25_similarity::{BM25Scorer, BM25Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// Similarity defines the components of Lucene scoring.  
+/// Similarity defines the components of Lucene scoring.
 ///
-/// *Expert: Scoring API.*  
+/// *Expert: Scoring API.*
 ///
 /// This is a low-level API—only implement this trait if you want to provide a custom
 /// information retrieval *model*. If you merely wish to tweak Lucene’s scoring, consider
@@ -35,19 +36,19 @@ use std::sync::Arc;
 ///
 /// Similarity determines how Lucene weights terms at both indexing-time and query-time.
 ///
-/// ## Indexing Time  
+/// ## Indexing Time
 ///
-/// At indexing time, the indexer calls  
-/// [`compute_norm(field_state: &FieldInvertState)`](Self::compute_norm)  
+/// At indexing time, the indexer calls
+/// [`compute_norm(field_state: &FieldInvertState)`](Self::compute_norm)
 /// to allow your implementation to set a per-document normalization value. This norm byte
-/// is later accessible via  
+/// is later accessible via
 /// [`LeafReader::get_norm_values(field: &str)`](crate::core::index::leaf_reader::LeafReader).
 /// Lucene makes no assumption about its contents, but it’s most commonly used for length
 /// normalization. Implementations should carefully choose how to encode this value—Lucene’s
 /// default uses [`SmallFloat`] to pack length norms into a single byte, but other schemes
 /// may be appropriate for your model.
 ///
-/// Many scoring formulas require average document length, which you can compute via  
+/// Many scoring formulas require average document length, which you can compute via
 /// [`CollectionStatistics::sum_total_term_freq()`](CollectionStatistics::get_sum_total_term_freq) and [`CollectionStatistics::doc_count()`](CollectionStatistics::get_doc_count).
 ///
 /// Additional, field-custom scoring factors can be stored in named
@@ -60,20 +61,20 @@ use std::sync::Arc;
 /// in your implementation and use [`PerFieldSimilarityWrapper`](crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper) to return
 /// different `Similarity` instances per field name.
 ///
-/// ## Query Time  
+/// ## Query Time
 ///
 /// At query time, the following steps occur:
 ///
-/// 1. The method  
-///    [`scorer(boost: f32, stats: &CollectionStatistics, terms: &[TermStatistics])`](Self::scorer)  
+/// 1. The method
+///    [`scorer(boost: f32, stats: &CollectionStatistics, terms: &[TermStatistics])`](Self::scorer)
 ///    is called once, allowing you to compute any global statistics (IDF, avg. length, etc.)
 ///    from the provided raw statistics without additional I/O. Return a
 ///    [`Similarity::SimScorer`] instance that encapsulates your scoring logic.
-/// 2. For each matching document,  
-///    [`SimScorer::score(freq: f32, doc_len: i64)`](SimScorer::score)  
+/// 2. For each matching document,
+///    [`SimScorer::score(freq: f32, doc_len: i64)`](SimScorer::score)
 ///    is invoked to compute that document’s final score.
 ///
-/// ## Explanations  
+/// ## Explanations
 ///
 /// When [`IndexSearcher::explain(query: &Query, doc: i32)`](crate::core::search::index_searcher::IndexSearcher) is invoked, Lucene consults
 /// your scorer’s explanation method to detail how the score was computed, passing in the
@@ -150,7 +151,86 @@ pub trait Similarity: Display {
         term_stats: &[TermStatistics],
     ) -> Self::SimScorer;
 }
-pub type SimilaritySimScorer<S> = <S as Similarity>::SimScorer;
+pub type SimilaritySimScorer = <SimilarityEnum as Similarity>::SimScorer;
+pub type CustomSimilarity = Box<dyn Similarity<SimScorer = Box<dyn SimScorer>>>;
+pub enum SimilarityEnum {
+    BM25(BM25Similarity),
+    Custom(CustomSimilarity),
+}
+impl SimilarityEnum {
+    pub fn custom<S>(sim: S) -> Self
+    where
+        S: Similarity<SimScorer = Box<dyn SimScorer>> + 'static,
+    {
+        Self::Custom(Box::new(sim))
+    }
+}
+
+impl Display for SimilarityEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BM25(inner) => write!(f, "{}", inner),
+            Self::Custom(inner) => write!(f, "{}", inner),
+        }
+    }
+}
+
+impl Similarity for SimilarityEnum {
+    fn get_discount_overlaps(&self) -> bool {
+        match self {
+            Self::BM25(inner) => inner.get_discount_overlaps(),
+            Self::Custom(inner) => inner.get_discount_overlaps(),
+        }
+    }
+
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+        match self {
+            Self::BM25(inner) => inner.compute_norm(state),
+            Self::Custom(inner) => inner.compute_norm(state),
+        }
+    }
+
+    type SimScorer = SimScorerEnum2<BM25Scorer, Box<dyn SimScorer>>;
+
+    fn scorer(
+        &self,
+        boost: f32,
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
+    ) -> Self::SimScorer {
+        match self {
+            Self::BM25(inner) => {
+                let scorer = inner.scorer(boost, collection_stats, term_stats);
+                SimScorerEnum2::A(scorer)
+            },
+            Self::Custom(inner) => {
+                let scorer = inner.scorer(boost, collection_stats, term_stats);
+                SimScorerEnum2::B(scorer)
+            },
+        }
+    }
+}
+impl<T: ?Sized + Similarity> Similarity for Box<T> {
+    fn get_discount_overlaps(&self) -> bool {
+        (**self).get_discount_overlaps()
+    }
+
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+        (**self).compute_norm(state)
+    }
+
+    type SimScorer = T::SimScorer;
+
+    fn scorer(
+        &self,
+        boost: f32,
+        collection_stats: &CollectionStatistics,
+        term_stats: &[TermStatistics],
+    ) -> Self::SimScorer {
+        (**self).scorer(boost, collection_stats, term_stats)
+    }
+}
+
 /// Stores the weight for a query across the indexed collection.
 ///
 /// This trait is a marker for query‐weight implementations. The base implementation is empty;
@@ -203,6 +283,7 @@ pub trait SimScorer {
         Explanation::match_(value, description, vec![freq])
     }
 }
+
 macro_rules! either_similarity {
     (
         $vis:vis $name:ident
@@ -336,5 +417,14 @@ where
         term_stats: &[TermStatistics],
     ) -> Self::SimScorer {
         (**self).scorer(boost, collection_stats, term_stats)
+    }
+}
+impl<T: ?Sized + SimScorer> SimScorer for Box<T> {
+    fn score(&self, freq: f32, norm: i64) -> f32 {
+        (**self).score(freq, norm)
+    }
+
+    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+        (**self).explain(freq, norm)
     }
 }
