@@ -31,6 +31,10 @@ impl DataInput for DummyIndexInput {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
+    fn read_group_vint(&mut self, _dst: &mut [i32], _offset: usize) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

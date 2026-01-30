@@ -219,6 +219,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
     use crate::core::util::fst_impl::fst::BytesReader;
+    use crate::core::util::group_vint_util::GroupVIntUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
     #[test]
@@ -370,6 +371,10 @@ mod tests {
 
         fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
             Err(LuceneError::unsupported_operation("Not implemented"))
+        }
+
+        fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+            GroupVIntUtil::read_group_vint_i32(self, dst, offset)
         }
 
         fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

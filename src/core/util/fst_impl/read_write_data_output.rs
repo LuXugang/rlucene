@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{BytesReader, BytesReaderEnum2};
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
+use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
@@ -180,6 +181,10 @@ impl DataInput for BytesReaderImpl {
             b[offset + i] = self.read_byte()?;
         }
         Ok(())
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

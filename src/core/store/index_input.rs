@@ -81,7 +81,10 @@ pub trait IndexInput: DataInput + TryClone {
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.
-    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
+    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self>
+    where
+        Self: Sized,
+    {
         Err(LuceneError::unsupported_operation("not support slicing"))
     }
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used
@@ -102,7 +105,10 @@ pub trait IndexInput: DataInput + TryClone {
         offset: usize,
         length: usize,
         _read_advice: &ReadAdvice,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
         self.slice(description, offset, length)
     }
     type RandomAccessSlice: RandomAccessInput;
@@ -401,6 +407,7 @@ mod tests {
     use crate::core::util::access::ByteSourceMut;
     use crate::core::util::clone::TryClone;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::core::util::group_vint_util::GroupVIntUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         is_night_mode, new_directory_shared, new_io_context, random, random_multiplier, rarely,
     };
@@ -650,6 +657,10 @@ mod tests {
 
         fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
+        }
+
+        fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+            GroupVIntUtil::read_group_vint_i32(self, dst, offset)
         }
 
         fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

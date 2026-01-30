@@ -1235,6 +1235,13 @@ where
         }
     }
 
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        match self {
+            BytesReaderEnum2::A(reader) => reader.read_group_vint(dst, offset),
+            BytesReaderEnum2::B(reader) => reader.read_group_vint(dst, offset),
+        }
+    }
+
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
             BytesReaderEnum2::A(reader) => reader.skip_bytes(num_bytes),

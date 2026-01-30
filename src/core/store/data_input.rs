@@ -19,7 +19,6 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{CoreHelper, TryIntoInt};
 
 /// Base trait for performing read operations on Lucene's low-level data types.
@@ -27,7 +26,7 @@ use crate::core::util::{CoreHelper, TryIntoInt};
 /// # Note
 /// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file
 /// position).
-pub trait DataInput: Sized + Display {
+pub trait DataInput: Display {
     /// Reads and returns a single byte.
     ///
     /// # See Also
@@ -92,9 +91,7 @@ pub trait DataInput: Sized + Display {
     /// Override if you have an efficient implementation.
     /// In general, this is when the input supports
     /// random access.
-    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
-    }
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()>;
     /// Reads an `int` stored in a variable-length format. Reads between one and
     /// five bytes, with smaller values taking fewer bytes. Negative numbers
     /// are supported but should be avoided.

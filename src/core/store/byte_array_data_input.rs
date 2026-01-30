@@ -21,6 +21,7 @@ use crate::core::store::data_input::DataInput;
 use crate::core::util::access::ByteSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 /// `DataInput` backed by a byte array.
@@ -125,6 +126,10 @@ where
         let value = BitUtil::get_i32_le(self.bytes.as_slice(), self.pos);
         self.pos += 4;
         Ok(value)
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn read_long(&mut self) -> Result<i64> {

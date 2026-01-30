@@ -20,10 +20,12 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::group_vint_util::GroupVIntUtil;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// Represents a logical byte[] as a series of pages. You can write-once into
 /// the logical byte[] (append only), using copy, and then retrieve slices
 /// (BytesRef) into it using fill.
@@ -341,6 +343,10 @@ impl DataInput for PagedBytesDataInput {
             }
         }
         Ok(())
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

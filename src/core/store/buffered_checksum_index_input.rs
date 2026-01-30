@@ -23,6 +23,7 @@ use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Simple implementation of [`ChecksumIndexInput`] that wraps another input and
 /// delegates calls.
@@ -96,6 +97,10 @@ where
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

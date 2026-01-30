@@ -17,7 +17,6 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
 
@@ -25,21 +24,19 @@ pub struct DummyBytesReader;
 
 impl DataInput for DummyBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
-        Err(LuceneError::unsupported_operation(
-            "DummyBytesReader does not support reading bytes",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
-        Err(LuceneError::unsupported_operation(
-            "DummyBytesReader does not support reading bytes",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn read_group_vint(&mut self, _dst: &mut [i32], _offset: usize) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
-        Err(LuceneError::unsupported_operation(
-            "DummyBytesReader does not support skipping bytes",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 

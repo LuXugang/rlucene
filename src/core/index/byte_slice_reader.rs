@@ -18,11 +18,13 @@ use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{
     BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps, TryIntoInt,
 };
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
+
 /// IndexInput that knows how to read the byte slices written by Posting and PostingVector.
 /// We read the bytes in each slice until we hit the end of that slice at which point we read the forwarding address of the next slice and then jump to it.
 pub(crate) struct ByteSliceReader<P> {
@@ -148,6 +150,10 @@ where
             }
         }
         Ok(())
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter};
 use crate::core::store::DataInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::BytesReader;
+use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{ByteBlockPool, TryIntoInt};
 
 /// Reads in reverse from a ByteBlockPool.
@@ -59,6 +60,10 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
             }
         }
         Ok(())
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

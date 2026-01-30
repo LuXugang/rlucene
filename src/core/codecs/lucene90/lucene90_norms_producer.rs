@@ -40,6 +40,7 @@ use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::group_vint_util::GroupVIntUtil;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -393,6 +394,10 @@ where
         inf.seek(self.offset)?;
         self.offset += BitUtil::SHORT_BYTES;
         inf.read_short()
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {

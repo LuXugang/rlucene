@@ -936,6 +936,10 @@ where
         Ok(())
     }
 
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+    }
+
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -955,6 +959,7 @@ where
 }
 
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Reads a float in a variable-length format. Reads between one and five
 /// bytes. Small integral values typically take fewer bytes.

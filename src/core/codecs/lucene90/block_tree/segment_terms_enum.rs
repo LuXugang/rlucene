@@ -36,6 +36,7 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
+use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Iterates through terms in this field.
 pub struct SegmentTermsEnum<I, P>
@@ -1020,6 +1021,10 @@ impl DataInput for OutputAccumulator {
 
     fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+        GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
 
     fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
