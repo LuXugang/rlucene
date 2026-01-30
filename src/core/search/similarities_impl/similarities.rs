@@ -31,7 +31,7 @@ use std::sync::Arc;
 ///
 /// This is a low-level API—only implement this trait if you want to provide a custom
 /// information retrieval *model*. If you merely wish to tweak Lucene’s scoring, consider
-/// using or extending [`BM25Similarity`](crate::core::search::similarities_impl::bm25_similarity::BM25Similarity) or [`SimilarityBase`](crate::core::search::similarities_impl::similarity_base::SimilarityBase), which simplify score computation
+/// using or extending [`BM25Similarity`] or [`SimilarityBase`](crate::core::search::similarities_impl::similarity_base::SimilarityBase), which simplify score computation
 /// from index statistics.
 ///
 /// Similarity determines how Lucene weights terms at both indexing-time and query-time.
@@ -165,6 +165,11 @@ impl SimilarityEnum {
         S: Similarity<SimScorer = Box<DynSimScorer>> + Send + Sync + 'static,
     {
         Self::Custom(Box::new(sim))
+    }
+}
+impl From<BM25Similarity> for SimilarityEnum {
+    fn from(v: BM25Similarity) -> Self {
+        SimilarityEnum::BM25(v)
     }
 }
 

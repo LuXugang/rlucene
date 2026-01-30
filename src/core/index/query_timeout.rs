@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::query_timeout_impl::QueryTimeoutImpl;
+use std::fmt::{Display, Formatter};
+
 /// Query timeout abstraction that controls whether a query should continue or be stopped.
 ///
 /// Can be set to the searcher through [`IndexSearcher::set_timeout`](crate::core::search::index_searcher::IndexSearcher::set_timeout),
@@ -25,4 +28,39 @@ pub trait QueryTimeout {
     /// # Returns
     /// `true` if the query should stop, `false` otherwise.
     fn should_exit(&self) -> bool;
+}
+
+pub type DynQueryTimeout = dyn QueryTimeout + Send + Sync;
+pub type CustomQueryTimeout = Box<DynQueryTimeout>;
+
+pub enum QueryTimeoutEnum {
+    Builtin(QueryTimeoutImpl),
+    Custom(CustomQueryTimeout),
+}
+
+impl QueryTimeoutEnum {
+    pub fn custom<T>(t: T) -> Self
+    where
+        T: QueryTimeout + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(t))
+    }
+}
+
+impl Display for QueryTimeoutEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Builtin(inner) => write!(f, "{}", inner),
+            Self::Custom(_) => write!(f, "CustomQueryTimeout"),
+        }
+    }
+}
+
+impl QueryTimeout for QueryTimeoutEnum {
+    fn should_exit(&self) -> bool {
+        match self {
+            Self::Builtin(inner) => inner.should_exit(),
+            Self::Custom(inner) => inner.should_exit(),
+        }
+    }
 }

@@ -142,7 +142,7 @@ where
         let inner = Mutex::new(Inner { leaf_slices });
         Ok(Self {
             reader_context: context,
-            similarity: Arc::new(SimilarityEnum::BM25(BM25Similarity::new()?)),
+            similarity: Arc::new(BM25Similarity::new()?.into()),
             inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
