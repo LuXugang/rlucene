@@ -68,12 +68,6 @@ where
         self.main.length()
     }
 
-    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
-        Err(LuceneError::unsupported_operation(
-            "BufferedChecksumIndexInput does not support slicing",
-        ))
-    }
-
     type RandomAccessSlice = DummyIndexInput;
 
     fn random_access_slice(

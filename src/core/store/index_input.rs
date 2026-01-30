@@ -81,7 +81,9 @@ pub trait IndexInput: DataInput + TryClone {
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self>;
+    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
+        Err(LuceneError::unsupported_operation("not support slicing"))
+    }
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used
     /// by [`CompoundFormat`](crate::core::codecs::compound_format)
     /// implementations to honor the [`ReadAdvice`] of each file within the
@@ -682,10 +684,6 @@ mod tests {
 
         fn length(&self) -> usize {
             self.len
-        }
-
-        fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
-            Err(LuceneError::unsupported_operation(""))
         }
 
         type RandomAccessSlice = DummyIndexInput;

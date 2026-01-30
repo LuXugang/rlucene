@@ -438,10 +438,6 @@ where
         self.inf.lock().length()
     }
 
-    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self> {
-        Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
-    }
-
     type RandomAccessSlice = DummyRandomAccessInput;
 
     fn random_access_slice(
