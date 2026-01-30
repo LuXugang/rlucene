@@ -38,7 +38,6 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2};
@@ -121,23 +120,21 @@ impl QueryBase for TermQuery {
         buffer
     }
 
-    type Weight<IRC, QCP, QC>
+    type Weight<IRC, QC>
         = TermWeight<IRC>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<IRC, QCP, QC>(
+    fn create_weight<IRC, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QC>>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -149,10 +146,9 @@ impl QueryBase for TermQuery {
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
     }
 
-    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -180,15 +176,14 @@ impl<IRC> TermWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    pub fn new<QCP, QC>(
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+    pub fn new<QC>(
+        searcher: &IndexSearcher<IRC, QC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
         query: TermQuery,
     ) -> Result<Self>
     where
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
         let similarity = searcher.get_similarity();

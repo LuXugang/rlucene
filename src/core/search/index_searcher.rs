@@ -33,7 +33,7 @@ use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::{Query, QueryBase};
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -74,17 +74,16 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
     debug_assert!(five_percent <= i64::MAX as u64);
     std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
-pub struct IndexSearcher<IRC, QCP, QC>
+pub struct IndexSearcher<IRC, QC>
 where
     IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
     pub reader_context: IRC,
     similarity: Arc<SimilarityEnum>,
     inner: Mutex<Inner>,
     query_timeout: Option<QueryTimeoutEnum>,
-    query_caching_policy: Arc<QCP>,
+    query_caching_policy: Arc<QueryCachingPolicyEnum>,
     query_cache: Option<QC>,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
     // this variable volatile since joining these threads should ensure a happens-before relationship
@@ -95,11 +94,8 @@ where
 pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
-pub type DefaultIndexSearcher<IRC> = IndexSearcher<
-    IRC,
-    UsageTrackingQueryCachingPolicy,
-    Arc<LRUQueryCache<MinSegmentSizePredicate>>,
->;
+pub type DefaultIndexSearcher<IRC> =
+    IndexSearcher<IRC, Arc<LRUQueryCache<MinSegmentSizePredicate>>>;
 impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
@@ -142,17 +138,16 @@ where
             similarity: Arc::new(BM25Similarity::new()?.into()),
             inner,
             query_timeout: None,
-            query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
+            query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
             query_cache: Some(lru_query_cache),
             partial_result: AtomicBool::new(false),
         })
     }
 }
 
-impl<IRC, QCP, QC> IndexSearcher<IRC, QCP, QC>
+impl<IRC, QC> IndexSearcher<IRC, QC>
 where
     IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
@@ -544,7 +539,7 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<IndexSearcherWeight<QueryBaseWeight<T, IRC, QCP, QC>, IRC, QCP, QC>>
+    ) -> Result<IndexSearcherWeight<QueryBaseWeight<T, IRC, QC>, IRC, QC>>
     where
         T: QueryBase,
     {
@@ -556,7 +551,7 @@ where
         &self,
         weight: W,
         score_mode: ScoreMode,
-    ) -> IndexSearcherWeight<W, IRC, QCP, QC>
+    ) -> IndexSearcherWeight<W, IRC, QC>
     where
         W: Weight<IRC::LeafReader>,
     {
@@ -639,24 +634,24 @@ where
     }
 }
 
-pub(crate) type IndexSearcherWeight<W, IRC, QCP, QC> =
-    WeightEnum2<<QC as QueryCache>::Weight<W, Arc<QCP>, IRCLeafReader<IRC>>, W>;
-pub type IndexSearcherWeightSs<W, IRC, QCP, QC> = <IndexSearcherWeight<W, IRC, QCP, QC> as Weight<
+pub(crate) type IndexSearcherWeight<W, IRC, QC> =
+    WeightEnum2<<QC as QueryCache>::Weight<W, Arc<QueryCachingPolicyEnum>, IRCLeafReader<IRC>>, W>;
+pub type IndexSearcherWeightSs<W, IRC, QC> = <IndexSearcherWeight<W, IRC, QC> as Weight<
     <IRC as IndexReaderContext>::LeafReader,
 >>::ScorerSupplier;
-pub type IndexSearcherWeightSsScorer<W, IRC, QCP, QC> =
-    <IndexSearcherWeightSs<W, IRC, QCP, QC> as ScorerSupplier<
+pub type IndexSearcherWeightSsScorer<W, IRC, QC> =
+    <IndexSearcherWeightSs<W, IRC, QC> as ScorerSupplier<
         <IRC as IndexReaderContext>::LeafReader,
     >>::Scorer;
-pub type IndexSearcherWeightSsBulkScorer<W, IRC, QCP, QC> =
-    <IndexSearcherWeightSs<W, IRC, QCP, QC> as ScorerSupplier<
+pub type IndexSearcherWeightSsBulkScorer<W, IRC, QC> =
+    <IndexSearcherWeightSs<W, IRC, QC> as ScorerSupplier<
         <IRC as IndexReaderContext>::LeafReader,
     >>::BulkScorer;
 
-pub type IndexSearcherWeightSsScorerTpi<W, IRC, QCP, QC> =
-    <IndexSearcherWeightSsScorer<W, IRC, QCP, QC> as Scorer>::TwoPhaseIter;
-pub type IndexSearcherWeightSsScorerDisi<W, IRC, QCP, QC> =
-    <IndexSearcherWeightSsScorer<W, IRC, QCP, QC> as Scorer>::DocIdSetIterator;
+pub type IndexSearcherWeightSsScorerTpi<W, IRC, QC> =
+    <IndexSearcherWeightSsScorer<W, IRC, QC> as Scorer>::TwoPhaseIter;
+pub type IndexSearcherWeightSsScorerDisi<W, IRC, QC> =
+    <IndexSearcherWeightSsScorer<W, IRC, QC> as Scorer>::DocIdSetIterator;
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.

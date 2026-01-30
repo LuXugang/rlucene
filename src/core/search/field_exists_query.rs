@@ -35,7 +35,6 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -110,32 +109,29 @@ impl QueryBase for FieldExistsQuery {
         format!("FieldExistsQuery [field={}]", self.field)
     }
 
-    type Weight<IRC, QCP, QC>
+    type Weight<IRC, QC>
         = FieldExistsWeight<IRC::LeafReader>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<IRC, QCP, QC>(
+    fn create_weight<IRC, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QC>>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
         Ok(FieldExistsWeight::new(boost, self, *score_mode))
     }
 
-    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -399,7 +395,6 @@ mod test {
     use crate::core::search::field_exists_query::FieldExistsQuery;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::query::Query;
-    use crate::core::search::query_caching_policy::QueryCachingPolicy;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::sort::Sort;
     use crate::core::search::term_query::TermQuery;
@@ -722,15 +717,14 @@ mod test {
         Ok(())
     }
 
-    fn assert_same_matches<IRC, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+    fn assert_same_matches<IRC, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,

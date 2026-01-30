@@ -26,7 +26,6 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::QueryCache;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
@@ -320,14 +319,13 @@ where
 
 pub type TermStateTerm<T> =
     TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC, QCP, QC>(
-    index_searcher: &IndexSearcher<IRC, QCP, QC>,
+pub fn build<IRC, QC>(
+    index_searcher: &IndexSearcher<IRC, QC>,
     term: Arc<Term>,
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
-    QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
     let context = index_searcher.get_top_reader_context();

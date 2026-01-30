@@ -80,7 +80,11 @@ impl QueryCachingPolicyEnum {
         Self::Custom(Box::new(p))
     }
 }
-
+impl From<UsageTrackingQueryCachingPolicy> for QueryCachingPolicyEnum {
+    fn from(v: UsageTrackingQueryCachingPolicy) -> Self {
+        QueryCachingPolicyEnum::UsageTracking(v)
+    }
+}
 impl QueryCachingPolicy for QueryCachingPolicyEnum {
     fn on_use(&self, query: &Query) {
         match self {

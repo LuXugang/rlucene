@@ -52,7 +52,6 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
 use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase};
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -135,23 +134,21 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s
     }
 
-    type Weight<IRC, QCP, QC>
+    type Weight<IRC, QC>
         = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC::LeafReader>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<IRC, QCP, QC>(
+    fn create_weight<IRC, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QC>>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -183,10 +180,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ))
     }
 
-    fn rewrite<IRC, QCP, QC>(mut self, searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QC>(mut self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -1301,10 +1297,9 @@ pub enum FallbackQuery {
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
 }
 impl FallbackQuery {
-    fn rewrite<IRC, QCP, QC>(self, searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QC>(self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
     {
@@ -1371,7 +1366,6 @@ mod tests {
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
     use crate::core::search::query::{Query, QueryBase};
-    use crate::core::search::query_caching_policy::QueryCachingPolicy;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::sort::Sort;
@@ -1473,15 +1467,14 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_hits<IRC, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+    fn assert_same_hits<IRC, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
@@ -1607,14 +1600,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_number_of_hits<IRC, QCP, QC>(
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+    fn assert_number_of_hits<IRC, QC>(
+        searcher: &IndexSearcher<IRC, QC>,
         query: impl Into<Query>,
         number_of_hits: i32,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
         let query = query.into();
@@ -1981,14 +1973,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_count<IRC, QCP, QC>(
+    fn assert_same_count<IRC, QC>(
         weight1: &impl Weight<IRC::LeafReader>,
         weight2: &impl Weight<IRC::LeafReader>,
-        searcher: &IndexSearcher<IRC, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QC>,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
         for ctx in searcher.get_leaf_contexts()? {
