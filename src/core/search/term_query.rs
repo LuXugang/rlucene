@@ -45,7 +45,9 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{SimScorer, SimScorerEnum2, Similarity};
+use crate::core::search::similarities_impl::similarities::{
+    SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
+};
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -120,24 +122,22 @@ impl QueryBase for TermQuery {
         buffer
     }
 
-    type Weight<S, IRC, QCP, QC>
-        = TermWeight<S, IRC>
+    type Weight<IRC, QCP, QC>
+        = TermWeight<IRC>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -151,13 +151,9 @@ impl QueryBase for TermQuery {
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -173,24 +169,22 @@ impl QueryBase for TermQuery {
         todo!()
     }
 }
-pub struct TermWeight<S, IRC>
+pub struct TermWeight<IRC>
 where
-    S: Similarity,
     IRC: IndexReaderContext,
 {
-    similarity: Arc<S>,
-    sim_scorer: Option<Arc<TermQuerySimScorer<S::SimScorer>>>,
+    similarity: Arc<SimilarityEnum>,
+    sim_scorer: Option<Arc<TermQuerySimScorer>>,
     term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
     score_mode: ScoreMode,
     parent_query: Arc<Query>,
 }
-impl<S, IRC> TermWeight<S, IRC>
+impl<IRC> TermWeight<IRC>
 where
-    S: Similarity,
     IRC: IndexReaderContext,
 {
     pub fn new<QT, QCP, QC>(
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
@@ -306,9 +300,8 @@ where
     }
 }
 
-impl<S, IRC> SegmentCacheable<IRC::LeafReader> for TermWeight<S, IRC>
+impl<IRC> SegmentCacheable<IRC::LeafReader> for TermWeight<IRC>
 where
-    S: Similarity,
     IRC: IndexReaderContext,
 {
     fn is_cacheable(&self, _ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
@@ -316,9 +309,8 @@ where
     }
 }
 
-impl<S, IRC> Weight<IRC::LeafReader> for TermWeight<S, IRC>
+impl<IRC> Weight<IRC::LeafReader> for TermWeight<IRC>
 where
-    S: Similarity,
     IRC: IndexReaderContext,
 {
     type Matches = DummyMatches;
@@ -396,7 +388,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = TermSs<IRC, S>;
+    type ScorerSupplier = TermSs<IRC>;
 
     fn scorer_supplier(
         &self,
@@ -444,34 +436,30 @@ where
         }
     }
 }
-pub type TermSs<IRC, S> = TermScorerSupplier<IRC, S>;
-pub type TermBulkScorer<IRC, S> =
-    <TermSs<IRC, S> as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;
-pub type TermSsScorer<IRC, S> = <TermSs<IRC, S> as ScorerSupplier<IRCLeafReader<IRC>>>::Scorer;
-pub type TermSsScorerDisi<IRC, S> = <TermSsScorer<IRC, S> as Scorer>::DocIdSetIterator;
-pub type TermSsScorerDisiRef<'a, IRC, S> =
-    <TermSsScorer<IRC, S> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type TermSsScorerDisiMut<'a, IRC, S> =
-    <TermSsScorer<IRC, S> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type TermSs<IRC> = TermScorerSupplier<IRC>;
+pub type TermBulkScorer<IRC> =
+    <TermSs<IRC> as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;
+pub type TermSsScorer<IRC> = <TermSs<IRC> as ScorerSupplier<IRCLeafReader<IRC>>>::Scorer;
+pub type TermSsScorerDisi<IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIterator;
+pub type TermSsScorerDisiRef<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorRef<'a>;
+pub type TermSsScorerDisiMut<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorMut<'a>;
 
-pub struct TermScorerSupplier<IRC, S>
+pub struct TermScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
     top_level_scoring_clause: bool,
     term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
     // wrap with Option to easily take it when needed
     prepare_state: Option<PrepareState<IRC::LeafReader>>,
     term: Arc<Term>,
-    sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
+    sim_scorer: Arc<TermQuerySimScorer>,
     score_mode: ScoreMode,
     terms_enum: Option<LRTermsEnum<IRC::LeafReader>>,
 }
-impl<IRC, S> TermScorerSupplier<IRC, S>
+impl<IRC> TermScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -479,7 +467,7 @@ where
         term_states: Arc<Mutex<TermStates<IRCTermState<IRC>>>>,
         prepare_state: PrepareState<IRC::LeafReader>,
         term: Arc<Term>,
-        sim_scorer: Arc<TermQuerySimScorer<S::SimScorer>>,
+        sim_scorer: Arc<TermQuerySimScorer>,
         score_mode: ScoreMode,
     ) -> Self {
         Self {
@@ -529,12 +517,11 @@ where
         Ok(Some(()))
     }
 }
-impl<IRC, S> ScorerSupplier<IRC::LeafReader> for TermScorerSupplier<IRC, S>
+impl<IRC> ScorerSupplier<IRC::LeafReader> for TermScorerSupplier<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
-    type Scorer = TermScorerEnum<IRC::LeafReader, S::SimScorer, EmptyDISI, DummyTwoPhaseIterator>;
+    type Scorer = TermScorerEnum<IRC::LeafReader, EmptyDISI, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
     fn get(
@@ -554,7 +541,6 @@ where
                 if self.score_mode == ScoreMode::TopScores {
                     Ok(TermScorerEnum::<
                         IRC::LeafReader,
-                        S::SimScorer,
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::new(
@@ -572,7 +558,6 @@ where
 
                     Ok(TermScorerEnum::<
                         IRC::LeafReader,
-                        S::SimScorer,
                         EmptyDISI,
                         DummyTwoPhaseIterator,
                     >::A(TermScorer::with_postings(
@@ -587,7 +572,6 @@ where
             },
             None => Ok(TermScorerEnum::<
                 IRC::LeafReader,
-                S::SimScorer,
                 EmptyDISI,
                 DummyTwoPhaseIterator,
             >::B(ConstantScoreScorer::with_disi(
@@ -623,14 +607,9 @@ impl SimScorer for SimScorerImpl {
         0f32
     }
 }
-pub(crate) type TermQuerySimScorer<S> = SimScorerEnum2<S, SimScorerImpl>;
+pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
 
-pub type TermScorerEnum<LR, SS, DISI, TPI> = ScorerEnum2<
-    TermScorer<
-        LRPosting<LR>,
-        TermQuerySimScorer<SS>,
-        LRNormNumericDocValues<LR>,
-        LRImpactsEnum<LR>,
-    >,
+pub type TermScorerEnum<LR, DISI, TPI> = ScorerEnum2<
+    TermScorer<LRPosting<LR>, TermQuerySimScorer, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
     ConstantScoreScorer<DISI, TPI>,
 >;

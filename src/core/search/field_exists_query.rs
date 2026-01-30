@@ -42,7 +42,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -112,23 +111,21 @@ impl QueryBase for FieldExistsQuery {
         format!("FieldExistsQuery [field={}]", self.field)
     }
 
-    type Weight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
         = FieldExistsWeight<IRC::LeafReader>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -137,13 +134,9 @@ impl QueryBase for FieldExistsQuery {
         Ok(FieldExistsWeight::new(boost, self, *score_mode))
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -412,7 +405,6 @@ mod test {
     use crate::core::search::query::Query;
     use crate::core::search::query_caching_policy::QueryCachingPolicy;
     use crate::core::search::score_doc::ScoreDocLike;
-    use crate::core::search::similarities_impl::similarities::Similarity;
     use crate::core::search::sort::Sort;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::top_docs::TopDocsLike;
@@ -734,15 +726,14 @@ mod test {
         Ok(())
     }
 
-    fn assert_same_matches<S, IRC, QT, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    fn assert_same_matches<IRC, QT, QCP, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,

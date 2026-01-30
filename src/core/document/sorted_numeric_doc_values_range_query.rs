@@ -46,7 +46,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
@@ -110,23 +109,21 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         out
     }
 
-    type Weight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
         = SortedNumericDocValuesRangeQueryWeight<IRC::LeafReader>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -139,13 +136,9 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         ))
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,

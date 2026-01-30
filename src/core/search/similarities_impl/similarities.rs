@@ -151,8 +151,10 @@ pub trait Similarity: Display {
         term_stats: &[TermStatistics],
     ) -> Self::SimScorer;
 }
+pub type DynSimScorer = dyn SimScorer + Send + Sync;
+pub type BoxSimScorer = Box<DynSimScorer>;
 pub type SimilaritySimScorer = <SimilarityEnum as Similarity>::SimScorer;
-pub type CustomSimilarity = Box<dyn Similarity<SimScorer = Box<dyn SimScorer>>>;
+pub type CustomSimilarity = Box<dyn Similarity<SimScorer = Box<DynSimScorer>> + Send + Sync>;
 pub enum SimilarityEnum {
     BM25(BM25Similarity),
     Custom(CustomSimilarity),
@@ -160,7 +162,7 @@ pub enum SimilarityEnum {
 impl SimilarityEnum {
     pub fn custom<S>(sim: S) -> Self
     where
-        S: Similarity<SimScorer = Box<dyn SimScorer>> + 'static,
+        S: Similarity<SimScorer = Box<DynSimScorer>> + Send + Sync + 'static,
     {
         Self::Custom(Box::new(sim))
     }
@@ -190,7 +192,7 @@ impl Similarity for SimilarityEnum {
         }
     }
 
-    type SimScorer = SimScorerEnum2<BM25Scorer, Box<dyn SimScorer>>;
+    type SimScorer = SimScorerEnum2<BM25Scorer, BoxSimScorer>;
 
     fn scorer(
         &self,

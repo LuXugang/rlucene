@@ -38,7 +38,6 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_doc::ScoreDocLike;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_docs::TopDocsLike;
@@ -496,15 +495,14 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     Ok(())
 }
 
-fn assert_same_matches<S, IRC, QT, QCP, QC, T1, T2>(
-    searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+fn assert_same_matches<IRC, QT, QCP, QC, T1, T2>(
+    searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     q1: T1,
     q2: T2,
     scores: bool,
 ) -> Result<()>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,

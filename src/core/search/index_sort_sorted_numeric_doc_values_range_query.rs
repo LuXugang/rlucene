@@ -59,7 +59,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum4};
@@ -137,24 +136,22 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s
     }
 
-    type Weight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
         = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC::LeafReader>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -188,13 +185,12 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ))
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
+    fn rewrite<IRC, QT, QCP, QC>(
         mut self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -1311,13 +1307,9 @@ pub enum FallbackQuery {
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
 }
 impl FallbackQuery {
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -1390,7 +1382,6 @@ mod tests {
     use crate::core::search::query_caching_policy::QueryCachingPolicy;
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::score_mode::ScoreMode;
-    use crate::core::search::similarities_impl::similarities::Similarity;
     use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
     use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
@@ -1490,15 +1481,14 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_hits<S, IRC, QT, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    fn assert_same_hits<IRC, QT, QCP, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -1626,14 +1616,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_number_of_hits<IRC, S, QT, QCP, QC>(
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+    fn assert_number_of_hits<IRC, QT, QCP, QC>(
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         query: impl Into<Query>,
         number_of_hits: i32,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -2002,14 +1991,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_count<IRC, S, QT, QCP, QC>(
+    fn assert_same_count<IRC, QT, QCP, QC>(
         weight1: &impl Weight<IRC::LeafReader>,
         weight2: &impl Weight<IRC::LeafReader>,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,

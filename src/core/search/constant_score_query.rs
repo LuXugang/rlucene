@@ -61,7 +61,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum9, TwoPhaseState};
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum9};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermSs, TermWeight};
 use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum2, WeightEnum10};
 use crate::core::util::bits::Bits;
@@ -131,23 +130,21 @@ impl QueryBase for ConstantScoreQuery {
         format!("ConstantScore({})", inner)
     }
 
-    type Weight<S, IRC, QCP, QC>
-        = ConstantScoreQueryWeight<BaseQueryWeight<S, IRC>, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
+        = ConstantScoreQueryWeight<BaseQueryWeight<IRC>, IRC, QCP, QC>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -179,13 +176,12 @@ impl QueryBase for ConstantScoreQuery {
         Ok(v)
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
+    fn rewrite<IRC, QT, QCP, QC>(
         mut self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -697,10 +693,10 @@ where
     }
 }
 
-pub type QueryBaseWeight<Q, S, IRC, QCP, QC> = <Q as QueryBase>::Weight<S, IRC, QCP, QC>;
+pub type QueryBaseWeight<Q, IRC, QCP, QC> = <Q as QueryBase>::Weight<IRC, QCP, QC>;
 
-pub type QueryWeight1<S, IRC, QCP, QC> = WeightEnum10<
-    TermWeight<S, IRC>,
+pub type QueryWeight1<IRC, QCP, QC> = WeightEnum10<
+    TermWeight<IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
     MatchNoDocsWeight<<IRC as IndexReaderContext>::LeafReader>,
@@ -709,12 +705,11 @@ pub type QueryWeight1<S, IRC, QCP, QC> = WeightEnum10<
     SortedSetDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
-    ConstantScoreQueryWeight<BaseQueryWeight<S, IRC>, IRC, QCP, QC>,
+    ConstantScoreQueryWeight<BaseQueryWeight<IRC>, IRC, QCP, QC>,
 >;
-impl<S, IRC> SegmentCacheable<IRC::LeafReader> for BaseQueryWeight<S, IRC>
+impl<IRC> SegmentCacheable<IRC::LeafReader> for BaseQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<IRC::LeafReader>) -> Result<bool> {
         match self {
@@ -731,12 +726,11 @@ where
     }
 }
 
-pub enum BaseQueryWeight<S, IRC>
+pub enum BaseQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
-    Term(TermWeight<S, IRC>),
+    Term(TermWeight<IRC>),
     MatchAll(MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>),
     PointRange(PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>),
     MatchNoDocs(MatchNoDocsWeight<<IRC as IndexReaderContext>::LeafReader>),
@@ -755,10 +749,9 @@ where
     FieldExists(FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>),
 }
 
-impl<S, IRC> Weight<IRC::LeafReader> for BaseQueryWeight<S, IRC>
+impl<IRC> Weight<IRC::LeafReader> for BaseQueryWeight<IRC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
 {
     type Matches = DummyMatches;
 
@@ -848,7 +841,7 @@ where
     }
 
     type ScorerSupplier = ScorerSupplierEnum9<
-        TermSs<IRC, S>,
+        TermSs<IRC>,
         MatchAllSs,
         PointRangeSs<IRC::LeafReader>,
         MatchNoDocsSs,
@@ -960,16 +953,15 @@ where
     }
 }
 impl Query {
-    pub(crate) fn create_weight_no_constant_score<S, IRC, QT, QCP, QC>(
+    pub(crate) fn create_weight_no_constant_score<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<BaseQueryWeight<S, IRC>>
+    ) -> Result<BaseQueryWeight<IRC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,

@@ -25,7 +25,6 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::core_helper::HasIdentity;
 
 #[derive(Debug, Clone)]
@@ -69,24 +68,22 @@ impl QueryBase for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Weight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
         = DummyWeight<IRC::LeafReader>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> crate::core::util::error::lucene_error::Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -95,13 +92,12 @@ impl QueryBase for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
+    fn rewrite<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> crate::core::util::error::lucene_error::Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,

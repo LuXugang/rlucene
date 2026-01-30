@@ -28,7 +28,6 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::QueryCache;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
@@ -322,14 +321,13 @@ where
 
 pub type TermStateTerm<T> =
     TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC, S, QT, QCP, QC>(
-    index_searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+pub fn build<IRC, QT, QCP, QC>(
+    index_searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     term: Arc<Term>,
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,

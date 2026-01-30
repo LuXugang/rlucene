@@ -45,7 +45,6 @@ use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::{TermQuery, TermWeight};
 use crate::core::search::weight::{Weight, WeightEnum10};
 use crate::core::util::core_helper::HasIdentity;
@@ -57,22 +56,20 @@ use std::sync::Arc;
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
-    type Weight<S, IRC, QCP, QC>: Weight<IRC::LeafReader>
+    type Weight<IRC, QCP, QC>: Weight<IRC::LeafReader>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -83,13 +80,12 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
             std::any::type_name::<Self>()
         )))
     }
-    fn rewrite<IRC, S, QT, QCP, QC>(
+    fn rewrite<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -301,24 +297,22 @@ impl QueryBase for Query {
         }
     }
 
-    type Weight<S, IRC, QCP, QC>
-        = QueryWeight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
+        = QueryWeight<IRC, QCP, QC>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -389,13 +383,9 @@ impl QueryBase for Query {
         }
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -484,24 +474,22 @@ where
         (**self).as_string(field)
     }
 
-    type Weight<S, IRC, QCP, QC>
-        = Q::Weight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
+        = Q::Weight<IRC, QCP, QC>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -513,13 +501,9 @@ where
         )))
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
-        self,
-        _searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -537,8 +521,8 @@ where
         (**self).visit(visitor)
     }
 }
-pub type QueryWeight<S, IRC, QCP, QC> = WeightEnum10<
-    TermWeight<S, IRC>,
+pub type QueryWeight<IRC, QCP, QC> = WeightEnum10<
+    TermWeight<IRC>,
     MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
     PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
     MatchNoDocsWeight<<IRC as IndexReaderContext>::LeafReader>,
@@ -547,5 +531,5 @@ pub type QueryWeight<S, IRC, QCP, QC> = WeightEnum10<
     SortedSetDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
     FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
-    ConstantScoreQueryWeight<BaseQueryWeight<S, IRC>, IRC, QCP, QC>,
+    ConstantScoreQueryWeight<BaseQueryWeight<IRC>, IRC, QCP, QC>,
 >;

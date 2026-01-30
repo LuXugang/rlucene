@@ -40,7 +40,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
-use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
@@ -75,16 +75,15 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
     debug_assert!(five_percent <= i64::MAX as u64);
     std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
-pub struct IndexSearcher<IRC, S, QT, QCP, QC>
+pub struct IndexSearcher<IRC, QT, QCP, QC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
     pub reader_context: IRC,
-    similarity: Arc<S>,
+    similarity: Arc<SimilarityEnum>,
     inner: Mutex<Inner>,
     query_timeout: Option<QT>,
     query_caching_policy: Arc<QCP>,
@@ -100,7 +99,6 @@ pub(crate) struct Inner {
 }
 pub type DefaultIndexSearcher<IRC> = IndexSearcher<
     IRC,
-    BM25Similarity,
     DummyQueryTimeout,
     UsageTrackingQueryCachingPolicy,
     Arc<LRUQueryCache<MinSegmentSizePredicate>>,
@@ -144,7 +142,7 @@ where
         let inner = Mutex::new(Inner { leaf_slices });
         Ok(Self {
             reader_context: context,
-            similarity: Arc::new(BM25Similarity::new()?),
+            similarity: Arc::new(SimilarityEnum::BM25(BM25Similarity::new()?)),
             inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?),
@@ -154,10 +152,9 @@ where
     }
 }
 
-impl<IRC, S, QT, QCP, QC> IndexSearcher<IRC, S, QT, QCP, QC>
+impl<IRC, QT, QCP, QC> IndexSearcher<IRC, QT, QCP, QC>
 where
     IRC: IndexReaderContext,
-    S: Similarity,
     QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,
@@ -277,7 +274,7 @@ where
     pub fn get_top_reader_context(&self) -> &IRC {
         &self.reader_context
     }
-    pub fn get_similarity(&self) -> Arc<S> {
+    pub fn get_similarity(&self) -> Arc<SimilarityEnum> {
         self.similarity.clone()
     }
 
@@ -551,7 +548,7 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<IndexSearcherWeight<QueryBaseWeight<T, S, IRC, QCP, QC>, IRC, QCP, QC>>
+    ) -> Result<IndexSearcherWeight<QueryBaseWeight<T, IRC, QCP, QC>, IRC, QCP, QC>>
     where
         T: QueryBase,
     {

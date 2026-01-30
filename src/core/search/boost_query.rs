@@ -33,7 +33,6 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
@@ -97,23 +96,21 @@ impl QueryBase for BoostQuery {
         s
     }
 
-    type Weight<S, IRC, QCP, QC>
-        = QueryWeight<S, IRC, QCP, QC>
+    type Weight<IRC, QCP, QC>
+        = QueryWeight<IRC, QCP, QC>
     where
-        S: Similarity,
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<S, IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QT, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<S, IRC, QCP, QC>>
+    ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
@@ -127,13 +124,12 @@ impl QueryBase for BoostQuery {
         )
     }
 
-    fn rewrite<IRC, S, QT, QCP, QC>(
+    fn rewrite<IRC, QT, QCP, QC>(
         mut self,
-        searcher: &IndexSearcher<IRC, S, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        S: Similarity,
         QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
