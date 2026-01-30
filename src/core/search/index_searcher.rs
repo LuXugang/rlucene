@@ -635,7 +635,7 @@ where
 }
 
 pub(crate) type IndexSearcherWeight<W, IRC, QC> =
-    WeightEnum2<<QC as QueryCache>::Weight<W, Arc<QueryCachingPolicyEnum>, IRCLeafReader<IRC>>, W>;
+    WeightEnum2<<QC as QueryCache>::Weight<W, IRCLeafReader<IRC>>, W>;
 pub type IndexSearcherWeightSs<W, IRC, QC> = <IndexSearcherWeight<W, IRC, QC> as Weight<
     <IRC as IndexReaderContext>::LeafReader,
 >>::ScorerSupplier;

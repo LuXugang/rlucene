@@ -34,7 +34,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{IdentityQuery, Query, QueryBase};
 use crate::core::search::query_cache::QueryCache;
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
@@ -581,17 +581,15 @@ impl<P> QueryCache for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta>,
 {
-    type Weight<W, QCP, LR>
-        = CachingWrapperWeight<W, QCP, P, LR>
+    type Weight<W, LR>
+        = CachingWrapperWeight<W, P, LR>
     where
         W: Weight<LR>,
-        QCP: QueryCachingPolicy,
         LR: LeafReader;
 
-    fn do_cache<W, QCP, LR>(&self, weight: W, policy: QCP) -> Self::Weight<W, QCP, LR>
+    fn do_cache<W, LR>(&self, weight: W, policy: Arc<QueryCachingPolicyEnum>) -> Self::Weight<W, LR>
     where
         W: Weight<LR>,
-        QCP: QueryCachingPolicy,
         LR: LeafReader,
     {
         CachingWrapperWeight::new(weight, policy, self.clone())
@@ -671,28 +669,30 @@ impl Accountable for LeafCache {
         todo!()
     }
 }
-pub struct CachingWrapperWeight<W, QCP, P, LR>
+pub struct CachingWrapperWeight<W, P, LR>
 where
     W: Weight<LR>,
-    QCP: QueryCachingPolicy,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
     in_: W,
     base: ConstantScoreWeight,
-    policy: QCP,
+    policy: Arc<QueryCachingPolicyEnum>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
     phantom_data: PhantomData<LR>,
 }
-impl<W, QCP, P, LR> CachingWrapperWeight<W, QCP, P, LR>
+impl<W, P, LR> CachingWrapperWeight<W, P, LR>
 where
     W: Weight<LR>,
-    QCP: QueryCachingPolicy,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
-    pub(crate) fn new(in_: W, policy: QCP, lru_cache: Arc<LRUQueryCache<P>>) -> Self {
+    pub(crate) fn new(
+        in_: W,
+        policy: Arc<QueryCachingPolicyEnum>,
+        lru_cache: Arc<LRUQueryCache<P>>,
+    ) -> Self {
         Self {
             in_,
             base: ConstantScoreWeight::new(1.0),
@@ -722,10 +722,9 @@ where
     }
 }
 
-impl<W, QCP, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, QCP, P, LR>
+impl<W, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, P, LR>
 where
     W: Weight<LR>,
-    QCP: QueryCachingPolicy,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
@@ -734,10 +733,9 @@ where
     }
 }
 
-impl<W, QCP, P, LR> Weight<LR> for CachingWrapperWeight<W, QCP, P, LR>
+impl<W, P, LR> Weight<LR> for CachingWrapperWeight<W, P, LR>
 where
     W: Weight<LR>,
-    QCP: QueryCachingPolicy,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {

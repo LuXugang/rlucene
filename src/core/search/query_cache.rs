@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use crate::core::search::weight::Weight;
+use std::sync::Arc;
 
 /// A cache for queries.
 pub trait QueryCache {
-    type Weight<W, QCP, LR>: Weight<LR>
+    type Weight<W, LR>: Weight<LR>
     where
         W: Weight<LR>,
-        QCP: QueryCachingPolicy,
         LR: LeafReader;
 
     /// Return a wrapper around the provided `weight` that will cache matching documents
@@ -31,9 +31,12 @@ pub trait QueryCache {
     /// **Note:** The returned weight will only be equivalent if scores are not needed.
     ///
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache<W, QCP, LR>(&self, weight: W, policy: QCP) -> Self::Weight<W, QCP, LR>
+    fn do_cache<W, LR>(
+        &self,
+        weight: W,
+        policy: Arc<QueryCachingPolicyEnum>,
+    ) -> Self::Weight<W, LR>
     where
         W: Weight<LR>,
-        QCP: QueryCachingPolicy,
         LR: LeafReader;
 }
