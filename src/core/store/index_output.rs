@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
-
-use crate::core::store::DataInput;
 use crate::core::store::data_output::DataOutput;
+use crate::core::store::{DataInput, OutputStreamIndexOutput};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::fs::File;
 
 /// A `DataOutput` for appending data to a file in a `Directory`.
 ///
@@ -65,6 +65,21 @@ pub trait IndexOutput: DataOutput + Display + Closeable {
         Ok(aligned_offset)
     }
 }
+pub type DynIndexOutput = dyn IndexOutput + Send + Sync;
+pub type CustomIndexOutput = Box<DynIndexOutput>;
+pub enum IndexOutputEnum {
+    Fs(OutputStreamIndexOutput<File>),
+    Custom(CustomIndexOutput),
+}
+impl IndexOutputEnum {
+    pub fn custom<O>(out: O) -> Self
+    where
+        O: IndexOutput + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(out))
+    }
+}
+
 /// Aligns the given `offset` to multiples of `alignment_bytes` bytes by
 /// rounding up. The alignment must be a power of 2.
 ///

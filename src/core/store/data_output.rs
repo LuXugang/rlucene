@@ -207,20 +207,15 @@ pub trait DataOutput {
     }
 
     /// Copy numBytes bytes from input to ourselves.
-    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
-        let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
-        let mut left = num_bytes;
-        while left > 0 {
-            let to_copy = if left > COPY_BUFFER_SIZE {
-                COPY_BUFFER_SIZE
-            } else {
-                left
-            };
-            input.read_bytes(&mut buffer, 0, to_copy)?;
-            self.write_bytes_with_len(&buffer, to_copy)?;
-            left -= to_copy;
-        }
-        Ok(())
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
+    where
+        Self: Sized,
+    {
+        copy_bytes_impl(self, input, num_bytes)
+    }
+
+    fn copy_bytes_dyn(&mut self, input: &mut dyn DataInput, num_bytes: usize) -> Result<()> {
+        copy_bytes_impl(self, input, num_bytes)
     }
     /// Writes a `HashMap<String, String>`.
     ///
@@ -254,6 +249,21 @@ pub trait DataOutput {
         }
         Ok(())
     }
+}
+fn copy_bytes_impl<O, I>(out: &mut O, input: &mut I, num_bytes: usize) -> Result<()>
+where
+    O: DataOutput + ?Sized,
+    I: DataInput + ?Sized,
+{
+    let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
+    let mut left = num_bytes;
+    while left > 0 {
+        let to_copy = left.min(COPY_BUFFER_SIZE);
+        input.read_bytes(&mut buffer, 0, to_copy)?;
+        out.write_bytes_with_len(&buffer, to_copy)?;
+        left -= to_copy;
+    }
+    Ok(())
 }
 const COPY_BUFFER_SIZE: usize = 16384;
 
