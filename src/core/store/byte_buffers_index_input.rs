@@ -195,6 +195,8 @@ impl<B> IndexInput for ByteBuffersIndexInput<B>
 where
     B: AsRef<[u8]> + Clone,
 {
+    type IndexInput = ByteBuffersIndexInput<B>;
+
     fn get_file_pointer(&self) -> Result<usize> {
         self.data_input.position()
     }
@@ -207,7 +209,12 @@ where
         self.data_input.length()
     }
 
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: usize,
+        length: usize,
+    ) -> Result<Self::IndexInput> {
         Ok(ByteBuffersIndexInput::new(
             self.data_input.slice(offset, length)?,
             slice_description,

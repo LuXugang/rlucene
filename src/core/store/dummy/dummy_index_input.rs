@@ -56,6 +56,8 @@ impl crate::core::util::clone::TryClone for DummyIndexInput {
 }
 
 impl IndexInput for DummyIndexInput {
+    type IndexInput = DummyIndexInput;
+
     fn get_file_pointer(&self) -> Result<usize> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -68,7 +70,12 @@ impl IndexInput for DummyIndexInput {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn slice(&self, _slice_description: &str, __offset: usize, _length: usize) -> Result<Self> {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        __offset: usize,
+        _length: usize,
+    ) -> Result<Self::IndexInput> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

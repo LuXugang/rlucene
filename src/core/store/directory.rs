@@ -156,7 +156,7 @@ pub trait Directory: Display + Closeable + HasIdentity {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    type IndexInput: IndexInput;
+    type IndexInput: IndexInput<IndexInput = Self::IndexInput>;
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput>;
 
     /// Opens a checksum-computing stream for reading an existing file.

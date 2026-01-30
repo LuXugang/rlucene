@@ -57,6 +57,8 @@ impl<T> IndexInput for BufferedChecksumIndexInput<T>
 where
     T: IndexInput,
 {
+    type IndexInput = BufferedChecksumIndexInput<T>;
+
     fn get_file_pointer(&self) -> Result<usize> {
         self.main.get_file_pointer()
     }

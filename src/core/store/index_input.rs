@@ -41,6 +41,8 @@ use std::fmt::{Display, Formatter};
 /// - [`Directory`](crate::core::store::directory::Directory) for file-based
 ///   operations.
 pub trait IndexInput: DataInput + TryClone {
+    /// The index input type returned by slicing operations.
+    type IndexInput: IndexInput;
     /// Returns the current position in this file, where the next read will
     /// occur.
     ///
@@ -81,10 +83,12 @@ pub trait IndexInput: DataInput + TryClone {
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.
-    fn slice(&self, _slice_description: &str, _offset: usize, _length: usize) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    fn slice(
+        &self,
+        _slice_description: &str,
+        _offset: usize,
+        _length: usize,
+    ) -> Result<Self::IndexInput> {
         Err(LuceneError::unsupported_operation("not support slicing"))
     }
     /// Creates a slice with a specific [`ReadAdvice`]. This is typically used
@@ -105,10 +109,7 @@ pub trait IndexInput: DataInput + TryClone {
         offset: usize,
         length: usize,
         _read_advice: &ReadAdvice,
-    ) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    ) -> Result<Self::IndexInput> {
         self.slice(description, offset, length)
     }
     type RandomAccessSlice: RandomAccessInput;
@@ -326,6 +327,8 @@ macro_rules! either_index_input {
         where
             $( $T: IndexInput ),+
         {
+            type IndexInput = $name<$( $T::IndexInput ),+>;
+
             fn get_file_pointer(&self) -> Result<usize>{
                 match self {
                     $( Self::$Variant(inner) => inner.get_file_pointer(), )+
@@ -350,7 +353,12 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
+            fn slice(
+                &self,
+                slice_description: &str,
+                offset: usize,
+                length: usize,
+            ) -> Result<Self::IndexInput> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(
                         inner.slice(slice_description, offset, length)?,
@@ -364,7 +372,7 @@ macro_rules! either_index_input {
                 offset: usize,
                 length: usize,
                 read_advice: &ReadAdvice,
-            ) -> Result<Self> {
+            ) -> Result<Self::IndexInput> {
                 match self {
                     $( Self::$Variant(inner) => Ok($name::$Variant(inner.slice_with_read_advice(
                         description,
@@ -684,6 +692,8 @@ mod tests {
     }
 
     impl IndexInput for InterceptingIndexInput {
+        type IndexInput = InterceptingIndexInput;
+
         fn get_file_pointer(&self) -> Result<usize> {
             Ok(self.pos)
         }

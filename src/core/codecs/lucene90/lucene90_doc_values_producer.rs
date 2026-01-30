@@ -1064,7 +1064,7 @@ where
         }
     }
 
-    type DocValuesSkipper = Lucene90Skipper<I>;
+    type DocValuesSkipper = Lucene90Skipper<I::IndexInput>;
 
     fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
         let entry = self.skippers.get(&field.number);
@@ -2774,7 +2774,7 @@ where
 {
     entry: Arc<TermsDictEntry>,
     block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
-    bytes: I,
+    bytes: I::IndexInput,
     block_mask: u64,
     index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     index_bytes: I::RandomAccessSlice,

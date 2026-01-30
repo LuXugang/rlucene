@@ -680,6 +680,8 @@ impl<T> IndexInput for BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
+    type IndexInput = BufferedIndexInput<T>;
+
     fn get_file_pointer(&self) -> Result<usize> {
         Ok(self.pos)
     }
@@ -700,7 +702,12 @@ where
         self.sub_index_input.length()
     }
 
-    fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
+    fn slice(
+        &self,
+        slice_description: &str,
+        offset: usize,
+        length: usize,
+    ) -> Result<Self::IndexInput> {
         self.sub_index_input
             .slice(slice_description, offset, length)
     }

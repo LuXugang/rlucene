@@ -17,7 +17,7 @@
 use crate::core::index::knn_vector_values::DocIndexIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
@@ -695,7 +695,7 @@ pub trait IndexedDISIPolicy<I>
 where
     I: IndexInput,
 {
-    type Slice: MutAccess<I>;
+    type Slice: MutAccess<I::IndexInput>;
     type JumpTable: MutAccess<I::RandomAccessSlice>;
 }
 
@@ -705,7 +705,7 @@ impl<I> IndexedDISIPolicy<I> for Owned
 where
     I: IndexInput,
 {
-    type Slice = I;
+    type Slice = I::IndexInput;
     type JumpTable = I::RandomAccessSlice;
 }
 
@@ -713,7 +713,7 @@ impl<I> IndexedDISIPolicy<I> for Shared
 where
     I: IndexInput,
 {
-    type Slice = Arc<Mutex<I>>;
+    type Slice = Arc<Mutex<I::IndexInput>>;
     type JumpTable = Arc<Mutex<I::RandomAccessSlice>>;
 }
 
@@ -913,7 +913,7 @@ pub fn create_block_slice<I: IndexInput>(
     offset: usize,
     length: usize,
     jump_table_entry_count: i32,
-) -> Result<I> {
+) -> Result<I::IndexInput> {
     let jump_table_bytes = if jump_table_entry_count < 0 {
         0
     } else {

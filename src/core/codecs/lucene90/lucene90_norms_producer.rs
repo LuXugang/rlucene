@@ -58,7 +58,7 @@ where
     merging: bool,
 
     // reused slice while merging
-    disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I>>>>,
+    disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::IndexInput>>>>,
     #[allow(clippy::type_complexity)]
     disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,
     data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
@@ -312,7 +312,11 @@ impl<I> Lucene90NormsProducer<I>
 where
     I: IndexInput,
 {
-    fn get_disi_input(&self, field: &FieldInfo, entry: &NormsEntry) -> Result<SliceEnum<I>> {
+    fn get_disi_input(
+        &self,
+        field: &FieldInfo,
+        entry: &NormsEntry,
+    ) -> Result<SliceEnum<I::IndexInput>> {
         if self.merging {
             if let Some(existing) = {
                 let map = self.disi_inputs.lock();
@@ -430,6 +434,8 @@ impl<I> IndexInput for IndexInputImpl<I>
 where
     I: IndexInput,
 {
+    type IndexInput = IndexInputImpl<I>;
+
     fn get_file_pointer(&self) -> Result<usize> {
         Ok(self.offset)
     }

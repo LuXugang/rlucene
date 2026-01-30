@@ -22,6 +22,6 @@ use crate::core::store::index_input::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait FSDirectoryBase: Display {
-    type Output: IndexInput;
+    type Output: IndexInput<IndexInput = Self::Output>;
     fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
 }
