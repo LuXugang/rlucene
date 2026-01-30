@@ -95,8 +95,11 @@ where
 pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
-pub type DefaultIndexSearcher<IRC> =
-    IndexSearcher<IRC, UsageTrackingQueryCachingPolicy, Arc<LRUQueryCache<MinSegmentSizePredicate>>>;
+pub type DefaultIndexSearcher<IRC> = IndexSearcher<
+    IRC,
+    UsageTrackingQueryCachingPolicy,
+    Arc<LRUQueryCache<MinSegmentSizePredicate>>,
+>;
 impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,

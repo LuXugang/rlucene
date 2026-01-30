@@ -78,10 +78,7 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
             std::any::type_name::<Self>()
         )))
     }
-    fn rewrite<IRC, QCP, QC>(
-        self,
-        _searcher: &IndexSearcher<IRC, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,

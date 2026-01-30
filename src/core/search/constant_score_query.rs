@@ -174,10 +174,7 @@ impl QueryBase for ConstantScoreQuery {
         Ok(v)
     }
 
-    fn rewrite<IRC, QCP, QC>(
-        mut self,
-        searcher: &IndexSearcher<IRC, QCP, QC>,
-    ) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(mut self, searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,

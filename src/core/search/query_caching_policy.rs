@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::query::Query;
+use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
@@ -22,7 +23,7 @@ use std::sync::Arc;
 ///
 /// Implementations of this trait must be thread-safe.
 ///
-/// See also: [`UsageTrackingQueryCachingPolicy`](crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy), [`LRUQueryCache`](crate::core::search::lru_query_cache::LRUQueryCache).
+/// See also: [`UsageTrackingQueryCachingPolicy`], [`LRUQueryCache`](crate::core::search::lru_query_cache::LRUQueryCache).
 // TODO: add APIs for integration with `IndexWriter::IndexReaderWarmer`
 pub trait QueryCachingPolicy {
     /// Callback that is called every time that a cached filter is used.
@@ -61,5 +62,37 @@ where
 
     fn should_cache(&self, query: &Query) -> Result<bool> {
         (**self).should_cache(query)
+    }
+}
+pub type DynQueryCachingPolicy = dyn QueryCachingPolicy + Send + Sync;
+pub type CustomQueryCachingPolicy = Box<DynQueryCachingPolicy>;
+
+pub enum QueryCachingPolicyEnum {
+    UsageTracking(UsageTrackingQueryCachingPolicy),
+    Custom(CustomQueryCachingPolicy),
+}
+
+impl QueryCachingPolicyEnum {
+    pub fn custom<P>(p: P) -> Self
+    where
+        P: QueryCachingPolicy + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(p))
+    }
+}
+
+impl QueryCachingPolicy for QueryCachingPolicyEnum {
+    fn on_use(&self, query: &Query) {
+        match self {
+            Self::UsageTracking(inner) => inner.on_use(query),
+            Self::Custom(inner) => inner.on_use(query),
+        }
+    }
+
+    fn should_cache(&self, query: &Query) -> Result<bool> {
+        match self {
+            Self::UsageTracking(inner) => inner.should_cache(query),
+            Self::Custom(inner) => inner.should_cache(query),
+        }
     }
 }
