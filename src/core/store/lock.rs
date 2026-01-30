@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::NativeFSLock;
+use crate::core::store::simple_fs_lock::SimpleFSLock;
+use crate::core::store::single_instance_lock_factory::SingleInstanceLock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -42,6 +45,56 @@ pub trait Lock: Display + Closeable {
     /// # Errors
     /// Returns an `LuceneError` if the lock is no longer valid.
     fn ensure_valid(&self) -> Result<()>;
+}
+
+pub type DynLock = dyn Lock + Send + Sync;
+pub type CustomLock = Box<DynLock>;
+pub enum LockEnum {
+    Single(SingleInstanceLock),
+    Simple(SimpleFSLock),
+    Native(NativeFSLock),
+    Custom(CustomLock),
+}
+impl LockEnum {
+    pub fn custom<L>(lock: L) -> Self
+    where
+        L: Lock + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(lock))
+    }
+}
+
+impl Display for LockEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Single(inner) => inner.fmt(f),
+            Self::Simple(inner) => inner.fmt(f),
+            Self::Native(inner) => inner.fmt(f),
+            Self::Custom(inner) => inner.fmt(f),
+        }
+    }
+}
+
+impl Closeable for LockEnum {
+    fn close(&mut self) -> Result<()> {
+        match self {
+            Self::Single(inner) => inner.close(),
+            Self::Simple(inner) => inner.close(),
+            Self::Native(inner) => inner.close(),
+            Self::Custom(inner) => inner.close(),
+        }
+    }
+}
+
+impl Lock for LockEnum {
+    fn ensure_valid(&self) -> Result<()> {
+        match self {
+            Self::Single(inner) => inner.ensure_valid(),
+            Self::Simple(inner) => inner.ensure_valid(),
+            Self::Native(inner) => inner.ensure_valid(),
+            Self::Custom(inner) => inner.ensure_valid(),
+        }
+    }
 }
 
 macro_rules! either_lock {
