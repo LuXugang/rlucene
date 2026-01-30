@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
@@ -89,18 +89,19 @@ impl QueryBase for MatchAllDocsQuery {
         "*:*".to_string()
     }
 
-    type Weight<IRC, QC>
-        = MatchAllWeight<IRC::LeafReader>
+    type Weight<LR, QC>
+        = MatchAllWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
+
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

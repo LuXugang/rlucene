@@ -24,7 +24,8 @@ use crate::core::document::sorted_set_doc_values_range_query::{
     SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
 };
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
@@ -33,6 +34,7 @@ use crate::core::search::constant_score_query::{
     BaseQueryWeight, ConstantScoreQuery, ConstantScoreQueryWeight,
 };
 use crate::core::search::dummy::dummy_query::DummyQuery;
+use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::field_exists_query::{FieldExistsQuery, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
@@ -54,17 +56,17 @@ use std::sync::Arc;
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
-    type Weight<IRC, QC>: Weight<IRC::LeafReader>
+    type Weight<LR, QC>: Weight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
@@ -287,10 +289,10 @@ impl QueryBase for Query {
         }
     }
 
-    type Weight<IRC, QC>
-        = QueryWeight<IRC, QC>
+    type Weight<LR, QC>
+        = QueryWeight<LR, QC>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
@@ -298,8 +300,8 @@ impl QueryBase for Query {
         searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
@@ -459,10 +461,10 @@ where
         (**self).as_string(field)
     }
 
-    type Weight<IRC, QC>
-        = Q::Weight<IRC, QC>
+    type Weight<LR, QC>
+        = DummyWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
@@ -470,8 +472,8 @@ where
         _searcher: &IndexSearcher<IRC, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
@@ -501,15 +503,15 @@ where
         (**self).visit(visitor)
     }
 }
-pub type QueryWeight<IRC, QC> = WeightEnum10<
-    TermWeight<IRC>,
-    MatchAllWeight<<IRC as IndexReaderContext>::LeafReader>,
-    PointRangeWeight<<IRC as IndexReaderContext>::LeafReader>,
-    MatchNoDocsWeight<<IRC as IndexReaderContext>::LeafReader>,
-    SortedNumericDocValuesSetQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
-    SortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
-    SortedSetDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
-    IndexSortSortedNumericDocValuesRangeQueryWeight<<IRC as IndexReaderContext>::LeafReader>,
-    FieldExistsWeight<<IRC as IndexReaderContext>::LeafReader>,
-    ConstantScoreQueryWeight<BaseQueryWeight<IRC>, IRC, QC>,
+pub type QueryWeight<LR, QC> = WeightEnum10<
+    TermWeight<LR>,
+    MatchAllWeight<LR>,
+    PointRangeWeight<LR>,
+    MatchNoDocsWeight<LR>,
+    SortedNumericDocValuesSetQueryWeight<LR>,
+    SortedNumericDocValuesRangeQueryWeight<LR>,
+    SortedSetDocValuesRangeQueryWeight<LR>,
+    IndexSortSortedNumericDocValuesRangeQueryWeight<LR>,
+    FieldExistsWeight<LR>,
+    ConstantScoreQueryWeight<BaseQueryWeight<LR>, LR, QC>,
 >;

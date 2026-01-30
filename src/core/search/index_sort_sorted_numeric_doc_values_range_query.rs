@@ -27,8 +27,8 @@ use crate::core::document::sorted_set_doc_values_range_query::{
 };
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -134,10 +134,10 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s
     }
 
-    type Weight<IRC, QC>
-        = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC::LeafReader>
+    type Weight<LR, QC>
+        = IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
@@ -145,8 +145,8 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

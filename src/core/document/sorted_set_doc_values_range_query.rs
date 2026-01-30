@@ -19,8 +19,8 @@ use crate::core::index::BytesRef;
 use crate::core::index::doc_values::{DocValues, SortedSet};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRDocValuesSkipper, LeafReader};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRDocValuesSkipper, LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
@@ -128,10 +128,10 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         b
     }
 
-    type Weight<IRC, QC>
-        = SortedSetDocValuesRangeQueryWeight<IRC::LeafReader>
+    type Weight<LR, QC>
+        = SortedSetDocValuesRangeQueryWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
@@ -139,8 +139,8 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         _searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

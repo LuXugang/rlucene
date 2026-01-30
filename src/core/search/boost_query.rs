@@ -23,7 +23,8 @@ use crate::core::index::index_reader::Identity;
 ///
 ///
 /// More complex boosts can be applied by using `FunctionScoreQuery` in the
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -94,18 +95,19 @@ impl QueryBase for BoostQuery {
         s
     }
 
-    type Weight<IRC, QC>
-        = QueryWeight<IRC, QC>
+    type Weight<LR, QC>
+        = QueryWeight<LR, QC>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
+
     fn create_weight<IRC, QC>(
         self,
         searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

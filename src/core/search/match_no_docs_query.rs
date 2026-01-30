@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
@@ -93,10 +93,10 @@ impl QueryBase for MatchNoDocsQuery {
         format!("MatchNoDocsQuery(\"{}\")", self.reason)
     }
 
-    type Weight<IRC, QC>
-        = MatchNoDocsWeight<IRC::LeafReader>
+    type Weight<LR, QC>
+        = MatchNoDocsWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
@@ -104,8 +104,8 @@ impl QueryBase for MatchNoDocsQuery {
         _searcher: &IndexSearcher<IRC, QC>,
         _score_mode: &ScoreMode,
         _boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

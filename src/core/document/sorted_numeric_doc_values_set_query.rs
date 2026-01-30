@@ -17,8 +17,8 @@
 use crate::core::document::doc_values_long_hash_set::DocValuesLongHashSet;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -87,18 +87,19 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         format!("{}: {}", self.field, self.numbers)
     }
 
-    type Weight<IRC, QC>
-        = SortedNumericDocValuesSetQueryWeight<IRC::LeafReader>
+    type Weight<LR, QC>
+        = SortedNumericDocValuesSetQueryWeight<LR>
     where
-        IRC: IndexReaderContext,
+        LR: LeafReader,
         QC: QueryCache;
+
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<Self::Weight<IRC, QC>>
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,

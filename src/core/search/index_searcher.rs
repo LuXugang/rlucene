@@ -539,7 +539,9 @@ where
         score_mode: ScoreMode,
         boost: f32,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<IndexSearcherWeight<QueryBaseWeight<T, IRC, QC>, IRC, QC>>
+    ) -> Result<
+        IndexSearcherWeight<QueryBaseWeight<T, IRCLeafReader<IRC>, QC>, IRCLeafReader<IRC>, QC>,
+    >
     where
         T: QueryBase,
     {
@@ -551,7 +553,7 @@ where
         &self,
         weight: W,
         score_mode: ScoreMode,
-    ) -> IndexSearcherWeight<W, IRC, QC>
+    ) -> IndexSearcherWeight<W, IRCLeafReader<IRC>, QC>
     where
         W: Weight<IRC::LeafReader>,
     {
@@ -634,24 +636,18 @@ where
     }
 }
 
-pub(crate) type IndexSearcherWeight<W, IRC, QC> =
-    WeightEnum2<<QC as QueryCache>::Weight<W, IRCLeafReader<IRC>>, W>;
-pub type IndexSearcherWeightSs<W, IRC, QC> = <IndexSearcherWeight<W, IRC, QC> as Weight<
-    <IRC as IndexReaderContext>::LeafReader,
->>::ScorerSupplier;
-pub type IndexSearcherWeightSsScorer<W, IRC, QC> =
-    <IndexSearcherWeightSs<W, IRC, QC> as ScorerSupplier<
-        <IRC as IndexReaderContext>::LeafReader,
-    >>::Scorer;
-pub type IndexSearcherWeightSsBulkScorer<W, IRC, QC> =
-    <IndexSearcherWeightSs<W, IRC, QC> as ScorerSupplier<
-        <IRC as IndexReaderContext>::LeafReader,
-    >>::BulkScorer;
+pub(crate) type IndexSearcherWeight<W, LR, QC> = WeightEnum2<<QC as QueryCache>::Weight<W, LR>, W>;
+pub type IndexSearcherWeightSs<W, LR, QC> =
+    <IndexSearcherWeight<W, LR, QC> as Weight<LR>>::ScorerSupplier;
+pub type IndexSearcherWeightSsScorer<W, LR, QC> =
+    <IndexSearcherWeightSs<W, LR, QC> as ScorerSupplier<LR>>::Scorer;
+pub type IndexSearcherWeightSsBulkScorer<W, LR, QC> =
+    <IndexSearcherWeightSs<W, LR, QC> as ScorerSupplier<LR>>::BulkScorer;
 
-pub type IndexSearcherWeightSsScorerTpi<W, IRC, QC> =
-    <IndexSearcherWeightSsScorer<W, IRC, QC> as Scorer>::TwoPhaseIter;
-pub type IndexSearcherWeightSsScorerDisi<W, IRC, QC> =
-    <IndexSearcherWeightSsScorer<W, IRC, QC> as Scorer>::DocIdSetIterator;
+pub type IndexSearcherWeightSsScorerTpi<W, LR, QC> =
+    <IndexSearcherWeightSsScorer<W, LR, QC> as Scorer>::TwoPhaseIter;
+pub type IndexSearcherWeightSsScorerDisi<W, LR, QC> =
+    <IndexSearcherWeightSsScorer<W, LR, QC> as Scorer>::DocIdSetIterator;
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
 /// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
