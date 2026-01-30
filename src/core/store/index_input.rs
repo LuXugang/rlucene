@@ -99,15 +99,6 @@ pub trait IndexInput: DataInput + TryClone {
         description: &str,
         offset: usize,
         length: usize,
-        read_advice: &ReadAdvice,
-    ) -> Result<Self> {
-        self.default_slice_with_read_advice(description, offset, length, read_advice)
-    }
-    fn default_slice_with_read_advice(
-        &self,
-        description: &str,
-        offset: usize,
-        length: usize,
         _read_advice: &ReadAdvice,
     ) -> Result<Self> {
         self.slice(description, offset, length)
@@ -132,11 +123,7 @@ pub trait IndexInput: DataInput + TryClone {
     ///
     /// # Note
     /// The default implementation is a no-op.
-    fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
-        self.default_prefetch(pos, len)
-    }
-
-    fn default_prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+    fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
         Ok(())
     }
 }
@@ -191,11 +178,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_read_short(&mut self) -> Result<i16> {
-                match self {
-                    $( Self::$Variant(inner) => inner.default_read_short(), )+
-                }
-            }
+
 
             fn read_int(&mut self) -> Result<i32> {
                 match self {
@@ -203,11 +186,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_read_int(&mut self) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.default_read_int(), )+
-                }
-            }
+
 
             fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
                 match self {
@@ -215,11 +194,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.default_read_group_vint(dst, offset), )+
-                }
-            }
+
 
             fn read_vint(&mut self) -> Result<i32> {
                 match self {
@@ -239,11 +214,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_read_long(&mut self) -> Result<i64> {
-                match self {
-                    $( Self::$Variant(inner) => inner.default_read_long(), )+
-                }
-            }
+
 
             fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
                 match self {
@@ -396,20 +367,6 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_slice_with_read_advice(
-                &self,
-                description: &str,
-                offset: usize,
-                length: usize,
-                _read_advice: &ReadAdvice,
-            ) -> Result<Self> {
-                match self {
-                    $( Self::$Variant(inner) => Ok($name::$Variant(
-                        inner.default_slice_with_read_advice(description, offset, length, _read_advice)?,
-                    )), )+
-                }
-            }
-
             type RandomAccessSlice = $random_access<$( $T::RandomAccessSlice ),+>;
 
             fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
@@ -426,11 +383,6 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn default_prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.default_prefetch(_pos, _len), )+
-                }
-            }
         }
     };
 }

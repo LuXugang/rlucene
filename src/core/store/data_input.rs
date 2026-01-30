@@ -65,32 +65,23 @@ pub trait DataInput: Sized + Display {
     ) -> Result<()> {
         self.read_bytes(b, offset, len)
     }
-    /// # See
-    /// [`DataInput::default_read_short`].
-    fn read_short(&mut self) -> Result<i16> {
-        self.default_read_short()
-    }
+
     /// Reads two bytes and returns a `short` (little-endian byte order).
     ///
     /// # See Also
     /// [`DataOutput::write_short`](crate::core::store::data_output::DataOutput::write_short)
     /// [`BitUtil::get_i16_le`](BitUtil::get_i16_le)
-    fn default_read_short(&mut self) -> Result<i16> {
+    fn read_short(&mut self) -> Result<i16> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         Ok(i16::from_le_bytes([b1, b2]))
-    }
-    /// # See
-    /// [`DataInput::default_read_int`].
-    fn read_int(&mut self) -> Result<i32> {
-        self.default_read_int()
     }
     /// Reads four bytes and returns an `int` (little-endian byte order).
     ///
     /// # See Also
     /// [`DataOutput::write_int`](crate::core::store::data_output::DataOutput::write_int)
     /// [`BitUtil::get_i32_le`](BitUtil::get_i32_le)
-    fn default_read_int(&mut self) -> Result<i32> {
+    fn read_int(&mut self) -> Result<i32> {
         let b1 = self.read_byte()?;
         let b2 = self.read_byte()?;
         let b3 = self.read_byte()?;
@@ -102,9 +93,6 @@ pub trait DataInput: Sized + Display {
     /// In general, this is when the input supports
     /// random access.
     fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        self.default_read_group_vint(dst, offset)
-    }
-    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
     /// Reads an `int` stored in a variable-length format. Reads between one and
@@ -138,17 +126,13 @@ pub trait DataInput: Sized + Display {
     fn read_zint(&mut self) -> Result<i32> {
         Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
     }
-    /// # See
-    /// [`DataInput::default_read_long`].
-    fn read_long(&mut self) -> Result<i64> {
-        self.default_read_long()
-    }
+
     /// Reads eight bytes and returns a `long` (little-endian byte order).
     ///
     /// # See Also
     /// [`DataOutput::write_long`](crate::core::store::data_output::DataOutput::write_long)
     /// [`BitUtil::get_i64_le`](BitUtil::get_i64_le)
-    fn default_read_long(&mut self) -> Result<i64> {
+    fn read_long(&mut self) -> Result<i64> {
         let b1 = self.read_int()? as u64 & 0xFFFFFFFF;
         let b2 = (self.read_int()? as u64) << 32;
         Ok((b2 | b1) as i64)
@@ -406,13 +390,6 @@ where
         }
     }
 
-    fn default_read_short(&mut self) -> Result<i16> {
-        match self {
-            DataInputEnum2::A(f) => f.default_read_short(),
-            DataInputEnum2::B(s) => s.default_read_short(),
-        }
-    }
-
     fn read_int(&mut self) -> Result<i32> {
         match self {
             DataInputEnum2::A(f) => f.read_int(),
@@ -420,24 +397,10 @@ where
         }
     }
 
-    fn default_read_int(&mut self) -> Result<i32> {
-        match self {
-            DataInputEnum2::A(f) => f.default_read_int(),
-            DataInputEnum2::B(s) => s.default_read_int(),
-        }
-    }
-
     fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
         match self {
             DataInputEnum2::A(f) => f.read_group_vint(dst, offset),
             DataInputEnum2::B(s) => s.read_group_vint(dst, offset),
-        }
-    }
-
-    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-        match self {
-            DataInputEnum2::A(f) => f.default_read_group_vint(dst, offset),
-            DataInputEnum2::B(s) => s.default_read_group_vint(dst, offset),
         }
     }
 
@@ -459,13 +422,6 @@ where
         match self {
             DataInputEnum2::A(f) => f.read_long(),
             DataInputEnum2::B(s) => s.read_long(),
-        }
-    }
-
-    fn default_read_long(&mut self) -> Result<i64> {
-        match self {
-            DataInputEnum2::A(f) => f.default_read_long(),
-            DataInputEnum2::B(s) => s.default_read_long(),
         }
     }
 
