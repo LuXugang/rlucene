@@ -24,7 +24,6 @@ use crate::core::index::leaf_reader::{
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
@@ -129,16 +128,15 @@ impl QueryBase for TermQuery {
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -151,10 +149,9 @@ impl QueryBase for TermQuery {
         TermWeight::new(searcher, *score_mode, boost, term_state, self)
     }
 
-    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -183,15 +180,14 @@ impl<IRC> TermWeight<IRC>
 where
     IRC: IndexReaderContext,
 {
-    pub fn new<QT, QCP, QC>(
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+    pub fn new<QCP, QC>(
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<IRCTermState<IRC>>,
         query: TermQuery,
     ) -> Result<Self>
     where
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {

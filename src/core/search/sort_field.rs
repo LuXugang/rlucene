@@ -25,7 +25,6 @@ use crate::core::index::index_sorter::{
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::ordinal_map::OrdinalMap;
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::search::QueryCache;
@@ -1171,13 +1170,12 @@ pub trait SortFiledBase: Display {
     ///
     /// * `Some(SortField)` – if a rewritten sort field was created.
     /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
-    fn rewrite<IRC, QT, QCP, QC>(
+    fn rewrite<IRC, QCP, QC>(
         &self,
-        _reader: &IndexSearcher<IRC, QT, QCP, QC>,
+        _reader: &IndexSearcher<IRC, QCP, QC>,
     ) -> Result<Option<SortFieldEnum>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {

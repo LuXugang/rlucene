@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_query_timeout::DummyQueryTimeout;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::index::query_timeout::QueryTimeoutEnum;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, terms_util};
@@ -75,17 +74,16 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
     debug_assert!(five_percent <= i64::MAX as u64);
     std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
-pub struct IndexSearcher<IRC, QT, QCP, QC>
+pub struct IndexSearcher<IRC, QCP, QC>
 where
     IRC: IndexReaderContext,
-    QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {
     pub reader_context: IRC,
     similarity: Arc<SimilarityEnum>,
     inner: Mutex<Inner>,
-    query_timeout: Option<QT>,
+    query_timeout: Option<QueryTimeoutEnum>,
     query_caching_policy: Arc<QCP>,
     query_cache: Option<QC>,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
@@ -97,12 +95,8 @@ where
 pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
-pub type DefaultIndexSearcher<IRC> = IndexSearcher<
-    IRC,
-    DummyQueryTimeout,
-    UsageTrackingQueryCachingPolicy,
-    Arc<LRUQueryCache<MinSegmentSizePredicate>>,
->;
+pub type DefaultIndexSearcher<IRC> =
+    IndexSearcher<IRC, UsageTrackingQueryCachingPolicy, Arc<LRUQueryCache<MinSegmentSizePredicate>>>;
 impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
@@ -152,10 +146,9 @@ where
     }
 }
 
-impl<IRC, QT, QCP, QC> IndexSearcher<IRC, QT, QCP, QC>
+impl<IRC, QCP, QC> IndexSearcher<IRC, QCP, QC>
 where
     IRC: IndexReaderContext,
-    QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {

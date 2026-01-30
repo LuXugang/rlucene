@@ -24,7 +24,6 @@ use crate::core::index::index_reader::Identity;
 ///
 /// More complex boosts can be applied by using `FunctionScoreQuery` in the
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -102,16 +101,15 @@ impl QueryBase for BoostQuery {
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -124,13 +122,12 @@ impl QueryBase for BoostQuery {
         )
     }
 
-    fn rewrite<IRC, QT, QCP, QC>(
+    fn rewrite<IRC, QCP, QC>(
         mut self,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,

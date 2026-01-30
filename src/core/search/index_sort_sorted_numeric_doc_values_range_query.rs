@@ -31,7 +31,6 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
@@ -143,16 +142,15 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         QCP: QueryCachingPolicy,
         QC: QueryCache;
 
-    fn create_weight<IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QCP, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -185,13 +183,12 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ))
     }
 
-    fn rewrite<IRC, QT, QCP, QC>(
+    fn rewrite<IRC, QCP, QC>(
         mut self,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
     ) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -1307,10 +1304,9 @@ pub enum FallbackQuery {
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
 }
 impl FallbackQuery {
-    fn rewrite<IRC, QT, QCP, QC>(self, searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(self, searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -1374,7 +1370,6 @@ mod tests {
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-    use crate::core::index::query_timeout::QueryTimeout;
     use crate::core::search::QueryCache;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
@@ -1481,15 +1476,14 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_hits<IRC, QT, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+    fn assert_same_hits<IRC, QCP, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         T1: Into<Query>,
@@ -1616,14 +1610,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_number_of_hits<IRC, QT, QCP, QC>(
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+    fn assert_number_of_hits<IRC, QCP, QC>(
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         query: impl Into<Query>,
         number_of_hits: i32,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {
@@ -1991,14 +1984,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_count<IRC, QT, QCP, QC>(
+    fn assert_same_count<IRC, QCP, QC>(
         weight1: &impl Weight<IRC::LeafReader>,
         weight2: &impl Weight<IRC::LeafReader>,
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        searcher: &IndexSearcher<IRC, QCP, QC>,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
     {

@@ -20,7 +20,6 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::{TermState, TermStateEnum2};
 use crate::core::index::terms::Terms;
@@ -321,14 +320,13 @@ where
 
 pub type TermStateTerm<T> =
     TermStateEnum2<LRTermState<T>, TermStateEnum2<TermStateImpl1, DummyTermState>>;
-pub fn build<IRC, QT, QCP, QC>(
-    index_searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+pub fn build<IRC, QCP, QC>(
+    index_searcher: &IndexSearcher<IRC, QCP, QC>,
     term: Arc<Term>,
     needs_stats: bool,
 ) -> Result<TermStates<IRCTermState<IRC>>>
 where
     IRC: IndexReaderContext,
-    QT: QueryTimeout,
     QCP: QueryCachingPolicy,
     QC: QueryCache,
 {

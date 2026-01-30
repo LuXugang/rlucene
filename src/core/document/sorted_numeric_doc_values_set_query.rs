@@ -21,7 +21,6 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
@@ -95,16 +94,15 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -116,10 +114,9 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         ))
     }
 
-    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,

@@ -23,7 +23,6 @@ use crate::core::index::index_reader_context::{IRCTermState, IndexReaderContext}
 use crate::core::index::leaf_reader::{LRDisis, LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
-use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::Terms;
 use crate::core::search::QueryCache;
@@ -117,16 +116,15 @@ impl QueryBase for FieldExistsQuery {
         IRC: IndexReaderContext,
         QCP: QueryCachingPolicy,
         QC: QueryCache;
-    fn create_weight<IRC, QT, QCP, QC>(
+    fn create_weight<IRC, QCP, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+        _searcher: &IndexSearcher<IRC, QCP, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
     ) -> Result<Self::Weight<IRC, QCP, QC>>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -134,10 +132,9 @@ impl QueryBase for FieldExistsQuery {
         Ok(FieldExistsWeight::new(boost, self, *score_mode))
     }
 
-    fn rewrite<IRC, QT, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QT, QCP, QC>) -> Result<Query>
+    fn rewrite<IRC, QCP, QC>(self, _searcher: &IndexSearcher<IRC, QCP, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         Self: Sized,
@@ -397,7 +394,6 @@ mod test {
 
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
-    use crate::core::index::query_timeout::QueryTimeout;
     use crate::core::index::term::Term;
     use crate::core::search::QueryCache;
     use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -726,15 +722,14 @@ mod test {
         Ok(())
     }
 
-    fn assert_same_matches<IRC, QT, QCP, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QT, QCP, QC>,
+    fn assert_same_matches<IRC, QCP, QC, T1, T2>(
+        searcher: &IndexSearcher<IRC, QCP, QC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QT: QueryTimeout,
         QCP: QueryCachingPolicy,
         QC: QueryCache,
         T1: Into<Query>,
