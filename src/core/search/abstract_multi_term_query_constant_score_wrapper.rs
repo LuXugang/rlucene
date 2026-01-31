@@ -14,5 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: i32 = 16;
+pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
 pub struct AbstractMultiTermQueryConstantScoreWrapper {}

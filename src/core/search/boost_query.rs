@@ -36,7 +36,7 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoostQuery {
     id: Identity,
     pub(crate) query: Box<Query>,
@@ -67,16 +67,7 @@ impl BoostQuery {
         self.boost
     }
 }
-#[cfg(test)]
-impl Clone for BoostQuery {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            query: Box::new((*self.query).clone()),
-            boost: self.boost,
-        }
-    }
-}
+
 impl PartialEq for BoostQuery {
     fn eq(&self, other: &Self) -> bool {
         self.boost.to_bits() == other.boost.to_bits() && self.query == other.query

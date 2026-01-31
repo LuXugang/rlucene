@@ -71,7 +71,7 @@ use std::sync::Arc;
 
 /// A query that wraps another query and simply returns a constant score equal to 1 for every document that matches the query.
 /// It therefore simply strips of all scores and always returns 1.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstantScoreQuery {
     id: Identity,
     query: Box<Query>,
@@ -93,16 +93,6 @@ impl ConstantScoreQuery {
         *self.query
     }
 }
-#[cfg(test)]
-impl Clone for ConstantScoreQuery {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            query: self.query.clone(),
-        }
-    }
-}
-
 impl Eq for ConstantScoreQuery {}
 
 impl PartialEq<Self> for ConstantScoreQuery {
@@ -946,7 +936,7 @@ impl Query {
                 boost,
                 per_reader_term_state,
             ),
-            _ => Err(LuceneError::illegal_argument("")),
+            _ => Err(LuceneError::unsupported_operation(format!("{:?}", self))),
         }
     }
 }

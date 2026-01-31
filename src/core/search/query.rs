@@ -102,7 +102,6 @@ pub enum Query {
     FieldExists(FieldExistsQuery),
     Boolean(BooleanQuery),
 }
-#[cfg(test)]
 impl Clone for Query {
     fn clone(&self) -> Self {
         match self {
@@ -368,6 +367,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
+            // Query::Boolean(p) => Ok(QueryWeight::K(p.create_weight(
+            //     searcher,
+            //     score_mode,
+            //     boost,
+            //     per_reader_term_state,
+            // )?)),
             _ => Err(LuceneError::illegal_argument("")),
         }
     }
@@ -514,4 +519,5 @@ pub type QueryWeight<LR, QC> = WeightEnum10<
     IndexSortSortedNumericDocValuesRangeQueryWeight<LR>,
     FieldExistsWeight<LR>,
     ConstantScoreQueryWeight<BaseQueryWeight<LR>, LR, QC>,
+    // BooleanWeight<BaseQueryWeightEnum<LR, QC>, LR>,
 >;

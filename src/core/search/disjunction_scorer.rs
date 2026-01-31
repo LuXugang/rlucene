@@ -440,7 +440,7 @@ where
     }
 }
 
-pub(crate) trait DisjunctionScorerBase {
+pub trait DisjunctionScorerBase {
     fn score<S>(&self, disi_wrapper: &mut [DisiWrapper<S>], top_list: Option<usize>) -> Result<f32>
     where
         S: Scorer;

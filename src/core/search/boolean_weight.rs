@@ -14,48 +14,68 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::document::sorted_numeric_doc_values_range_query::{
+    SNDVRQSs, SortedNumericDocValuesRangeQueryWeight,
+};
+use crate::core::document::sorted_numeric_doc_values_set_query::{
+    SNDVSQSs, SortedNumericDocValuesSetQueryWeight,
+};
+use crate::core::document::sorted_set_doc_values_range_query::{
+    SSDVRQSs, SortedSetDocValuesRangeQueryWeight,
+};
+use crate::core::index::index_reader_context::{IRCLeafReader, IRCTermState, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::term_states::TermStates;
+use crate::core::search::QueryCache;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
+use crate::core::search::boolean_clause::Occur::{Filter, Must};
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
+use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
-use crate::core::search::constant_score_query::{BaseQueryWeight, ConstantScoreQueryWeight};
+use crate::core::search::bulk_scorer::BulkScorerEnum10;
+use crate::core::search::constant_score_query::{
+    BaseQueryWeight, ConstantScoreQueryWeight, ConstantScoreSs,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::field_exists_query::{FieldExistsESs, FieldExistsWeight};
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::{
+    ISSNDVRQSs, IndexSortSortedNumericDocValuesRangeQueryWeight,
+};
+use crate::core::search::match_all_docs_query::{MatchAllSs, MatchAllWeight};
+use crate::core::search::match_no_docs_query::{MatchNoDocsSs, MatchNoDocsWeight};
+use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::point_range_query::{PointRangeSs, PointRangeWeight};
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, ScorerEnum10};
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum10};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::search::weight::{Weight, WeightEnum2, WeightSs};
+use crate::core::search::similarities_impl::similarities::SimilarityEnum;
+use crate::core::search::term_query::{TermSs, TermWeight};
+use crate::core::search::weight::{Weight, WeightSs};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct BooleanWeight<S, W, LR>
+pub struct BooleanWeight<W, LR>
 where
-    S: Similarity,
     LR: LeafReader,
     W: Weight<LR>,
 {
-    similarity: S,
-    weighted_clauses: Vec<WeightedBooleanClause<W, LR>>,
-    meta: BooleanQueryMeta,
-    score_mode: ScoreMode,
+    pub(crate) similarity: Arc<SimilarityEnum>,
+    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<W, LR>>,
+    pub(crate) query: BooleanQuery,
+    pub(crate) score_mode: ScoreMode,
 }
 
-pub type BooleanClauseWeight<LR, QC> =
-    WeightEnum2<BaseQueryWeight<LR>, ConstantScoreQueryWeight<BaseQueryWeight<LR>, LR, QC>>;
-
-pub type BooleanWeightWithCache<S, LR, QC> = BooleanWeight<S, BooleanClauseWeight<LR, QC>, LR>;
-
-impl<S, LR, W> BooleanWeight<S, W, LR>
+impl<LR, W> BooleanWeight<W, LR>
 where
-    S: Similarity,
     LR: LeafReader,
     W: Weight<LR>,
 {
@@ -134,17 +154,16 @@ where
     }
 }
 
-impl<S, W, LR> SegmentCacheable<LR> for BooleanWeight<S, W, LR>
+impl<W, LR> SegmentCacheable<LR> for BooleanWeight<W, LR>
 where
     LR: LeafReader,
-    S: Similarity,
     W: Weight<LR>,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
         // to build large boolean queries as a workaround to the fact that
         // we disallow caching large TermInSetQueries.
-        if self.meta.clause_size > BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD {
+        if self.query.clauses().len() > BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD {
             return Ok(false);
         }
 
@@ -158,9 +177,8 @@ where
     }
 }
 
-impl<S, W, LR> Weight<LR> for BooleanWeight<S, W, LR>
+impl<W, LR> Weight<LR> for BooleanWeight<W, LR>
 where
-    S: Similarity,
     LR: LeafReader,
     W: Weight<LR>,
 {
@@ -175,7 +193,7 @@ where
     }
 
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let min_should_match = self.meta.minimum_number_should_match;
+        let min_should_match = self.query.get_minimum_number_should_match();
 
         let mut subs: Vec<Explanation> = Vec::new();
         let mut fail = false;
@@ -264,7 +282,8 @@ where
     }
 
     fn get_query(&self) -> Arc<Query> {
-        todo!()
+        let v: Query = self.query.clone().into();
+        Arc::new(v)
     }
 
     type ScorerSupplier = BooleanScorerSupplier<WeightSs<W, LR>, LR>;
@@ -273,7 +292,7 @@ where
         &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        let mut min_should_match = self.meta.minimum_number_should_match;
+        let mut min_should_match = self.query.get_minimum_number_should_match();
 
         let mut must = Vec::new();
         let mut should = Vec::new();
@@ -320,23 +339,20 @@ where
         scores.insert(Occur::Should, should);
         scores.insert(Occur::Filter, filter);
         scores.insert(Occur::MustNot, must_not);
-        Ok(Some(BooleanScorerSupplier::new(
-            scores,
-            self.score_mode,
-            min_should_match,
-            max_doc,
-        )?))
+        let v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
+        Ok(Some(v))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
         let num_docs = context.reader().num_docs()?;
 
-        if self.meta.is_pure_disjunction {
+        if self.query.is_pure_disjunction() {
             return self.opt_count(context, Occur::Should);
         }
 
-        let positive_count = if (!self.meta.has_no_filter || !self.meta.has_no_must)
-            && self.meta.minimum_number_should_match == 0
+        let positive_count = if (!self.query.get_clauses_idx(Filter).is_empty()
+            || !self.query.get_clauses_idx(Must).is_empty())
+            && self.query.get_minimum_number_should_match() == 0
         {
             self.req_count(context)?
         } else {
@@ -409,6 +425,342 @@ impl BooleanQueryMeta {
             has_no_filter,
             has_no_must,
             clause_size,
+        }
+    }
+}
+
+pub enum BaseQueryWeightEnum<LR, QC>
+where
+    LR: LeafReader,
+    QC: QueryCache,
+{
+    Term(TermWeight<LR>),
+    MatchAll(MatchAllWeight<LR>),
+    PointRange(PointRangeWeight<LR>),
+    MatchNoDocs(MatchNoDocsWeight<LR>),
+    SortedNumericDocValuesSet(SortedNumericDocValuesSetQueryWeight<LR>),
+    SortedNumericDocValuesRange(SortedNumericDocValuesRangeQueryWeight<LR>),
+    SortedSetDocValuesRange(SortedSetDocValuesRangeQueryWeight<LR>),
+    IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQueryWeight<LR>),
+    FieldExists(FieldExistsWeight<LR>),
+    ConstantScore(ConstantScoreQueryWeight<BaseQueryWeight<LR>, LR, QC>),
+}
+
+impl<LR, QC> SegmentCacheable<LR> for BaseQueryWeightEnum<LR, QC>
+where
+    LR: LeafReader,
+    QC: QueryCache,
+{
+    fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::MatchAll(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::PointRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::FieldExists(w) => w.is_cacheable(ctx),
+            BaseQueryWeightEnum::ConstantScore(w) => w.is_cacheable(ctx),
+        }
+    }
+}
+
+impl<LR, QC> Weight<LR> for BaseQueryWeightEnum<LR, QC>
+where
+    LR: LeafReader,
+    QC: QueryCache,
+{
+    type Matches = DummyMatches;
+
+    fn matches(
+        &self,
+        _context: &LeafReaderContext<LR>,
+        _doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        todo!()
+    }
+
+    fn default_matches(
+        &self,
+        context: &LeafReaderContext<LR>,
+        doc: i32,
+    ) -> Result<Option<MatchWithNoTerms>> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::MatchAll(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::PointRange(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => {
+                w.default_matches(context, doc)
+            },
+            BaseQueryWeightEnum::FieldExists(w) => w.default_matches(context, doc),
+            BaseQueryWeightEnum::ConstantScore(w) => w.default_matches(context, doc),
+        }
+    }
+
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::MatchAll(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::PointRange(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::FieldExists(w) => w.explain(context, doc),
+            BaseQueryWeightEnum::ConstantScore(w) => w.explain(context, doc),
+        }
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.get_query(),
+            BaseQueryWeightEnum::MatchAll(w) => w.get_query(),
+            BaseQueryWeightEnum::PointRange(w) => w.get_query(),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.get_query(),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.get_query(),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.get_query(),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.get_query(),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => w.get_query(),
+            BaseQueryWeightEnum::FieldExists(w) => w.get_query(),
+            BaseQueryWeightEnum::ConstantScore(w) => w.get_query(),
+        }
+    }
+
+    fn scorer(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => Ok(w.scorer(context)?.map(ScorerEnum10::A)),
+            BaseQueryWeightEnum::MatchAll(w) => Ok(w.scorer(context)?.map(ScorerEnum10::B)),
+            BaseQueryWeightEnum::PointRange(w) => Ok(w.scorer(context)?.map(ScorerEnum10::C)),
+            BaseQueryWeightEnum::MatchNoDocs(w) => Ok(w.scorer(context)?.map(ScorerEnum10::D)),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => {
+                Ok(w.scorer(context)?.map(ScorerEnum10::E))
+            },
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => {
+                Ok(w.scorer(context)?.map(ScorerEnum10::F))
+            },
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => {
+                Ok(w.scorer(context)?.map(ScorerEnum10::G))
+            },
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => {
+                Ok(w.scorer(context)?.map(ScorerEnum10::H))
+            },
+            BaseQueryWeightEnum::FieldExists(w) => Ok(w.scorer(context)?.map(ScorerEnum10::I)),
+            BaseQueryWeightEnum::ConstantScore(w) => Ok(w.scorer(context)?.map(ScorerEnum10::J)),
+        }
+    }
+
+    type ScorerSupplier = ScorerSupplierEnum10<
+        TermSs<LR>,
+        MatchAllSs,
+        PointRangeSs<LR>,
+        MatchNoDocsSs,
+        SNDVSQSs<LR>,
+        SNDVRQSs<LR>,
+        SSDVRQSs<LR>,
+        ISSNDVRQSs<LR>,
+        FieldExistsESs<LR>,
+        ConstantScoreSs<BaseQueryWeight<LR>, LR, QC>,
+    >;
+
+    fn scorer_supplier(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::A))
+            },
+            BaseQueryWeightEnum::MatchAll(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::B))
+            },
+            BaseQueryWeightEnum::PointRange(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::C))
+            },
+            BaseQueryWeightEnum::MatchNoDocs(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::D))
+            },
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::E))
+            },
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::F))
+            },
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::G))
+            },
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::H))
+            },
+            BaseQueryWeightEnum::FieldExists(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::I))
+            },
+            BaseQueryWeightEnum::ConstantScore(w) => {
+                Ok(w.scorer_supplier(context)?.map(ScorerSupplierEnum10::J))
+            },
+        }
+    }
+
+    fn bulk_scorer(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::A)),
+            BaseQueryWeightEnum::MatchAll(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::B))
+            },
+            BaseQueryWeightEnum::PointRange(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::C))
+            },
+            BaseQueryWeightEnum::MatchNoDocs(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::D))
+            },
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::E))
+            },
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::F))
+            },
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::G))
+            },
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::H))
+            },
+            BaseQueryWeightEnum::FieldExists(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::I))
+            },
+            BaseQueryWeightEnum::ConstantScore(w) => {
+                Ok(w.bulk_scorer(context)?.map(BulkScorerEnum10::J))
+            },
+        }
+    }
+
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.count(context),
+            BaseQueryWeightEnum::MatchAll(w) => w.count(context),
+            BaseQueryWeightEnum::PointRange(w) => w.count(context),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.count(context),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.count(context),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.count(context),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.count(context),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => w.count(context),
+            BaseQueryWeightEnum::FieldExists(w) => w.count(context),
+            BaseQueryWeightEnum::ConstantScore(w) => w.count(context),
+        }
+    }
+
+    fn default_count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.default_count(context),
+            BaseQueryWeightEnum::MatchAll(w) => w.default_count(context),
+            BaseQueryWeightEnum::PointRange(w) => w.default_count(context),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.default_count(context),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.default_count(context),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.default_count(context),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.default_count(context),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => {
+                w.default_count(context)
+            },
+            BaseQueryWeightEnum::FieldExists(w) => w.default_count(context),
+            BaseQueryWeightEnum::ConstantScore(w) => w.default_count(context),
+        }
+    }
+
+    fn is_weight_cacheable(&self) -> bool {
+        match self {
+            BaseQueryWeightEnum::Term(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::MatchAll(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::PointRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::MatchNoDocs(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::SortedNumericDocValuesSet(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::SortedNumericDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::SortedSetDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::FieldExists(w) => w.is_weight_cacheable(),
+            BaseQueryWeightEnum::ConstantScore(w) => w.is_weight_cacheable(),
+        }
+    }
+}
+impl Query {
+    pub(crate) fn create_weight_no_boolean<IRC, QC>(
+        self,
+        searcher: &IndexSearcher<IRC, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        per_reader_term_state: Option<TermStates<IRCTermState<IRC>>>,
+    ) -> Result<BaseQueryWeightEnum<IRCLeafReader<IRC>, QC>>
+    where
+        IRC: IndexReaderContext,
+        QC: QueryCache,
+    {
+        match self {
+            Query::Term(t) => Ok(BaseQueryWeightEnum::Term(t.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::MatchAll(m) => Ok(BaseQueryWeightEnum::MatchAll(m.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::PointRange(p) => Ok(BaseQueryWeightEnum::PointRange(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::MatchNoDoc(p) => Ok(BaseQueryWeightEnum::MatchNoDocs(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::SortedNumericDocValuesSet(p) => {
+                Ok(BaseQueryWeightEnum::SortedNumericDocValuesSet(
+                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+                ))
+            },
+            Query::SortedNumericDocValuesRange(p) => {
+                Ok(BaseQueryWeightEnum::SortedNumericDocValuesRange(
+                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+                ))
+            },
+            Query::SortedSetDocValuesRange(p) => Ok(BaseQueryWeightEnum::SortedSetDocValuesRange(
+                p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+            )),
+            Query::IndexSortSortedNumericDocValuesRange(p) => {
+                Ok(BaseQueryWeightEnum::IndexSortSortedNumericDocValuesRange(
+                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+                ))
+            },
+            Query::FieldExists(p) => Ok(BaseQueryWeightEnum::FieldExists(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            Query::ConstantScore(c) => Ok(BaseQueryWeightEnum::ConstantScore(c.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
+            _ => Err(LuceneError::unsupported_operation(format!("{:?}", self))),
         }
     }
 }

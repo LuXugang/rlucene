@@ -20,7 +20,9 @@ use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
-use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::boolean_weight::{
+    BaseQueryWeightEnum, BooleanWeight, WeightedBooleanClause,
+};
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -33,23 +35,12 @@ use std::hash::{Hash, Hasher};
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
 /// [`TermQuery`](crate::core::search::term_query::TermQuery)s, [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)s or other [`BooleanQuery`]s.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BooleanQuery {
     id: Identity,
     minimum_number_should_match: i32,
-    clauses: Vec<BooleanClause>,
+    pub(crate) clauses: Vec<BooleanClause>,
     clause_sets: HashMap<Occur, Vec<usize>>,
-}
-#[cfg(test)]
-impl Clone for BooleanQuery {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id.clone(),
-            minimum_number_should_match: self.minimum_number_should_match,
-            clauses: self.clauses.clone(),
-            clause_sets: self.clause_sets.clone(),
-        }
-    }
 }
 
 impl BooleanQuery {
@@ -166,16 +157,16 @@ impl QueryBase for BooleanQuery {
     }
 
     type Weight<LR, QC>
-        = DummyWeight<LR>
+        = BooleanWeight<BaseQueryWeightEnum<LR, QC>, LR>
     where
         LR: LeafReader,
         QC: QueryCache;
 
     fn create_weight<IRC, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        searcher: &IndexSearcher<IRC, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
     where
@@ -183,7 +174,30 @@ impl QueryBase for BooleanQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        todo!()
+        let similarity = searcher.get_similarity();
+
+        let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
+        for c in self.clone().clauses {
+            let clause_score_mode = if c.is_scoring() {
+                score_mode
+            } else {
+                &ScoreMode::CompleteNoScores
+            };
+            let inner_weight = c.query.clone().create_weight_no_boolean(
+                searcher,
+                clause_score_mode,
+                boost,
+                None,
+            )?;
+
+            weighted_clauses.push(WeightedBooleanClause::new(c, inner_weight));
+        }
+        Ok(BooleanWeight {
+            similarity,
+            weighted_clauses,
+            query: self,
+            score_mode: *score_mode,
+        })
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
