@@ -39,6 +39,7 @@ use crate::core::search::constant_score_query::{
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_matches::DummyMatches;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::{FieldExistsESs, FieldExistsWeight};
 use crate::core::search::index_searcher::IndexSearcher;
@@ -57,7 +58,7 @@ use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum11}
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::term_query::{TermSs, TermWeight};
-use crate::core::search::weight::{Weight, WeightSs};
+use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -286,7 +287,8 @@ where
         Arc::new(v)
     }
 
-    type ScorerSupplier = BooleanScorerSupplier<WeightSs<W, LR>, LR>;
+    // type ScorerSupplier = BooleanScorerSupplier<WeightSs<W, LR>, LR>;
+    type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
         &self,
@@ -339,8 +341,9 @@ where
         scores.insert(Occur::Should, should);
         scores.insert(Occur::Filter, filter);
         scores.insert(Occur::MustNot, must_not);
-        let v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
-        Ok(Some(v))
+        let _v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
+        todo!()
+        // Ok(Some(v))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {

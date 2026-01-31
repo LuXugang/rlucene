@@ -23,6 +23,7 @@ use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
+use crate::core::search::boolean_weight::{BaseQueryWeightEnum, BooleanWeight};
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::{
     BaseQueryWeight, ConstantScoreQuery, ConstantScoreQueryWeight,
@@ -30,7 +31,7 @@ use crate::core::search::constant_score_query::{
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::field_exists_query::FieldExistsQuery;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherWeight};
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -38,7 +39,7 @@ use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::weight::{Weight, WeightEnum2};
+use crate::core::search::weight::{Weight, WeightEnum3};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
@@ -605,15 +606,12 @@ impl QueryBase for Query {
                 boost,
                 per_reader_term_state,
             )?)),
-            // Query::Boolean(p) => Ok(QueryWeight::C(p.create_weight(
-            //     searcher,
-            //     score_mode,
-            //     boost,
-            //     per_reader_term_state,
-            // )?)),
-            _ => Err(LuceneError::unsupported_operation(
-                "Query does not support weight creation".to_string(),
-            )),
+            Query::Boolean(p) => Ok(QueryWeight::C(p.create_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?)),
         }
     }
 
@@ -748,8 +746,8 @@ where
         (**self).visit(visitor)
     }
 }
-pub type QueryWeight<LR, QC> = WeightEnum2<
+pub type QueryWeight<LR, QC> = WeightEnum3<
     BaseQueryWeight<LR>,
     ConstantScoreQueryWeight<BaseQueryWeight<LR>, LR, QC>,
-    // BooleanWeight<IndexSearcherWeight<BaseQueryWeightEnum<LR, QC>, LR, QC>, LR>
+    BooleanWeight<IndexSearcherWeight<BaseQueryWeightEnum<LR, QC>, LR, QC>, LR>,
 >;
