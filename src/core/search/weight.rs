@@ -18,7 +18,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
     BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum7,
-    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10, BulkScorerEnum11,
+    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10, BulkScorerEnum11, BulkScorerEnum12,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -26,18 +26,18 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::{
     Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4, MatchesEnum7, MatchesEnum8, MatchesEnum9,
-    MatchesEnum10, MatchesEnum11,
+    MatchesEnum10, MatchesEnum11, MatchesEnum12,
 };
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::{
     Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
-    ScorerEnum10, ScorerEnum11, TwoPhaseState,
+    ScorerEnum10, ScorerEnum11, ScorerEnum12, TwoPhaseState,
 };
 use crate::core::search::scorer_supplier::{
     ScorerSupplier, ScorerSupplierEnum2, ScorerSupplierEnum3, ScorerSupplierEnum4,
     ScorerSupplierEnum7, ScorerSupplierEnum8, ScorerSupplierEnum9, ScorerSupplierEnum10,
-    ScorerSupplierEnum11,
+    ScorerSupplierEnum11, ScorerSupplierEnum12,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -230,6 +230,68 @@ where
     }
 }
 pub type WeightSs<W, LR> = <W as Weight<LR>>::ScorerSupplier;
+impl<LR, T> Weight<LR> for Box<T>
+where
+    LR: LeafReader,
+    T: Weight<LR>,
+{
+    type Matches = T::Matches;
+
+    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
+        (**self).matches(context, doc)
+    }
+
+    fn default_matches(
+        &self,
+        context: &LeafReaderContext<LR>,
+        doc: i32,
+    ) -> Result<Option<MatchWithNoTerms>> {
+        (**self).default_matches(context, doc)
+    }
+
+    fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+        (**self).explain(context, doc)
+    }
+
+    fn get_query(&self) -> Arc<Query> {
+        (**self).get_query()
+    }
+
+    fn scorer(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
+        (**self).scorer(context)
+    }
+
+    type ScorerSupplier = T::ScorerSupplier;
+
+    fn scorer_supplier(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::ScorerSupplier>> {
+        (**self).scorer_supplier(context)
+    }
+
+    fn bulk_scorer(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
+        (**self).bulk_scorer(context)
+    }
+
+    fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
+        (**self).count(context)
+    }
+
+    fn default_count(&self, _context: &LeafReaderContext<LR>) -> Result<i32> {
+        (**self).default_count(_context)
+    }
+
+    fn is_weight_cacheable(&self) -> bool {
+        (**self).is_weight_cacheable()
+    }
+}
 
 impl<LR, T> Weight<LR> for Arc<T>
 where
@@ -284,6 +346,7 @@ where
         (**self).is_weight_cacheable()
     }
 }
+
 pub type WeightScorerSupplier<W, LR> = <W as Weight<LR>>::ScorerSupplier;
 /// Just wraps a Scorer and performs top scoring using it.
 pub struct DefaultBulkScorer<S>
@@ -987,4 +1050,14 @@ either_weight!(
         bulk: BulkScorerEnum11
     }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
+);
+either_weight!(
+    pub WeightEnum12
+    => {
+        matches: MatchesEnum12,
+        supplier: ScorerSupplierEnum12,
+        scorer: ScorerEnum12,
+        bulk: BulkScorerEnum12
+    }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );

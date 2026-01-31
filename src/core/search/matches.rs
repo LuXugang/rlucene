@@ -17,7 +17,7 @@
 use crate::core::search::matches_iterator::{
     MatchesIterator, MatchesIteratorEnum2, MatchesIteratorEnum3, MatchesIteratorEnum4,
     MatchesIteratorEnum5, MatchesIteratorEnum6, MatchesIteratorEnum7, MatchesIteratorEnum8,
-    MatchesIteratorEnum9, MatchesIteratorEnum10, MatchesIteratorEnum11,
+    MatchesIteratorEnum9, MatchesIteratorEnum10, MatchesIteratorEnum11, MatchesIteratorEnum12,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -143,4 +143,9 @@ either_matches!(
     pub MatchesEnum11
     => { mi: MatchesIteratorEnum11 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
+);
+either_matches!(
+    pub MatchesEnum12
+    => { mi: MatchesIteratorEnum12 }
+    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );

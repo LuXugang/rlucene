@@ -18,16 +18,17 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
     DocIdSetIteratorEnum5, DocIdSetIteratorEnum6, DocIdSetIteratorEnum7, DocIdSetIteratorEnum8,
-    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10, DocIdSetIteratorEnum11,
+    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10, DocIdSetIteratorEnum11, DocIdSetIteratorEnum12,
 };
 use crate::core::search::scorable::{
     ChildScorable, Scorable, ScorableEnum2, ScorableEnum3, ScorableEnum4, ScorableEnum5,
     ScorableEnum6, ScorableEnum7, ScorableEnum8, ScorableEnum9, ScorableEnum10, ScorableEnum11,
+    ScorableEnum12,
 };
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorEnum2, TwoPhaseIteratorEnum3, TwoPhaseIteratorEnum4,
     TwoPhaseIteratorEnum5, TwoPhaseIteratorEnum6, TwoPhaseIteratorEnum7, TwoPhaseIteratorEnum8,
-    TwoPhaseIteratorEnum9, TwoPhaseIteratorEnum10, TwoPhaseIteratorEnum11,
+    TwoPhaseIteratorEnum9, TwoPhaseIteratorEnum10, TwoPhaseIteratorEnum11, TwoPhaseIteratorEnum12,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -398,5 +399,13 @@ either_scorer!(
         two_phase = TwoPhaseIteratorEnum11,
         scorable = ScorableEnum11;
         A: A, B: B,C: C, D: D,E: E,F: F,G: G,H: H,I: I,J: J,K: K,
+    }
+);
+either_scorer!(
+    pub ScorerEnum12 {
+        iter = DocIdSetIteratorEnum12,
+        two_phase = TwoPhaseIteratorEnum12,
+        scorable = ScorableEnum12;
+        A: A, B: B,C: C, D: D,E: E,F: F,G: G,H: H,I: I,J: J,K: K,L: L,
     }
 );

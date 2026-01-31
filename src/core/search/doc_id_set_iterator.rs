@@ -375,6 +375,20 @@ either_docidsetiterator_named!(pub DocIdSetIteratorEnum11 {
     J: J,
     K: K
 });
+either_docidsetiterator_named!(pub DocIdSetIteratorEnum12 {
+    A: A,
+    B: B,
+    C: C,
+    D: D,
+    E: E,
+    F: F,
+    G: G,
+    H: H,
+    I: I,
+    J: J,
+    K: K,
+    L: L
+});
 pub type EmptyEnum<DISI> = DocIdSetIteratorEnum2<DISI, EmptyDISI>;
 
 #[cfg(test)]
