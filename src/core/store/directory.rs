@@ -20,7 +20,10 @@ use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInpu
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::lock::{Lock, LockEnum2};
-use crate::core::store::{IOContext, IndexInputEnum2, IndexOutput, IndexOutputEnum2};
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::{
+    FSDirectory, IOContext, IndexInputEnum2, IndexOutput, IndexOutputEnum2, NativeFSLockFactory,
+};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -561,3 +564,5 @@ impl<D: Directory> Closeable for Arc<D> {
         Ok(())
     }
 }
+
+pub(crate) type DirEnum = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;

@@ -19,9 +19,10 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    DirType, new_directory, new_index_writer_config, random,
+    new_directory, new_index_writer_config, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -32,7 +33,7 @@ pub struct TestExceedMaxTermLength;
 
 const MIN_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH + 1;
 const MAX_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH * 2;
-fn create_dir<R: Rng + ?Sized>(random: &mut R) -> DirType {
+fn create_dir<R: Rng + ?Sized>(random: &mut R) -> DirEnum {
     new_directory(random).unwrap()
 }
 

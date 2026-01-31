@@ -625,7 +625,7 @@ mod tests {
     use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum};
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::store::directory::Directory;
+    use crate::core::store::directory::{DirEnum, Directory};
     use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::byte_runnable::ByteRunnable;
     use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -635,7 +635,7 @@ mod tests {
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
+        at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
         new_index_writer_config, new_string_field, new_text_field, random,
     };
     use crate::test::util::test_util::TestUtil;
@@ -861,7 +861,7 @@ mod tests {
     fn make_index<R: Rng + ?Sized>(
         random: &mut R,
         terms: &[String],
-    ) -> Result<StandardDirectoryReaderType<DirType>> {
+    ) -> Result<StandardDirectoryReaderType<DirEnum>> {
         let dir = new_directory_shared(random)?;
         // TODO: 未实现MockAnalyzer
         let iwc = new_index_writer_config(random);
@@ -1462,6 +1462,7 @@ mod tests2 {
     use crate::core::index::terms::Terms;
     use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
     use crate::core::search::index_searcher::DefaultIndexSearcher;
+    use crate::core::store::directory::DirEnum;
     use crate::core::util::automation::automata::Automata;
     use crate::core::util::automation::automaton::Automaton;
     use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -1472,7 +1473,7 @@ mod tests2 {
     use crate::test::index::random_index_writer::RandomIndexWriter;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
         new_string_field, random,
     };
     use crate::test::util::test_util::TestUtil;
@@ -1490,11 +1491,11 @@ mod tests2 {
         random: &mut R,
     ) -> Result<(
         i32,
-        Arc<DirType>,
+        Arc<DirEnum>,
         BTreeSet<BytesRef<Vec<u8>>>,
         Automaton,
-        Arc<StandardDirectoryReaderType<DirType>>,
-        DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirType>>>>,
+        Arc<StandardDirectoryReaderType<DirEnum>>,
+        DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirEnum>>>>,
     )> {
         let num_iterations = at_least(random, 50);
 

@@ -602,6 +602,7 @@ pub(crate) mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::store::IOContext;
+    use crate::core::store::directory::DirEnum;
     use crate::core::util::LATEST;
     use crate::core::util::bytes_ref_iterator::BytesRefIterator;
     use crate::core::util::error::lucene_error::Result;
@@ -611,7 +612,7 @@ pub(crate) mod tests {
         TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        DirType, new_directory_shared, random,
+        new_directory_shared, random,
     };
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
@@ -644,7 +645,7 @@ pub(crate) mod tests {
 
     fn set_up<R: Rng + ?Sized>(
         random: &mut R,
-    ) -> Result<(Arc<DirType>, Document, SegmentReader<DirType>)> {
+    ) -> Result<(Arc<DirEnum>, Document, SegmentReader<DirEnum>)> {
         let dir = new_directory_shared(random)?;
         let mut documnet = Document::new();
         DocHelper::setup_doc(&mut documnet);

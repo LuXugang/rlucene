@@ -32,12 +32,12 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    DirType, new_directory_shared, new_index_writer_config, new_io_context, new_text_field, random,
+    new_directory_shared, new_index_writer_config, new_io_context, new_text_field, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -49,7 +49,7 @@ struct TestSegmentTermDocs;
 
 fn set_up<R: Rng + ?Sized>(
     random: &mut R,
-) -> Result<(Arc<DirType>, Document, SegmentCommitInfo<DirType>)> {
+) -> Result<(Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>)> {
     let dir = new_directory_shared(random)?;
     let mut document = Document::new();
     DocHelper::setup_doc(&mut document);

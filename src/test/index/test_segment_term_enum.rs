@@ -26,12 +26,11 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    DirType, get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_text_field,
-    random,
+    get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_text_field, random,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -100,7 +99,7 @@ fn test_prev_term_at_end() -> Result<()> {
     reader.close()?;
     Ok(())
 }
-fn verify_doc_freq(dir: Arc<DirType>) -> Result<()> {
+fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
     let reader = directory_reader_util::open(dir)?;
 
     let terms = get_terms(&reader, "content")?.expect("terms should exist");

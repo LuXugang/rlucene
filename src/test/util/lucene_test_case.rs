@@ -59,13 +59,11 @@ pub mod lucene_test_case_util {
     use crate::core::index::indexable_field_type::IndexableFieldType;
 
     use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
-    use crate::core::store::directory::Directory;
+    use crate::core::store::directory::{DirEnum, Directory};
     use crate::core::store::flush_info::FlushInfo;
     use crate::core::store::merge_info::MergeInfo;
     use crate::core::store::nio_fs_directory::NIOFSDirectory;
-    use crate::core::store::{
-        FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext, NativeFSLockFactory,
-    };
+    use crate::core::store::{FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext};
     use crate::core::util::SliceCopyOps;
     use crate::core::util::access::SharedAccessVec;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -131,15 +129,14 @@ pub mod lucene_test_case_util {
         // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
         IndexWriterConfig::new()
     }
-    pub(crate) type DirType = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 
     // TODO: When we have implemented multiple directories, we need to select one
     // randomly. Currently, we choose NIOFSDirectory.
-    pub(crate) fn new_directory_shared<R: Rng + ?Sized>(random: &mut R) -> Result<Arc<DirType>> {
+    pub(crate) fn new_directory_shared<R: Rng + ?Sized>(random: &mut R) -> Result<Arc<DirEnum>> {
         let dir = new_directory(random)?;
         Ok(Arc::new(dir))
     }
-    pub(crate) fn new_directory<R: Rng + ?Sized>(_random: &mut R) -> Result<DirType> {
+    pub(crate) fn new_directory<R: Rng + ?Sized>(_random: &mut R) -> Result<DirEnum> {
         let temp_dir = TempDir::new()?;
         let sub_directory = NIOFSDirectory::new();
         FSDirectory::new(temp_dir.keep(), sub_directory)
@@ -148,7 +145,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_fs_directory<R: Rng + ?Sized>(
         _random: &mut R,
         temp_dir: TempDir,
-    ) -> Result<Arc<DirType>> {
+    ) -> Result<Arc<DirEnum>> {
         // TODO 这里简单返回FSDirectory
         let sub_directory = NIOFSDirectory::new();
         Ok(Arc::new(FSDirectory::new(temp_dir.keep(), sub_directory)?))
