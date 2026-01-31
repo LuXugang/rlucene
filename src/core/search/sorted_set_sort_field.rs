@@ -364,7 +364,6 @@ mod tests {
         new_string_field, random,
     };
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     /// Simple tests for SortedSetSortField, indexing the sortedset up front
     #[allow(dead_code)]
@@ -372,7 +371,7 @@ mod tests {
     #[test]
     fn test_empty_index() -> Result<()> {
         let reader = MultiReader::empty()?;
-        let empty = new_searcher_with_reader(Arc::new(reader))?;
+        let empty = new_searcher_with_reader(reader)?;
         let query = TermQuery::new(Term::from_text("contents", "foo"));
 
         let sort = Sort::with_fields(vec![SortedSetSortField::new("sortedset", false)?])?;

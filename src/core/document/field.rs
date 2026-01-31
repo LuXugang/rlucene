@@ -2699,7 +2699,7 @@ mod tests {
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
-        let searcher = new_searcher_with_reader(Arc::new(reader))?;
+        let searcher = new_searcher_with_reader(reader)?;
         let query = TermQuery::new(Term::new("binary", br.clone()));
         let hits = searcher.search(query, 1)?;
         assert_eq!(hits.total_hits().value(), 1);

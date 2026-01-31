@@ -664,14 +664,13 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_searcher_with_reader, random,
     };
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestSortedNumericSortField;
     #[test]
     fn test_empty_index() -> Result<()> {
         let reader = MultiReader::empty()?;
-        let empty = new_searcher_with_reader(Arc::new(reader))?;
+        let empty = new_searcher_with_reader(reader)?;
         let query = TermQuery::new(Term::from_text("contents", "foo"));
 
         let sort = Sort::with_fields(vec![SortedNumericSortField::new(
