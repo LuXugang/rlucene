@@ -25,18 +25,20 @@ use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
+
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
-use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllDocsScorerSupplier};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::term_query::TermQuery;
+use crate::core::search::scorer_supplier::ScorerSupplierEnum4;
+use crate::core::search::term_query::{TermQuery, TermSs};
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -45,8 +47,18 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<LR> =
-    Box<dyn Weight<LR, Matches = DummyMatches, ScorerSupplier = DummyScorerSupplier>>;
+pub type QueryWeight<LR> = Box<
+    dyn Weight<
+            LR,
+            Matches = MatchWithNoTerms,
+            ScorerSupplier = ScorerSupplierEnum4<
+                TermSs<LR>,
+                MatchAllDocsScorerSupplier,
+                DummyScorerSupplier,
+                DummyScorerSupplier,
+            >,
+        >,
+>;
 pub type QueryWeightSs<LR> = <QueryWeight<LR> as Weight<LR>>::ScorerSupplier;
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
@@ -63,6 +75,7 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Query {} does not implement create_weight",
@@ -292,6 +305,7 @@ impl QueryBase for Query {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         match self {
             Query::Term(t) => t.create_weight(searcher, score_mode, boost, per_reader_term_state),
@@ -430,6 +444,7 @@ where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         Err(LuceneError::unsupported_operation(format!(
             "Arc<QueryBase> cannot be used to create_weight directly: {}",

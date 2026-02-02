@@ -99,6 +99,7 @@ impl QueryBase for ConstantScoreQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // let inner_score_mode = if score_mode.is_exhaustive() {
         //     ScoreMode::CompleteNoScores
@@ -190,8 +191,13 @@ where
     // TODO IMPORTANT
     type Matches = DummyMatches;
 
-    fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
-        self.inner_weight.matches(context, doc)
+    fn matches(
+        &self,
+        _context: &LeafReaderContext<LR>,
+        _doc: i32,
+    ) -> Result<Option<Self::Matches>> {
+        todo!()
+        // self.inner_weight.matches(context, doc)
     }
 
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
@@ -535,7 +541,8 @@ where
         &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::Scorer>> {
-        self.inner.scorer(_context)
+        todo!()
+        // self.inner.scorer(_context)
     }
 
     // type ScorerSupplier = ConstantScoreSs<LR>;
@@ -545,14 +552,16 @@ where
         &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        self.inner.scorer_supplier(_context)
+        todo!()
+        // self.inner.scorer_supplier(_context)
     }
 
     fn bulk_scorer(
         &self,
         _context: &LeafReaderContext<LR>,
     ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<LR>>::BulkScorer>> {
-        self.inner.bulk_scorer(_context)
+        todo!()
+        // self.inner.bulk_scorer(_context)
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {

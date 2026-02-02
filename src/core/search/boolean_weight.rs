@@ -23,9 +23,9 @@ use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -157,7 +157,7 @@ where
     LR: LeafReader,
     W: Weight<LR>,
 {
-    type Matches = DummyMatches;
+    type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,

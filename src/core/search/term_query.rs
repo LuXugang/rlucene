@@ -25,22 +25,24 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates};
+use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::QueryCache;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_matches::DummyMatches;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::match_all_docs_query::MatchAllDocsScorerSupplier;
+use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2};
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum4};
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
     SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
@@ -121,23 +123,29 @@ impl QueryBase for TermQuery {
 
     fn create_weight<IRC, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        searcher: &IndexSearcher<IRC, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
+        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // let context = searcher.get_top_reader_context();
-        // let term_state = match per_reader_term_state {
-        //     Some(states) if states.was_built_for_some(context.base().id()) => states,
-        //     _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
-        // };
-        // TermWeight::new(searcher, *score_mode, boost, term_state, self)
-        todo!()
+        let context = searcher.get_top_reader_context();
+        let term_state = match per_reader_term_state {
+            Some(states) if states.was_built_for_some(context.base().id()) => states,
+            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+        };
+        Ok(Box::new(TermWeight::new(
+            searcher,
+            *score_mode,
+            boost,
+            term_state,
+            self,
+        )?))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -296,7 +304,7 @@ impl<LR> Weight<LR> for TermWeight<LR>
 where
     LR: LeafReader,
 {
-    type Matches = DummyMatches;
+    type Matches = MatchWithNoTerms;
 
     fn matches(
         &self,
@@ -312,8 +320,13 @@ where
             let new_doc = scorer.iterator_mut().advance(doc)?;
             if new_doc == doc {
                 let freq = match scorer {
-                    ScorerEnum2::A(s) => s.freq()?,
-                    ScorerEnum2::B(_) => {
+                    ScorerEnum4::A(s) => match s {
+                        ScorerEnum2::A(ts) => ts.freq()?,
+                        ScorerEnum2::B(_) => {
+                            return Err(LuceneError::illegal_state("should TermScorer here"));
+                        },
+                    },
+                    _ => {
                         return Err(LuceneError::illegal_state("should TermScorer here"));
                     },
                 };
@@ -367,7 +380,12 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = TermSs<LR>;
+    type ScorerSupplier = ScorerSupplierEnum4<
+        TermSs<LR>,
+        MatchAllDocsScorerSupplier,
+        DummyScorerSupplier,
+        DummyScorerSupplier,
+    >;
 
     fn scorer_supplier(
         &self,
@@ -391,14 +409,16 @@ where
             None => Ok(None),
             Some(v) => {
                 debug_assert!(self.sim_scorer.is_some());
-                Ok(Some(TermScorerSupplier::new(
+                let v = TermScorerSupplier::new(
                     false,
                     self.term_states.clone(),
                     v,
                     parent_query.term.clone(),
                     self.sim_scorer.as_ref().unwrap().clone(),
                     self.score_mode,
-                )))
+                );
+                let v = ScorerSupplierEnum4::A(v);
+                Ok(Some(v))
             },
         }
     }

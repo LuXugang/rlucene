@@ -118,6 +118,7 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // Ok(SortedNumericDocValuesRangeQueryWeight::new(
         //     self,

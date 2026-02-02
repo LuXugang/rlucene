@@ -222,6 +222,7 @@ impl QueryBase for PointRangeQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // Ok(PointRangeWeight::new(boost, self, *score_mode))
         todo!()

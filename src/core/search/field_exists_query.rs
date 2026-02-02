@@ -120,6 +120,7 @@ impl QueryBase for FieldExistsQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // Ok(FieldExistsWeight::new(boost, self, *score_mode))
         todo!()
@@ -724,6 +725,7 @@ mod test {
         QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;

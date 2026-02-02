@@ -157,6 +157,7 @@ impl QueryBase for BooleanQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // let similarity = searcher.get_similarity();
         //

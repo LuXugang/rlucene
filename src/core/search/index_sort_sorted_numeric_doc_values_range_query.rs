@@ -145,6 +145,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         todo!()
         // let query = self.clone();
@@ -1473,6 +1474,7 @@ mod tests {
         QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let irc = searcher.get_top_reader_context();
         let max_doc = irc.reader().max_doc()?;
@@ -1603,6 +1605,8 @@ mod tests {
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
+        QC: QueryCache,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let query = query.into();
 
@@ -1863,7 +1867,7 @@ mod tests {
 
     fn test_index_sort_optimization_deactivated<D>(writer: &RandomIndexWriter<D>) -> Result<()>
     where
-        D: Directory,
+        D: Directory + 'static,
     {
         let reader = writer.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;

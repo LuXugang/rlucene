@@ -25,6 +25,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -35,8 +36,9 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::term_query::TermSs;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
@@ -92,17 +94,17 @@ impl QueryBase for MatchAllDocsQuery {
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // Ok(MatchAllWeight::new(boost, self, *score_mode))
-        todo!()
+        Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -174,17 +176,23 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = MatchAllSs;
+    type ScorerSupplier = ScorerSupplierEnum4<
+        TermSs<LR>,
+        MatchAllDocsScorerSupplier,
+        DummyScorerSupplier,
+        DummyScorerSupplier,
+    >;
 
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        Ok(Some(MatchAllDocsScorerSupplier::new(
+        let v = ScorerSupplierEnum4::B(MatchAllDocsScorerSupplier::new(
             self.score_mode,
             self.base.clone(),
             context.reader().max_doc()?,
-        )))
+        ));
+        Ok(Some(v))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {

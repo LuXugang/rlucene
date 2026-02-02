@@ -77,6 +77,7 @@ impl QueryBase for DummyQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

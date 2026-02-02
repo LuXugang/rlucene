@@ -104,6 +104,7 @@ impl QueryBase for MatchNoDocsQuery {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         // Ok(MatchNoDocsWeight::new(self))
         todo!()

@@ -188,7 +188,10 @@ where
         query: impl Into<Query>,
         num_hits: usize,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<TopDocs<ScoreDoc>> {
+    ) -> Result<TopDocs<ScoreDoc>>
+    where
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
         let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
         if let Some(ref a) = after
@@ -206,7 +209,10 @@ where
 
         self.search_with_collector_manager_with_state(query, &manager, term_state)
     }
-    pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
+    pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>>
+    where
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
         self.search_with_term_state(query, n, None)
     }
     /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -227,6 +233,7 @@ where
     ) -> Result<TopFieldDocs>
     where
         T: Into<Arc<Sort>>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.search_after_field_with_score(None, query, n, sort, do_doc_scores, None)
     }
@@ -249,6 +256,7 @@ where
     ) -> Result<TopFieldDocs>
     where
         T: Into<Arc<Sort>>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.search_after_field_with_score(None, query, n, sort, false, None)
     }
@@ -257,7 +265,10 @@ where
         query: impl Into<Query>,
         n: usize,
         term_state: Option<TermStates<IRCTermState<IRC>>>,
-    ) -> Result<TopDocs<ScoreDoc>> {
+    ) -> Result<TopDocs<ScoreDoc>>
+    where
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
         self.search_after_score(None, query, n, term_state)
     }
     pub fn get_top_reader_context(&self) -> &IRC {
@@ -267,7 +278,10 @@ where
         self.similarity.clone()
     }
 
-    pub fn count(&self, query: impl Into<Query>) -> Result<i32> {
+    pub fn count(&self, query: impl Into<Query>) -> Result<i32>
+    where
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
         // TODO IMPORTANT 简单实现 BooleanQuery未实现
         let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
         self.search_with_collector_manager(query, &v)
@@ -285,6 +299,7 @@ where
     where
         Q: Into<Query>,
         T: Into<Arc<Sort>>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.do_search_after_field(after, query, num_hits, sort, do_doc_scores, term_state)
     }
@@ -298,6 +313,7 @@ where
     where
         Q: Into<Query>,
         T: Into<Arc<Sort>>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.do_search_after_field(after, query, num_hits, sort, false, None)
     }
@@ -314,6 +330,7 @@ where
     where
         Q: Into<Query>,
         T: Into<Arc<Sort>>,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let limit: usize =
             std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
@@ -354,6 +371,7 @@ where
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.search_with_collector_manager_with_state(query, collector_manager, term_state)
     }
@@ -364,6 +382,7 @@ where
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         self.search_with_collector_manager_with_state(query, collector_manager, None)
     }
@@ -376,6 +395,7 @@ where
     ) -> Result<CM::T>
     where
         CM: CollectorManager,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let mut query = query.into();
         let first_collector = collector_manager.new_collector()?;
@@ -541,6 +561,7 @@ where
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         T: QueryBase,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let weight = query.create_weight(self, &score_mode, boost, term_state)?;
         Ok(self.wrap_weight(weight, score_mode))
