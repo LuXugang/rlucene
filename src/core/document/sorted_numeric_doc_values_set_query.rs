@@ -31,7 +31,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -87,29 +87,24 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
         format!("{}: {}", self.field, self.numbers)
     }
 
-    type Weight<LR, QC>
-        = SortedNumericDocValuesSetQueryWeight<LR>
-    where
-        LR: LeafReader,
-        QC: QueryCache;
-
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
-        score_mode: &ScoreMode,
-        boost: f32,
+        _score_mode: &ScoreMode,
+        _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
+    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
     {
-        Ok(SortedNumericDocValuesSetQueryWeight::new(
-            self,
-            *score_mode,
-            boost,
-        ))
+        todo!()
+        // Ok(SortedNumericDocValuesSetQueryWeight::new(
+        //     self,
+        //     *score_mode,
+        //     boost,
+        // ))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>

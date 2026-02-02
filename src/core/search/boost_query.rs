@@ -24,12 +24,12 @@ use crate::core::index::index_reader::Identity;
 ///
 /// More complex boosts can be applied by using `FunctionScoreQuery` in the
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::constant_score_query::BaseQueryWeight;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{BaseQuery, Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::core_helper::HasIdentity;
@@ -39,13 +39,13 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone)]
 pub struct BoostQuery {
     id: Identity,
-    pub(crate) query: Box<BaseQuery>,
+    pub(crate) query: Box<Query>,
     boost: f32,
 }
 impl BoostQuery {
     pub fn new<T>(query: T, boost: f32) -> Result<Self>
     where
-        T: Into<Box<BaseQuery>>,
+        T: Into<Box<Query>>,
     {
         let query = query.into();
         if !boost.is_finite() || boost < 0.0 {
@@ -60,7 +60,7 @@ impl BoostQuery {
             boost,
         })
     }
-    pub fn get_query(&self) -> &BaseQuery {
+    pub fn get_query(&self) -> &Query {
         &self.query
     }
     pub fn get_boost(&self) -> f32 {
@@ -86,19 +86,13 @@ impl QueryBase for BoostQuery {
         s
     }
 
-    type Weight<LR, QC>
-        = BaseQueryWeight<LR>
-    where
-        LR: LeafReader,
-        QC: QueryCache;
-
     fn create_weight<IRC, QC>(
         self,
         searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
+    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
@@ -126,25 +120,26 @@ impl QueryBase for BoostQuery {
             return Ok(rewritten);
         }
 
-        let rewritten_base = match rewritten {
+        let rewritten = match rewritten {
             Query::Boost(in_boost) => {
                 return Ok(BoostQuery::new(in_boost.query, self.boost * in_boost.boost)?.into());
             },
             Query::MatchNoDoc(_) => {
                 return Ok(rewritten);
             },
-            Query::ConstantScore(cs) => cs.into_inner(),
-            other => BaseQuery::try_from(other)?,
+            other => other,
         };
 
-        if self.boost == 0.0 {
-            return Ok(BoostQuery::new(Box::new(rewritten_base), 0.0)?.into());
+        if self.boost == 0.0 && !matches!(rewritten, Query::ConstantScore(_)) {
+            return Ok(
+                BoostQuery::new(Box::new(ConstantScoreQuery::new(rewritten).into()), 0.0)?.into(),
+            );
         }
 
-        if &query_id != rewritten_base.identity() {
-            return Ok(BoostQuery::new(Box::new(rewritten_base), self.boost)?.into());
+        if &query_id != rewritten.identity() {
+            return Ok(BoostQuery::new(Box::new(rewritten), self.boost)?.into());
         }
-        self.query = Box::new(rewritten_base);
+        self.query = Box::new(rewritten);
         Ok(self.into())
     }
 

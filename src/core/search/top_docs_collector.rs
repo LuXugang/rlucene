@@ -366,7 +366,7 @@ mod tests {
         ) -> Result<Self::LeafCollector<'a, LR>>
         where
             LR: LeafReader,
-            W: Weight<LR>,
+            W: Weight<LR> + ?Sized,
         {
             let base = context.doc_base;
             Ok(LeafCollectorImpl::new(self, base, SCORES))
@@ -642,7 +642,7 @@ mod tests {
         let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
         let mut collector = collector_manager.new_collector()?;
         let mut scorer = Score::new();
-        let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
+        let dummy_weight = Box::new(DummyWeight::new(v.leaves()?[0].reader().clone()));
         let mut leaf_collector =
             collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;

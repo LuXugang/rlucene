@@ -25,7 +25,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
+use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::QueryCache;
@@ -36,7 +36,7 @@ use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2};
@@ -119,30 +119,25 @@ impl QueryBase for TermQuery {
         buffer
     }
 
-    type Weight<LR, QC>
-        = TermWeight<LR>
-    where
-        LR: LeafReader,
-        QC: QueryCache;
-
     fn create_weight<IRC, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
+        _searcher: &IndexSearcher<IRC, QC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
     {
-        let context = searcher.get_top_reader_context();
-        let term_state = match per_reader_term_state {
-            Some(states) if states.was_built_for_some(context.base().id()) => states,
-            _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
-        };
-        TermWeight::new(searcher, *score_mode, boost, term_state, self)
+        // let context = searcher.get_top_reader_context();
+        // let term_state = match per_reader_term_state {
+        //     Some(states) if states.was_built_for_some(context.base().id()) => states,
+        //     _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+        // };
+        // TermWeight::new(searcher, *score_mode, boost, term_state, self)
+        todo!()
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>

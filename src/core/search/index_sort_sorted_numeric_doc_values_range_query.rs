@@ -51,7 +51,7 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
 use crate::core::search::pruning::Pruning;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -134,50 +134,45 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s
     }
 
-    type Weight<LR, QC>
-        = IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
-    where
-        LR: LeafReader,
-        QC: QueryCache;
-
     fn create_weight<IRC, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
-        score_mode: &ScoreMode,
-        boost: f32,
-        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
+        _searcher: &IndexSearcher<IRC, QC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
+        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
     {
-        let query = self.clone();
-        let fallback_query_weight =
-            match self.fallback_query {
-                FallbackQuery::PointRange(p) => FallbackQueryWeight::A(p.create_weight(
-                    searcher,
-                    score_mode,
-                    boost,
-                    per_reader_term_state,
-                )?),
-
-                FallbackQuery::SortedNumericDocValuesSet(p) => FallbackQueryWeight::B(
-                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                ),
-                FallbackQuery::SortedNumericDocValuesRange(p) => FallbackQueryWeight::C(
-                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                ),
-                FallbackQuery::SortedSetDocValuesRange(p) => FallbackQueryWeight::D(
-                    p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
-                ),
-            };
-        Ok(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
-            query,
-            ConstantScoreWeight::new(boost),
-            *score_mode,
-            fallback_query_weight,
-        ))
+        todo!()
+        // let query = self.clone();
+        // let fallback_query_weight =
+        //     match self.fallback_query {
+        //         FallbackQuery::PointRange(p) => FallbackQueryWeight::A(p.create_weight(
+        //             searcher,
+        //             score_mode,
+        //             boost,
+        //             per_reader_term_state,
+        //         )?),
+        //
+        //         FallbackQuery::SortedNumericDocValuesSet(p) => FallbackQueryWeight::B(
+        //             p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+        //         ),
+        //         FallbackQuery::SortedNumericDocValuesRange(p) => FallbackQueryWeight::C(
+        //             p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+        //         ),
+        //         FallbackQuery::SortedSetDocValuesRange(p) => FallbackQueryWeight::D(
+        //             p.create_weight(searcher, score_mode, boost, per_reader_term_state)?,
+        //         ),
+        //     };
+        // Ok(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
+        //     query,
+        //     ConstantScoreWeight::new(boost),
+        //     *score_mode,
+        //     fallback_query_weight,
+        // ))
     }
 
     fn rewrite<IRC, QC>(mut self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -1359,7 +1354,7 @@ mod tests {
     };
     use crate::core::document::string_field::StringField;
     use crate::core::index::index_reader::IndexReader;
-    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::search::QueryCache;
@@ -1966,19 +1961,21 @@ mod tests {
                 let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
                 let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
 
-                assert_same_count(&w1, &w2, &searcher)?;
+                assert_same_count(w1.as_ref(), w2.as_ref(), &searcher)?;
             }
         }
 
         Ok(())
     }
 
-    fn assert_same_count<IRC, QC>(
-        weight1: &impl Weight<IRC::LeafReader>,
-        weight2: &impl Weight<IRC::LeafReader>,
+    fn assert_same_count<W1, W2, IRC, QC>(
+        weight1: &W1,
+        weight2: &W2,
         searcher: &IndexSearcher<IRC, QC>,
     ) -> Result<()>
     where
+        W1: Weight<IRCLeafReader<IRC>> + ?Sized,
+        W2: Weight<IRCLeafReader<IRC>> + ?Sized,
         IRC: IndexReaderContext,
         QC: QueryCache,
     {

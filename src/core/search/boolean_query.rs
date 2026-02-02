@@ -16,17 +16,12 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::boolean_clause::{BooleanClause, BooleanClauseQuery, Occur};
-use crate::core::search::boolean_weight::{
-    BaseQueryWeightEnum, BooleanWeight, WeightedBooleanClause,
-};
-use crate::core::search::index_searcher::{
-    IndexSearcher, IndexSearcherWeight, get_max_clause_count,
-};
-use crate::core::search::query::{BaseQuery, Query, QueryBase};
+use crate::core::search::boolean_clause::{BooleanClause, Occur};
+use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::core_helper::HasIdentity;
@@ -90,14 +85,8 @@ impl BooleanQuery {
     pub(crate) fn is_two_clause_pure_disjunction_with_terms(&self) -> bool {
         self.clauses.len() == 2
             && self.is_pure_disjunction()
-            && matches!(
-                self.clauses[0].query,
-                BooleanClauseQuery::Base(BaseQuery::Term(_))
-            )
-            && matches!(
-                self.clauses[1].query,
-                BooleanClauseQuery::Base(BaseQuery::Term(_))
-            )
+            && matches!(self.clauses[0].query, Query::Term(_))
+            && matches!(self.clauses[1].query, Query::Term(_))
     }
 }
 impl Hash for BooleanQuery {
@@ -157,49 +146,44 @@ impl QueryBase for BooleanQuery {
         buffer
     }
 
-    type Weight<LR, QC>
-        = BooleanWeight<IndexSearcherWeight<BaseQueryWeightEnum<LR, QC>, LR, QC>, LR>
-    where
-        LR: LeafReader,
-        QC: QueryCache;
-
     fn create_weight<IRC, QC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
-        score_mode: &ScoreMode,
-        boost: f32,
+        _searcher: &IndexSearcher<IRC, QC>,
+        _score_mode: &ScoreMode,
+        _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
-    ) -> Result<Self::Weight<IRCLeafReader<IRC>, QC>>
+    ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
     {
-        let similarity = searcher.get_similarity();
-
-        let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
-        for c in self.clone().clauses {
-            let clause_score_mode = if c.is_scoring() {
-                score_mode
-            } else {
-                &ScoreMode::CompleteNoScores
-            };
-            let inner_weight = c.query.clone().create_weight_no_boolean(
-                searcher,
-                clause_score_mode,
-                boost,
-                None,
-            )?;
-            let weight = searcher.wrap_weight(inner_weight, *clause_score_mode);
-
-            weighted_clauses.push(WeightedBooleanClause::new(c, weight));
-        }
-        Ok(BooleanWeight {
-            similarity,
-            weighted_clauses,
-            query: self,
-            score_mode: *score_mode,
-        })
+        // let similarity = searcher.get_similarity();
+        //
+        // let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
+        // for c in self.clone().clauses {
+        //     let clause_score_mode = if c.is_scoring() {
+        //         score_mode
+        //     } else {
+        //         &ScoreMode::CompleteNoScores
+        //     };
+        //     let inner_weight = c.query.clone().create_weight(
+        //         searcher,
+        //         clause_score_mode,
+        //         boost,
+        //         None,
+        //     )?;
+        //     let weight = searcher.wrap_weight(inner_weight, *clause_score_mode);
+        //
+        //     weighted_clauses.push(WeightedBooleanClause::new(c, weight));
+        // }
+        // Ok(BooleanWeight {
+        //     similarity,
+        //     weighted_clauses,
+        //     query: self,
+        //     score_mode: *score_mode,
+        // })
+        todo!()
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -299,7 +283,7 @@ impl Builder {
     /// the maximum clause count.
     pub fn add_query<Q>(&mut self, query: Q, occur: Occur) -> Result<&mut Self>
     where
-        Q: Into<BooleanClauseQuery>,
+        Q: Into<Query>,
     {
         self.add_clause(BooleanClause::new(query.into(), occur))
     }

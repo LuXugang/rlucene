@@ -32,7 +32,7 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{IdentityQuery, Query, QueryBase};
+use crate::core::search::query::{IdentityQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
 use crate::core::search::scorable::Scorable;
@@ -581,18 +581,16 @@ impl<P> QueryCache for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta>,
 {
-    type Weight<W, LR>
-        = CachingWrapperWeight<W, P, LR>
+    fn do_cache<LR>(
+        &self,
+        _weight: QueryWeight<LR>,
+        _policy: Arc<QueryCachingPolicyEnum>,
+    ) -> QueryWeight<LR>
     where
-        W: Weight<LR>,
-        LR: LeafReader;
-
-    fn do_cache<W, LR>(&self, weight: W, policy: Arc<QueryCachingPolicyEnum>) -> Self::Weight<W, LR>
-    where
-        W: Weight<LR>,
         LR: LeafReader,
     {
-        CachingWrapperWeight::new(weight, policy, self.clone())
+        todo!()
+        // CachingWrapperWeight::new(weight, policy, self.clone())
     }
 }
 

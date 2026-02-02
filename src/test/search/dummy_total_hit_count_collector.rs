@@ -62,7 +62,7 @@ impl Collector for DummyTotalHitCountCollector {
     ) -> Result<Self::LeafCollector<'a, LR>>
     where
         LR: LeafReader,
-        W: Weight<LR>,
+        W: Weight<LR> + ?Sized,
     {
         Ok(DummyLeafCollectorImpl::new(self))
     }
