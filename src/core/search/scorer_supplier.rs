@@ -107,7 +107,7 @@ macro_rules! either_scorer_supplier {
                     $(
                         Self::$Variant(inner) => {
                             let scorer = inner.get(lead_cost, context)?;
-                            Ok($scorer::$Variant(scorer))
+                            Ok($scorer::$T(scorer))
                         }
                     ),+
                 }
@@ -121,7 +121,7 @@ macro_rules! either_scorer_supplier {
                     $(
                         Self::$Variant(inner) => {
                             let opt = inner.bulk_scorer(context)?;
-                            Ok(opt.map($bulk::$Variant))
+                            Ok(opt.map($bulk::$T))
                         }
                     ),+
                 }
@@ -135,7 +135,7 @@ macro_rules! either_scorer_supplier {
                     $(
                         Self::$Variant(inner) => {
                             let scorer = inner.get(i64::MAX, context)?;
-                            Ok(DefaultBulkScorer::new($scorer::$Variant(scorer)))
+                            Ok(DefaultBulkScorer::new($scorer::$T(scorer)))
                         }
                     )+
                 }
