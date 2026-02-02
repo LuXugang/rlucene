@@ -164,33 +164,3 @@ either_matches_iterator!(
     => { sub: MatchesIteratorEnum6 }
     { A: A, B: B,C:C,D:D,E:E,F:F }
 );
-either_matches_iterator!(
-    pub MatchesIteratorEnum7
-    => { sub: MatchesIteratorEnum7 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum8
-    => { sub: MatchesIteratorEnum8 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum9
-    => { sub: MatchesIteratorEnum9 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum10
-    => { sub: MatchesIteratorEnum10 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum11
-    => { sub: MatchesIteratorEnum11 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum12
-    => { sub: MatchesIteratorEnum12 }
-    { A: A, B: B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K,L:L }
-);

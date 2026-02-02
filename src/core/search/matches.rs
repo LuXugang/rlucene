@@ -16,8 +16,7 @@
  */
 use crate::core::search::matches_iterator::{
     MatchesIterator, MatchesIteratorEnum2, MatchesIteratorEnum3, MatchesIteratorEnum4,
-    MatchesIteratorEnum5, MatchesIteratorEnum6, MatchesIteratorEnum7, MatchesIteratorEnum8,
-    MatchesIteratorEnum9, MatchesIteratorEnum10, MatchesIteratorEnum11, MatchesIteratorEnum12,
+    MatchesIteratorEnum5, MatchesIteratorEnum6,
 };
 use crate::core::util::error::lucene_error::Result;
 
@@ -118,34 +117,4 @@ either_matches!(
     pub MatchesEnum6
     => { mi: MatchesIteratorEnum6 }
     { A: A, B: B, C: C, D: D, E: E, F: F }
-);
-either_matches!(
-    pub MatchesEnum7
-    => { mi: MatchesIteratorEnum7 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
-);
-either_matches!(
-    pub MatchesEnum8
-    => { mi: MatchesIteratorEnum8 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
-);
-either_matches!(
-    pub MatchesEnum9
-    => { mi: MatchesIteratorEnum9 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
-);
-either_matches!(
-    pub MatchesEnum10
-    => { mi: MatchesIteratorEnum10 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
-);
-either_matches!(
-    pub MatchesEnum11
-    => { mi: MatchesIteratorEnum11 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
-);
-either_matches!(
-    pub MatchesEnum12
-    => { mi: MatchesIteratorEnum12 }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );

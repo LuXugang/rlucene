@@ -17,27 +17,18 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::bulk_scorer::{
-    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum7,
-    BulkScorerEnum8, BulkScorerEnum9, BulkScorerEnum10, BulkScorerEnum11, BulkScorerEnum12,
+    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::{
-    Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4, MatchesEnum7, MatchesEnum8, MatchesEnum9,
-    MatchesEnum10, MatchesEnum11, MatchesEnum12,
-};
+use crate::core::search::matches::{Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
-use crate::core::search::scorer::{
-    Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum7, ScorerEnum8, ScorerEnum9,
-    ScorerEnum10, ScorerEnum11, ScorerEnum12, TwoPhaseState,
-};
+use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState};
 use crate::core::search::scorer_supplier::{
     ScorerSupplier, ScorerSupplierEnum2, ScorerSupplierEnum3, ScorerSupplierEnum4,
-    ScorerSupplierEnum7, ScorerSupplierEnum8, ScorerSupplierEnum9, ScorerSupplierEnum10,
-    ScorerSupplierEnum11, ScorerSupplierEnum12,
 };
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -1000,64 +991,4 @@ either_weight!(
         bulk: BulkScorerEnum4
     }
     { A: A, B: B, C: C ,D:D}
-);
-either_weight!(
-    pub WeightEnum7
-    => {
-        matches: MatchesEnum7,
-        supplier: ScorerSupplierEnum7,
-        scorer: ScorerEnum7,
-        bulk: BulkScorerEnum7
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
-);
-either_weight!(
-    pub WeightEnum8
-    => {
-        matches: MatchesEnum8,
-        supplier: ScorerSupplierEnum8,
-        scorer: ScorerEnum8,
-        bulk: BulkScorerEnum8
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
-);
-either_weight!(
-    pub WeightEnum9
-    => {
-        matches: MatchesEnum9,
-        supplier: ScorerSupplierEnum9,
-        scorer: ScorerEnum9,
-        bulk: BulkScorerEnum9
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
-);
-either_weight!(
-    pub WeightEnum10
-    => {
-        matches: MatchesEnum10,
-        supplier: ScorerSupplierEnum10,
-        scorer: ScorerEnum10,
-        bulk: BulkScorerEnum10
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
-);
-either_weight!(
-    pub WeightEnum11
-    => {
-        matches: MatchesEnum11,
-        supplier: ScorerSupplierEnum11,
-        scorer: ScorerEnum11,
-        bulk: BulkScorerEnum11
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
-);
-either_weight!(
-    pub WeightEnum12
-    => {
-        matches: MatchesEnum12,
-        supplier: ScorerSupplierEnum12,
-        scorer: ScorerEnum12,
-        bulk: BulkScorerEnum12
-    }
-    { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );
