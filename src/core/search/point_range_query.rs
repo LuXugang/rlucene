@@ -26,6 +26,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
+use crate::core::search::bulk_scorer::BulkScorerEnum2;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
@@ -38,7 +39,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2};
-use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::TryIntoInt;
@@ -50,6 +51,7 @@ use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIter
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
+use crate::either_scorer_supplier;
 #[cfg(test)]
 use crate::test::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
@@ -510,20 +512,20 @@ where
         }
         let max_doc = reader.max_doc()?;
         if all_docs_match {
-            Ok(Some(PointRangeWeightScorerSupplier::A(
-                ScorerSupplierImpl::new(self.base.score(), self.score_mode, max_doc),
-            )))
+            Ok(Some(PointRangeWeightSs::Impl(ScorerSupplierImpl::new(
+                self.base.score(),
+                self.score_mode,
+                max_doc,
+            ))))
         } else {
             let result =
                 DocIdSetBuilder::with_point_values(max_doc, &values, self.query.field.as_ref())?;
-            Ok(Some(PointRangeWeightScorerSupplier::B(
-                ScorerSupplierImpl1::new(
-                    self.base.score(),
-                    self.score_mode,
-                    values,
-                    Self::get_intersect_visitor(result, self),
-                ),
-            )))
+            Ok(Some(PointRangeWeightSs::Impl1(ScorerSupplierImpl1::new(
+                self.base.score(),
+                self.score_mode,
+                values,
+                Self::get_intersect_visitor(result, self),
+            ))))
         }
     }
 
@@ -563,8 +565,13 @@ where
         self.default_count(context)
     }
 }
+either_scorer_supplier!(
+    pub PointRangeWeightSs
+    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
+    { Impl: A, Impl1: B}
+);
 pub type PointRangeWeightScorerSupplier<PV> =
-    ScorerSupplierEnum2<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
+    PointRangeWeightSs<ScorerSupplierImpl, ScorerSupplierImpl1<PV>>;
 pub(crate) fn matches(
     query: &PointRangeQuery,
     comparator: &ByteArrayComparatorEnum,

@@ -16,20 +16,16 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{
-    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4,
-};
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum4};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::{Matches, MatchesEnum2, MatchesEnum3, MatchesEnum4};
+use crate::core::search::matches::{Matches, MatchesEnum4};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
-use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState};
-use crate::core::search::scorer_supplier::{
-    ScorerSupplier, ScorerSupplierEnum2, ScorerSupplierEnum3, ScorerSupplierEnum4,
-};
+use crate::core::search::scorer::{Scorer, ScorerEnum4, TwoPhaseState};
+use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
@@ -951,36 +947,6 @@ macro_rules! either_weight {
     };
 }
 
-either_weight!(
-    pub WeightEnum2
-    => {
-        matches: MatchesEnum2,
-        supplier: ScorerSupplierEnum2,
-        scorer: ScorerEnum2,
-        bulk: BulkScorerEnum2
-    }
-    { A: A, B: B }
-);
-either_weight!(
-    pub QueryWeightEnum
-    => {
-        matches: MatchesEnum2,
-        supplier: ScorerSupplierEnum2,
-        scorer: ScorerEnum2,
-        bulk: BulkScorerEnum2
-    }
-    { Base: A => A, Composite: B => B }
-);
-either_weight!(
-    pub WeightEnum3
-    => {
-        matches: MatchesEnum3,
-        supplier: ScorerSupplierEnum3,
-        scorer: ScorerEnum3,
-        bulk: BulkScorerEnum3
-    }
-    { A: A, B: B, C: C }
-);
 either_weight!(
     pub WeightEnum4
     => {

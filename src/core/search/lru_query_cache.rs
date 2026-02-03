@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRCacherHelper, LeafReader};
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
-use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum3};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
@@ -37,8 +37,8 @@ use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::ScorerEnum2;
-use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum3};
+use crate::core::search::scorer::{ScorerEnum2, ScorerEnum3};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightScorerSupplier};
 use crate::core::util::TryIntoInt;
@@ -51,6 +51,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
 use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
 use crate::core::util::roaring_doc_id_set::builder::Builder;
+use crate::either_scorer_supplier;
 use linked_hash_map::LinkedHashMap;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
@@ -770,28 +771,28 @@ where
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
+                .map(PointRangeWeightSs::Weight));
         }
 
         if !self.should_cache(context)? {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
+                .map(PointRangeWeightSs::Weight));
         }
         let reader = context.reader();
         let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
             return Ok(self
                 .in_
                 .scorer_supplier(context)?
-                .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
+                .map(PointRangeWeightSs::Weight));
         };
         let cached = {
             let Some(inner_read) = self.lru_cache.inner.try_read() else {
                 return Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A));
+                    .map(PointRangeWeightSs::Weight));
             };
             self.lru_cache
                 .get(self.get_query().as_ref(), cache_helper, &inner_read)
@@ -820,12 +821,12 @@ where
                         query,
                         reader.get_core_cache_helper()?.unwrap(),
                     )?;
-                    return Ok(Some(CachingWrapperWeightSupplier::<W, P, LR>::B(ss)));
+                    return Ok(Some(PointRangeWeightSs::Imp1(ss)));
                 }
                 Ok(self
                     .in_
                     .scorer_supplier(context)?
-                    .map(CachingWrapperWeightSupplier::<W, P, LR>::A))
+                    .map(PointRangeWeightSs::Weight))
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -834,7 +835,7 @@ where
                 let Some(disi) = cached.iterator()? else {
                     return Ok(None);
                 };
-                Ok(Some(ScorerSupplierEnum3::C(ScorerSupplierImpl2::new(
+                Ok(Some(PointRangeWeightSs::Impl2(ScorerSupplierImpl2::new(
                     disi,
                 )?)))
             },
@@ -1006,7 +1007,12 @@ where
         Ok(self.cost)
     }
 }
-pub type CachingWrapperWeightSupplier<W, P, LR> = ScorerSupplierEnum3<
+either_scorer_supplier!(
+    pub PointRangeWeightSs
+    => { bulk: BulkScorerEnum3, scorer: ScorerEnum3 }
+    { Weight: A, Imp1: B, Impl2:C}
+);
+pub type CachingWrapperWeightSupplier<W, P, LR> = PointRangeWeightSs<
     WeightScorerSupplier<W, LR>,
     ScorerSupplierImpl1<WeightScorerSupplier<W, LR>, LRCacherHelper<LR>, P, LR>,
     ScorerSupplierImpl2,

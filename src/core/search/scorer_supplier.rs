@@ -16,12 +16,8 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{
-    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4, BulkScorerEnum5, BulkScorerEnum6,
-};
-use crate::core::search::scorer::{
-    Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, ScorerEnum5, ScorerEnum6,
-};
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum4, BulkScorerEnum6};
+use crate::core::search::scorer::{Scorer, ScorerEnum4, ScorerEnum6};
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
@@ -78,7 +74,7 @@ where
         Ok(())
     }
 }
-
+#[macro_export]
 macro_rules! either_scorer_supplier {
     (
         $vis:vis $name:ident
@@ -154,28 +150,10 @@ macro_rules! either_scorer_supplier {
         }
     };
 }
-
-either_scorer_supplier!(
-    pub ScorerSupplierEnum2
-    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
-    { A: A, B: B }
-);
-
-either_scorer_supplier!(
-    pub ScorerSupplierEnum3
-    => { bulk: BulkScorerEnum3, scorer: ScorerEnum3 }
-    { A: A, B: B ,C:C}
-);
-
 either_scorer_supplier!(
     pub ScorerSupplierEnum4
     => { bulk: BulkScorerEnum4, scorer: ScorerEnum4 }
-    { A: A, B: B ,C:C,D:D}
-);
-either_scorer_supplier!(
-    pub ScorerSupplierEnum5
-    => { bulk: BulkScorerEnum5, scorer: ScorerEnum5 }
-    { A: A, B: B ,C:C, D:D,E:E }
+    { A: A, B: B ,C:C, D:D}
 );
 either_scorer_supplier!(
     pub ScorerSupplierEnum6

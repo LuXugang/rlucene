@@ -34,6 +34,7 @@ use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues,
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
+use crate::core::search::bulk_scorer::BulkScorerEnum2;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -54,8 +55,8 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum2};
+use crate::core::search::scorer::{Scorer, ScorerEnum2};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -65,6 +66,7 @@ use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayCom
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::either_scorer_supplier;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -277,7 +279,12 @@ where
         self.fallback_query_weight.is_cacheable(ctx)
     }
 }
-pub type ISSNDVRQSs<LR> = ScorerSupplierEnum2<
+either_scorer_supplier!(
+    pub PointRangeWeightSs
+    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
+    { Impl: A, Fallback: B}
+);
+pub type ISSNDVRQSs<LR> = PointRangeWeightSs<
     ScorerSupplierImpl<Disi<LR>>,
     <FallbackQueryWeight<LR> as Weight<LR>>::ScorerSupplier,
 >;
@@ -331,10 +338,10 @@ where
                     self.query.field.clone(),
                     self.base.score(),
                 )?;
-                Ok(Some(ScorerSupplierEnum2::A(scorer_supplier)))
+                Ok(Some(PointRangeWeightSs::Impl(scorer_supplier)))
             },
             None => match self.fallback_query_weight.scorer_supplier(context)? {
-                Some(v) => Ok(Some(ScorerSupplierEnum2::B(v))),
+                Some(v) => Ok(Some(PointRangeWeightSs::Fallback(v))),
                 None => Ok(None),
             },
         }
