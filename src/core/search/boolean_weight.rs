@@ -23,10 +23,9 @@ use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -35,24 +34,21 @@ use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct BooleanWeight<W, LR>
+pub struct BooleanWeight<LR>
 where
     LR: LeafReader,
-    W: Weight<LR>,
 {
     pub(crate) similarity: Arc<SimilarityEnum>,
-    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<W, LR>>,
+    pub(crate) weighted_clauses: Vec<WeightedBooleanClause<LR>>,
     pub(crate) query: BooleanQuery,
     pub(crate) score_mode: ScoreMode,
 }
 
-impl<LR, W> BooleanWeight<W, LR>
+impl<LR> BooleanWeight<LR>
 where
     LR: LeafReader,
-    W: Weight<LR>,
 {
     /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
     /// required clauses.
@@ -129,10 +125,9 @@ where
     }
 }
 
-impl<W, LR> SegmentCacheable<LR> for BooleanWeight<W, LR>
+impl<LR> SegmentCacheable<LR> for BooleanWeight<LR>
 where
     LR: LeafReader,
-    W: Weight<LR>,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
@@ -152,10 +147,9 @@ where
     }
 }
 
-impl<W, LR> Weight<LR> for BooleanWeight<W, LR>
+impl<LR> Weight<LR> for BooleanWeight<LR>
 where
-    LR: LeafReader,
-    W: Weight<LR>,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -261,8 +255,8 @@ where
         Arc::new(v)
     }
 
-    // type ScorerSupplier = BooleanScorerSupplier<WeightSs<W, LR>, LR>;
-    type ScorerSupplier = DummyScorerSupplier;
+    type ScorerSupplier = QueryWeightSs<LR>;
+    // type ScorerSupplier = DummyScorerSupplier;
 
     fn scorer_supplier(
         &self,
@@ -315,9 +309,8 @@ where
         scores.insert(Occur::Should, should);
         scores.insert(Occur::Filter, filter);
         scores.insert(Occur::MustNot, must_not);
-        let _v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
-        todo!()
-        // Ok(Some(v))
+        let v = BooleanScorerSupplier::new(scores, self.score_mode, min_should_match, max_doc)?;
+        Ok(Some(Box::new(v)))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
@@ -358,27 +351,20 @@ where
         }
     }
 }
-pub(crate) struct WeightedBooleanClause<W, LR>
+pub(crate) struct WeightedBooleanClause<LR>
 where
-    W: Weight<LR>,
     LR: LeafReader,
 {
     pub(crate) clause: BooleanClause,
-    pub(crate) weight: W,
-    _phantom: PhantomData<LR>,
+    pub(crate) weight: QueryWeight<LR>,
 }
 
-impl<W, LR> WeightedBooleanClause<W, LR>
+impl<LR> WeightedBooleanClause<LR>
 where
-    W: Weight<LR>,
     LR: LeafReader,
 {
-    pub(crate) fn new(clause: BooleanClause, weight: W) -> Self {
-        Self {
-            clause,
-            weight,
-            _phantom: PhantomData,
-        }
+    pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<LR>) -> Self {
+        Self { clause, weight }
     }
 }
 struct BooleanQueryMeta {

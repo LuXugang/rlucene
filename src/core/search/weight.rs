@@ -220,7 +220,6 @@ where
         true
     }
 }
-pub type WeightSs<W, LR> = <W as Weight<LR>>::ScorerSupplier;
 impl<LR, T> Weight<LR> for Box<T>
 where
     LR: LeafReader,

@@ -20,6 +20,7 @@ use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
+use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -148,9 +149,9 @@ impl QueryBase for BooleanQuery {
 
     fn create_weight<IRC, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        searcher: &IndexSearcher<IRC, QC>,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
@@ -159,32 +160,30 @@ impl QueryBase for BooleanQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // let similarity = searcher.get_similarity();
-        //
-        // let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
-        // for c in self.clone().clauses {
-        //     let clause_score_mode = if c.is_scoring() {
-        //         score_mode
-        //     } else {
-        //         &ScoreMode::CompleteNoScores
-        //     };
-        //     let inner_weight = c.query.clone().create_weight(
-        //         searcher,
-        //         clause_score_mode,
-        //         boost,
-        //         None,
-        //     )?;
-        //     let weight = searcher.wrap_weight(inner_weight, *clause_score_mode);
-        //
-        //     weighted_clauses.push(WeightedBooleanClause::new(c, weight));
-        // }
-        // Ok(BooleanWeight {
-        //     similarity,
-        //     weighted_clauses,
-        //     query: self,
-        //     score_mode: *score_mode,
-        // })
-        todo!()
+        let similarity = searcher.get_similarity();
+
+        let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
+        for c in self.clone().clauses {
+            let clause_score_mode = if c.is_scoring() {
+                score_mode
+            } else {
+                &ScoreMode::CompleteNoScores
+            };
+            let inner_weight =
+                c.query
+                    .clone()
+                    .create_weight(searcher, clause_score_mode, boost, None)?;
+            let weight = searcher.wrap_weight(inner_weight, *clause_score_mode);
+
+            weighted_clauses.push(WeightedBooleanClause::new(c, weight));
+        }
+        let v = BooleanWeight {
+            similarity,
+            weighted_clauses,
+            query: self,
+            score_mode: *score_mode,
+        };
+        Ok(Box::new(v))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>

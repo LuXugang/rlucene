@@ -19,7 +19,7 @@ use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDoc
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::LRTermState;
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
@@ -29,12 +29,15 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
-use crate::core::search::bulk_scorer::BulkScorerEnum4;
+use crate::core::search::boolean_scorer_supplier::{BulkScorerType, GetType};
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::EmptyDISI;
-use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
+use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
+use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::{
     MatchAllBulkScorerEnum, MatchAllDocsQuery, MatchAllSsScorer,
 };
@@ -42,11 +45,13 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::ScorerEnum4;
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::term_query::{TermQuery, TermScorerEnum};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
@@ -58,18 +63,176 @@ pub type QueryWeight<LR> =
     Box<dyn Weight<LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>>;
 pub type QueryWeightSs<LR> =
     Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBs<LR>, Scorer = QueryWeightSsS<LR>>>;
-pub type QueryWeightSsBs<LR> = BulkScorerEnum4<
-    DefaultBulkScorer<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>,
-    MatchAllBulkScorerEnum<LR>,
-    DummyBulkScorer,
-    DummyBulkScorer,
->;
-pub type QueryWeightSsS<LR> = ScorerEnum4<
-    TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>,
-    MatchAllSsScorer,
-    DummyScorer,
-    DummyScorer,
->;
+
+pub enum QueryWeightSsBs<LR>
+where
+    LR: LeafReader,
+{
+    Term(DefaultBulkScorer<QueryWeightSsS<LR>>),
+    MatchAll(MatchAllBulkScorerEnum<LR>),
+    Boolean(Box<BulkScorerType<QueryWeightSsBs<LR>, QueryWeightSsS<LR>>>),
+}
+impl<LR> BulkScorer for QueryWeightSsBs<LR>
+where
+    LR: LeafReader,
+{
+    fn score<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        min: i32,
+        max: i32,
+    ) -> Result<i32>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        match self {
+            QueryWeightSsBs::Term(scorer) => scorer.score(collector, accept_docs, min, max),
+            QueryWeightSsBs::MatchAll(scorer) => scorer.score(collector, accept_docs, min, max),
+            QueryWeightSsBs::Boolean(scorer) => scorer.score(collector, accept_docs, min, max),
+        }
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        match self {
+            QueryWeightSsBs::Term(scorer) => scorer.cost(),
+            QueryWeightSsBs::MatchAll(scorer) => scorer.cost(),
+            QueryWeightSsBs::Boolean(scorer) => scorer.cost(),
+        }
+    }
+}
+
+pub enum QueryWeightSsS<LR>
+where
+    LR: LeafReader,
+{
+    Term(TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>),
+    MatchAll(MatchAllSsScorer),
+    Boolean(Box<GetType<QueryWeightSsS<LR>>>),
+    Dummy(DummyScorer),
+}
+
+impl<LR> Scorable for QueryWeightSsS<LR>
+where
+    LR: LeafReader,
+{
+    fn score(&mut self) -> Result<f32> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.score(),
+            QueryWeightSsS::MatchAll(scorer) => scorer.score(),
+            QueryWeightSsS::Boolean(scorer) => scorer.score(),
+            QueryWeightSsS::Dummy(scorer) => scorer.score(),
+        }
+    }
+
+    type Scorable = DummyScorable;
+}
+
+impl<LR> Scorer for QueryWeightSsS<LR>
+where
+    LR: LeafReader,
+{
+    type DocIdSetIterator = DummyDISI;
+    type DocIdSetIteratorRef<'a>
+        = DummyDISI
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>
+        = DummyDISI
+    where
+        Self: 'a;
+    type TwoPhaseIter = DummyTwoPhaseIterator;
+    type TwoPhaseIterRef<'a>
+        = DummyTwoPhaseIterator
+    where
+        Self: 'a;
+    type TwoPhaseIterMut<'a>
+        = DummyTwoPhaseIterator
+    where
+        Self: 'a;
+
+    fn doc_id(&mut self) -> Result<i32> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.doc_id(),
+            QueryWeightSsS::MatchAll(scorer) => scorer.doc_id(),
+            QueryWeightSsS::Boolean(scorer) => scorer.doc_id(),
+            QueryWeightSsS::Dummy(scorer) => scorer.doc_id(),
+        }
+    }
+
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+        todo!()
+    }
+
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        todo!()
+    }
+
+    fn take_iterator(self) -> Self::DocIdSetIterator {
+        todo!()
+    }
+
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        todo!()
+    }
+
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        todo!()
+    }
+
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.advance_shallow(_target),
+            QueryWeightSsS::MatchAll(scorer) => scorer.advance_shallow(_target),
+            QueryWeightSsS::Boolean(scorer) => scorer.advance_shallow(_target),
+            QueryWeightSsS::Dummy(scorer) => scorer.advance_shallow(_target),
+        }
+    }
+
+    fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.default_advance_shallow(_target),
+            QueryWeightSsS::MatchAll(scorer) => scorer.default_advance_shallow(_target),
+            QueryWeightSsS::Boolean(scorer) => scorer.default_advance_shallow(_target),
+            QueryWeightSsS::Dummy(scorer) => scorer.default_advance_shallow(_target),
+        }
+    }
+
+    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.get_max_score(up_to),
+            QueryWeightSsS::MatchAll(scorer) => scorer.get_max_score(up_to),
+            QueryWeightSsS::Boolean(scorer) => scorer.get_max_score(up_to),
+            QueryWeightSsS::Dummy(scorer) => scorer.get_max_score(up_to),
+        }
+    }
+
+    fn default_cost(&mut self) -> Result<i64> {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.default_cost(),
+            QueryWeightSsS::MatchAll(scorer) => scorer.default_cost(),
+            QueryWeightSsS::Boolean(scorer) => scorer.default_cost(),
+            QueryWeightSsS::Dummy(scorer) => scorer.default_cost(),
+        }
+    }
+
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        match self {
+            QueryWeightSsS::Term(scorer) => scorer.has_two_phase_iterator(),
+            QueryWeightSsS::MatchAll(scorer) => scorer.has_two_phase_iterator(),
+            QueryWeightSsS::Boolean(scorer) => scorer.has_two_phase_iterator(),
+            QueryWeightSsS::Dummy(scorer) => scorer.has_two_phase_iterator(),
+        }
+    }
+}
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;

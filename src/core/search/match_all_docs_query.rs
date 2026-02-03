@@ -232,7 +232,7 @@ where
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
-        let v = QueryWeightSsS::<LR>::B(ConstantScoreScorer::with_disi(
+        let v = QueryWeightSsS::<LR>::MatchAll(ConstantScoreScorer::with_disi(
             score,
             self.score_mode,
             AllDISI::new(self.max_doc),
@@ -252,7 +252,7 @@ where
                 score,
             ))
         };
-        Ok(Some(QueryWeightSsBs::<LR>::B(v)))
+        Ok(Some(QueryWeightSsBs::<LR>::MatchAll(v)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {

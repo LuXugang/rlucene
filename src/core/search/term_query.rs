@@ -41,7 +41,7 @@ use crate::core::search::query::{
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum4};
+use crate::core::search::scorer::{Scorer, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -320,7 +320,7 @@ where
             let new_doc = scorer.iterator_mut().advance(doc)?;
             if new_doc == doc {
                 let freq = match scorer {
-                    ScorerEnum4::A(s) => match s {
+                    QueryWeightSsS::Term(s) => match s {
                         ScorerEnum2::A(ts) => ts.freq()?,
                         ScorerEnum2::B(_) => {
                             return Err(LuceneError::illegal_state("should TermScorer here"));
@@ -532,7 +532,7 @@ where
                             norms,
                             self.top_level_scoring_clause,
                         ));
-                    Ok(ScorerEnum4::A(v))
+                    Ok(QueryWeightSsS::Term(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
                         FREQS
@@ -549,25 +549,21 @@ where
                             norms,
                         ),
                     );
-                    Ok(ScorerEnum4::A(v))
+                    Ok(QueryWeightSsS::Term(v))
                 }
             },
             None => {
                 let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
                     ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
-                Ok(ScorerEnum4::A(v))
+                Ok(QueryWeightSsS::Term(v))
             },
         }
     }
 
-    fn bulk_scorer(
-        &mut self,
-        _context: &LeafReaderContext<LR>,
-    ) -> Result<Option<Self::BulkScorer>> {
-        // let v = QueryWeightSsBs::A(self.default_bulk_scorer(context)?);
-        // Ok(Some(v))
-        todo!()
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        let v = QueryWeightSsBs::Term(self.default_bulk_scorer(context)?);
+        Ok(Some(v))
     }
 
     fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
