@@ -226,6 +226,30 @@ impl DocIdSetIterator for RangeDISI {
         Ok((self.max_doc - self.min_doc) as i64)
     }
 }
+impl<T> DocIdSetIterator for Box<T>
+where
+    T: DocIdSetIterator + ?Sized,
+{
+    fn doc_id(&self) -> i32 {
+        (**self).doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        (**self).next_doc()
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        (**self).advance(_target)
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        (**self).slow_advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        (**self).cost()
+    }
+}
 impl<T: DocIdSetIterator> DocIdSetIterator for &mut T {
     fn doc_id(&self) -> i32 {
         (**self).doc_id()
