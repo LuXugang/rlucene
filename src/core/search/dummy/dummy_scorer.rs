@@ -37,9 +37,7 @@ impl Scorable for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type Scorable = DummyScorer;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

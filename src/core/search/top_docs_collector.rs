@@ -616,8 +616,6 @@ mod tests {
             self.min_competitive_score = Some(score);
             Ok(())
         }
-
-        type Scorable = Score;
     }
     #[test]
     fn test_set_min_competitive_score() -> Result<()> {

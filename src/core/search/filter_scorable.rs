@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::Result;
 /// Filter a [`Scorable`], intercepting methods and optionally changing their return values.
@@ -44,9 +43,7 @@ where
         self.in_.score()
     }
 
-    type Scorable = DummyScorable;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
     }
 }

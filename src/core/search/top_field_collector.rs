@@ -1317,7 +1317,7 @@ mod tests {
 
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
-    use crate::core::search::dummy::dummy_scorable::DummyScorable;
+
     use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::field_doc::FieldDoc;
     use crate::core::search::leaf_collector::LeafCollector;
@@ -1970,7 +1970,5 @@ mod tests {
             self.min_competitive_score = Some(min_score);
             Ok(())
         }
-
-        type Scorable = DummyScorable;
     }
 }

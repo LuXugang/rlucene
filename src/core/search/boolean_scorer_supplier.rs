@@ -977,8 +977,6 @@ where
     fn score(&mut self) -> Result<f32> {
         Ok(0f32)
     }
-
-    type Scorable = <FilterScorer<S> as Scorable>::Scorable;
 }
 
 impl<S> Scorer for FilterScorerImpl<S>

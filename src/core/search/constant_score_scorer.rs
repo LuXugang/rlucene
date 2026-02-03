@@ -18,7 +18,6 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, EmptyEnum,
 };
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -116,8 +115,6 @@ where
         }
         Ok(())
     }
-
-    type Scorable = DummyScorable;
 
     fn cost(&mut self) -> Result<i64> {
         Scorer::default_cost(self)

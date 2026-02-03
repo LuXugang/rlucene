@@ -54,9 +54,8 @@ pub trait Scorable {
         Ok(())
     }
 
-    type Scorable: Scorable;
     /// Returns child sub-scorers positioned on the current document.
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         Ok(vec![])
     }
 
@@ -130,23 +129,9 @@ macro_rules! either_scorable {
                 match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
             }
 
-            type Scorable = $name<$( <$T as Scorable>::Scorable ),+>;
-
-            fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+            fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
                 match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let children = inner.get_children()?;
-                            let mapped = children
-                                .into_iter()
-                                .map(|child| ChildScorable {
-                                    child: Self::Scorable::$Variant(child.child),
-                                    relationship: child.relationship,
-                                })
-                                .collect();
-                            Ok(mapped)
-                        }
-                    ),+
+                    $( Self::$Variant(inner) => inner.get_children(), )+
                 }
             }
 

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -79,8 +78,6 @@ where
             TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.score()?),
         }
     }
-
-    type Scorable = DummyScorable;
 }
 
 impl<S1, S2> Scorer for ReqExclScorer<S1, S2>

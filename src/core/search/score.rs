@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 /// Used by [`BulkScorers`](crate::core::search::bulk_scorer::BulkScorer) that need to pass a
@@ -32,6 +31,4 @@ impl Scorable for Score {
     fn score(&mut self) -> Result<f32> {
         Ok(self.score)
     }
-
-    type Scorable = DummyScorable;
 }

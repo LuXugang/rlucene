@@ -19,10 +19,7 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
     DocIdSetIteratorEnum5, DocIdSetIteratorEnum6,
 };
-use crate::core::search::scorable::{
-    ChildScorable, Scorable, ScorableEnum2, ScorableEnum3, ScorableEnum4, ScorableEnum5,
-    ScorableEnum6,
-};
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorEnum2, TwoPhaseIteratorEnum3, TwoPhaseIteratorEnum4,
     TwoPhaseIteratorEnum5, TwoPhaseIteratorEnum6,
@@ -140,13 +137,27 @@ pub trait Scorer: Scorable {
 
 impl<T> Scorable for Box<T>
 where
-    T: Scorer + ?Sized,
+    T: Scorable + ?Sized,
 {
     fn score(&mut self) -> Result<f32> {
         (**self).score()
     }
 
-    type Scorable = T::Scorable;
+    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+        (**self).smoothing_score(doc_id)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        (**self).set_min_competitive_score(min_score)
+    }
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+        (**self).get_children()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        (**self).cost()
+    }
 }
 
 impl<T> Scorer for Box<T>
@@ -266,24 +277,11 @@ macro_rules! either_scorer {
                 match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
             }
 
-            type Scorable = $scorable_ty<$( < $T as Scorable >::Scorable ),+>;
 
             #[inline]
-            fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+            fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
                 match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let children = inner.get_children()?;
-                            let mapped = children
-                                .into_iter()
-                                .map(|child| ChildScorable {
-                                    child: Self::Scorable::$Variant(child.child),
-                                    relationship: child.relationship,
-                                })
-                                .collect();
-                            Ok(mapped)
-                        }
-                    ),+
+                    $( Self::$Variant(inner) => inner.get_children(), )+
                 }
             }
 

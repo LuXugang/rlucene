@@ -460,7 +460,7 @@ where
 //
 //     type Scorable = <FilterScorable<'a, S> as Scorable>::Scorable;
 //
-//     fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+//     fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
 //         self.base.get_children()
 //     }
 //

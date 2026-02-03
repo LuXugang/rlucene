@@ -90,9 +90,7 @@ where
         self.scorer.set_min_competitive_score(min_score)
     }
 
-    type Scorable = S::Scorable;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         self.scorer.get_children()
     }
 

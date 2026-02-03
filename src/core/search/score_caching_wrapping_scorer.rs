@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -70,9 +69,7 @@ where
         self.in_.set_min_competitive_score(min_score)
     }
 
-    type Scorable = DummyScorable;
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
         todo!()
     }
 }

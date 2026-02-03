@@ -46,8 +46,6 @@ where
     fn score(&mut self) -> Result<f32> {
         self.inner.score()
     }
-
-    type Scorable = S::Scorable;
 }
 
 impl<S> Scorer for FilterScorer<S>

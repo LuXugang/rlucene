@@ -16,7 +16,6 @@
  */
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
@@ -270,6 +269,4 @@ where
         }
         Ok(score)
     }
-
-    type Scorable = DummyScorable;
 }

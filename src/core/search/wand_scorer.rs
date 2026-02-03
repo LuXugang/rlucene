@@ -18,7 +18,6 @@ use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -113,8 +112,6 @@ where
 
         Ok(lead_score as f32)
     }
-
-    type Scorable = DummyScorable;
 }
 
 impl<S> Scorer for WANDScorer<S>

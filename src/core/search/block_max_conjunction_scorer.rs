@@ -16,7 +16,6 @@
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
@@ -111,8 +110,6 @@ where
         }
         Ok(())
     }
-
-    type Scorable = DummyScorable;
 }
 
 impl<S> Scorer for BlockMaxConjunctionScorer<S>

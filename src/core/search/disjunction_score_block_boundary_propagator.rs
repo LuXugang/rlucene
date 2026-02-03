@@ -129,7 +129,7 @@ mod tests {
 
     use crate::core::search::disi_wrapper::DisiWrapper;
     use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-    use crate::core::search::dummy::dummy_scorable::DummyScorable;
+
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -197,8 +197,6 @@ mod tests {
         fn score(&mut self) -> Result<f32> {
             Err(LuceneError::unsupported_operation(""))
         }
-
-        type Scorable = DummyScorable;
     }
 
     impl Scorer for FakeScorer {

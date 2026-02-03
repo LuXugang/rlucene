@@ -16,7 +16,6 @@
  */
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
@@ -103,8 +102,6 @@ where
                 .set_min_competitive_score(min_score),
         }
     }
-
-    type Scorable = DummyScorable;
 }
 
 impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
@@ -533,7 +530,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::core::search::dummy::dummy_scorable::DummyScorable;
 
     use crate::core::search::req_opt_sum_scorer::{ReqOptSumScorer, ReqOptSumScorerDisi};
     use crate::core::search::scorable::Scorable;
@@ -572,8 +568,6 @@ mod tests {
         fn score(&mut self) -> Result<f32> {
             self.base.score()
         }
-
-        type Scorable = DummyScorable;
     }
 
     impl<S1, S2> Scorer for ReqOptSumScorerWrapper<S1, S2>

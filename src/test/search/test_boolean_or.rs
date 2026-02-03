@@ -20,7 +20,6 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -115,8 +114,6 @@ impl Scorable for ScorerImpl {
     fn score(&mut self) -> Result<f32> {
         Ok(0.0)
     }
-
-    type Scorable = DummyScorable;
 }
 
 impl Scorer for ScorerImpl {

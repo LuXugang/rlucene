@@ -19,7 +19,6 @@ use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -824,8 +823,6 @@ impl Scorable for Score {
         self.min_competitive_score = min_score;
         Ok(())
     }
-
-    type Scorable = DummyScorable;
 }
 #[cfg(test)]
 mod test {
@@ -836,7 +833,7 @@ mod test {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
-    use crate::core::search::dummy::dummy_scorable::DummyScorable;
+
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
     use crate::core::search::scorable::Scorable;
@@ -1051,8 +1048,6 @@ mod test {
         fn score(&mut self) -> Result<f32> {
             Err(LuceneError::unsupported_operation(""))
         }
-
-        type Scorable = DummyScorable;
     }
 
     impl Scorer for FakeScorer {
