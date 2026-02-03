@@ -349,7 +349,6 @@ impl<S> TwoPhaseIterator for TwoPhase<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = DisjunctionDISIApproximation<S>;
     type DocIdSetIteratorRef<'a>
         = &'a DisjunctionDISIApproximation<S>
     where

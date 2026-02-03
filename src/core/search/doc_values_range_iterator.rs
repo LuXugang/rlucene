@@ -55,7 +55,6 @@ where
     TPI: TwoPhaseIterator,
     DVS: DocValuesSkipper,
 {
-    type DocIdSetIterator = TPI::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = &'a Approximation<TPI, DVS>
     where
@@ -635,7 +634,6 @@ mod tests {
     where
         NDV: NumericDocValues,
     {
-        type DocIdSetIterator = NDV;
         type DocIdSetIteratorRef<'a>
             = &'a NDV
         where

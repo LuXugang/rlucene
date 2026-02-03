@@ -383,7 +383,6 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = DocIdSetIteratorImpl<S>;
     type DocIdSetIteratorRef<'a>
         = &'a DocIdSetIteratorImpl<S>
     where

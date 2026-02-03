@@ -23,7 +23,6 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait TwoPhaseIterator {
-    type DocIdSetIterator: DocIdSetIterator;
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
     where
         Self: 'a;
@@ -65,8 +64,6 @@ impl<T> TwoPhaseIterator for &mut T
 where
     T: TwoPhaseIterator,
 {
-    type DocIdSetIterator = T::DocIdSetIterator;
-
     type DocIdSetIteratorRef<'a>
         = T::DocIdSetIteratorRef<'a>
     where
@@ -106,8 +103,6 @@ impl<T> TwoPhaseIterator for &T
 where
     T: TwoPhaseIterator,
 {
-    type DocIdSetIterator = T::DocIdSetIterator;
-
     type DocIdSetIteratorRef<'a>
         = T::DocIdSetIteratorRef<'a>
     where
@@ -148,8 +143,6 @@ impl<T> TwoPhaseIterator for Box<T>
 where
     T: TwoPhaseIterator,
 {
-    type DocIdSetIterator = T::DocIdSetIterator;
-
     type DocIdSetIteratorRef<'a>
         = T::DocIdSetIteratorRef<'a>
     where
@@ -269,8 +262,6 @@ macro_rules! either_two_phase_iterator_gat {
         where
             $( $T: TwoPhaseIterator ),+
         {
-            type DocIdSetIterator = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIterator ),+>;
-
             type DocIdSetIteratorRef<'a> = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIteratorRef<'a> ),+>
             where
                 Self: 'a;

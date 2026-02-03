@@ -430,7 +430,6 @@ impl<N> TwoPhaseIterator for TwoPhaseIterator3<N>
 where
     N: NumericDocValues,
 {
-    type DocIdSetIterator = N;
     type DocIdSetIteratorRef<'a>
         = &'a N
     where
@@ -478,8 +477,6 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator4<S>
 where
     S: SortedNumericDocValues,
 {
-    type DocIdSetIterator = S;
-
     type DocIdSetIteratorRef<'a>
         = &'a S
     where

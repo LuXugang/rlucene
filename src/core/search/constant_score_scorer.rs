@@ -234,8 +234,6 @@ impl<TPI> TwoPhaseIterator for TwoPhaseIteratorImpl<TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    type DocIdSetIterator = TPI::DocIdSetIterator;
-
     type DocIdSetIteratorRef<'a>
         = TPI::DocIdSetIteratorRef<'a>
     where

@@ -21,8 +21,6 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-    type DocIdSetIterator = DummyDISI;
-
     type DocIdSetIteratorRef<'a>
         = &'a DummyDISI
     where

@@ -51,7 +51,6 @@ impl<DISI> TwoPhaseIterator for RandomTwoPhaseView<DISI>
 where
     DISI: DocIdSetIterator,
 {
-    type DocIdSetIterator = RandomApproximation<StdRng, DISI>;
     type DocIdSetIteratorRef<'a>
         = &'a RandomApproximation<StdRng, DISI>
     where

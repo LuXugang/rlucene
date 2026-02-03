@@ -24,7 +24,7 @@ use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -191,7 +191,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = MatchNoDocsSs;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,

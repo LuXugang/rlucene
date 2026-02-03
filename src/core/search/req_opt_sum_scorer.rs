@@ -461,7 +461,6 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = DocIdSetIteratorImpl<S1, S2>;
     type DocIdSetIteratorRef<'a>
         = &'a DocIdSetIteratorImpl<S1, S2>
     where

@@ -41,7 +41,9 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::{
     MatchAllBulkScorerEnum, MatchAllDocsQuery, MatchAllSsScorer,
 };
-use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::match_no_docs_query::{
+    MatchNoDocsQuery, MatchNoDocsSsBulkScorer, MatchNoDocsSsScorer,
+};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -70,6 +72,7 @@ where
 {
     Term(DefaultBulkScorer<QueryWeightSsS<LR>>),
     MatchAll(MatchAllBulkScorerEnum<LR>),
+    MatchNo(MatchNoDocsSsBulkScorer<LR>),
     Boolean(Box<BulkScorerType<QueryWeightSsBs<LR>, QueryWeightSsS<LR>>>),
 }
 impl<LR> BulkScorer for QueryWeightSsBs<LR>
@@ -90,6 +93,7 @@ where
         match self {
             QueryWeightSsBs::Term(scorer) => scorer.score(collector, accept_docs, min, max),
             QueryWeightSsBs::MatchAll(scorer) => scorer.score(collector, accept_docs, min, max),
+            QueryWeightSsBs::MatchNo(scorer) => scorer.score(collector, accept_docs, min, max),
             QueryWeightSsBs::Boolean(scorer) => scorer.score(collector, accept_docs, min, max),
         }
     }
@@ -98,6 +102,7 @@ where
         match self {
             QueryWeightSsBs::Term(scorer) => scorer.cost(),
             QueryWeightSsBs::MatchAll(scorer) => scorer.cost(),
+            QueryWeightSsBs::MatchNo(scorer) => scorer.cost(),
             QueryWeightSsBs::Boolean(scorer) => scorer.cost(),
         }
     }
@@ -109,6 +114,7 @@ where
 {
     Term(TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>),
     MatchAll(MatchAllSsScorer),
+    MatchNo(MatchNoDocsSsScorer<LR>),
     Boolean(Box<GetType<QueryWeightSsS<LR>>>),
     Dummy(DummyScorer),
 }
@@ -121,6 +127,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.score(),
             QueryWeightSsS::MatchAll(scorer) => scorer.score(),
+            QueryWeightSsS::MatchNo(scorer) => scorer.score(),
             QueryWeightSsS::Boolean(scorer) => scorer.score(),
             QueryWeightSsS::Dummy(scorer) => scorer.score(),
         }
@@ -156,6 +163,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.doc_id(),
             QueryWeightSsS::MatchAll(scorer) => scorer.doc_id(),
+            QueryWeightSsS::MatchNo(scorer) => scorer.doc_id(),
             QueryWeightSsS::Boolean(scorer) => scorer.doc_id(),
             QueryWeightSsS::Dummy(scorer) => scorer.doc_id(),
         }
@@ -192,6 +200,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.advance_shallow(_target),
             QueryWeightSsS::MatchAll(scorer) => scorer.advance_shallow(_target),
+            QueryWeightSsS::MatchNo(scorer) => scorer.advance_shallow(_target),
             QueryWeightSsS::Boolean(scorer) => scorer.advance_shallow(_target),
             QueryWeightSsS::Dummy(scorer) => scorer.advance_shallow(_target),
         }
@@ -201,6 +210,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.default_advance_shallow(_target),
             QueryWeightSsS::MatchAll(scorer) => scorer.default_advance_shallow(_target),
+            QueryWeightSsS::MatchNo(scorer) => scorer.default_advance_shallow(_target),
             QueryWeightSsS::Boolean(scorer) => scorer.default_advance_shallow(_target),
             QueryWeightSsS::Dummy(scorer) => scorer.default_advance_shallow(_target),
         }
@@ -210,6 +220,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.get_max_score(up_to),
             QueryWeightSsS::MatchAll(scorer) => scorer.get_max_score(up_to),
+            QueryWeightSsS::MatchNo(scorer) => scorer.get_max_score(up_to),
             QueryWeightSsS::Boolean(scorer) => scorer.get_max_score(up_to),
             QueryWeightSsS::Dummy(scorer) => scorer.get_max_score(up_to),
         }
@@ -219,6 +230,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.default_cost(),
             QueryWeightSsS::MatchAll(scorer) => scorer.default_cost(),
+            QueryWeightSsS::MatchNo(scorer) => scorer.default_cost(),
             QueryWeightSsS::Boolean(scorer) => scorer.default_cost(),
             QueryWeightSsS::Dummy(scorer) => scorer.default_cost(),
         }
@@ -228,6 +240,7 @@ where
         match self {
             QueryWeightSsS::Term(scorer) => scorer.has_two_phase_iterator(),
             QueryWeightSsS::MatchAll(scorer) => scorer.has_two_phase_iterator(),
+            QueryWeightSsS::MatchNo(scorer) => scorer.has_two_phase_iterator(),
             QueryWeightSsS::Boolean(scorer) => scorer.has_two_phase_iterator(),
             QueryWeightSsS::Dummy(scorer) => scorer.has_two_phase_iterator(),
         }

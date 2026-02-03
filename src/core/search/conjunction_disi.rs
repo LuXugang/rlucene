@@ -356,7 +356,6 @@ impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = ConjunctionDISI<S>;
     type DocIdSetIteratorRef<'a>
         = &'a ConjunctionDISI<S>
     where

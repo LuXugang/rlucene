@@ -18,9 +18,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
-use crate::core::search::scorer::{
-    Scorer, ScorerDisi, ScorerDisiMut, ScorerDisiRef, TwoPhaseState,
-};
+use crate::core::search::scorer::{Scorer, ScorerDisiMut, ScorerDisiRef, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
@@ -189,7 +187,6 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = ScorerDisi<S1>;
     type DocIdSetIteratorRef<'a>
         = ScorerDisiRef<'a, S1>
     where
@@ -271,7 +268,6 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIterator = ScorerDisi<S1>;
     type DocIdSetIteratorRef<'a>
         = ScorerDisiRef<'a, S1>
     where
