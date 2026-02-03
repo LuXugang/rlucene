@@ -290,6 +290,11 @@ where
 impl<LR> Weight<LR> for SortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
+    <LR as LeafReader>::NumericDocValues: 'static,
+    <LR as LeafReader>::SortedNumericDocValues: 'static,
+    <LR as LeafReader>::DocValuesSkipper: 'static,
+    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
+        'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -415,7 +420,6 @@ pub type SNDVRQSs<LR> = PointRangeWeightSs<
 >;
 pub type SNDVRQSsBulkScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SNDVRQSsScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SNDVRQSsScorerDisi<LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type SNDVRQSsScorerDisiRef<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
 pub type SNDVRQSsScorerDisiMut<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 

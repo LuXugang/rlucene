@@ -834,8 +834,8 @@ mod test {
     use crate::core::document::string_field::StringField;
     use crate::core::index::index_writer::IndexWriter;
     use crate::core::index::index_writer_config::IndexWriterConfig;
-    use crate::core::search::doc_id_set_iterator::AllDISI;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
@@ -1056,7 +1056,6 @@ mod test {
     }
 
     impl Scorer for FakeScorer {
-        type DocIdSetIterator = AllDISI;
         type DocIdSetIteratorRef<'a>
             = &'a AllDISI
         where
@@ -1087,7 +1086,7 @@ mod test {
             &mut self.disi
         }
 
-        fn take_iterator(self) -> Self::DocIdSetIterator {
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
             unreachable!("")
         }
 

@@ -38,7 +38,7 @@ use std::sync::Arc;
 
 pub struct BooleanWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub(crate) similarity: Arc<SimilarityEnum>,
     pub(crate) weighted_clauses: Vec<WeightedBooleanClause<LR>>,
@@ -48,7 +48,7 @@ where
 
 impl<LR> BooleanWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
     /// required clauses.
@@ -127,7 +127,7 @@ where
 
 impl<LR> SegmentCacheable<LR> for BooleanWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         // Disallow caching large boolean queries to not encourage users
@@ -353,7 +353,7 @@ where
 }
 pub(crate) struct WeightedBooleanClause<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub(crate) clause: BooleanClause,
     pub(crate) weight: QueryWeight<LR>,
@@ -361,7 +361,7 @@ where
 
 impl<LR> WeightedBooleanClause<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<LR>) -> Self {
         Self { clause, weight }

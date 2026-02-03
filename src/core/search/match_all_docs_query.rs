@@ -36,7 +36,7 @@ use crate::core::search::query::{
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{Scorer, ScorerDisi};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -158,7 +158,7 @@ where
 
 impl<LR> Weight<LR> for MatchAllWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -205,7 +205,7 @@ where
 pub type MatchAllSs = MatchAllDocsScorerSupplier;
 pub type MatchAllSsBulkScorer<LR> = <MatchAllSs as ScorerSupplier<LR>>::BulkScorer;
 pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
-pub type MatchAllSsScorerDisi = <MatchAllSsScorer as Scorer>::DocIdSetIterator;
+pub type MatchAllSsScorerDisi = ScorerDisi;
 pub type MatchAllSsScorerDisiRef<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorRef<'a>;
 pub type MatchAllSsScorerDisiMut<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorMut<'a>;
 
@@ -225,7 +225,7 @@ impl MatchAllDocsScorerSupplier {
 }
 impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Scorer = QueryWeightSsS<LR>;
     type BulkScorer = QueryWeightSsBs<LR>;

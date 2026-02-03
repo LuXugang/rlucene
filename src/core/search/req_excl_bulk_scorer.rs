@@ -22,25 +22,23 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
-pub struct ReqExclBulkScorer<BS, DISI, TPI>
+pub struct ReqExclBulkScorer<BS, TPI>
 where
     BS: BulkScorer,
-    DISI: DocIdSetIterator,
     TPI: TwoPhaseIterator,
 {
     req: BS,
     excl_two_phase: Option<TPI>,
-    excl_approximation: Option<DISI>,
+    excl_approximation: Option<Box<dyn DocIdSetIterator>>,
 }
-impl<BS, DISI, TPI> ReqExclBulkScorer<BS, DISI, TPI>
+impl<BS, TPI> ReqExclBulkScorer<BS, TPI>
 where
     BS: BulkScorer,
-    DISI: DocIdSetIterator,
     TPI: TwoPhaseIterator,
 {
     pub(crate) fn with_scorer<S>(req: BS, excl: S) -> Result<Self>
     where
-        S: Scorer<TwoPhaseIter = TPI, DocIdSetIterator = DISI>,
+        S: Scorer<TwoPhaseIter = TPI>,
     {
         Ok(
             match excl.has_two_phase_iterator() == TwoPhaseState::Yes
@@ -54,16 +52,19 @@ where
                 false => Self {
                     req,
                     excl_two_phase: None,
-                    excl_approximation: Some(excl.take_iterator()),
+                    excl_approximation: Some(Box::new(excl).take_iterator()),
                 },
             },
         )
     }
-    pub(crate) fn with_disi(req: BS, disi: DISI) -> Self {
+    pub(crate) fn with_disi<DISI>(req: BS, disi: DISI) -> Self
+    where
+        DISI: DocIdSetIterator + 'static,
+    {
         Self {
             req,
             excl_two_phase: None,
-            excl_approximation: Some(disi),
+            excl_approximation: Some(Box::new(disi)),
         }
     }
     pub(crate) fn with_two_phase(req: BS, two_phase: TPI) -> Self {
@@ -74,10 +75,9 @@ where
         }
     }
 }
-impl<BS, DISI, TPI> BulkScorer for ReqExclBulkScorer<BS, DISI, TPI>
+impl<BS, TPI> BulkScorer for ReqExclBulkScorer<BS, TPI>
 where
     BS: BulkScorer,
-    DISI: DocIdSetIterator,
     TPI: TwoPhaseIterator,
 {
     fn score<LC, B>(

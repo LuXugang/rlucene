@@ -109,10 +109,9 @@ where
 
 impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
 where
-    S1: Scorer,
-    S2: Scorer,
+    S1: Scorer + 'static,
+    S2: Scorer + 'static,
 {
-    type DocIdSetIterator = ReqOptSumScorerDisi<S1, S2>;
     type DocIdSetIteratorRef<'a>
         = &'a ReqOptSumScorerDisi<S1, S2>
     where
@@ -148,8 +147,9 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let ReqOptSumScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
@@ -539,9 +539,10 @@ where
 }
 #[cfg(test)]
 mod tests {
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
 
-    use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
+    use crate::core::search::req_opt_sum_scorer::{ReqOptSumScorer, ReqOptSumScorerDisi};
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::util::error::lucene_error::Result;
@@ -583,12 +584,11 @@ mod tests {
 
     impl<S1, S2> Scorer for ReqOptSumScorerWrapper<S1, S2>
     where
-        S1: Scorer,
-        S2: Scorer,
+        S1: Scorer + 'static,
+        S2: Scorer + 'static,
     {
-        type DocIdSetIterator = <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIterator;
         type DocIdSetIteratorRef<'a>
-            = &'a <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIterator
+            = &'a ReqOptSumScorerDisi<S1, S2>
         where
             Self: 'a;
         type DocIdSetIteratorMut<'a>
@@ -617,8 +617,9 @@ mod tests {
             self.base.iterator_mut()
         }
 
-        fn take_iterator(self) -> Self::DocIdSetIterator {
-            self.base.take_iterator()
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+            let ReqOptSumScorerWrapper { base } = *self;
+            Box::new(base).take_iterator()
         }
 
         fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

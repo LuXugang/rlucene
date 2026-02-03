@@ -31,7 +31,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::search::boolean_scorer_supplier::{BulkScorerType, GetType};
 use crate::core::search::bulk_scorer::BulkScorer;
-use crate::core::search::doc_id_set_iterator::EmptyDISI;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
@@ -68,7 +68,7 @@ pub type QueryWeightSs<LR> =
 
 pub enum QueryWeightSsBs<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     Term(DefaultBulkScorer<QueryWeightSsS<LR>>),
     MatchAll(MatchAllBulkScorerEnum<LR>),
@@ -77,7 +77,7 @@ where
 }
 impl<LR> BulkScorer for QueryWeightSsBs<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     fn score<LC, B>(
         &mut self,
@@ -110,7 +110,7 @@ where
 
 pub enum QueryWeightSsS<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     Term(TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>),
     MatchAll(MatchAllSsScorer),
@@ -121,7 +121,7 @@ where
 
 impl<LR> Scorable for QueryWeightSsS<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         match self {
@@ -138,9 +138,8 @@ where
 
 impl<LR> Scorer for QueryWeightSsS<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
-    type DocIdSetIterator = DummyDISI;
     type DocIdSetIteratorRef<'a>
         = DummyDISI
     where
@@ -177,7 +176,7 @@ where
         todo!()
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         todo!()
     }
 

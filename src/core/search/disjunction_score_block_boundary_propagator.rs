@@ -128,7 +128,7 @@ mod tests {
     use crate::core::search::disjunction_score_block_boundary_propagator::DisjunctionScoreBlockBoundaryPropagator;
 
     use crate::core::search::disi_wrapper::DisiWrapper;
-    use crate::core::search::doc_id_set_iterator::EmptyDISI;
+    use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
     use crate::core::search::dummy::dummy_scorable::DummyScorable;
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::scorable::Scorable;
@@ -202,7 +202,6 @@ mod tests {
     }
 
     impl Scorer for FakeScorer {
-        type DocIdSetIterator = EmptyDISI;
         type DocIdSetIteratorRef<'a>
             = &'a EmptyDISI
         where
@@ -233,8 +232,9 @@ mod tests {
             &mut self.disi
         }
 
-        fn take_iterator(self) -> Self::DocIdSetIterator {
-            self.disi
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+            let FakeScorer { disi, .. } = *self;
+            Box::new(disi)
         }
 
         fn advance_shallow(&mut self, target: i32) -> Result<i32> {

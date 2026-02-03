@@ -433,7 +433,6 @@ where
 pub type TermSs<LR> = TermScorerSupplier<LR>;
 pub type TermBulkScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type TermSsScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type TermSsScorerDisi<IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIterator;
 pub type TermSsScorerDisiRef<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorRef<'a>;
 pub type TermSsScorerDisiMut<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorMut<'a>;
 
@@ -509,7 +508,7 @@ where
 }
 impl<LR> ScorerSupplier<LR> for TermScorerSupplier<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Scorer = QueryWeightSsS<LR>;
     type BulkScorer = QueryWeightSsBs<LR>;

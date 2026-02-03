@@ -32,6 +32,7 @@ use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::BulkScorerEnum2;
@@ -290,7 +291,6 @@ pub type ISSNDVRQSs<LR> = PointRangeWeightSs<
 >;
 pub type ISSNDVRQSsBulkScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type ISSNDVRQSsScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type ISSNDVRQSsScorerDisi<LR> = <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type ISSNDVRQSsScorerDisiRef<'a, LR> =
     <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
 pub type ISSNDVRQSsScorerDisiMut<'a, LR> =
@@ -299,6 +299,14 @@ pub type ISSNDVRQSsScorerDisiMut<'a, LR> =
 impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
+    <LR as LeafReader>::NumericDocValues: 'static,
+    <LR as LeafReader>::SortedNumericDocValues: 'static,
+    <LR as LeafReader>::DocValuesSkipper: 'static,
+    <LR as LeafReader>::SortedDocValues: 'static,
+    <LR as LeafReader>::SortedSetDocValues: 'static,
+    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
+    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
+        'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -484,6 +492,14 @@ where
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<Disi<LR>>
 where
     LR: LeafReader,
+    <LR as LeafReader>::NumericDocValues: 'static,
+    <LR as LeafReader>::SortedNumericDocValues: 'static,
+    <LR as LeafReader>::DocValuesSkipper: 'static,
+    <LR as LeafReader>::SortedDocValues: 'static,
+    <LR as LeafReader>::SortedSetDocValues: 'static,
+    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
+    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
+        'static,
 {
     type Scorer = ConstantScoreScorer<IteratorAndCountDisi<Disi<LR>>, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;

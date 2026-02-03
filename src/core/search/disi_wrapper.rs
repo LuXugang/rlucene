@@ -105,7 +105,6 @@ impl<S> Scorer for DisiWrapper<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = S::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = S::DocIdSetIteratorRef<'a>
     where
@@ -136,8 +135,9 @@ where
         self.scorer.iterator_mut()
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.scorer.take_iterator()
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let DisiWrapper { scorer, .. } = *self;
+        Box::new(scorer).take_iterator()
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

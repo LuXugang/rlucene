@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -47,7 +48,6 @@ impl Scorable for DummyScorer {
 }
 
 impl Scorer for DummyScorer {
-    type DocIdSetIterator = DummyDISI;
     type DocIdSetIteratorRef<'a>
         = DummyDISI
     where
@@ -79,7 +79,7 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

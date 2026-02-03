@@ -165,10 +165,10 @@ where
 
 impl<PE, SS, N, IE> Scorable for TermScorer<PE, SS, N, IE>
 where
-    IE: ImpactsEnum,
+    IE: ImpactsEnum + 'static,
     N: NumericDocValues,
-    PE: PostingsEnum,
-    SS: SimScorer,
+    PE: PostingsEnum + 'static,
+    SS: SimScorer + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         let mut norm = 1;
@@ -214,12 +214,11 @@ where
 
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>
 where
-    PE: PostingsEnum,
-    SS: SimScorer,
+    PE: PostingsEnum + 'static,
+    SS: SimScorer + 'static,
     N: NumericDocValues,
-    IE: ImpactsEnum,
+    IE: ImpactsEnum + 'static,
 {
-    type DocIdSetIterator = TermScorerDisi<IE, PE, SS>;
     type DocIdSetIteratorRef<'a>
         = TermScorerDisiRefConst<'a, IE, PE, SS>
     where
@@ -293,20 +292,27 @@ where
         }
     }
 
-    fn take_iterator(mut self) -> Self::DocIdSetIterator {
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let mut scorer = *self;
         #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = self.impacts_disi {
-            debug_assert!(self.max_score_cache.is_none());
-            TermScorerDisi::C(self.impacts_disi.take().unwrap())
+        if let Some(_) = scorer.impacts_disi {
+            debug_assert!(scorer.max_score_cache.is_none());
+            let disi: TermScorerDisi<IE, PE, SS> =
+                TermScorerDisi::C(scorer.impacts_disi.take().unwrap());
+            Box::new(disi) as Box<dyn DocIdSetIterator>
         } else {
-            debug_assert!(self.impacts_disi.is_none());
-            let mut max_score_cache = self.max_score_cache.take().unwrap();
+            debug_assert!(scorer.impacts_disi.is_none());
+            let mut max_score_cache = scorer.max_score_cache.take().unwrap();
             let impacts_source = max_score_cache.impacts_source.take().unwrap();
             match impacts_source {
-                ImpactsEnumEnum2::A(impacts_enum) => TermScorerDisi::A(impacts_enum),
+                ImpactsEnumEnum2::A(impacts_enum) => {
+                    let disi: TermScorerDisi<IE, PE, SS> = TermScorerDisi::A(impacts_enum);
+                    Box::new(disi) as Box<dyn DocIdSetIterator>
+                },
                 ImpactsEnumEnum2::B(slow_impacts) => {
                     let SlowImpactsEnum { delegate } = slow_impacts;
-                    TermScorerDisi::B(delegate)
+                    let disi: TermScorerDisi<IE, PE, SS> = TermScorerDisi::B(delegate);
+                    Box::new(disi) as Box<dyn DocIdSetIterator>
                 },
             }
         }

@@ -28,6 +28,7 @@ use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -57,7 +58,7 @@ use std::fmt::{Display, Formatter};
 
 pub struct BooleanScorerSupplier<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     subs: HashMap<Occur, Vec<QueryWeightSs<LR>>>,
     score_mode: ScoreMode,
@@ -68,7 +69,7 @@ where
 }
 impl<LR> BooleanScorerSupplier<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub(crate) fn new(
         subs: HashMap<Occur, Vec<QueryWeightSs<LR>>>,
@@ -588,7 +589,7 @@ where
                     wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::with_disi(
                         0.0,
                         ScoreMode::Complete,
-                        filter_scorer.take_iterator(),
+                        Box::new(filter_scorer).take_iterator(),
                     )));
                 }
                 return Ok(Some(RequiredBulkScorer::B(
@@ -685,6 +686,7 @@ where
     ) -> Result<Req<<SS as ScorerSupplier<LR>>::Scorer>>
     where
         SS: ScorerSupplier<LR>,
+        <SS as ScorerSupplier<LR>>::Scorer: 'static,
     {
         if required_no_scoring.len() + required_scoring.len() == 1 {
             let req = if required_no_scoring.is_empty() {
@@ -750,6 +752,7 @@ where
     where
         S: Scorer,
         SS: ScorerSupplier<LR>,
+        <SS as ScorerSupplier<LR>>::Scorer: 'static,
     {
         if prohibited.is_empty() {
             Ok(Excl::A(main))
@@ -769,6 +772,7 @@ where
     ) -> Result<Opt<<SS as ScorerSupplier<LR>>::Scorer>>
     where
         SS: ScorerSupplier<LR>,
+        <SS as ScorerSupplier<LR>>::Scorer: 'static,
     {
         if optional.len() == 1 {
             return Ok(Opt::A(optional[0].get(lead_cost, context)?));
@@ -822,7 +826,7 @@ pub type FilteredOptionalBulkScorer<S> =
 pub type RequiredBulkScorer<BS, S> = BulkScorerEnum4<
     BulkScorerEnum2<BS, BulkScorerImpl<BS>>,
     BlockMaxConjunctionBulkScorer<
-        ScorerEnum2<S, ConstantScoreScorer<ScorerDisi<S>, DummyTwoPhaseIterator>>,
+        ScorerEnum2<S, ConstantScoreScorer<ScorerDisi, DummyTwoPhaseIterator>>,
     >,
     ConjunctionBulkScorer<S>,
     DefaultBulkScorer<
@@ -840,13 +844,13 @@ pub type GetInternal<S> = ScorerEnum4<
     ConjunctionScorer<ScorerEnum2<Excl<Req<S>, Opt<S>>, Opt<S>>>,
     ReqOptSumScorer<Excl<Req<S>, Opt<S>>, Opt<S>>,
 >;
-pub type GetInternalDisi<S> = <GetInternal<S> as Scorer>::DocIdSetIterator;
+pub type GetInternalDisi = ScorerDisi;
 pub type GetInternalTpi<S> = <GetInternal<S> as Scorer>::TwoPhaseIter;
 pub type GetType<S> = ScorerEnum2<
     GetInternal<S>,
     ScorerEnum2<
         ConstantScoreScorer<DummyDISI, GetInternalTpi<S>>,
-        ConstantScoreScorer<GetInternalDisi<S>, DummyTwoPhaseIterator>,
+        ConstantScoreScorer<GetInternalDisi, DummyTwoPhaseIterator>,
     >,
 >;
 pub type BooleanScorerPositive<BS, S> = BulkScorerEnum3<
@@ -859,7 +863,6 @@ pub type BooleanScorerType<BS, S> = BulkScorerEnum2<
     BooleanScorerPositive<BS, S>,
     ReqExclBulkScorer<
         BooleanScorerPositive<BS, S>,
-        <BooleanScorerProhibited<S> as Scorer>::DocIdSetIterator,
         <BooleanScorerProhibited<S> as Scorer>::TwoPhaseIter,
     >,
 >;
@@ -868,7 +871,7 @@ pub type BulkScorerType<BS, SS> = BulkScorerEnum2<BooleanScorerType<BS, SS>, Def
 
 impl<LR> ScorerSupplier<LR> for BooleanScorerSupplier<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     // type Scorer = GetType<SsScorer<LR>>;
     // type BulkScorer = BulkScorerType<SsBulkScorer<LR>, SsScorer<LR>>;
@@ -897,7 +900,7 @@ where
                     let tpi = scorer.take_two_phase_iterator()?.unwrap();
                     ScorerEnum2::A(ConstantScoreScorer::with_tpi(0.0, self.score_mode, tpi))
                 } else {
-                    let disi = scorer.take_iterator();
+                    let disi = Box::new(scorer).take_iterator();
                     ScorerEnum2::B(ConstantScoreScorer::with_disi(0.0, self.score_mode, disi))
                 };
                 let v = Box::new(GetType::B(v));
@@ -986,7 +989,6 @@ impl<S> Scorer for FilterScorerImpl<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = <FilterScorer<S> as Scorer>::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = <FilterScorer<S> as Scorer>::DocIdSetIteratorRef<'a>
     where
@@ -1017,8 +1019,9 @@ where
         self.base.iterator_mut()
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.base.take_iterator()
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let FilterScorerImpl { base } = *self;
+        Box::new(base).take_iterator()
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

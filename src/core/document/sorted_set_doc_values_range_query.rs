@@ -209,6 +209,10 @@ where
 impl<LR> Weight<LR> for SortedSetDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
+    <LR as LeafReader>::SortedDocValues: 'static,
+    <LR as LeafReader>::SortedSetDocValues: 'static,
+    <LR as LeafReader>::DocValuesSkipper: 'static,
+    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -352,7 +356,6 @@ where
 pub type SSDVRQSs<LR> = ScorerSupplierImpl3<LR>;
 pub type SSDVRQSsBulkScorer<LR> = <SSDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SSDVRQSsScorer<LR> = <SSDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SSDVRQSsScorerDisi<LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type SSDVRQSsScorerDisiRef<'a, LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
 pub type SSDVRQSsScorerDisiMut<'a, LR> = <SSDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 pub struct ScorerSupplierImpl3<LR>
@@ -388,6 +391,10 @@ where
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl3<LR>
 where
     LR: LeafReader,
+    <LR as LeafReader>::SortedDocValues: 'static,
+    <LR as LeafReader>::SortedSetDocValues: 'static,
+    <LR as LeafReader>::DocValuesSkipper: 'static,
+    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
 {
     type Scorer = ScorerType<LR>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;

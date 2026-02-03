@@ -34,8 +34,6 @@ use crate::core::util::error::lucene_error::Result;
 /// A `Scorer` exposes an `iterator_mut()` over documents matching a query in
 /// increasing order of doc id.
 pub trait Scorer: Scorable {
-    /// Concrete iterator type over matching documents.
-    type DocIdSetIterator: DocIdSetIterator;
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
     where
         Self: 'a;
@@ -70,7 +68,7 @@ pub trait Scorer: Scorable {
     ///
     /// Unlike [`iterator`](Self::iterator), this method takes ownership of the
     /// underlying iterator rather than returning a view.
-    fn take_iterator(self) -> Self::DocIdSetIterator;
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator>;
 
     /// Optional: Return a two-phase iterator view of this scorer.
     ///
@@ -157,7 +155,6 @@ impl<T> Scorer for Box<T>
 where
     T: Scorer + ?Sized,
 {
-    type DocIdSetIterator = T::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = T::DocIdSetIteratorRef<'a>
     where
@@ -188,7 +185,7 @@ where
         todo!()
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         todo!()
     }
 
@@ -227,7 +224,7 @@ where
         todo!()
     }
 }
-pub type ScorerDisi<S> = <S as Scorer>::DocIdSetIterator;
+pub type ScorerDisi = Box<dyn DocIdSetIterator>;
 pub type ScorerDisiMut<'a, S> = <S as Scorer>::DocIdSetIteratorMut<'a>;
 pub type ScorerDisiRef<'a, S> = <S as Scorer>::DocIdSetIteratorRef<'a>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
@@ -303,9 +300,6 @@ macro_rules! either_scorer {
         where
             $( $T: Scorer ),+
         {
-            type DocIdSetIterator =
-                $iter_ty<$( < $T as Scorer >::DocIdSetIterator ),+>;
-
             type DocIdSetIteratorRef<'a> =
                 $iter_ty<$( < $T as Scorer >::DocIdSetIteratorRef<'a> ),+>
             where
@@ -347,9 +341,9 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn take_iterator(self) -> Self::DocIdSetIterator {
-                match self {
-                    $( Self::$Variant(inner) => $iter_ty::$Variant(inner.take_iterator()), )+
+            fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+                match *self {
+                    $( Self::$Variant(inner) => Box::new(inner).take_iterator(), )+
                 }
             }
 

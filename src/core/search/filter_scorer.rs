@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::util::error::lucene_error::Result;
@@ -52,7 +53,6 @@ impl<S> Scorer for FilterScorer<S>
 where
     S: Scorer,
 {
-    type DocIdSetIterator = S::DocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = S::DocIdSetIteratorRef<'a>
     where
@@ -83,8 +83,9 @@ where
         self.inner.iterator_mut()
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.inner.take_iterator()
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let FilterScorer { inner } = *self;
+        Box::new(inner).take_iterator()
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

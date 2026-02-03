@@ -85,10 +85,9 @@ where
 
 impl<S1, S2> Scorer for ReqExclScorer<S1, S2>
 where
-    S1: Scorer,
-    S2: Scorer,
+    S1: Scorer + 'static,
+    S2: Scorer + 'static,
 {
-    type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>;
     type DocIdSetIteratorRef<'a>
         = &'a TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
     where
@@ -122,8 +121,9 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let ReqExclScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

@@ -159,14 +159,13 @@ where
 pub type MatchNoDocsSs = DummyScorerSupplier;
 pub type MatchNoDocsSsBulkScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::BulkScorer;
 pub type MatchNoDocsSsScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::Scorer;
-pub type MatchNoDocsSsScorerDisi<LR> = <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIterator;
 pub type MatchNoDocsSsScorerDisiRef<'a, LR> =
     <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
 pub type MatchNoDocsSsScorerDisiMut<'a, LR> =
     <MatchNoDocsSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
 impl<LR> Weight<LR> for MatchNoDocsWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 

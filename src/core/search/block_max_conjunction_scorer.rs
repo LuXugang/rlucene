@@ -117,9 +117,8 @@ where
 
 impl<S> Scorer for BlockMaxConjunctionScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
-    type DocIdSetIterator = BlockMaxConjunctionScorerDisi<S>;
     type DocIdSetIteratorRef<'a>
         = &'a BlockMaxConjunctionScorerDisi<S>
     where
@@ -153,8 +152,9 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let BlockMaxConjunctionScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

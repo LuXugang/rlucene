@@ -119,7 +119,6 @@ impl Scorable for ScorerImpl {
 }
 
 impl Scorer for ScorerImpl {
-    type DocIdSetIterator = IntArrayDocIdSetIterator;
     type DocIdSetIteratorRef<'a>
         = &'a IntArrayDocIdSetIterator
     where
@@ -150,8 +149,9 @@ impl Scorer for ScorerImpl {
         &mut self.it
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.it
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let ScorerImpl { it } = *self;
+        Box::new(it)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

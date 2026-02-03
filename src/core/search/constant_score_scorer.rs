@@ -93,8 +93,8 @@ where
 
 impl<DISI, TPI> Scorable for ConstantScoreScorer<DISI, TPI>
 where
-    DISI: DocIdSetIterator,
-    TPI: TwoPhaseIterator,
+    DISI: DocIdSetIterator + 'static,
+    TPI: TwoPhaseIterator + 'static,
 {
     fn score(&mut self) -> Result<f32> {
         Ok(self.score)
@@ -126,10 +126,9 @@ where
 
 impl<DISI, TPI> Scorer for ConstantScoreScorer<DISI, TPI>
 where
-    DISI: DocIdSetIterator,
-    TPI: TwoPhaseIterator,
+    DISI: DocIdSetIterator + 'static,
+    TPI: TwoPhaseIterator + 'static,
 {
-    type DocIdSetIterator = ConstantDISI_<DISI, TPI>;
     type DocIdSetIteratorRef<'a>
         = &'a ConstantDISI_<DISI, TPI>
     where
@@ -161,8 +160,9 @@ where
         EmptyEnum::A(&mut self.disi)
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let ConstantScoreScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

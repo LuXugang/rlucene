@@ -107,9 +107,8 @@ where
 
 impl<S> Scorer for ConjunctionScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
-    type DocIdSetIterator = ConjunctionScorerDisi<S>;
     type DocIdSetIteratorRef<'a>
         = &'a ConjunctionScorerDisi<S>
     where
@@ -140,8 +139,9 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let ConjunctionScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

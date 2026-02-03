@@ -119,9 +119,8 @@ where
 
 impl<S> Scorer for WANDScorer<S>
 where
-    S: Scorer,
+    S: Scorer + 'static,
 {
-    type DocIdSetIterator = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>;
     type DocIdSetIteratorRef<'a>
         = &'a TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>
     where
@@ -152,8 +151,9 @@ where
         &mut self.disi
     }
 
-    fn take_iterator(self) -> Self::DocIdSetIterator {
-        self.disi
+    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+        let WANDScorer { disi, .. } = *self;
+        Box::new(disi)
     }
 
     fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {

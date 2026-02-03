@@ -157,7 +157,7 @@ impl QueryBase for ConstantScoreQuery {
 
 pub struct WeightImpl<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     base: ConstantScoreWeight,
     inner_weight: QueryWeight<LR>,
@@ -165,7 +165,7 @@ where
 }
 impl<LR> WeightImpl<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub fn new(boost: f32, inner_weight: QueryWeight<LR>, score_mode: ScoreMode) -> Self {
         Self {
@@ -177,7 +177,7 @@ where
 }
 impl<LR> SegmentCacheable<LR> for WeightImpl<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.inner_weight.is_cacheable(ctx)
@@ -186,7 +186,7 @@ where
 
 impl<LR> Weight<LR> for WeightImpl<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     // TODO IMPORTANT
     type Matches = DummyMatches;
@@ -235,7 +235,7 @@ where
 
 // pub struct ScorerSupplierImpl<LR>
 // where
-//     LR: LeafReader,
+//     LR: LeafReader + 'static,
 // {
 //     score_mode: ScoreMode,
 //     inner_scorer_supplier: QueryWeightSs<LR>,
@@ -243,7 +243,7 @@ where
 // }
 // impl<LR> ScorerSupplierImpl<LR>
 // where
-//     LR: LeafReader,
+//     LR: LeafReader + 'static,
 // {
 //     fn new(
 //         score_mode: ScoreMode,
@@ -259,7 +259,7 @@ where
 // }
 // impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<LR>
 // where
-//     LR: LeafReader,
+//     LR: LeafReader + 'static,
 // {
 //     type Scorer = DummyScorer;
 //     type BulkScorer = DummyBulkScorer;
@@ -485,14 +485,14 @@ where
 //     <ConstantScoreSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub struct ConstantScoreQueryWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     // inner: CSQWType<LR>,
     inner: QueryWeight<LR>,
 }
 impl<LR> ConstantScoreQueryWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     pub fn new(inner: QueryWeight<LR>) -> Self {
         Self { inner }
@@ -500,7 +500,7 @@ where
 }
 impl<LR> SegmentCacheable<LR> for ConstantScoreQueryWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.inner.is_cacheable(ctx)
@@ -508,7 +508,7 @@ where
 }
 impl<LR> Weight<LR> for ConstantScoreQueryWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Matches = DummyMatches;
 
