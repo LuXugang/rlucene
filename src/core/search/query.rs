@@ -52,6 +52,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::term_query::{TermQuery, TermScorerEnum};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
@@ -148,7 +149,6 @@ where
         = DummyDISI
     where
         Self: 'a;
-    type TwoPhaseIter = DummyTwoPhaseIterator;
     type TwoPhaseIterRef<'a>
         = DummyTwoPhaseIterator
     where
@@ -188,7 +188,7 @@ where
         todo!()
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {

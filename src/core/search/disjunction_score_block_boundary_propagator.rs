@@ -210,7 +210,6 @@ mod tests {
             = &'a mut EmptyDISI
         where
             Self: 'a;
-        type TwoPhaseIter = DummyTwoPhaseIterator;
         type TwoPhaseIterRef<'a>
             = DummyTwoPhaseIterator
         where

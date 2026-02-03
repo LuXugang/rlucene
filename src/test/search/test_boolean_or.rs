@@ -25,6 +25,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::dummy::dummy_bits::DummyBits;
@@ -127,7 +128,6 @@ impl Scorer for ScorerImpl {
         = &'a mut IntArrayDocIdSetIterator
     where
         Self: 'a;
-    type TwoPhaseIter = DummyTwoPhaseIterator;
     type TwoPhaseIterRef<'a>
         = DummyTwoPhaseIterator
     where
@@ -162,7 +162,7 @@ impl Scorer for ScorerImpl {
         Ok(None)
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {

@@ -14,28 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, DocIdSetIteratorEnum4,
-    DocIdSetIteratorEnum5, DocIdSetIteratorEnum6, DocIdSetIteratorEnum7, DocIdSetIteratorEnum8,
-    DocIdSetIteratorEnum9, DocIdSetIteratorEnum10, DocIdSetIteratorEnum11, DocIdSetIteratorEnum12,
-};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait TwoPhaseIterator {
-    type DocIdSetIteratorRef<'a>: DocIdSetIterator
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>: DocIdSetIterator
-    where
-        Self: 'a;
-
     /// Return the approximation [`DocIdSetIterator`].
     ///
     /// The returned iterator must advance synchronously with this
     /// `TwoPhaseIterator`.
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>>;
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>>;
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>>;
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>>;
 
     /// Set the approximation to an empty iterator
     fn set_empty(&mut self) -> Result<()> {
@@ -64,23 +53,13 @@ impl<T> TwoPhaseIterator for &mut T
 where
     T: TwoPhaseIterator,
 {
-    type DocIdSetIteratorRef<'a>
-        = T::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = T::DocIdSetIteratorMut<'a>
-    where
-        Self: 'a;
-
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         (**self).approximation_mut()
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         (**self).approximation()
     }
 
@@ -103,23 +82,13 @@ impl<T> TwoPhaseIterator for &T
 where
     T: TwoPhaseIterator,
 {
-    type DocIdSetIteratorRef<'a>
-        = T::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = T::DocIdSetIteratorMut<'a>
-    where
-        Self: 'a;
-
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         (**self).approximation()
     }
 
@@ -141,25 +110,15 @@ where
 
 impl<T> TwoPhaseIterator for Box<T>
 where
-    T: TwoPhaseIterator,
+    T: TwoPhaseIterator + ?Sized,
 {
-    type DocIdSetIteratorRef<'a>
-        = T::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = T::DocIdSetIteratorMut<'a>
-    where
-        Self: 'a;
-
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         (**self).approximation_mut()
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         (**self).approximation()
     }
 
@@ -251,7 +210,6 @@ where
 macro_rules! either_two_phase_iterator_gat {
     (
         $vis:vis $name:ident
-        => { disi: $disi:ident }
         { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
         $vis enum $name<$( $T ),+> {
@@ -262,25 +220,17 @@ macro_rules! either_two_phase_iterator_gat {
         where
             $( $T: TwoPhaseIterator ),+
         {
-            type DocIdSetIteratorRef<'a> = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIteratorRef<'a> ),+>
-            where
-                Self: 'a;
-
-            type DocIdSetIteratorMut<'a> = $disi::<$( <$T as TwoPhaseIterator>::DocIdSetIteratorMut<'a> ),+>
-            where
-                Self: 'a;
-
             #[inline]
-            fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+            fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
                 match self {
-                    $( Self::$Variant(inner) => Ok($disi::$Variant(inner.approximation_mut()?)), )+
+                    $( Self::$Variant(inner) => inner.approximation_mut(), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+            fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
                 match self {
-                    $( Self::$Variant(inner) => Ok($disi::$Variant(inner.approximation()?)), )+
+                    $( Self::$Variant(inner) => inner.approximation(), )+
                 }
             }
 
@@ -309,56 +259,45 @@ macro_rules! either_two_phase_iterator_gat {
 }
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum2
-    => { disi: DocIdSetIteratorEnum2 }
     { A: A, B: B}
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum3
-    => { disi: DocIdSetIteratorEnum3 }
     { A: A, B: B, C: C}
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum4
-    => { disi: DocIdSetIteratorEnum4 }
     { A: A, B: B, C: C,D:D}
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum5
-    => { disi: DocIdSetIteratorEnum5 }
     { A: A, B: B, C: C, D: D, E: E }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum6
-    => { disi: DocIdSetIteratorEnum6 }
     { A: A, B: B, C: C, D: D, E: E, F: F }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum7
-    => { disi: DocIdSetIteratorEnum7 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum8
-    => { disi: DocIdSetIteratorEnum8 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum9
-    => { disi: DocIdSetIteratorEnum9 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum10
-    => { disi: DocIdSetIteratorEnum10 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum11
-    => { disi: DocIdSetIteratorEnum11 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K }
 );
 either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum12
-    => { disi: DocIdSetIteratorEnum12 }
     { A: A, B: B, C: C, D: D, E: E, F: F, G: G, H: H, I: I, J: J, K: K, L: L }
 );

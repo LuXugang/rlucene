@@ -55,21 +55,12 @@ where
     TPI: TwoPhaseIterator,
     DVS: DocValuesSkipper,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a Approximation<TPI, DVS>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut Approximation<TPI, DVS>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.approximation)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.approximation))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.approximation)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.approximation))
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -634,21 +625,12 @@ mod tests {
     where
         NDV: NumericDocValues,
     {
-        type DocIdSetIteratorRef<'a>
-            = &'a NDV
-        where
-            Self: 'a;
-        type DocIdSetIteratorMut<'a>
-            = &'a mut NDV
-        where
-            Self: 'a;
-
-        fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-            Ok(&mut self.values)
+        fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+            Ok(Box::new(&mut self.values))
         }
 
-        fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-            Ok(&self.values)
+        fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+            Ok(Box::new(&self.values))
         }
 
         fn matches(&mut self) -> Result<bool> {

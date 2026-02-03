@@ -356,21 +356,12 @@ impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
 where
     S: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a ConjunctionDISI<S>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut ConjunctionDISI<S>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.approximation)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.approximation))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.approximation)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.approximation))
     }
 
     fn matches(&mut self) -> Result<bool> {

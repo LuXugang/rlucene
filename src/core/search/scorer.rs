@@ -41,8 +41,6 @@ pub trait Scorer: Scorable {
     where
         Self: 'a;
 
-    /// Optional two-phase iterator type (return `None` if unsupported).
-    type TwoPhaseIter: TwoPhaseIterator;
     type TwoPhaseIterRef<'a>: TwoPhaseIterator
     where
         Self: 'a;
@@ -105,7 +103,7 @@ pub trait Scorer: Scorable {
     /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
     ///
     /// By default, this returns `None`.
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
@@ -163,7 +161,6 @@ where
         = T::DocIdSetIteratorMut<'a>
     where
         Self: 'a;
-    type TwoPhaseIter = T::TwoPhaseIter;
     type TwoPhaseIterRef<'a>
         = T::TwoPhaseIterRef<'a>
     where
@@ -197,7 +194,7 @@ where
         todo!()
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
@@ -310,8 +307,6 @@ macro_rules! either_scorer {
             where
                 Self: 'a;
 
-            type TwoPhaseIter =
-                $two_phase_ty<$( < $T as Scorer >::TwoPhaseIter ),+>;
             type TwoPhaseIterRef<'a> =
                 $two_phase_ty<$( < $T as Scorer >::TwoPhaseIterRef<'a> ),+>
             where
@@ -366,10 +361,9 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
-                match self {
-                    $( Self::$Variant(inner) =>
-                        inner.take_two_phase_iterator().map(|res| res.map(|it| $two_phase_ty::$Variant(it))), )+
+            fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+                match *self {
+                    $( Self::$Variant(inner) => Box::new(inner).take_two_phase_iterator(), )+
                 }
             }
 

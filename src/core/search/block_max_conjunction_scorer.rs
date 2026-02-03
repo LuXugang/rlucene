@@ -127,7 +127,6 @@ where
         = &'a mut BlockMaxConjunctionScorerDisi<S>
     where
         Self: 'a;
-    type TwoPhaseIter = TwoPhaseIteratorImpl<S>;
     type TwoPhaseIterRef<'a>
         = &'a TwoPhaseIteratorImpl<S>
     where
@@ -181,17 +180,22 @@ where
         }
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        match self.two_phase_state {
+        let BlockMaxConjunctionScorer {
+            disi,
+            two_phase_state,
+            ..
+        } = *self;
+        match two_phase_state {
             TwoPhaseState::No => Ok(None),
-            _ => match self.disi {
+            _ => match disi {
                 DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                DocIdSetIteratorEnum2::B(v) => Ok(Some(v.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(v) => Ok(Some(Box::new(v.two_phase_iterator))),
             },
         }
     }
@@ -383,21 +387,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
     S: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a DocIdSetIteratorImpl<S>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut DocIdSetIteratorImpl<S>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.approx)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.approx))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.approx)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.approx))
     }
 
     fn matches(&mut self) -> Result<bool> {

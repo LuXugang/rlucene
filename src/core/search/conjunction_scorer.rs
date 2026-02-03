@@ -19,7 +19,9 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::two_phase_iterator::TwoPhaseIteratorAsDocIdSetIterator;
+use crate::core::search::two_phase_iterator::{
+    TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
 use crate::core::util::error::lucene_error::Result;
 
 pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
@@ -117,7 +119,6 @@ where
         = &'a mut ConjunctionScorerDisi<S>
     where
         Self: 'a;
-    type TwoPhaseIter = ConjunctionTwoPhaseIterator<S>;
     type TwoPhaseIterRef<'a>
         = &'a ConjunctionTwoPhaseIterator<S>
     where
@@ -158,13 +159,14 @@ where
         }
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        match self.disi {
+        let ConjunctionScorer { disi, .. } = *self;
+        match disi {
             DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(v) => Ok(Some(v.two_phase_iterator)),
+            DocIdSetIteratorEnum2::B(v) => Ok(Some(Box::new(v.two_phase_iterator))),
         }
     }
 

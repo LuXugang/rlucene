@@ -18,7 +18,6 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
-use crate::core::search::constant_score_scorer::ConstantTPI;
 use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3,
 };
@@ -228,13 +227,12 @@ where
     where
         Self: 'a;
 
-    type TwoPhaseIter = ConstantTPI<DummyTwoPhaseIterator>;
     type TwoPhaseIterRef<'a>
-        = &'a Self::TwoPhaseIter
+        = DummyTwoPhaseIterator
     where
         Self: 'a;
     type TwoPhaseIterMut<'a>
-        = &'a mut Self::TwoPhaseIter
+        = DummyTwoPhaseIterator
     where
         Self: 'a;
 

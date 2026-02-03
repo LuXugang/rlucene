@@ -250,7 +250,7 @@ where
         (**self).cost()
     }
 }
-impl<T: DocIdSetIterator> DocIdSetIterator for &mut T {
+impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
     fn doc_id(&self) -> i32 {
         (**self).doc_id()
     }
@@ -271,7 +271,7 @@ impl<T: DocIdSetIterator> DocIdSetIterator for &mut T {
         (**self).cost()
     }
 }
-impl<T: DocIdSetIterator> DocIdSetIterator for &T {
+impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
     fn doc_id(&self) -> i32 {
         (**self).doc_id()
     }

@@ -129,7 +129,6 @@ where
         = &'a mut TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>
     where
         Self: 'a;
-    type TwoPhaseIter = TwoPhaseIteratorImpl<S>;
     type TwoPhaseIterRef<'a>
         = &'a TwoPhaseIteratorImpl<S>
     where
@@ -164,11 +163,12 @@ where
         Ok(Some(&mut self.disi.two_phase_iterator))
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        Ok(Some(self.disi.two_phase_iterator))
+        let WANDScorer { disi, .. } = *self;
+        Ok(Some(Box::new(disi.two_phase_iterator)))
     }
 
     fn get_max_score(&mut self, upto: i32) -> Result<f32> {
@@ -800,21 +800,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
     S: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a DocIdSetIteratorImpl<S>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut DocIdSetIteratorImpl<S>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.approximation)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.approximation))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.approximation)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.approximation))
     }
 
     fn matches(&mut self) -> Result<bool> {

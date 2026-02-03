@@ -18,7 +18,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_scorable::DummyScorable;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
-use crate::core::search::scorer::{Scorer, ScorerDisiMut, ScorerDisiRef, TwoPhaseState};
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
@@ -96,7 +96,6 @@ where
         = &'a mut TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
     where
         Self: 'a;
-    type TwoPhaseIter = Tpi<S1, S2>;
     type TwoPhaseIterRef<'a>
         = &'a Tpi<S1, S2>
     where
@@ -134,11 +133,12 @@ where
         Ok(Some(&mut self.disi.two_phase_iterator))
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        Ok(Some(self.disi.two_phase_iterator))
+        let ReqExclScorer { disi, .. } = *self;
+        Ok(Some(Box::new(disi.two_phase_iterator)))
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -187,21 +187,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = ScorerDisiRef<'a, S1>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = ScorerDisiMut<'a, S1>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(self.req_scorer.iterator_mut())
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(self.req_scorer.iterator_mut()))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(self.req_scorer.iterator())
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(self.req_scorer.iterator()))
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -268,21 +259,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = ScorerDisiRef<'a, S1>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = ScorerDisiMut<'a, S1>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(self.req_scorer.iterator_mut())
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(self.req_scorer.iterator_mut()))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(self.req_scorer.iterator())
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(self.req_scorer.iterator()))
     }
 
     fn matches(&mut self) -> Result<bool> {

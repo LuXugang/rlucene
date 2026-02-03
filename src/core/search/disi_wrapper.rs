@@ -113,7 +113,6 @@ where
         = S::DocIdSetIteratorMut<'a>
     where
         Self: 'a;
-    type TwoPhaseIter = S::TwoPhaseIter;
     type TwoPhaseIterRef<'a>
         = S::TwoPhaseIterRef<'a>
     where
@@ -148,8 +147,9 @@ where
         self.scorer.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
-        self.scorer.take_two_phase_iterator()
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+        let DisiWrapper { scorer, .. } = *self;
+        Box::new(scorer).take_two_phase_iterator()
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {

@@ -553,22 +553,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator5<S>
 where
     S: SortedDocValues,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a S
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = &'a mut S
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.singleton)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.singleton))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.singleton)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.singleton))
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -606,22 +596,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator6<S>
 where
     S: SortedSetDocValues,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a S
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = &'a mut S
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.values)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.values))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.values)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.values))
     }
 
     fn matches(&mut self) -> Result<bool> {

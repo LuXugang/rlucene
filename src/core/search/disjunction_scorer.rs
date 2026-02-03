@@ -164,7 +164,6 @@ where
         = &'a mut Disi<S>
     where
         Self: 'a;
-    type TwoPhaseIter = TwoPhase<S>;
     type TwoPhaseIterRef<'a>
         = &'a TwoPhase<S>
     where
@@ -229,11 +228,14 @@ where
         }
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
-        match self.tpi_state {
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+        let DisjunctionScorer {
+            disi, tpi_state, ..
+        } = *self;
+        match tpi_state {
             TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
-                Disi::B(v) => Some(v.two_phase_iterator),
+            _ => Ok(match disi {
+                Disi::B(v) => Some(Box::new(v.two_phase_iterator)),
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "No two-phase iterator available",
@@ -349,21 +351,12 @@ impl<S> TwoPhaseIterator for TwoPhase<S>
 where
     S: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a DisjunctionDISIApproximation<S>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut DisjunctionDISIApproximation<S>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.unverified_matches.compare.approximation)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.unverified_matches.compare.approximation))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.unverified_matches.compare.approximation)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.unverified_matches.compare.approximation))
     }
 
     fn matches(&mut self) -> Result<bool> {

@@ -26,6 +26,7 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -252,21 +253,12 @@ impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
 where
     N: NumericDocValues,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a N
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut N
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.singleton)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.singleton))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.singleton)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.singleton))
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -300,22 +292,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator2<S>
 where
     S: SortedNumericDocValues,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a S
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = &'a mut S
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.value)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.value))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.value)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.value))
     }
 
     fn matches(&mut self) -> Result<bool> {

@@ -120,7 +120,6 @@ where
         = &'a mut ReqOptSumScorerDisi<S1, S2>
     where
         Self: 'a;
-    type TwoPhaseIter = TwoPhaseIteratorImpl<S1, S2>;
     type TwoPhaseIterRef<'a>
         = &'a TwoPhaseIteratorImpl<S1, S2>
     where
@@ -176,17 +175,20 @@ where
         }
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        match self.tpi_state {
+        let ReqOptSumScorer {
+            disi, tpi_state, ..
+        } = *self;
+        match tpi_state {
             TwoPhaseState::No => Ok(None),
-            _ => match self.disi {
+            _ => match disi {
                 DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                DocIdSetIteratorEnum2::B(wrapper) => Ok(Some(wrapper.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(wrapper) => Ok(Some(Box::new(wrapper.two_phase_iterator))),
             },
         }
     }
@@ -461,21 +463,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a DocIdSetIteratorImpl<S1, S2>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut DocIdSetIteratorImpl<S1, S2>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
-        Ok(&mut self.disi)
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&mut self.disi))
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
-        Ok(&self.disi)
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+        Ok(Box::new(&self.disi))
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -545,6 +538,7 @@ mod tests {
     use crate::core::search::req_opt_sum_scorer::{ReqOptSumScorer, ReqOptSumScorerDisi};
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
 
     #[allow(dead_code)]
@@ -595,7 +589,6 @@ mod tests {
             = <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIteratorMut<'a>
         where
             Self: 'a;
-        type TwoPhaseIter = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIter;
         type TwoPhaseIterRef<'a>
             = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIterRef<'a>
         where
@@ -630,11 +623,12 @@ mod tests {
             self.base.two_phase_iterator_mut()
         }
 
-        fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+        fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
         where
             Self: Sized,
         {
-            self.base.take_two_phase_iterator()
+            let ReqOptSumScorerWrapper { base } = *self;
+            Box::new(base).take_two_phase_iterator()
         }
 
         fn advance_shallow(&mut self, target: i32) -> Result<i32> {

@@ -14,28 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-    type DocIdSetIteratorRef<'a>
-        = &'a DummyDISI
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = &'a mut DummyDISI
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

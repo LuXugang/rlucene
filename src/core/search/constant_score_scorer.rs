@@ -138,13 +138,12 @@ where
     where
         Self: 'a;
 
-    type TwoPhaseIter = ConstantTPI<TPI>;
     type TwoPhaseIterRef<'a>
-        = &'a Self::TwoPhaseIter
+        = &'a ConstantTPI<TPI>
     where
         Self: 'a;
     type TwoPhaseIterMut<'a>
-        = &'a mut Self::TwoPhaseIter
+        = &'a mut ConstantTPI<TPI>
     where
         Self: 'a;
 
@@ -193,16 +192,19 @@ where
         }
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>> {
-        match self.tpi_state {
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+        let ConstantScoreScorer {
+            disi, tpi_state, ..
+        } = *self;
+        match tpi_state {
             TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
+            _ => Ok(match disi {
                 ConstantDISI_::A(_) => {
                     return Err(LuceneError::illegal_state(
                         "No two-phase iterator available",
                     ));
                 },
-                ConstantDISI_::B(wrapper) => Some(wrapper.two_phase_iterator),
+                ConstantDISI_::B(wrapper) => Some(Box::new(wrapper.two_phase_iterator)),
             }),
         }
     }
@@ -234,21 +236,11 @@ impl<TPI> TwoPhaseIterator for TwoPhaseIteratorImpl<TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    type DocIdSetIteratorRef<'a>
-        = TPI::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    type DocIdSetIteratorMut<'a>
-        = TPI::DocIdSetIteratorMut<'a>
-    where
-        Self: 'a;
-
-    fn approximation_mut(&mut self) -> Result<Self::DocIdSetIteratorMut<'_>> {
+    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         self.two_phase_iterator.approximation_mut()
     }
 
-    fn approximation(&self) -> Result<Self::DocIdSetIteratorRef<'_>> {
+    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
         self.two_phase_iterator.approximation()
     }
 

@@ -1064,7 +1064,6 @@ mod test {
             = &'a mut AllDISI
         where
             Self: 'a;
-        type TwoPhaseIter = DummyTwoPhaseIterator;
         type TwoPhaseIterRef<'a>
             = DummyTwoPhaseIterator
         where

@@ -17,6 +17,7 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// A `FilterScorer` contains another [`Scorer`], which it uses as its basic source of
 /// data, possibly transforming the data along the way or providing additional functionality.
@@ -61,7 +62,6 @@ where
         = S::DocIdSetIteratorMut<'a>
     where
         Self: 'a;
-    type TwoPhaseIter = S::TwoPhaseIter;
     type TwoPhaseIterRef<'a>
         = S::TwoPhaseIterRef<'a>
     where
@@ -96,11 +96,12 @@ where
         self.inner.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        self.inner.take_two_phase_iterator()
+        let FilterScorer { inner } = *self;
+        Box::new(inner).take_two_phase_iterator()
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {

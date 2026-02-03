@@ -48,6 +48,7 @@ use crate::core::search::scorer::{
 };
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::TryIntoInt;
@@ -845,11 +846,11 @@ pub type GetInternal<S> = ScorerEnum4<
     ReqOptSumScorer<Excl<Req<S>, Opt<S>>, Opt<S>>,
 >;
 pub type GetInternalDisi = ScorerDisi;
-pub type GetInternalTpi<S> = <GetInternal<S> as Scorer>::TwoPhaseIter;
+pub type GetInternalTpi = Box<dyn TwoPhaseIterator>;
 pub type GetType<S> = ScorerEnum2<
     GetInternal<S>,
     ScorerEnum2<
-        ConstantScoreScorer<DummyDISI, GetInternalTpi<S>>,
+        ConstantScoreScorer<DummyDISI, GetInternalTpi>,
         ConstantScoreScorer<GetInternalDisi, DummyTwoPhaseIterator>,
     >,
 >;
@@ -859,13 +860,8 @@ pub type BooleanScorerPositive<BS, S> = BulkScorerEnum3<
     RequiredBulkScorer<BS, S>,
 >;
 pub type BooleanScorerProhibited<S> = ScorerEnum2<S, DisjunctionScorer<S, DisjunctionSumScorer>>;
-pub type BooleanScorerType<BS, S> = BulkScorerEnum2<
-    BooleanScorerPositive<BS, S>,
-    ReqExclBulkScorer<
-        BooleanScorerPositive<BS, S>,
-        <BooleanScorerProhibited<S> as Scorer>::TwoPhaseIter,
-    >,
->;
+pub type BooleanScorerType<BS, S> =
+    BulkScorerEnum2<BooleanScorerPositive<BS, S>, ReqExclBulkScorer<BooleanScorerPositive<BS, S>>>;
 
 pub type BulkScorerType<BS, SS> = BulkScorerEnum2<BooleanScorerType<BS, SS>, DefaultBulkScorer<SS>>;
 
@@ -897,7 +893,7 @@ where
                 // no scoring clauses but scores are needed so we wrap the scorer in
                 // a constant score in order to allow early termination
                 let v = if scorer.two_phase_iterator()?.is_some() {
-                    let tpi = scorer.take_two_phase_iterator()?.unwrap();
+                    let tpi = Box::new(scorer).take_two_phase_iterator()?.unwrap();
                     ScorerEnum2::A(ConstantScoreScorer::with_tpi(0.0, self.score_mode, tpi))
                 } else {
                     let disi = Box::new(scorer).take_iterator();
@@ -997,7 +993,6 @@ where
         = <FilterScorer<S> as Scorer>::DocIdSetIteratorMut<'a>
     where
         Self: 'a;
-    type TwoPhaseIter = <FilterScorer<S> as Scorer>::TwoPhaseIter;
     type TwoPhaseIterRef<'a>
         = <FilterScorer<S> as Scorer>::TwoPhaseIterRef<'a>
     where
@@ -1032,11 +1027,12 @@ where
         self.base.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
     where
         Self: Sized,
     {
-        self.base.take_two_phase_iterator()
+        let FilterScorerImpl { base } = *self;
+        Box::new(base).take_two_phase_iterator()
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
