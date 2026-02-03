@@ -25,20 +25,20 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBs, QueryWeightSsS,
+};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::term_query::TermSs;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
@@ -176,18 +176,13 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = ScorerSupplierEnum4<
-        TermSs<LR>,
-        MatchAllDocsScorerSupplier,
-        DummyScorerSupplier,
-        DummyScorerSupplier,
-    >;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
         context: &LeafReaderContext<LR>,
     ) -> Result<Option<Self::ScorerSupplier>> {
-        let v = ScorerSupplierEnum4::B(MatchAllDocsScorerSupplier::new(
+        let v = Box::new(MatchAllDocsScorerSupplier::new(
             self.score_mode,
             self.base.clone(),
             context.reader().max_doc()?,
@@ -208,8 +203,7 @@ where
     }
 }
 pub type MatchAllSs = MatchAllDocsScorerSupplier;
-pub type MatchAllSsBulkScorer<IRC> =
-    <MatchAllSs as ScorerSupplier<<IRC as IndexReaderContext>::LeafReader>>::BulkScorer;
+pub type MatchAllSsBulkScorer<LR> = <MatchAllSs as ScorerSupplier<LR>>::BulkScorer;
 pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
 pub type MatchAllSsScorerDisi = <MatchAllSsScorer as Scorer>::DocIdSetIterator;
 pub type MatchAllSsScorerDisiRef<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorRef<'a>;
@@ -233,30 +227,32 @@ impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
 where
     LR: LeafReader,
 {
-    type Scorer = MatchAllSsScorer;
-    type BulkScorer = MatchAllBulkScorerEnum<Self::Scorer>;
+    type Scorer = QueryWeightSsS<LR>;
+    type BulkScorer = QueryWeightSsBs<LR>;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
-        Ok(ConstantScoreScorer::with_disi(
+        let v = QueryWeightSsS::<LR>::B(ConstantScoreScorer::with_disi(
             score,
             self.score_mode,
             AllDISI::new(self.max_doc),
-        ))
+        ));
+        Ok(v)
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        if !self.score_mode.is_exhaustive() {
+        let v = if !self.score_mode.is_exhaustive() {
             let opt = self.default_bulk_scorer(context)?;
-            Ok(Some(MatchAllBulkScorerEnum::B(opt)))
+            MatchAllBulkScorerEnum::<LR>::B(opt)
         } else {
             let score = self.weight.score();
-            Ok(Some(MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
+            MatchAllBulkScorerEnum::<LR>::A(MatchAllBulkScorer::new(
                 self.score_mode,
                 self.max_doc,
                 score,
-            ))))
-        }
+            ))
+        };
+        Ok(Some(QueryWeightSsBs::<LR>::B(v)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
@@ -311,7 +307,8 @@ impl BulkScorer for MatchAllBulkScorer {
         Ok(self.max_doc as i64)
     }
 }
-pub type MatchAllBulkScorerEnum<T> = BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<T>>;
+pub type MatchAllBulkScorerEnum<LR> =
+    BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsS<LR>>>;
 
 #[cfg(test)]
 mod tests {

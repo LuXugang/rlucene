@@ -141,6 +141,92 @@ pub trait Scorer: Scorable {
     }
     fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
+
+impl<T> Scorable for Box<T>
+where
+    T: Scorer + ?Sized,
+{
+    fn score(&mut self) -> Result<f32> {
+        (**self).score()
+    }
+
+    type Scorable = T::Scorable;
+}
+
+impl<T> Scorer for Box<T>
+where
+    T: Scorer + ?Sized,
+{
+    type DocIdSetIterator = T::DocIdSetIterator;
+    type DocIdSetIteratorRef<'a>
+        = T::DocIdSetIteratorRef<'a>
+    where
+        Self: 'a;
+    type DocIdSetIteratorMut<'a>
+        = T::DocIdSetIteratorMut<'a>
+    where
+        Self: 'a;
+    type TwoPhaseIter = T::TwoPhaseIter;
+    type TwoPhaseIterRef<'a>
+        = T::TwoPhaseIterRef<'a>
+    where
+        Self: 'a;
+    type TwoPhaseIterMut<'a>
+        = T::TwoPhaseIterMut<'a>
+    where
+        Self: 'a;
+
+    fn doc_id(&mut self) -> Result<i32> {
+        todo!()
+    }
+
+    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+        todo!()
+    }
+
+    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        todo!()
+    }
+
+    fn take_iterator(self) -> Self::DocIdSetIterator {
+        todo!()
+    }
+
+    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        todo!()
+    }
+
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        todo!()
+    }
+
+    fn take_two_phase_iterator(self) -> Result<Option<Self::TwoPhaseIter>>
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
+        todo!()
+    }
+
+    fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
+        todo!()
+    }
+
+    fn default_cost(&mut self) -> Result<i64> {
+        todo!()
+    }
+
+    fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        todo!()
+    }
+}
 pub type ScorerDisi<S> = <S as Scorer>::DocIdSetIterator;
 pub type ScorerDisiMut<'a, S> = <S as Scorer>::DocIdSetIteratorMut<'a>;
 pub type ScorerDisiRef<'a, S> = <S as Scorer>::DocIdSetIteratorRef<'a>;

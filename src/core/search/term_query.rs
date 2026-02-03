@@ -32,24 +32,24 @@ use crate::core::search::QueryCache;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::match_all_docs_query::MatchAllDocsScorerSupplier;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBs, QueryWeightSsS,
+};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum4};
-use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
     SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
 };
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
+use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
@@ -302,7 +302,7 @@ where
 
 impl<LR> Weight<LR> for TermWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -380,12 +380,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = ScorerSupplierEnum4<
-        TermSs<LR>,
-        MatchAllDocsScorerSupplier,
-        DummyScorerSupplier,
-        DummyScorerSupplier,
-    >;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -417,7 +412,7 @@ where
                     self.sim_scorer.as_ref().unwrap().clone(),
                     self.score_mode,
                 );
-                let v = ScorerSupplierEnum4::A(v);
+                let v = Box::new(v);
                 Ok(Some(v))
             },
         }
@@ -516,8 +511,8 @@ impl<LR> ScorerSupplier<LR> for TermScorerSupplier<LR>
 where
     LR: LeafReader,
 {
-    type Scorer = TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>;
-    type BulkScorer = DefaultBulkScorer<Self::Scorer>;
+    type Scorer = QueryWeightSsS<LR>;
+    type BulkScorer = QueryWeightSsBs<LR>;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         match self.get_terms_enum(context)? {
@@ -530,22 +525,21 @@ where
                 };
 
                 if self.score_mode == ScoreMode::TopScores {
-                    Ok(TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
-                        TermScorer::new(
+                    let v =
+                        TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::new(
                             self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
                             self.sim_scorer.clone(),
                             norms,
                             self.top_level_scoring_clause,
-                        ),
-                    ))
+                        ));
+                    Ok(ScorerEnum4::A(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
                         FREQS
                     } else {
                         NONE
                     };
-
-                    Ok(TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
                         TermScorer::with_postings(
                             self.terms_enum
                                 .as_mut()
@@ -554,17 +548,26 @@ where
                             self.sim_scorer.clone(),
                             norms,
                         ),
-                    ))
+                    );
+                    Ok(ScorerEnum4::A(v))
                 }
             },
-            None => Ok(TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-                ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
-            )),
+            None => {
+                let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
+                    ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
+                );
+                Ok(ScorerEnum4::A(v))
+            },
         }
     }
 
-    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+    fn bulk_scorer(
+        &mut self,
+        _context: &LeafReaderContext<LR>,
+    ) -> Result<Option<Self::BulkScorer>> {
+        // let v = QueryWeightSsBs::A(self.default_bulk_scorer(context)?);
+        // Ok(Some(v))
+        todo!()
     }
 
     fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {

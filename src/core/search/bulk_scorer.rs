@@ -114,3 +114,25 @@ either_bulk_scorer!(pub BulkScorerEnum6 {
     E: E1,
     F: F1
 });
+impl<T> BulkScorer for Box<T>
+where
+    T: BulkScorer + ?Sized,
+{
+    fn score<LC, B>(
+        &mut self,
+        collector: &mut LC,
+        accept_docs: Option<&B>,
+        min: i32,
+        max: i32,
+    ) -> Result<i32>
+    where
+        LC: LeafCollector,
+        B: Bits,
+    {
+        (**self).score(collector, accept_docs, min, max)
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        (**self).cost()
+    }
+}

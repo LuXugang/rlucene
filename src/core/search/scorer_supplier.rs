@@ -183,3 +183,34 @@ either_scorer_supplier!(
     => { bulk: BulkScorerEnum6, scorer: ScorerEnum6 }
     { A: A, B: B ,C:C, D:D,E:E,F:F }
 );
+impl<LR, T> ScorerSupplier<LR> for Box<T>
+where
+    LR: LeafReader,
+    T: ScorerSupplier<LR> + ?Sized,
+{
+    type Scorer = T::Scorer;
+    type BulkScorer = T::BulkScorer;
+
+    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        (**self).get(lead_cost, context)
+    }
+
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        (**self).bulk_scorer(context)
+    }
+
+    fn default_bulk_scorer(
+        &mut self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<DefaultBulkScorer<Self::Scorer>> {
+        (**self).default_bulk_scorer(context)
+    }
+
+    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+        (**self).cost(context)
+    }
+
+    fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+        (**self).set_top_level_scoring_clause()
+    }
+}
