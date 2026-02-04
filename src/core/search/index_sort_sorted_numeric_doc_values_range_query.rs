@@ -16,15 +16,9 @@
  */
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
-use crate::core::document::sorted_numeric_doc_values_range_query::{
-    SortedNumericDocValuesRangeQuery, SortedNumericDocValuesRangeQueryWeight,
-};
-use crate::core::document::sorted_numeric_doc_values_set_query::{
-    SortedNumericDocValuesSetQuery, SortedNumericDocValuesSetQueryWeight,
-};
-use crate::core::document::sorted_set_doc_values_range_query::{
-    SortedSetDocValuesRangeQuery, SortedSetDocValuesRangeQueryWeight,
-};
+use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQueryWeight;
+use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQueryWeight;
+use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQueryWeight;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -32,7 +26,6 @@ use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
@@ -50,7 +43,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::point_range_query::{PointRangeQuery, PointRangeWeight};
+use crate::core::search::point_range_query::PointRangeWeight;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -74,20 +67,21 @@ pub struct IndexSortSortedNumericDocValuesRangeQuery {
     field: String,
     lower_value: i64,
     upper_value: i64,
-    fallback_query: FallbackQuery,
+    fallback_query: Box<Query>,
 }
 impl IndexSortSortedNumericDocValuesRangeQuery {
     pub fn new<S, T>(field: S, lower_value: i64, upper_value: i64, fallback_query: T) -> Self
     where
         S: Into<String>,
-        T: Into<FallbackQuery>,
+        T: Into<Box<Query>>,
     {
+        let fallback_query = fallback_query.into();
         Self {
             id: Identity::new(),
             field: field.into(),
             lower_value,
             upper_value,
-            fallback_query: fallback_query.into(),
+            fallback_query,
         }
     }
 }
@@ -136,10 +130,10 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
 
     fn create_weight<IRC, QC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC, QC>,
         score_mode: &ScoreMode,
         boost: f32,
-        _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
@@ -148,20 +142,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let query = self.clone();
-        let fallback_query_weight = match self.fallback_query {
-            FallbackQuery::PointRange(p) => {
-                FallbackQueryWeight::A(PointRangeWeight::new(boost, p, *score_mode))
-            },
-            FallbackQuery::SortedNumericDocValuesSet(p) => FallbackQueryWeight::B(
-                SortedNumericDocValuesSetQueryWeight::new(p, *score_mode, boost),
-            ),
-            FallbackQuery::SortedNumericDocValuesRange(p) => FallbackQueryWeight::C(
-                SortedNumericDocValuesRangeQueryWeight::new(p, *score_mode, boost),
-            ),
-            FallbackQuery::SortedSetDocValuesRange(p) => FallbackQueryWeight::D(
-                SortedSetDocValuesRangeQueryWeight::new(p, boost, *score_mode),
-            ),
-        };
+        let fallback_query = *self.fallback_query;
+        let fallback_query_weight =
+            fallback_query.create_weight(searcher, score_mode, boost, per_reader_term_state)?;
         Ok(Box::new(
             IndexSortSortedNumericDocValuesRangeQueryWeight::new(
                 query,
@@ -183,42 +166,32 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         }
 
         let fallback_id = self.fallback_query.identity().clone();
-        let rewritten_fallback = self.fallback_query.rewrite(searcher)?;
+        let rewritten_fallback = self.fallback_query.clone().rewrite(searcher)?;
 
         if matches!(rewritten_fallback, Query::MatchAll(_)) {
             return Ok(MatchAllDocsQuery::new().into());
         }
 
         if rewritten_fallback.identity() == &fallback_id {
-            let v = match rewritten_fallback {
-                Query::PointRange(p) => FallbackQuery::PointRange(p),
-                Query::SortedNumericDocValuesSet(p) => FallbackQuery::SortedNumericDocValuesSet(p),
-                Query::SortedNumericDocValuesRange(p) => {
-                    FallbackQuery::SortedNumericDocValuesRange(p)
-                },
-                Query::SortedSetDocValuesRange(p) => FallbackQuery::SortedSetDocValuesRange(p),
-                _ => return Err(LuceneError::illegal_state("should not be here")),
-            };
-            self.fallback_query = v;
+            if !is_supported_fallback_query(&rewritten_fallback) {
+                return Err(LuceneError::illegal_state("should not be here"));
+            }
+            self.fallback_query = Box::new(rewritten_fallback);
             return Ok(self.into());
         }
-        let v = match rewritten_fallback {
-            Query::PointRange(p) => FallbackQuery::PointRange(p),
-            Query::SortedNumericDocValuesSet(p) => FallbackQuery::SortedNumericDocValuesSet(p),
-            Query::SortedNumericDocValuesRange(p) => FallbackQuery::SortedNumericDocValuesRange(p),
-            Query::SortedSetDocValuesRange(p) => FallbackQuery::SortedSetDocValuesRange(p),
-            _ => {
-                return Err(LuceneError::unsupported_operation(format!(
-                    "unsupported fallback query: {}",
-                    rewritten_fallback.as_string("")
-                )));
-            },
-        };
+
+        if !is_supported_fallback_query(&rewritten_fallback) {
+            return Err(LuceneError::unsupported_operation(format!(
+                "unsupported fallback query: {}",
+                rewritten_fallback.as_string("")
+            )));
+        }
+
         Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
             self.field,
             self.lower_value,
             self.upper_value,
-            v,
+            Box::new(rewritten_fallback),
         )
         .into())
     }
@@ -238,7 +211,7 @@ where
     query: IndexSortSortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     score_mode: ScoreMode,
-    fallback_query_weight: FallbackQueryWeight<LR>,
+    fallback_query_weight: QueryWeight<LR>,
     parent_query: Arc<Query>,
 }
 impl<LR> IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
@@ -249,7 +222,7 @@ where
         query: IndexSortSortedNumericDocValuesRangeQuery,
         base: ConstantScoreWeight,
         score_mode: ScoreMode,
-        fallback_query_weight: FallbackQueryWeight<LR>,
+        fallback_query_weight: QueryWeight<LR>,
     ) -> Self {
         let query_clone = query.clone();
         Self {
@@ -277,14 +250,6 @@ where
 impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader + 'static,
-    <LR as LeafReader>::NumericDocValues: 'static,
-    <LR as LeafReader>::SortedNumericDocValues: 'static,
-    <LR as LeafReader>::DocValuesSkipper: 'static,
-    <LR as LeafReader>::SortedDocValues: 'static,
-    <LR as LeafReader>::SortedSetDocValues: 'static,
-    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
-    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
-        'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -469,15 +434,7 @@ where
 }
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<Disi<LR>>
 where
-    LR: LeafReader,
-    <LR as LeafReader>::NumericDocValues: 'static,
-    <LR as LeafReader>::SortedNumericDocValues: 'static,
-    <LR as LeafReader>::DocValuesSkipper: 'static,
-    <LR as LeafReader>::SortedDocValues: 'static,
-    <LR as LeafReader>::SortedSetDocValues: 'static,
-    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
-    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
-        'static,
+    LR: LeafReader + 'static,
 {
     type Scorer = ConstantScoreScorer<IteratorAndCountDisi<Disi<LR>>, DummyTwoPhaseIterator>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
@@ -1286,65 +1243,22 @@ where
         DocIdSetIteratorEnum4::A(EmptyDISI::default())
     }
 }
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub enum FallbackQuery {
-    PointRange(PointRangeQuery),
-    SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
-    SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
-    SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
-}
-impl FallbackQuery {
-    fn rewrite<IRC, QC>(self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
-    where
-        IRC: IndexReaderContext,
-        QC: QueryCache,
-        Self: Sized,
-    {
-        match self {
-            FallbackQuery::PointRange(prq) => prq.rewrite(searcher),
-            FallbackQuery::SortedNumericDocValuesSet(snqdsq) => snqdsq.rewrite(searcher),
-            FallbackQuery::SortedNumericDocValuesRange(snqdrq) => snqdrq.rewrite(searcher),
-            FallbackQuery::SortedSetDocValuesRange(ssdqrq) => ssdqrq.rewrite(searcher),
-        }
-    }
-}
-impl HasIdentity for FallbackQuery {
-    fn identity(&self) -> &Identity {
-        match self {
-            FallbackQuery::PointRange(prq) => prq.identity(),
-            FallbackQuery::SortedNumericDocValuesSet(sdvsq) => sdvsq.identity(),
-            FallbackQuery::SortedNumericDocValuesRange(sdvrq) => sdvrq.identity(),
-            FallbackQuery::SortedSetDocValuesRange(ssdrq) => ssdrq.identity(),
-        }
-    }
-}
-
-impl From<PointRangeQuery> for FallbackQuery {
-    fn from(value: PointRangeQuery) -> Self {
-        FallbackQuery::PointRange(value)
-    }
-}
-impl From<SortedNumericDocValuesSetQuery> for FallbackQuery {
-    fn from(value: SortedNumericDocValuesSetQuery) -> Self {
-        FallbackQuery::SortedNumericDocValuesSet(value)
-    }
-}
-impl From<SortedNumericDocValuesRangeQuery> for FallbackQuery {
-    fn from(value: SortedNumericDocValuesRangeQuery) -> Self {
-        FallbackQuery::SortedNumericDocValuesRange(value)
-    }
-}
-impl From<SortedSetDocValuesRangeQuery> for FallbackQuery {
-    fn from(value: SortedSetDocValuesRangeQuery) -> Self {
-        FallbackQuery::SortedSetDocValuesRange(value)
-    }
-}
 pub type FallbackQueryWeight<LR> = WeightEnum4<
     PointRangeWeight<LR>,
     SortedNumericDocValuesSetQueryWeight<LR>,
     SortedNumericDocValuesRangeQueryWeight<LR>,
     SortedSetDocValuesRangeQueryWeight<LR>,
 >;
+
+fn is_supported_fallback_query(query: &Query) -> bool {
+    matches!(
+        query,
+        Query::PointRange(_)
+            | Query::SortedNumericDocValuesSet(_)
+            | Query::SortedNumericDocValuesRange(_)
+            | Query::SortedSetDocValuesRange(_)
+    )
+}
 
 #[cfg(test)]
 mod tests {
@@ -1960,8 +1874,12 @@ mod tests {
                 let q1 = LongPoint::new_range_query("field", vec![min], vec![max])?;
 
                 let fallback = LongPoint::new_range_query("field", vec![min], vec![max])?;
-                let q2 =
-                    IndexSortSortedNumericDocValuesRangeQuery::new("field", min, max, fallback);
+                let q2 = IndexSortSortedNumericDocValuesRangeQuery::new(
+                    "field",
+                    min,
+                    max,
+                    Box::new(fallback.into()),
+                );
 
                 let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
                 let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
@@ -2036,7 +1954,7 @@ mod tests {
             "field",
             lower_value,
             upper_value,
-            fallback_query,
+            Box::new(fallback_query.into()),
         );
 
         let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
@@ -2090,7 +2008,7 @@ mod tests {
             field_str,
             lower_value,
             upper_value,
-            fallback_query,
+            Box::new(fallback_query.into()),
         )
     }
     #[test]
@@ -2132,7 +2050,12 @@ mod tests {
         // Both bounds exist in the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![7], vec![9])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 9, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                7,
+                9,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
@@ -2141,7 +2064,12 @@ mod tests {
         // Both bounds do not exist in the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![6], vec![10])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 10, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                6,
+                10,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
@@ -2150,7 +2078,12 @@ mod tests {
         // Min bound exists in the dataset, not the max
         {
             let fallback = LongPoint::new_range_query(field_name, vec![7], vec![10])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 10, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                7,
+                10,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
@@ -2159,7 +2092,12 @@ mod tests {
         // Min bound doesn't exist in the dataset, max does
         {
             let fallback = LongPoint::new_range_query(field_name, vec![6], vec![9])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 9, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                6,
+                9,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1400, weight.count(ctx)?);
@@ -2168,7 +2106,12 @@ mod tests {
         // Min bound is the min value of the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![5], vec![8])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 5, 8, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                5,
+                8,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx)?);
@@ -2177,7 +2120,12 @@ mod tests {
         // Min bound is less than min value of the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![4], vec![8])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 4, 8, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                4,
+                8,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1100, weight.count(ctx)?);
@@ -2186,8 +2134,12 @@ mod tests {
         // Max bound is the max value of the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![10], vec![13])?;
-            let query =
-                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 13, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                10,
+                13,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx)?);
@@ -2196,8 +2148,12 @@ mod tests {
         // Max bound is greater than max value of the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![10], vec![14])?;
-            let query =
-                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 14, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                10,
+                14,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(1500, weight.count(ctx)?);
@@ -2206,7 +2162,12 @@ mod tests {
         // Everything matches
         {
             let fallback = LongPoint::new_range_query(field_name, vec![2], vec![14])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 14, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                2,
+                14,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(3500, weight.count(ctx)?);
@@ -2215,7 +2176,12 @@ mod tests {
         // Bounds equal to min/max values of the dataset, everything matches
         {
             let fallback = LongPoint::new_range_query(field_name, vec![2], vec![3])?;
-            let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 3, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                2,
+                3,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx)?);
@@ -2224,8 +2190,12 @@ mod tests {
         // Bounds are greater than the max value of the dataset
         {
             let fallback = LongPoint::new_range_query(field_name, vec![14], vec![15])?;
-            let query =
-                IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 14, 15, fallback);
+            let query = IndexSortSortedNumericDocValuesRangeQuery::new(
+                field_name,
+                14,
+                15,
+                Box::new(fallback.into()),
+            );
             let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
             for ctx in searcher.get_leaf_contexts()? {
                 assert_eq!(0, weight.count(ctx)?);
@@ -2283,7 +2253,7 @@ mod tests {
                 field_name,
                 low,
                 upper,
-                range_query.clone(),
+                Box::new(range_query.clone().into()),
             );
 
             let index_sort_range_query_weight =

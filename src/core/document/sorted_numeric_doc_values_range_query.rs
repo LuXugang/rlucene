@@ -286,12 +286,7 @@ where
 
 impl<LR> Weight<LR> for SortedNumericDocValuesRangeQueryWeight<LR>
 where
-    LR: LeafReader,
-    <LR as LeafReader>::NumericDocValues: 'static,
-    <LR as LeafReader>::SortedNumericDocValues: 'static,
-    <LR as LeafReader>::DocValuesSkipper: 'static,
-    <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
-        'static,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 

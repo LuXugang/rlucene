@@ -197,13 +197,7 @@ pub type FieldExistsSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
 impl<LR> Weight<LR> for FieldExistsWeight<LR>
 where
-    LR: LeafReader,
-    <LR as LeafReader>::NormNumericDocValues: 'static,
-    <LR as LeafReader>::NumericDocValues: 'static,
-    <LR as LeafReader>::BinaryDocValues: 'static,
-    <LR as LeafReader>::SortedDocValues: 'static,
-    <LR as LeafReader>::SortedNumericDocValues: 'static,
-    <LR as LeafReader>::SortedSetDocValues: 'static,
+    LR: LeafReader + 'static,
 {
     type Matches = MatchWithNoTerms;
 

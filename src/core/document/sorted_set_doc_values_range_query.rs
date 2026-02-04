@@ -212,10 +212,6 @@ where
 impl<LR> Weight<LR> for SortedSetDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader + 'static,
-    <LR as LeafReader>::SortedDocValues: 'static,
-    <LR as LeafReader>::SortedSetDocValues: 'static,
-    <LR as LeafReader>::DocValuesSkipper: 'static,
-    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -395,11 +391,7 @@ where
 }
 impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl3<LR>
 where
-    LR: LeafReader,
-    <LR as LeafReader>::SortedDocValues: 'static,
-    <LR as LeafReader>::SortedSetDocValues: 'static,
-    <LR as LeafReader>::DocValuesSkipper: 'static,
-    <<LR as LeafReader>::SortedSetDocValues as SortedSetDocValues>::SortedDocValues: 'static,
+    LR: LeafReader + 'static,
 {
     type Scorer = ScorerType<LR>;
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
