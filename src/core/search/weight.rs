@@ -219,7 +219,7 @@ where
 impl<LR, T> Weight<LR> for Box<T>
 where
     LR: LeafReader,
-    T: Weight<LR>,
+    T: Weight<LR> + ?Sized,
 {
     type Matches = T::Matches;
 

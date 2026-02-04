@@ -18,13 +18,12 @@ use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRDocValuesSkipper, LRTermState, LeafReader};
+use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::bulk_scorer::BulkScorerEnum4;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -32,8 +31,6 @@ use crate::core::search::doc_id_set_iterator::{
     AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI, RangeDISI,
 };
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -42,15 +39,12 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum4};
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::BoxedScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
-use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
-use crate::either_scorer_supplier;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -344,9 +338,9 @@ where
                 let iter = AllDISI::new(skipper.doc_count());
                 let scorer =
                     ConstantScoreScorer::with_disi(self.base.score(), self.score_mode, iter);
-                let supplier: SNDVRQSs<LR> =
-                    PointRangeWeightSs::CSSAll(DefaultScorerSupplier::new(scorer));
-                return Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))));
+                return Ok(Some(Box::new(BoxedScorerSupplier::new(
+                    DefaultScorerSupplier::new(scorer),
+                ))));
             }
         }
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
@@ -365,8 +359,7 @@ where
                             self.score_mode,
                             ps_iterator,
                         ));
-                        let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSDisi(v);
-                        return Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))));
+                        return Ok(Some(Box::new(BoxedScorerSupplier::new(v))));
                     } else {
                         TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(
                             singleton,
@@ -392,15 +385,13 @@ where
                 );
                 let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
-                let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSRange(v);
-                Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
+                Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
             },
             None => {
                 let scorer =
                     ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
-                let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSTpi(v);
-                Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
+                Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
             },
         }
     }
@@ -410,25 +401,6 @@ pub type TPI<LR> = TwoPhaseIteratorEnum2<
     TwoPhaseIterator3<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
     TwoPhaseIterator4<SortedNumeric<LR>>,
 >;
-
-either_scorer_supplier!(
-    pub PointRangeWeightSs
-    => { bulk: BulkScorerEnum4, scorer: ScorerEnum4 }
-    { CSSAll: A, CSSDisi: B, CSSRange:C,CSSTpi:D}
-);
-pub type SNDVRQSs<LR> = PointRangeWeightSs<
-    DefaultScorerSupplier<ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>>,
-    DefaultScorerSupplier<ConstantScoreScorer<DISI, DummyTwoPhaseIterator>>,
-    DefaultScorerSupplier<
-        ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<TPI<LR>, LRDocValuesSkipper<LR>>>,
-    >,
-    DefaultScorerSupplier<ConstantScoreScorer<DummyDISI, TPI<LR>>>,
->;
-pub type SNDVRQSsBulkScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type SNDVRQSsScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SNDVRQSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type SNDVRQSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
-
 pub struct TwoPhaseIterator3<N>
 where
     N: NumericDocValues,

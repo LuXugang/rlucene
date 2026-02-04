@@ -16,10 +16,10 @@
  */
 use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::{LRCacherHelper, LeafReader};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
-use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum3};
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
@@ -31,15 +31,16 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{IdentityQuery, Query, QueryBase, QueryWeight};
+use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::query::{IdentityQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerEnum2, ScorerEnum3};
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer::ScorerEnum2;
+use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightScorerSupplier};
+use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -50,7 +51,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
 use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
 use crate::core::util::roaring_doc_id_set::builder::Builder;
-use crate::either_scorer_supplier;
 use linked_hash_map::LinkedHashMap;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
@@ -579,18 +579,17 @@ where
 }
 impl<P> QueryCache for Arc<LRUQueryCache<P>>
 where
-    P: Predicate<TopParentMeta>,
+    P: Predicate<TopParentMeta> + 'static,
 {
     fn do_cache<LR>(
         &self,
-        _weight: QueryWeight<LR>,
-        _policy: Arc<QueryCachingPolicyEnum>,
+        weight: QueryWeight<LR>,
+        policy: Arc<QueryCachingPolicyEnum>,
     ) -> QueryWeight<LR>
     where
-        LR: LeafReader,
+        LR: LeafReader + 'static,
     {
-        todo!()
-        // CachingWrapperWeight::new(weight, policy, self.clone())
+        Box::new(CachingWrapperWeight::new(weight, policy, self.clone()))
     }
 }
 
@@ -667,27 +666,24 @@ impl Accountable for LeafCache {
         todo!()
     }
 }
-pub struct CachingWrapperWeight<W, P, LR>
+pub struct CachingWrapperWeight<P, LR>
 where
-    W: Weight<LR>,
     P: Predicate<TopParentMeta>,
-    LR: LeafReader,
 {
-    in_: W,
+    in_: QueryWeight<LR>,
     base: ConstantScoreWeight,
     policy: Arc<QueryCachingPolicyEnum>,
     used: AtomicBool,
     lru_cache: Arc<LRUQueryCache<P>>,
     phantom_data: PhantomData<LR>,
 }
-impl<W, P, LR> CachingWrapperWeight<W, P, LR>
+impl<P, LR> CachingWrapperWeight<P, LR>
 where
-    W: Weight<LR>,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
     pub(crate) fn new(
-        in_: W,
+        in_: QueryWeight<LR>,
         policy: Arc<QueryCachingPolicyEnum>,
         lru_cache: Arc<LRUQueryCache<P>>,
     ) -> Self {
@@ -720,9 +716,8 @@ where
     }
 }
 
-impl<W, P, LR> SegmentCacheable<LR> for CachingWrapperWeight<W, P, LR>
+impl<P, LR> SegmentCacheable<LR> for CachingWrapperWeight<P, LR>
 where
-    W: Weight<LR>,
     P: Predicate<TopParentMeta>,
     LR: LeafReader,
 {
@@ -731,13 +726,13 @@ where
     }
 }
 
-impl<W, P, LR> Weight<LR> for CachingWrapperWeight<W, P, LR>
+impl<P, LR> Weight<LR> for CachingWrapperWeight<P, LR>
 where
-    W: Weight<LR>,
-    P: Predicate<TopParentMeta>,
-    LR: LeafReader,
+    P: Predicate<TopParentMeta> + 'static,
+    LR: LeafReader + 'static,
+    <LR as LeafReader>::CacheHelper: 'static,
 {
-    type Matches = <W as Weight<LR>>::Matches;
+    type Matches = MatchWithNoTerms;
 
     fn matches(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Option<Self::Matches>> {
         self.in_.matches(context, doc)
@@ -752,7 +747,7 @@ where
         self.in_.get_query()
     }
 
-    type ScorerSupplier = CachingWrapperWeightSupplier<W, P, LR>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -767,31 +762,19 @@ where
         }
 
         if !self.in_.is_cacheable(context)? {
-            return Ok(self
-                .in_
-                .scorer_supplier(context)?
-                .map(PointRangeWeightSs::Weight));
+            return self.in_.scorer_supplier(context);
         }
 
         if !self.should_cache(context)? {
-            return Ok(self
-                .in_
-                .scorer_supplier(context)?
-                .map(PointRangeWeightSs::Weight));
+            return self.in_.scorer_supplier(context);
         }
         let reader = context.reader();
         let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
-            return Ok(self
-                .in_
-                .scorer_supplier(context)?
-                .map(PointRangeWeightSs::Weight));
+            return self.in_.scorer_supplier(context);
         };
         let cached = {
             let Some(inner_read) = self.lru_cache.inner.try_read() else {
-                return Ok(self
-                    .in_
-                    .scorer_supplier(context)?
-                    .map(PointRangeWeightSs::Weight));
+                return self.in_.scorer_supplier(context);
             };
             self.lru_cache
                 .get(self.get_query().as_ref(), cache_helper, &inner_read)
@@ -820,12 +803,13 @@ where
                         query,
                         reader.get_core_cache_helper()?.unwrap(),
                     )?;
-                    return Ok(Some(PointRangeWeightSs::Imp1(ss)));
+                    let s: QueryWeightSs<LR> = Box::new(BoxedScorerSupplier::new(ss));
+                    return Ok(Some(s));
                 }
-                Ok(self
-                    .in_
-                    .scorer_supplier(context)?
-                    .map(PointRangeWeightSs::Weight))
+                Ok(self.in_.scorer_supplier(context)?.map(|v| {
+                    let s: QueryWeightSs<LR> = Box::new(BoxedScorerSupplier::new(v));
+                    s
+                }))
             },
             Some(cached) => {
                 if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
@@ -834,9 +818,9 @@ where
                 let Some(disi) = cached.iterator()? else {
                     return Ok(None);
                 };
-                Ok(Some(PointRangeWeightSs::Impl2(ScorerSupplierImpl2::new(
-                    disi,
-                )?)))
+                let s: QueryWeightSs<LR> =
+                    Box::new(BoxedScorerSupplier::new(ScorerSupplierImpl2::new(disi)?));
+                Ok(Some(s))
             },
         }
     }
@@ -1006,16 +990,7 @@ where
         Ok(self.cost)
     }
 }
-either_scorer_supplier!(
-    pub PointRangeWeightSs
-    => { bulk: BulkScorerEnum3, scorer: ScorerEnum3 }
-    { Weight: A, Imp1: B, Impl2:C}
-);
-pub type CachingWrapperWeightSupplier<W, P, LR> = PointRangeWeightSs<
-    WeightScorerSupplier<W, LR>,
-    ScorerSupplierImpl1<WeightScorerSupplier<W, LR>, LRCacherHelper<LR>, P, LR>,
-    ScorerSupplierImpl2,
->;
+
 /// Cache of doc ids with a count.
 pub(crate) struct CacheAndCount<D>
 where

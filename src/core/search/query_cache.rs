@@ -32,5 +32,5 @@ pub trait QueryCache {
         policy: Arc<QueryCachingPolicyEnum>,
     ) -> QueryWeight<LR>
     where
-        LR: LeafReader;
+        LR: LeafReader + 'static;
 }

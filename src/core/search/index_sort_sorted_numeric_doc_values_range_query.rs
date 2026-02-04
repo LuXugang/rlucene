@@ -35,7 +35,6 @@ use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
-use crate::core::search::bulk_scorer::BulkScorerEnum2;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -56,7 +55,6 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
 use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
@@ -67,7 +65,6 @@ use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayCom
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::either_scorer_supplier;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -276,19 +273,6 @@ where
         self.fallback_query_weight.is_cacheable(ctx)
     }
 }
-either_scorer_supplier!(
-    pub PointRangeWeightSs
-    => { bulk: BulkScorerEnum2, scorer: ScorerEnum2 }
-    { Impl: A, Fallback: B}
-);
-pub type ISSNDVRQSs<LR> = PointRangeWeightSs<
-    ScorerSupplierImpl<Disi<LR>>,
-    <FallbackQueryWeight<LR> as Weight<LR>>::ScorerSupplier,
->;
-pub type ISSNDVRQSsBulkScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type ISSNDVRQSsScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type ISSNDVRQSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type ISSNDVRQSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where
@@ -340,14 +324,10 @@ where
                     self.query.field.clone(),
                     self.base.score(),
                 )?;
-                let supplier: ISSNDVRQSs<LR> = PointRangeWeightSs::Impl(scorer_supplier);
-                Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
+                Ok(Some(Box::new(BoxedScorerSupplier::new(scorer_supplier))))
             },
             None => match self.fallback_query_weight.scorer_supplier(context)? {
-                Some(v) => {
-                    let supplier: ISSNDVRQSs<LR> = PointRangeWeightSs::Fallback(v);
-                    Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
-                },
+                Some(v) => Ok(Some(Box::new(BoxedScorerSupplier::new(v)))),
                 None => Ok(None),
             },
         }

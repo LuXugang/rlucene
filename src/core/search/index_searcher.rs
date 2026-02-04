@@ -571,7 +571,10 @@ where
         &self,
         weight: QueryWeight<IRCLeafReader<IRC>>,
         score_mode: ScoreMode,
-    ) -> QueryWeight<IRCLeafReader<IRC>> {
+    ) -> QueryWeight<IRCLeafReader<IRC>>
+    where
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
         if !score_mode.needs_scores() && self.query_cache.is_some() {
             self.query_cache
                 .as_ref()

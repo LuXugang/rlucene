@@ -50,7 +50,7 @@ where
 impl<LR, T> SegmentCacheable<LR> for Box<T>
 where
     LR: LeafReader,
-    T: SegmentCacheable<LR>,
+    T: SegmentCacheable<LR> + ?Sized,
 {
     fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
         self.as_ref().is_cacheable(ctx)
