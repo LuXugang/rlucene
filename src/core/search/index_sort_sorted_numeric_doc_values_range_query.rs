@@ -173,18 +173,8 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         }
 
         if rewritten_fallback.identity() == &fallback_id {
-            if !is_supported_fallback_query(&rewritten_fallback) {
-                return Err(LuceneError::illegal_state("should not be here"));
-            }
             self.fallback_query = Box::new(rewritten_fallback);
             return Ok(self.into());
-        }
-
-        if !is_supported_fallback_query(&rewritten_fallback) {
-            return Err(LuceneError::unsupported_operation(format!(
-                "unsupported fallback query: {}",
-                rewritten_fallback.as_string("")
-            )));
         }
 
         Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
@@ -1250,16 +1240,6 @@ pub type FallbackQueryWeight<LR> = WeightEnum4<
     SortedSetDocValuesRangeQueryWeight<LR>,
 >;
 
-fn is_supported_fallback_query(query: &Query) -> bool {
-    matches!(
-        query,
-        Query::PointRange(_)
-            | Query::SortedNumericDocValuesSet(_)
-            | Query::SortedNumericDocValuesRange(_)
-            | Query::SortedSetDocValuesRange(_)
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use crate::core::document::document::Document;
@@ -1274,18 +1254,25 @@ mod tests {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
     use crate::core::search::QueryCache;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::field_exists_query::FieldExistsQuery;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
+    use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
     use crate::core::search::query::{Query, QueryBase};
     use crate::core::search::score_doc::ScoreDocLike;
     use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::sort::Sort;
     use crate::core::search::sort_field::{SortFieldType, SortFiledBase};
     use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
     use crate::core::search::top_docs::TopDocsLike;
+    use crate::core::search::weight::Weight;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::{HasIdentity, TryIntoInt};
     use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
     use crate::test::search::query_utils::QueryUtils;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory_shared, new_searcher_with_reader, random,
@@ -1293,11 +1280,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use rand::Rng;
     use std::sync::Arc;
-
-    use crate::core::search::scorer::{Scorer, TwoPhaseState};
-    use crate::core::search::weight::Weight;
-    use crate::core::util::TryIntoInt;
-    use crate::test::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 
     #[allow(dead_code)] // for quick search
     struct TestIndexSortSortedNumericDocValuesRangeQuery;
@@ -1700,12 +1682,54 @@ mod tests {
 
     #[test]
     fn test_rewrite_exhaustive_range() -> Result<()> {
-        // TODO query rewrite 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(Document::new())?;
+        let reader = writer.get_reader()?;
+
+        let query = create_query("field", i64::MIN, i64::MAX);
+        let searcher = new_searcher_with_reader(reader)?;
+        let rewritten_query = query.rewrite(&searcher)?;
+
+        assert_eq!(
+            Query::FieldExists(FieldExistsQuery::new("field")),
+            rewritten_query
+        );
+
+        writer.close()?;
         Ok(())
     }
     #[test]
     fn test_rewrite_fallback_query() -> Result<()> {
-        // TODO query rewrite 未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = RandomIndexWriter::new(&mut random, dir.clone());
+        writer.add_document(Document::new())?;
+        let reader = writer.get_reader()?;
+
+        let fallback_query = Query::Boolean(Builder::new().build());
+        let query = Query::IndexSortSortedNumericDocValuesRange(
+            IndexSortSortedNumericDocValuesRangeQuery::new("field", 1, 42, fallback_query.clone()),
+        );
+
+        let searcher = new_searcher_with_reader(reader)?;
+        let id = query.identity().clone();
+        let rewritten_query = query.rewrite(&searcher)?;
+
+        assert_ne!(&id, rewritten_query.identity());
+        matches!(
+            rewritten_query,
+            Query::IndexSortSortedNumericDocValuesRange(_)
+        );
+
+        let range_query = match rewritten_query {
+            Query::IndexSortSortedNumericDocValuesRange(q) => q,
+            _ => unreachable!(),
+        };
+
+        matches!(*range_query.fallback_query, Query::MatchNoDoc(_));
+        writer.close()?;
         Ok(())
     }
     /// Test that the index sort optimization not activated if there is no index sort.
@@ -1800,7 +1824,35 @@ mod tests {
 
     #[test]
     fn test_fallback_count() -> Result<()> {
-        // this test is not required in Rust Lucene
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO 未实现MockAnalyzer
+        let mut iwc = IndexWriterConfig::new();
+        let index_sort = Sort::with_fields(vec![SortedNumericSortField::new(
+            "field",
+            SortFieldType::Long,
+        )?])?;
+        iwc.set_index_sort(index_sort)?;
+
+        let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+        let mut doc = Document::new();
+        doc.add(SortedNumericDocValuesField::new("field", 10));
+        writer.add_document(doc)?;
+        let reader = writer.get_reader()?;
+
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let fallback_query = Query::MatchNoDoc(MatchNoDocsQuery::new());
+        let query = Query::IndexSortSortedNumericDocValuesRange(
+            IndexSortSortedNumericDocValuesRangeQuery::new("another", 1, 42, fallback_query),
+        );
+
+        let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0, None)?;
+        for ctx in searcher.get_leaf_contexts()? {
+            assert_eq!(0, weight.count(ctx)?);
+        }
+
+        writer.close()?;
         Ok(())
     }
 

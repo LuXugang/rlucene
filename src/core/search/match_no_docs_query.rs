@@ -55,7 +55,17 @@ impl MatchNoDocsQuery {
     pub fn new() -> Self {
         Self {
             id: Identity::new(),
-            reason: String::new(),
+            reason: "".to_string(),
+        }
+    }
+    pub fn with_message<T>(reason: T) -> Self
+    where
+        T: Into<String>,
+    {
+        let reason = reason.into();
+        Self {
+            id: Identity::new(),
+            reason,
         }
     }
 

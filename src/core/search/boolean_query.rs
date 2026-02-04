@@ -22,6 +22,7 @@ use crate::core::search::QueryCache;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -191,7 +192,10 @@ impl QueryBase for BooleanQuery {
         QC: QueryCache,
         Self: Sized,
     {
-        todo!()
+        if self.clauses.is_empty() {
+            return Ok(MatchNoDocsQuery::with_message("empty BooleanQuery").into());
+        }
+        Ok(self.into())
     }
 
     fn visit<QV>(&self, _visitor: &QV)
