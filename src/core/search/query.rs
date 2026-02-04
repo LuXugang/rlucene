@@ -44,7 +44,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -54,6 +54,55 @@ pub type QueryWeightSs<LR> =
     Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 pub type QueryWeightSsScorer = Box<dyn Scorer>;
+
+macro_rules! impl_from_for_query {
+    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
+        $(
+            impl From<$ty> for Query {
+                #[inline]
+                fn from(value: $ty) -> Self {
+                    Query::$variant(value)
+                }
+            }
+        )+
+    };
+}
+macro_rules! dispatch_query {
+    ($self:expr, |$inner:ident| $body:expr) => {{
+        match $self {
+            Query::Boolean($inner) => $body,
+            Query::Boost($inner) => $body,
+            Query::ConstantScore($inner) => $body,
+            Query::Dummy($inner) => $body,
+            Query::FieldExists($inner) => $body,
+            Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
+            Query::MatchAll($inner) => $body,
+            Query::MatchNoDoc($inner) => $body,
+            Query::PointRange($inner) => $body,
+            Query::SortedNumericDocValuesRange($inner) => $body,
+            Query::SortedNumericDocValuesSet($inner) => $body,
+            Query::SortedSetDocValuesRange($inner) => $body,
+            Query::Term($inner) => $body,
+        }
+    }};
+}
+
+// Implement From<T> for Query for all query types
+impl_from_for_query! {
+    BooleanQuery => Boolean,
+    BoostQuery => Boost,
+    ConstantScoreQuery => ConstantScore,
+    DummyQuery => Dummy,
+    FieldExistsQuery => FieldExists,
+    IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
+    MatchAllDocsQuery => MatchAll,
+    MatchNoDocsQuery => MatchNoDoc,
+    PointRangeQuery => PointRange,
+    SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
+    SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
+    SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
+    TermQuery => Term,
+}
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
@@ -82,205 +131,37 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
         QV: QueryVisitor;
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Query {
-    Term(TermQuery),
-    MatchAll(MatchAllDocsQuery),
-    MatchNoDoc(MatchNoDocsQuery),
-    Dummy(DummyQuery),
+    Boolean(BooleanQuery),
     Boost(BoostQuery),
     ConstantScore(ConstantScoreQuery),
-    PointRange(PointRangeQuery),
-    SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
-    SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
-    SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
-    IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
+    Dummy(DummyQuery),
     FieldExists(FieldExistsQuery),
-    Boolean(BooleanQuery),
+    IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
+    MatchAll(MatchAllDocsQuery),
+    MatchNoDoc(MatchNoDocsQuery),
+    PointRange(PointRangeQuery),
+    SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
+    SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
+    SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
+    Term(TermQuery),
 }
-impl Clone for Query {
-    fn clone(&self) -> Self {
-        match self {
-            Query::Term(t) => Query::Term(t.clone()),
-            Query::MatchAll(m) => Query::MatchAll(m.clone()),
-            Query::MatchNoDoc(m) => Query::MatchNoDoc(m.clone()),
-            Query::Dummy(d) => Query::Dummy(d.clone()),
-            Query::Boost(b) => Query::Boost(b.clone()),
-            Query::ConstantScore(c) => Query::ConstantScore(c.clone()),
-            Query::PointRange(c) => Query::PointRange(c.clone()),
-            Query::SortedNumericDocValuesSet(c) => Query::SortedNumericDocValuesSet(c.clone()),
-            Query::SortedNumericDocValuesRange(c) => Query::SortedNumericDocValuesRange(c.clone()),
-            Query::SortedSetDocValuesRange(c) => Query::SortedSetDocValuesRange(c.clone()),
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                Query::IndexSortSortedNumericDocValuesRange(c.clone())
-            },
-            Query::FieldExists(c) => Query::FieldExists(c.clone()),
-            Query::Boolean(c) => Query::Boolean(c.clone()),
-        }
-    }
-}
+
 impl Default for Query {
     fn default() -> Self {
         Query::Dummy(DummyQuery::default())
     }
 }
 
-impl Eq for Query {}
-
-impl PartialEq for Query {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Query::Term(t1), Query::Term(t2)) => t1 == t2,
-            (Query::MatchAll(m1), Query::MatchAll(m2)) => m1 == m2,
-            (Query::MatchNoDoc(m1), Query::MatchNoDoc(m2)) => m1 == m2,
-            (Query::Dummy(d1), Query::Dummy(d2)) => d1 == d2,
-            (Query::Boost(b1), Query::Boost(b2)) => b1 == b2,
-            (Query::ConstantScore(c1), Query::ConstantScore(c2)) => c1 == c2,
-            (Query::PointRange(c1), Query::PointRange(c2)) => c1 == c2,
-            (Query::SortedNumericDocValuesSet(c1), Query::SortedNumericDocValuesSet(c2)) => {
-                c1 == c2
-            },
-            (Query::SortedNumericDocValuesRange(c1), Query::SortedNumericDocValuesRange(c2)) => {
-                c1 == c2
-            },
-            (
-                Query::IndexSortSortedNumericDocValuesRange(c1),
-                Query::IndexSortSortedNumericDocValuesRange(c2),
-            ) => c1 == c2,
-            (Query::FieldExists(c1), Query::FieldExists(c2)) => c1 == c2,
-            (Query::Boolean(c1), Query::Boolean(c2)) => c1 == c2,
-            _ => false,
-        }
-    }
-}
-
-impl Hash for Query {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Query::Term(t) => {
-                t.hash(state);
-            },
-            Query::MatchAll(m) => {
-                m.hash(state);
-            },
-            Query::MatchNoDoc(m) => {
-                m.hash(state);
-            },
-            Query::Dummy(d) => {
-                d.hash(state);
-            },
-            Query::Boost(b) => {
-                b.hash(state);
-            },
-            Query::ConstantScore(c) => {
-                c.hash(state);
-            },
-            Query::PointRange(c) => {
-                c.hash(state);
-            },
-            Query::SortedNumericDocValuesSet(c) => {
-                c.hash(state);
-            },
-            Query::SortedNumericDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::SortedSetDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                c.hash(state);
-            },
-            Query::FieldExists(c) => {
-                c.hash(state);
-            },
-            Query::Boolean(c) => {
-                c.hash(state);
-            },
-        }
-    }
-}
-
 impl HasIdentity for Query {
     fn identity(&self) -> &Identity {
-        match self {
-            Query::Term(t) => t.identity(),
-            Query::MatchAll(m) => m.identity(),
-            Query::MatchNoDoc(m) => m.identity(),
-            Query::Dummy(d) => d.identity(),
-            Query::Boost(b) => b.identity(),
-            Query::ConstantScore(c) => c.identity(),
-            Query::PointRange(c) => c.identity(),
-            Query::SortedNumericDocValuesSet(c) => c.identity(),
-            Query::SortedNumericDocValuesRange(c) => c.identity(),
-            Query::SortedSetDocValuesRange(c) => c.identity(),
-            Query::IndexSortSortedNumericDocValuesRange(c) => c.identity(),
-            Query::FieldExists(c) => c.identity(),
-            Query::Boolean(c) => c.identity(),
-        }
+        dispatch_query!(self, |q| q.identity())
     }
 }
-impl Debug for Query {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Query::Term(t) => {
-                write!(f, "Query::Term({:?})", t)
-            },
-            Query::MatchAll(m) => {
-                write!(f, "Query::MatchAll({:?})", m)
-            },
-            Query::MatchNoDoc(m) => {
-                write!(f, "Query::MatchNoDoc({:?})", m)
-            },
-            Query::Dummy(d) => {
-                write!(f, "Query::Dummy({:?})", d)
-            },
-            Query::Boost(b) => {
-                write!(f, "Query::Boost({:?})", b)
-            },
-            Query::ConstantScore(c) => {
-                write!(f, "Query::ConstantScore({:?})", c)
-            },
-            Query::PointRange(c) => {
-                write!(f, "Query::PointRange({:?})", c)
-            },
-            Query::SortedNumericDocValuesSet(c) => {
-                write!(f, "Query::SortedNumericDocValuesSet({:?})", c)
-            },
-            Query::SortedNumericDocValuesRange(c) => {
-                write!(f, "Query::SortedNumericDocValuesRange({:?})", c)
-            },
-            Query::SortedSetDocValuesRange(c) => {
-                write!(f, "Query::SortedSetDocValuesRange({:?})", c)
-            },
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                write!(f, "Query::IndexSortSortedNumericDocValuesRange({:?})", c)
-            },
-            Query::FieldExists(c) => {
-                write!(f, "Query::FieldExists({:?})", c)
-            },
-            Query::Boolean(c) => {
-                write!(f, "Query::Boolean({:?})", c)
-            },
-        }
-    }
-}
-
 impl QueryBase for Query {
     fn as_string(&self, field: &str) -> String {
-        match self {
-            Query::Term(t) => t.as_string(field),
-            Query::MatchAll(m) => m.as_string(field),
-            Query::MatchNoDoc(m) => m.as_string(field),
-            Query::Dummy(d) => d.as_string(field),
-            Query::Boost(b) => b.as_string(field),
-            Query::ConstantScore(c) => c.as_string(field),
-            Query::PointRange(c) => c.as_string(field),
-            Query::SortedNumericDocValuesSet(c) => c.as_string(field),
-            Query::SortedNumericDocValuesRange(c) => c.as_string(field),
-            Query::SortedSetDocValuesRange(c) => c.as_string(field),
-            Query::IndexSortSortedNumericDocValuesRange(c) => c.as_string(field),
-            Query::FieldExists(c) => c.as_string(field),
-            Query::Boolean(c) => c.as_string(field),
-        }
+        dispatch_query!(self, |q| q.as_string(field))
     }
 
     fn create_weight<IRC, QC>(
@@ -296,41 +177,12 @@ impl QueryBase for Query {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        match self {
-            Query::Term(t) => t.create_weight(searcher, score_mode, boost, per_reader_term_state),
-            Query::MatchAll(m) => {
-                m.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::MatchNoDoc(m) => {
-                m.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::Dummy(d) => d.create_weight(searcher, score_mode, boost, per_reader_term_state),
-            Query::Boost(b) => b.create_weight(searcher, score_mode, boost, per_reader_term_state),
-            Query::ConstantScore(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::PointRange(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::SortedNumericDocValuesSet(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::SortedNumericDocValuesRange(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::SortedSetDocValuesRange(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::IndexSortSortedNumericDocValuesRange(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::FieldExists(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-            Query::Boolean(c) => {
-                c.create_weight(searcher, score_mode, boost, per_reader_term_state)
-            },
-        }
+        dispatch_query!(self, |q| q.create_weight(
+            searcher,
+            score_mode,
+            boost,
+            per_reader_term_state
+        ))
     }
 
     fn rewrite<IRC, QC>(self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -338,21 +190,7 @@ impl QueryBase for Query {
         IRC: IndexReaderContext,
         QC: QueryCache,
     {
-        match self {
-            Query::Term(t) => t.rewrite(searcher),
-            Query::MatchAll(m) => m.rewrite(searcher),
-            Query::MatchNoDoc(m) => m.rewrite(searcher),
-            Query::Dummy(d) => d.rewrite(searcher),
-            Query::Boost(b) => b.rewrite(searcher),
-            Query::ConstantScore(c) => c.rewrite(searcher),
-            Query::PointRange(c) => c.rewrite(searcher),
-            Query::SortedNumericDocValuesSet(c) => c.rewrite(searcher),
-            Query::SortedNumericDocValuesRange(c) => c.rewrite(searcher),
-            Query::SortedSetDocValuesRange(c) => c.rewrite(searcher),
-            Query::IndexSortSortedNumericDocValuesRange(c) => c.rewrite(searcher),
-            Query::FieldExists(c) => c.rewrite(searcher),
-            Query::Boolean(c) => c.rewrite(searcher),
-        }
+        dispatch_query!(self, |q| q.rewrite(searcher))
     }
 
     fn visit<QV>(&self, _visitor: &QV)
@@ -361,35 +199,6 @@ impl QueryBase for Query {
     {
         todo!()
     }
-}
-
-macro_rules! impl_from_for_query {
-    ( $( $ty:ty => $variant:ident ),+ $(,)? ) => {
-        $(
-            impl From<$ty> for Query {
-                #[inline]
-                fn from(value: $ty) -> Self {
-                    Query::$variant(value)
-                }
-            }
-        )+
-    };
-}
-
-impl_from_for_query! {
-    TermQuery => Term,
-    MatchAllDocsQuery => MatchAll,
-    MatchNoDocsQuery => MatchNoDoc,
-    DummyQuery => Dummy,
-    BoostQuery => Boost,
-    ConstantScoreQuery => ConstantScore,
-    PointRangeQuery => PointRange,
-    SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
-    SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
-    SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
-    IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
-    FieldExistsQuery => FieldExists,
-    BooleanQuery => Boolean,
 }
 
 #[derive(Clone, Debug)]

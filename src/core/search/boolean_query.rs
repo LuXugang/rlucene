@@ -169,11 +169,10 @@ impl QueryBase for BooleanQuery {
             } else {
                 &ScoreMode::CompleteNoScores
             };
-            let inner_weight =
-                c.query
-                    .clone()
-                    .create_weight(searcher, clause_score_mode, boost, None)?;
-            let weight = searcher.wrap_weight(inner_weight, *clause_score_mode);
+            let weight = c
+                .query
+                .clone()
+                .create_weight(searcher, clause_score_mode, boost, None)?;
 
             weighted_clauses.push(WeightedBooleanClause::new(c, weight));
         }

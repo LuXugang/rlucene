@@ -16,8 +16,8 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum4, BulkScorerEnum6};
-use crate::core::search::scorer::{Scorer, ScorerEnum4, ScorerEnum6};
+use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum4};
+use crate::core::search::scorer::{Scorer, ScorerEnum4};
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
 /// A supplier of [`Scorer`].
@@ -194,11 +194,7 @@ either_scorer_supplier!(
     => { bulk: BulkScorerEnum4, scorer: ScorerEnum4 }
     { A: A, B: B ,C:C, D:D}
 );
-either_scorer_supplier!(
-    pub ScorerSupplierEnum6
-    => { bulk: BulkScorerEnum6, scorer: ScorerEnum6 }
-    { A: A, B: B ,C:C, D:D,E:E,F:F }
-);
+
 impl<LR, T> ScorerSupplier<LR> for Box<T>
 where
     LR: LeafReader,

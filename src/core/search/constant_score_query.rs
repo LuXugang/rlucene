@@ -118,7 +118,6 @@ impl QueryBase for ConstantScoreQuery {
         let query = *self.query;
         let inner_weight =
             query.create_weight(searcher, &inner_score_mode, 1.0, per_reader_term_state)?;
-        let inner_weight = searcher.wrap_weight(inner_weight, inner_score_mode);
         let v: QueryWeight<IRCLeafReader<IRC>> = if score_mode.needs_scores() {
             Box::new(WeightImpl::new(boost, inner_weight, *score_mode))
         } else {

@@ -565,27 +565,17 @@ where
         T: QueryBase,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        let weight = query.create_weight(self, &score_mode, boost, term_state)?;
-        Ok(self.wrap_weight(weight, score_mode))
-    }
-
-    pub(crate) fn wrap_weight(
-        &self,
-        weight: QueryWeight<IRCLeafReader<IRC>>,
-        score_mode: ScoreMode,
-    ) -> QueryWeight<IRCLeafReader<IRC>>
-    where
-        <IRC as IndexReaderContext>::LeafReader: 'static,
-    {
+        let mut weight = query.create_weight(self, &score_mode, boost, term_state)?;
         if !score_mode.needs_scores() && self.query_cache.is_some() {
-            self.query_cache
+            weight = self
+                .query_cache
                 .as_ref()
                 .unwrap()
                 .do_cache(weight, self.query_caching_policy.clone())
-        } else {
-            weight
         }
+        Ok(weight)
     }
+
     /// Returns [`TermStatistics`] for a term.
     ///
     /// This method can be overridden, for example, to return a term's statistics across
