@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::doc_id_stream::DocIdStream;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
@@ -64,23 +64,33 @@ pub trait LeafCollector: Display {
     /// # Default
     ///
     /// The default implementation calls `stream.for_each(|doc| self.collect(doc))`.
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
-        stream.for_each(|doc, scorer| self.collect(doc, scorer))
-    }
+    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
+        struct CollectorConsumer<'a, LC>
+        where
+            LC: LeafCollector + ?Sized,
+        {
+            collector: &'a mut LC,
+        }
 
-    type DocIdSetIteratorRef<'a>: DocIdSetIterator
-    where
-        Self: 'a;
+        impl<'a, LC> DocIdStreamConsumer for CollectorConsumer<'a, LC>
+        where
+            LC: LeafCollector + ?Sized,
+        {
+            fn visit(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+                self.collector.collect(doc, scorer)
+            }
+        }
+
+        let mut consumer = CollectorConsumer { collector: self };
+        stream.for_each(&mut consumer)
+    }
     /// Optionally returns an iterator over competitive documents.
     ///
     /// Collectors should delegate this method to their comparators if their
     /// comparators provide skipping functionality over non-competitive docs.
     ///
     /// The default is `None`, meaning no competitive iterator is provided.
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         Ok(None)
     }
 
@@ -104,13 +114,8 @@ pub trait LeafCollector: Display {
 }
 impl<T> LeafCollector for &mut T
 where
-    T: LeafCollector,
+    T: LeafCollector + ?Sized,
 {
-    type DocIdSetIteratorRef<'a>
-        = <T as LeafCollector>::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
     fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         (**self).set_scorer(scorer)
     }
@@ -119,14 +124,11 @@ where
         (**self).collect(doc, scorer)
     }
 
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
+    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
         (**self).collect_stream(stream)
     }
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         (**self).competitive_iterator()
     }
 
@@ -138,7 +140,6 @@ where
 macro_rules! either_leaf_collector {
     (
         $vis:vis $name:ident
-        => { disi: $disi:ident }
         { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
         $vis enum $name<$( $T ),+> {
@@ -160,10 +161,6 @@ macro_rules! either_leaf_collector {
         where
             $( $T: LeafCollector ),+
         {
-            type DocIdSetIteratorRef<'a> = $disi::<$( <$T as LeafCollector>::DocIdSetIteratorRef<'a> ),+>
-            where
-                $( $T: 'a ),+;
-
             fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.set_scorer(scorer), )+
@@ -176,21 +173,15 @@ macro_rules! either_leaf_collector {
                 }
             }
 
-            fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-            where
-                DS: DocIdStream,
-            {
+            fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.collect_stream(stream), )+
                 }
             }
 
-            fn competitive_iterator(
-                &mut self,
-            ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+            fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.competitive_iterator()
-                        .map(|opt| opt.map($disi::$Variant)), )+
+                    $( Self::$Variant(inner) => inner.competitive_iterator(), )+
                 }
             }
 
@@ -205,6 +196,5 @@ macro_rules! either_leaf_collector {
 
 either_leaf_collector!(
     pub LeafCollectorEnum2
-    => { disi: DocIdSetIteratorEnum2 }
     { A: A, B: B }
 );

@@ -17,7 +17,7 @@
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_stream::DocIdStream;
+use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
@@ -120,16 +120,13 @@ where
             needs_scores,
         })
     }
-    fn score_disi_wrapper_into_bitset<B>(
+    fn score_disi_wrapper_into_bitset(
         &mut self,
         w: &mut DisiWrapper<S>,
-        accept_docs: Option<&B>,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<()>
-    where
-        B: Bits,
-    {
+    ) -> Result<()> {
         let mut doc = {
             let mut doc = w.doc;
             let it = &mut w.iterator_mut();
@@ -162,20 +159,16 @@ where
         Ok(())
     }
     #[allow(clippy::too_many_arguments)]
-    fn score_window_into_bitset_and_replay<LC, B>(
+    fn score_window_into_bitset_and_replay(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         base: i32,
         min: i32,
         max: i32,
         scorers: &mut [DisiWrapper<S>],
         num_scorers: usize,
-    ) -> Result<()>
-    where
-        B: Bits,
-        LC: LeafCollector,
-    {
+    ) -> Result<()> {
         for w in scorers.iter_mut().take(num_scorers) {
             debug_assert!(w.doc < max);
             self.score_disi_wrapper_into_bitset(w, accept_docs, min, max)?;
@@ -228,20 +221,16 @@ where
         }
     }
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn score_window_multiple_scorers<B, LC>(
+    pub(crate) fn score_window_multiple_scorers(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         window_base: i32,
         window_min: i32,
         window_max: i32,
         mut max_freq: usize,
         mut leads: Vec<DisiWrapper<S>>,
-    ) -> Result<()>
-    where
-        B: Bits,
-        LC: LeafCollector,
-    {
+    ) -> Result<()> {
         while max_freq < self.min_should_match
             && max_freq + self.tail.size() >= self.min_should_match
         {
@@ -292,19 +281,15 @@ where
 
         Ok(())
     }
-    pub(crate) fn score_window_single_scorer<B, LC>(
+    pub(crate) fn score_window_single_scorer(
         &mut self,
         w: &mut DisiWrapper<S>,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         window_min: i32,
         window_max: i32,
         max_doc: i32,
-    ) -> Result<()>
-    where
-        B: Bits,
-        LC: LeafCollector,
-    {
+    ) -> Result<()> {
         debug_assert!(self.tail.size() == 0);
         let next_window_base = match self.head.top() {
             None => return Err(LuceneError::illegal_state("head queue is empty")),
@@ -338,18 +323,14 @@ where
         collector.set_scorer(&mut self.score)?;
         Ok(())
     }
-    pub(crate) fn score_window<B, LC>(
+    pub(crate) fn score_window(
         &mut self,
         top_doc: i32,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<&DisiWrapper<S>>
-    where
-        B: Bits,
-        LC: LeafCollector,
-    {
+    ) -> Result<&DisiWrapper<S>> {
         let window_base = top_doc & !(MASK as i32);
         let window_min = std::cmp::max(min, window_base);
         let window_max = std::cmp::min(max, window_base + SIZE as i32);
@@ -413,17 +394,13 @@ impl<S> BulkScorer for BooleanScorer<S>
 where
     S: Scorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         collector.set_scorer(&mut self.score)?;
         let mut top = self.advance(min)?;
         let mut doc = top.doc;
@@ -497,16 +474,11 @@ impl<'a, S> DocIdStream for DocIdStreamView<'a, S>
 where
     S: Scorer,
 {
-    type Scorer = Score;
-
-    fn scorer(&mut self) -> &mut Self::Scorer {
+    fn scorer(&mut self) -> &mut dyn Scorable {
         &mut self.scorer.score
     }
 
-    fn for_each<F>(&mut self, mut f: F) -> Result<()>
-    where
-        F: FnMut(i32, &mut Self::Scorer) -> Result<()>,
-    {
+    fn for_each(&mut self, f: &mut dyn DocIdStreamConsumer) -> Result<()> {
         for (idx, bits_ref) in self.scorer.matching.iter_mut().enumerate() {
             let mut bits = *bits_ref;
 
@@ -518,13 +490,13 @@ where
                         let bucket = &mut buckets[index_in_window];
                         if bucket.freq as usize >= self.scorer.min_should_match {
                             self.scorer.score.score = bucket.score as f32;
-                            f(self.base | index_in_window as i32, &mut self.scorer.score)?;
+                            f.visit(self.base | index_in_window as i32, &mut self.scorer.score)?;
                         }
                         bucket.freq = 0;
                         bucket.score = 0.0;
                     },
                     None => {
-                        f(self.base | index_in_window as i32, &mut self.scorer.score)?;
+                        f.visit(self.base | index_in_window as i32, &mut self.scorer.score)?;
                     },
                 }
                 bits ^= 1u64 << ntz;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -36,13 +36,7 @@ impl LeafCollector for DummyLeafCollector {
     fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

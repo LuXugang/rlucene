@@ -17,9 +17,8 @@
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{
@@ -481,20 +480,12 @@ where
     fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         unreachable!("should not be called")
     }
-
-    type DocIdSetIteratorRef<'b>
-        = TopFieldLeafComparatorEnumIterRef<'b, LR>
-    where
-        Self: 'b,
-        LR: 'b,
-        <LR as LeafReader>::NumericDocValues: 'b,
-        <LR as LeafReader>::SortedNumericDocValues: 'b,
-        <<LR as LeafReader>::SortedNumericDocValues as SortedNumericDocValues>::NumericDocValues:
-            'b;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         let comparators = self.base.base.pq.get_comparators_mut();
-        self.comparator.competitive_iterator(comparators)
+        Ok(self
+            .comparator
+            .competitive_iterator(comparators)?
+            .map(|it| Box::new(it) as Box<dyn DocIdSetIterator>))
     }
 }
 
@@ -691,19 +682,10 @@ where
         Ok(())
     }
 
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
+    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
         self.base.collect_stream(stream)
     }
-
-    type DocIdSetIteratorRef<'b>
-        = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
-    where
-        Self: 'b;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.base.competitive_iterator()
     }
 
@@ -932,13 +914,7 @@ where
 
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'b>
-        = <TopFieldLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>
-    where
-        Self: 'b;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.base.competitive_iterator()
     }
 
@@ -994,14 +970,6 @@ impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
 where
     LR: LeafReader,
 {
-    type DocIdSetIteratorRef<'b>
-        = DocIdSetIteratorEnum2<
-        <SimpleLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
-        <PagingLeafCollector<'a, LR> as LeafCollector>::DocIdSetIteratorRef<'b>,
-    >
-    where
-        Self: 'b;
-
     fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         match self {
             Self::Simple(inner) => inner.set_scorer(scorer),
@@ -1016,20 +984,17 @@ where
         }
     }
 
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
+    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
         match self {
             Self::Simple(inner) => inner.collect_stream(stream),
             Self::Paging(inner) => inner.collect_stream(stream),
         }
     }
 
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         match self {
-            Self::Simple(inner) => Ok(inner.competitive_iterator()?.map(DocIdSetIteratorEnum2::A)),
-            Self::Paging(inner) => Ok(inner.competitive_iterator()?.map(DocIdSetIteratorEnum2::B)),
+            Self::Simple(inner) => inner.competitive_iterator(),
+            Self::Paging(inner) => inner.competitive_iterator(),
         }
     }
 

@@ -48,6 +48,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::Weight;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 use parking_lot::Mutex;
@@ -500,14 +501,13 @@ where
                 None => return Err(LuceneError::illegal_state("BulkScorer is None")),
             };
             let bits = ctx.reader().get_live_docs()?;
+            let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
             let result: Result<()> = (|| {
                 let _ = match self.query_timeout {
-                    None => {
-                        scorer.score(&mut leaf_collector, bits.as_ref(), min_doc_id, max_doc_id)?
-                    },
+                    None => scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?,
                     Some(ref qt) => {
                         let mut scorer = TimeLimitingBulkScorer::new(scorer, qt);
-                        scorer.score(&mut leaf_collector, bits.as_ref(), min_doc_id, max_doc_id)?
+                        scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?
                     },
                 };
                 Ok(())

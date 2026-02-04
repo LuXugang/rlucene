@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -111,13 +112,7 @@ where
         let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
         self.scorer.collect(doc, &mut wrapper)
     }
-
-    type DocIdSetIteratorRef<'a>
-        = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.scorer.competitive_iterator()
     }
 

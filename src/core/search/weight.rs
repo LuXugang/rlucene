@@ -353,17 +353,13 @@ impl<S> BulkScorer for DefaultBulkScorer<S>
 where
     S: Scorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         collector.set_scorer(&mut self.scorer)?;
         let has_two_phase = self.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
             || self.scorer.two_phase_iterator()?.is_some();
@@ -447,15 +443,13 @@ where
 }
 /// Specialized method to bulk-score all hits;
 /// we separate this from scoreRange to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_all<C, B, S>(
-    collector: &mut C,
-    accept_docs: Option<&B>,
+fn score_all<S>(
+    collector: &mut dyn LeafCollector,
+    accept_docs: Option<&dyn Bits>,
     scorer: &mut S,
     has_two_phase: bool,
 ) -> Result<()>
 where
-    C: LeafCollector,
-    B: Bits,
     S: Scorer,
 {
     if has_two_phase {
@@ -511,9 +505,9 @@ where
 }
 /// Specialized method to bulk-score a range of hits;
 /// we separate this from scoreAll to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_range<C, B, S>(
-    collector: &mut C,
-    accept_docs: Option<&B>,
+fn score_range<S>(
+    collector: &mut dyn LeafCollector,
+    accept_docs: Option<&dyn Bits>,
     mut min: i32,
     max: i32,
     scorer: &mut S,
@@ -521,8 +515,6 @@ fn score_range<C, B, S>(
     has_two_phase: bool,
 ) -> Result<i32>
 where
-    C: LeafCollector,
-    B: Bits,
     S: Scorer,
 {
     if has_competitive {

@@ -28,7 +28,6 @@ use crate::core::search::doc_id_set_iterator::{
     DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, EmptyDISI,
 };
 
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -45,7 +44,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::dummy::dummy_bits::DummyBits;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
@@ -1066,7 +1065,7 @@ where
     BS: BulkScorer,
 {
     let mut collector = LeafCollectorImpl::new(max_doc);
-    scorer.score(&mut collector, None::<&DummyBits>, 0, NO_MORE_DOCS)?;
+    scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
     let v = BitDocIdSet::with_cost(
         Some(std::mem::take(&mut collector.bit_set)),
         collector.count as i64,
@@ -1099,11 +1098,6 @@ impl LeafCollector for LeafCollectorImpl {
         self.bit_set.set(doc.try_convert()?);
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
 }
 
 fn cache_into_roaring_doc_id_set<BS>(
@@ -1114,7 +1108,7 @@ where
     BS: BulkScorer,
 {
     let mut collector = RoaringCollectorImpl::new(max_doc);
-    scorer.score(&mut collector, None::<&DummyBits>, 0, NO_MORE_DOCS)?;
+    scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
     let cache = collector.builder.build();
     let cardinality = cache.cardinality();
     Ok(CacheAndCount::new(cache, cardinality))
@@ -1143,11 +1137,6 @@ impl LeafCollector for RoaringCollectorImpl {
         self.builder.add(doc)?;
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
 }
 pub(crate) enum CacheAndCountEnum {
     BitSet(CacheAndCount<BitDocIdSet<FixedBitSet>>),

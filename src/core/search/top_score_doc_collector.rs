@@ -18,7 +18,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
@@ -299,9 +298,4 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
         }
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
 }

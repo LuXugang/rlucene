@@ -19,7 +19,6 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -27,7 +26,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::dummy::dummy_bits::DummyBits;
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 use crate::test::util::lucene_test_case::lucene_test_case_util::random;
@@ -63,7 +62,7 @@ fn test_sub_scorer_next_is_not_match() -> Result<()> {
     let matches = Vec::new();
     let mut collector = LeafCollectorImpl::new(matches);
 
-    bs.score(&mut collector, None::<&DummyBits>, 0, NO_MORE_DOCS)?;
+    bs.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
 
     let expected = vec![4000, 5000, 100000, 1000001, 1000051, 9_999_998, 9_999_999];
     assert_eq!(collector.matches, expected);
@@ -91,11 +90,6 @@ impl LeafCollector for LeafCollectorImpl {
         self.matches.push(doc);
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
 }
 
 struct ScorerImpl {

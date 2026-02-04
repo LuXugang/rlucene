@@ -55,17 +55,13 @@ where
     BS: BulkScorer,
     QT: QueryTimeout,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         mut min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         let mut interval = INTERVAL;
         while min < max {
             let new_max = ((min as i64 + interval as i64).min(max as i64)) as i32;

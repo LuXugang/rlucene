@@ -31,7 +31,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBs, QueryWeightSsS,
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsS,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
@@ -228,7 +228,7 @@ where
     LR: LeafReader + 'static,
 {
     type Scorer = QueryWeightSsS<LR>;
-    type BulkScorer = QueryWeightSsBs<LR>;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
@@ -252,7 +252,7 @@ where
                 score,
             ))
         };
-        Ok(Some(QueryWeightSsBs::<LR>::MatchAll(v)))
+        Ok(Some(Box::new(v)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
@@ -274,17 +274,13 @@ impl MatchAllBulkScorer {
     }
 }
 impl BulkScorer for MatchAllBulkScorer {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         let max = std::cmp::min(max, self.max_doc);
         let mut scorer = Score::new(self.score);
         collector.set_scorer(&mut scorer)?;

@@ -118,17 +118,13 @@ impl<S> BulkScorer for ConjunctionBulkScorer<S>
 where
     S: Scorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         let (mut lead1_doc_id, lead2_doc_id) = {
             let (first, rest) = self.all_scores.split_at_mut(1);
             let lead1 = &mut first[0].iterator_mut();

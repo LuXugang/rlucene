@@ -225,7 +225,7 @@ mod tests {
     use crate::core::index::term::Term;
     use crate::core::search::collector::Collector;
     use crate::core::search::collector_manager::CollectorManager;
-    use crate::core::search::dummy::dummy_disi::DummyDISI;
+
     use crate::core::search::dummy::dummy_weight::DummyWeight;
     use crate::core::search::hit_queue::{HitQueue, HitQueueComparator};
     use crate::core::search::index_searcher::IndexSearcher;
@@ -332,11 +332,6 @@ mod tests {
             self.base.pq_mut().insert_with_overflow(sd)?;
             Ok(())
         }
-
-        type DocIdSetIteratorRef<'b>
-            = DummyDISI
-        where
-            Self: 'b;
     }
     struct MyTopDocsCollector {
         base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,

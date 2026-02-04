@@ -80,17 +80,13 @@ impl<BS> BulkScorer for ReqExclBulkScorer<BS>
 where
     BS: BulkScorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         let mut upto = min;
 
         let mut excl_doc = match self.excl_approximation {
@@ -156,7 +152,7 @@ mod tests {
     use crate::core::search::doc_id_set::DocIdSet;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::core::search::dummy::dummy_disi::DummyDISI;
+
     use crate::core::search::dummy::dummy_scorer::DummyScorer;
     use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::req_excl_bulk_scorer::ReqExclBulkScorer;
@@ -164,7 +160,7 @@ mod tests {
     use crate::core::util::bit_set::BitSet;
     use crate::core::util::bits::Bits;
     use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
-    use crate::core::util::dummy::dummy_bits::DummyBits;
+
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::fixed_bit_set::FixedBitSet;
     use crate::test::search::random_approximation_query::RandomTwoPhaseView;
@@ -232,7 +228,7 @@ mod tests {
         if random.random_bool(0.5) {
             req_excl.score(
                 &mut LeafCollectorImpl::new(&mut actual_matches),
-                None::<&DummyBits>,
+                None::<&dyn Bits>,
                 0,
                 NO_MORE_DOCS,
             )?;
@@ -243,7 +239,7 @@ mod tests {
                 let max = min + random.random_range(0..10);
                 next = req_excl.score(
                     &mut LeafCollectorImpl::new(&mut actual_matches),
-                    None::<&DummyBits>,
+                    None::<&dyn Bits>,
                     min,
                     max,
                 )?;
@@ -282,11 +278,6 @@ mod tests {
             self.actual_matches.set(doc as usize);
             Ok(())
         }
-
-        type DocIdSetIteratorRef<'b>
-            = DummyDISI
-        where
-            Self: 'b;
     }
     struct BulkScorerImpl<DISI>
     where
@@ -306,17 +297,13 @@ mod tests {
     where
         DISI: DocIdSetIterator,
     {
-        fn score<LC, B>(
+        fn score(
             &mut self,
-            collector: &mut LC,
-            accept_docs: Option<&B>,
+            collector: &mut dyn LeafCollector,
+            accept_docs: Option<&dyn Bits>,
             min: i32,
             max: i32,
-        ) -> Result<i32>
-        where
-            LC: LeafCollector,
-            B: Bits,
-        {
+        ) -> Result<i32> {
             let mut doc = self.iterator.doc_id();
 
             if doc < min {

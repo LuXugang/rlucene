@@ -120,16 +120,12 @@ where
             min_window_size: 1,
         })
     }
-    fn score_inner_window<LC, B>(
+    fn score_inner_window(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         max: i32,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         if self.filter.is_some() {
             let mut filter = self.filter.take().unwrap();
             self.score_inner_window_with_filter(collector, accept_docs, max, &mut filter)?;
@@ -168,17 +164,13 @@ where
         Ok(())
     }
 
-    fn score_inner_window_with_filter<LC, B>(
+    fn score_inner_window_with_filter(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         max: i32,
         filter: &mut DisiWrapper<S2>,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         let mut top_index = self.essential_queue.top().expect("top ie empty");
         {
             let top = &self.all_scorers[top_index];
@@ -263,16 +255,12 @@ where
 
         Ok(())
     }
-    fn score_inner_window_single_essential_clause<LC, B>(
+    fn score_inner_window_single_essential_clause(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         up_to: i32,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         let top_index = self.essential_queue.top().expect("top ie empty");
         let (mut doc, mut score) = {
             let top = &mut self.all_scorers[top_index];
@@ -310,16 +298,12 @@ where
     ///                                   ^       ^       ^
     ///                                   |       |       |
     ///                                block B  lead2   lead1
-    fn score_inner_window_as_conjunction<LC, B>(
+    fn score_inner_window_multiple_essential_clauses(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         max: i32,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         debug_assert!(self.first_essential_scorer == self.all_scorers_idx.len() - 1);
         debug_assert!(self.first_required_scorer <= self.all_scorers_idx.len() - 2);
 
@@ -423,16 +407,12 @@ where
         Ok(())
     }
 
-    fn score_inner_window_multiple_essential_clauses<LC, B>(
+    fn score_inner_window_as_conjunction(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         max: i32,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         let top_index = self.essential_queue.top().expect("top ie empty");
         let mut top = &mut self.all_scorers[top_index];
 
@@ -546,16 +526,13 @@ where
         }
         Ok(())
     }
-    fn score_non_essential_clauses<LC>(
+    fn score_non_essential_clauses(
         &mut self,
-        collector: &mut LC,
+        collector: &mut dyn LeafCollector,
         doc: i32,
         essential_score: f64,
         num_non_essential_clauses: usize,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-    {
+    ) -> Result<()> {
         self.num_candidates += 1;
 
         let mut score = essential_score;
@@ -711,17 +688,13 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         collector.set_scorer(&mut self.scorable)?;
 
         // This scorer computes outer windows based on impacts that are stored in the index. These outer

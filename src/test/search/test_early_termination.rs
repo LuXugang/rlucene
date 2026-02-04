@@ -19,7 +19,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::scorable::Scorable;
@@ -129,11 +128,6 @@ impl LeafCollector for SimpleCollectorImpl {
         }
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
 }
 
 impl SimpleCollector for SimpleCollectorImpl {

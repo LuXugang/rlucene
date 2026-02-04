@@ -37,7 +37,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBs, QueryWeightSsS,
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsS,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -511,7 +511,7 @@ where
     LR: LeafReader + 'static,
 {
     type Scorer = QueryWeightSsS<LR>;
-    type BulkScorer = QueryWeightSsBs<LR>;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         match self.get_terms_enum(context)? {
@@ -561,8 +561,7 @@ where
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        let v = QueryWeightSsBs::Term(self.default_bulk_scorer(context)?);
-        Ok(Some(v))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {

@@ -29,20 +29,15 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
-use crate::core::search::boolean_scorer_supplier::{BulkScorerType, GetType};
+use crate::core::search::boolean_scorer_supplier::GetType;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
-use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::match_all_docs_query::{
-    MatchAllBulkScorerEnum, MatchAllDocsQuery, MatchAllSsScorer,
-};
-use crate::core::search::match_no_docs_query::{
-    MatchNoDocsQuery, MatchNoDocsSsBulkScorer, MatchNoDocsSsScorer,
-};
+use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllSsScorer};
+use crate::core::search::match_no_docs_query::{MatchNoDocsQuery, MatchNoDocsSsScorer};
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -52,8 +47,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::term_query::{TermQuery, TermScorerEnum};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
-use crate::core::search::weight::{DefaultBulkScorer, Weight};
-use crate::core::util::bits::Bits;
+use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::PartialEq;
@@ -64,49 +58,8 @@ use std::sync::Arc;
 pub type QueryWeight<LR> =
     Box<dyn Weight<LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>>;
 pub type QueryWeightSs<LR> =
-    Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBs<LR>, Scorer = QueryWeightSsS<LR>>>;
-
-pub enum QueryWeightSsBs<LR>
-where
-    LR: LeafReader + 'static,
-{
-    Term(DefaultBulkScorer<QueryWeightSsS<LR>>),
-    MatchAll(MatchAllBulkScorerEnum<LR>),
-    MatchNo(MatchNoDocsSsBulkScorer<LR>),
-    Boolean(Box<BulkScorerType<QueryWeightSsBs<LR>, QueryWeightSsS<LR>>>),
-}
-impl<LR> BulkScorer for QueryWeightSsBs<LR>
-where
-    LR: LeafReader + 'static,
-{
-    fn score<LC, B>(
-        &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
-        min: i32,
-        max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
-        match self {
-            QueryWeightSsBs::Term(scorer) => scorer.score(collector, accept_docs, min, max),
-            QueryWeightSsBs::MatchAll(scorer) => scorer.score(collector, accept_docs, min, max),
-            QueryWeightSsBs::MatchNo(scorer) => scorer.score(collector, accept_docs, min, max),
-            QueryWeightSsBs::Boolean(scorer) => scorer.score(collector, accept_docs, min, max),
-        }
-    }
-
-    fn cost(&mut self) -> Result<i64> {
-        match self {
-            QueryWeightSsBs::Term(scorer) => scorer.cost(),
-            QueryWeightSsBs::MatchAll(scorer) => scorer.cost(),
-            QueryWeightSsBs::MatchNo(scorer) => scorer.cost(),
-            QueryWeightSsBs::Boolean(scorer) => scorer.cost(),
-        }
-    }
-}
+    Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsS<LR>>>;
+pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
 
 pub enum QueryWeightSsS<LR>
 where

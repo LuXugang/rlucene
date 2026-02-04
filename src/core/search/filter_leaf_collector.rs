@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -47,14 +48,7 @@ where
     fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         self.inner.collect(doc, scorer)
     }
-
-    type DocIdSetIteratorRef<'b>
-        = L::DocIdSetIteratorRef<'b>
-    where
-        Self: 'b,
-        L: 'b;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.inner.competitive_iterator()
     }
 

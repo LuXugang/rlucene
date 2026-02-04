@@ -22,17 +22,13 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyBulkScorer;
 
 impl BulkScorer for DummyBulkScorer {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        _collector: &mut LC,
-        _accept_docs: Option<&B>,
+        _collector: &mut dyn LeafCollector,
+        _accept_docs: Option<&dyn Bits>,
         _min: i32,
         _max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

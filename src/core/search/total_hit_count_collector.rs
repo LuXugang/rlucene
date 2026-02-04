@@ -19,7 +19,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
 
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -101,16 +100,8 @@ impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
         Ok(())
     }
 
-    fn collect_stream<DS>(&mut self, stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
+    fn collect_stream(&mut self, stream: &mut dyn DocIdStream) -> Result<()> {
         self.collector.total_hit += stream.count()?;
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'b>
-        = DummyDISI
-    where
-        Self: 'b;
 }

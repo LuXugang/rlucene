@@ -35,7 +35,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::filter_scorer::FilterScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
-use crate::core::search::query::{QueryWeightSs, QueryWeightSsBs, QueryWeightSsS};
+use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsS};
 use crate::core::search::req_excl_bulk_scorer::ReqExclBulkScorer;
 use crate::core::search::req_excl_scorer::ReqExclScorer;
 use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
@@ -328,7 +328,7 @@ where
     fn boolean_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<BooleanScorerType<SsBulkScorer<LR>, SsScorer<LR>>>> {
+    ) -> Result<Option<BooleanScorerType<SsBulkScorer, SsScorer<LR>>>> {
         let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
         let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let num_required = num_must + self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -400,7 +400,7 @@ where
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<OptionalBulkScorer<SsBulkScorer<LR>, SsScorer<LR>>>> {
+    ) -> Result<Option<OptionalBulkScorer<SsBulkScorer, SsScorer<LR>>>> {
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
         if should_len == 0 {
@@ -483,7 +483,7 @@ where
     fn required_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<RequiredBulkScorer<SsBulkScorer<LR>, SsScorer<LR>>>> {
+    ) -> Result<Option<RequiredBulkScorer<SsBulkScorer, SsScorer<LR>>>> {
         let must_len = {
             self.subs
                 .get_mut(&Occur::Must)
@@ -810,7 +810,7 @@ where
     }
 }
 pub type SsScorer<LR> = QueryWeightSsS<LR>;
-pub type SsBulkScorer<LR> = QueryWeightSsBs<LR>;
+pub type SsBulkScorer = QueryWeightSsBulkScorer;
 pub type Excl<S1, S2> = ScorerEnum2<S1, ReqExclScorer<S1, S2>>;
 pub type Opt<S> = ScorerEnum3<S, WANDScorer<S>, DisjunctionScorer<S, DisjunctionSumScorer>>;
 pub type Req<S> = ScorerEnum4<
@@ -863,16 +863,13 @@ pub type BooleanScorerProhibited<S> = ScorerEnum2<S, DisjunctionScorer<S, Disjun
 pub type BooleanScorerType<BS, S> =
     BulkScorerEnum2<BooleanScorerPositive<BS, S>, ReqExclBulkScorer<BooleanScorerPositive<BS, S>>>;
 
-pub type BulkScorerType<BS, SS> = BulkScorerEnum2<BooleanScorerType<BS, SS>, DefaultBulkScorer<SS>>;
-
 impl<LR> ScorerSupplier<LR> for BooleanScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
     // type Scorer = GetType<SsScorer<LR>>;
-    // type BulkScorer = BulkScorerType<SsBulkScorer<LR>, SsScorer<LR>>;
     type Scorer = QueryWeightSsS<LR>;
-    type BulkScorer = QueryWeightSsBs<LR>;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let scorer = self.get_internal(lead_cost, context)?;
@@ -909,16 +906,12 @@ where
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
         if let Some(bs) = self.boolean_scorer(context)? {
-            let v = Box::new(BulkScorerType::A(bs));
-            return Ok(Some(QueryWeightSsBs::Boolean(v)));
+            return Ok(Some(Box::new(bs)));
         }
 
         // use a Scorer-based impl (BS2)
         match self.default_bulk_scorer(context).map(Some)? {
-            Some(v) => {
-                let v = Box::new(BulkScorerType::B(v));
-                Ok(Some(QueryWeightSsBs::Boolean(v)))
-            },
+            Some(v) => Ok(Some(Box::new(v))),
             None => Ok(None),
         }
     }
@@ -1079,17 +1072,13 @@ impl<BS> BulkScorer for BulkScorerImpl<BS>
 where
     BS: BulkScorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         let mut no_score_collector = LeafCollectorImpl::new(collector);
         self.scorer
             .score(&mut no_score_collector, accept_docs, min, max)
@@ -1139,13 +1128,7 @@ where
     fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         self.collector.collect(doc, &mut self.fake)
     }
-
-    type DocIdSetIteratorRef<'a>
-        = <LC as LeafCollector>::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-
-    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+    fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
         self.collector.competitive_iterator()
     }
 

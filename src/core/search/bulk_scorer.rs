@@ -52,16 +52,13 @@ pub trait BulkScorer {
     /// # Returns
     ///
     /// An under-estimation of the next matching doc after `max`.
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits;
+    ) -> Result<i32>;
 
     /// Same as [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost) for bulk scorers.
     fn cost(&mut self) -> Result<i64>;
@@ -77,17 +74,13 @@ macro_rules! either_bulk_scorer {
             $( $T: BulkScorer ),+
         {
             #[inline]
-            fn score<LC, B>(
+            fn score(
                 &mut self,
-                collector: &mut LC,
-                accept_docs: Option<&B>,
+                collector: &mut dyn LeafCollector,
+                accept_docs: Option<&dyn Bits>,
                 min: i32,
                 max: i32,
-            ) -> Result<i32>
-            where
-                LC: LeafCollector,
-                B: Bits,
-            {
+            ) -> Result<i32> {
                 match self {
                     $( Self::$Variant(inner) => inner.score(collector, accept_docs, min, max), )+
                 }
@@ -118,17 +111,13 @@ impl<T> BulkScorer for Box<T>
 where
     T: BulkScorer + ?Sized,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         (**self).score(collector, accept_docs, min, max)
     }
 

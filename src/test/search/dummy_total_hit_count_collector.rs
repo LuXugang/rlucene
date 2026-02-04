@@ -19,7 +19,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -91,11 +90,6 @@ impl<'a> LeafCollector for DummyLeafCollectorImpl<'a> {
         self.base.total_hits += 1;
         Ok(())
     }
-
-    type DocIdSetIteratorRef<'b>
-        = DummyDISI
-    where
-        Self: 'b;
 }
 
 /// Create a collector manager.

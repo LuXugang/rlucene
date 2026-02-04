@@ -88,18 +88,14 @@ where
 
         Ok(max_window_score as f32)
     }
-    fn score_window<LC, B>(
+    fn score_window(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
         max_window_score: f32,
-    ) -> Result<()>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<()> {
         if max_window_score < self.scorable.min_competitive_score {
             // no hits are competitive
             return Ok(());
@@ -225,17 +221,13 @@ impl<S> BulkScorer for BlockMaxConjunctionBulkScorer<S>
 where
     S: Scorer,
 {
-    fn score<LC, B>(
+    fn score(
         &mut self,
-        collector: &mut LC,
-        accept_docs: Option<&B>,
+        collector: &mut dyn LeafCollector,
+        accept_docs: Option<&dyn Bits>,
         min: i32,
         max: i32,
-    ) -> Result<i32>
-    where
-        LC: LeafCollector,
-        B: Bits,
-    {
+    ) -> Result<i32> {
         collector.set_scorer(&mut self.scorable)?;
 
         let mut window_min = self.scorers[0].iterator().doc_id().max(min);
