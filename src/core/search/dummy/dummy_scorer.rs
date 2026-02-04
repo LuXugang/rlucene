@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -47,33 +45,15 @@ impl Scorable for DummyScorer {
 }
 
 impl Scorer for DummyScorer {
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-
-    type TwoPhaseIterRef<'a>
-        = DummyTwoPhaseIterator
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = DummyTwoPhaseIterator
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -81,11 +61,11 @@ impl Scorer for DummyScorer {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

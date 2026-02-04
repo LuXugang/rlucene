@@ -126,34 +126,16 @@ where
     DISI: DocIdSetIterator + 'static,
     TPI: TwoPhaseIterator + 'static,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a ConstantDISI_<DISI, TPI>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = EmptyEnum<&'a mut ConstantDISI_<DISI, TPI>>
-    where
-        Self: 'a;
-
-    type TwoPhaseIterRef<'a>
-        = &'a ConstantTPI<TPI>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = &'a mut ConstantTPI<TPI>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         Ok(self.disi.doc_id())
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.disi
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        EmptyEnum::A(&mut self.disi)
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -161,7 +143,7 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.tpi_state {
             TwoPhaseState::No => Ok(None),
             _ => Ok(match self.disi {
@@ -170,12 +152,12 @@ where
                         "No two-phase iterator available",
                     ));
                 },
-                ConstantDISI_::B(ref v) => Some(&v.two_phase_iterator),
+                ConstantDISI_::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
             }),
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.tpi_state {
             TwoPhaseState::No => Ok(None),
             _ => Ok(match self.disi {
@@ -184,7 +166,7 @@ where
                         "No two-phase iterator available",
                     ));
                 },
-                ConstantDISI_::B(ref mut v) => Some(&mut v.two_phase_iterator),
+                ConstantDISI_::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
             }),
         }
     }

@@ -19,7 +19,7 @@ use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDoc
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
 use crate::core::search::QueryCache;
 use crate::core::search::boolean_query::BooleanQuery;
@@ -29,24 +29,17 @@ use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
-use crate::core::search::boolean_scorer_supplier::GetType;
 use crate::core::search::bulk_scorer::BulkScorer;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
-use crate::core::search::match_all_docs_query::{MatchAllDocsQuery, MatchAllSsScorer};
-use crate::core::search::match_no_docs_query::{MatchNoDocsQuery, MatchNoDocsSsScorer};
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
-use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
-use crate::core::search::term_query::{TermQuery, TermScorerEnum};
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -57,144 +50,10 @@ use std::sync::Arc;
 
 pub type QueryWeight<LR> =
     Box<dyn Weight<LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>>;
+pub type QueryWeightSsScorer = Box<dyn Scorer>;
 pub type QueryWeightSs<LR> =
-    Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsS<LR>>>;
+    Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
-
-pub enum QueryWeightSsS<LR>
-where
-    LR: LeafReader + 'static,
-{
-    Term(TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>),
-    MatchAll(MatchAllSsScorer),
-    MatchNo(MatchNoDocsSsScorer<LR>),
-    Boolean(Box<GetType<QueryWeightSsS<LR>>>),
-    Dummy(DummyScorer),
-}
-
-impl<LR> Scorable for QueryWeightSsS<LR>
-where
-    LR: LeafReader + 'static,
-{
-    fn score(&mut self) -> Result<f32> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.score(),
-            QueryWeightSsS::MatchAll(scorer) => scorer.score(),
-            QueryWeightSsS::MatchNo(scorer) => scorer.score(),
-            QueryWeightSsS::Boolean(scorer) => scorer.score(),
-            QueryWeightSsS::Dummy(scorer) => scorer.score(),
-        }
-    }
-}
-
-impl<LR> Scorer for QueryWeightSsS<LR>
-where
-    LR: LeafReader + 'static,
-{
-    type DocIdSetIteratorRef<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = DummyDISI
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = DummyTwoPhaseIterator
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = DummyTwoPhaseIterator
-    where
-        Self: 'a;
-
-    fn doc_id(&mut self) -> Result<i32> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.doc_id(),
-            QueryWeightSsS::MatchAll(scorer) => scorer.doc_id(),
-            QueryWeightSsS::MatchNo(scorer) => scorer.doc_id(),
-            QueryWeightSsS::Boolean(scorer) => scorer.doc_id(),
-            QueryWeightSsS::Dummy(scorer) => scorer.doc_id(),
-        }
-    }
-
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        todo!()
-    }
-
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        todo!()
-    }
-
-    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        todo!()
-    }
-
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
-        todo!()
-    }
-
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        todo!()
-    }
-
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
-    where
-        Self: Sized,
-    {
-        todo!()
-    }
-
-    fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.advance_shallow(_target),
-            QueryWeightSsS::MatchAll(scorer) => scorer.advance_shallow(_target),
-            QueryWeightSsS::MatchNo(scorer) => scorer.advance_shallow(_target),
-            QueryWeightSsS::Boolean(scorer) => scorer.advance_shallow(_target),
-            QueryWeightSsS::Dummy(scorer) => scorer.advance_shallow(_target),
-        }
-    }
-
-    fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.default_advance_shallow(_target),
-            QueryWeightSsS::MatchAll(scorer) => scorer.default_advance_shallow(_target),
-            QueryWeightSsS::MatchNo(scorer) => scorer.default_advance_shallow(_target),
-            QueryWeightSsS::Boolean(scorer) => scorer.default_advance_shallow(_target),
-            QueryWeightSsS::Dummy(scorer) => scorer.default_advance_shallow(_target),
-        }
-    }
-
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.get_max_score(up_to),
-            QueryWeightSsS::MatchAll(scorer) => scorer.get_max_score(up_to),
-            QueryWeightSsS::MatchNo(scorer) => scorer.get_max_score(up_to),
-            QueryWeightSsS::Boolean(scorer) => scorer.get_max_score(up_to),
-            QueryWeightSsS::Dummy(scorer) => scorer.get_max_score(up_to),
-        }
-    }
-
-    fn default_cost(&mut self) -> Result<i64> {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.default_cost(),
-            QueryWeightSsS::MatchAll(scorer) => scorer.default_cost(),
-            QueryWeightSsS::MatchNo(scorer) => scorer.default_cost(),
-            QueryWeightSsS::Boolean(scorer) => scorer.default_cost(),
-            QueryWeightSsS::Dummy(scorer) => scorer.default_cost(),
-        }
-    }
-
-    fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        match self {
-            QueryWeightSsS::Term(scorer) => scorer.has_two_phase_iterator(),
-            QueryWeightSsS::MatchAll(scorer) => scorer.has_two_phase_iterator(),
-            QueryWeightSsS::MatchNo(scorer) => scorer.has_two_phase_iterator(),
-            QueryWeightSsS::Boolean(scorer) => scorer.has_two_phase_iterator(),
-            QueryWeightSsS::Dummy(scorer) => scorer.has_two_phase_iterator(),
-        }
-    }
-}
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
@@ -210,13 +69,8 @@ pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
         IRC: IndexReaderContext,
         QC: QueryCache,
         Self: Sized,
-        <IRC as IndexReaderContext>::LeafReader: 'static,
-    {
-        Err(LuceneError::unsupported_operation(format!(
-            "Query {} does not implement create_weight",
-            std::any::type_name::<Self>()
-        )))
-    }
+        <IRC as IndexReaderContext>::LeafReader: 'static;
+
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
     where
         IRC: IndexReaderContext,

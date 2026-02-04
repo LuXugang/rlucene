@@ -85,23 +85,6 @@ where
     S1: Scorer + 'static,
     S2: Scorer + 'static,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = &'a Tpi<S1, S2>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = &'a mut Tpi<S1, S2>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi.two_phase_iterator {
             TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
@@ -109,12 +92,12 @@ where
         }
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.disi
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.disi
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -122,12 +105,12 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
-        Ok(Some(&self.disi.two_phase_iterator))
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        Ok(Some(Box::new(&self.disi.two_phase_iterator)))
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        Ok(Some(&mut self.disi.two_phase_iterator))
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        Ok(Some(Box::new(&mut self.disi.two_phase_iterator)))
     }
 
     fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>

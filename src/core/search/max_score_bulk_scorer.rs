@@ -807,11 +807,11 @@ mod test {
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 
-    use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::TwoPhaseState::No;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::store::directory::Directory;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
@@ -1024,40 +1024,23 @@ mod test {
     }
 
     impl Scorer for FakeScorer {
-        type DocIdSetIteratorRef<'a>
-            = &'a AllDISI
-        where
-            Self: 'a;
-        type DocIdSetIteratorMut<'a>
-            = &'a mut AllDISI
-        where
-            Self: 'a;
-        type TwoPhaseIterRef<'a>
-            = DummyTwoPhaseIterator
-        where
-            Self: 'a;
-        type TwoPhaseIterMut<'a>
-            = DummyTwoPhaseIterator
-        where
-            Self: 'a;
-
         fn doc_id(&mut self) -> Result<i32> {
             Ok(self.doc_id)
         }
 
-        fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-            &self.disi
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&self.disi)
         }
 
-        fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-            &mut self.disi
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&mut self.disi)
         }
 
         fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
             unreachable!("")
         }
 
-        fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
             Ok(None)
         }
 

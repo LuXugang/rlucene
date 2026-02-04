@@ -108,33 +108,16 @@ impl<S> Scorer for ConjunctionScorer<S>
 where
     S: Scorer + 'static,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a ConjunctionScorerDisi<S>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut ConjunctionScorerDisi<S>
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = &'a ConjunctionTwoPhaseIterator<S>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = &'a mut ConjunctionTwoPhaseIterator<S>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         Ok(self.disi.doc_id())
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.disi
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.disi
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -142,17 +125,17 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.disi {
             DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(ref v) => Ok(Some(&v.two_phase_iterator)),
+            DocIdSetIteratorEnum2::B(ref v) => Ok(Some(Box::new(&v.two_phase_iterator))),
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.disi {
             DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(ref mut v) => Ok(Some(&mut v.two_phase_iterator)),
+            DocIdSetIteratorEnum2::B(ref mut v) => Ok(Some(Box::new(&mut v.two_phase_iterator))),
         }
     }
 

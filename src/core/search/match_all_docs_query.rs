@@ -31,12 +31,12 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsS,
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerDisi};
+use crate::core::search::scorer::{ScorerDisi, ScorerDisiMut, ScorerDisiRef};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -206,8 +206,8 @@ pub type MatchAllSs = MatchAllDocsScorerSupplier;
 pub type MatchAllSsBulkScorer<LR> = <MatchAllSs as ScorerSupplier<LR>>::BulkScorer;
 pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
 pub type MatchAllSsScorerDisi = ScorerDisi;
-pub type MatchAllSsScorerDisiRef<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorRef<'a>;
-pub type MatchAllSsScorerDisiMut<'a> = <MatchAllSsScorer as Scorer>::DocIdSetIteratorMut<'a>;
+pub type MatchAllSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type MatchAllSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 pub struct MatchAllDocsScorerSupplier {
     score_mode: ScoreMode,
@@ -227,26 +227,22 @@ impl<LR> ScorerSupplier<LR> for MatchAllDocsScorerSupplier
 where
     LR: LeafReader + 'static,
 {
-    type Scorer = QueryWeightSsS<LR>;
+    type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
-        let v = QueryWeightSsS::<LR>::MatchAll(ConstantScoreScorer::with_disi(
-            score,
-            self.score_mode,
-            AllDISI::new(self.max_doc),
-        ));
-        Ok(v)
+        let v = ConstantScoreScorer::with_disi(score, self.score_mode, AllDISI::new(self.max_doc));
+        Ok(Box::new(v))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
         let v = if !self.score_mode.is_exhaustive() {
             let opt = self.default_bulk_scorer(context)?;
-            MatchAllBulkScorerEnum::<LR>::B(opt)
+            MatchAllBulkScorerEnum::B(opt)
         } else {
             let score = self.weight.score();
-            MatchAllBulkScorerEnum::<LR>::A(MatchAllBulkScorer::new(
+            MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
                 self.score_mode,
                 self.max_doc,
                 score,
@@ -303,8 +299,8 @@ impl BulkScorer for MatchAllBulkScorer {
         Ok(self.max_doc as i64)
     }
 }
-pub type MatchAllBulkScorerEnum<LR> =
-    BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsS<LR>>>;
+pub type MatchAllBulkScorerEnum =
+    BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsScorer>>;
 
 #[cfg(test)]
 mod tests {

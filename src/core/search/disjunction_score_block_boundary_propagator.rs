@@ -130,7 +130,6 @@ mod tests {
     use crate::core::search::disi_wrapper::DisiWrapper;
     use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 
-    use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -200,33 +199,16 @@ mod tests {
     }
 
     impl Scorer for FakeScorer {
-        type DocIdSetIteratorRef<'a>
-            = &'a EmptyDISI
-        where
-            Self: 'a;
-        type DocIdSetIteratorMut<'a>
-            = &'a mut EmptyDISI
-        where
-            Self: 'a;
-        type TwoPhaseIterRef<'a>
-            = DummyTwoPhaseIterator
-        where
-            Self: 'a;
-        type TwoPhaseIterMut<'a>
-            = DummyTwoPhaseIterator
-        where
-            Self: 'a;
-
         fn doc_id(&mut self) -> Result<i32> {
             Ok(0)
         }
 
-        fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-            &self.disi
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&self.disi)
         }
 
-        fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-            &mut self.disi
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&mut self.disi)
         }
 
         fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

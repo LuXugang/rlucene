@@ -118,33 +118,16 @@ impl<S> Scorer for WANDScorer<S>
 where
     S: Scorer + 'static,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = &'a TwoPhaseIteratorImpl<S>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = &'a mut TwoPhaseIteratorImpl<S>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         Ok(self.disi.two_phase_iterator.approximation.doc)
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.disi
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.disi
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -152,12 +135,12 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
-        Ok(Some(&self.disi.two_phase_iterator))
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        Ok(Some(Box::new(&self.disi.two_phase_iterator)))
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
-        Ok(Some(&mut self.disi.two_phase_iterator))
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        Ok(Some(Box::new(&mut self.disi.two_phase_iterator)))
     }
 
     fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>

@@ -37,7 +37,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
@@ -192,10 +192,8 @@ pub type FieldExistsESs<LR> =
     DefaultScorerSupplier<ConstantScoreScorer<Disi<LR>, DummyTwoPhaseIterator>>;
 pub type FieldExistsSsBulkScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type FieldExistsSsScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type FieldExistsSsScorerDisiRef<'a, LR> =
-    <FieldExistsSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type FieldExistsSsScorerDisiMut<'a, LR> =
-    <FieldExistsSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type FieldExistsSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type FieldExistsSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
 impl<LR> Weight<LR> for FieldExistsWeight<LR>

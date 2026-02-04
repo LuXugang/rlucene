@@ -109,23 +109,6 @@ where
     S1: Scorer + 'static,
     S2: Scorer + 'static,
 {
-    type DocIdSetIteratorRef<'a>
-        = &'a ReqOptSumScorerDisi<S1, S2>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = &'a mut ReqOptSumScorerDisi<S1, S2>
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = &'a TwoPhaseIteratorImpl<S1, S2>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = &'a mut TwoPhaseIteratorImpl<S1, S2>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi {
             DocIdSetIteratorEnum2::A(ref mut disi) => disi.req_scorer.doc_id(),
@@ -135,12 +118,12 @@ where
         }
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-        &self.disi
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-        &mut self.disi
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -148,26 +131,30 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.tpi_state {
             TwoPhaseState::No => Ok(None),
             _ => match &self.disi {
                 DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                DocIdSetIteratorEnum2::B(wrapper) => Ok(Some(&wrapper.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(wrapper) => {
+                    Ok(Some(Box::new(&wrapper.two_phase_iterator)))
+                },
             },
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         match self.tpi_state {
             TwoPhaseState::No => Ok(None),
             _ => match &mut self.disi {
                 DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
                     "No two-phase iterator available",
                 )),
-                DocIdSetIteratorEnum2::B(wrapper) => Ok(Some(&mut wrapper.two_phase_iterator)),
+                DocIdSetIteratorEnum2::B(wrapper) => {
+                    Ok(Some(Box::new(&mut wrapper.two_phase_iterator)))
+                },
             },
         }
     }
@@ -531,7 +518,7 @@ where
 mod tests {
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 
-    use crate::core::search::req_opt_sum_scorer::{ReqOptSumScorer, ReqOptSumScorerDisi};
+    use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
     use crate::core::search::scorable::Scorable;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -575,32 +562,15 @@ mod tests {
         S1: Scorer + 'static,
         S2: Scorer + 'static,
     {
-        type DocIdSetIteratorRef<'a>
-            = &'a ReqOptSumScorerDisi<S1, S2>
-        where
-            Self: 'a;
-        type DocIdSetIteratorMut<'a>
-            = <ReqOptSumScorer<S1, S2> as Scorer>::DocIdSetIteratorMut<'a>
-        where
-            Self: 'a;
-        type TwoPhaseIterRef<'a>
-            = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIterRef<'a>
-        where
-            Self: 'a;
-        type TwoPhaseIterMut<'a>
-            = <ReqOptSumScorer<S1, S2> as Scorer>::TwoPhaseIterMut<'a>
-        where
-            Self: 'a;
-
         fn doc_id(&mut self) -> Result<i32> {
             self.base.doc_id()
         }
 
-        fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
             self.base.iterator()
         }
 
-        fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
             self.base.iterator_mut()
         }
 
@@ -609,11 +579,11 @@ mod tests {
             Box::new(base).take_iterator()
         }
 
-        fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+        fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
             self.base.two_phase_iterator()
         }
 
-        fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+        fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
             self.base.two_phase_iterator_mut()
         }
 

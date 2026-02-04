@@ -103,32 +103,15 @@ impl<S> Scorer for DisiWrapper<S>
 where
     S: Scorer,
 {
-    type DocIdSetIteratorRef<'a>
-        = S::DocIdSetIteratorRef<'a>
-    where
-        Self: 'a;
-    type DocIdSetIteratorMut<'a>
-        = S::DocIdSetIteratorMut<'a>
-    where
-        Self: 'a;
-    type TwoPhaseIterRef<'a>
-        = S::TwoPhaseIterRef<'a>
-    where
-        Self: 'a;
-    type TwoPhaseIterMut<'a>
-        = S::TwoPhaseIterMut<'a>
-    where
-        Self: 'a;
-
     fn doc_id(&mut self) -> Result<i32> {
         self.scorer.doc_id()
     }
 
-    fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
         self.scorer.iterator()
     }
 
-    fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         self.scorer.iterator_mut()
     }
 
@@ -137,11 +120,11 @@ where
         Box::new(scorer).take_iterator()
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Self::TwoPhaseIterRef<'_>>> {
+    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         self.scorer.two_phase_iterator()
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Self::TwoPhaseIterMut<'_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
         self.scorer.two_phase_iterator_mut()
     }
 

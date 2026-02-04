@@ -56,7 +56,7 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2};
+use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
@@ -291,10 +291,8 @@ pub type ISSNDVRQSs<LR> = PointRangeWeightSs<
 >;
 pub type ISSNDVRQSsBulkScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type ISSNDVRQSsScorer<LR> = <ISSNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type ISSNDVRQSsScorerDisiRef<'a, LR> =
-    <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type ISSNDVRQSsScorerDisiMut<'a, LR> =
-    <ISSNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type ISSNDVRQSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type ISSNDVRQSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 impl<LR> Weight<LR> for IndexSortSortedNumericDocValuesRangeQueryWeight<LR>
 where

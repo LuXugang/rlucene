@@ -42,7 +42,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum4};
+use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum4};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
@@ -420,8 +420,8 @@ pub type SNDVRQSs<LR> = PointRangeWeightSs<
 >;
 pub type SNDVRQSsBulkScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type SNDVRQSsScorer<LR> = <SNDVRQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SNDVRQSsScorerDisiRef<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type SNDVRQSsScorerDisiMut<'a, LR> = <SNDVRQSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type SNDVRQSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type SNDVRQSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 pub struct TwoPhaseIterator3<N>
 where

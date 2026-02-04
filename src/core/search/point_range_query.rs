@@ -38,7 +38,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2};
+use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -729,10 +729,8 @@ where
 pub type PointRangeSs<LR> = PointRangeWeightScorerSupplier<LRPointValues<LR>>;
 pub type PointRangeSsBulkScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type PointRangeSsScorer<LR> = <PointRangeSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type PointRangeSsScorerDisiRef<'a, LR> =
-    <PointRangeSsScorer<LR> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type PointRangeSsScorerDisiMut<'a, LR> =
-    <PointRangeSsScorer<LR> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type PointRangeSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type PointRangeSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 pub struct ScorerSupplierImpl {
     score_mode: ScoreMode,
     max_doc: i32,

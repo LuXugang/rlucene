@@ -37,11 +37,11 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsS,
+    Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2};
+use crate::core::search::scorer::{Scorer, ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -315,18 +315,13 @@ where
     }
 
     fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
-        let mut scorer_opt = self.scorer(context)?;
-        if let Some(scorer) = scorer_opt.as_mut() {
+        let scorer_opt = self.build_term_scorer(context)?;
+        if let Some(mut scorer) = scorer_opt {
             let new_doc = scorer.iterator_mut().advance(doc)?;
             if new_doc == doc {
-                let freq = match scorer {
-                    QueryWeightSsS::Term(s) => match s {
-                        ScorerEnum2::A(ts) => ts.freq()?,
-                        ScorerEnum2::B(_) => {
-                            return Err(LuceneError::illegal_state("should TermScorer here"));
-                        },
-                    },
-                    _ => {
+                let freq = match &mut scorer {
+                    ScorerEnum2::A(ts) => ts.freq()?,
+                    ScorerEnum2::B(_) => {
                         return Err(LuceneError::illegal_state("should TermScorer here"));
                     },
                 };
@@ -430,11 +425,67 @@ where
         }
     }
 }
+
+impl<LR> TermWeight<LR>
+where
+    LR: LeafReader + 'static,
+{
+    fn build_term_scorer(
+        &self,
+        context: &LeafReaderContext<LR>,
+    ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>> {
+        match self.get_terms_enum(context)? {
+            Some(mut terms_enum) => {
+                let norms = if self.score_mode.needs_scores() {
+                    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+                        v
+                    } else {
+                        return Err(LuceneError::illegal_state(""));
+                    };
+                    context.reader().get_norm_values(&parent_query.term.field)?
+                } else {
+                    None
+                };
+
+                if self.score_mode == ScoreMode::TopScores {
+                    let v =
+                        TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::new(
+                            terms_enum.impacts(FREQS as i32)?,
+                            self.sim_scorer.as_ref().unwrap().clone(),
+                            norms,
+                            false,
+                        ));
+                    Ok(Some(v))
+                } else {
+                    let flags = if self.score_mode.needs_scores() {
+                        FREQS
+                    } else {
+                        NONE
+                    };
+                    let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(
+                        TermScorer::with_postings(
+                            terms_enum.postings_with_flags(None, flags as i32)?,
+                            self.sim_scorer.as_ref().unwrap().clone(),
+                            norms,
+                        ),
+                    );
+                    Ok(Some(v))
+                }
+            },
+            None => {
+                let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
+                    ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
+                );
+                Ok(Some(v))
+            },
+        }
+    }
+}
 pub type TermSs<LR> = TermScorerSupplier<LR>;
 pub type TermBulkScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::BulkScorer;
 pub type TermSsScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type TermSsScorerDisiRef<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorRef<'a>;
-pub type TermSsScorerDisiMut<'a, IRC> = <TermSsScorer<IRC> as Scorer>::DocIdSetIteratorMut<'a>;
+pub type TermSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
+pub type TermSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 
 pub struct TermScorerSupplier<LR>
 where
@@ -510,7 +561,7 @@ impl<LR> ScorerSupplier<LR> for TermScorerSupplier<LR>
 where
     LR: LeafReader + 'static,
 {
-    type Scorer = QueryWeightSsS<LR>;
+    type Scorer = QueryWeightSsScorer;
     type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
@@ -531,7 +582,7 @@ where
                             norms,
                             self.top_level_scoring_clause,
                         ));
-                    Ok(QueryWeightSsS::Term(v))
+                    Ok(Box::new(v))
                 } else {
                     let flags = if self.score_mode.needs_scores() {
                         FREQS
@@ -548,14 +599,14 @@ where
                             norms,
                         ),
                     );
-                    Ok(QueryWeightSsS::Term(v))
+                    Ok(Box::new(v))
                 }
             },
             None => {
                 let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
                     ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
-                Ok(QueryWeightSsS::Term(v))
+                Ok(Box::new(v))
             },
         }
     }

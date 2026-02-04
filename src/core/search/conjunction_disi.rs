@@ -135,7 +135,6 @@ where
         self.all_disi[self.lead1].iterator().cost()
     }
 }
-
 struct DisiCmp<'a, S>
 where
     S: Scorer,
