@@ -121,7 +121,7 @@ impl TopFieldCollector {
             score_mode,
         })
     }
-    pub(crate) fn update_global_min_competitive_score<S: Scorable>(
+    pub(crate) fn update_global_min_competitive_score<S: Scorable + ?Sized>(
         &mut self,
         scorer: &mut S,
     ) -> Result<()> {
@@ -147,7 +147,7 @@ impl TopFieldCollector {
         }
     }
 
-    pub(crate) fn update_min_competitive_score<S: Scorable>(
+    pub(crate) fn update_min_competitive_score<S: Scorable + ?Sized>(
         &mut self,
         scorer: &mut S,
     ) -> Result<()> {
@@ -337,7 +337,11 @@ where
             comparator,
         })
     }
-    pub(crate) fn count_hit<S: Scorable>(&mut self, scorer: &mut S, _doc: i32) -> Result<()> {
+    pub(crate) fn count_hit<S: Scorable + ?Sized>(
+        &mut self,
+        scorer: &mut S,
+        _doc: i32,
+    ) -> Result<()> {
         self.base.base.total_hits += 1;
         debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
         let hit_count_so_far = self.base.base.total_hits;
@@ -361,7 +365,7 @@ where
     }
     pub(crate) fn threshold_check<S>(&mut self, doc: i32, scorer: &mut S) -> Result<bool>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let cmp_check = if self.collected_all_competitive_hits {
             true
@@ -396,7 +400,7 @@ where
     }
     pub(crate) fn collect_competitive_hit<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         {
             let bottom = self.bottom()?;
@@ -422,7 +426,7 @@ where
         scorer: &mut S,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         // Startup transient: queue hasn't gathered numHits yet
         let slot = hits_collected - 1;
@@ -461,10 +465,7 @@ impl<'a, LR> LeafCollector for TopFieldLeafCollector<'a, LR>
 where
     LR: LeafReader,
 {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         let comparators = self.base.base.pq.get_comparators_mut();
         self.comparator.set_scorer(scorer, comparators)?;
 
@@ -477,10 +478,7 @@ where
         Ok(())
     }
 
-    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         unreachable!("should not be called")
     }
 
@@ -676,18 +674,11 @@ impl<'a, LR> LeafCollector for SimpleFieldLeafCollector<'a, LR>
 where
     LR: LeafReader,
 {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         self.base.set_scorer(scorer)
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        self.base.count_hit(scorer, doc)?;
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         if self.base.base.queue_full {
             if self.base.threshold_check(doc, scorer)? {
                 return Ok(());
@@ -907,19 +898,11 @@ impl<'a, LR> LeafCollector for PagingFieldLeafCollector<'a, LR>
 where
     LR: LeafReader,
 {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         self.base.set_scorer(scorer)
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        self.base.count_hit(scorer, doc)?;
-
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
             return Ok(());
         }
@@ -1019,20 +1002,14 @@ where
     where
         Self: 'b;
 
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         match self {
             Self::Simple(inner) => inner.set_scorer(scorer),
             Self::Paging(inner) => inner.set_scorer(scorer),
         }
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         match self {
             Self::Simple(inner) => inner.collect(doc, scorer),
             Self::Paging(inner) => inner.collect(doc, scorer),
@@ -1051,12 +1028,8 @@ where
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         match self {
-            Self::Simple(inner) => inner
-                .competitive_iterator()
-                .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
-            Self::Paging(inner) => inner
-                .competitive_iterator()
-                .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
+            Self::Simple(inner) => Ok(inner.competitive_iterator()?.map(DocIdSetIteratorEnum2::A)),
+            Self::Paging(inner) => Ok(inner.competitive_iterator()?.map(DocIdSetIteratorEnum2::B)),
         }
     }
 
@@ -1219,7 +1192,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match self {
             Self::Multi(inner) => inner.compare_bottom(doc, scorer, comparators),
@@ -1234,7 +1207,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match self {
             Self::Multi(inner) => inner.compare_top(doc, scorer, comparators),
@@ -1250,7 +1223,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match self {
             Self::Multi(inner) => inner.copy(slot, doc, scorer, comparators),
@@ -1264,7 +1237,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match self {
             Self::Multi(inner) => inner.set_scorer(scorer, comparators),

@@ -96,10 +96,7 @@ impl Display for TotalHitCountLeafCollector<'_> {
 }
 
 impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
-    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         self.collector.total_hit += 1;
         Ok(())
     }

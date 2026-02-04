@@ -323,10 +323,7 @@ mod tests {
     }
 
     impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-        fn collect<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<()>
-        where
-            S: Scorable,
-        {
+        fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
             self.base.base.total_hits += 1;
             let sd = ScoreDoc::new(
                 doc + self.doc_base as i32,

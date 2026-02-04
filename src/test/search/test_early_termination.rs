@@ -121,10 +121,7 @@ impl Display for SimpleCollectorImpl {
 }
 
 impl LeafCollector for SimpleCollectorImpl {
-    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         assert!(!self.collection_terminated);
         if rarely(&mut random()) {
             self.collection_terminated = true;

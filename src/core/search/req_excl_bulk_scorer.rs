@@ -278,10 +278,7 @@ mod tests {
     }
 
     impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-        fn collect<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<()>
-        where
-            S: Scorable,
-        {
+        fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
             self.actual_matches.set(doc as usize);
             Ok(())
         }

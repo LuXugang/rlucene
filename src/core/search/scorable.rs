@@ -103,6 +103,31 @@ where
         }
     }
 }
+
+impl<T> Scorable for &mut T
+where
+    T: Scorable + ?Sized,
+{
+    fn score(&mut self) -> Result<f32> {
+        (**self).score()
+    }
+
+    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+        (**self).smoothing_score(doc_id)
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        (**self).set_min_competitive_score(min_score)
+    }
+
+    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+        (**self).get_children()
+    }
+
+    fn cost(&mut self) -> Result<i64> {
+        (**self).cost()
+    }
+}
 macro_rules! either_scorable {
     (
         $vis:vis $name:ident {

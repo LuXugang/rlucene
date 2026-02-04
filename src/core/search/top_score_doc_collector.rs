@@ -179,7 +179,10 @@ impl<'a> TopScoreDocLeafCollector<'a> {
             after_score,
         }
     }
-    fn update_global_min_competitive_score<S: Scorable>(&mut self, scorer: &mut S) -> Result<()> {
+    fn update_global_min_competitive_score<S: Scorable + ?Sized>(
+        &mut self,
+        scorer: &mut S,
+    ) -> Result<()> {
         debug_assert!(self.base.min_score_acc.is_some());
         let max_min_score = self.base.min_score_acc.as_ref().unwrap().get_raw();
         if max_min_score != i64::MIN {
@@ -199,7 +202,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
         }
         Ok(())
     }
-    fn collect_competitive_hit<S: Scorable>(
+    fn collect_competitive_hit<S: Scorable + ?Sized>(
         &mut self,
         scorer: &mut S,
         doc: i32,
@@ -217,7 +220,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
         Ok(())
     }
 
-    fn update_min_competitive_score<S: Scorable>(&mut self, scorer: &mut S) -> Result<()> {
+    fn update_min_competitive_score<S: Scorable + ?Sized>(&mut self, scorer: &mut S) -> Result<()> {
         if self.base.base.total_hits > self.base.total_hits_threshold
             && let Some(pq_top) = self.base.base.pq.top()
         {
@@ -248,22 +251,14 @@ impl Display for TopScoreDocLeafCollector<'_> {
 }
 
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        if self.base.min_score_acc.is_none() {
-            self.update_min_competitive_score(scorer)?;
-        } else {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+        if self.base.total_hits_threshold != i32::MAX as usize {
             self.update_global_min_competitive_score(scorer)?;
         }
         Ok(())
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         let score = scorer.score()?;
         self.base.base.total_hits += 1;
         let hit_count_so_far = self.base.base.total_hits;

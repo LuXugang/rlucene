@@ -201,7 +201,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let v = self.get_value_for_doc(doc, &mut comparator.base)?;
         Ok(comparator.bottom.total_cmp(&v).to_int())
@@ -214,7 +214,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let v = self.get_value_for_doc(doc, &mut comparator.base)?;
         Ok(comparator.top_value.total_cmp(&v).to_int())
@@ -228,7 +228,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let v = self.get_value_for_doc(doc, &mut comparator.base)?;
         comparator.values[slot] = v;
@@ -241,7 +241,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         self.base.set_scorer(
             scorer,

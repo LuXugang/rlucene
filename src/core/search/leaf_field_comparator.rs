@@ -103,7 +103,7 @@ pub trait LeafFieldComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable;
+        S: Scorable + ?Sized;
 
     /// Compare the top value with this document.
     ///
@@ -132,7 +132,7 @@ pub trait LeafFieldComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable;
+        S: Scorable + ?Sized;
 
     /// Called when a new hit is competitive.
     ///
@@ -155,7 +155,7 @@ pub trait LeafFieldComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable;
+        S: Scorable + ?Sized;
 
     /// Sets the scorer to use in case a document's score is needed.
     ///
@@ -172,7 +172,7 @@ pub trait LeafFieldComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable;
+        S: Scorable + ?Sized;
 
     type DocIdSetIteratorRef<'a>: DocIdSetIterator
     where
@@ -290,7 +290,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
@@ -344,7 +344,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
@@ -399,7 +399,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {
@@ -452,7 +452,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match (self, comparator) {
             (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => {

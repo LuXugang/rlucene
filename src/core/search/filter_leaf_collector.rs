@@ -40,17 +40,11 @@ impl<L> LeafCollector for FilterLeafCollector<L>
 where
     L: LeafCollector,
 {
-    fn set_scorer<T>(&mut self, scorer: &mut T) -> Result<()>
-    where
-        T: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         self.inner.set_scorer(scorer)
     }
 
-    fn collect<T>(&mut self, doc: i32, scorer: &mut T) -> Result<()>
-    where
-        T: Scorable,
-    {
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         self.inner.collect(doc, scorer)
     }
 

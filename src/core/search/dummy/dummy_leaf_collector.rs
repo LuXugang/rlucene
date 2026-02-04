@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_stream::DocIdStream;
-
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -31,24 +29,11 @@ impl Display for DummyLeafCollector {
 }
 
 impl LeafCollector for DummyLeafCollector {
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn collect<S>(&mut self, _doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn collect_stream<DS>(&mut self, _stream: &mut DS) -> Result<()>
-    where
-        DS: DocIdStream,
-    {
+    fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

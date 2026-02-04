@@ -474,7 +474,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         debug_assert!(comparator.bottom_slot != -1);
 
@@ -502,7 +502,7 @@ where
         _comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let mut ord = self.get_ord_for_doc(doc)?;
         if ord == -1 {
@@ -530,7 +530,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let mut ord = self.get_ord_for_doc(doc)?;
         if ord == -1 {
@@ -555,7 +555,7 @@ where
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         Ok(())
     }

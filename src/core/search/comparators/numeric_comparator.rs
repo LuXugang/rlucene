@@ -453,7 +453,7 @@ where
         comparator: &mut NumericComparator<V>,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         if self.iterator_cost == -1 {
             match scorer.cost() {

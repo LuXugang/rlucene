@@ -76,7 +76,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         debug_assert!(
             !self.comparators.is_empty(),
@@ -115,7 +115,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         debug_assert!(
             !self.comparators.is_empty(),
@@ -157,7 +157,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         debug_assert_eq!(
             self.comparators.len(),
@@ -178,7 +178,7 @@ where
         comparators: &mut [FieldComparatorEnum],
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         debug_assert_eq!(
             self.comparators.len(),

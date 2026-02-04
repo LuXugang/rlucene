@@ -26,10 +26,7 @@ pub trait LeafCollector: Display {
     /// Implementations that need the score of the current document (passed in
     /// to `collect`) should save the passed-in [`Scorer`](crate::core::search::scorer::Scorer) and call
     /// `scorer.score()` when needed.
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
         Ok(())
     }
     /// Called once for every document matching a query, with the unbased document number.
@@ -46,9 +43,7 @@ pub trait LeafCollector: Display {
     ///   implementations of this method should **not** call
     ///   [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document) on every hit. Doing so can slow searches by an
     ///   order of magnitude or more.
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable;
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()>;
 
     /// Bulk-collect doc IDs.
     ///
@@ -116,17 +111,11 @@ where
     where
         Self: 'a;
 
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         (**self).set_scorer(scorer)
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         (**self).collect(doc, scorer)
     }
 
@@ -175,19 +164,13 @@ macro_rules! either_leaf_collector {
             where
                 $( $T: 'a ),+;
 
-            fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-            where
-                S: Scorable,
-            {
+            fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.set_scorer(scorer), )+
                 }
             }
 
-            fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-            where
-                S: Scorable,
-            {
+            fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.collect(doc, scorer), )+
                 }
@@ -219,6 +202,7 @@ macro_rules! either_leaf_collector {
         }
     };
 }
+
 either_leaf_collector!(
     pub LeafCollectorEnum2
     => { disi: DocIdSetIteratorEnum2 }

@@ -259,7 +259,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
@@ -276,7 +276,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let doc_value = scorer.score()?;
         debug_assert!(!doc_value.is_nan());
@@ -294,7 +294,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let score = scorer.score()?;
         comparator.scores[slot] = score;
@@ -308,7 +308,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         Ok(())
     }
@@ -1030,7 +1030,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
         let val = Self::get_value_for_doc(doc_terms, doc)?;
@@ -1051,7 +1051,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
         match Self::get_value_for_doc(doc_terms, doc)? {
@@ -1070,7 +1070,7 @@ where
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
             None => comparator.values[slot] = None,
@@ -1085,7 +1085,7 @@ where
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         Ok(())
     }

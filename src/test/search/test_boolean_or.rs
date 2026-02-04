@@ -87,10 +87,7 @@ impl Display for LeafCollectorImpl {
 }
 
 impl LeafCollector for LeafCollectorImpl {
-    fn collect<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         self.matches.push(doc);
         Ok(())
     }

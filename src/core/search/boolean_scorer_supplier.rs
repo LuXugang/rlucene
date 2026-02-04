@@ -1132,24 +1132,26 @@ impl<LC> LeafCollector for LeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
-    fn set_scorer<S>(&mut self, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
         self.collector.set_scorer(&mut self.fake)
     }
 
-    fn collect<S>(&mut self, doc: i32, _scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
         self.collector.collect(doc, &mut self.fake)
     }
 
     type DocIdSetIteratorRef<'a>
-        = DummyDISI
+        = <LC as LeafCollector>::DocIdSetIteratorRef<'a>
     where
         Self: 'a;
+
+    fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
+        self.collector.competitive_iterator()
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.collector.finish()
+    }
 }
 #[cfg(test)]
 mod tests {

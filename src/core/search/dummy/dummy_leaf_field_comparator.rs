@@ -35,7 +35,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -47,7 +47,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -60,7 +60,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
@@ -71,7 +71,7 @@ impl LeafFieldComparator for DummyLeafFieldComparator {
         _comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

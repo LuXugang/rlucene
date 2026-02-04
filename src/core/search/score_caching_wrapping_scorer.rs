@@ -103,26 +103,19 @@ impl<LC> LeafCollector for ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    fn set_scorer<S>(&mut self, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
+    fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
         self.scorer.set_scorer(scorer)
     }
 
-    fn collect<S>(&mut self, doc: i32, scorer: &mut S) -> Result<()>
-    where
-        S: Scorable,
-    {
-        // TODO IMPORTANT 这里不对
-        self.scorer.collect(doc, scorer)
+    fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+        let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
+        self.scorer.collect(doc, &mut wrapper)
     }
 
     type DocIdSetIteratorRef<'a>
         = <FilterLeafCollector<LC> as LeafCollector>::DocIdSetIteratorRef<'a>
     where
-        Self: 'a,
-        LC: 'a;
+        Self: 'a;
 
     fn competitive_iterator(&mut self) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
         self.scorer.competitive_iterator()

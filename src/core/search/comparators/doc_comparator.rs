@@ -182,7 +182,7 @@ impl LeafFieldComparator for DocLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         // No overflow risk because docIDs are non-negative
         Ok(comparator.bottom - (self.doc_base as i32 + doc))
@@ -195,7 +195,7 @@ impl LeafFieldComparator for DocLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<i32>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         let doc_value = self.doc_base as i32 + doc;
         Ok(comparator.top_value.cmp(&doc_value).to_int())
@@ -209,7 +209,7 @@ impl LeafFieldComparator for DocLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         comparator.doc_ids[slot] = self.doc_base as i32 + doc;
         Ok(())
@@ -221,7 +221,7 @@ impl LeafFieldComparator for DocLeafComparator {
         comparator: &mut Self::FieldComparator,
     ) -> Result<()>
     where
-        S: Scorable,
+        S: Scorable + ?Sized,
     {
         self.update_iterator(comparator);
         Ok(())
