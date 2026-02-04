@@ -50,10 +50,10 @@ use std::sync::Arc;
 
 pub type QueryWeight<LR> =
     Box<dyn Weight<LR, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<LR>>>;
-pub type QueryWeightSsScorer = Box<dyn Scorer>;
 pub type QueryWeightSs<LR> =
     Box<dyn ScorerSupplier<LR, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
+pub type QueryWeightSsScorer = Box<dyn Scorer>;
 
 pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;

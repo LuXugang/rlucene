@@ -74,6 +74,45 @@ where
         Ok(())
     }
 }
+
+pub struct BoxedScorerSupplier<S> {
+    inner: S,
+}
+
+impl<S> BoxedScorerSupplier<S> {
+    pub fn new(inner: S) -> Self {
+        Self { inner }
+    }
+}
+
+impl<LR, S> ScorerSupplier<LR> for BoxedScorerSupplier<S>
+where
+    LR: LeafReader,
+    S: ScorerSupplier<LR>,
+    S::Scorer: 'static,
+    S::BulkScorer: 'static,
+{
+    type Scorer = Box<dyn Scorer>;
+    type BulkScorer = Box<dyn BulkScorer>;
+
+    fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+        let scorer = self.inner.get(lead_cost, context)?;
+        Ok(Box::new(scorer))
+    }
+
+    fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
+        let opt = self.inner.bulk_scorer(context)?;
+        Ok(opt.map(|bulk| Box::new(bulk) as Box<dyn BulkScorer>))
+    }
+
+    fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+        self.inner.cost(context)
+    }
+
+    fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+        self.inner.set_top_level_scoring_clause()
+    }
+}
 #[macro_export]
 macro_rules! either_scorer_supplier {
     (

@@ -39,11 +39,11 @@ use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum4};
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::DefaultBulkScorer;
@@ -113,8 +113,8 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
@@ -123,12 +123,11 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // Ok(SortedNumericDocValuesRangeQueryWeight::new(
-        //     self,
-        //     *score_mode,
-        //     boost,
-        // ))
-        todo!()
+        Ok(Box::new(SortedNumericDocValuesRangeQueryWeight::new(
+            self,
+            *score_mode,
+            boost,
+        )))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -167,7 +166,11 @@ impl<LR> SortedNumericDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
 {
-    fn new(query: SortedNumericDocValuesRangeQuery, score_mode: ScoreMode, boost: f32) -> Self {
+    pub(crate) fn new(
+        query: SortedNumericDocValuesRangeQuery,
+        score_mode: ScoreMode,
+        boost: f32,
+    ) -> Self {
         let query_clone = query.clone();
         let parent_query = Arc::new(query.into());
         Self {
@@ -312,7 +315,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = SNDVRQSs<LR>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -341,9 +344,9 @@ where
                 let iter = AllDISI::new(skipper.doc_count());
                 let scorer =
                     ConstantScoreScorer::with_disi(self.base.score(), self.score_mode, iter);
-                return Ok(Some(PointRangeWeightSs::CSSAll(
-                    DefaultScorerSupplier::new(scorer),
-                )));
+                let supplier: SNDVRQSs<LR> =
+                    PointRangeWeightSs::CSSAll(DefaultScorerSupplier::new(scorer));
+                return Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))));
             }
         }
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
@@ -362,7 +365,8 @@ where
                             self.score_mode,
                             ps_iterator,
                         ));
-                        return Ok(Some(PointRangeWeightSs::CSSDisi(v)));
+                        let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSDisi(v);
+                        return Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))));
                     } else {
                         TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(
                             singleton,
@@ -388,13 +392,15 @@ where
                 );
                 let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(PointRangeWeightSs::CSSRange(v)))
+                let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSRange(v);
+                Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
             },
             None => {
                 let scorer =
                     ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(PointRangeWeightSs::CSSTpi(v)))
+                let supplier: SNDVRQSs<LR> = PointRangeWeightSs::CSSTpi(v);
+                Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
             },
         }
     }

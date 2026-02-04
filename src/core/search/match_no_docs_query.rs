@@ -106,8 +106,7 @@ impl QueryBase for MatchNoDocsQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // Ok(MatchNoDocsWeight::new(self))
-        todo!()
+        Ok(Box::new(MatchNoDocsWeight::new(self)))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>

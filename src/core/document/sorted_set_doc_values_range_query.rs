@@ -37,11 +37,11 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum5};
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -131,8 +131,8 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
@@ -141,12 +141,11 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // Ok(SortedSetDocValuesRangeQueryWeight::new(
-        //     self,
-        //     boost,
-        //     *score_mode,
-        // ))
-        todo!()
+        Ok(Box::new(SortedSetDocValuesRangeQueryWeight::new(
+            self,
+            boost,
+            *score_mode,
+        )))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -183,7 +182,11 @@ impl<LR> SortedSetDocValuesRangeQueryWeight<LR>
 where
     LR: LeafReader,
 {
-    fn new(query: SortedSetDocValuesRangeQuery, score: f32, score_mode: ScoreMode) -> Self {
+    pub(crate) fn new(
+        query: SortedSetDocValuesRangeQuery,
+        score: f32,
+        score_mode: ScoreMode,
+    ) -> Self {
         let query_clone = query.clone();
         let parent_query = Arc::new(query.into());
         SortedSetDocValuesRangeQueryWeight {
@@ -208,7 +211,7 @@ where
 
 impl<LR> Weight<LR> for SortedSetDocValuesRangeQueryWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
     <LR as LeafReader>::SortedDocValues: 'static,
     <LR as LeafReader>::SortedSetDocValues: 'static,
     <LR as LeafReader>::DocValuesSkipper: 'static,
@@ -230,7 +233,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = SSDVRQSs<LR>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -246,12 +249,14 @@ where
         }
 
         let values = DocValues::get_sorted_set(context.reader(), &self.query.field)?;
-        Ok(Some(ScorerSupplierImpl3::new(
-            self.query.clone(),
-            values,
-            self.base.score(),
-            self.score_mode,
-        )?))
+        Ok(Some(Box::new(BoxedScorerSupplier::new(
+            ScorerSupplierImpl3::new(
+                self.query.clone(),
+                values,
+                self.base.score(),
+                self.score_mode,
+            )?,
+        ))))
     }
 }
 fn get_doc_id_set_iterator_or_null_for_primary_sort<LR, SDV, SK>(

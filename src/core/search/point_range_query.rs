@@ -35,11 +35,11 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
-use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::TryIntoInt;
@@ -216,8 +216,8 @@ impl QueryBase for PointRangeQuery {
     fn create_weight<IRC, QC>(
         self,
         _searcher: &IndexSearcher<IRC, QC>,
-        _score_mode: &ScoreMode,
-        _boost: f32,
+        score_mode: &ScoreMode,
+        boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
@@ -226,8 +226,7 @@ impl QueryBase for PointRangeQuery {
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
-        // Ok(PointRangeWeight::new(boost, self, *score_mode))
-        todo!()
+        Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)))
     }
 
     fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
@@ -397,7 +396,8 @@ where
 
 impl<LR> Weight<LR> for PointRangeWeight<LR>
 where
-    LR: LeafReader,
+    LR: LeafReader + 'static,
+    <LR as LeafReader>::PointValues: 'static,
 {
     type Matches = MatchWithNoTerms;
 
@@ -415,7 +415,7 @@ where
         self.parent_query.clone()
     }
 
-    type ScorerSupplier = PointRangeSs<LR>;
+    type ScorerSupplier = QueryWeightSs<LR>;
 
     fn scorer_supplier(
         &self,
@@ -511,22 +511,23 @@ where
             all_docs_match = false;
         }
         let max_doc = reader.max_doc()?;
-        if all_docs_match {
-            Ok(Some(PointRangeWeightSs::Impl(ScorerSupplierImpl::new(
+        let supplier = if all_docs_match {
+            PointRangeWeightSs::Impl(ScorerSupplierImpl::new(
                 self.base.score(),
                 self.score_mode,
                 max_doc,
-            ))))
+            ))
         } else {
             let result =
                 DocIdSetBuilder::with_point_values(max_doc, &values, self.query.field.as_ref())?;
-            Ok(Some(PointRangeWeightSs::Impl1(ScorerSupplierImpl1::new(
+            PointRangeWeightSs::Impl1(ScorerSupplierImpl1::new(
                 self.base.score(),
                 self.score_mode,
                 values,
                 Self::get_intersect_visitor(result, self),
-            ))))
-        }
+            ))
+        };
+        Ok(Some(Box::new(BoxedScorerSupplier::new(supplier))))
     }
 
     fn count(&self, context: &LeafReaderContext<LR>) -> Result<i32> {
