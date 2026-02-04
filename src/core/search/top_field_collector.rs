@@ -670,6 +670,7 @@ where
     }
 
     fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+        self.base.count_hit(scorer, doc)?;
         if self.base.base.queue_full {
             if self.base.threshold_check(doc, scorer)? {
                 return Ok(());
@@ -885,6 +886,7 @@ where
     }
 
     fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+        self.base.count_hit(scorer, doc)?;
         if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
             return Ok(());
         }

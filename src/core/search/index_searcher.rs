@@ -359,6 +359,8 @@ where
             self.search_with_collector_manager_with_state(query.into(), &manager, term_state)?;
 
         if do_doc_scores {
+            todo!()
+            // TODO IMPORTANT 这里没有实现 populate_scores 方法
             // TopFieldCollector::populate_scores(&mut top_field_docs.score_docs, self, &query)?;
         }
 
