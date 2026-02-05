@@ -72,23 +72,17 @@ fn test_basic_ints() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(IntPoint::new_range_query("point", [-8], [1])?)?
+        searcher.count(IntPoint::new_range_query("point", -8, 1)?)?
     );
 
     assert_eq!(
         3,
-        searcher.count(IntPoint::new_range_query("point", [-7], [3])?)?
+        searcher.count(IntPoint::new_range_query("point", -7, 3)?)?
     );
 
-    assert_eq!(
-        1,
-        searcher.count(IntPoint::new_exact_query("point", [-7])?)?
-    );
+    assert_eq!(1, searcher.count(IntPoint::new_exact_query("point", -7)?)?);
 
-    assert_eq!(
-        0,
-        searcher.count(IntPoint::new_exact_query("point", [-6])?)?
-    );
+    assert_eq!(0, searcher.count(IntPoint::new_exact_query("point", -6)?)?);
     w.close()?;
     Ok(())
 }
@@ -1122,14 +1116,8 @@ fn test_exact_points() -> Result<()> {
     let r = directory_reader_util::open_with_writer(&w)?;
     let searcher = new_searcher_with_wrap(&r, false)?;
 
-    assert_eq!(
-        1,
-        searcher.count(IntPoint::new_exact_query("int", [42i32])?)?
-    );
-    assert_eq!(
-        0,
-        searcher.count(IntPoint::new_exact_query("int", [41i32])?)?
-    );
+    assert_eq!(1, searcher.count(IntPoint::new_exact_query("int", 42i32)?)?);
+    assert_eq!(0, searcher.count(IntPoint::new_exact_query("int", 41i32)?)?);
 
     assert_eq!(
         1,
@@ -1166,11 +1154,11 @@ fn test_to_string() -> Result<()> {
     // ints
     assert_eq!(
         "field:[1 TO 2]",
-        IntPoint::new_range_query("field", [1i32], [2i32])?.to_string("")
+        IntPoint::new_range_query("field", 1i32, 2i32)?.to_string("")
     );
     assert_eq!(
         "field:[-2 TO 1]",
-        IntPoint::new_range_query("field", [-2i32], [1i32])?.to_string("")
+        IntPoint::new_range_query("field", -2i32, 1i32)?.to_string("")
     );
 
     // longs
@@ -1328,19 +1316,19 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
 
     assert_eq!(
         zero_count,
-        searcher.count(IntPoint::new_range_query("int", [0], [0])?)?
+        searcher.count(IntPoint::new_range_query("int", 0, 0)?)?
     );
     assert_eq!(
         one_count,
-        searcher.count(IntPoint::new_range_query("int", [1], [1])?)?
+        searcher.count(IntPoint::new_range_query("int", 1, 1)?)?
     );
     assert_eq!(
         zero_count + one_count,
-        searcher.count(IntPoint::new_range_query("int", [0], [1])?)?
+        searcher.count(IntPoint::new_range_query("int", 0, 1)?)?
     );
     assert_eq!(
         10_000 - zero_count - one_count,
-        searcher.count(IntPoint::new_range_query("int", [2], [cardinality])?)?
+        searcher.count(IntPoint::new_range_query("int", 2, cardinality)?)?
     );
 
     assert_eq!(
@@ -1486,7 +1474,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
             upper.push(value[i] + random.random_range(0..1));
         }
 
-        let query = IntPoint::new_range_query("point", &lower, &upper)?;
+        let query = IntPoint::new_range_query_n("point", &lower, &upper)?;
         let weight = searcher.create_weight(query.clone(), CompleteNoScores, 1.0, None)?;
         let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0])?.unwrap();
         query
@@ -1560,7 +1548,7 @@ fn test_point_range_weight_count() -> Result<()> {
         let leaf = &searcher.get_leaf_contexts()?[0];
         #[allow(clippy::needless_range_loop)]
         for i in 0..num_queries {
-            let query = IntPoint::new_range_query("point", [lower_bound[i]], [upper_bound[i]])?;
+            let query = IntPoint::new_range_query("point", lower_bound[i], upper_bound[i])?;
             let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
             assert_eq!(expected_count[i], weight.count(leaf)?);
         }
@@ -1570,15 +1558,15 @@ fn test_point_range_weight_count() -> Result<()> {
 }
 #[test]
 fn test_point_range_equals() -> Result<()> {
-    let q1 = IntPoint::new_range_query("a", [0i32], [1000i32])?;
-    let q2 = IntPoint::new_range_query("a", [0i32], [1000i32])?;
+    let q1 = IntPoint::new_range_query("a", 0i32, 1000i32)?;
+    let q2 = IntPoint::new_range_query("a", 0i32, 1000i32)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, IntPoint::new_range_query("a", [1i32], [1000i32])?);
-    assert_ne!(q1, IntPoint::new_range_query("b", [0i32], [1000i32])?);
+    assert_ne!(q1, IntPoint::new_range_query("a", 1i32, 1000i32)?);
+    assert_ne!(q1, IntPoint::new_range_query("b", 0i32, 1000i32)?);
 
     let q1 = LongPoint::new_range_query("a", 0i64, 1000i64)?;
     let q2 = LongPoint::new_range_query("a", 0i64, 1000i64)?;
@@ -1640,15 +1628,15 @@ fn test_point_range_equals() -> Result<()> {
 }
 #[test]
 fn test_point_exact_equals() -> Result<()> {
-    let q1 = IntPoint::new_exact_query("a", [1000i32])?;
-    let q2 = IntPoint::new_exact_query("a", [1000i32])?;
+    let q1 = IntPoint::new_exact_query("a", 1000i32)?;
+    let q2 = IntPoint::new_exact_query("a", 1000i32)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, IntPoint::new_exact_query("a", [1i32])?);
-    assert_ne!(q1, IntPoint::new_exact_query("b", [1000i32])?);
+    assert_ne!(q1, IntPoint::new_exact_query("a", 1i32)?);
+    assert_ne!(q1, IntPoint::new_exact_query("b", 1000i32)?);
 
     let q1 = LongPoint::new_exact_query("a", 1000i64)?;
     let q2 = LongPoint::new_exact_query("a", 1000i64)?;
@@ -1773,7 +1761,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let reader = directory_reader_util::open_with_writer(&w)?;
     let searcher = new_searcher_with_wrap(&reader, false)?;
 
-    let query = IntPoint::new_range_query("field", [0i32], [1i32])?;
+    let query = IntPoint::new_range_query("field", 0i32, 1i32)?;
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
@@ -1781,7 +1769,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
             .is_none()
     );
 
-    let query = IntPoint::new_range_query("field", [3i32], [4i32])?;
+    let query = IntPoint::new_range_query("field", 3i32, 4i32)?;
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
@@ -1789,7 +1777,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
             .is_none()
     );
 
-    let query = IntPoint::new_range_query("field2d", &[0i32, 0i32], &[2i32, 2i32])?;
+    let query = IntPoint::new_range_query_n("field2d", &[0i32, 0i32], &[2i32, 2i32])?;
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
@@ -1797,7 +1785,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
             .is_none()
     );
 
-    let query = IntPoint::new_range_query("field2d", &[2i32, 2i32], &[4i32, 4i32])?;
+    let query = IntPoint::new_range_query_n("field2d", &[2i32, 2i32], &[4i32, 4i32])?;
     let weight = searcher.create_weight(query, CompleteNoScores, 1.0, None)?;
     assert!(
         weight
