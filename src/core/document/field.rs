@@ -2026,7 +2026,7 @@ mod tests {
             try_set_long_value(&mut field),
             Err(LuceneError::IllegalArgument(_))
         ));
-        field.set_long_values(&[6, 7])?;
+        field.set_long_values([6, 7])?;
         assert!(matches!(
             try_set_reader_value(&mut field),
             Err(LuceneError::NotImplemented(_))

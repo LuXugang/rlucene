@@ -260,7 +260,7 @@ where
 
         if state.is_none() {
             debug_assert!(
-                !self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
+                self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
                 "no termstate found but term exists in reader"
             );
             return Ok(None);

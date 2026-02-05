@@ -57,7 +57,11 @@ impl LongPoint {
     }
 
     /// Change the values of this field
-    pub fn set_long_values(&mut self, point: &[i64]) -> Result<()> {
+    pub fn set_long_values<V>(&mut self, point: V) -> Result<()>
+    where
+        V: AsRef<[i64]>,
+    {
+        let point = point.as_ref();
         if self.parent_field.field_type().point_dimension_count() != point.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -155,7 +159,7 @@ impl FieldBase for LongPoint {
     }
 
     fn set_long_value(&mut self, value: i64) -> Result<()> {
-        self.set_long_values(&[value])
+        self.set_long_values([value])
     }
 }
 

@@ -32,7 +32,7 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
 /// [`TermQuery`](crate::core::search::term_query::TermQuery)s, [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)s or other [`BooleanQuery`]s.
@@ -46,13 +46,27 @@ pub struct BooleanQuery {
 
 impl BooleanQuery {
     fn new(minimum_number_should_match: i32, clauses: Vec<BooleanClause>) -> BooleanQuery {
-        let mut clause_sets = HashMap::new();
+        let mut clause_sets: HashMap<Occur, Vec<usize>> = HashMap::new();
+
         for (idx, clause) in clauses.iter().enumerate() {
-            clause_sets
-                .entry(clause.occur)
-                .or_insert_with(Vec::new)
-                .push(idx);
+            let occur = clause.occur;
+
+            match occur {
+                Occur::Should | Occur::Must => {
+                    clause_sets.entry(occur).or_default().push(idx);
+                },
+
+                Occur::Filter | Occur::MustNot => {
+                    let indices = clause_sets.entry(occur).or_default();
+
+                    let exists = indices.iter().any(|&i| clauses[i].query == clause.query);
+                    if !exists {
+                        indices.push(idx);
+                    }
+                },
+            }
         }
+
         BooleanQuery {
             id: Identity::new(),
             minimum_number_should_match,
@@ -154,23 +168,38 @@ impl BooleanQuery {
 
         Ok(new_query.build().into())
     }
+    fn as_counts_map(&self) -> HashMap<(Occur, &Query), usize> {
+        let mut m = HashMap::new();
+        for (&occur, indices) in &self.clause_sets {
+            for &idx in indices {
+                let q = &self.clauses[idx].query;
+                *m.entry((occur, q)).or_insert(0) += 1;
+            }
+        }
+        m
+    }
 }
 impl Hash for BooleanQuery {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.minimum_number_should_match.hash(state);
-        for clause in &self.clause_sets {
-            for x in clause.1 {
-                self.clauses[*x].hash(state);
+        let mut hs = Vec::new();
+        for (&occur, indices) in &self.clause_sets {
+            for &idx in indices {
+                let mut h = DefaultHasher::new();
+                occur.hash(&mut h);
+                self.clauses[idx].query.hash(&mut h);
+                hs.push(h.finish());
             }
-            clause.hash(state);
         }
+        hs.sort_unstable();
+        hs.hash(state);
     }
 }
 
 impl PartialEq for BooleanQuery {
     fn eq(&self, other: &Self) -> bool {
         self.minimum_number_should_match == other.minimum_number_should_match
-            && self.clauses == other.clauses
+            && self.as_counts_map() == other.as_counts_map()
     }
 }
 
@@ -932,4 +961,593 @@ impl Builder {
     pub fn build(self) -> BooleanQuery {
         BooleanQuery::new(self.minimum_number_should_match, self.clauses)
     }
+}
+#[cfg(test)]
+mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::FieldBase;
+    use crate::core::document::field::Store::No;
+    use crate::core::document::field_type::FieldType;
+    use crate::core::document::long_point::LongPoint;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use rand::Rng;
+    use rand::prelude::SliceRandom;
+    use std::collections::HashMap;
+
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::{BooleanClause, Occur};
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
+    use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+    use crate::core::search::query::Query;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::util::CoreHelper;
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::search::query_utils::QueryUtils;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field,
+        random,
+    };
+    use crate::test::util::test_util::TestUtil;
+
+    #[test]
+    fn test_equality() -> Result<()> {
+        let mut bq1 = Builder::new();
+        bq1.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "value1"))),
+            Occur::Should,
+        )?;
+        bq1.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "value2"))),
+            Occur::Should,
+        )?;
+        let mut nested1 = Builder::new();
+        nested1.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue1"))),
+            Occur::Should,
+        )?;
+        nested1.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue2"))),
+            Occur::Should,
+        )?;
+        bq1.add_query(Query::Boolean(nested1.build()), Occur::Should)?;
+
+        let mut bq2 = Builder::new();
+        bq2.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "value1"))),
+            Occur::Should,
+        )?;
+        bq2.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "value2"))),
+            Occur::Should,
+        )?;
+        let mut nested2 = Builder::new();
+        nested2.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue1"))),
+            Occur::Should,
+        )?;
+        nested2.add_query(
+            Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue2"))),
+            Occur::Should,
+        )?;
+        bq2.add_query(Query::Boolean(nested2.build()), Occur::Should)?;
+
+        assert_eq!(bq1.build(), bq2.build());
+        Ok(())
+    }
+    #[test]
+    fn test_equality_does_not_depend_on_order() -> Result<()> {
+        let mut random = random();
+
+        let queries = [
+            TermQuery::new(Term::from_text("foo", "bar")),
+            TermQuery::new(Term::from_text("foo", "baz")),
+        ];
+
+        for _ in 0..10 {
+            let num_clauses = random.random_range(0..20) as usize;
+
+            let mut clauses: Vec<BooleanClause> = Vec::with_capacity(num_clauses);
+            for _ in 0..num_clauses {
+                let mut query = if random.random_bool(0.5) {
+                    Query::Term(queries[0].clone())
+                } else {
+                    Query::Term(queries[1].clone())
+                };
+
+                if random.random_bool(0.5) {
+                    let boost = random.random();
+                    query = Query::Boost(BoostQuery::new(query, boost)?);
+                }
+
+                let occur = match random.random_range(0..4) {
+                    0 => Occur::Must,
+                    1 => Occur::Filter,
+                    2 => Occur::Should,
+                    _ => Occur::MustNot,
+                };
+
+                clauses.push(BooleanClause { query, occur });
+            }
+
+            let min_should_match = random.random_range(0..5);
+
+            let mut bq1_builder = Builder::new();
+            bq1_builder.set_minimum_number_should_match(min_should_match);
+            for clause in &clauses {
+                bq1_builder.add_clause(clause.clone())?;
+            }
+            let bq1 = bq1_builder.build();
+
+            clauses.shuffle(&mut random);
+
+            let mut bq2_builder = Builder::new();
+            bq2_builder.set_minimum_number_should_match(min_should_match);
+            for clause in &clauses {
+                bq2_builder.add_clause(clause.clone())?;
+            }
+            let bq2 = bq2_builder.build();
+
+            QueryUtils::check_equal(&bq1, &bq2)
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_equality_on_duplicate_should_clauses() -> Result<()> {
+        let mut random = random();
+
+        let min_should_match = random.random_range(0..2);
+
+        let mut bq1_builder = Builder::new();
+        bq1_builder.set_minimum_number_should_match(min_should_match);
+        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        let bq1 = bq1_builder.build();
+
+        let mut bq2_builder = Builder::new();
+        bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        let bq2 = bq2_builder.build();
+
+        QueryUtils::check_unequal(&bq1, &bq2);
+        Ok(())
+    }
+    #[test]
+    fn test_equality_on_duplicate_filter_clauses() -> Result<()> {
+        let mut random = random();
+
+        let min_should_match = random.random_range(0..2);
+
+        let mut bq1_builder = Builder::new();
+        bq1_builder.set_minimum_number_should_match(min_should_match);
+        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        let bq1 = bq1_builder.build();
+
+        let mut bq2_builder = Builder::new();
+        bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        let bq2 = bq2_builder.build();
+
+        QueryUtils::check_equal(&bq1, &bq2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_equality_on_duplicate_must_not_clauses() -> Result<()> {
+        let mut random = random();
+
+        let min_should_match = random.random_range(0..2);
+
+        let mut bq1_builder = Builder::new();
+        bq1_builder.set_minimum_number_should_match(min_should_match);
+        bq1_builder.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        let bq1 = bq1_builder.build();
+
+        let mut bq2_builder = Builder::new();
+        bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
+        bq2_builder.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        let bq2 = bq2_builder.build();
+
+        QueryUtils::check_equal(&bq1, &bq2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_hash_code_is_stable() -> Result<()> {
+        let mut random = random();
+
+        let t1 = Term::from_text("foo", TestUtil::random_simple_string(&mut random));
+        let t2 = Term::from_text("foo", TestUtil::random_simple_string(&mut random));
+
+        let mut bq_builder = Builder::new();
+        bq_builder.add_query(TermQuery::new(t1), Occur::Should)?;
+        bq_builder.add_query(TermQuery::new(t2), Occur::Should)?;
+        let bq = bq_builder.build();
+
+        let hash1 = CoreHelper::calculate_hash(&bq);
+        assert_eq!(hash1, CoreHelper::calculate_hash(&bq));
+
+        Ok(())
+    }
+    #[test]
+    fn test_too_many_clauses() -> Result<()> {
+        let mut bq = Builder::new();
+
+        let max = get_max_clause_count();
+
+        for i in 0..max {
+            bq.add_query(
+                TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
+                Occur::Should,
+            )?;
+        }
+
+        let res = bq.add_query(
+            TermQuery::new(Term::from_text("foo", "bar-MAX")),
+            Occur::Should,
+        );
+
+        assert!(matches!(res, Err(LuceneError::TooManyClauses(_))));
+        Ok(())
+    }
+
+    #[test]
+    fn test_null_or_sub_scorer() -> Result<()> {
+        // TODO PhraseQuery未实现
+        Ok(())
+    }
+    #[test]
+    fn test_de_morgan() -> Result<()> {
+        // TODO DeMorgan 相关逻辑尚未实现
+        Ok(())
+    }
+    #[test]
+    fn test_bs2disjunction_next_vs_advance() -> Result<()> {
+        // TODO IMPORTANT 等BooleanQuery稳定后再来实现
+        Ok(())
+    }
+    #[test]
+    fn test_min_should_match_leniency() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO: 未实现 MockAnalyzer
+        let iwc = new_index_writer_config(&mut random);
+        let writer = IndexWriter::new(dir.clone(), iwc)?;
+        let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_text_field("field", "a b c d", No, &mut field_to_type)?);
+        writer.add_document(doc)?;
+
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let mut bq = Builder::new();
+        bq.add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+        bq.add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
+
+        // No doc can match: only 2 SHOULD clauses, but min_should_match = 4
+        bq.set_minimum_number_should_match(4);
+        let query = bq.build();
+
+        let top_docs = searcher.search(query, 1)?;
+        assert_eq!(0, top_docs.total_hits.value());
+
+        Ok(())
+    }
+    #[test]
+    fn test_filter_clause_behaves_like_must() -> Result<()> {
+        // TODO IMPORTANT FixedBitSetCollector未实现
+        Ok(())
+    }
+    #[test]
+    fn test_filter_clause_does_not_impact_score() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_conjunction_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_disjunction_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_boosted_scorer_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_exclusion_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+
+    #[test]
+    fn test_req_opt_propagates_approximations() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_query_matches_count() -> Result<()> {
+        // TODO PhraseQuery 未实现
+        Ok(())
+    }
+    #[test]
+    fn test_conjunction_matches_count() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        let mut long_point = LongPoint::new("long", [3i64])?;
+        doc.add(long_point.clone());
+        let mut string_field = StringField::with_string("string", "abc", No)?;
+        doc.add(string_field.clone());
+        writer.add_document(doc.clone())?;
+
+        long_point.set_long_value(10)?;
+        string_field.set_string_value("xyz")?;
+        doc = Document::new();
+        doc.add(string_field);
+        doc.add(long_point);
+        writer.add_document(doc)?;
+
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = get_context(reader)?;
+        let searcher = IndexSearcher::new(reader)?;
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
+        let query = builder.build();
+
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // Both queries match a single doc, BooleanWeight can't figure out the count of the conjunction
+        assert_eq!(-1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "missing")),
+                Occur::Must,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
+        let query = builder.build();
+
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query has a count of 0, the conjunction has a count of 0 too
+        assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 5)?, Occur::Filter)?;
+        let query = builder.build();
+
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query has a count of 0, the conjunction has a count of 0 too
+        assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
+
+        // FILTER matches all docs → conjunction count equals MUST count
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Must,
+            )?
+            .add_query(LongPoint::new_range_query("long", 0, 10)?, Occur::Filter)?;
+        let query = builder.build();
+
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query matches all docs, the count of the conjunction is the count of the other query
+        assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add_query(LongPoint::new_range_query("long", 1, 5)?, Occur::Filter)?;
+        let query = builder.build();
+
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query matches all docs, the count of the conjunction is the count of the other query
+        assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_matches_count() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+
+        let mut doc = Document::new();
+        let mut long_point = LongPoint::new("long", [3i64])?;
+        let mut long_point_3dim = LongPoint::new("long3dim", [3i64, 4i64, 5i64])?;
+        doc.add(long_point.clone());
+        doc.add(long_point_3dim.clone());
+
+        let mut string_field = StringField::with_string("string", "abc", No)?;
+        doc.add(string_field.clone());
+
+        writer.add_document(doc.clone())?;
+
+        long_point.set_long_value(10)?;
+        long_point_3dim.set_long_values([10i64, 11i64, 12i64])?;
+        string_field.set_string_value("xyz")?;
+
+        doc = Document::new();
+        doc.add(string_field);
+        doc.add(long_point);
+        doc.add(long_point_3dim);
+        writer.add_document(doc)?;
+
+        let reader = directory_reader_util::open_with_writer(&writer)?;
+        let reader = get_context(reader)?;
+        let searcher = IndexSearcher::new(reader)?;
+
+        let leaf = &searcher.get_leaf_contexts()?[0];
+
+        // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Should,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
+        let query = builder.build();
+        // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        assert_eq!(-1, weight.count(leaf)?);
+
+        // One query has a count of 0, the disjunction count is the other count
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "missing")),
+                Occur::Should,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
+        let query = builder.build();
+        // One query has a count of 0, the disjunction count is the other count
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        assert_eq!(1, weight.count(leaf)?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Should,
+            )?
+            .add_query(LongPoint::new_exact_query("long", 5)?, Occur::Should)?;
+        let query = builder.build();
+        // One query has a count of 0, the disjunction count is the other count
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        assert_eq!(1, weight.count(leaf)?);
+
+        // One query matches all docs, the count of the disjunction is the number of docs
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Should,
+            )?
+            .add_query(LongPoint::new_range_query("long", 0, 10)?, Occur::Should)?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query matches all docs, the count of the disjunction is the number of docs
+
+        assert_eq!(2, weight.count(leaf)?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?
+            .add_query(LongPoint::new_range_query("long", 1, 5)?, Occur::Should)?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // One query matches all docs, the count of the disjunction is the number of docs
+        assert_eq!(2, weight.count(leaf)?);
+
+        // Unknown count query on 3D long point range
+        let lower = [4i64, 5i64, 6i64];
+        let upper = [9i64, 10i64, 11i64];
+        let unknown_count_query = LongPoint::new_range_query_n("long3dim", &lower, &upper)?;
+
+        debug_assert_eq!(1, searcher.get_leaf_contexts()?.len());
+        let w =
+            searcher.create_weight(unknown_count_query.clone(), ScoreMode::Complete, 1.0, None)?;
+        assert_eq!(-1, w.count(leaf)?);
+
+        // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all docs
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "xyz")),
+                Occur::Must,
+            )?
+            .add_query(unknown_count_query.clone(), Occur::MustNot)?
+            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all
+        // docs
+        assert_eq!(0, weight.count(leaf)?);
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                TermQuery::new(Term::from_text("string", "xyz")),
+                Occur::Must,
+            )?
+            .add_query(unknown_count_query.clone(), Occur::MustNot)?
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::MustNot,
+            )?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // count of the first MUST_NOT clause is unknown, though the second MUST_NOT clause matche one
+        // doc, we can't figure out the number of
+        // docs
+        assert_eq!(-1, weight.count(leaf)?);
+
+        // test pure disjunction
+        let mut builder = Builder::new();
+        builder
+            .add_query(unknown_count_query.clone(), Occur::Should)?
+            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // count of the first SHOULD clause is unknown, but the second SHOULD clause matches all docs
+        assert_eq!(2, weight.count(leaf)?);
+
+        // count of the first SHOULD clause is unknown, though the second SHOULD clause matches one doc
+        let mut builder = Builder::new();
+        builder
+            .add_query(unknown_count_query, Occur::Should)?
+            .add_query(
+                TermQuery::new(Term::from_text("string", "abc")),
+                Occur::Should,
+            )?;
+        let query = builder.build();
+        let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
+        // count of the first SHOULD clause is unknown, though the second SHOULD clause matche one doc,
+        // we can't figure out the number of
+        // docs
+        assert_eq!(-1, weight.count(leaf)?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
+        // TODO IndexSearch
+        Ok(())
+    }
+
+    // TODO IMPORTANT 还有好几个未完成的测试
 }
