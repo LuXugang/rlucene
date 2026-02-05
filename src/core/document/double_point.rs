@@ -92,16 +92,25 @@ impl DoublePoint {
     pub fn decode_dimension(value: &[u8], offset: usize) -> f64 {
         NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(value, offset))
     }
-    pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
+    pub fn new_exact_query<T>(field: T, value: f64) -> Result<PointRangeQuery>
     where
         T: Into<String>,
-        V: AsRef<[f64]>,
     {
-        let value = value.as_ref();
         Self::new_range_query(field, value, value)
     }
 
-    pub fn new_range_query<T, V>(
+    pub fn new_range_query<T>(
+        field: T,
+        lower_value: f64,
+        upper_value: f64,
+    ) -> Result<PointRangeQuery>
+    where
+        T: Into<String>,
+    {
+        Self::new_range_query_n(field, [lower_value], [upper_value])
+    }
+
+    pub fn new_range_query_n<T, V>(
         field: T,
         lower_value: V,
         upper_value: V,

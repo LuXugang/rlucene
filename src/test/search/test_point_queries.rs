@@ -218,22 +218,22 @@ fn test_basic_doubles() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(DoublePoint::new_range_query("point", [-8.0f64], [1.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("point", -8.0f64, 1.0f64)?)?
     );
 
     assert_eq!(
         3,
-        searcher.count(DoublePoint::new_range_query("point", [-7.0f64], [3.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("point", -7.0f64, 3.0f64)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [-7.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("point", -7.0f64)?)?
     );
 
     assert_eq!(
         0,
-        searcher.count(DoublePoint::new_exact_query("point", [-6.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("point", -6.0f64)?)?
     );
 
     w.close()?;
@@ -294,31 +294,31 @@ fn test_crazy_doubles() -> Result<()> {
     // exact queries
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [f64::NEG_INFINITY])?)?
+        searcher.count(DoublePoint::new_exact_query("point", f64::NEG_INFINITY)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [-0.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("point", -0.0f64)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [0.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("point", 0.0f64)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [f64::MIN_POSITIVE])?)?
+        searcher.count(DoublePoint::new_exact_query("point", f64::MIN_POSITIVE)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [f64::MAX])?)?
+        searcher.count(DoublePoint::new_exact_query("point", f64::MAX)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [f64::INFINITY])?)?
+        searcher.count(DoublePoint::new_exact_query("point", f64::INFINITY)?)?
     );
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("point", [f64::NAN])?)?
+        searcher.count(DoublePoint::new_exact_query("point", f64::NAN)?)?
     );
 
     // set query
@@ -342,31 +342,22 @@ fn test_crazy_doubles() -> Result<()> {
         2,
         searcher.count(DoublePoint::new_range_query(
             "point",
-            [f64::NEG_INFINITY],
-            [-0.0f64]
+            f64::NEG_INFINITY,
+            -0.0f64
         )?)?
     );
 
     assert_eq!(
         2,
-        searcher.count(DoublePoint::new_range_query("point", [-0.0f64], [0.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("point", -0.0f64, 0.0f64)?)?
     );
 
     assert_eq!(
         2,
         searcher.count(DoublePoint::new_range_query(
             "point",
-            [0.0f64],
-            [f64::MIN_POSITIVE]
-        )?)?
-    );
-
-    assert_eq!(
-        2,
-        searcher.count(DoublePoint::new_range_query(
-            "point",
-            [f64::MIN_POSITIVE],
-            [f64::MAX]
+            0.0f64,
+            f64::MIN_POSITIVE
         )?)?
     );
 
@@ -374,8 +365,8 @@ fn test_crazy_doubles() -> Result<()> {
         2,
         searcher.count(DoublePoint::new_range_query(
             "point",
-            [f64::MAX],
-            [f64::INFINITY]
+            f64::MIN_POSITIVE,
+            f64::MAX
         )?)?
     );
 
@@ -383,8 +374,17 @@ fn test_crazy_doubles() -> Result<()> {
         2,
         searcher.count(DoublePoint::new_range_query(
             "point",
-            [f64::INFINITY],
-            [f64::NAN]
+            f64::MAX,
+            f64::INFINITY
+        )?)?
+    );
+
+    assert_eq!(
+        2,
+        searcher.count(DoublePoint::new_range_query(
+            "point",
+            f64::INFINITY,
+            f64::NAN
         )?)?
     );
 
@@ -1139,11 +1139,11 @@ fn test_exact_points() -> Result<()> {
 
     assert_eq!(
         1,
-        searcher.count(DoublePoint::new_exact_query("double", [1.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("double", 1.0f64)?)?
     );
     assert_eq!(
         0,
-        searcher.count(DoublePoint::new_exact_query("double", [2.0f64])?)?
+        searcher.count(DoublePoint::new_exact_query("double", 2.0f64)?)?
     );
 
     w.close()?;
@@ -1184,17 +1184,18 @@ fn test_to_string() -> Result<()> {
     // doubles
     assert_eq!(
         "field:[1.3 TO 2.5]",
-        DoublePoint::new_range_query("field", [1.3f64], [2.5f64])?.to_string("")
+        DoublePoint::new_range_query("field", 1.3f64, 2.5f64)?.to_string("")
     );
     assert_eq!(
         "field:[-2.9 TO 1]",
-        DoublePoint::new_range_query("field", [-2.9f64], [1.0f64])?.to_string("")
+        DoublePoint::new_range_query("field", -2.9f64, 1.0f64)?.to_string("")
     );
 
     // n-dimensional double
     assert_eq!(
         "field:[1.3 TO 2.5],[-2.9 TO 1]",
-        DoublePoint::new_range_query("field", &[1.3f64, -2.9f64], &[2.5f64, 1.0f64])?.to_string("")
+        DoublePoint::new_range_query_n("field", &[1.3f64, -2.9f64], &[2.5f64, 1.0f64])?
+            .to_string("")
     );
 
     Ok(())
@@ -1375,22 +1376,22 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
 
     assert_eq!(
         zero_count,
-        searcher.count(DoublePoint::new_range_query("double", [0.0f64], [0.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("double", 0.0f64, 0.0f64)?)?
     );
     assert_eq!(
         one_count,
-        searcher.count(DoublePoint::new_range_query("double", [1.0f64], [1.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("double", 1.0f64, 1.0f64)?)?
     );
     assert_eq!(
         zero_count + one_count,
-        searcher.count(DoublePoint::new_range_query("double", [0.0f64], [1.0f64])?)?
+        searcher.count(DoublePoint::new_range_query("double", 0.0f64, 1.0f64)?)?
     );
     assert_eq!(
         10_000 - zero_count - one_count,
         searcher.count(DoublePoint::new_range_query(
             "double",
-            [2.0f64],
-            [cardinality as f64]
+            2.0f64,
+            cardinality as f64
         )?)?
     );
 
@@ -1586,17 +1587,14 @@ fn test_point_range_equals() -> Result<()> {
     );
     assert_ne!(q1, FloatPoint::new_range_query("a", [1.0f32], [1000.0f32])?);
 
-    let q1 = DoublePoint::new_range_query("a", [0.0f64], [1000.0f64])?;
-    let q2 = DoublePoint::new_range_query("a", [0.0f64], [1000.0f64])?;
+    let q1 = DoublePoint::new_range_query("a", 0.0f64, 1000.0f64)?;
+    let q2 = DoublePoint::new_range_query("a", 0.0f64, 1000.0f64)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(
-        q1,
-        DoublePoint::new_range_query("a", [1.0f64], [1000.0f64])?
-    );
+    assert_ne!(q1, DoublePoint::new_range_query("a", 1.0f64, 1000.0f64)?);
 
     let zeros = vec![0u8; 5];
     let ones = vec![0xffu8; 5];
@@ -1662,14 +1660,14 @@ fn test_point_exact_equals() -> Result<()> {
     assert_eq!(q1.get_lower_point(), q2.get_lower_point());
     assert_eq!(q1.get_upper_point(), q2.get_upper_point());
 
-    let q1 = DoublePoint::new_exact_query("a", [1000.0f64])?;
-    let q2 = DoublePoint::new_exact_query("a", [1000.0f64])?;
+    let q1 = DoublePoint::new_exact_query("a", 1000.0f64)?;
+    let q2 = DoublePoint::new_exact_query("a", 1000.0f64)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, DoublePoint::new_exact_query("a", [1.0f64])?);
+    assert_ne!(q1, DoublePoint::new_exact_query("a", 1.0f64)?);
 
     assert_eq!(q1.get_lower_point(), q2.get_lower_point());
     assert_eq!(q1.get_upper_point(), q2.get_upper_point());
