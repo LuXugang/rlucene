@@ -79,8 +79,8 @@ impl MatchNoDocsQuery {
 }
 
 impl PartialEq for MatchNoDocsQuery {
-    fn eq(&self, other: &Self) -> bool {
-        self.reason == other.reason
+    fn eq(&self, _other: &Self) -> bool {
+        true
     }
 }
 
