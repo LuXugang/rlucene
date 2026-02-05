@@ -532,7 +532,11 @@ where
         leaf_collector.finish()?;
         Ok(())
     }
-    pub fn rewrite(&self, mut query: Query) -> Result<Query> {
+    pub fn rewrite<Q>(&self, query: Q) -> Result<Query>
+    where
+        Q: Into<Query>,
+    {
+        let mut query = query.into();
         let mut query_id = query.identity().clone();
         loop {
             query = query.rewrite(self)?;

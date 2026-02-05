@@ -548,7 +548,7 @@ mod tests {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
         let query: Query = MatchNoDocsQuery::new().into();
         let query = ConstantScoreQuery::new(query);
-        let rewritten = searcher.rewrite(query.into())?;
+        let rewritten = searcher.rewrite(query)?;
         assert_eq!(rewritten, Query::MatchNoDoc(MatchNoDocsQuery::new()));
         Ok(())
     }
