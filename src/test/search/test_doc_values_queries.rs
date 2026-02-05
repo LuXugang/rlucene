@@ -125,7 +125,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
             TestUtil::next_long(&mut random, -100, 10000)
         };
 
-        let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+        let q1 = LongPoint::new_range_query("idx", min, max)?;
         let q2 = numeric_doc_values_field_util::new_slow_range_query("dv", min, max);
 
         assert_same_matches(&searcher, q1, q2, false)?;
@@ -207,7 +207,7 @@ fn do_test_duel_point_range_numeric_range_query(
                 TestUtil::next_long(&mut random, -100, 10000)
             };
 
-            let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+            let q1 = LongPoint::new_range_query("idx", min, max)?;
 
             let q2 = if sorted_numeric {
                 sorted_numeric_doc_values_field_util::new_slow_range_query("dv", min, max)
@@ -328,7 +328,7 @@ fn do_test_duel_point_range_sorted_range_query(
                 max -= 1;
             }
 
-            let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+            let q1 = LongPoint::new_range_query("idx", min, max)?;
 
             let q2 = if sorted_set {
                 sorted_set_doc_values_field_util::new_slow_range_query(
@@ -469,7 +469,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
             max -= 1;
         }
 
-        let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+        let q1 = LongPoint::new_range_query("idx", min, max)?;
 
         let q2 = sorted_doc_values_field_util::new_slow_range_query(
             "dv",

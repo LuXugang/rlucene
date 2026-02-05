@@ -1350,7 +1350,7 @@ mod tests {
                     TestUtil::next_long(&mut random, -100, 10000)
                 };
 
-                let q1 = LongPoint::new_range_query("idx", vec![min], vec![max])?;
+                let q1 = LongPoint::new_range_query("idx", min, max)?;
                 let q2 = create_query("dv", min, max);
 
                 assert_same_hits(&searcher, q1, q2, false)?;
@@ -1923,9 +1923,9 @@ mod tests {
                     TestUtil::next_long(&mut random, -100, 10000)
                 };
 
-                let q1 = LongPoint::new_range_query("field", vec![min], vec![max])?;
+                let q1 = LongPoint::new_range_query("field", min, max)?;
 
-                let fallback = LongPoint::new_range_query("field", vec![min], vec![max])?;
+                let fallback = LongPoint::new_range_query("field", min, max)?;
                 let q2 = IndexSortSortedNumericDocValuesRangeQuery::new(
                     "field",
                     min,
@@ -1999,8 +1999,7 @@ mod tests {
         let reader = writer.get_reader()?;
         let searcher = new_searcher_with_reader(reader)?;
 
-        let fallback_query =
-            LongPoint::new_range_query("field", vec![lower_value], vec![upper_value])?;
+        let fallback_query = LongPoint::new_range_query("field", lower_value, upper_value)?;
 
         let query = IndexSortSortedNumericDocValuesRangeQuery::new(
             "field",
@@ -2101,7 +2100,7 @@ mod tests {
         let searcher = new_searcher_with_reader(reader)?;
         // Both bounds exist in the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![7], vec![9])?;
+            let fallback = LongPoint::new_range_query(field_name, 7, 9)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 7,
@@ -2115,7 +2114,7 @@ mod tests {
         }
         // Both bounds do not exist in the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![6], vec![10])?;
+            let fallback = LongPoint::new_range_query(field_name, 6, 10)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 6,
@@ -2129,7 +2128,7 @@ mod tests {
         }
         // Min bound exists in the dataset, not the max
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![7], vec![10])?;
+            let fallback = LongPoint::new_range_query(field_name, 7, 10)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 7,
@@ -2143,7 +2142,7 @@ mod tests {
         }
         // Min bound doesn't exist in the dataset, max does
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![6], vec![9])?;
+            let fallback = LongPoint::new_range_query(field_name, 6, 9)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 6,
@@ -2157,7 +2156,7 @@ mod tests {
         }
         // Min bound is the min value of the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![5], vec![8])?;
+            let fallback = LongPoint::new_range_query(field_name, 5, 8)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 5,
@@ -2171,7 +2170,7 @@ mod tests {
         }
         // Min bound is less than min value of the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![4], vec![8])?;
+            let fallback = LongPoint::new_range_query(field_name, 4, 8)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 4,
@@ -2185,7 +2184,7 @@ mod tests {
         }
         // Max bound is the max value of the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![10], vec![13])?;
+            let fallback = LongPoint::new_range_query(field_name, 10, 13)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 10,
@@ -2199,7 +2198,7 @@ mod tests {
         }
         // Max bound is greater than max value of the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![10], vec![14])?;
+            let fallback = LongPoint::new_range_query(field_name, 10, 14)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 10,
@@ -2213,7 +2212,7 @@ mod tests {
         }
         // Everything matches
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![2], vec![14])?;
+            let fallback = LongPoint::new_range_query(field_name, 2, 14)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 2,
@@ -2227,7 +2226,7 @@ mod tests {
         }
         // Bounds equal to min/max values of the dataset, everything matches
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![2], vec![3])?;
+            let fallback = LongPoint::new_range_query(field_name, 2, 3)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 2,
@@ -2241,7 +2240,7 @@ mod tests {
         }
         // Bounds are greater than the max value of the dataset
         {
-            let fallback = LongPoint::new_range_query(field_name, vec![14], vec![15])?;
+            let fallback = LongPoint::new_range_query(field_name, 14, 15)?;
             let query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 14,
@@ -2300,7 +2299,7 @@ mod tests {
             let low = random1.min(random2);
             let upper = random1.max(random2);
 
-            let range_query = LongPoint::new_range_query(field_name, vec![low], vec![upper])?;
+            let range_query = LongPoint::new_range_query(field_name, low, upper)?;
             let index_sort_range_query = IndexSortSortedNumericDocValuesRangeQuery::new(
                 field_name,
                 low,

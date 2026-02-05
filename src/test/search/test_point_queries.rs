@@ -173,22 +173,22 @@ fn test_basic_longs() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(LongPoint::new_range_query("point", [-8i64], [1i64])?)?
+        searcher.count(LongPoint::new_range_query("point", -8i64, 1i64)?)?
     );
 
     assert_eq!(
         3,
-        searcher.count(LongPoint::new_range_query("point", [-7i64], [3i64])?)?
+        searcher.count(LongPoint::new_range_query("point", -7i64, 3i64)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_exact_query("point", [-7i64])?)?
+        searcher.count(LongPoint::new_exact_query("point", -7i64)?)?
     );
 
     assert_eq!(
         0,
-        searcher.count(LongPoint::new_exact_query("point", [-6i64])?)?
+        searcher.count(LongPoint::new_exact_query("point", -6i64)?)?
     );
 
     w.close()?;
@@ -671,17 +671,17 @@ fn test_min_max_long() -> Result<()> {
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query("value", [i64::MIN], [0i64])?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, 0i64)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query("value", [0i64], [i64::MAX])?)?
+        searcher.count(LongPoint::new_range_query("value", 0i64, i64::MAX)?)?
     );
 
     assert_eq!(
         2,
-        searcher.count(LongPoint::new_range_query("value", [i64::MIN], [i64::MAX])?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, i64::MAX)?)?
     );
     Ok(())
 }
@@ -837,33 +837,25 @@ fn test_long_min_max_numeric() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(LongPoint::new_range_query("value", [i64::MIN], [i64::MAX])?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, i64::MAX)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query(
-            "value",
-            [i64::MIN],
-            [i64::MAX - 1]
-        )?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, i64::MAX - 1)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query(
-            "value",
-            [i64::MIN + 1],
-            [i64::MAX]
-        )?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN + 1, i64::MAX)?)?
     );
 
     assert_eq!(
         0,
         searcher.count(LongPoint::new_range_query(
             "value",
-            [i64::MIN + 1],
-            [i64::MAX - 1]
+            i64::MIN + 1,
+            i64::MAX - 1
         )?)?
     );
 
@@ -895,33 +887,25 @@ fn test_long_min_max_sorted_set() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(LongPoint::new_range_query("value", [i64::MIN], [i64::MAX])?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, i64::MAX)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query(
-            "value",
-            [i64::MIN],
-            [i64::MAX - 1]
-        )?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN, i64::MAX - 1)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_range_query(
-            "value",
-            [i64::MIN + 1],
-            [i64::MAX]
-        )?)?
+        searcher.count(LongPoint::new_range_query("value", i64::MIN + 1, i64::MAX)?)?
     );
 
     assert_eq!(
         0,
         searcher.count(LongPoint::new_range_query(
             "value",
-            [i64::MIN + 1],
-            [i64::MAX - 1]
+            i64::MIN + 1,
+            i64::MAX - 1
         )?)?
     );
 
@@ -990,7 +974,7 @@ fn test_numeric_no_values_match() -> Result<()> {
 
     assert_eq!(
         0,
-        searcher.count(LongPoint::new_range_query("value", [17i64], [13i64])?)?
+        searcher.count(LongPoint::new_range_query("value", 17i64, 13i64)?)?
     );
 
     w.close()?;
@@ -1011,7 +995,7 @@ fn test_no_docs() -> Result<()> {
 
     assert_eq!(
         0,
-        searcher.count(LongPoint::new_range_query("value", [17i64], [13i64])?)?
+        searcher.count(LongPoint::new_range_query("value", 17i64, 13i64)?)?
     );
 
     w.close()?;
@@ -1149,11 +1133,11 @@ fn test_exact_points() -> Result<()> {
 
     assert_eq!(
         1,
-        searcher.count(LongPoint::new_exact_query("long", [5i64])?)?
+        searcher.count(LongPoint::new_exact_query("long", 5i64)?)?
     );
     assert_eq!(
         0,
-        searcher.count(LongPoint::new_exact_query("long", [-1i64])?)?
+        searcher.count(LongPoint::new_exact_query("long", -1i64)?)?
     );
 
     assert_eq!(
@@ -1192,11 +1176,11 @@ fn test_to_string() -> Result<()> {
     // longs
     assert_eq!(
         "field:[1099511627776 TO 2199023255552]",
-        LongPoint::new_range_query("field", [1i64 << 40], [1i64 << 41])?.to_string("")
+        LongPoint::new_range_query("field", 1i64 << 40, 1i64 << 41)?.to_string("")
     );
     assert_eq!(
         "field:[-5 TO 6]",
-        LongPoint::new_range_query("field", [-5i64], [6i64])?.to_string("")
+        LongPoint::new_range_query("field", -5i64, 6i64)?.to_string("")
     );
 
     // floats
@@ -1361,22 +1345,22 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
 
     assert_eq!(
         zero_count,
-        searcher.count(LongPoint::new_range_query("long", [0i64], [0i64])?)?
+        searcher.count(LongPoint::new_range_query("long", 0i64, 0i64)?)?
     );
     assert_eq!(
         one_count,
-        searcher.count(LongPoint::new_range_query("long", [1i64], [1i64])?)?
+        searcher.count(LongPoint::new_range_query("long", 1i64, 1i64)?)?
     );
     assert_eq!(
         zero_count + one_count,
-        searcher.count(LongPoint::new_range_query("long", [0i64], [1i64])?)?
+        searcher.count(LongPoint::new_range_query("long", 0i64, 1i64)?)?
     );
     assert_eq!(
         10_000 - zero_count - one_count,
         searcher.count(LongPoint::new_range_query(
             "long",
-            [2i64],
-            [cardinality as i64]
+            2i64,
+            cardinality as i64
         )?)?
     );
 
@@ -1596,14 +1580,14 @@ fn test_point_range_equals() -> Result<()> {
     assert_ne!(q1, IntPoint::new_range_query("a", [1i32], [1000i32])?);
     assert_ne!(q1, IntPoint::new_range_query("b", [0i32], [1000i32])?);
 
-    let q1 = LongPoint::new_range_query("a", [0i64], [1000i64])?;
-    let q2 = LongPoint::new_range_query("a", [0i64], [1000i64])?;
+    let q1 = LongPoint::new_range_query("a", 0i64, 1000i64)?;
+    let q2 = LongPoint::new_range_query("a", 0i64, 1000i64)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, LongPoint::new_range_query("a", [1i64], [1000i64])?);
+    assert_ne!(q1, LongPoint::new_range_query("a", 1i64, 1000i64)?);
 
     let q1 = FloatPoint::new_range_query("a", [0.0f32], [1000.0f32])?;
     let q2 = FloatPoint::new_range_query("a", [0.0f32], [1000.0f32])?;
@@ -1666,14 +1650,14 @@ fn test_point_exact_equals() -> Result<()> {
     assert_ne!(q1, IntPoint::new_exact_query("a", [1i32])?);
     assert_ne!(q1, IntPoint::new_exact_query("b", [1000i32])?);
 
-    let q1 = LongPoint::new_exact_query("a", [1000i64])?;
-    let q2 = LongPoint::new_exact_query("a", [1000i64])?;
+    let q1 = LongPoint::new_exact_query("a", 1000i64)?;
+    let q2 = LongPoint::new_exact_query("a", 1000i64)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, LongPoint::new_exact_query("a", [1i64])?);
+    assert_ne!(q1, LongPoint::new_exact_query("a", 1i64)?);
 
     assert_eq!(q1.get_lower_point(), q2.get_lower_point());
     assert_eq!(q1.get_upper_point(), q2.get_upper_point());

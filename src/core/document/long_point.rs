@@ -105,15 +105,23 @@ impl LongPoint {
     pub fn decode_dimension(value: &[u8], offset: usize) -> i64 {
         NumericUtils::sortable_bytes_to_long(value, offset)
     }
-    pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
+    pub fn new_exact_query<T>(field: T, value: i64) -> Result<PointRangeQuery>
     where
         T: Into<String>,
-        V: AsRef<[i64]>,
     {
-        let value = value.as_ref();
         Self::new_range_query(field, value, value)
     }
-    pub fn new_range_query<T, V>(
+    pub fn new_range_query<T>(
+        field: T,
+        lower_value: i64,
+        upper_value: i64,
+    ) -> Result<PointRangeQuery>
+    where
+        T: Into<String>,
+    {
+        Self::new_range_query_n(field, [lower_value], [upper_value])
+    }
+    pub fn new_range_query_n<T, V>(
         field: T,
         lower_value: V,
         upper_value: V,
