@@ -39,7 +39,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone)]
 pub struct BoostQuery {
     id: Identity,
-    pub(crate) query: Box<Query>,
+    query: Box<Query>,
     boost: f32,
 }
 impl BoostQuery {
@@ -65,6 +65,9 @@ impl BoostQuery {
     }
     pub fn get_boost(&self) -> f32 {
         self.boost
+    }
+    pub(crate) fn into_inner(self) -> Query {
+        *self.query
     }
 }
 

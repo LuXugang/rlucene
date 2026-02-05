@@ -135,9 +135,9 @@ impl QueryBase for ConstantScoreQuery {
         let rewritten = self.query.rewrite(searcher)?;
 
         let rewritten = match rewritten {
-            Query::Boost(b) => *b.query,
+            Query::Boost(b) => b.into_inner(),
             Query::ConstantScore(cs) => cs.into_inner(),
-            // TODO IMPORTANT BooleanQuery
+            Query::Boolean(cs) => cs.rewrite_no_scoring()?,
             q => q,
         };
 

@@ -22,6 +22,15 @@ pub struct BooleanClause {
     pub query: Query,
     pub occur: Occur,
 }
+// for padding
+impl Default for BooleanClause {
+    fn default() -> Self {
+        Self {
+            query: Query::default(),
+            occur: Occur::Should,
+        }
+    }
+}
 
 impl BooleanClause {
     /// Constructs a BooleanClause.
@@ -45,6 +54,9 @@ impl BooleanClause {
     }
     pub fn occur(&self) -> &Occur {
         &self.occur
+    }
+    pub fn take_query(self) -> Query {
+        self.query
     }
 }
 
