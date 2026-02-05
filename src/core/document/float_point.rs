@@ -96,16 +96,25 @@ impl FloatPoint {
         let int_val = NumericUtils::sortable_bytes_to_int(value, offset);
         NumericUtils::sortable_int_to_float(int_val)
     }
-    pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
+    pub fn new_exact_query<T>(field: T, value: f32) -> Result<PointRangeQuery>
     where
         T: Into<String>,
-        V: AsRef<[f32]>,
     {
-        let value = value.as_ref();
         Self::new_range_query(field, value, value)
     }
 
-    pub fn new_range_query<T, V>(
+    pub fn new_range_query<T>(
+        field: T,
+        lower_value: f32,
+        upper_value: f32,
+    ) -> Result<PointRangeQuery>
+    where
+        T: Into<String>,
+    {
+        Self::new_range_query_n(field, [lower_value], [upper_value])
+    }
+
+    pub fn new_range_query_n<T, V>(
         field: T,
         lower_value: V,
         upper_value: V,

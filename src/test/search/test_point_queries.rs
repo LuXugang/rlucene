@@ -116,22 +116,22 @@ fn test_basic_floats() -> Result<()> {
 
     assert_eq!(
         2,
-        searcher.count(FloatPoint::new_range_query("point", [-8.0f32], [1.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("point", -8.0f32, 1.0f32)?)?
     );
 
     assert_eq!(
         3,
-        searcher.count(FloatPoint::new_range_query("point", [-7.0f32], [3.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("point", -7.0f32, 3.0f32)?)?
     );
 
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [-7.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("point", -7.0f32)?)?
     );
 
     assert_eq!(
         0,
-        searcher.count(FloatPoint::new_exact_query("point", [-6.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("point", -6.0f32)?)?
     );
 
     w.close()?;
@@ -446,31 +446,31 @@ fn test_crazy_floats() -> Result<()> {
     // exact queries
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [f32::NEG_INFINITY])?)?
+        searcher.count(FloatPoint::new_exact_query("point", f32::NEG_INFINITY)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [-0.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("point", -0.0f32)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [0.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("point", 0.0f32)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [f32::MIN_POSITIVE])?)?
+        searcher.count(FloatPoint::new_exact_query("point", f32::MIN_POSITIVE)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [f32::MAX])?)?
+        searcher.count(FloatPoint::new_exact_query("point", f32::MAX)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [f32::INFINITY])?)?
+        searcher.count(FloatPoint::new_exact_query("point", f32::INFINITY)?)?
     );
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("point", [f32::NAN])?)?
+        searcher.count(FloatPoint::new_exact_query("point", f32::NAN)?)?
     );
 
     // set query
@@ -494,31 +494,22 @@ fn test_crazy_floats() -> Result<()> {
         2,
         searcher.count(FloatPoint::new_range_query(
             "point",
-            [f32::NEG_INFINITY],
-            [-0.0f32]
+            f32::NEG_INFINITY,
+            -0.0f32
         )?)?
     );
 
     assert_eq!(
         2,
-        searcher.count(FloatPoint::new_range_query("point", [-0.0f32], [0.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("point", -0.0f32, 0.0f32)?)?
     );
 
     assert_eq!(
         2,
         searcher.count(FloatPoint::new_range_query(
             "point",
-            [0.0f32],
-            [f32::MIN_POSITIVE]
-        )?)?
-    );
-
-    assert_eq!(
-        2,
-        searcher.count(FloatPoint::new_range_query(
-            "point",
-            [f32::MIN_POSITIVE],
-            [f32::MAX]
+            0.0f32,
+            f32::MIN_POSITIVE
         )?)?
     );
 
@@ -526,8 +517,8 @@ fn test_crazy_floats() -> Result<()> {
         2,
         searcher.count(FloatPoint::new_range_query(
             "point",
-            [f32::MAX],
-            [f32::INFINITY]
+            f32::MIN_POSITIVE,
+            f32::MAX
         )?)?
     );
 
@@ -535,8 +526,17 @@ fn test_crazy_floats() -> Result<()> {
         2,
         searcher.count(FloatPoint::new_range_query(
             "point",
-            [f32::INFINITY],
-            [f32::NAN]
+            f32::MAX,
+            f32::INFINITY
+        )?)?
+    );
+
+    assert_eq!(
+        2,
+        searcher.count(FloatPoint::new_range_query(
+            "point",
+            f32::INFINITY,
+            f32::NAN
         )?)?
     );
 
@@ -1130,11 +1130,11 @@ fn test_exact_points() -> Result<()> {
 
     assert_eq!(
         1,
-        searcher.count(FloatPoint::new_exact_query("float", [2.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("float", 2.0f32)?)?
     );
     assert_eq!(
         0,
-        searcher.count(FloatPoint::new_exact_query("float", [1.0f32])?)?
+        searcher.count(FloatPoint::new_exact_query("float", 1.0f32)?)?
     );
 
     assert_eq!(
@@ -1174,11 +1174,11 @@ fn test_to_string() -> Result<()> {
     // floats
     assert_eq!(
         "field:[1.3 TO 2.5]",
-        FloatPoint::new_range_query("field", [1.3f32], [2.5f32])?.to_string("")
+        FloatPoint::new_range_query("field", 1.3f32, 2.5f32)?.to_string("")
     );
     assert_eq!(
         "field:[-2.9 TO 1]",
-        FloatPoint::new_range_query("field", [-2.9f32], [1.0f32])?.to_string("")
+        FloatPoint::new_range_query("field", -2.9f32, 1.0f32)?.to_string("")
     );
 
     // doubles
@@ -1355,22 +1355,22 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
 
     assert_eq!(
         zero_count,
-        searcher.count(FloatPoint::new_range_query("float", [0.0f32], [0.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("float", 0.0f32, 0.0f32)?)?
     );
     assert_eq!(
         one_count,
-        searcher.count(FloatPoint::new_range_query("float", [1.0f32], [1.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("float", 1.0f32, 1.0f32)?)?
     );
     assert_eq!(
         zero_count + one_count,
-        searcher.count(FloatPoint::new_range_query("float", [0.0f32], [1.0f32])?)?
+        searcher.count(FloatPoint::new_range_query("float", 0.0f32, 1.0f32)?)?
     );
     assert_eq!(
         10_000 - zero_count - one_count,
         searcher.count(FloatPoint::new_range_query(
             "float",
-            [2.0f32],
-            [cardinality as f32]
+            2.0f32,
+            cardinality as f32
         )?)?
     );
 
@@ -1578,14 +1578,14 @@ fn test_point_range_equals() -> Result<()> {
     );
     assert_ne!(q1, LongPoint::new_range_query("a", 1i64, 1000i64)?);
 
-    let q1 = FloatPoint::new_range_query("a", [0.0f32], [1000.0f32])?;
-    let q2 = FloatPoint::new_range_query("a", [0.0f32], [1000.0f32])?;
+    let q1 = FloatPoint::new_range_query("a", 0.0f32, 1000.0f32)?;
+    let q2 = FloatPoint::new_range_query("a", 0.0f32, 1000.0f32)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, FloatPoint::new_range_query("a", [1.0f32], [1000.0f32])?);
+    assert_ne!(q1, FloatPoint::new_range_query("a", 1.0f32, 1000.0f32)?);
 
     let q1 = DoublePoint::new_range_query("a", 0.0f64, 1000.0f64)?;
     let q2 = DoublePoint::new_range_query("a", 0.0f64, 1000.0f64)?;
@@ -1648,14 +1648,14 @@ fn test_point_exact_equals() -> Result<()> {
     assert_eq!(q1.get_lower_point(), q2.get_lower_point());
     assert_eq!(q1.get_upper_point(), q2.get_upper_point());
 
-    let q1 = FloatPoint::new_exact_query("a", [1000.0f32])?;
-    let q2 = FloatPoint::new_exact_query("a", [1000.0f32])?;
+    let q1 = FloatPoint::new_exact_query("a", 1000.0f32)?;
+    let q2 = FloatPoint::new_exact_query("a", 1000.0f32)?;
     assert_eq!(q1, q2);
     assert_eq!(
         CoreHelper::calculate_hash(&q1),
         CoreHelper::calculate_hash(&q2)
     );
-    assert_ne!(q1, FloatPoint::new_exact_query("a", [1.0f32])?);
+    assert_ne!(q1, FloatPoint::new_exact_query("a", 1.0f32)?);
 
     assert_eq!(q1.get_lower_point(), q2.get_lower_point());
     assert_eq!(q1.get_upper_point(), q2.get_upper_point());
