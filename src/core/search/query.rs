@@ -39,6 +39,10 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::term_query::TermQuery;
+#[cfg(test)]
+use crate::core::search::wand_scorer::tests::MaxScoreWrapperQuery;
+#[cfg(test)]
+use crate::core::search::wand_scorer::tests::WANDScorerQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -82,6 +86,10 @@ macro_rules! dispatch_query {
             Query::SortedNumericDocValuesSet($inner) => $body,
             Query::SortedSetDocValuesRange($inner) => $body,
             Query::Term($inner) => $body,
+            #[cfg(test)]
+            Query::WANDScorer($inner) => $body,
+            #[cfg(test)]
+            Query::MaxScoreWrapper($inner) => $body,
         }
     }};
 }
@@ -143,6 +151,10 @@ pub enum Query {
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
     Term(TermQuery),
+    #[cfg(test)]
+    WANDScorer(WANDScorerQuery),
+    #[cfg(test)]
+    MaxScoreWrapper(MaxScoreWrapperQuery),
 }
 
 impl Default for Query {

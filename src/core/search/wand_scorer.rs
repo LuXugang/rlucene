@@ -327,7 +327,7 @@ where
             if let Some(evicted_idx) = evicted {
                 let new_doc = self.all_scorers[evicted_idx]
                     .scorer
-                    .iterator()
+                    .iterator_mut()
                     .advance(target)?;
                 self.all_scorers[evicted_idx].doc = new_doc;
                 self.head.add(evicted_idx, &self.all_scorers);
@@ -454,7 +454,10 @@ where
         while self.tail_size > 0 && self.tail_max_score >= self.min_competitive_score {
             let idx = self.pop_tail();
 
-            let new_doc = self.all_scorers[idx].scorer.iterator().advance(target)?;
+            let new_doc = self.all_scorers[idx]
+                .scorer
+                .iterator_mut()
+                .advance(target)?;
             self.all_scorers[idx].doc = new_doc;
             self.head.add(idx, &self.all_scorers);
         }
@@ -897,9 +900,55 @@ fn scale_min_score(min_score: f32, scaling_factor: i32) -> i64 {
     scaled.floor() as i64
 }
 #[cfg(test)]
-mod tests {
-    use crate::core::search::wand_scorer::{FLOAT_MANTISSA_BITS, scale_max_score, scaling_factor};
+pub(crate) mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader::Identity;
+    use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::index_writer_config::IndexWriterConfig;
+    use crate::core::index::leaf_reader::{LRTermState, LeafReader};
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
+    use crate::core::index::term::Term;
+    use crate::core::index::term_states::TermStates;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::{BooleanQuery, Builder};
+    use crate::core::search::boolean_weight::BooleanWeight;
+    use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::constant_score_query::ConstantScoreQuery;
+    use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::explanation::Explanation;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::matches_utils::MatchWithNoTerms;
+    use crate::core::search::query::{
+        Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+    };
+    use crate::core::search::query_visitor::QueryVisitor;
+    use crate::core::search::scorable::Scorable;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::scorer::{Scorer, ScorerEnum2, TwoPhaseState};
+    use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+    use crate::core::search::segment_cacheable::SegmentCacheable;
+    use crate::core::search::term_query::TermQuery;
+    use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+    use crate::core::search::wand_scorer::{
+        FLOAT_MANTISSA_BITS, WANDScorer, scale_max_score, scaling_factor,
+    };
+    use crate::core::search::weight::{DefaultScorerSupplier, Weight};
     use crate::core::util::error::lucene_error::Result;
+    use crate::core::util::{HasIdentity, ToInt};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_searcher_with_reader, random,
+    };
+    use rand::Rng;
+    use std::fmt::Debug;
+    use std::hash::{Hash, Hasher};
+    use std::rc::Rc;
+    use std::sync::Arc;
+
     #[allow(dead_code)] // for quick search
     struct TestWANDScorer;
     #[test]
@@ -953,5 +1002,706 @@ mod tests {
         assert_eq!(1, scaled3);
 
         Ok(())
+    }
+    fn test_basics() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],      // 0
+            &["A"],           // 1
+            &[],              // 2
+            &["A", "B", "C"], // 3
+            &["B"],           // 4
+            &["B", "C"],      // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::with_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "A")).into(),
+                        ))
+                        .into(),
+                    ),
+                    2.0,
+                )?,
+                Occur::Should,
+            )?
+            .add_query(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "B")).into(),
+                )),
+                Occur::Should,
+            )?
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "C")).into(),
+                        ))
+                        .into(),
+                    ),
+                    3.0,
+                )?,
+                Occur::Should,
+            )?;
+        let mut query = Query::WANDScorer(WANDScorerQuery::new(
+            builder.build(),
+            random.random_bool(0.5),
+        ));
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(6.0, scorer.score()?);
+
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(4.0)?;
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(6.0, scorer.score()?);
+
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        scorer.set_min_competitive_score(10.0)?;
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+        //  test a filtered disjunction
+        builder = Builder::new();
+        builder
+            .add_query(
+                Query::WANDScorer(WANDScorerQuery::new(
+                    {
+                        let mut v = Builder::new();
+                        v.add_query(
+                            BoostQuery::new(
+                                Box::new(
+                                    ConstantScoreQuery::new(Box::new(
+                                        TermQuery::new(Term::from_text("foo", "A")).into(),
+                                    ))
+                                    .into(),
+                                ),
+                                2.0,
+                            )?,
+                            Occur::Should,
+                        )?
+                        .add_query(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "B")).into(),
+                            )),
+                            Occur::Should,
+                        )?;
+                        v.build()
+                    },
+                    random.random_bool(0.5),
+                )),
+                Occur::Must,
+            )?
+            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+        query = builder.build().into();
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(2.0)?;
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        builder = Builder::new();
+        builder
+            .add_query(
+                Query::WANDScorer(WANDScorerQuery::new(
+                    {
+                        let mut v = Builder::new();
+                        v.add_query(
+                            BoostQuery::new(
+                                Box::new(
+                                    ConstantScoreQuery::new(Box::new(
+                                        TermQuery::new(Term::from_text("foo", "A")).into(),
+                                    ))
+                                    .into(),
+                                ),
+                                2.0,
+                            )?,
+                            Occur::Should,
+                        )?
+                        .add_query(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "B")).into(),
+                            )),
+                            Occur::Should,
+                        )?;
+                        v.build()
+                    },
+                    random.random_bool(0.5),
+                )),
+                Occur::Must,
+            )?
+            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+        query = builder.build().into();
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(3.0)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    struct MaxScoreWrapperScorer<S>
+    where
+        S: Scorer,
+    {
+        max_range: i32,
+        max_score: f32,
+        last_shallow_target: i32,
+        scorer: S,
+    }
+    impl<S> MaxScoreWrapperScorer<S>
+    where
+        S: Scorer,
+    {
+        fn new(scorer: S, max_range: i32, max_score: f32) -> Self {
+            Self {
+                max_range,
+                max_score,
+                last_shallow_target: -1,
+                scorer,
+            }
+        }
+    }
+
+    impl<S> Scorable for MaxScoreWrapperScorer<S>
+    where
+        S: Scorer,
+    {
+        fn score(&mut self) -> Result<f32> {
+            self.scorer.score()
+        }
+    }
+
+    impl<S> Scorer for MaxScoreWrapperScorer<S>
+    where
+        S: Scorer,
+    {
+        fn doc_id(&mut self) -> Result<i32> {
+            self.scorer.doc_id()
+        }
+
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            self.scorer.iterator()
+        }
+
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            self.scorer.iterator_mut()
+        }
+
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+            unreachable!()
+        }
+
+        fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+            self.scorer.two_phase_iterator()
+        }
+
+        fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+            self.scorer.two_phase_iterator_mut()
+        }
+
+        fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+        where
+            Self: Sized,
+        {
+            unreachable!()
+        }
+
+        fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+            self.last_shallow_target = target;
+            self.scorer.advance_shallow(target)
+        }
+
+        fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+            let v = self.doc_id()?.max(self.last_shallow_target);
+            if up_to - v >= self.max_range {
+                return Ok(self.max_score);
+            }
+            self.scorer.get_max_score(up_to)
+        }
+
+        fn has_two_phase_iterator(&self) -> TwoPhaseState {
+            self.scorer.has_two_phase_iterator()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct MaxScoreWrapperQuery {
+        query: Box<Query>,
+        max_range: i32,
+        max_score: f32,
+        id: Identity,
+    }
+    impl MaxScoreWrapperQuery {
+        fn new<T>(query: T, max_range: i32, max_score: f32) -> Self
+        where
+            T: Into<Box<Query>>,
+        {
+            let query = query.into();
+            Self {
+                query,
+                max_range,
+                max_score,
+                id: Identity::new(),
+            }
+        }
+    }
+
+    impl HasIdentity for MaxScoreWrapperQuery {
+        fn identity(&self) -> &Identity {
+            &self.id
+        }
+    }
+    impl Hash for MaxScoreWrapperQuery {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.query.hash(state);
+            self.max_range.hash(state);
+            self.max_score.to_bits().hash(state);
+        }
+    }
+    impl Eq for MaxScoreWrapperQuery {}
+
+    impl PartialEq for MaxScoreWrapperQuery {
+        fn eq(&self, other: &Self) -> bool {
+            self.query == other.query
+                && self.max_range == other.max_range
+                && self.max_score.total_cmp(&other.max_score).to_int() == 0
+        }
+    }
+
+    impl QueryBase for MaxScoreWrapperQuery {
+        fn as_string(&self, _field: &str) -> String {
+            "MaxScoreWrapperQuery".to_string()
+        }
+
+        fn create_weight<IRC>(
+            self,
+            searcher: &IndexSearcher<IRC>,
+            score_mode: &ScoreMode,
+            boost: f32,
+            per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+        where
+            IRC: IndexReaderContext,
+            Self: Sized,
+            <IRC as IndexReaderContext>::LeafReader: 'static,
+        {
+            let weight =
+                self.query
+                    .create_weight(searcher, score_mode, boost, per_reader_term_state)?;
+            Ok(Box::new(MaxScoreWrapperQueryWeight::new(
+                self.max_range,
+                self.max_score,
+                weight,
+            )))
+        }
+
+        fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+        where
+            IRC: IndexReaderContext,
+            Self: Sized,
+        {
+            let rewritten = self.query.rewrite(searcher)?;
+            Ok(Query::MaxScoreWrapper(MaxScoreWrapperQuery::new(
+                rewritten,
+                self.max_range,
+                self.max_score,
+            )))
+        }
+
+        fn visit<QV>(&self, _visitor: &QV)
+        where
+            QV: QueryVisitor,
+        {
+        }
+    }
+    struct MaxScoreWrapperQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        max_range: i32,
+        max_score: f32,
+        weight: QueryWeight<LR>,
+    }
+    impl<LR> MaxScoreWrapperQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        fn new(max_range: i32, max_score: f32, weight: QueryWeight<LR>) -> Self {
+            Self {
+                max_range,
+                max_score,
+                weight,
+            }
+        }
+    }
+
+    impl<LR> SegmentCacheable<LR> for MaxScoreWrapperQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        fn is_cacheable(&self, ctx: &LeafReaderContext<LR>) -> Result<bool> {
+            self.weight.is_cacheable(ctx)
+        }
+    }
+
+    impl<LR> Weight<LR> for MaxScoreWrapperQueryWeight<LR>
+    where
+        LR: LeafReader + 'static,
+    {
+        type Matches = MatchWithNoTerms;
+
+        fn matches(
+            &self,
+            context: &LeafReaderContext<LR>,
+            doc: i32,
+        ) -> Result<Option<Self::Matches>> {
+            self.weight.matches(context, doc)
+        }
+
+        fn explain(&self, context: &LeafReaderContext<LR>, doc: i32) -> Result<Explanation> {
+            self.weight.explain(context, doc)
+        }
+
+        fn get_query(&self) -> Arc<Query> {
+            self.weight.get_query()
+        }
+
+        type ScorerSupplier = QueryWeightSs<LR>;
+
+        fn scorer_supplier(
+            &self,
+            context: &LeafReaderContext<LR>,
+        ) -> Result<Option<Self::ScorerSupplier>> {
+            match self.weight.scorer_supplier(context)? {
+                Some(s) => Ok(Some(Box::new(ScorerSupplierImpl::new(
+                    s,
+                    self.max_range,
+                    self.max_score,
+                )))),
+                None => Ok(None),
+            }
+        }
+    }
+    struct ScorerSupplierImpl<LR>
+    where
+        LR: LeafReader,
+    {
+        supplier: QueryWeightSs<LR>,
+        max_range: i32,
+        max_score: f32,
+    }
+    impl<LR> ScorerSupplierImpl<LR>
+    where
+        LR: LeafReader,
+    {
+        fn new(supplier: QueryWeightSs<LR>, max_range: i32, max_score: f32) -> Self {
+            Self {
+                supplier,
+                max_range,
+                max_score,
+            }
+        }
+    }
+    impl<LR> ScorerSupplier<LR> for ScorerSupplierImpl<LR>
+    where
+        LR: LeafReader,
+    {
+        type Scorer = QueryWeightSsScorer;
+        type BulkScorer = QueryWeightSsBulkScorer;
+
+        fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
+            let v = self.supplier.get(lead_cost, context)?;
+            let s = MaxScoreWrapperScorer::new(v, self.max_range, self.max_score);
+            Ok(Box::new(s))
+        }
+
+        fn bulk_scorer(
+            &mut self,
+            context: &LeafReaderContext<LR>,
+        ) -> Result<Option<Self::BulkScorer>> {
+            Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        }
+
+        fn cost(&mut self, context: &LeafReaderContext<LR>) -> Result<i64> {
+            self.supplier.cost(context)
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct WANDScorerQuery {
+        query: BooleanQuery,
+        do_blocks: bool,
+        id: Identity,
+    }
+    impl WANDScorerQuery {
+        fn new(query: BooleanQuery, do_blocks: bool) -> Self {
+            let id = Identity::new();
+            assert_eq!(
+                query.clauses().len(),
+                query.get_clauses_idx(Occur::Should).len()
+            );
+            Self {
+                query,
+                do_blocks,
+                id,
+            }
+        }
+    }
+
+    impl HasIdentity for WANDScorerQuery {
+        fn identity(&self) -> &Identity {
+            &self.id
+        }
+    }
+
+    impl QueryBase for WANDScorerQuery {
+        fn as_string(&self, _field: &str) -> String {
+            "WANDScorerQuery".to_string()
+        }
+
+        fn create_weight<IRC>(
+            self,
+            searcher: &IndexSearcher<IRC>,
+            score_mode: &ScoreMode,
+            boost: f32,
+            per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
+        ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
+        where
+            IRC: IndexReaderContext,
+            Self: Sized,
+            <IRC as IndexReaderContext>::LeafReader: 'static,
+        {
+            let m = self.query.get_minimum_number_should_match();
+            let w = self
+                .query
+                .raw_weight(searcher, score_mode, boost, per_reader_term_state)?;
+            Ok(Box::new(WANDScorerQueryWeight::new(
+                m,
+                self.do_blocks,
+                w,
+                *score_mode,
+            )))
+        }
+
+        fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+        where
+            IRC: IndexReaderContext,
+            Self: Sized,
+        {
+            Ok(Query::WANDScorer(self))
+        }
+
+        fn visit<QV>(&self, _visitor: &QV)
+        where
+            QV: QueryVisitor,
+        {
+        }
+    }
+
+    struct WANDScorerQueryWeight<LR>
+    where
+        LR: LeafReader + 'static,
+    {
+        minimum_number_should_match: i32,
+        do_blocks: bool,
+        weight: Rc<BooleanWeight<LR>>,
+        score_mode: ScoreMode,
+    }
+    impl<LR> WANDScorerQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        fn new(
+            minimum_number_should_match: i32,
+            do_blocks: bool,
+            weight: BooleanWeight<LR>,
+            score_mode: ScoreMode,
+        ) -> Self {
+            Self {
+                minimum_number_should_match,
+                do_blocks,
+                weight: Rc::new(weight),
+                score_mode,
+            }
+        }
+    }
+
+    impl<LR> SegmentCacheable<LR> for WANDScorerQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        fn is_cacheable(&self, _ctx: &LeafReaderContext<LR>) -> Result<bool> {
+            Ok(false)
+        }
+    }
+
+    impl<LR> Weight<LR> for WANDScorerQueryWeight<LR>
+    where
+        LR: LeafReader,
+    {
+        type Matches = MatchWithNoTerms;
+
+        fn matches(
+            &self,
+            _context: &LeafReaderContext<LR>,
+            _doc: i32,
+        ) -> Result<Option<Self::Matches>> {
+            unreachable!("")
+        }
+
+        fn explain(&self, _context: &LeafReaderContext<LR>, _doc: i32) -> Result<Explanation> {
+            unreachable!("")
+        }
+
+        fn get_query(&self) -> Arc<Query> {
+            unreachable!("")
+        }
+
+        type ScorerSupplier = QueryWeightSs<LR>;
+
+        fn scorer_supplier(
+            &self,
+            context: &LeafReaderContext<LR>,
+        ) -> Result<Option<Self::ScorerSupplier>> {
+            let mut optional_scorers = Vec::new();
+            for wc in self.weight.weighted_clauses.iter() {
+                let w = &wc.weight;
+                let ss = w.scorer_supplier(context)?;
+                if let Some(mut ss) = ss {
+                    let scorer = ss.get(i64::MAX, context)?;
+                    optional_scorers.push(scorer);
+                }
+            }
+
+            let scorer = if !optional_scorers.is_empty() {
+                ScorerEnum2::A(WANDScorer::new(
+                    optional_scorers,
+                    self.minimum_number_should_match,
+                    self.score_mode,
+                    if self.do_blocks { i64::MAX } else { 0 },
+                )?)
+            } else {
+                match self.weight.scorer(context)? {
+                    Some(ss) => ScorerEnum2::B(ss),
+                    None => return Ok(None),
+                }
+            };
+            let v = DefaultScorerSupplier::new(scorer);
+            Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
+        }
     }
 }
