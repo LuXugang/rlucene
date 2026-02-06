@@ -62,7 +62,7 @@ where
     // Minimum window size. See #computeOuterWindowMax where we have heuristics that adjust the
     // minimum window size based on the average number of candidate matches per outer window, to keep
     // the per-window overhead under control.
-    min_window_size: usize,
+    min_window_size: i32,
 }
 impl<S1> MaxScoreBulkScorer<S1, DummyScorer>
 where
@@ -117,7 +117,7 @@ where
 
             num_outer_windows: 0,
             num_candidates: 0,
-            min_window_size: 1,
+            min_window_size: -1,
         })
     }
     fn score_inner_window(
@@ -298,7 +298,7 @@ where
     ///                                   ^       ^       ^
     ///                                   |       |       |
     ///                                block B  lead2   lead1
-    fn score_inner_window_multiple_essential_clauses(
+    fn score_inner_window_as_conjunction(
         &mut self,
         collector: &mut dyn LeafCollector,
         accept_docs: Option<&dyn Bits>,
@@ -307,98 +307,113 @@ where
         debug_assert!(self.first_essential_scorer == self.all_scorers_idx.len() - 1);
         debug_assert!(self.first_required_scorer <= self.all_scorers_idx.len() - 2);
 
-        let n = self.all_scorers.len();
+        let all_scorers_len = self.all_scorers_idx.len();
 
-        let last = n - 1;
-        let second_last = n - 2;
+        let leader1_idx = self.all_scorers_idx[all_scorers_len - 1];
+        let leader2_idx = self.all_scorers_idx[all_scorers_len - 2];
         let (mut doc, max_score_sum_at_lead2) = {
-            let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
-            let lead1 = &mut lead1_slice[0];
-
-            let (_, lead2_slice) = other_and_lead2.split_at_mut(second_last);
-            let lead2 = &mut lead2_slice[0];
-
             debug_assert!(self.essential_queue.size() == 1);
-            debug_assert!(self.essential_queue.top().expect("top ie empty") == last);
+            debug_assert!(self.essential_queue.top().expect("top ie empty") == leader1_idx);
 
-            if lead1.doc < lead2.doc {
-                let v = lead1.iterator_mut().advance(lead2.doc.min(max))?;
-                lead1.doc = v;
+            if self.all_scorers[leader1_idx].doc < self.all_scorers[leader2_idx].doc {
+                let target = self.all_scorers[leader2_idx].doc.min(max);
+                let v = self.all_scorers[leader1_idx]
+                    .iterator_mut()
+                    .advance(target)?;
+                self.all_scorers[leader1_idx].doc = v;
             }
-            (lead1.doc, self.max_score_sums[n - 2])
+            (
+                self.all_scorers[leader1_idx].doc,
+                self.max_score_sums[all_scorers_len - 2],
+            )
         };
         // TODO IMPORTANT能否降低iterator()方法的调用次数
         'outer: while doc < max {
             let (v, score) = {
-                let (other_and_lead2, lead1_slice) = self.all_scorers.split_at_mut(last);
-                let lead1 = &mut lead1_slice[0];
-
-                let (other, lead2_slice) = other_and_lead2.split_at_mut(second_last);
-                let lead2 = &mut lead2_slice[0];
-
                 let accepted = match accept_docs {
                     None => true,
-                    Some(bits) => bits.get(lead1.doc as usize)?,
+                    Some(bits) => bits.get(self.all_scorers[leader1_idx].doc as usize)?,
                 };
 
                 if !accepted {
-                    let v = lead1.iterator_mut().next_doc()?;
-                    lead1.doc = v;
+                    let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                    self.all_scorers[leader1_idx].doc = v;
+                    doc = v;
                     continue;
                 }
 
-                let mut score = lead1.score()? as f64;
+                let mut score = self.all_scorers[leader1_idx].score()? as f64;
 
-                if (MathUtil::sum_upper_bound(score + max_score_sum_at_lead2, n as i32) as f32)
+                if (MathUtil::sum_upper_bound(
+                    score + max_score_sum_at_lead2,
+                    all_scorers_len as i32,
+                ) as f32)
                     < self.scorable.min_competitive_score
                 {
-                    let v = lead1.iterator_mut().next_doc()?;
-                    lead1.doc = v;
+                    let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                    self.all_scorers[leader1_idx].doc = v;
+                    doc = v;
                     continue;
                 }
 
-                if lead2.doc < lead1.doc {
-                    let v = lead2.iterator_mut().advance(lead1.doc)?;
-                    lead2.doc = v;
+                if self.all_scorers[leader2_idx].doc < self.all_scorers[leader1_idx].doc {
+                    let target = self.all_scorers[leader1_idx].doc;
+                    let v = self.all_scorers[leader2_idx]
+                        .iterator_mut()
+                        .advance(target)?;
+                    self.all_scorers[leader2_idx].doc = v;
                 }
-                if lead2.doc != lead1.doc {
-                    let v = lead1.iterator_mut().advance(lead2.doc.min(max))?;
-                    lead1.doc = v;
+                if self.all_scorers[leader2_idx].doc != self.all_scorers[leader1_idx].doc {
+                    let target = self.all_scorers[leader2_idx].doc.min(max);
+                    let v = self.all_scorers[leader1_idx]
+                        .iterator_mut()
+                        .advance(target)?;
+                    self.all_scorers[leader1_idx].doc = v;
+                    doc = v;
                     continue;
                 }
 
-                score += lead2.score()? as f64;
+                score += self.all_scorers[leader2_idx].score()? as f64;
 
-                for j in (self.all_scorers_idx.len() - 3..=self.first_required_scorer).rev() {
-                    if (MathUtil::sum_upper_bound(score + self.max_score_sums[j], n as i32) as f32)
-                        < self.scorable.min_competitive_score
-                    {
-                        let v = lead1.iterator_mut().next_doc()?;
-                        lead1.doc = v;
-                        continue 'outer;
+                if self.all_scorers_idx.len() >= 3 {
+                    for j in (self.first_required_scorer..=self.all_scorers_idx.len() - 3).rev() {
+                        if (MathUtil::sum_upper_bound(
+                            score + self.max_score_sums[j],
+                            all_scorers_len as i32,
+                        ) as f32)
+                            < self.scorable.min_competitive_score
+                        {
+                            let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                            self.all_scorers[leader1_idx].doc = v;
+                            doc = v;
+                            continue 'outer;
+                        }
+
+                        let leader_1_doc = self.all_scorers[leader1_idx].doc;
+                        let w = &mut self.all_scorers[j];
+                        if w.doc < leader_1_doc {
+                            let v = w.iterator_mut().advance(leader_1_doc)?;
+                            w.doc = v;
+                        }
+                        let w_doc = w.doc;
+                        if w_doc != leader_1_doc {
+                            let v = self.all_scorers[leader1_idx]
+                                .iterator_mut()
+                                .advance(w_doc.min(max))?;
+                            self.all_scorers[leader1_idx].doc = v;
+                            doc = v;
+                            continue 'outer;
+                        }
+
+                        score += self.all_scorers[j].score()? as f64;
                     }
-
-                    let w_index = self.all_scorers_idx[j];
-                    debug_assert!(w_index < second_last);
-                    let w = &mut other[w_index];
-
-                    if w.doc < lead1.doc {
-                        let v = w.iterator_mut().advance(lead1.doc)?;
-                        w.doc = v;
-                    }
-                    if w.doc != lead1.doc {
-                        let v = lead1.iterator_mut().advance(w.doc.min(max))?;
-                        lead1.doc = v;
-                        continue 'outer;
-                    }
-
-                    score += w.score()? as f64;
                 }
-                (lead1.doc, score)
+
+                (self.all_scorers[leader1_idx].doc, score)
             };
 
             self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
-            let lead1 = &mut self.all_scorers[last];
+            let lead1 = &mut self.all_scorers[leader1_idx];
             let v = lead1.iterator_mut().next_doc()?;
             doc = v;
             lead1.doc = v;
@@ -407,7 +422,7 @@ where
         Ok(())
     }
 
-    fn score_inner_window_as_conjunction(
+    fn score_inner_window_multiple_essential_clauses(
         &mut self,
         collector: &mut dyn LeafCollector,
         accept_docs: Option<&dyn Bits>,
@@ -475,35 +490,35 @@ where
     /// Only use essential scorers to compute the window's max doc ID, in order to avoid constantly
     /// recomputing max scores over small windows
     fn compute_outer_window_max(&mut self, window_min: i32) -> Result<i32> {
-        let n = self.all_scorers_idx.len();
-        let first_window_lead = self.first_essential_scorer.min(n - 1);
+        let all_scorers_len = self.all_scorers_idx.len();
+        let first_window_lead = self.first_essential_scorer.min(all_scorers_len - 1);
 
         let mut window_max = NO_MORE_DOCS;
 
-        for i in first_window_lead..n {
+        for i in first_window_lead..all_scorers_len {
             let index = self.all_scorers_idx[i];
             let scorer = &mut self.all_scorers[index];
 
             if self.filter.is_none() || scorer.cost >= self.filter.as_ref().unwrap().cost {
-                let up_to = scorer.advance_shallow(scorer.doc.max(window_min))?;
-                window_max = window_max.min(up_to + 1); // upTo is inclusive
+                let up_to = scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
+                window_max = (window_max as i64).min(up_to + 1) as i32; // upTo is inclusive
             }
         }
 
-        if n - first_window_lead > 1 {
+        if all_scorers_len - first_window_lead > 1 {
             // The more clauses we consider to compute outer windows, the higher chances that one of these
             // clauses has a block boundary in the next few doc IDs. This situation can result in more
             // time spent computing maximum scores per outer window than evaluating hits. To avoid such
             // situations, we target at least 32 candidate matches per clause per outer window on average,
             // to make sure we amortize the cost of computing maximum scores.
-            let threshold = self.num_outer_windows * 32 * n;
+            let threshold = self.num_outer_windows * 32 * all_scorers_len;
             if (self.num_candidates) < threshold {
-                self.min_window_size = (self.min_window_size << 1).min(INNER_WINDOW_SIZE as usize);
+                self.min_window_size = (self.min_window_size << 1).min(INNER_WINDOW_SIZE);
             } else {
                 self.min_window_size = 1;
             }
-            let v: i32 = self.min_window_size.try_convert()?;
-            let min_window_max = window_min + v;
+            let v = window_min as i64 + self.min_window_size as i64;
+            let min_window_max = (i32::MAX as i64).min(v) as i32;
             window_max = window_max.max(min_window_max);
         }
         Ok(window_max)
@@ -548,14 +563,14 @@ where
             }
 
             let index = self.all_scorers_idx[i];
-            let w = &mut self.all_scorers[index];
+            let scorer = &mut self.all_scorers[index];
 
-            if w.doc < doc {
-                let v = w.iterator_mut().advance(doc)?;
-                w.doc = v;
+            if scorer.doc < doc {
+                let v = scorer.iterator_mut().advance(doc)?;
+                scorer.doc = v;
             }
-            if w.doc == doc {
-                score += w.score()? as f64;
+            if scorer.doc == doc {
+                score += scorer.score()? as f64;
             }
         }
 
@@ -576,7 +591,7 @@ where
     /// scoring based on wacky weights.
     fn partition_scorers(&mut self) -> Result<bool> {
         for i in 0..self.all_scorers_idx.len() {
-            self.scratch[i] = i;
+            self.scratch[i] = self.all_scorers_idx[i];
         }
 
         self.scratch.sort_by(|&i1, &i2| {
@@ -744,9 +759,9 @@ where
                         let top = &mut self.all_scorers[top_index];
                         let v = top.iterator_mut().advance(outer_window_min)?;
                         top.doc = v;
-                        doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);
+                    doc = self.all_scorers[top_index].doc;
                 }
             }
 
@@ -806,15 +821,33 @@ mod test {
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+    use std::fmt::{Display, Formatter};
 
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader::{Identity, IndexReader};
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::boost_query::BoostQuery;
+    use crate::core::search::bulk_scorer::BulkScorer;
+    use crate::core::search::constant_score_query::ConstantScoreQuery;
+    use crate::core::search::leaf_collector::LeafCollector;
     use crate::core::search::max_score_bulk_scorer::{INNER_WINDOW_SIZE, MaxScoreBulkScorer};
+    use crate::core::search::query::Query;
     use crate::core::search::scorable::Scorable;
+    use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::TwoPhaseState::No;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::term_query::TermQuery;
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::store::directory::Directory;
+    use crate::core::util::HasIdentity;
+    use crate::core::util::bits::Bits;
     use crate::core::util::error::lucene_error::{LuceneError, Result};
-    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_searcher_with_reader, random,
+    };
     use rand::prelude::SliceRandom;
     use std::sync::Arc;
 
@@ -856,7 +889,405 @@ mod test {
         writer.close()?;
         Ok(())
     }
-    // TODO BoostQuery跟ConstantScoreQuery未实现
+
+    #[test]
+    fn test_basics_with_two_disjunction_clauses() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
+                .into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1 to be present");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2 to be present");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer = MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2])?;
+
+        let mut collector = LeafCollectorImpl1::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filtered_disjunction() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "C")).into()))
+                .into();
+
+        let filter: Query = TermQuery::new(Term::from_text("foo", "B")).into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let wf =
+            searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1 to be present");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2 to be present");
+        let filter_scorer = wf
+            .scorer(context)?
+            .expect("expected filter scorer to be present");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer =
+            MaxScoreBulkScorer::new(max_doc, vec![scorer1, scorer2], Some(filter_scorer))?;
+
+        let mut collector = LeafCollectorImpl2::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filtered_disjunction_with_skipping() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "C")).into()))
+                .into();
+
+        let filter: Query = TermQuery::new(Term::from_text("foo", "B")).into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let wf =
+            searcher.create_weight(searcher.rewrite(filter)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
+        let filter_scorer = wf.scorer(context)?.expect("expected filter scorer");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer =
+            MaxScoreBulkScorer::new(max_doc, vec![scorer1, scorer2], Some(filter_scorer))?;
+
+        let mut collector = LeafCollectorImpl3::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_two_disjunction_clauses_and_skipping() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
+                .into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer = MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2])?;
+
+        let mut collector = LeafCollectorImpl4::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_basics_with_three_disjunction_clauses() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
+                .into();
+
+        let clause3: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "C")).into(),
+                ))
+                .into(),
+            ),
+            3.0,
+        )?
+        .into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let w3 =
+            searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
+        let scorer3 = w3.scorer(context)?.expect("expected scorer3");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer =
+            MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2, scorer3])?;
+
+        let mut collector = LeafCollectorImpl5::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_basics_with_three_disjunction_clauses_and_skipping() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        write_documents(dir.clone())?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let clause1: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "A")).into(),
+                ))
+                .into(),
+            ),
+            2.0,
+        )?
+        .into();
+
+        let clause2: Query =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()))
+                .into();
+
+        let clause3: Query = BoostQuery::new(
+            Box::new(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "C")).into(),
+                ))
+                .into(),
+            ),
+            3.0,
+        )?
+        .into();
+
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let w1 =
+            searcher.create_weight(searcher.rewrite(clause1)?, ScoreMode::TopScores, 1.0, None)?;
+        let w2 =
+            searcher.create_weight(searcher.rewrite(clause2)?, ScoreMode::TopScores, 1.0, None)?;
+        let w3 =
+            searcher.create_weight(searcher.rewrite(clause3)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let scorer1 = w1.scorer(context)?.expect("expected scorer1");
+        let scorer2 = w2.scorer(context)?.expect("expected scorer2");
+        let scorer3 = w3.scorer(context)?.expect("expected scorer3");
+
+        let max_doc = context.reader().max_doc()?;
+        let mut bulk_scorer =
+            MaxScoreBulkScorer::with_no_filter(max_doc, vec![scorer1, scorer2, scorer3])?;
+
+        let mut collector = LeafCollectorImpl6::new();
+
+        bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_deletes() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO: newLogMergePolicy 未实现
+        let iwc = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), iwc)?;
+
+        let mut doc1 = Document::new();
+        doc1.add(StringField::with_string("field", "foo", Store::No)?);
+        doc1.add(StringField::with_string("field", "bar", Store::No)?);
+        doc1.add(StringField::with_string("field", "quux", Store::No)?);
+
+        let mut doc2 = Document::new();
+        let mut doc3 = Document::new();
+        for x in &doc1 {
+            doc2.add(x.clone());
+            doc3.add(x.clone());
+        }
+
+        doc1.add(StringField::with_string("id", "1", Store::No)?);
+        doc2.add(StringField::with_string("id", "2", Store::No)?);
+        doc3.add(StringField::with_string("id", "3", Store::No)?);
+
+        w.add_document(doc1)?;
+        w.add_document(doc2)?;
+        w.add_document(doc3)?;
+
+        // TODO force_merge 未实现
+        // w.force_merge(1)?;
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("field", "foo")).into(),
+                        ))
+                        .into(),
+                    ),
+                    1.0,
+                )?,
+                Occur::Should,
+            )?
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("field", "bar")).into(),
+                        ))
+                        .into(),
+                    ),
+                    1.5,
+                )?,
+                Occur::Should,
+            )?
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("field", "quux")).into(),
+                        ))
+                        .into(),
+                    ),
+                    0.1,
+                )?,
+                Occur::Should,
+            )?;
+        let query: Query = builder.build().into();
+
+        let searcher = new_searcher_with_reader(reader)?;
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+
+        let live_docs = BitsImpl::new();
+
+        for &min_competitive_score in &[0.0f32, 1.0, 1.2, 2.0] {
+            let context = &searcher.get_leaf_contexts()?[0];
+            let mut bulk_scorer = weight.bulk_scorer(context)?.expect("expected bulk scorer");
+
+            let mut collector = LeafCollectorImpl7::new(min_competitive_score);
+
+            bulk_scorer.score(&mut collector, Some(&live_docs), 0, NO_MORE_DOCS)?;
+            collector.finish()?;
+        }
+
+        Ok(())
+    }
+
     #[test]
     fn test_partition() -> Result<()> {
         let mut random = random();
@@ -1037,7 +1468,8 @@ mod test {
         }
 
         fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-            unreachable!("")
+            let FakeScorer { disi, .. } = *self;
+            Box::new(disi)
         }
 
         fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
@@ -1054,6 +1486,370 @@ mod test {
 
         fn has_two_phase_iterator(&self) -> TwoPhaseState {
             No
+        }
+    }
+
+    struct LeafCollectorImpl1 {
+        i: i32,
+    }
+    impl LeafCollectorImpl1 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl1 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl1 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                1 => {
+                    assert_eq!(4096, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                },
+                2 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                3 => {
+                    assert_eq!(16384, doc);
+                    assert_eq!(1.0, scorer.score()?);
+                },
+                4 => {
+                    assert_eq!(20480, doc);
+                    assert_eq!(1.0, scorer.score()?);
+                },
+                _ => {
+                    unreachable!("unexpected collect call");
+                },
+            }
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl2 {
+        i: i32,
+    }
+
+    impl LeafCollectorImpl2 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl2 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl2 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                },
+                1 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                2 => {
+                    assert_eq!(20480, doc);
+                    assert_eq!(1.0, scorer.score()?);
+                },
+                _ => {
+                    unreachable!("unexpected collect call");
+                },
+            }
+
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl3 {
+        i: i32,
+    }
+
+    impl LeafCollectorImpl3 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl3 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl3 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                    scorer.set_min_competitive_score(2.0f32.next_up())?;
+                },
+                1 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                    scorer.set_min_competitive_score(3.0f32.next_up())?;
+                },
+                _ => {
+                    println!("{}", self.i);
+                    unreachable!("unexpected collect call");
+                },
+            }
+
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl4 {
+        i: i32,
+    }
+
+    impl LeafCollectorImpl4 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl4 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl4 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                1 => {
+                    assert_eq!(4096, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                    scorer.set_min_competitive_score(2.0f32.next_up())?;
+                },
+                2 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                    scorer.set_min_competitive_score(3.0f32.next_up())?;
+                },
+                _ => {
+                    unreachable!("unexpected collect call");
+                },
+            }
+
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl5 {
+        i: i32,
+    }
+
+    impl LeafCollectorImpl5 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl5 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl5 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                1 => {
+                    assert_eq!(4096, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                },
+                2 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(6.0, scorer.score()?);
+                },
+                3 => {
+                    assert_eq!(16384, doc);
+                    assert_eq!(1.0, scorer.score()?);
+                },
+                4 => {
+                    assert_eq!(20480, doc);
+                    assert_eq!(4.0, scorer.score()?);
+                },
+                _ => {
+                    unreachable!("unexpected collect call");
+                },
+            }
+
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl6 {
+        i: i32,
+    }
+
+    impl LeafCollectorImpl6 {
+        fn new() -> Self {
+            Self { i: 0 }
+        }
+    }
+
+    impl Display for LeafCollectorImpl6 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl6 {
+        fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+            let idx = self.i;
+            self.i += 1;
+
+            match idx {
+                0 => {
+                    assert_eq!(0, doc);
+                    assert_eq!(3.0, scorer.score()?);
+                },
+                1 => {
+                    assert_eq!(4096, doc);
+                    assert_eq!(2.0, scorer.score()?);
+                    scorer.set_min_competitive_score(2.0f32.next_up())?;
+                },
+                2 => {
+                    assert_eq!(12288, doc);
+                    assert_eq!(6.0, scorer.score()?);
+                    scorer.set_min_competitive_score(3.0f32.next_up())?;
+                },
+                3 => {
+                    assert_eq!(20480, doc);
+                    assert_eq!(4.0, scorer.score()?);
+                    scorer.set_min_competitive_score(4.0f32.next_up())?;
+                },
+                _ => {
+                    unreachable!("unexpected collect call");
+                },
+            }
+
+            Ok(())
+        }
+    }
+    struct LeafCollectorImpl7 {
+        i: i32,
+        min_competitive_score: f32,
+    }
+
+    impl LeafCollectorImpl7 {
+        fn new(min_competitive_score: f32) -> Self {
+            Self {
+                i: 0,
+                min_competitive_score,
+            }
+        }
+    }
+
+    impl Display for LeafCollectorImpl7 {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", std::any::type_name::<Self>(),)
+        }
+    }
+
+    impl LeafCollector for LeafCollectorImpl7 {
+        fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+            scorer.set_min_competitive_score(self.min_competitive_score)?;
+            Ok(())
+        }
+
+        fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+            assert_eq!(1, doc);
+            assert_eq!(0, self.i);
+            self.i += 1;
+            Ok(())
+        }
+
+        fn finish(&mut self) -> Result<()> {
+            assert_eq!(1, self.i);
+            Ok(())
+        }
+    }
+
+    struct BitsImpl {
+        id: Identity,
+    }
+    impl BitsImpl {
+        fn new() -> Self {
+            Self {
+                id: Identity::new(),
+            }
+        }
+    }
+
+    impl HasIdentity for BitsImpl {
+        fn identity(&self) -> &Identity {
+            &self.id
+        }
+    }
+
+    impl Bits for BitsImpl {
+        fn get(&self, index: usize) -> Result<bool> {
+            Ok(index == 1)
+        }
+
+        fn length(&self) -> usize {
+            3
         }
     }
 }

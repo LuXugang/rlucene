@@ -261,6 +261,14 @@ impl IntoIterator for Document {
         self.fields.into_iter()
     }
 }
+impl<'a> IntoIterator for &'a Document {
+    type Item = &'a Fields;
+    type IntoIter = std::slice::Iter<'a, Fields>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.iter()
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -437,57 +437,55 @@ impl QueryBase for BooleanQuery {
         }
 
         // remove FILTER clauses that are also MUST clauses or that match all documents
-        if self.clause_sets.get(&Occur::Filter).is_some() {
-            let filter_idx = self
+        let filter_idx = self
+            .clause_sets
+            .get(&Occur::Filter)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[]);
+
+        if !filter_idx.is_empty() {
+            let must_indices = self
                 .clause_sets
-                .get(&Occur::Filter)
+                .get(&Occur::Must)
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
 
-            if !filter_idx.is_empty() {
-                let must_indices = self
-                    .clause_sets
-                    .get(&Occur::Must)
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[]);
+            let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
+            let mut modified = false;
 
-                let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
-                let mut modified = false;
-
-                // remove MatchAllDocsQuery if needed
-                if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
-                    let before = new_filter_ixd.len();
-                    new_filter_ixd
-                        .retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAll(_)));
-                    modified |= new_filter_ixd.len() != before;
-                }
-
+            // remove MatchAllDocsQuery if needed
+            if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
                 let before = new_filter_ixd.len();
-                new_filter_ixd.retain(|&f_idx| {
-                    let fq = &self.clauses[f_idx].query;
-                    !must_indices
-                        .iter()
-                        .any(|&m_idx| self.clauses[m_idx].query == *fq)
-                });
-
+                new_filter_ixd
+                    .retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAll(_)));
                 modified |= new_filter_ixd.len() != before;
+            }
 
-                if modified {
-                    let mut builder = Builder::new();
-                    builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
+            let before = new_filter_ixd.len();
+            new_filter_ixd.retain(|&f_idx| {
+                let fq = &self.clauses[f_idx].query;
+                !must_indices
+                    .iter()
+                    .any(|&m_idx| self.clauses[m_idx].query == *fq)
+            });
 
-                    for clause in &self.clauses {
-                        if clause.occur != Occur::Filter {
-                            builder.add_clause(clause.clone())?;
-                        }
+            modified |= new_filter_ixd.len() != before;
+
+            if modified {
+                let mut builder = Builder::new();
+                builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
+
+                for clause in &self.clauses {
+                    if clause.occur != Occur::Filter {
+                        builder.add_clause(clause.clone())?;
                     }
-
-                    for idx in new_filter_ixd {
-                        builder.add_query(self.clauses[idx].query.clone(), Occur::Filter)?;
-                    }
-
-                    return Ok(builder.build().into());
                 }
+
+                for idx in new_filter_ixd {
+                    builder.add_query(self.clauses[idx].query.clone(), Occur::Filter)?;
+                }
+
+                return Ok(builder.build().into());
             }
         }
 
