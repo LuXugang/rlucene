@@ -104,7 +104,7 @@ impl_from_for_query! {
     TermQuery => Term,
 }
 
-pub trait QueryBase: Eq + Hash + Debug + HasIdentity {
+pub trait QueryBase: Debug + HasIdentity {
     fn as_string(&self, field: &str) -> String;
 
     fn create_weight<IRC, QC>(
