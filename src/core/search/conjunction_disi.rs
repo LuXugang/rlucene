@@ -65,25 +65,28 @@ where
             // find agreement between the two iterators with the lower costs
             // we special case them because they do not need the
             // 'other.docID() < doc' check that the 'others' iterators need
-            let next2 = self.all_disi[self.lead2].iterator().advance(doc)?;
+            let next2 = self.all_disi[self.lead2].iterator_mut().advance(doc)?;
             if next2 != doc {
-                doc = self.all_disi[self.lead1].iterator().advance(next2)?;
+                doc = self.all_disi[self.lead1].iterator_mut().advance(next2)?;
                 if doc != next2 {
                     continue;
                 }
             }
             // then find agreement with other iterators
             for other_idx in self.others.iter() {
-                let other = &mut self.all_disi[*other_idx].iterator();
-                let other_doc = other.doc_id();
+                let other_doc = {
+                    let other = self.all_disi[*other_idx].iterator();
+                    other.doc_id()
+                };
+
                 // other.doc may already be equal to doc if we "continued advanceHead"
                 // on the previous iteration and the advance on the lead scorer exactly matched.
                 if other_doc < doc {
-                    let next = other.advance(doc)?;
+                    let next = self.all_disi[*other_idx].iterator_mut().advance(doc)?;
 
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest doc.
-                        doc = self.all_disi[self.lead1].iterator().advance(next)?;
+                        doc = self.all_disi[self.lead1].iterator_mut().advance(next)?;
                         continue 'advance_head;
                     }
                 }
@@ -118,7 +121,7 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].iterator().next_doc()?;
+        let doc = self.all_disi[self.lead1].iterator_mut().next_doc()?;
         self.do_next(doc)
     }
 
@@ -127,7 +130,7 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].iterator().advance(target)?;
+        let doc = self.all_disi[self.lead1].iterator_mut().advance(target)?;
         self.do_next(doc)
     }
 
