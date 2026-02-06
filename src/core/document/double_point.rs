@@ -46,6 +46,22 @@ impl DoublePoint {
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(DoublePoint { parent_field })
     }
+    pub fn next_up(d: f64) -> f64 {
+        // -0.0d
+        if d.to_bits() == 0x8000_0000_0000_0000u64 {
+            0.0
+        } else {
+            d.next_up()
+        }
+    }
+
+    pub fn next_down(d: f64) -> f64 {
+        if d.to_bits() == 0u64 {
+            -0.0
+        } else {
+            d.next_down()
+        }
+    }
 
     fn get_type(num_dims: usize) -> Result<FieldType> {
         let mut field_type = FieldType::new();

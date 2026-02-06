@@ -48,6 +48,21 @@ impl FloatPoint {
         let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(FloatPoint { parent_field })
     }
+    pub fn next_up(f: f32) -> f32 {
+        if f.to_bits() == 0x8000_0000u32 {
+            0.0
+        } else {
+            f.next_up()
+        }
+    }
+
+    pub fn next_down(f: f32) -> f32 {
+        if f.to_bits() == 0u32 {
+            -0.0
+        } else {
+            f.next_down()
+        }
+    }
 
     fn get_type(num_dims: usize) -> Result<FieldType> {
         let mut field_type = FieldType::new();

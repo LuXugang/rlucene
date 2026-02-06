@@ -28,12 +28,14 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
+use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use crate::test::index::random_index_writer::RandomIndexWriter;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
-    new_directory_shared, new_index_writer_config, new_searcher_with_wrap, random,
+    at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+    new_searcher_with_wrap, random,
 };
 use crate::test::util::test_util::TestUtil;
 use rand::Rng;
@@ -1728,20 +1730,162 @@ fn test_invalid_point_length() -> Result<()> {
 
 #[test]
 fn test_next_up() -> Result<()> {
-    // TODO
+    assert_eq!(
+        0.0f64.total_cmp(&DoublePoint::next_up(-0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::from_bits(1).total_cmp(&DoublePoint::next_up(0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::INFINITY.total_cmp(&DoublePoint::next_up(f64::MAX)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::INFINITY.total_cmp(&DoublePoint::next_up(f64::INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        (-f64::MAX).total_cmp(&DoublePoint::next_up(f64::NEG_INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+
+    assert_eq!(
+        0.0f32.total_cmp(&FloatPoint::next_up(-0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::from_bits(1).total_cmp(&FloatPoint::next_up(0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::INFINITY.total_cmp(&FloatPoint::next_up(f32::MAX)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::INFINITY.total_cmp(&FloatPoint::next_up(f32::INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        (-f32::MAX).total_cmp(&FloatPoint::next_up(f32::NEG_INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+
     Ok(())
 }
 
 #[test]
 fn test_next_down() -> Result<()> {
-    // TODO
+    assert_eq!(
+        (-0.0f64).total_cmp(&DoublePoint::next_down(0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        (-f64::from_bits(1)).total_cmp(&DoublePoint::next_down(-0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::NEG_INFINITY.total_cmp(&DoublePoint::next_down(-f64::MAX)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::NEG_INFINITY.total_cmp(&DoublePoint::next_down(f64::NEG_INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f64::MAX.total_cmp(&DoublePoint::next_down(f64::INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+
+    assert_eq!(
+        (-0.0f32).total_cmp(&FloatPoint::next_down(0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        (-f32::from_bits(1)).total_cmp(&FloatPoint::next_down(-0.0)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::NEG_INFINITY.total_cmp(&FloatPoint::next_down(-f32::MAX)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::NEG_INFINITY.total_cmp(&FloatPoint::next_down(f32::NEG_INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+    assert_eq!(
+        f32::MAX.total_cmp(&FloatPoint::next_down(f32::INFINITY)),
+        std::cmp::Ordering::Equal
+    );
+
     Ok(())
 }
+#[ignore]
 #[test]
 fn test_inverse_point_range() -> Result<()> {
-    // TODO
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+
+    let num_dims = random.random_range(1..=3);
+    let num_docs = at_least(
+        &mut random,
+        (10 * BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE) as i32,
+    );
+
+    for i in 0..num_docs {
+        let mut doc = Document::new();
+        let values = vec![i; num_dims];
+        doc.add(IntPoint::new("f", values.as_slice())?);
+        w.add_document(doc)?;
+    }
+
+    // TODO force_merge未实现
+    // w.force_merge(1)?;
+
+    let reader = directory_reader_util::open_with_writer(&w)?;
+    w.close()?;
+
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let mut low = vec![0i32; num_dims];
+    let mut high = vec![0i32; num_dims];
+
+    high.fill((num_docs - 2) as i32);
+    assert_eq!(
+        (high[0] - low[0] + 1),
+        searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
+    );
+
+    low.fill(1);
+    assert_eq!(
+        (high[0] - low[0] + 1),
+        searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
+    );
+
+    high.fill((num_docs - 1) as i32);
+    assert_eq!(
+        (high[0] - low[0] + 1),
+        searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
+    );
+
+    low.fill((BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE + 1) as i32);
+    assert_eq!(
+        (high[0] - low[0] + 1),
+        searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
+    );
+
+    high.fill(num_docs - BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE as i32);
+    assert_eq!(
+        (high[0] - low[0] + 1),
+        searcher.count(IntPoint::new_range_query_n("f", &low, &high)?)?
+    );
+
     Ok(())
 }
+
 #[test]
 fn test_range_query_skips_non_matching_segments() -> Result<()> {
     let mut random = random();
