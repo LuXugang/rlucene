@@ -32,7 +32,6 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::search::QueryCache;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_doc::ScoreDocLike;
@@ -493,15 +492,14 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     Ok(())
 }
 
-fn assert_same_matches<IRC, QC, T1, T2>(
-    searcher: &IndexSearcher<IRC, QC>,
+fn assert_same_matches<IRC, T1, T2>(
+    searcher: &IndexSearcher<IRC>,
     q1: T1,
     q2: T2,
     scores: bool,
 ) -> Result<()>
 where
     IRC: IndexReaderContext,
-    QC: QueryCache,
     T1: Into<Query>,
     T2: Into<Query>,
     <IRC as IndexReaderContext>::LeafReader: 'static,

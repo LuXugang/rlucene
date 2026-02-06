@@ -18,7 +18,6 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::QueryCache;
 use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_weight::{BooleanWeight, WeightedBooleanClause};
 use crate::core::search::boost_query::BoostQuery;
@@ -178,16 +177,15 @@ impl BooleanQuery {
         }
         m
     }
-    pub(crate) fn raw_weight<IRC, QC>(
+    pub(crate) fn raw_weight<IRC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<BooleanWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
@@ -277,16 +275,15 @@ impl QueryBase for BooleanQuery {
         buffer
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
@@ -294,10 +291,9 @@ impl QueryBase for BooleanQuery {
         Ok(Box::new(weight))
     }
 
-    fn rewrite<IRC, QC>(self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         if self.clauses.is_empty() {

@@ -19,7 +19,6 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::QueryCache;
 use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -91,26 +90,24 @@ impl QueryBase for MatchAllDocsQuery {
         "*:*".to_string()
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)))
     }
 
-    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         Ok(self.into())

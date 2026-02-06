@@ -19,7 +19,6 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::QueryCache;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -103,26 +102,24 @@ impl QueryBase for MatchNoDocsQuery {
         format!("MatchNoDocsQuery(\"{}\")", self.reason)
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         Ok(Box::new(MatchNoDocsWeight::new(self)))
     }
 
-    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         Ok(self.into())

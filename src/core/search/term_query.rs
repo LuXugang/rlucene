@@ -28,7 +28,6 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::{EmptyTermStateEnum, PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::QueryCache;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
@@ -121,16 +120,15 @@ impl QueryBase for TermQuery {
         buffer
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
@@ -148,10 +146,9 @@ impl QueryBase for TermQuery {
         )?))
     }
 
-    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         Ok(self.into())
@@ -178,15 +175,14 @@ impl<LR> TermWeight<LR>
 where
     LR: LeafReader,
 {
-    pub fn new<QC, IRC>(
-        searcher: &IndexSearcher<IRC, QC>,
+    pub fn new<IRC>(
+        searcher: &IndexSearcher<IRC>,
         score_mode: ScoreMode,
         boost: f32,
         term_states: TermStates<LRTermState<LR>>,
         query: TermQuery,
     ) -> Result<Self>
     where
-        QC: QueryCache,
         IRC: IndexReaderContext,
     {
         let similarity = searcher.get_similarity();

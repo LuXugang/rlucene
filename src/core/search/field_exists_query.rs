@@ -25,7 +25,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::Terms;
-use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3;
@@ -109,26 +108,24 @@ impl QueryBase for FieldExistsQuery {
         format!("FieldExistsQuery [field={}]", self.field)
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        _searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
     }
 
-    fn rewrite<IRC, QC>(self, _searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         todo!()
@@ -388,7 +385,7 @@ mod test {
     use crate::core::index::index_reader::IndexReader;
     use crate::core::index::index_reader_context::IndexReaderContext;
     use crate::core::index::term::Term;
-    use crate::core::search::QueryCache;
+
     use crate::core::search::field_exists_query::FieldExistsQuery;
     use crate::core::search::index_searcher::IndexSearcher;
     use crate::core::search::query::Query;
@@ -714,15 +711,14 @@ mod test {
         Ok(())
     }
 
-    fn assert_same_matches<IRC, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QC>,
+    fn assert_same_matches<IRC, T1, T2>(
+        searcher: &IndexSearcher<IRC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
         <IRC as IndexReaderContext>::LeafReader: 'static,

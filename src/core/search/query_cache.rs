@@ -15,22 +15,69 @@
  * limitations under the License.
  */
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use std::sync::Arc;
 
 /// A cache for queries.
-pub trait QueryCache {
+pub trait QueryCache<LR>
+where
+    LR: LeafReader,
+{
     /// Return a wrapper around the provided `weight` that will cache matching documents
     /// per-segment according to the given `policy`.
     /// **Note:** The returned weight will only be equivalent if scores are not needed.
     ///
     /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
-    fn do_cache<LR>(
+    fn do_cache(
         &self,
         weight: QueryWeight<LR>,
         policy: Arc<QueryCachingPolicyEnum>,
     ) -> QueryWeight<LR>
     where
         LR: LeafReader + 'static;
+}
+pub type BoxQueryCache<LR> = Box<dyn QueryCache<LR> + Send + Sync>;
+pub enum QueryCacheEnum<LR> {
+    Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
+    Custom(BoxQueryCache<LR>),
+}
+impl<LR> QueryCacheEnum<LR>
+where
+    LR: LeafReader + 'static,
+{
+    pub fn custom<QC>(cache: QC) -> Self
+    where
+        QC: QueryCache<LR> + Send + Sync + 'static,
+    {
+        Self::Custom(Box::new(cache))
+    }
+}
+impl<LR> QueryCache<LR> for QueryCacheEnum<LR>
+where
+    LR: LeafReader,
+{
+    fn do_cache(
+        &self,
+        weight: QueryWeight<LR>,
+        policy: Arc<QueryCachingPolicyEnum>,
+    ) -> QueryWeight<LR>
+    where
+        LR: LeafReader + 'static,
+    {
+        match self {
+            QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
+            QueryCacheEnum::Custom(cache) => cache.do_cache(weight, policy),
+        }
+    }
+}
+
+impl<LR> From<Arc<LRUQueryCache<MinSegmentSizePredicate>>> for QueryCacheEnum<LR>
+where
+    LR: LeafReader,
+{
+    fn from(v: Arc<LRUQueryCache<MinSegmentSizePredicate>>) -> Self {
+        QueryCacheEnum::Lru(v)
+    }
 }

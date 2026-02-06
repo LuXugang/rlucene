@@ -577,11 +577,12 @@ where
         todo!()
     }
 }
-impl<P> QueryCache for Arc<LRUQueryCache<P>>
+impl<P, LR> QueryCache<LR> for Arc<LRUQueryCache<P>>
 where
     P: Predicate<TopParentMeta> + 'static,
+    LR: LeafReader,
 {
-    fn do_cache<LR>(
+    fn do_cache(
         &self,
         weight: QueryWeight<LR>,
         policy: Arc<QueryCachingPolicyEnum>,

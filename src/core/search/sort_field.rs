@@ -27,7 +27,6 @@ use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
-use crate::core::search::QueryCache;
 use crate::core::search::comparators::doc_comparator::DocComparator;
 use crate::core::search::comparators::double_comparator::DoubleComparator;
 use crate::core::search::comparators::float_comparator::FloatComparator;
@@ -1169,10 +1168,9 @@ pub trait SortFiledBase: Display {
     ///
     /// * `Some(SortField)` – if a rewritten sort field was created.
     /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
-    fn rewrite<IRC, QC>(&self, _reader: &IndexSearcher<IRC, QC>) -> Result<Option<SortFieldEnum>>
+    fn rewrite<IRC>(&self, _reader: &IndexSearcher<IRC>) -> Result<Option<SortFieldEnum>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
     {
         Ok(None)
     }

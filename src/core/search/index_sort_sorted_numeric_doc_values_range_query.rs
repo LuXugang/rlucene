@@ -27,7 +27,6 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::QueryCache;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -128,16 +127,15 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         s
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC>,
         score_mode: &ScoreMode,
         boost: f32,
         per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
@@ -155,10 +153,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ))
     }
 
-    fn rewrite<IRC, QC>(mut self, searcher: &IndexSearcher<IRC, QC>) -> Result<Query>
+    fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
     {
         if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
@@ -1253,7 +1250,7 @@ mod tests {
     use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
     use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-    use crate::core::search::QueryCache;
+
     use crate::core::search::boolean_query::Builder;
     use crate::core::search::field_exists_query::FieldExistsQuery;
     use crate::core::search::index_searcher::IndexSearcher;
@@ -1360,15 +1357,14 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_hits<IRC, QC, T1, T2>(
-        searcher: &IndexSearcher<IRC, QC>,
+    fn assert_same_hits<IRC, T1, T2>(
+        searcher: &IndexSearcher<IRC>,
         q1: T1,
         q2: T2,
         scores: bool,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         T1: Into<Query>,
         T2: Into<Query>,
         <IRC as IndexReaderContext>::LeafReader: 'static,
@@ -1494,15 +1490,13 @@ mod tests {
         Ok(())
     }
 
-    fn assert_number_of_hits<IRC, QC>(
-        searcher: &IndexSearcher<IRC, QC>,
+    fn assert_number_of_hits<IRC>(
+        searcher: &IndexSearcher<IRC>,
         query: impl Into<Query>,
         number_of_hits: i32,
     ) -> Result<()>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
-        QC: QueryCache,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let query = query.into();
@@ -1943,16 +1937,15 @@ mod tests {
         Ok(())
     }
 
-    fn assert_same_count<W1, W2, IRC, QC>(
+    fn assert_same_count<W1, W2, IRC>(
         weight1: &W1,
         weight2: &W2,
-        searcher: &IndexSearcher<IRC, QC>,
+        searcher: &IndexSearcher<IRC>,
     ) -> Result<()>
     where
         W1: Weight<IRCLeafReader<IRC>> + ?Sized,
         W2: Weight<IRCLeafReader<IRC>> + ?Sized,
         IRC: IndexReaderContext,
-        QC: QueryCache,
     {
         for ctx in searcher.get_leaf_contexts()? {
             let c1 = weight1.count(ctx)?;

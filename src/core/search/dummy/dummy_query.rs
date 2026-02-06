@@ -18,7 +18,6 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRTermState;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::QueryCache;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -66,29 +65,27 @@ impl QueryBase for DummyQuery {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn create_weight<IRC, QC>(
+    fn create_weight<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        _searcher: &IndexSearcher<IRC>,
         _score_mode: &ScoreMode,
         _boost: f32,
         _per_reader_term_state: Option<TermStates<LRTermState<IRCLeafReader<IRC>>>>,
     ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRCLeafReader<IRC>>>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
         Self: Sized,
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn rewrite<IRC, QC>(
+    fn rewrite<IRC>(
         self,
-        _searcher: &IndexSearcher<IRC, QC>,
+        _searcher: &IndexSearcher<IRC>,
     ) -> crate::core::util::error::lucene_error::Result<Query>
     where
         IRC: IndexReaderContext,
-        QC: QueryCache,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

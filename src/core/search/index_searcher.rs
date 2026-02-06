@@ -32,6 +32,7 @@ use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query_cache::QueryCacheEnum;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -73,17 +74,16 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
     debug_assert!(five_percent <= i64::MAX as u64);
     std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
-pub struct IndexSearcher<IRC, QC>
+pub struct IndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
-    QC: QueryCache,
 {
     pub reader_context: IRC,
     similarity: Arc<SimilarityEnum>,
     inner: Mutex<Inner>,
     query_timeout: Option<QueryTimeoutEnum>,
     query_caching_policy: Arc<QueryCachingPolicyEnum>,
-    query_cache: Option<QC>,
+    query_cache: Option<QueryCacheEnum<IRCLeafReader<IRC>>>,
     // partialResult may be set on one of the threads of the executor. It may be correct to not make
     // this variable volatile since joining these threads should ensure a happens-before relationship
     // that guarantees that writes become visible on the main thread, but making the variable volatile
@@ -93,8 +93,7 @@ where
 pub(crate) struct Inner {
     leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
-pub type DefaultIndexSearcher<IRC> =
-    IndexSearcher<IRC, Arc<LRUQueryCache<MinSegmentSizePredicate>>>;
+pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
 impl<IRC> DefaultIndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
@@ -138,16 +137,15 @@ where
             inner,
             query_timeout: None,
             query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
-            query_cache: Some(lru_query_cache),
+            query_cache: Some(lru_query_cache.into()),
             partial_result: AtomicBool::new(false),
         })
     }
 }
 
-impl<IRC, QC> IndexSearcher<IRC, QC>
+impl<IRC> IndexSearcher<IRC>
 where
     IRC: IndexReaderContext,
-    QC: QueryCache,
 {
     pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
         self.reader_context.reader().stored_fields()
@@ -643,7 +641,7 @@ where
         self.reader_context.reader()
     }
 
-    pub fn set_query_cache(&mut self, query_cache: Option<QC>) {
+    pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRCLeafReader<IRC>>>) {
         self.query_cache = query_cache;
     }
 }
