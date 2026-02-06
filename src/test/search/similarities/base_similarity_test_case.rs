@@ -228,7 +228,7 @@ pub trait BaseSimilarityTestCase {
         {
             freq - 1.0
         } else {
-            f32::from_bits(freq.to_bits() - 1)
+            freq.next_down()
         };
 
         let prev_score = scorer.score(prev_freq, norm as i64);
@@ -402,8 +402,7 @@ pub trait BaseSimilarityTestCase {
                                 // this avoids testing frequencies of 0 which seem wrong to allow (we should enforce
                                 // computeSlopFactor etc)
                                 if freq_candidate <= f32::MIN_POSITIVE {
-                                    freq_candidate =
-                                        f32::from_bits(f32::MIN_POSITIVE.to_bits() + 1);
+                                    freq_candidate = f32::MIN_POSITIVE.next_up();
                                 }
 
                                 freq_candidate

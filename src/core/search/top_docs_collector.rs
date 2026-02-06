@@ -650,10 +650,7 @@ mod tests {
 
         scorer.score = 3.0;
         leaf_collector.collect(2, &mut scorer)?;
-        assert_eq!(
-            scorer.min_competitive_score,
-            Some(f32::from_bits((2.0f32).to_bits() + 1))
-        );
+        assert_eq!(scorer.min_competitive_score, Some(2.0f32.next_up()));
 
         scorer.score = 0.5;
         scorer.min_competitive_score = None;
@@ -662,34 +659,22 @@ mod tests {
 
         scorer.score = 4.0;
         leaf_collector.collect(4, &mut scorer)?;
-        assert_eq!(
-            scorer.min_competitive_score,
-            Some(f32::from_bits((3.0f32).to_bits() + 1))
-        );
+        assert_eq!(scorer.min_competitive_score, Some(3.0f32.next_up()));
 
         // Make sure the min score is set on scorers on new segments
         scorer = Score::new();
         let mut leaf_collector =
             collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight))?;
         leaf_collector.set_scorer(&mut scorer)?;
-        assert_eq!(
-            scorer.min_competitive_score,
-            Some(f32::from_bits((3.0f32).to_bits() + 1))
-        );
+        assert_eq!(scorer.min_competitive_score, Some(3.0f32.next_up()));
 
         scorer.score = 1.0;
         leaf_collector.collect(0, &mut scorer)?;
-        assert_eq!(
-            scorer.min_competitive_score,
-            Some(f32::from_bits((3.0f32).to_bits() + 1))
-        );
+        assert_eq!(scorer.min_competitive_score, Some(3.0f32.next_up()));
 
         scorer.score = 4.0;
         leaf_collector.collect(1, &mut scorer)?;
-        assert_eq!(
-            scorer.min_competitive_score,
-            Some(f32::from_bits((4.0f32).to_bits() + 1))
-        );
+        assert_eq!(scorer.min_competitive_score, Some(4.0f32.next_up()));
 
         Ok(())
     }

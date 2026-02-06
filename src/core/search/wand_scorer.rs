@@ -906,21 +906,14 @@ mod tests {
     fn test_scaling_factor() -> Result<()> {
         use std::f32;
 
-        fn next_down(x: f32) -> f32 {
-            f32::from_bits(x.to_bits() - 1)
-        }
-        fn next_up(x: f32) -> f32 {
-            f32::from_bits(x.to_bits() + 1)
-        }
-
         do_test_scaling_factor(1.0)?;
         do_test_scaling_factor(2.0)?;
-        do_test_scaling_factor(next_down(1.0))?;
-        do_test_scaling_factor(next_up(1.0))?;
+        do_test_scaling_factor(1.0f32.next_down())?;
+        do_test_scaling_factor(1.0f32.next_up())?;
         do_test_scaling_factor(f32::MIN_POSITIVE)?;
-        do_test_scaling_factor(next_up(f32::MIN_POSITIVE))?;
+        do_test_scaling_factor(f32::MIN_POSITIVE.next_up())?;
         do_test_scaling_factor(f32::MAX)?;
-        do_test_scaling_factor(next_down(f32::MAX))?;
+        do_test_scaling_factor(f32::MAX.next_down())?;
 
         assert_eq!(scaling_factor(f32::MIN_POSITIVE)? + 1, scaling_factor(0.0)?);
 

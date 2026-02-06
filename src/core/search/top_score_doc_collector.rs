@@ -191,7 +191,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
             let mut score = MaxScoreAccumulator::to_score(max_min_score);
 
             if self.doc_base as i32 >= MaxScoreAccumulator::doc_id(max_min_score) {
-                score = f32::from_bits(score.to_bits() + 1);
+                score = score.next_up()
             }
             if score > self.min_competitive_score {
                 scorer.set_min_competitive_score(score)?;
@@ -227,7 +227,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
             // pqTop is never null since TopScoreDocCollector fills the priority queue with sentinel
             // values if the top element is a sentinel value, its score will be -Infty and the below
             // logic is still valid
-            let local_min_score = f32::from_bits(pq_top.score.to_bits() + 1);
+            let local_min_score = pq_top.score.next_up();
             if local_min_score > self.min_competitive_score {
                 scorer.set_min_competitive_score(local_min_score)?;
                 self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
