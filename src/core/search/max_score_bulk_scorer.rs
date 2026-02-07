@@ -1231,7 +1231,7 @@ mod test {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1243,7 +1243,7 @@ mod test {
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1255,7 +1255,7 @@ mod test {
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(

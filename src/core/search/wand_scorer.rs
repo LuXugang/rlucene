@@ -1055,7 +1055,7 @@ pub(crate) mod tests {
         let searcher = new_searcher_with_reader(reader)?;
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1067,13 +1067,13 @@ pub(crate) mod tests {
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "B")).into(),
                 )),
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1147,11 +1147,11 @@ pub(crate) mod tests {
         //  test a filtered disjunction
         builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 Query::WANDScorer(WANDScorerQuery::new(
                     {
                         let mut v = Builder::new();
-                        v.add_query(
+                        v.add(
                             BoostQuery::new(
                                 Box::new(
                                     ConstantScoreQuery::new(Box::new(
@@ -1163,7 +1163,7 @@ pub(crate) mod tests {
                             )?,
                             Occur::Should,
                         )?
-                        .add_query(
+                        .add(
                             ConstantScoreQuery::new(Box::new(
                                 TermQuery::new(Term::from_text("foo", "B")).into(),
                             )),
@@ -1175,7 +1175,7 @@ pub(crate) mod tests {
                 )),
                 Occur::Must,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
         query = builder.build().into();
 
         let weight =
@@ -1208,11 +1208,11 @@ pub(crate) mod tests {
 
         builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 Query::WANDScorer(WANDScorerQuery::new(
                     {
                         let mut v = Builder::new();
-                        v.add_query(
+                        v.add(
                             BoostQuery::new(
                                 Box::new(
                                     ConstantScoreQuery::new(Box::new(
@@ -1224,7 +1224,7 @@ pub(crate) mod tests {
                             )?,
                             Occur::Should,
                         )?
-                        .add_query(
+                        .add(
                             ConstantScoreQuery::new(Box::new(
                                 TermQuery::new(Term::from_text("foo", "B")).into(),
                             )),
@@ -1236,7 +1236,7 @@ pub(crate) mod tests {
                 )),
                 Occur::Must,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+            .add(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
         query = builder.build().into();
 
         let weight =
@@ -1308,7 +1308,7 @@ pub(crate) mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1320,13 +1320,13 @@ pub(crate) mod tests {
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "B")).into(),
                 )),
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1432,9 +1432,9 @@ pub(crate) mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(TermQuery::new(Term::from_text("foo", "A")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "B")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "A")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "B")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Should)?;
         builder.set_minimum_number_should_match(2);
 
         let query: Query = Query::WANDScorer(WANDScorerQuery::new(
@@ -1494,7 +1494,7 @@ pub(crate) mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1506,13 +1506,13 @@ pub(crate) mod tests {
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "B")).into(),
                 )),
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(
                         ConstantScoreQuery::new(Box::new(
@@ -1584,7 +1584,7 @@ pub(crate) mod tests {
         let query: Query = {
             let mut inner = Builder::new();
             inner
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1596,13 +1596,13 @@ pub(crate) mod tests {
                     )?,
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     ConstantScoreQuery::new(Box::new(
                         TermQuery::new(Term::from_text("foo", "B")).into(),
                     )),
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1621,8 +1621,8 @@ pub(crate) mod tests {
 
             let mut outer = Builder::new();
             outer
-                .add_query(inner_query, Occur::Must)?
-                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+                .add(inner_query, Occur::Must)?
+                .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
             outer.build().into()
         };
 
@@ -1694,7 +1694,7 @@ pub(crate) mod tests {
         let query: Query = {
             let mut inner = Builder::new();
             inner
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1706,13 +1706,13 @@ pub(crate) mod tests {
                     )?,
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     ConstantScoreQuery::new(Box::new(
                         TermQuery::new(Term::from_text("foo", "B")).into(),
                     )),
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1731,8 +1731,8 @@ pub(crate) mod tests {
 
             let mut outer = Builder::new();
             outer
-                .add_query(inner_query, Occur::Must)?
-                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+                .add(inner_query, Occur::Must)?
+                .add(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
             outer.build().into()
         };
 
@@ -1785,7 +1785,7 @@ pub(crate) mod tests {
         let query: Query = {
             let mut inner = Builder::new();
             inner
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1797,13 +1797,13 @@ pub(crate) mod tests {
                     )?,
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     ConstantScoreQuery::new(Box::new(
                         TermQuery::new(Term::from_text("foo", "B")).into(),
                     )),
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1822,8 +1822,8 @@ pub(crate) mod tests {
 
             let mut outer = Builder::new();
             outer
-                .add_query(inner_query, Occur::Must)?
-                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+                .add(inner_query, Occur::Must)?
+                .add(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
             outer.build().into()
         };
 
@@ -1893,7 +1893,7 @@ pub(crate) mod tests {
         let query: Query = {
             let mut inner = Builder::new();
             inner
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1905,13 +1905,13 @@ pub(crate) mod tests {
                     )?,
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     ConstantScoreQuery::new(Box::new(
                         TermQuery::new(Term::from_text("foo", "B")).into(),
                     )),
                     Occur::Should,
                 )?
-                .add_query(
+                .add(
                     BoostQuery::new(
                         Box::new(
                             ConstantScoreQuery::new(Box::new(
@@ -1930,8 +1930,8 @@ pub(crate) mod tests {
 
             let mut outer = Builder::new();
             outer
-                .add_query(inner_query, Occur::Must)?
-                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+                .add(inner_query, Occur::Must)?
+                .add(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
             outer.build().into()
         };
 
@@ -1991,7 +1991,7 @@ pub(crate) mod tests {
             for i in 0..num_clauses {
                 let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
                 // TODO IMPORTANT 这里没有调用maybeWrap方法
-                builder.add_query(tq, Occur::Should)?;
+                builder.add(tq, Occur::Should)?;
             }
 
             let query = Query::WANDScorer(WANDScorerQuery::new(
@@ -2004,7 +2004,7 @@ pub(crate) mod tests {
             let filter_term = random.random_range(0..30);
             let filtered_query: Query = {
                 let mut b = Builder::new();
-                b.add_query(query, Occur::Must)?.add_query(
+                b.add(query, Occur::Must)?.add(
                     TermQuery::new(Term::from_text("foo", filter_term.to_string())),
                     Occur::Filter,
                 )?;
@@ -2062,7 +2062,7 @@ pub(crate) mod tests {
                 )?
                 .into();
                 // TODO IMPORTANT 这里没有调用maybeWrap方法
-                builder.add_query(q, Occur::Should)?;
+                builder.add(q, Occur::Should)?;
             }
 
             let query = Query::WANDScorer(WANDScorerQuery::new(
@@ -2075,7 +2075,7 @@ pub(crate) mod tests {
             let filter_term = random.random_range(0..30);
             let filtered_query: Query = {
                 let mut b = Builder::new();
-                b.add_query(query, Occur::Must)?.add_query(
+                b.add(query, Occur::Must)?.add(
                     TermQuery::new(Term::from_text("foo", filter_term.to_string())),
                     Occur::Filter,
                 )?;
@@ -2144,7 +2144,7 @@ pub(crate) mod tests {
                     q = Query::MaxScoreWrapper(MaxScoreWrapperQuery::new(q, max_range, max_score));
                 }
 
-                builder.add_query(q, Occur::Should)?;
+                builder.add(q, Occur::Should)?;
             }
 
             let query = Query::WANDScorer(WANDScorerQuery::new(
@@ -2157,7 +2157,7 @@ pub(crate) mod tests {
             let filter_term = random.random_range(0..30);
             let filtered_query: Query = {
                 let mut b = Builder::new();
-                b.add_query(query, Occur::Must)?.add_query(
+                b.add(query, Occur::Must)?.add(
                     TermQuery::new(Term::from_text("foo", filter_term.to_string())),
                     Occur::Filter,
                 )?;

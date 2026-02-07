@@ -623,13 +623,13 @@ mod tests {
         let searcher = new_searcher_with_reader(reader)?;
         let query: Query = {
             let mut b = Builder::new();
-            b.add_query(
+            b.add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("f", "foo")).into(),
                 )),
                 req_occur,
             )?
-            .add_query(
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("f", "bar")).into(),
                 )),

@@ -148,11 +148,11 @@ impl BooleanQuery {
                     actually_rewritten = true;
                 },
                 Occur::Must => {
-                    new_query.add_query(rewritten, Occur::Filter)?;
+                    new_query.add(rewritten, Occur::Filter)?;
                     actually_rewritten = true;
                 },
                 _ if clause.query.identity() != rewritten.identity() => {
-                    new_query.add_query(rewritten, clause.occur)?;
+                    new_query.add(rewritten, clause.occur)?;
                     actually_rewritten = true;
                 },
                 _ => {
@@ -371,7 +371,7 @@ impl QueryBase for BooleanQuery {
                             },
                         }
                     } else {
-                        builder.add_query(rewritten, occur)?;
+                        builder.add(rewritten, occur)?;
                     }
                 } else {
                     // leave as-is
@@ -399,7 +399,7 @@ impl QueryBase for BooleanQuery {
                 for (occur, indices) in &self.clause_sets {
                     for &idx in indices {
                         let clause = &self.clauses[idx];
-                        rewritten.add_query(clause.query.clone(), *occur)?;
+                        rewritten.add(clause.query.clone(), *occur)?;
                     }
                 }
 
@@ -493,7 +493,7 @@ impl QueryBase for BooleanQuery {
                 }
 
                 for idx in new_filter_ixd {
-                    builder.add_query(self.clauses[idx].query.clone(), Occur::Filter)?;
+                    builder.add(self.clauses[idx].query.clone(), Occur::Filter)?;
                 }
 
                 return Ok(builder.build().into());
@@ -535,7 +535,7 @@ impl QueryBase for BooleanQuery {
                         .any(|&idx| self.clauses[idx].query == clause.query);
 
                     if in_intersection && clause.occur == Occur::Should {
-                        builder.add_query(clause.query.clone(), Occur::Must)?;
+                        builder.add(clause.query.clone(), Occur::Must)?;
                         min_should_match -= 1;
                     } else {
                         builder.add_clause(clause.clone())?;
@@ -578,7 +578,7 @@ impl QueryBase for BooleanQuery {
                     if boost != 1.0 {
                         query = Query::Boost(BoostQuery::new(query, boost)?);
                     }
-                    builder.add_query(query, Occur::Should)?;
+                    builder.add(query, Occur::Should)?;
                 }
 
                 for clause in &self.clauses {
@@ -622,7 +622,7 @@ impl QueryBase for BooleanQuery {
                     if boost != 1.0 {
                         query = Query::Boost(BoostQuery::new(query, boost)?);
                     }
-                    builder.add_query(query, Occur::Must)?;
+                    builder.add(query, Occur::Must)?;
                 }
 
                 for clause in &self.clauses {
@@ -683,7 +683,7 @@ impl QueryBase for BooleanQuery {
                     // now add back the SHOULD clauses
                     let mut builder = Builder::new();
                     builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
-                    builder.add_query(rewritten, Occur::Must)?;
+                    builder.add(rewritten, Occur::Must)?;
 
                     let should_indices = self
                         .clause_sets
@@ -691,7 +691,7 @@ impl QueryBase for BooleanQuery {
                         .map(|v| v.as_slice())
                         .unwrap_or(&[]);
                     for &idx in should_indices {
-                        builder.add_query(self.clauses[idx].query.clone(), Occur::Should)?;
+                        builder.add(self.clauses[idx].query.clone(), Occur::Should)?;
                     }
 
                     return Ok(builder.build().into());
@@ -774,7 +774,7 @@ impl QueryBase for BooleanQuery {
                                     debug_assert!(outer_clause.occur == Occur::Filter);
                                     debug_assert!(inner_occur == Occur::Must);
                                     // In this case we need to change the occur of the inner query from MUST to FILTER.
-                                    builder.add_query(inner_clause.query.clone(), Occur::Filter)?;
+                                    builder.add(inner_clause.query.clone(), Occur::Filter)?;
                                 }
                             }
                         } else {
@@ -814,7 +814,7 @@ impl QueryBase for BooleanQuery {
 
                 for clause in &self.clauses {
                     if clause.occur == Occur::Should {
-                        builder.add_query(clause.query.clone(), Occur::Must)?;
+                        builder.add(clause.query.clone(), Occur::Must)?;
                     } else {
                         builder.add_clause(clause.clone())?;
                     }
@@ -955,7 +955,7 @@ impl Builder {
     ///
     /// Returns [`LuceneError::TooManyClauses`] if the new number of clauses exceeds
     /// the maximum clause count.
-    pub fn add_query<Q>(&mut self, query: Q, occur: Occur) -> Result<&mut Self>
+    pub fn add<Q>(&mut self, query: Q, occur: Occur) -> Result<&mut Self>
     where
         Q: Into<Query>,
     {
@@ -1006,44 +1006,44 @@ mod tests {
     #[test]
     fn test_equality() -> Result<()> {
         let mut bq1 = Builder::new();
-        bq1.add_query(
+        bq1.add(
             Query::Term(TermQuery::new(Term::from_text("field", "value1"))),
             Occur::Should,
         )?;
-        bq1.add_query(
+        bq1.add(
             Query::Term(TermQuery::new(Term::from_text("field", "value2"))),
             Occur::Should,
         )?;
         let mut nested1 = Builder::new();
-        nested1.add_query(
+        nested1.add(
             Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue1"))),
             Occur::Should,
         )?;
-        nested1.add_query(
+        nested1.add(
             Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue2"))),
             Occur::Should,
         )?;
-        bq1.add_query(Query::Boolean(nested1.build()), Occur::Should)?;
+        bq1.add(Query::Boolean(nested1.build()), Occur::Should)?;
 
         let mut bq2 = Builder::new();
-        bq2.add_query(
+        bq2.add(
             Query::Term(TermQuery::new(Term::from_text("field", "value1"))),
             Occur::Should,
         )?;
-        bq2.add_query(
+        bq2.add(
             Query::Term(TermQuery::new(Term::from_text("field", "value2"))),
             Occur::Should,
         )?;
         let mut nested2 = Builder::new();
-        nested2.add_query(
+        nested2.add(
             Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue1"))),
             Occur::Should,
         )?;
-        nested2.add_query(
+        nested2.add(
             Query::Term(TermQuery::new(Term::from_text("field", "nestedvalue2"))),
             Occur::Should,
         )?;
-        bq2.add_query(Query::Boolean(nested2.build()), Occur::Should)?;
+        bq2.add(Query::Boolean(nested2.build()), Occur::Should)?;
 
         assert_eq!(bq1.build(), bq2.build());
         Ok(())
@@ -1114,13 +1114,13 @@ mod tests {
 
         let mut bq1_builder = Builder::new();
         bq1_builder.set_minimum_number_should_match(min_should_match);
-        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        bq1_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
         let bq1 = bq1_builder.build();
 
         let mut bq2_builder = Builder::new();
         bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
         let bq2 = bq2_builder.build();
 
         QueryUtils::check_unequal(&bq1, &bq2);
@@ -1134,13 +1134,13 @@ mod tests {
 
         let mut bq1_builder = Builder::new();
         bq1_builder.set_minimum_number_should_match(min_should_match);
-        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq1_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq1 = bq1_builder.build();
 
         let mut bq2_builder = Builder::new();
         bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq2 = bq2_builder.build();
 
         QueryUtils::check_equal(&bq1, &bq2);
@@ -1155,15 +1155,15 @@ mod tests {
 
         let mut bq1_builder = Builder::new();
         bq1_builder.set_minimum_number_should_match(min_should_match);
-        bq1_builder.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
-        bq1_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq1_builder.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq1_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq1 = bq1_builder.build();
 
         let mut bq2_builder = Builder::new();
         bq2_builder.set_minimum_number_should_match(bq1.get_minimum_number_should_match());
-        bq2_builder.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
-        bq2_builder.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq2_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq2 = bq2_builder.build();
 
         QueryUtils::check_equal(&bq1, &bq2);
@@ -1178,8 +1178,8 @@ mod tests {
         let t2 = Term::from_text("foo", TestUtil::random_simple_string(&mut random));
 
         let mut bq_builder = Builder::new();
-        bq_builder.add_query(TermQuery::new(t1), Occur::Should)?;
-        bq_builder.add_query(TermQuery::new(t2), Occur::Should)?;
+        bq_builder.add(TermQuery::new(t1), Occur::Should)?;
+        bq_builder.add(TermQuery::new(t2), Occur::Should)?;
         let bq = bq_builder.build();
 
         let hash1 = CoreHelper::calculate_hash(&bq);
@@ -1194,13 +1194,13 @@ mod tests {
         let max = get_max_clause_count();
 
         for i in 0..max {
-            bq.add_query(
+            bq.add(
                 TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
                 Occur::Should,
             )?;
         }
 
-        let res = bq.add_query(
+        let res = bq.add(
             TermQuery::new(Term::from_text("foo", "bar-MAX")),
             Occur::Should,
         );
@@ -1240,8 +1240,8 @@ mod tests {
         let searcher = new_searcher_with_reader(reader)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
-        bq.add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
+        bq.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
+        bq.add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
 
         // No doc can match: only 2 SHOULD clauses, but min_should_match = 4
         bq.set_minimum_number_should_match(4);
@@ -1323,11 +1323,11 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Must,
             )?
-            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
+            .add(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
         let query = builder.build();
 
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1336,11 +1336,11 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "missing")),
                 Occur::Must,
             )?
-            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
+            .add(LongPoint::new_exact_query("long", 3)?, Occur::Filter)?;
         let query = builder.build();
 
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1349,11 +1349,11 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Must,
             )?
-            .add_query(LongPoint::new_exact_query("long", 5)?, Occur::Filter)?;
+            .add(LongPoint::new_exact_query("long", 5)?, Occur::Filter)?;
         let query = builder.build();
 
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1363,11 +1363,11 @@ mod tests {
         // FILTER matches all docs → conjunction count equals MUST count
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Must,
             )?
-            .add_query(LongPoint::new_range_query("long", 0, 10)?, Occur::Filter)?;
+            .add(LongPoint::new_range_query("long", 0, 10)?, Occur::Filter)?;
         let query = builder.build();
 
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1376,8 +1376,8 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(LongPoint::new_range_query("long", 1, 5)?, Occur::Filter)?;
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Filter)?;
         let query = builder.build();
 
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1422,11 +1422,11 @@ mod tests {
         // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Should,
             )?
-            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
+            .add(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
         let query = builder.build();
         // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1435,11 +1435,11 @@ mod tests {
         // One query has a count of 0, the disjunction count is the other count
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "missing")),
                 Occur::Should,
             )?
-            .add_query(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
+            .add(LongPoint::new_exact_query("long", 3)?, Occur::Should)?;
         let query = builder.build();
         // One query has a count of 0, the disjunction count is the other count
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1447,11 +1447,11 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Should,
             )?
-            .add_query(LongPoint::new_exact_query("long", 5)?, Occur::Should)?;
+            .add(LongPoint::new_exact_query("long", 5)?, Occur::Should)?;
         let query = builder.build();
         // One query has a count of 0, the disjunction count is the other count
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
@@ -1460,11 +1460,11 @@ mod tests {
         // One query matches all docs, the count of the disjunction is the number of docs
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::Should,
             )?
-            .add_query(LongPoint::new_range_query("long", 0, 10)?, Occur::Should)?;
+            .add(LongPoint::new_range_query("long", 0, 10)?, Occur::Should)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
         // One query matches all docs, the count of the disjunction is the number of docs
@@ -1473,8 +1473,8 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?
-            .add_query(LongPoint::new_range_query("long", 1, 5)?, Occur::Should)?;
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?
+            .add(LongPoint::new_range_query("long", 1, 5)?, Occur::Should)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
         // One query matches all docs, the count of the disjunction is the number of docs
@@ -1493,12 +1493,12 @@ mod tests {
         // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all docs
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "xyz")),
                 Occur::Must,
             )?
-            .add_query(unknown_count_query.clone(), Occur::MustNot)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+            .add(unknown_count_query.clone(), Occur::MustNot)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
         // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all
@@ -1507,12 +1507,12 @@ mod tests {
 
         let mut builder = Builder::new();
         builder
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("string", "xyz")),
                 Occur::Must,
             )?
-            .add_query(unknown_count_query.clone(), Occur::MustNot)?
-            .add_query(
+            .add(unknown_count_query.clone(), Occur::MustNot)?
+            .add(
                 TermQuery::new(Term::from_text("string", "abc")),
                 Occur::MustNot,
             )?;
@@ -1526,8 +1526,8 @@ mod tests {
         // test pure disjunction
         let mut builder = Builder::new();
         builder
-            .add_query(unknown_count_query.clone(), Occur::Should)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?;
+            .add(unknown_count_query.clone(), Occur::Should)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Should)?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
         // count of the first SHOULD clause is unknown, but the second SHOULD clause matches all docs
@@ -1535,12 +1535,10 @@ mod tests {
 
         // count of the first SHOULD clause is unknown, though the second SHOULD clause matches one doc
         let mut builder = Builder::new();
-        builder
-            .add_query(unknown_count_query, Occur::Should)?
-            .add_query(
-                TermQuery::new(Term::from_text("string", "abc")),
-                Occur::Should,
-            )?;
+        builder.add(unknown_count_query, Occur::Should)?.add(
+            TermQuery::new(Term::from_text("string", "abc")),
+            Occur::Should,
+        )?;
         let query = builder.build();
         let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0, None)?;
         // count of the first SHOULD clause is unknown, though the second SHOULD clause matche one doc,
@@ -1616,7 +1614,7 @@ mod test {
             } else {
                 Occur::Must
             };
-            bq.add_query(actual, occur)?;
+            bq.add(actual, occur)?;
             actual = bq.build().into();
         }
 
@@ -1642,7 +1640,7 @@ mod test {
         let searcher = IndexSearcher::new(reader)?;
 
         let mut query1 = Builder::new();
-        query1.add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
+        query1.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
         let rewritten1 = query1.build().rewrite(&searcher)?;
         match rewritten1 {
             Query::Boost(bq) => {
@@ -1654,8 +1652,8 @@ mod test {
         // a null scorer we will end up with a single filter scorer and will need to
         // make sure to set score=0
         let mut query2 = Builder::new();
-        query2.add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
-        query2.add_query(
+        query2.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
+        query2.add(
             TermQuery::new(Term::from_text("missing_field", "b")),
             Occur::Should,
         )?;
@@ -1677,8 +1675,8 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1689,11 +1687,11 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(
+        bq.add(
             BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?,
             Occur::Must,
         )?
-        .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq = bq.build();
 
         let v: Query = BoostQuery::new(
@@ -1706,8 +1704,8 @@ mod test {
         assert_eq!(v, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1716,18 +1714,18 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(
+        bq.add(
             BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?,
             Occur::Must,
         )?
-        .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
         let v: Query = BoostQuery::new(Query::MatchAll(MatchAllDocsQuery::new()), 42.0)?.into();
         assert_eq!(v, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "bar")),
                 Occur::MustNot,
             )?;
@@ -1736,8 +1734,8 @@ mod test {
         assert_eq!(v, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1746,23 +1744,23 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let bq = bq.build();
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let expected = expected.build();
         let v: Query = ConstantScoreQuery::new(Box::new(expected.into())).into();
         assert_eq!(v, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "baz")),
                 Occur::MustNot,
             )?;
@@ -1770,8 +1768,8 @@ mod test {
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "baz")),
                 Occur::MustNot,
             )?;
@@ -1780,8 +1778,8 @@ mod test {
         assert_eq!(v, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
         let bq: Query = bq.build().into();
 
         assert_eq!(bq.clone(), searcher.rewrite(bq)?);
@@ -1793,10 +1791,10 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
-            .add_query(
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -1804,14 +1802,14 @@ mod test {
 
         let mut expected = Builder::new();
         expected
-            .add_query(
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "bar")).into(),
                 )),
                 Occur::Must,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -1826,8 +1824,8 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1836,15 +1834,15 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let bq = bq.build();
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let expected = expected.build();
 
         assert_eq!(Query::from(expected), searcher.rewrite(bq)?);
@@ -1856,8 +1854,8 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1866,18 +1864,18 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quz")), Occur::Should)?
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "quz")), Occur::Should)?
             .set_minimum_number_should_match(2);
         let bq = bq.build();
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quz")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "quz")), Occur::Should)?
             .set_minimum_number_should_match(1);
         let expected = expected.build();
 
@@ -1891,10 +1889,10 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
-            .add_query(
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "bar")),
                 Occur::MustNot,
             )?;
@@ -1903,10 +1901,10 @@ mod test {
         assert_eq!(Query::from(MatchNoDocsQuery::new()), searcher.rewrite(bq)?);
 
         let mut bq2 = Builder::new();
-        bq2.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
-            .add_query(
+        bq2.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "bar")),
                 Occur::MustNot,
             )?;
@@ -1922,23 +1920,23 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
         let bq = bq.build();
 
         assert_eq!(Query::from(MatchNoDocsQuery::new()), searcher.rewrite(bq)?);
 
         let mut bq2 = Builder::new();
-        bq2.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
-            .add_query(
+        bq2.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "bad")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "bor")),
                 Occur::MustNot,
             )?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::MustNot)?;
         let bq2 = bq2.build();
 
         assert_eq!(Query::from(MatchNoDocsQuery::new()), searcher.rewrite(bq2)?);
@@ -1961,8 +1959,8 @@ mod test {
         let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         assert_eq!(
@@ -1971,22 +1969,22 @@ mod test {
         );
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected = expected.build();
 
         assert_eq!(Query::from(expected), searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         let expected: Query = BoostQuery::new(
@@ -2000,8 +1998,8 @@ mod test {
         assert_eq!(expected, searcher.rewrite(bq)?);
 
         let mut bq = Builder::new();
-        bq.add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?
-            .add_query(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
+        bq.add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?
+            .add(Query::MatchAll(MatchAllDocsQuery::new()), Occur::Filter)?;
         let bq = bq.build();
 
         let expected: Query = BoostQuery::new(
@@ -2027,8 +2025,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
         let query: Query = query.build().into();
 
         let expected: Query = BoostQuery::new(
@@ -2040,15 +2038,15 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 BoostQuery::new(
                     Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
                     2.0,
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -2056,14 +2054,14 @@ mod test {
 
         let mut expected = Builder::new();
         expected
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
                     3.0,
                 )?,
                 Occur::Should,
             )?
-            .add_query(
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -2074,9 +2072,9 @@ mod test {
         let mut query = Builder::new();
         query
             .set_minimum_number_should_match(2)
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -2094,8 +2092,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let expected: Query = BoostQuery::new(
@@ -2107,27 +2105,27 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 BoostQuery::new(
                     Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
                     2.0,
                 )?,
                 Occur::Must,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected = Builder::new();
         expected
-            .add_query(
+            .add(
                 BoostQuery::new(
                     Box::new(TermQuery::new(Term::from_text("foo", "bar")).into()),
                     3.0,
                 )?,
                 Occur::Must,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
         let expected: Query = expected.build().into();
 
         assert_eq!(expected, searcher.rewrite(query)?);
@@ -2140,8 +2138,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -2149,18 +2147,18 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(inner.clone(), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(inner.clone(), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
@@ -2168,19 +2166,19 @@ mod test {
         let mut query = Builder::new();
         query
             .set_minimum_number_should_match(0)
-            .add_query(inner.clone(), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner.clone(), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
             .set_minimum_number_should_match(0)
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
@@ -2188,19 +2186,19 @@ mod test {
         let mut query = Builder::new();
         query
             .set_minimum_number_should_match(1)
-            .add_query(inner.clone(), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner.clone(), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
             .set_minimum_number_should_match(1)
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
@@ -2208,8 +2206,8 @@ mod test {
         let mut query = Builder::new();
         query
             .set_minimum_number_should_match(2)
-            .add_query(inner.clone(), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner.clone(), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         assert_eq!(
@@ -2219,19 +2217,19 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?
             .set_minimum_number_should_match(2);
         let inner: Query = inner.build().into();
 
         let mut query = Builder::new();
         query
-            .add_query(inner, Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(inner, Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let query: Query = query.build().into();
         let query_id = query.identity().clone();
         let v = searcher.rewrite(query)?;
@@ -2245,21 +2243,21 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?;
         let inner: Query = inner.build().into();
 
         let mut query = Builder::new();
         query
-            .add_query(inner.clone(), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(inner.clone(), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
@@ -2267,22 +2265,22 @@ mod test {
         let mut query = Builder::new();
         query
             .set_minimum_number_should_match(0)
-            .add_query(inner.clone(), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(inner.clone(), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
             .set_minimum_number_should_match(0)
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
 
         let mut query = Builder::new();
-        query.add_query(inner.clone(), Occur::Must)?.add_query(
+        query.add(inner.clone(), Occur::Must)?.add(
             TermQuery::new(Term::from_text("foo", "baz")),
             Occur::MustNot,
         )?;
@@ -2290,9 +2288,9 @@ mod test {
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "quux")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "baz")),
                 Occur::MustNot,
             )?;
@@ -2302,8 +2300,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Filter,
             )?;
@@ -2311,26 +2309,26 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(inner.clone(), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner.clone(), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Filter,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Filter,
             )?;
@@ -2338,26 +2336,26 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(inner.clone(), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner.clone(), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Filter,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::MustNot,
             )?;
@@ -2365,18 +2363,18 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(inner, Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(inner, Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::MustNot,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Must)?;
         let expected_rewritten: Query = expected_rewritten.build().into();
 
         assert_eq!(expected_rewritten, searcher.rewrite(query)?);
@@ -2389,8 +2387,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?;
@@ -2398,18 +2396,18 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(inner, Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(inner, Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
             .set_minimum_number_should_match(1);
         let expected_rewritten: Query = expected_rewritten.build().into();
 
@@ -2417,30 +2415,30 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "foo")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "foo")), Occur::Should)?
             .set_minimum_number_should_match(2);
         let inner: Query = inner.build().into();
 
         let mut query = Builder::new();
         query
-            .add_query(inner, Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(inner, Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let query: Query = query.build().into();
 
         let mut expected_rewritten = Builder::new();
         expected_rewritten
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "quux")),
                 Occur::Should,
             )?
-            .add_query(TermQuery::new(Term::from_text("foo", "foo")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("foo", "foo")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?
             .set_minimum_number_should_match(2);
         let expected_rewritten: Query = expected_rewritten.build().into();
 
@@ -2455,8 +2453,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
         let inner = inner.build();
 
         let query1: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
@@ -2468,17 +2466,17 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
         let inner = inner.build();
 
         let query2: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
 
         let mut rewritten2_inner = Builder::new();
         rewritten2_inner
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?
-            .add_query(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?
+            .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
         let rewritten2_inner = rewritten2_inner.build();
         let rewritten2: Query = ConstantScoreQuery::new(Box::new(rewritten2_inner.into())).into();
 
@@ -2486,8 +2484,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?;
         let inner = inner.build();
 
         let query3: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
@@ -2497,8 +2495,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
+            .add(
                 TermQuery::new(Term::from_text("field", "b")),
                 Occur::MustNot,
             )?;
@@ -2512,9 +2510,9 @@ mod test {
         let mut inner = Builder::new();
         inner
             .set_minimum_number_should_match(1)
-            .add_query(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("field", "b")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("field", "c")), Occur::Filter)?;
         let inner = inner.build();
 
         let query5: Query = ConstantScoreQuery::new(Box::new(inner.into())).into();
@@ -2531,8 +2529,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Should)?;
         let query = query.build();
 
         assert_eq!(
@@ -2548,8 +2546,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::MustNot)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::MustNot)?;
         let query = query.build();
 
         assert_eq!(
@@ -2566,8 +2564,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Must)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Must)?;
         let query = query.build();
 
         assert_eq!(
@@ -2584,8 +2582,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(Query::MatchNoDoc(MatchNoDocsQuery::new()), Occur::Filter)?;
         let query = query.build();
 
         assert_eq!(
@@ -2616,8 +2614,8 @@ mod test {
 
         let mut query1 = Builder::new();
         query1
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "baz")).into(),
                 )),
@@ -2627,16 +2625,16 @@ mod test {
 
         let mut expected1 = Builder::new();
         expected1
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Filter)?;
         let expected1: Query = expected1.build().into();
 
         assert_eq!(expected1, searcher.rewrite(query1)?);
 
         let mut query2 = Builder::new();
         query2
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "bar")).into(),
                 )),
@@ -2662,8 +2660,8 @@ mod test {
 
         let mut query = Builder::new();
         query
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "baz")).into(),
                 )),
@@ -2673,8 +2671,8 @@ mod test {
 
         let mut expected = Builder::new();
         expected
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Must)?
+            .add(
                 TermQuery::new(Term::from_text("foo", "baz")),
                 Occur::MustNot,
             )?;
@@ -2691,8 +2689,8 @@ mod test {
 
         let mut inner = Builder::new();
         inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(
                 ConstantScoreQuery::new(Box::new(
                     TermQuery::new(Term::from_text("foo", "baz")).into(),
                 )),
@@ -2704,8 +2702,8 @@ mod test {
 
         let mut expected_inner = Builder::new();
         expected_inner
-            .add_query(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
-            .add_query(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
+            .add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?
+            .add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
         let expected_inner = expected_inner.build();
 
         let expected: Query = ConstantScoreQuery::new(Box::new(expected_inner.into())).into();
