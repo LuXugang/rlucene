@@ -79,6 +79,21 @@ where
             }),
         }
     }
+    #[cfg(test)]
+    pub(crate) fn with_fixed_max_score(
+        req_scorer: S1,
+        opt_scorer: S2,
+        score_mode: ScoreMode,
+    ) -> Result<Self> {
+        let mut v = Self::new(req_scorer, opt_scorer, score_mode)?;
+        match v.disi {
+            DocIdSetIteratorEnum2::A(ref mut disi) => disi.fixed_max_score = true,
+            DocIdSetIteratorEnum2::B(ref mut wrapper) => {
+                wrapper.two_phase_iterator.disi.fixed_max_score = true
+            },
+        }
+        Ok(v)
+    }
 }
 
 impl<S1, S2> Scorable for ReqOptSumScorer<S1, S2>
@@ -212,17 +227,16 @@ where
     req_scorer: S1,
     opt_scorer: S2,
     req_max_score: f32,
+    #[cfg(test)]
+    fixed_max_score: bool,
 }
 impl<S1, S2> DocIdSetIteratorImpl<S1, S2>
 where
     S1: Scorer,
     S2: Scorer,
 {
-    fn new(mut req_scorer: S1, mut opt_scorer: S2, req_max_score: f32) -> Result<Self> {
-        req_scorer.advance_shallow(0)?;
-        opt_scorer.advance_shallow(0)?;
-
-        let mut disi = Self {
+    fn new(req_scorer: S1, opt_scorer: S2, req_max_score: f32) -> Result<Self> {
+        let disi = Self {
             upto: -1,
             max_score: 0.0,
             opt_is_required: false,
@@ -230,10 +244,9 @@ where
             req_scorer,
             opt_scorer,
             req_max_score,
+            #[cfg(test)]
+            fixed_max_score: false,
         };
-
-        disi.move_to_next_block(0)?;
-
         Ok(disi)
     }
 
@@ -262,6 +275,12 @@ where
         Ok(up_to)
     }
     fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
+        #[cfg(test)]
+        {
+            if self.fixed_max_score {
+                return Ok(f32::INFINITY);
+            }
+        }
         let mut max_score = self.req_scorer.get_max_score(up_to)?;
 
         let opt_doc = {
@@ -386,13 +405,17 @@ where
         };
 
         if opt_doc < cur_doc {
-            let mut opt_it = self.opt_scorer.iterator();
-            opt_doc = opt_it.advance(cur_doc)?;
-            if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()?
-                && opt_doc == cur_doc
-                && !opt_tpi.matches()?
-            {
-                opt_doc = opt_it.next_doc()?;
+            opt_doc = self.opt_scorer.iterator_mut().advance(cur_doc)?;
+
+            let should_skip = {
+                if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()? {
+                    opt_doc == cur_doc && !opt_tpi.matches()?
+                } else {
+                    false
+                }
+            };
+            if should_skip {
+                opt_doc = self.opt_scorer.iterator_mut().next_doc()?;
             }
         }
 
@@ -516,19 +539,317 @@ where
 }
 #[cfg(test)]
 mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
+    use crate::core::document::float_point::FloatPoint;
+    use crate::core::document::string_field::StringField;
+    use crate::core::index::directory_reader::directory_reader_util;
+    use crate::core::index::index_reader_context::IndexReaderContext;
+    use crate::core::index::index_writer::IndexWriter;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
+    use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::index_searcher::IndexSearcher;
+    use crate::core::search::query::{Query, QueryWeightSsScorer};
     use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
     use crate::core::search::scorable::Scorable;
+    use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::term_query::TermQuery;
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+    };
+    use rand::Rng;
 
     #[allow(dead_code)]
     struct TestReqOptSumScorer;
+    #[test]
+    fn test_basics_must() -> Result<()> {
+        let mut random = random();
+        do_test_basics(&mut random, Occur::Must)
+    }
 
-    // TODO: BooleanQuery未实现
-    // TODO: ConstantScoreQuery有bug
+    #[test]
+    fn test_basics_filter() -> Result<()> {
+        let mut random = random();
+        do_test_basics(&mut random, Occur::Filter)
+    }
+
+    fn do_test_basics<R: Rng + ?Sized>(random: &mut R, req_occur: Occur) -> Result<()> {
+        let dir = new_directory_shared(random)?;
+
+        // TODO RandomIndexWriter / newLogMergePolicy 未实现：用当前 IndexWriter 路径代替
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+
+        {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
+            w.add_document(doc)?;
+        }
+        {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
+            doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
+            w.add_document(doc)?;
+        }
+        {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
+            w.add_document(doc)?;
+        }
+        {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
+            w.add_document(doc)?;
+        }
+        {
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
+            doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+
+        let searcher = new_searcher_with_reader(reader)?;
+        let query: Query = {
+            let mut b = Builder::new();
+            b.add_query(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("f", "foo")).into(),
+                )),
+                req_occur,
+            )?
+            .add_query(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("f", "bar")).into(),
+                )),
+                Occur::Should,
+            )?;
+            b.build().into()
+        };
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let mut scorer = weight.scorer(context)?.expect("expected scorer");
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(FloatPoint::next_down(1.0))?;
+
+        if req_occur == Occur::Must {
+            assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        }
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        if req_occur == Occur::Must {
+            assert_eq!(2, scorer.iterator_mut().next_doc()?);
+        }
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;
+
+        if req_occur == Occur::Must {
+            assert_eq!(1, scorer.iterator_mut().next_doc()?);
+            assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        }
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;
+        if req_occur == Occur::Must {
+            assert_eq!(1, scorer.iterator_mut().next_doc()?);
+            assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        }
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_max_block() -> Result<()> {
+        // TODO TermFreqTokenStream未实现
+        Ok(())
+    }
+    #[test]
+    fn test_max_score_segment() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let conf = new_index_writer_config(&mut random);
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A"],      // 0
+            &["A"],      // 1
+            &[],         // 2
+            &["A", "B"], // 3
+            &["A"],      // 4
+            &["B"],      // 5
+            &["A", "B"], // 6
+            &["B"],      // 7
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for v in *values {
+                doc.add(StringField::from_string(
+                    "foo",
+                    (*v).to_string(),
+                    Store::No,
+                )?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let _ctx = &searcher.get_leaf_contexts()?[0];
+
+        let req_q =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "A")).into()));
+        let opt_q =
+            ConstantScoreQuery::new(Box::new(TermQuery::new(Term::from_text("foo", "B")).into()));
+
+        let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(6, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
+        scorer.set_min_competitive_score(f32::from_bits(1.0f32.to_bits() - 1))?;
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(1.0, scorer.score()?);
+        assert_eq!(6, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
+        scorer.set_min_competitive_score(f32::from_bits(1.0f32.to_bits() + 1))?;
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(6, scorer.iterator_mut().next_doc()?);
+        assert_eq!(2.0, scorer.score()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut scorer = req_opt_scorer(&searcher, req_q, opt_q, true)?;
+        scorer.set_min_competitive_score(f32::from_bits(2.0f32.to_bits() + 1))?;
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_must_random_frequent_opt() -> Result<()> {
+        let mut random = random();
+        do_test_random(&mut random, Occur::Must, 0.5)
+    }
+
+    #[test]
+    fn test_must_random_rare_opt() -> Result<()> {
+        let mut random = random();
+        do_test_random(&mut random, Occur::Must, 0.05)
+    }
+
+    #[test]
+    fn test_filter_random_frequent_opt() -> Result<()> {
+        let mut random = random();
+        do_test_random(&mut random, Occur::Filter, 0.5)
+    }
+
+    #[test]
+    fn test_filter_random_rare_opt() -> Result<()> {
+        let mut random = random();
+        do_test_random(&mut random, Occur::Filter, 0.05)
+    }
+
+    fn do_test_random<R>(_random: &mut R, _req_occur: Occur, _opt_freq: f64) -> Result<()>
+    where
+        R: Rng + ?Sized,
+    {
+        // TODO RandomApproximationQuery未实现
+        Ok(())
+    }
+
+    fn req_opt_scorer<IRC, Q>(
+        searcher: &IndexSearcher<IRC>,
+        req_q: Q,
+        opt_q: Q,
+        with_block_score: bool,
+    ) -> Result<ReqOptSumScorer<QueryWeightSsScorer, QueryWeightSsScorer>>
+    where
+        Q: Into<Query>,
+        IRC: IndexReaderContext,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
+        let req_q = req_q.into();
+        let opt_q = opt_q.into();
+        let ctx = &searcher.get_leaf_contexts()?[0];
+
+        let req_scorer = searcher
+            .create_weight(req_q, ScoreMode::TopScores, 1.0, None)?
+            .scorer(ctx)?
+            .expect("required scorer");
+
+        let opt_scorer = searcher
+            .create_weight(opt_q, ScoreMode::TopScores, 1.0, None)?
+            .scorer(ctx)?
+            .expect("optional scorer");
+        let v = match with_block_score {
+            true => ReqOptSumScorer::new(req_scorer, opt_scorer, ScoreMode::TopScores)?,
+            false => {
+                ReqOptSumScorer::with_fixed_max_score(req_scorer, opt_scorer, ScoreMode::TopScores)?
+            },
+        };
+        Ok(v)
+    }
 
     struct ReqOptSumScorerWrapper<S1, S2>
     where
