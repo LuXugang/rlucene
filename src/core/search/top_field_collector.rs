@@ -1865,7 +1865,7 @@ mod tests {
         let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
 
         let mut doc = Document::new();
-        doc.add(TextField::with_string("f", "foo bar", Store::No)?);
+        doc.add(TextField::from_string("f", "foo bar", Store::No)?);
 
         writer.add_documents(vec![doc.clone(); 5])?;
         writer.flush()?;

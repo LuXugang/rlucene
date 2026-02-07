@@ -314,7 +314,7 @@ mod tests {
         ft.set_stored(true)?;
         let ft_arc = ft;
 
-        let string_fld = Field::with_string("string", binary_val, ft_arc.clone())?;
+        let string_fld = Field::from_string("string", binary_val, ft_arc.clone())?;
         let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
         let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
 
@@ -409,25 +409,25 @@ mod tests {
     fn test_constructor_exceptions() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_stored(true)?;
-        Field::with_string("name", "value", ft.clone())?;
+        Field::from_string("name", "value", ft.clone())?;
 
-        StringField::with_string("name", "value", Store::No)?;
+        StringField::from_string("name", "value", Store::No)?;
 
         let ft_invalid = FieldType::new();
-        let result = Field::with_string("name", "value", ft_invalid);
+        let result = Field::from_string("name", "value", ft_invalid);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
-        Field::with_string("name", "value", ft.clone())?;
+        Field::from_string("name", "value", ft.clone())?;
 
         let mut doc = Document::new();
         let mut ft2 = FieldType::new();
         ft2.set_stored(true)?;
         ft2.set_store_term_vectors(true)?;
-        doc.add(Field::with_string("name", "value", ft2)?);
+        doc.add(Field::from_string("name", "value", ft2)?);
 
         let result = writer.add_document(doc);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
@@ -518,20 +518,20 @@ mod tests {
         let mut indexed_not_tokenized = FieldType::new();
         indexed_not_tokenized.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
         indexed_not_tokenized.set_tokenized(false)?;
-        doc.add(StringField::with_string("keyword", "test1", Store::Yes)?);
-        doc.add(StringField::with_string("keyword", "test2", Store::Yes)?);
-        doc.add(TextField::with_string("text", "test1", Store::Yes)?);
-        doc.add(TextField::with_string("text", "test2", Store::Yes)?);
-        doc.add(Field::with_string("unindexed", "test1", stored.clone())?);
-        doc.add(Field::with_string("unindexed", "test2", stored.clone())?);
-        doc.add(TextField::with_string("unstored", "test1", Store::No)?);
-        doc.add(TextField::with_string("unstored", "test2", Store::No)?);
-        doc.add(Field::with_string(
+        doc.add(StringField::from_string("keyword", "test1", Store::Yes)?);
+        doc.add(StringField::from_string("keyword", "test2", Store::Yes)?);
+        doc.add(TextField::from_string("text", "test1", Store::Yes)?);
+        doc.add(TextField::from_string("text", "test2", Store::Yes)?);
+        doc.add(Field::from_string("unindexed", "test1", stored.clone())?);
+        doc.add(Field::from_string("unindexed", "test2", stored.clone())?);
+        doc.add(TextField::from_string("unstored", "test1", Store::No)?);
+        doc.add(TextField::from_string("unstored", "test2", Store::No)?);
+        doc.add(Field::from_string(
             "indexed_not_tokenized",
             "test1",
             indexed_not_tokenized.clone(),
         )?);
-        doc.add(Field::with_string(
+        doc.add(Field::from_string(
             "indexed_not_tokenized",
             "test2",
             indexed_not_tokenized.clone(),
@@ -598,10 +598,10 @@ mod tests {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
 
-        let mut field = StringField::with_string("id", "id1", Store::Yes)?;
+        let mut field = StringField::from_string("id", "id1", Store::Yes)?;
         let mut doc = Document::new();
         doc.add(field.clone());
-        let field2 = StringField::with_string("keyword", "test", Store::Yes)?;
+        let field2 = StringField::from_string("keyword", "test", Store::Yes)?;
         doc.add(field2.clone());
 
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
@@ -666,11 +666,11 @@ mod tests {
     fn test_numeric_field_as_string() -> Result<()> {
         // build document
         let mut doc = Document::new();
-        doc.add(StoredField::with_i32("int", 5)?);
+        doc.add(StoredField::from_i32("int", 5)?);
         assert_eq!("5", doc.get("int")?.unwrap().as_ref());
         assert_eq!(None, doc.get("somethingElse")?);
 
-        doc.add(StoredField::with_i32("int", 4)?);
+        doc.add(StoredField::from_i32("int", 4)?);
 
         let values = doc.get_values("int")?;
         assert_eq!(

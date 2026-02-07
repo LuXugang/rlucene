@@ -952,7 +952,7 @@ mod tests {
 
         let mut d1 = Document::new();
         for i in 0..15 {
-            d1.add(StringField::with_string(
+            d1.add(StringField::from_string(
                 format!("f{}", i),
                 format!("v{}", i),
                 Store::Yes,
@@ -962,9 +962,9 @@ mod tests {
         writer.commit()?;
 
         let mut d2 = Document::new();
-        d2.add(StringField::with_string("f0", "v0", Store::Yes)?);
-        d2.add(StringField::with_string("f15", "v15", Store::Yes)?);
-        d2.add(StringField::with_string("f16", "v16", Store::Yes)?);
+        d2.add(StringField::from_string("f0", "v0", Store::Yes)?);
+        d2.add(StringField::from_string("f15", "v15", Store::Yes)?);
+        d2.add(StringField::from_string("f16", "v16", Store::Yes)?);
         writer.add_document(d2)?;
         writer.commit()?;
 

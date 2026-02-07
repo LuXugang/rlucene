@@ -653,10 +653,10 @@ impl RegExp {
     /// Like to string, but more verbose (shows the higherchy more clearly).
     pub fn to_string_tree(&self) -> String {
         let mut b = String::new();
-        self.to_string_tree_with_string(&mut b, "");
+        self.to_string_tree_from_string(&mut b, "");
         b
     }
-    pub(crate) fn to_string_tree_with_string(&self, b: &mut String, indent: &str) {
+    pub(crate) fn to_string_tree_from_string(&self, b: &mut String, indent: &str) {
         use RegExpKind::*;
 
         let newline = "\n";
@@ -668,10 +668,10 @@ impl RegExp {
                 b.push_str(indent);
                 b.push_str(&format!("{:?}{}", self.kind, newline));
                 if let Some(e1) = &self.exp1 {
-                    e1.to_string_tree_with_string(b, &indent_more);
+                    e1.to_string_tree_from_string(b, &indent_more);
                 }
                 if let Some(e2) = &self.exp2 {
-                    e2.to_string_tree_with_string(b, &indent_more);
+                    e2.to_string_tree_from_string(b, &indent_more);
                 }
             },
 
@@ -680,7 +680,7 @@ impl RegExp {
                 b.push_str(indent);
                 b.push_str(&format!("{:?}{}", self.kind, newline));
                 if let Some(e1) = &self.exp1 {
-                    e1.to_string_tree_with_string(b, &indent_more);
+                    e1.to_string_tree_from_string(b, &indent_more);
                 }
             },
 
@@ -688,7 +688,7 @@ impl RegExp {
                 b.push_str(indent);
                 b.push_str(&format!("{:?} min={}{}", self.kind, self.min, newline));
                 if let Some(e1) = &self.exp1 {
-                    e1.to_string_tree_with_string(b, &indent_more);
+                    e1.to_string_tree_from_string(b, &indent_more);
                 }
             },
 
@@ -699,7 +699,7 @@ impl RegExp {
                     self.kind, self.min, self.max, newline
                 ));
                 if let Some(e1) = &self.exp1 {
-                    e1.to_string_tree_with_string(b, &indent_more);
+                    e1.to_string_tree_from_string(b, &indent_more);
                 }
             },
 

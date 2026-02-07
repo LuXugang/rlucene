@@ -696,7 +696,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 }
 
                 max_length = max_length.max(length);
-                previous.copy_bytes_with_ref(term.as_ref());
+                previous.copy_bytes_from_ref(term.as_ref());
                 ord += 1;
             }
             // Compress and write out the last block
@@ -808,7 +808,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 } else if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
                     == Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64
                 {
-                    previous.copy_bytes_with_ref(&term);
+                    previous.copy_bytes_from_ref(&term);
                 }
                 ord += 1;
             }

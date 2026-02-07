@@ -934,8 +934,8 @@ fn test_doc_sort_optimization() -> Result<()> {
     for i in 0..num_docs {
         let mut doc = Document::new();
         doc.add(LongPoint::new("lf", vec![i as i64])?);
-        doc.add(StoredField::with_i32("slf", i)?);
-        doc.add(StringField::with_string(
+        doc.add(StoredField::from_i32("slf", i)?);
+        doc.add(StringField::from_string(
             "tf",
             format!("seg{}", seg),
             Store::Yes,

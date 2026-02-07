@@ -262,7 +262,7 @@ where
         };
         match disi_opt {
             Some(disi) => Ok(Some(Box::new(BoxedScorerSupplier::new(
-                DefaultScorerSupplier::new(ConstantScoreScorer::with_disi(
+                DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
                     self.score,
                     self.score_mode,
                     disi,
@@ -442,10 +442,10 @@ mod test {
                     doc.add(NumericDocValuesField::new("dv1", 1));
                     doc.add(SortedNumericDocValuesField::new("dv2", 1));
                     doc.add(SortedNumericDocValuesField::new("dv2", 2));
-                    doc.add(StringField::with_string("has_value", "yes", Store::No)?);
+                    doc.add(StringField::from_string("has_value", "yes", Store::No)?);
                 }
 
-                doc.add(StringField::with_string(
+                doc.add(StringField::from_string(
                     "f",
                     if random.random_bool(0.5) { "yes" } else { "no" },
                     Store::No,
@@ -570,11 +570,11 @@ mod test {
                 let has_value = random.random_bool(0.5);
 
                 if has_value {
-                    doc.add(TextField::with_string("text1", "value", Store::No)?);
-                    doc.add(StringField::with_string("has_value", "yes", Store::No)?);
+                    doc.add(TextField::from_string("text1", "value", Store::No)?);
+                    doc.add(StringField::from_string("has_value", "yes", Store::No)?);
                 }
 
-                doc.add(StringField::with_string(
+                doc.add(StringField::from_string(
                     "f",
                     if random.random_bool(0.5) { "yes" } else { "no" },
                     Store::No,
@@ -637,7 +637,7 @@ mod test {
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
-        doc.add(TextField::with_string("f", "value", Store::No)?);
+        doc.add(TextField::from_string("f", "value", Store::No)?);
         iw.add_document(doc)?;
         iw.commit()?;
 
@@ -657,7 +657,7 @@ mod test {
         let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
-        doc.add(TextField::with_string("f", "value", Store::No)?);
+        doc.add(TextField::from_string("f", "value", Store::No)?);
         iw.add_document(doc)?;
         iw.commit()?;
 

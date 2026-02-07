@@ -94,7 +94,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         ft.set_store_term_vectors(field_info.has_term_vectors())?;
         ft.set_omit_norms(field_info.omits_norms())?;
         ft.set_index_options(*field_info.get_index_options())?;
-        self.doc.add(StoredField::with_string_and_type(
+        self.doc.add(StoredField::from_string_and_type(
             &field_info.name,
             value,
             ft,
@@ -109,7 +109,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         _writer: Option<&mut S>,
     ) -> Result<()> {
         self.doc
-            .add(StoredField::with_i32(&field_info.name, value)?);
+            .add(StoredField::from_i32(&field_info.name, value)?);
         Ok(())
     }
 
@@ -120,7 +120,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         _writer: Option<&mut S>,
     ) -> Result<()> {
         self.doc
-            .add(StoredField::with_i64(&field_info.name, value)?);
+            .add(StoredField::from_i64(&field_info.name, value)?);
         Ok(())
     }
 
@@ -131,7 +131,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         _writer: Option<&mut S>,
     ) -> Result<()> {
         self.doc
-            .add(StoredField::with_f32(&field_info.name, value)?);
+            .add(StoredField::from_f32(&field_info.name, value)?);
         Ok(())
     }
 
@@ -142,7 +142,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         _writer: Option<&mut S>,
     ) -> Result<()> {
         self.doc
-            .add(StoredField::with_f64(&field_info.name, value)?);
+            .add(StoredField::from_f64(&field_info.name, value)?);
         Ok(())
     }
 

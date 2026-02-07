@@ -43,8 +43,8 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
             let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
             let mut d1 = Document::new();
-            d1.add(TextField::with_string("f1", "first field", Store::Yes)?);
-            d1.add(TextField::with_string("f2", "second field", Store::Yes)?);
+            d1.add(TextField::from_string("f1", "first field", Store::Yes)?);
+            d1.add(TextField::from_string("f2", "second field", Store::Yes)?);
             writer.add_document(d1)?;
 
             if i == 1 {
@@ -61,10 +61,10 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
         };
 
         let mut d2 = Document::new();
-        d2.add(TextField::with_string("f2", "second field", Store::No)?);
-        d2.add(TextField::with_string("f1", "first field", Store::Yes)?);
-        d2.add(TextField::with_string("f3", "third field", Store::No)?);
-        d2.add(TextField::with_string("f4", "fourth field", Store::No)?);
+        d2.add(TextField::from_string("f2", "second field", Store::No)?);
+        d2.add(TextField::from_string("f1", "first field", Store::Yes)?);
+        d2.add(TextField::from_string("f3", "third field", Store::No)?);
+        d2.add(TextField::from_string("f4", "fourth field", Store::No)?);
         writer.add_document(d2)?;
 
         writer.close()?;
@@ -121,8 +121,8 @@ fn test_field_number_gaps() -> Result<()> {
             )?;
 
             let mut d = Document::new();
-            d.add(TextField::with_string("f1", "d1 first field", Store::Yes)?);
-            d.add(TextField::with_string("f2", "d1 second field", Store::Yes)?);
+            d.add(TextField::from_string("f1", "d1 first field", Store::Yes)?);
+            d.add(TextField::from_string("f2", "d1 second field", Store::Yes)?);
             writer.add_document(d)?;
             writer.close()?;
 
@@ -137,7 +137,7 @@ fn test_field_number_gaps() -> Result<()> {
             let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
             let mut d = Document::new();
-            d.add(TextField::with_string("f1", "d2 first field", Store::Yes)?);
+            d.add(TextField::from_string("f1", "d2 first field", Store::Yes)?);
             d.add(StoredField::with_binary("f3", vec![1, 2, 3])?);
             writer.add_document(d)?;
             writer.close()?;
@@ -157,8 +157,8 @@ fn test_field_number_gaps() -> Result<()> {
             let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
             let mut d = Document::new();
-            d.add(TextField::with_string("f1", "d3 first field", Store::Yes)?);
-            d.add(TextField::with_string("f2", "d3 second field", Store::Yes)?);
+            d.add(TextField::from_string("f1", "d3 first field", Store::Yes)?);
+            d.add(TextField::from_string("f2", "d3 second field", Store::Yes)?);
             d.add(StoredField::with_binary("f3", vec![1, 2, 3, 4, 5])?);
             writer.add_document(d)?;
             writer.close()?;
@@ -275,7 +275,7 @@ fn get_text_field(number: i32) -> Result<TextField> {
     assert_eq!(mode, 1);
     let field_name = number.to_string();
     let text = "some text".to_string();
-    TextField::with_string(field_name, text, No)
+    TextField::from_string(field_name, text, No)
 }
 
 fn get_field(number: i32) -> Result<Field> {

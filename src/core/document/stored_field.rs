@@ -68,7 +68,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::with_bytes_ref(name, bytes.clone(), file_type)?;
+        let parent_field = Field::from_bytes_ref(name, bytes.clone(), file_type)?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -87,7 +87,7 @@ impl StoredField {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
         let bytes_ref = BytesRef::from_slice(value, 0, len);
-        let parent_field = Field::with_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
+        let parent_field = Field::from_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -106,7 +106,7 @@ impl StoredField {
         T: Into<String>,
     {
         let bytes_ref = BytesRef::from_slice(value, offset as usize, length as usize);
-        let parent_field = Field::with_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
+        let parent_field = Field::from_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -122,7 +122,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::with_bytes_ref(name, value, stored_field_type::TYPE.clone())?;
+        let parent_field = Field::from_bytes_ref(name, value, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given string value.
@@ -130,12 +130,12 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: String value.
-    pub fn with_string<T1, T2>(name: T1, value: T2) -> Result<Self>
+    pub fn from_string<T1, T2>(name: T1, value: T2) -> Result<Self>
     where
         T1: Into<String>,
         T2: Into<String>,
     {
-        let parent_field = Field::with_string(name, value, stored_field_type::TYPE.clone())?;
+        let parent_field = Field::from_string(name, value, stored_field_type::TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Expert: allows customization of the [`FieldType`].
@@ -144,12 +144,12 @@ impl StoredField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `field_type`: Custom [`FieldType`] for this field.
-    pub fn with_string_and_type<T1, T2>(name: T1, value: T2, file_type: FieldType) -> Result<Self>
+    pub fn from_string_and_type<T1, T2>(name: T1, value: T2, file_type: FieldType) -> Result<Self>
     where
         T1: Into<String>,
         T2: Into<String>,
     {
-        let parent_field = Field::with_string(name, value, file_type)?;
+        let parent_field = Field::from_string(name, value, file_type)?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given i32 value.
@@ -157,7 +157,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: i32 value.
-    pub fn with_i32<T>(name: T, value: i32) -> Result<Self>
+    pub fn from_i32<T>(name: T, value: i32) -> Result<Self>
     where
         T: Into<String>,
     {
@@ -169,7 +169,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: Long value.
-    pub fn with_i64<T>(name: T, value: i64) -> Result<Self>
+    pub fn from_i64<T>(name: T, value: i64) -> Result<Self>
     where
         T: Into<String>,
     {
@@ -181,7 +181,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: f32 value.
-    pub fn with_f32<T>(name: T, value: f32) -> Result<Self>
+    pub fn from_f32<T>(name: T, value: f32) -> Result<Self>
     where
         T: Into<String>,
     {
@@ -193,7 +193,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: f64 value.
-    pub fn with_f64<T>(name: T, value: f64) -> Result<Self>
+    pub fn from_f64<T>(name: T, value: f64) -> Result<Self>
     where
         T: Into<String>,
     {

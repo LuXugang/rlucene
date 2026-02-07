@@ -467,7 +467,7 @@ mod tests {
                     .collect::<String>();
                 let value_copy = value.clone();
                 list.push(BytesRef::from_string(&value));
-                bytes_ref_builder.copy_chars_with_string(&value_copy);
+                bytes_ref_builder.copy_chars_from_string(&value_copy);
                 pool.append_bytes_ref(bytes_ref_builder.get_bytes_mut_ref())?;
             }
             let mut position = 0;

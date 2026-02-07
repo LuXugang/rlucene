@@ -731,14 +731,14 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         // doc2
         let mut doc = Document::new();
         doc.add(IntField::new("value", 3, Store::No)?);
         doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -775,12 +775,12 @@ mod tests {
         let mut doc = Document::new();
         doc.add(IntField::new("value", 3, Store::No)?);
         doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -817,17 +817,17 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 3, Store::No)?);
         doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "3", Store::Yes)?);
+        doc.add(StringField::from_string("id", "3", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -868,17 +868,17 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
         doc.add(IntField::new("value", 3, Store::No)?);
         doc.add(IntField::new("value", 7, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "3", Store::Yes)?);
+        doc.add(StringField::from_string("id", "3", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -920,13 +920,13 @@ mod tests {
         // doc1
         let mut doc = Document::new();
         doc.add(IntField::new("value", 5, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         // doc2
         let mut doc = Document::new();
         doc.add(IntField::new("value", 3, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -961,13 +961,13 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(FloatField::new("value", -3f32, Store::No)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
         doc.add(FloatField::new("value", -5f32, Store::No)?);
         doc.add(FloatField::new("value", 7f32, Store::No)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -1003,13 +1003,13 @@ mod tests {
 
         let mut doc = Document::new();
         doc.add(DoubleField::new("value", -3f64, Store::Yes)?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
         doc.add(DoubleField::new("value", -5f64, Store::Yes)?);
         doc.add(DoubleField::new("value", 7f64, Store::Yes)?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;

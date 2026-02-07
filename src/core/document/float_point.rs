@@ -45,7 +45,7 @@ impl FloatPoint {
         let point = point.as_ref();
         let value = Self::pack(point)?;
         let field_type = Self::get_type(point.len())?;
-        let parent_field = Field::with_bytes_ref(name, value, field_type)?;
+        let parent_field = Field::from_bytes_ref(name, value, field_type)?;
         Ok(FloatPoint { parent_field })
     }
     pub fn next_up(f: f32) -> f32 {

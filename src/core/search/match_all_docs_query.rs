@@ -229,7 +229,7 @@ where
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let score = self.weight.score();
-        let v = ConstantScoreScorer::with_disi(score, self.score_mode, AllDISI::new(self.max_doc));
+        let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
         Ok(Box::new(v))
     }
 

@@ -418,27 +418,27 @@ mod tests {
 
         // doc1
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         // doc2
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "foo")?,
             Store::No,
         )?);
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -469,26 +469,26 @@ mod tests {
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "foo")?,
             Store::No,
         )?);
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;
@@ -520,7 +520,7 @@ mod tests {
         let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
             Store::No,
@@ -529,12 +529,12 @@ mod tests {
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "foo")?,
             Store::No,
         )?);
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
             Store::No,
@@ -583,21 +583,21 @@ mod tests {
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "baz")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "2", Store::Yes)?);
+        doc.add(StringField::from_string("id", "2", Store::Yes)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(KeywordField::with_bytes_ref(
+        doc.add(KeywordField::from_bytes_ref(
             "value",
             new_bytes_ref_from_string(&mut random, "bar")?,
             Store::No,
         )?);
-        doc.add(StringField::with_string("id", "1", Store::Yes)?);
+        doc.add(StringField::from_string("id", "1", Store::Yes)?);
         writer.add_document(doc)?;
 
         let reader = writer.get_reader()?;

@@ -166,7 +166,7 @@ impl TermState {
     pub(crate) fn copy_from<TE: TermsEnum>(&mut self, tei: &TermsEnumIndex<TE>) -> Result<()> {
         match tei.term() {
             Some(t) => {
-                self.term.copy_bytes_with_ref(t);
+                self.term.copy_bytes_from_ref(t);
                 self.term_prefix8 = tei.current_term_prefix8;
                 Ok(())
             },

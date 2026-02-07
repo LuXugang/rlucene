@@ -876,7 +876,7 @@ mod test {
         for values in docs {
             let mut doc = Document::new();
             for value in values {
-                doc.add(StringField::with_string("foo", value, Store::No)?);
+                doc.add(StringField::from_string("foo", value, Store::No)?);
             }
             writer.add_document(doc)?;
 
@@ -1204,9 +1204,9 @@ mod test {
         let w = IndexWriter::new(dir.clone(), iwc)?;
 
         let mut doc1 = Document::new();
-        doc1.add(StringField::with_string("field", "foo", Store::No)?);
-        doc1.add(StringField::with_string("field", "bar", Store::No)?);
-        doc1.add(StringField::with_string("field", "quux", Store::No)?);
+        doc1.add(StringField::from_string("field", "foo", Store::No)?);
+        doc1.add(StringField::from_string("field", "bar", Store::No)?);
+        doc1.add(StringField::from_string("field", "quux", Store::No)?);
 
         let mut doc2 = Document::new();
         let mut doc3 = Document::new();
@@ -1215,9 +1215,9 @@ mod test {
             doc3.add(x.clone());
         }
 
-        doc1.add(StringField::with_string("id", "1", Store::No)?);
-        doc2.add(StringField::with_string("id", "2", Store::No)?);
-        doc3.add(StringField::with_string("id", "3", Store::No)?);
+        doc1.add(StringField::from_string("id", "1", Store::No)?);
+        doc2.add(StringField::from_string("id", "2", Store::No)?);
+        doc3.add(StringField::from_string("id", "3", Store::No)?);
 
         w.add_document(doc1)?;
         w.add_document(doc2)?;

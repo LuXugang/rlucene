@@ -53,7 +53,7 @@ fn test_doc_count() -> Result<()> {
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
 
     let mut doc = Document::new();
-    let field1 = TextField::with_string("content", "aaa", Store::Yes)?;
+    let field1 = TextField::from_string("content", "aaa", Store::Yes)?;
     doc.add(field1);
     writer.add_document(doc)?;
 
@@ -63,7 +63,7 @@ fn test_doc_count() -> Result<()> {
     // writer.add_document(doc)?;
 
     let mut doc = Document::new();
-    let field1 = TextField::with_string("content1", "aaa", Store::Yes)?;
+    let field1 = TextField::from_string("content1", "aaa", Store::Yes)?;
     doc.add(field1);
     writer.add_document(doc)?;
 
@@ -319,7 +319,7 @@ fn test_delete_same_term_across_fields() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    doc.add(TextField::with_string("a", "foo", Store::No)?);
+    doc.add(TextField::from_string("a", "foo", Store::No)?);
     writer.add_document(doc)?;
 
     writer.delete_documents_with_terms(vec![
@@ -373,12 +373,12 @@ fn test_fully_deleted_segments_release_files() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut d = Document::new();
-    d.add(StringField::with_string("id", "doc-0", Store::Yes)?);
+    d.add(StringField::from_string("id", "doc-0", Store::Yes)?);
     writer.add_document(d)?;
     writer.flush()?;
 
     let mut d = Document::new();
-    d.add(StringField::with_string("id", "doc-1", Store::Yes)?);
+    d.add(StringField::from_string("id", "doc-1", Store::Yes)?);
     writer.add_document(d)?;
     writer.delete_documents_with_terms(vec![Term::from_text("id", "doc-1")])?;
 
@@ -402,11 +402,11 @@ fn test_segment_info_is_snapshot() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     let mut d = Document::new();
-    d.add(StringField::with_string("id", "doc-0", Store::Yes)?);
+    d.add(StringField::from_string("id", "doc-0", Store::Yes)?);
     writer.add_document(d)?;
 
     let mut d = Document::new();
-    d.add(StringField::with_string("id", "doc-1", Store::Yes)?);
+    d.add(StringField::from_string("id", "doc-1", Store::Yes)?);
     writer.add_document(d)?;
 
     let reader = directory_reader_util::open_with_writer(&writer)?;
@@ -445,7 +445,7 @@ fn test_pending_num_docs() -> Result<()> {
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
         for i in 0..num_docs {
             let mut d = Document::new();
-            d.add(StringField::with_string("id", i.to_string(), Store::Yes)?);
+            d.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
             writer.add_document(d)?;
             assert_eq!(i as i64 + 1, writer.get_pending_num_docs());
         }

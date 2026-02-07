@@ -749,7 +749,7 @@ where
                 )?;
                 return if result == SeekStatus::End {
                     {
-                        self.term.copy_bytes_with_ref(target);
+                        self.term.copy_bytes_from_ref(target);
                         self.term_exists = false;
                     }
 
@@ -796,7 +796,7 @@ where
         match result {
             SeekStatus::End => {
                 {
-                    self.term.copy_bytes_with_ref(target);
+                    self.term.copy_bytes_from_ref(target);
                     self.term_exists = false;
                 }
                 if self.next()?.is_some() {
@@ -822,7 +822,7 @@ where
         if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
             self.static_frame.state = other_state.clone();
             self.current_frame_idx = self.static_frame_idx;
-            self.term.copy_bytes_with_ref(target);
+            self.term.copy_bytes_from_ref(target);
             self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord();
             debug_assert!(self.static_frame.meta_data_upto > 0);
             self.valid_index_prefix = 0;

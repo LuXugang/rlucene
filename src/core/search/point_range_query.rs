@@ -695,7 +695,7 @@ where
             self.values.intersect(&mut visitor)?;
             let cost = visitor.cost;
             let iterator = BitSetIterator::new(result, cost)?;
-            return Ok(PointRangeWeightScorer::A(ConstantScoreScorer::with_disi(
+            return Ok(PointRangeWeightScorer::A(ConstantScoreScorer::from_disi(
                 self.score,
                 self.score_mode,
                 iterator,
@@ -704,7 +704,7 @@ where
         self.values.intersect(&mut self.visitor)?;
         let iterator = self.visitor.result.build()?.iterator()?;
         debug_assert!(iterator.is_some());
-        Ok(PointRangeWeightScorer::B(ConstantScoreScorer::with_disi(
+        Ok(PointRangeWeightScorer::B(ConstantScoreScorer::from_disi(
             self.score,
             self.score_mode,
             iterator.unwrap(),
@@ -752,7 +752,7 @@ where
 
     fn get(&mut self, _lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         debug_assert!(context.reader().max_doc()? == self.max_doc);
-        Ok(ConstantScoreScorer::with_disi(
+        Ok(ConstantScoreScorer::from_disi(
             self.score,
             self.score_mode,
             AllDISI::new(self.max_doc),

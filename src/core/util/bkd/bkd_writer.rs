@@ -1168,8 +1168,8 @@ where
         let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let mut max: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let bytes = bytes_ref;
-        min.copy_bytes_with_vec(bytes, first_offset + offset, length);
-        max.copy_bytes_with_vec(bytes, first_offset + offset, length);
+        min.copy_bytes_from_vec(bytes, first_offset + offset, length);
+        max.copy_bytes_from_vec(bytes, first_offset + offset, length);
 
         let length_usize = length;
         let offset_usize = offset;
@@ -1185,7 +1185,7 @@ where
                 .to_int()
                 > 0
             {
-                min.copy_bytes_with_vec(candidate_bytes, candidate_offset + offset, length);
+                min.copy_bytes_from_vec(candidate_bytes, candidate_offset + offset, length);
             } else if max.bytes_ref().bytes[0..length_usize]
                 .cmp(
                     &candidate_bytes[candidate_offset_usize + offset_usize
@@ -1194,7 +1194,7 @@ where
                 .to_int()
                 < 0
             {
-                max.copy_bytes_with_vec(candidate_bytes, candidate_offset + offset, length)
+                max.copy_bytes_from_vec(candidate_bytes, candidate_offset + offset, length)
             }
         }
         Ok((min.get_bytes_owner(), max.get_bytes_owner()))

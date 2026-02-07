@@ -142,7 +142,7 @@ fn test_binary_value() -> Result<()> {
     let mut doc = Document::new();
 
     if random.random_bool(0.5) {
-        doc.add(Field::with_bytes_ref(
+        doc.add(Field::from_bytes_ref(
             TestUtil::random_simple_string_range(&mut random, 1, 10),
             TestUtil::random_binary_term_with_len(&mut random, 10),
             ft.clone(),
@@ -158,10 +158,10 @@ fn test_binary_value() -> Result<()> {
     );
     let value = TestUtil::random_binary_term_with_len(&mut random, len);
 
-    let f = Field::with_bytes_ref(name.clone(), value, ft.clone())?;
+    let f = Field::from_bytes_ref(name.clone(), value, ft.clone())?;
 
     if random.random_bool(0.5) {
-        doc.add(Field::with_bytes_ref(
+        doc.add(Field::from_bytes_ref(
             TestUtil::random_simple_string_range(&mut random, 1, 10),
             TestUtil::random_binary_term_with_len(&mut random, 10),
             ft.clone(),

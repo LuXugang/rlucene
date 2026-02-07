@@ -1994,7 +1994,7 @@ mod tests {
         let writer = RandomIndexWriter::new(&mut random, dir.clone());
         let mut doc = Document::new();
 
-        let mut field = StringField::with_string("field", "", Store::No)?;
+        let mut field = StringField::from_string("field", "", Store::No)?;
         doc.add(field.clone());
 
         // compute NUM_TERMS

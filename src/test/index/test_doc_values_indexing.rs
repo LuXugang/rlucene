@@ -615,7 +615,7 @@ fn test_mixed_types_after_reopen_append2() -> Result<()> {
 
     // Add a field first as StringField (no DV), then as BinaryDV → must error
     let mut doc2 = Document::new();
-    doc2.add(StringField::with_string("foo", "bar", No)?);
+    doc2.add(StringField::from_string("foo", "bar", No)?);
     doc2.add(BinaryDocValuesField::new(
         "foo",
         new_bytes_ref_from_string(&mut random, "foo")?,
@@ -659,7 +659,7 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
 
     // Add a StringField first (no DV), then BinaryDV → must error
     let mut doc2 = Document::new();
-    doc2.add(StringField::with_string("foo", "bar", No)?);
+    doc2.add(StringField::from_string("foo", "bar", No)?);
     doc2.add(BinaryDocValuesField::new(
         "foo",
         new_bytes_ref_from_string(&mut random, "foo")?,
@@ -878,7 +878,7 @@ fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     let mut doc = Document::new();
-    doc.add(StringField::with_string("f", "mock-value", No)?);
+    doc.add(StringField::from_string("f", "mock-value", No)?);
     doc.add(NumericDocValuesField::new("f", 5));
     writer.add_document(doc)?;
     writer.commit()?;

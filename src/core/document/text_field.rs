@@ -82,12 +82,12 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `reader`: `ReaderEnum` value.
-    pub fn with_reader<T>(name: T, reader: ReaderEnum) -> Result<Self>
+    pub fn from_reader<T>(name: T, reader: ReaderEnum) -> Result<Self>
     where
         T: Into<String>,
     {
         let parent_field =
-            Field::with_reader(name, reader, text_field_type::TYPE_NOT_STORED.clone())?;
+            Field::from_reader(name, reader, text_field_type::TYPE_NOT_STORED.clone())?;
         Ok(Self {
             parent_field,
             has_stored_value: false,
@@ -99,7 +99,7 @@ impl TextField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `store`: `Store::Yes` if the content should also be stored.
-    pub fn with_string<T>(name: T, value: T, store: Store) -> Result<Self>
+    pub fn from_string<T>(name: T, value: T, store: Store) -> Result<Self>
     where
         T: Into<String>,
     {
@@ -109,7 +109,7 @@ impl TextField {
         } else {
             (text_field_type::TYPE_NOT_STORED.clone(), false)
         };
-        let parent_field = Field::with_string(name, value, field_type.clone())?;
+        let parent_field = Field::from_string(name, value, field_type.clone())?;
         Ok(Self {
             parent_field,
             has_stored_value,
@@ -120,12 +120,12 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `stream`: `TokenStream` value.
-    pub fn with_token_stream<T>(name: T, stream: TokenStreamEnum) -> Result<Self>
+    pub fn from_token_stream<T>(name: T, stream: TokenStreamEnum) -> Result<Self>
     where
         T: Into<String>,
     {
         let parent_field =
-            Field::with_token_stream(name, stream, text_field_type::TYPE_NOT_STORED.clone())?;
+            Field::from_token_stream(name, stream, text_field_type::TYPE_NOT_STORED.clone())?;
         Ok(Self {
             parent_field,
             has_stored_value: false,

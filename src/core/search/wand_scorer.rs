@@ -1022,7 +1022,7 @@ pub(crate) mod tests {
         for values in docs {
             let mut doc = Document::new();
             for value in *values {
-                doc.add(StringField::with_string("foo", *value, Store::No)?);
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
             }
             w.add_document(doc)?;
         }

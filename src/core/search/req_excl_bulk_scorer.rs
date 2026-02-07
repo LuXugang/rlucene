@@ -34,7 +34,7 @@ impl<BS> ReqExclBulkScorer<BS>
 where
     BS: BulkScorer,
 {
-    pub(crate) fn with_scorer<S>(req: BS, excl: S) -> Result<Self>
+    pub(crate) fn from_scorer<S>(req: BS, excl: S) -> Result<Self>
     where
         S: Scorer,
     {
@@ -55,7 +55,7 @@ where
             },
         )
     }
-    pub(crate) fn with_disi<DISI>(req: BS, disi: DISI) -> Self
+    pub(crate) fn from_disi<DISI>(req: BS, disi: DISI) -> Self
     where
         DISI: DocIdSetIterator + 'static,
     {
@@ -220,7 +220,7 @@ mod tests {
             let tpi = RandomTwoPhaseView::new(&mut random, excl_iter);
             ReqExclBulkScorer::with_two_phase(req_bulk_scorer, tpi)
         } else {
-            ReqExclBulkScorer::with_disi(req_bulk_scorer, excl_iter)
+            ReqExclBulkScorer::from_disi(req_bulk_scorer, excl_iter)
         };
 
         let mut actual_matches = FixedBitSet::new(max_doc as usize);

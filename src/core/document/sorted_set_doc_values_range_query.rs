@@ -432,7 +432,7 @@ where
         // no terms matched
         if min_ord > max_ord {
             let v =
-                ConstantScoreScorer::with_disi(self.score, self.score_mode, EmptyDISI::default());
+                ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
             return Ok(ScorerType::<LR>::A(v));
         }
 
@@ -440,7 +440,7 @@ where
             && (min_ord > skipper.max_value() || max_ord < skipper.min_value())
         {
             let v =
-                ConstantScoreScorer::with_disi(self.score, self.score_mode, EmptyDISI::default());
+                ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
             return Ok(ScorerType::<LR>::A(v));
         }
 
@@ -449,7 +449,7 @@ where
             && skipper.min_value() >= min_ord
             && skipper.max_value() <= max_ord
         {
-            let v = ConstantScoreScorer::with_disi(
+            let v = ConstantScoreScorer::from_disi(
                 self.score,
                 self.score_mode,
                 AllDISI::new(skipper.doc_count()),
@@ -470,7 +470,7 @@ where
                     )?;
                     match ps_iterator_opt {
                         Some(ps_iterator) => {
-                            let v = ConstantScoreScorer::with_disi(
+                            let v = ConstantScoreScorer::from_disi(
                                 self.score,
                                 self.score_mode,
                                 ps_iterator,
@@ -492,11 +492,11 @@ where
         match skipper_opt {
             Some(skipper) => {
                 let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, false);
-                let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, v);
+                let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, v);
                 Ok(ScorerType::<LR>::E(scorer))
             },
             None => {
-                let scorer = ConstantScoreScorer::with_tpi(self.score, self.score_mode, iterator);
+                let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, iterator);
                 Ok(ScorerType::<LR>::D(scorer))
             },
         }

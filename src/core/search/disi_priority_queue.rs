@@ -471,7 +471,7 @@ where {
             _context: &LeafReaderContext<DummyLeafReader>,
         ) -> Result<Option<Self::ScorerSupplier>> {
             let v =
-                ConstantScoreScorer::with_disi(1.0f32, self.score_mode, self.query.disi.clone());
+                ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());
             Ok(Some(DefaultScorerSupplier::new(v)))
         }
     }

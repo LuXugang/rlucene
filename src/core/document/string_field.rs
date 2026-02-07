@@ -79,7 +79,7 @@ impl StringField {
     /// - `name`: Field name.
     /// - `value`: String value.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
+    pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
     where
         T1: Into<String>,
         T2: Into<String>,
@@ -92,7 +92,7 @@ impl StringField {
         };
         let value_str = value.into();
         let binary_value = Some(BytesRef::from_string(&value_str));
-        let parent_field = Field::with_string(name, value_str, field_type)?;
+        let parent_field = Field::from_string(name, value_str, field_type)?;
 
         Ok(Self {
             parent_field,
@@ -119,7 +119,7 @@ impl StringField {
         } else {
             (string_field_type::TYPE_NOT_STORED.clone(), false)
         };
-        let parent_field = Field::with_bytes_ref(name, value, field_type)?;
+        let parent_field = Field::from_bytes_ref(name, value, field_type)?;
         Ok(Self {
             parent_field,
             binary_value: None,

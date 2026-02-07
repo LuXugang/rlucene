@@ -997,7 +997,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.freeze();
 
-        doc.add(Field::with_string("field", "value", ft)?);
+        doc.add(Field::from_string("field", "value", ft)?);
 
         let err = iw.add_document(doc.clone()).unwrap_err();
         match err {

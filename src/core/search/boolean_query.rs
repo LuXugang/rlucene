@@ -1306,7 +1306,7 @@ mod tests {
         let mut doc = Document::new();
         let mut long_point = LongPoint::new("long", [3i64])?;
         doc.add(long_point.clone());
-        let mut string_field = StringField::with_string("string", "abc", No)?;
+        let mut string_field = StringField::from_string("string", "abc", No)?;
         doc.add(string_field.clone());
         writer.add_document(doc.clone())?;
 
@@ -1398,7 +1398,7 @@ mod tests {
         doc.add(long_point.clone());
         doc.add(long_point_3dim.clone());
 
-        let mut string_field = StringField::with_string("string", "abc", No)?;
+        let mut string_field = StringField::from_string("string", "abc", No)?;
         doc.add(string_field.clone());
 
         writer.add_document(doc.clone())?;

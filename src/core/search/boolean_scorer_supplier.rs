@@ -393,7 +393,7 @@ where
                 DisjunctionSumScorer,
             )?)
         };
-        let v = ReqExclBulkScorer::with_scorer(positive, prohibited_scorer)?;
+        let v = ReqExclBulkScorer::from_scorer(positive, prohibited_scorer)?;
         Ok(Some(BooleanScorerType::B(v)))
     }
     #[allow(clippy::type_complexity)]
@@ -587,7 +587,7 @@ where
                     wrap_required_scoring.push(ScorerEnum2::A(x))
                 }
                 for filter_scorer in required_no_scoring {
-                    wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::with_disi(
+                    wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::from_disi(
                         0.0,
                         ScoreMode::Complete,
                         Box::new(filter_scorer).take_iterator(),
@@ -891,10 +891,10 @@ where
                 // a constant score in order to allow early termination
                 let v = if scorer.two_phase_iterator()?.is_some() {
                     let tpi = Box::new(scorer).take_two_phase_iterator()?.unwrap();
-                    ScorerEnum2::A(ConstantScoreScorer::with_tpi(0.0, self.score_mode, tpi))
+                    ScorerEnum2::A(ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi))
                 } else {
                     let disi = Box::new(scorer).take_iterator();
-                    ScorerEnum2::B(ConstantScoreScorer::with_disi(0.0, self.score_mode, disi))
+                    ScorerEnum2::B(ConstantScoreScorer::from_disi(0.0, self.score_mode, disi))
                 };
                 let v: QueryWeightSsScorer = Box::new(GetType::<SsScorer>::B(v));
                 return Ok(v);

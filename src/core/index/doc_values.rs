@@ -518,7 +518,7 @@ mod tests {
         let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
         writer.add_document(doc)?;
 
         let dr = directory_reader_util::open_with_writer(&writer)?;

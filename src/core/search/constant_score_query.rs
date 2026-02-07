@@ -258,7 +258,7 @@ where
     fn get(&mut self, lead_cost: i64, context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
         let inner_scorer = self.inner_scorer_supplier.get(lead_cost, context)?;
         let disi = inner_scorer.take_iterator();
-        let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
+        let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
         Ok(Box::new(v))
     }
 

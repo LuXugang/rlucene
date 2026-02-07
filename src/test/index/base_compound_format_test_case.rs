@@ -150,8 +150,8 @@ pub trait BaseCompoundFormatTestCase {
 
         let mut doc = Document::new();
         // these fields should sometimes get term vectors, etc
-        let mut id_field = StringField::with_string("id", "", Store::No)?;
-        let mut body_field = TextField::with_string("body", "", Store::No)?;
+        let mut id_field = StringField::from_string("id", "", Store::No)?;
+        let mut body_field = TextField::from_string("body", "", Store::No)?;
         doc.add(id_field.clone());
         doc.add(body_field.clone());
 

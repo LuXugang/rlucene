@@ -221,7 +221,7 @@ where
         } else {
             TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
         };
-        let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
+        let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
         Ok(Some(Box::new(BoxedScorerSupplier::new(
             DefaultScorerSupplier::new(scorer),
         ))))

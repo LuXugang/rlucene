@@ -1987,7 +1987,7 @@ mod tests {
                     let mut new_terms = BTreeSet::new();
                     let mut new_term = BytesRefBuilder::new();
                     for term in &terms {
-                        new_term.copy_bytes_with_ref(&prefix);
+                        new_term.copy_bytes_from_ref(&prefix);
                         new_term.append_ref(term);
                         new_terms.insert(new_term.get_bytes_ref_copy());
                     }
@@ -2005,7 +2005,7 @@ mod tests {
                     let mut new_terms = BTreeSet::new();
                     let mut b = BytesRefBuilder::new();
                     for term in &terms {
-                        b.copy_bytes_with_ref(term);
+                        b.copy_bytes_from_ref(term);
                         b.append_ref(&suffix);
                         new_terms.insert(b.get_bytes_ref_copy());
                     }
@@ -2274,7 +2274,7 @@ mod tests {
                             let mut new_term = BytesRefBuilder::new();
                             for term in &terms {
                                 for suffix in &add_terms {
-                                    new_term.copy_bytes_with_ref(term);
+                                    new_term.copy_bytes_from_ref(term);
                                     new_term.append_ref(suffix);
                                     new_terms.insert(new_term.get_bytes_ref_copy());
                                 }
@@ -2290,7 +2290,7 @@ mod tests {
                             let mut new_term = BytesRefBuilder::new();
                             for term in &terms {
                                 for prefix in &add_terms {
-                                    new_term.copy_bytes_with_ref(prefix);
+                                    new_term.copy_bytes_from_ref(prefix);
                                     new_term.append_ref(term);
                                     new_terms.insert(new_term.get_bytes_ref_copy());
                                 }

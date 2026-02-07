@@ -60,7 +60,7 @@ pub struct KeywordField {
 }
 
 impl KeywordField {
-    pub fn with_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+    pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
     where
         T: Into<String>,
     {
@@ -71,7 +71,7 @@ impl KeywordField {
             (keyword::FIELD_TYPE.clone(), false)
         };
 
-        let parent_field = Field::with_bytes_ref(name, value, ft)?;
+        let parent_field = Field::from_bytes_ref(name, value, ft)?;
 
         Ok(Self {
             parent_field,
@@ -80,7 +80,7 @@ impl KeywordField {
         })
     }
 
-    pub fn with_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
+    pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
     where
         T1: Into<String>,
         T2: Into<String>,
@@ -94,7 +94,7 @@ impl KeywordField {
 
         let v = value.into();
         let binary_value = Some(BytesRef::from_string(&v));
-        let parent_field = Field::with_string(name, v, ft)?;
+        let parent_field = Field::from_string(name, v, ft)?;
 
         Ok(Self {
             parent_field,
@@ -249,12 +249,12 @@ mod tests {
     fn test_set_bytes_value() -> Result<()> {
         let mut random = random();
         let fields: Vec<KeywordField> = vec![
-            KeywordField::with_bytes_ref(
+            KeywordField::from_bytes_ref(
                 "name",
                 new_bytes_ref_from_string(&mut random, "value")?,
                 Store::No,
             )?,
-            KeywordField::with_bytes_ref(
+            KeywordField::from_bytes_ref(
                 "name",
                 new_bytes_ref_from_string(&mut random, "value")?,
                 Store::Yes,
@@ -307,8 +307,8 @@ mod tests {
     fn test_set_string_value() -> Result<()> {
         let mut random = random();
         let fields: Vec<KeywordField> = vec![
-            KeywordField::with_string("name", "value", Store::No)?,
-            KeywordField::with_string("name", "value", Store::Yes)?,
+            KeywordField::from_string("name", "value", Store::No)?,
+            KeywordField::from_string("name", "value", Store::Yes)?,
         ];
 
         for mut field in fields {
@@ -363,7 +363,7 @@ mod tests {
         let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![
-            KeywordField::with_bytes_ref(
+            KeywordField::from_bytes_ref(
                 "field",
                 new_bytes_ref_from_string(&mut random, "value")?,
                 Store::Yes,
@@ -407,7 +407,7 @@ mod tests {
         let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
 
         w.add_document(vec![
-            KeywordField::with_string("field", "value", Store::Yes)?.into(),
+            KeywordField::from_string("field", "value", Store::Yes)?.into(),
         ])?;
 
         let reader = directory_reader_util::open_with_writer(&w)?;

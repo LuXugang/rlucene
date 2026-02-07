@@ -1005,7 +1005,7 @@ mod tests {
         let writer = IndexWriter::new(directory, new_index_writer_config(random))?;
         for i in 0..10 {
             let mut document = Document::new();
-            document.add(StringField::with_string("id", i.to_string(), Yes)?);
+            document.add(StringField::from_string("id", i.to_string(), Yes)?);
             document.add(NumericDocValuesField::new("number", i));
 
             writer.add_document(document)?;

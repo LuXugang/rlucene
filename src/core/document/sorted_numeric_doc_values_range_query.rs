@@ -329,7 +329,7 @@ where
             {
                 let iter = AllDISI::new(skipper.doc_count());
                 let scorer =
-                    ConstantScoreScorer::with_disi(self.base.score(), self.score_mode, iter);
+                    ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
                 return Ok(Some(Box::new(BoxedScorerSupplier::new(
                     DefaultScorerSupplier::new(scorer),
                 ))));
@@ -346,7 +346,7 @@ where
                         skipper,
                     )?;
                     if let Some(ps_iterator) = ps_iterator_opt {
-                        let v = DefaultScorerSupplier::new(ConstantScoreScorer::with_disi(
+                        let v = DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
                             self.base.score(),
                             self.score_mode,
                             ps_iterator,
@@ -375,13 +375,13 @@ where
                     self.query.upper_value,
                     false,
                 );
-                let scorer = ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, v);
+                let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
                 Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
             },
             None => {
                 let scorer =
-                    ConstantScoreScorer::with_tpi(self.base.score(), self.score_mode, iterator);
+                    ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
                 Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
             },

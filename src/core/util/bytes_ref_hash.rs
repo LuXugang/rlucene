@@ -841,7 +841,7 @@ mod tests {
                         break;
                     }
                 }
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let count = hash.size();
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -883,7 +883,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let count = hash.size();
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -899,7 +899,7 @@ mod tests {
             }
 
             for (key, value) in &strings {
-                ref_builder.copy_chars_with_string(key);
+                ref_builder.copy_chars_from_string(key);
                 hash.get(*value, &mut scratch, &byte_block_pool);
                 assert_eq!(*ref_builder.get_bytes_mut_ref(), scratch);
             }
@@ -933,7 +933,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
                 if key < 0 {
@@ -984,7 +984,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
                 strings.insert(str_value);
             }
@@ -995,7 +995,7 @@ mod tests {
                 assert!(strings.len() < len);
                 let mut scratch = BytesRef::new();
                 for (i, string) in strings.iter().enumerate() {
-                    ref_builder.copy_chars_with_string(string);
+                    ref_builder.copy_chars_from_string(string);
                     let bytes_id = hash.ids[i];
                     hash.get(bytes_id, &mut scratch, &byte_block_pool);
                     let sorted_ref = scratch.clone();
@@ -1038,7 +1038,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let count = hash.size();
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -1086,7 +1086,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let count = hash.size();
                 let key = hash.find(ref_builder.get_bytes_mut_ref(), &byte_block_pool);
 
@@ -1269,7 +1269,7 @@ mod tests {
                     }
                 }
 
-                ref_builder.copy_chars_with_string(&str_value);
+                ref_builder.copy_chars_from_string(&str_value);
                 let count = hash.size();
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
 
@@ -1302,7 +1302,7 @@ mod tests {
             assert_all_in(&strings, &mut hash, &mut pool)?;
 
             for string in &strings {
-                ref_builder.copy_chars_with_string(string);
+                ref_builder.copy_chars_from_string(string);
                 let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
                 offset_hash.get(-key - 1, &mut scratch, &pool);
                 let bytes_ref = scratch.clone();
@@ -1338,7 +1338,7 @@ mod tests {
         let count = hash.size();
 
         for string in strings {
-            ref_builder.copy_chars_with_string(string);
+            ref_builder.copy_chars_from_string(string);
             let key = hash.add(ref_builder.get_bytes_mut_ref(), pool)?; // add again to check duplicates
             hash.get((-key) - 1, &mut scratch, pool);
             assert_eq!(*string, scratch.utf8_to_string()?);

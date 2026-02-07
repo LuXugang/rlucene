@@ -942,7 +942,7 @@ where
             Some(disi) => DISI::B(disi),
             None => DISI::A(EmptyDISI::default()),
         };
-        Ok(ScorerEnum2::B(ConstantScoreScorer::with_disi(
+        Ok(ScorerEnum2::B(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             disi,
@@ -976,7 +976,7 @@ where
     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
-        Ok(ConstantScoreScorer::with_disi(
+        Ok(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::CompleteNoScores,
             std::mem::take(&mut self.disi),

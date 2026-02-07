@@ -130,7 +130,7 @@ where
     /// # See Also
     /// - [`clear`](BytesRefBuilder::clear)
     /// - [`append`](BytesRefBuilder::append_with_range)
-    pub fn copy_bytes_with_vec(&mut self, b: &[u8], off: usize, len: usize) {
+    pub fn copy_bytes_from_vec(&mut self, b: &[u8], off: usize, len: usize) {
         debug_assert_eq!(self.bytes_ref.offset, 0);
         self.bytes_ref.length = len;
         self.grow_no_copy(len);
@@ -138,21 +138,21 @@ where
             .bytes
             .access_mut(|bytes| bytes.copy_from(&b[off..off + len], 0))
     }
-    pub fn copy_bytes_with_ref(&mut self, b: &BytesRef<AV>) {
+    pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) {
         b.bytes
-            .access(|bytes| self.copy_bytes_with_vec(bytes, b.offset, b.length))
+            .access(|bytes| self.copy_bytes_from_vec(bytes, b.offset, b.length))
     }
-    pub fn copy_bytes_with_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
-        self.copy_bytes_with_ref(b.get_bytes_mut_ref())
+    pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
+        self.copy_bytes_from_ref(b.get_bytes_mut_ref())
     }
-    pub fn copy_chars_with_string(&mut self, s: &str) {
+    pub fn copy_chars_from_string(&mut self, s: &str) {
         self.copy_chars_range(s, 0, s.len())
     }
     pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) {
         let sub_bytes = s.as_bytes()[off..(off + len)].to_vec();
-        self.copy_chars_with_vec(&sub_bytes, 0, sub_bytes.len())
+        self.copy_chars_from_vec(&sub_bytes, 0, sub_bytes.len())
     }
-    pub fn copy_chars_with_vec(&mut self, s: &[u8], off: usize, len: usize) {
+    pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) {
         self.grow(len);
         self.bytes_ref
             .bytes
@@ -160,7 +160,7 @@ where
         self.bytes_ref.length = len;
         self.bytes_ref.offset = 0;
     }
-    pub fn copy_chars_with_chars(&mut self, s: &[char], off: usize, len: usize) {
+    pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) {
         let mut bytes = Vec::with_capacity(len);
         for &c in &s[off..off + len] {
             let mut buf = [0u8; 4];
@@ -208,7 +208,7 @@ mod tests {
     fn assert_case(chars: &[char], expected_len: usize) {
         let mut b: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let len = chars.len();
-        b.copy_chars_with_chars(chars, 0, len);
+        b.copy_chars_from_chars(chars, 0, len);
         let br = b.get_bytes_ref();
 
         let s: String = chars.iter().collect();

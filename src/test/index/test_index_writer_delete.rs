@@ -57,10 +57,10 @@ fn test_simple_case() -> Result<()> {
 
     for i in 0..keywords.len() {
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", keywords[i], Store::Yes)?);
+        doc.add(StringField::from_string("id", keywords[i], Store::Yes)?);
         doc.add(Field::new("country", unindexed[i], custom1.clone()));
-        doc.add(TextField::with_string("contents", unstored[i], Store::No)?);
-        doc.add(TextField::with_string("city", text[i], Store::Yes)?);
+        doc.add(TextField::from_string("contents", unstored[i], Store::No)?);
+        doc.add(TextField::from_string("city", text[i], Store::Yes)?);
         modifier.add_document(doc)?;
     }
 

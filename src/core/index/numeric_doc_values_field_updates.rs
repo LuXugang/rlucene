@@ -259,7 +259,7 @@ mod tests {
 
     fn doc_with_val(id: i32, val: i64) -> Result<Document> {
         let mut doc = Document::new();
-        doc.add(StringField::with_string(
+        doc.add(StringField::from_string(
             "id",
             format!("doc-{}", id),
             Store::No,
@@ -598,7 +598,7 @@ mod tests {
 
         for i in 0..4 {
             let mut doc = Document::new();
-            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            doc.add(StringField::from_string("dvUpdateKey", "dv", Store::No)?);
             doc.add(NumericDocValuesField::new("ndv", i as i64));
             doc.add(BinaryDocValuesField::new(
                 "bdv",
@@ -678,7 +678,7 @@ mod tests {
 
         for i in 0..2 {
             let mut doc = Document::new();
-            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            doc.add(StringField::from_string("dvUpdateKey", "dv", Store::No)?);
             doc.add(NumericDocValuesField::new("ndv1", i as i64));
             doc.add(NumericDocValuesField::new("ndv2", i as i64));
             writer.add_document(doc)?;
@@ -716,7 +716,7 @@ mod tests {
 
         for i in 0..2 {
             let mut doc = Document::new();
-            doc.add(StringField::with_string("dvUpdateKey", "dv", Store::No)?);
+            doc.add(StringField::from_string("dvUpdateKey", "dv", Store::No)?);
             if i == 0 {
                 // index only one document with value
                 doc.add(NumericDocValuesField::new("ndv", 5));
@@ -757,13 +757,13 @@ mod tests {
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("key", "doc", Store::No)?);
-        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        doc.add(StringField::from_string("key", "doc", Store::No)?);
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
         writer.add_document(doc)?;
         writer.commit()?;
         let mut doc = Document::new();
-        doc.add(StringField::with_string("key", "doc", Store::No)?);
-        doc.add(StringField::with_string("foo", "bar", Store::No)?);
+        doc.add(StringField::from_string("key", "doc", Store::No)?);
+        doc.add(StringField::from_string("foo", "bar", Store::No)?);
         writer.add_document(doc)?;
 
         let res = writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 17);
@@ -817,22 +817,22 @@ mod tests {
 
         // first segment with NDV
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc0", Store::No)?);
+        doc.add(StringField::from_string("id", "doc0", Store::No)?);
         doc.add(NumericDocValuesField::new("ndv", 3));
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc4", Store::No)?); // document without 'ndv' field
+        doc.add(StringField::from_string("id", "doc4", Store::No)?); // document without 'ndv' field
         writer.add_document(doc)?;
         writer.commit()?;
 
         // second segment with no NDV
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc1", Store::No)?);
+        doc.add(StringField::from_string("id", "doc1", Store::No)?);
         writer.add_document(doc)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc2", Store::No)?); // document that isn't updated
+        doc.add(StringField::from_string("id", "doc2", Store::No)?); // document that isn't updated
         writer.add_document(doc)?;
         writer.commit()?;
 
@@ -872,16 +872,16 @@ mod tests {
 
         // first segment with ndv and ndv2 fields
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc0", Store::No)?);
+        doc.add(StringField::from_string("id", "doc0", Store::No)?);
         doc.add(NumericDocValuesField::new("ndv", 5));
-        doc.add(StringField::with_string("ndv2", "10", Store::No)?);
+        doc.add(StringField::from_string("ndv2", "10", Store::No)?);
         doc.add(NumericDocValuesField::new("ndv2", 10));
         writer.add_document(doc)?;
         writer.commit()?;
 
         // second segment with no ndv and ndv2 fields
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc1", Store::No)?);
+        doc.add(StringField::from_string("id", "doc1", Store::No)?);
         writer.add_document(doc)?;
         writer.commit()?;
 
@@ -921,7 +921,7 @@ mod tests {
 
         // add document with both posting field and NDV field of the same name
         let mut doc = Document::new();
-        doc.add(StringField::with_string("f", "mock-value", Store::No)?);
+        doc.add(StringField::from_string("f", "mock-value", Store::No)?);
         doc.add(NumericDocValuesField::new("f", 5));
         writer.add_document(doc)?;
         writer.commit()?;
@@ -963,7 +963,7 @@ mod tests {
         let num_docs = at_least(&mut random, 10);
         for i in 0..num_docs {
             let mut doc = Document::new();
-            doc.add(StringField::with_string(
+            doc.add(StringField::from_string(
                 "id",
                 format!("doc{}", i),
                 Store::No,
@@ -1049,7 +1049,7 @@ mod tests {
         let writer = IndexWriter::new(dir.clone(), config)?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "d0", Store::No)?);
+        doc.add(StringField::from_string("id", "d0", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         doc.add(NumericDocValuesField::new("f2", 1));
         writer.add_document(doc)?;
@@ -1103,7 +1103,7 @@ mod tests {
             let num_update_terms = random.random_range(1..=(num_terms / 10).max(1));
             for _ in 0..num_update_terms {
                 let term_val = update_terms.choose(&mut random).unwrap();
-                doc.add(StringField::with_string("upd", term_val, Store::No)?);
+                doc.add(StringField::from_string("upd", term_val, Store::No)?);
             }
             for j in 0..num_numeric_fields {
                 let val = random.random();
@@ -1173,8 +1173,8 @@ mod tests {
 
         // add initial document
         let mut doc = Document::new();
-        doc.add(StringField::with_string("upd", "t1", Store::No)?);
-        doc.add(StringField::with_string("upd", "t2", Store::No)?);
+        doc.add(StringField::from_string("upd", "t1", Store::No)?);
+        doc.add(StringField::from_string("upd", "t2", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         doc.add(NumericDocValuesField::new("f2", 1));
         writer.add_document(doc)?;
@@ -1213,11 +1213,11 @@ mod tests {
 
         // add and commit documents
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(StringField::from_string("id", "doc", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         writer.add_document(doc)?;
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(StringField::from_string("id", "doc", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         writer.add_document(doc)?;
         writer.commit()?;
@@ -1225,7 +1225,7 @@ mod tests {
         writer.delete_documents_with_terms(vec![Term::from_text("id", "doc")])?;
 
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(StringField::from_string("id", "doc", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         writer.add_document(doc)?;
         writer.update_numeric_doc_value(Term::from_text("id", "doc"), "f1", 2)?;
@@ -1254,7 +1254,7 @@ mod tests {
 
         // add a document
         let mut doc = Document::new();
-        doc.add(StringField::with_string("id", "doc", Store::No)?);
+        doc.add(StringField::from_string("id", "doc", Store::No)?);
         doc.add(NumericDocValuesField::new("f1", 1));
         writer.add_document(doc)?;
 

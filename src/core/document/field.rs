@@ -124,7 +124,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `stored()`, or if
     ///   `tokenized()` is `false`.
-    pub fn with_reader<T>(
+    pub fn from_reader<T>(
         name: T,
         reader: ReaderEnum,
         indexable_field_type: FieldType,
@@ -159,7 +159,7 @@ impl Field {
     /// # Errors
     /// - Returns an error if the field's type is `stored()`, `tokenized()` is
     ///   `false`, or `indexed()` is `false`.
-    pub fn with_token_stream<T>(
+    pub fn from_token_stream<T>(
         name: T,
         token_stream: TokenStreamEnum,
         indexable_field_type: FieldType,
@@ -199,12 +199,12 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
-    pub fn with_binary<T>(name: T, value: Vec<u8>, indexable_field_type: FieldType) -> Result<Self>
+    pub fn from_binary<T>(name: T, value: Vec<u8>, indexable_field_type: FieldType) -> Result<Self>
     where
         T: Into<String>,
     {
         let len = value.len();
-        Self::with_binary_range(name, value, 0, len, indexable_field_type)
+        Self::from_binary_range(name, value, 0, len, indexable_field_type)
     }
     /// Creates a field with a binary value.
     ///
@@ -221,7 +221,7 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
-    pub fn with_binary_range<T>(
+    pub fn from_binary_range<T>(
         name: T,
         value: Vec<u8>,
         offset: usize,
@@ -232,7 +232,7 @@ impl Field {
         T: Into<String>,
     {
         let value = BytesRef::from_slice(value, offset, length);
-        Self::with_bytes_ref(name, value, indexable_field_type)
+        Self::from_bytes_ref(name, value, indexable_field_type)
     }
     /// Creates a field with a binary value.
     ///
@@ -247,7 +247,7 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if the field's type is `indexed()`.
-    pub fn with_bytes_ref<T>(
+    pub fn from_bytes_ref<T>(
         name: T,
         bytes: BytesRef<Vec<u8>>,
         indexable_field_type: FieldType,
@@ -300,7 +300,7 @@ impl Field {
     ///   `stored()`.
     /// - Returns an error if `indexed()` is `false` but `store_term_vectors()`
     ///   is `true`.
-    pub fn with_string<T1, T2>(name: T1, value: T2, indexable_field_type: FieldType) -> Result<Self>
+    pub fn from_string<T1, T2>(name: T1, value: T2, indexable_field_type: FieldType) -> Result<Self>
     where
         T1: Into<String>,
         T2: Into<String>,
@@ -2161,8 +2161,8 @@ mod tests {
     #[test]
     fn test_string_field() -> Result<()> {
         let fields = vec![
-            StringField::with_string("foo", "bar", Store::No)?,
-            StringField::with_string("foo", "bar", Store::Yes)?,
+            StringField::from_string("foo", "bar", Store::No)?,
+            StringField::from_string("foo", "bar", Store::Yes)?,
         ];
 
         for mut field in fields {
@@ -2295,8 +2295,8 @@ mod tests {
     #[test]
     fn test_text_field_string() -> Result<()> {
         let fields = vec![
-            TextField::with_string("foo", "bar", Store::No)?,
-            TextField::with_string("foo", "bar", Store::Yes)?,
+            TextField::from_string("foo", "bar", Store::No)?,
+            TextField::from_string("foo", "bar", Store::Yes)?,
         ];
 
         for mut field in fields {
@@ -2424,7 +2424,7 @@ mod tests {
 
     #[test]
     fn test_stored_field_string() -> Result<()> {
-        let mut field = StoredField::with_string("foo", "bar")?;
+        let mut field = StoredField::from_string("foo", "bar")?;
         assert!(matches!(
             try_set_byte_value(&mut field),
             Err(LuceneError::NotImplemented(_))
@@ -2475,7 +2475,7 @@ mod tests {
 
     #[test]
     fn test_stored_field_int() -> Result<()> {
-        let mut field = StoredField::with_i32("foo", 1)?;
+        let mut field = StoredField::from_i32("foo", 1)?;
         assert!(matches!(
             try_set_byte_value(&mut field),
             Err(LuceneError::NotImplemented(_))
@@ -2528,7 +2528,7 @@ mod tests {
 
     #[test]
     fn test_stored_field_double() -> Result<()> {
-        let mut field = StoredField::with_f64("foo", 1f64)?;
+        let mut field = StoredField::from_f64("foo", 1f64)?;
         assert!(matches!(
             try_set_byte_value(&mut field),
             Err(LuceneError::NotImplemented(_))
@@ -2581,7 +2581,7 @@ mod tests {
 
     #[test]
     fn test_stored_field_float() -> Result<()> {
-        let mut field = StoredField::with_f32("foo", 1.0)?;
+        let mut field = StoredField::from_f32("foo", 1.0)?;
         assert!(matches!(
             try_set_byte_value(&mut field),
             Err(LuceneError::NotImplemented(_))
@@ -2633,7 +2633,7 @@ mod tests {
     }
     #[test]
     fn test_stored_field_long() -> Result<()> {
-        let mut field = StoredField::with_i64("foo", 1)?;
+        let mut field = StoredField::from_i64("foo", 1)?;
         assert!(matches!(
             try_set_byte_value(&mut field),
             Err(LuceneError::NotImplemented(_))
@@ -2767,7 +2767,7 @@ mod tests {
     #[test]
     fn test_disabled_field() -> Result<()> {
         let ft = FieldType::new();
-        let result = Field::with_string("foo", "", ft);
+        let result = Field::from_string("foo", "", ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -2776,7 +2776,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::Docs)?;
-        let result = Field::with_bytes_ref("foo", BytesRef::new(), ft);
+        let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -2785,7 +2785,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-        let result = Field::with_bytes_ref("foo", BytesRef::new(), ft);
+        let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -2796,7 +2796,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_offsets(true)?;
         ft.set_store_term_vector_offsets(true)?;
-        let result = Field::with_bytes_ref("foo", BytesRef::new(), ft);
+        let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }

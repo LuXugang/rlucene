@@ -48,7 +48,7 @@ where
     /// - `score`: the score to return on each document.
     /// - `score_mode`: the score mode.
     /// - `disi`: the iterator that defines matching documents.
-    pub fn with_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
+    pub fn from_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
         let approximation = match score_mode {
             ScoreMode::TopScores => {
                 ConstantDISI::A(DocIdSetIteratorWrapper::new(EmptyEnum::A(disi)))
@@ -74,7 +74,7 @@ where
     /// - `score`: the score to return on each document.
     /// - `score_mode`: the score mode.
     /// - `two_phase_iterator`: the iterator that defines matching documents.
-    pub fn with_tpi(score: f32, score_mode: ScoreMode, two_phase_iterator: TPI) -> Self {
+    pub fn from_tpi(score: f32, score_mode: ScoreMode, two_phase_iterator: TPI) -> Self {
         let two_phase_iterator = match score_mode {
             ScoreMode::TopScores => ConstantTPI::A(TwoPhaseIteratorImpl::new(two_phase_iterator)),
             _ => ConstantTPI::B(two_phase_iterator),

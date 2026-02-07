@@ -86,7 +86,7 @@ pub static KEYWORD_TEXT: &str = "Keyword";
 pub static KEYWORD_FIELD_KEY: &str = "keyField";
 
 pub static KEY_FIELD: Lazy<StringField> = Lazy::new(|| {
-    StringField::with_string(KEYWORD_FIELD_KEY, KEYWORD_TEXT, Yes).expect("should not fail")
+    StringField::from_string(KEYWORD_FIELD_KEY, KEYWORD_TEXT, Yes).expect("should not fail")
 });
 
 pub static NO_NORMS_TEXT: &str = "omitNormsText";
@@ -150,7 +150,7 @@ pub static UNSTORED_1_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_1_KEY: &str = "unStoredField1";
 
 pub static UNSTORED_FIELD_1: Lazy<TextField> = Lazy::new(|| {
-    TextField::with_string(UNSTORED_FIELD_1_KEY, UNSTORED_1_FIELD_TEXT, No)
+    TextField::from_string(UNSTORED_FIELD_1_KEY, UNSTORED_1_FIELD_TEXT, No)
         .expect("should not fail")
 });
 

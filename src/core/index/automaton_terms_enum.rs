@@ -403,10 +403,10 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
         term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Option<BytesRef<Vec<u8>>>> {
         if let Some(t) = term {
-            self.seek_bytes_ref.copy_bytes_with_ref(t);
+            self.seek_bytes_ref.copy_bytes_from_ref(t);
         } else {
             match self.start_term {
-                Some(ref t) => self.seek_bytes_ref.copy_bytes_with_ref(t),
+                Some(ref t) => self.seek_bytes_ref.copy_bytes_from_ref(t),
                 None => {
                     debug_assert_eq!(self.seek_bytes_ref.length(), 0);
                     // return the empty term, as it's valid

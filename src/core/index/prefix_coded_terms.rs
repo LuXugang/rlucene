@@ -172,7 +172,7 @@ impl PrefixCodedTermsBuilder {
             0,
             suffix,
         )?;
-        self.last_term_bytes.copy_bytes_with_ref(bytes);
+        self.last_term_bytes.copy_bytes_from_ref(bytes);
         self.last_term.bytes = self.last_term_bytes.get_bytes_owner();
         self.last_term.field = field;
         self.size += 1;

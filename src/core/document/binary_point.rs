@@ -46,7 +46,7 @@ impl BinaryPoint {
         let point = point.as_ref();
         let packed = Self::pack(point)?;
         let field_type = Self::get_type_from_dims(point)?;
-        let parent_field = Field::with_bytes_ref(name, packed, field_type)?;
+        let parent_field = Field::from_bytes_ref(name, packed, field_type)?;
         Ok(BinaryPoint { parent_field })
     }
 
@@ -69,7 +69,7 @@ impl BinaryPoint {
             )));
         }
 
-        let parent_field = Field::with_binary(name, packed_point, field_type)?;
+        let parent_field = Field::from_binary(name, packed_point, field_type)?;
         Ok(BinaryPoint { parent_field })
     }
 

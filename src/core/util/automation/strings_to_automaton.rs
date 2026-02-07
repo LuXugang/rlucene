@@ -62,11 +62,11 @@ impl StringsToAutomaton {
     fn set_previous(&mut self, current: &BytesRef<Vec<u8>>) {
         match &mut self.previous {
             Some(prev) => {
-                prev.copy_bytes_with_ref(current);
+                prev.copy_bytes_from_ref(current);
             },
             None => {
                 let mut builder = BytesRefBuilder::new();
-                builder.copy_bytes_with_ref(current);
+                builder.copy_bytes_from_ref(current);
                 self.previous = Some(builder);
             },
         }

@@ -441,7 +441,7 @@ where
                 }
             },
         };
-        let v = ConstantScoreScorer::with_disi(self.score, self.score_mode, disi);
+        let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
         Ok(v)
     }
 
@@ -2016,7 +2016,7 @@ mod tests {
 
     fn create_missing_value_document() -> Result<Document> {
         let mut doc = Document::new();
-        doc.add(StringField::with_string("foo", "fox", Store::Yes)?);
+        doc.add(StringField::from_string("foo", "fox", Store::Yes)?);
         Ok(doc)
     }
 

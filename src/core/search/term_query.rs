@@ -470,7 +470,7 @@ where
             },
             None => {
                 let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-                    ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
+                    ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
                 Ok(Some(v))
             },
@@ -600,7 +600,7 @@ where
             },
             None => {
                 let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-                    ConstantScoreScorer::with_disi(0.0, self.score_mode, EmptyDISI::default()),
+                    ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
                 );
                 Ok(Box::new(v))
             },

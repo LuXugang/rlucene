@@ -1222,7 +1222,7 @@ where
             self.prefix_starts[i] = self.pending.len();
         }
 
-        self.last_term.copy_bytes_with_ref(text);
+        self.last_term.copy_bytes_from_ref(text);
         Ok(())
     }
     pub fn finish(
