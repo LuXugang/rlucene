@@ -257,8 +257,6 @@ pub enum TwoPhaseState {
     Yes,
     /// no two_phase_iterator
     No,
-    /// may or may not present, check with [`Scorer::two_phase_iterator`]
-    MayBe,
 }
 
 macro_rules! either_scorer {

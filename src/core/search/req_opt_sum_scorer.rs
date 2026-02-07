@@ -392,34 +392,51 @@ where
         Ok(())
     }
     fn score(&mut self) -> Result<f32> {
-        let (mut opt_doc, cur_doc, mut score) = {
-            let cur_doc = {
-                let req_it = self.req_scorer.iterator();
-                req_it.doc_id()
-            };
+        let (mut opt_scorer_doc, cur_doc, mut score, opt_has_tpi) = {
+            let cur_doc = self.req_scorer.doc_id()?;
             let score = self.req_scorer.score()?;
 
-            let opt_it = self.opt_scorer.iterator();
-            let opt_doc = opt_it.doc_id();
-            (opt_doc, cur_doc, score)
+            let (opt_scorer_doc, opt_has_tpi) = match self.opt_scorer.two_phase_iterator()? {
+                Some(tpi) => (tpi.approximation()?.doc_id(), true),
+                None => (self.opt_scorer.iterator().doc_id(), false),
+            };
+            (opt_scorer_doc, cur_doc, score, opt_has_tpi)
         };
 
-        if opt_doc < cur_doc {
-            opt_doc = self.opt_scorer.iterator_mut().advance(cur_doc)?;
+        if opt_scorer_doc < cur_doc {
+            opt_scorer_doc = if opt_has_tpi {
+                self.opt_scorer
+                    .two_phase_iterator_mut()?
+                    .as_mut()
+                    .unwrap()
+                    .approximation_mut()?
+                    .advance(cur_doc)?
+            } else {
+                self.opt_scorer.iterator_mut().advance(cur_doc)?
+            };
 
             let should_skip = {
                 if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator()? {
-                    opt_doc == cur_doc && !opt_tpi.matches()?
+                    opt_scorer_doc == cur_doc && !opt_tpi.matches()?
                 } else {
                     false
                 }
             };
             if should_skip {
-                opt_doc = self.opt_scorer.iterator_mut().next_doc()?;
+                opt_scorer_doc = if opt_has_tpi {
+                    self.opt_scorer
+                        .two_phase_iterator_mut()?
+                        .as_mut()
+                        .unwrap()
+                        .approximation_mut()?
+                        .next_doc()?
+                } else {
+                    self.opt_scorer.iterator_mut().next_doc()?
+                };
             }
         }
 
-        if opt_doc == cur_doc {
+        if opt_scorer_doc == cur_doc {
             score += self.opt_scorer.score()?;
         }
 
@@ -559,8 +576,10 @@ mod tests {
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::term_query::TermQuery;
+    use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
     use crate::core::util::error::lucene_error::Result;
+    use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
     };
@@ -787,6 +806,13 @@ mod tests {
         Ok(())
     }
     #[test]
+    fn test() -> Result<()> {
+        for _i in 0..100 {
+            test_must_random_frequent_opt()?
+        }
+        Ok(())
+    }
+    #[test]
     fn test_must_random_frequent_opt() -> Result<()> {
         let mut random = random();
         do_test_random(&mut random, Occur::Must, 0.5)
@@ -810,11 +836,157 @@ mod tests {
         do_test_random(&mut random, Occur::Filter, 0.05)
     }
 
-    fn do_test_random<R>(_random: &mut R, _req_occur: Occur, _opt_freq: f64) -> Result<()>
+    fn do_test_random<R>(random: &mut R, req_occur: Occur, opt_freq: f64) -> Result<()>
     where
         R: Rng + ?Sized,
     {
         // TODO RandomApproximationQuery未实现
+        let dir = new_directory_shared(random)?;
+        // TODO RandomIndexWriter 未实现：用当前 IndexWriter 路径代替
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+        // let num_docs = at_least(random, 1000);
+        let num_docs = 1;
+
+        for _ in 0..num_docs {
+            // let num_as = 0;
+            let num_as = if random.random_bool(0.5) {
+                0usize
+            } else {
+                1 + random.random_range(0..5)
+            };
+            // let num_bs = 0;
+            let num_bs = if random.random::<f64>() < opt_freq {
+                0usize
+            } else {
+                1 + random.random_range(0..5)
+            };
+
+            let mut doc = Document::new();
+            for _ in 0..num_as {
+                doc.add(StringField::from_string("f", "A".to_string(), Store::No)?);
+            }
+            for _ in 0..num_bs {
+                doc.add(StringField::from_string("f", "B".to_string(), Store::No)?);
+            }
+            if random.random_bool(0.5) {
+                doc.add(StringField::from_string("f", "C".to_string(), Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let must_term: Query = TermQuery::new(Term::from_text("f", "A")).into();
+        let should_term: Query = TermQuery::new(Term::from_text("f", "B")).into();
+
+        let mut query: Query = {
+            let mut b = Builder::new();
+            b.add(must_term.clone(), req_occur)?
+                .add(should_term.clone(), Occur::Should)?;
+            b.build().into()
+        };
+
+        let collector_manager = TopScoreDocCollectorManager::new(10, i32::MAX as usize)?;
+        let top_docs = searcher.search_with_collector_manager(query.clone(), &collector_manager)?;
+        let expected = top_docs.score_docs;
+        // Also test a filtered query, since it does not compute the score on all
+        // matches.
+        query = {
+            let mut b = Builder::new();
+            b.add(query, Occur::Must)?
+                .add(TermQuery::new(Term::from_text("f", "C")), Occur::Filter)?;
+            b.build().into()
+        };
+
+        let collector_manager = TopScoreDocCollectorManager::new(10, i32::MAX as usize)?;
+        let top_docs = searcher.search_with_collector_manager(query.clone(), &collector_manager)?;
+        let expected_filtered = top_docs.score_docs;
+
+        CheckHits::check_top_scores(random, &query, &searcher)?;
+
+        {
+            let mut q: Query = {
+                let mut b = Builder::new();
+                b.add(must_term.clone(), req_occur)?
+                    .add(should_term.clone(), Occur::Should)?;
+                b.build().into()
+            };
+
+            let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
+            let top_docs = searcher.search_with_collector_manager(q, &collector_manager)?;
+            let actual = top_docs.score_docs;
+            CheckHits::check_equal(&query, &expected, &actual)?;
+
+            q = {
+                let mut b = Builder::new();
+                b.add(must_term.clone(), req_occur)?
+                    .add(should_term.clone(), Occur::Should)?;
+                b.build().into()
+            };
+
+            let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
+            let top_docs = searcher.search_with_collector_manager(q.clone(), &collector_manager)?;
+            let actual = top_docs.score_docs;
+            CheckHits::check_equal(&q, &expected, &actual)?;
+
+            q = {
+                let mut b = Builder::new();
+                b.add(must_term.clone(), req_occur)?
+                    .add(should_term.clone(), Occur::Should)?;
+                b.build().into()
+            };
+
+            let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
+            let top_docs = searcher.search_with_collector_manager(q.clone(), &collector_manager)?;
+            let actual = top_docs.score_docs;
+            CheckHits::check_equal(&q, &expected, &actual)?;
+        }
+
+        {
+            let nested_q: Query = {
+                let mut b = Builder::new();
+                b.add(query.clone(), Occur::Must)?
+                    .add(TermQuery::new(Term::from_text("f", "C")), Occur::Filter)?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(random, &nested_q, &searcher)?;
+
+            query = {
+                let mut b = Builder::new();
+                b.add(query, Occur::Must)?
+                    .add(TermQuery::new(Term::from_text("f", "C")), Occur::Filter)?;
+                b.build().into()
+            };
+
+            let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
+            let top_docs =
+                searcher.search_with_collector_manager(nested_q.clone(), &collector_manager)?;
+            let actual_filtered = top_docs.score_docs;
+            CheckHits::check_equal(&nested_q, &expected_filtered, &actual_filtered)?;
+        }
+
+        {
+            query = {
+                let mut b = Builder::new();
+                b.add(query, req_occur)?
+                    .add(TermQuery::new(Term::from_text("f", "C")), Occur::Should)?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(random, &query, &searcher)?;
+
+            query = {
+                let mut b = Builder::new();
+                b.add(TermQuery::new(Term::from_text("f", "C")), req_occur)?
+                    .add(query, Occur::Should)?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(random, &query, &searcher)?;
+        }
         Ok(())
     }
 

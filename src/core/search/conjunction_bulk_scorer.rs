@@ -78,40 +78,6 @@ where
             required_scoring_idx,
         })
     }
-    fn advance1(
-        lead1: &mut impl DocIdSetIterator,
-        it: &mut impl DocIdSetIterator,
-        doc: i32,
-    ) -> Result<(bool, bool)> {
-        if it.doc_id() < doc {
-            let next = it.advance(doc)?;
-            if next != doc {
-                lead1.advance(next)?;
-                // break  and match false
-                return Ok((true, false));
-            }
-        }
-        debug_assert!(it.doc_id() == doc);
-        // not break and match true
-        Ok((false, true))
-    }
-    fn advance2(
-        lead1: &mut impl DocIdSetIterator,
-        it: &mut impl DocIdSetIterator,
-        doc: i32,
-    ) -> Result<(bool, i32)> {
-        if it.doc_id() < doc {
-            let next = it.advance(doc)?;
-            if next != doc {
-                let v = lead1.advance(next)?;
-                // continue  and update doc
-                return Ok((true, v));
-            }
-        }
-        debug_assert!(it.doc_id() == doc);
-        // not continue and not update doc
-        Ok((false, doc))
-    }
 }
 
 impl<S> BulkScorer for ConjunctionBulkScorer<S>
@@ -148,32 +114,46 @@ where
         // scoring window. So we treat this case separately here.
         if lead1_doc_id == lead2_doc_id {
             let doc = lead1_doc_id;
-            let mut matched = true;
             if match accept_docs {
                 None => true,
                 Some(bits) => bits.get(doc as usize)?,
             } {
+                let mut matched = true;
                 {
                     let (first, rest) = self.all_scores.split_at_mut(1);
                     let lead1 = &mut first[0].iterator_mut();
-                    let (_, others) = rest.split_at_mut(1);
+                    let (_, other_scorers) = rest.split_at_mut(1);
 
-                    for it in &mut others.iter_mut() {
-                        let (is_break, is_matched) =
-                            Self::advance1(lead1, &mut it.iterator_mut(), doc)?;
-                        matched = is_matched;
-                        if is_break {
-                            break;
+                    let mut others = Vec::with_capacity(other_scorers.len() + 1);
+                    for x in other_scorers {
+                        others.push(x.iterator_mut());
+                    }
+                    if let Some(v) = collector.competitive_iterator()? {
+                        others.push(v);
+                    }
+
+                    for it in others.iter_mut() {
+                        if it.doc_id() < doc {
+                            let next = it.advance(doc)?;
+                            if next != doc {
+                                lead1.advance(next)?;
+                                matched = false;
+                                break;
+                            }
                         }
+                        debug_assert!(it.doc_id() == doc);
                     }
                     lead1_doc_id = lead1.doc_id();
                 }
 
                 if matched {
                     collector.collect(doc, &mut ScorableImpl::new(self))?;
+                    let (first, _) = self.all_scores.split_at_mut(1);
+                    let lead1 = &mut first[0].iterator_mut();
+                    lead1.next_doc()?;
+                    lead1_doc_id = lead1.doc_id();
                 }
-            }
-            if matched {
+            } else {
                 let (first, _) = self.all_scores.split_at_mut(1);
                 let lead1 = &mut first[0].iterator_mut();
                 lead1.next_doc()?;
@@ -184,10 +164,10 @@ where
         let mut doc = lead1_doc_id;
 
         'advance_head: while doc < max {
-            {
+            let collector_doc = {
                 let (first, rest) = self.all_scores.split_at_mut(1);
                 let lead1 = &mut first[0].iterator_mut();
-                let (second, others) = rest.split_at_mut(1);
+                let (second, other_scorers) = rest.split_at_mut(1);
                 let lead2 = &mut second[0].iterator_mut();
 
                 debug_assert!(lead2.doc_id() < doc);
@@ -218,18 +198,30 @@ where
                 }
                 debug_assert!(lead2.doc_id() == doc);
 
-                for it in &mut others.iter_mut() {
-                    let (is_continue, new_doc) =
-                        Self::advance2(lead1, &mut it.iterator_mut(), doc)?;
-                    if is_continue {
-                        doc = new_doc;
-                        continue 'advance_head;
-                    }
+                let mut others = Vec::with_capacity(other_scorers.len() + 1);
+                for x in other_scorers {
+                    others.push(x.iterator_mut());
                 }
-                doc = lead1.next_doc()?;
-            }
+                if let Some(v) = collector.competitive_iterator()? {
+                    others.push(v);
+                }
 
-            collector.collect(doc, &mut ScorableImpl::new(self))?;
+                for it in &mut others.iter_mut() {
+                    if it.doc_id() < doc {
+                        let next = it.advance(doc)?;
+                        if next != doc {
+                            doc = lead1.advance(next)?;
+                            continue 'advance_head;
+                        }
+                    }
+                    debug_assert!(it.doc_id() == doc);
+                }
+                let collector_doc = doc;
+                doc = lead1.next_doc()?;
+                collector_doc
+            };
+
+            collector.collect(collector_doc, &mut ScorableImpl::new(self))?;
         }
         let (first, _) = self.all_scores.split_at_mut(1);
         let lead1 = &mut first[0].iterator_mut();
@@ -237,9 +229,10 @@ where
     }
 
     fn cost(&mut self) -> Result<i64> {
-        self.all_scores[0].iterator_mut().cost()
+        self.all_scores[0].iterator().cost()
     }
 }
+
 struct ScorableImpl<'a, S>
 where
     S: Scorer,
