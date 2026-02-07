@@ -74,8 +74,19 @@ where
 {
     fn score(&mut self) -> Result<f32> {
         match self.disi.two_phase_iterator {
-            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.score()?),
-            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.score()?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.score(),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.score(),
+        }
+    }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        match self.disi.two_phase_iterator {
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => {
+                tpi.req_scorer.set_min_competitive_score(min_score)
+            },
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => {
+                tpi.req_scorer.set_min_competitive_score(min_score)
+            },
         }
     }
 }
@@ -87,8 +98,8 @@ where
 {
     fn doc_id(&mut self) -> Result<i32> {
         match self.disi.two_phase_iterator {
-            TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
-            TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.doc_id()?),
+            TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.doc_id(),
+            TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.doc_id(),
         }
     }
 

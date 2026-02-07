@@ -14,12 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::query::Query;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::{Query, QueryWeightSsScorer};
 use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use once_cell::sync::Lazy;
+use rand::Rng;
 use regex::Regex;
 
 pub struct CheckHits;
@@ -183,6 +190,257 @@ impl CheckHits {
         }
 
         Ok(())
+    }
+    pub(crate) fn check_top_scores<IRC, R>(
+        random: &mut R,
+        query: &Query,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        R: Rng + ?Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
+        // Check it computed the top hits correctly
+        Self::do_check_top_scores(query, searcher, 1)?;
+        Self::do_check_top_scores(query, searcher, 10)?;
+
+        // Now check that the exposed max scores and block boundaries are valid
+        Self::do_check_max_scores(random, query.clone(), searcher)?;
+
+        Ok(())
+    }
+
+    fn do_check_top_scores<IRC>(
+        query: &Query,
+        searcher: &IndexSearcher<IRC>,
+        num_hits: usize,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
+        let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
+        let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;
+
+        let complete_top_docs = searcher.search_with_collector_manager(query.clone(), &complete)?;
+        let top_scores_top_docs =
+            searcher.search_with_collector_manager(query.clone(), &top_scores)?;
+        Self::check_equal(
+            query,
+            &complete_top_docs.score_docs,
+            &top_scores_top_docs.score_docs,
+        )?;
+
+        Ok(())
+    }
+
+    fn do_check_max_scores<IRC, R>(
+        random: &mut R,
+        mut query: Query,
+        searcher: &IndexSearcher<IRC>,
+    ) -> Result<()>
+    where
+        IRC: IndexReaderContext,
+        R: Rng + ?Sized,
+        <IRC as IndexReaderContext>::LeafReader: 'static,
+    {
+        query = searcher.rewrite(query)?;
+
+        let w1 = searcher.create_weight(query.clone(), ScoreMode::Complete, 1.0, None)?;
+        let w2 = searcher.create_weight(query, ScoreMode::TopScores, 1.0, None)?;
+
+        // Check boundaries and max scores when iterating all matches
+        for ctx in searcher.get_leaf_contexts()? {
+            let mut s1 = w1.scorer(ctx)?;
+            let mut ss2 = w2.scorer_supplier(ctx)?;
+            let mut s2 = if let Some(mut ss2) = ss2.take() {
+                ss2.set_top_level_scoring_clause()?;
+                Some(ss2.get(i64::MAX, ctx)?)
+            } else {
+                None
+            };
+
+            if s1.is_none() {
+                if let Some(s2) = s2.as_mut() {
+                    assert_eq!(NO_MORE_DOCS, s2.iterator_mut().next_doc()?);
+                }
+                continue;
+            }
+            if s2.is_none() {
+                let s1 = s1.as_mut().unwrap();
+                assert_eq!(NO_MORE_DOCS, s1.iterator_mut().next_doc()?);
+                continue;
+            }
+
+            let mut s1 = s1.unwrap();
+            let mut s2 = s2.unwrap();
+
+            let mut up_to: i32 = -1;
+            let mut max_score: f32 = 0.0;
+            let mut min_score: f32 = 0.0;
+
+            let mut doc2 = Self::next_doc(&mut s2)?;
+            loop {
+                let mut doc1 = Self::next_doc(&mut s1)?;
+                while doc1 < doc2 {
+                    let matches1 = Self::matches(&mut s1)?;
+                    if matches1 {
+                        assert!(s1.score()? < min_score);
+                    }
+                    doc1 = Self::next_doc(&mut s1)?;
+                }
+
+                assert_eq!(doc1, doc2);
+                if doc2 == NO_MORE_DOCS {
+                    break;
+                }
+
+                if doc2 > up_to {
+                    up_to = s2.advance_shallow(doc2)?;
+                    assert!(up_to >= doc2);
+                    max_score = s2.get_max_score(up_to)?;
+                }
+
+                let matches2 = Self::matches(&mut s2)?;
+                if matches2 {
+                    let matches1 = Self::matches(&mut s1)?;
+                    assert!(matches1);
+
+                    let score = s2.score()?;
+                    assert_eq!(s1.score()?, score);
+                    assert!(score <= max_score);
+
+                    if score >= min_score && random.random_range(0..10) == 0 {
+                        min_score = score;
+                        s2.set_min_competitive_score(min_score)?;
+                    }
+                }
+
+                doc2 = Self::next_doc(&mut s2)?;
+            }
+        }
+
+        // Now check advancing
+        for ctx in searcher.get_leaf_contexts()? {
+            let mut s1 = w1.scorer(ctx)?;
+            let mut ss2 = w2.scorer_supplier(ctx)?;
+            let mut s2 = if let Some(mut ss2) = ss2.take() {
+                ss2.set_top_level_scoring_clause()?;
+                Some(ss2.get(i64::MAX, ctx)?)
+            } else {
+                None
+            };
+
+            if s1.is_none() {
+                if let Some(s2) = s2.as_mut() {
+                    assert_eq!(NO_MORE_DOCS, s2.iterator_mut().next_doc()?);
+                }
+                continue;
+            }
+            if s2.is_none() {
+                let s1 = s1.as_mut().unwrap();
+                assert_eq!(NO_MORE_DOCS, s1.iterator_mut().next_doc()?);
+                continue;
+            }
+
+            let mut s1 = s1.unwrap();
+            let mut s2 = s2.unwrap();
+
+            let mut up_to: i32 = -1;
+            let mut min_score: f32 = 0.0;
+            let mut max_score: f32 = 0.0;
+
+            loop {
+                let doc_id = s2.doc_id()?;
+                let (advance, target) = if random.random_bool(0.5) {
+                    (false, doc_id + 1)
+                } else {
+                    let delta =
+                        std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc_id);
+                    (true, s2.doc_id()? + delta)
+                };
+
+                if target > up_to && random.random_bool(0.5) {
+                    let delta = std::cmp::min(random.random_range(0..512), NO_MORE_DOCS - target);
+                    up_to = target + delta;
+                    let m = s2.advance_shallow(target)?;
+                    assert!(m >= target);
+                    max_score = s2.get_max_score(up_to)?;
+                }
+
+                let doc2 = if advance {
+                    Self::advance(&mut s2, target)?
+                } else {
+                    Self::next_doc(&mut s2)?
+                };
+
+                let mut doc1 = Self::advance(&mut s1, target)?;
+                while doc1 < doc2 {
+                    let matches1 = Self::matches(&mut s1)?;
+                    if matches1 {
+                        assert!(s1.score()? < min_score);
+                    }
+                    doc1 = Self::next_doc(&mut s1)?;
+                }
+                assert_eq!(doc1, doc2);
+
+                if doc2 == NO_MORE_DOCS {
+                    break;
+                }
+
+                let matches2 = Self::matches(&mut s2)?;
+                if matches2 {
+                    let matches1 = Self::matches(&mut s1)?;
+                    assert!(matches1);
+
+                    let score = s2.score()?;
+                    assert_eq!(s1.score()?, score);
+
+                    if doc2 > up_to {
+                        up_to = s2.advance_shallow(doc2)?;
+                        assert!(up_to >= doc2);
+                        max_score = s2.get_max_score(up_to)?;
+                    }
+
+                    assert!(score <= max_score);
+
+                    if score >= min_score && random.random_range(0..10) == 0 {
+                        min_score = score;
+                        s2.set_min_competitive_score(min_score)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn advance(s: &mut QueryWeightSsScorer, target: i32) -> Result<i32> {
+        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+            let mut v = tp.approximation_mut()?;
+            v.advance(target)
+        } else {
+            let mut v = s.iterator_mut();
+            v.advance(target)
+        }
+    }
+
+    fn next_doc(s: &mut QueryWeightSsScorer) -> Result<i32> {
+        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+            let mut v = tp.approximation_mut()?;
+            v.next_doc()
+        } else {
+            let mut v = s.iterator_mut();
+            v.next_doc()
+        }
+    }
+    fn matches(s: &mut QueryWeightSsScorer) -> Result<bool> {
+        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+            tp.matches()
+        } else {
+            Ok(true)
+        }
     }
 }
 pub static COMPUTED_FROM_PATTERN: Lazy<Regex> =

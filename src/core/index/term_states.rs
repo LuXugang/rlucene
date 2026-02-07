@@ -205,25 +205,25 @@ where
     }
     pub fn resolve<LR>(
         &mut self,
-        state: PrepareState<LR>,
+        state: &mut PrepareState<LR>,
     ) -> Result<Option<Arc<EmptyTermStateEnum<TS>>>>
     where
         LR: LeafReader,
         <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum<TermState = TS>,
     {
         match state {
-            PrepareState::Ready(ord) => Ok(self.states[ord].clone()),
+            PrepareState::Ready(ord) => Ok(self.states[*ord].clone()),
 
-            PrepareState::Pending(term, ord, mut te) => {
-                if self.states[ord].as_ref().is_none() {
+            PrepareState::Pending(term, ord, te) => {
+                if self.states[*ord].as_ref().is_none() {
                     if te.get_prepare_seek_exact_status(term.bytes())? {
                         let state = te.term_state()?;
-                        self.states[ord] = Some(Arc::new(EmptyTermStateEnum::A(state)))
+                        self.states[*ord] = Some(Arc::new(EmptyTermStateEnum::A(state)))
                     } else {
-                        self.states[ord] = Some(Arc::new(EmptyTermStateEnum::B(EmptyTermState)))
+                        self.states[*ord] = Some(Arc::new(EmptyTermStateEnum::B(EmptyTermState)))
                     }
                 }
-                let state = self.states[ord].as_ref().unwrap();
+                let state = self.states[*ord].as_ref().unwrap();
                 if matches!(state.as_ref(), EmptyTermStateEnum::B(_)) {
                     Ok(None)
                 } else {

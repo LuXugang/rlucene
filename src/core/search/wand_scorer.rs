@@ -112,6 +112,23 @@ where
 
         Ok(lead_score as f32)
     }
+
+    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+        // Let this disjunction know about the new min score so that it can skip
+        // over clauses that produce low scores.
+        let disi = &mut self.disi.two_phase_iterator.approximation;
+        debug_assert_eq!(
+            disi.score_mode,
+            ScoreMode::TopScores,
+            "minCompetitiveScore can only be set for ScoreMode.TOP_SCORES, but got: {:?}",
+            disi.score_mode
+        );
+        debug_assert!(min_score >= 0f32);
+        let scaled_min_score = scale_min_score(min_score, disi.scaling_factor);
+        debug_assert!(scaled_min_score >= disi.min_competitive_score);
+        disi.min_competitive_score = scaled_min_score;
+        Ok(())
+    }
 }
 
 impl<S> Scorer for WANDScorer<S>
@@ -307,7 +324,7 @@ where
         self.freq += 1;
         if self.score_mode == ScoreMode::TopScores {
             let scorer = self.all_scorers[lead_idx].scorer.score()?;
-            self.lead_cost = scorer as i64;
+            self.lead_score += scorer as f64;
         }
         Ok(())
     }
@@ -940,8 +957,10 @@ pub(crate) mod tests {
     use crate::core::search::weight::{DefaultScorerSupplier, Weight};
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::{HasIdentity, ToInt};
+    use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_searcher_with_reader, random,
+        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+        new_searcher_with_threads, random,
     };
     use rand::Rng;
     use std::fmt::Debug;
@@ -1003,6 +1022,7 @@ pub(crate) mod tests {
 
         Ok(())
     }
+    #[test]
     fn test_basics() -> Result<()> {
         let mut random = random();
         let dir = new_directory_shared(&mut random)?;
@@ -1249,6 +1269,903 @@ pub(crate) mod tests {
         assert_eq!(3.0, scorer.score()?);
 
         assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],      // 0
+            &["A"],           // 1
+            &[],              // 2
+            &["A", "B", "C"], // 3
+            &["B"],           // 4
+            &["B", "C"],      // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "A")).into(),
+                        ))
+                        .into(),
+                    ),
+                    2.0,
+                )?,
+                Occur::Should,
+            )?
+            .add_query(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "B")).into(),
+                )),
+                Occur::Should,
+            )?
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "C")).into(),
+                        ))
+                        .into(),
+                    ),
+                    3.0,
+                )?,
+                Occur::Should,
+            )?;
+        builder.set_minimum_number_should_match(2);
+
+        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
+            builder.build(),
+            random.random_bool(0.5),
+        ));
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(6.0, scorer.score()?);
+
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(4.0)?;
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(6.0, scorer.score()?);
+
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?);
+
+        scorer.set_min_competitive_score(10.0)?;
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_disjunction_and_min_should_match_and_tail_size_condition() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],      // 0
+            &["A"],           // 1
+            &[],              // 2
+            &["A", "B", "C"], // 3
+            // 2 "B"s here and the non constant score term query below forces the
+            // tailMaxScore >= minCompetitiveScore && tailSize < minShouldMatch condition
+            &["B", "B"], // 4
+            &["B", "C"], // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(TermQuery::new(Term::from_text("foo", "A")), Occur::Should)?
+            .add_query(TermQuery::new(Term::from_text("foo", "B")), Occur::Should)?
+            .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Should)?;
+        builder.set_minimum_number_should_match(2);
+
+        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
+            builder.build(),
+            random.random_bool(0.5),
+        ));
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        let score = scorer.score()?;
+        scorer.set_min_competitive_score(score)?;
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_disjunction_and_min_should_match_and_non_scoring_mode() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],      // 0
+            &["A"],           // 1
+            &[],              // 2
+            &["A", "B", "C"], // 3
+            &["B"],           // 4
+            &["B", "C"],      // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let mut builder = Builder::new();
+        builder
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "A")).into(),
+                        ))
+                        .into(),
+                    ),
+                    2.0,
+                )?,
+                Occur::Should,
+            )?
+            .add_query(
+                ConstantScoreQuery::new(Box::new(
+                    TermQuery::new(Term::from_text("foo", "B")).into(),
+                )),
+                Occur::Should,
+            )?
+            .add_query(
+                BoostQuery::new(
+                    Box::new(
+                        ConstantScoreQuery::new(Box::new(
+                            TermQuery::new(Term::from_text("foo", "C")).into(),
+                        ))
+                        .into(),
+                    ),
+                    3.0,
+                )?,
+                Occur::Should,
+            )?;
+        builder.set_minimum_number_should_match(2);
+
+        let query: Query = Query::WANDScorer(WANDScorerQuery::new(
+            builder.build(),
+            random.random_bool(0.5),
+        ));
+
+        let weight = searcher.create_weight(
+            searcher.rewrite(query)?,
+            ScoreMode::CompleteNoScores,
+            1.0,
+            None,
+        )?;
+        let mut scorer = weight
+            .scorer(context)?
+            .expect("expected scorer to be present");
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(5, scorer.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],           // 0
+            &["A", "C", "D"],      // 1
+            &[],                   // 2
+            &["A", "B", "C", "D"], // 3
+            &["B"],                // 4
+            &["C", "D"],           // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let query: Query = {
+            let mut inner = Builder::new();
+            inner
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "A")).into(),
+                            ))
+                            .into(),
+                        ),
+                        2.0,
+                    )?,
+                    Occur::Should,
+                )?
+                .add_query(
+                    ConstantScoreQuery::new(Box::new(
+                        TermQuery::new(Term::from_text("foo", "B")).into(),
+                    )),
+                    Occur::Should,
+                )?
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "D")).into(),
+                            ))
+                            .into(),
+                        ),
+                        4.0,
+                    )?,
+                    Occur::Should,
+                )?;
+            inner.set_minimum_number_should_match(2);
+
+            let inner_query =
+                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+
+            let mut outer = Builder::new();
+            outer
+                .add_query(inner_query, Occur::Must)?
+                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+            outer.build().into()
+        };
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(6.0, scorer.score()?); // 2 + 4
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(7.0, scorer.score()?); // 2 + 1 + 4
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(7.0)?; // 2 + 1 + 4
+
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(7.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_filtered_disjunction_and_min_should_match_and_non_scoring_mode()
+    -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],           // 0
+            &["A", "C", "D"],      // 1
+            &[],                   // 2
+            &["A", "B", "C", "D"], // 3
+            &["B"],                // 4
+            &["C", "D"],           // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let query: Query = {
+            let mut inner = Builder::new();
+            inner
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "A")).into(),
+                            ))
+                            .into(),
+                        ),
+                        2.0,
+                    )?,
+                    Occur::Should,
+                )?
+                .add_query(
+                    ConstantScoreQuery::new(Box::new(
+                        TermQuery::new(Term::from_text("foo", "B")).into(),
+                    )),
+                    Occur::Should,
+                )?
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "D")).into(),
+                            ))
+                            .into(),
+                        ),
+                        4.0,
+                    )?,
+                    Occur::Should,
+                )?;
+            inner.set_minimum_number_should_match(2);
+
+            let inner_query =
+                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+
+            let mut outer = Builder::new();
+            outer
+                .add_query(inner_query, Occur::Must)?
+                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::Filter)?;
+            outer.build().into()
+        };
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopDocs, 1.0, None)?;
+        let mut scorer = weight
+            .scorer(context)?
+            .expect("expected scorer to be present");
+
+        assert_eq!(1, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3, scorer.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],           // 0
+            &["A", "C", "D"],      // 1
+            &[],                   // 2
+            &["A", "B", "C", "D"], // 3
+            &["B", "D"],           // 4
+            &["C", "D"],           // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let query: Query = {
+            let mut inner = Builder::new();
+            inner
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "A")).into(),
+                            ))
+                            .into(),
+                        ),
+                        2.0,
+                    )?,
+                    Occur::Should,
+                )?
+                .add_query(
+                    ConstantScoreQuery::new(Box::new(
+                        TermQuery::new(Term::from_text("foo", "B")).into(),
+                    )),
+                    Occur::Should,
+                )?
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "D")).into(),
+                            ))
+                            .into(),
+                        ),
+                        4.0,
+                    )?,
+                    Occur::Should,
+                )?;
+            inner.set_minimum_number_should_match(2);
+
+            let inner_query =
+                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+
+            let mut outer = Builder::new();
+            outer
+                .add_query(inner_query, Occur::Must)?
+                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+            outer.build().into()
+        };
+
+        let weight =
+            searcher.create_weight(searcher.rewrite(query)?, ScoreMode::TopScores, 1.0, None)?;
+        let mut scorer = weight
+            .scorer(context)?
+            .expect("expected scorer to be present");
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(3.0, scorer.score()?); // 2 + 1
+
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(5.0, scorer.score()?); // 1 + 4
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        let mut ss = weight
+            .scorer_supplier(context)?
+            .expect("expected scorer supplier");
+        ss.set_top_level_scoring_clause()?;
+        let mut scorer = ss.get(i64::MAX, context)?;
+        scorer.set_min_competitive_score(4.0)?;
+
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(5.0, scorer.score()?);
+
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match_and_non_scoring_mode()
+    -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+        // TODO newLogMergePolicy 未实现
+        let conf = IndexWriterConfig::new();
+        let w = IndexWriter::new(dir.clone(), conf)?;
+
+        let docs: &[&[&str]] = &[
+            &["A", "B"],           // 0
+            &["A", "C", "D"],      // 1
+            &[],                   // 2
+            &["A", "B", "C", "D"], // 3
+            &["B", "D"],           // 4
+            &["C", "D"],           // 5
+        ];
+
+        for values in docs {
+            let mut doc = Document::new();
+            for value in *values {
+                doc.add(StringField::from_string("foo", *value, Store::No)?);
+            }
+            w.add_document(doc)?;
+        }
+
+        // TODO force_merge未实现
+        // w.force_merge(1)?;
+        w.close()?;
+
+        let reader = directory_reader_util::open(dir)?;
+        let searcher = new_searcher_with_reader(reader)?;
+        let context = &searcher.get_leaf_contexts()?[0];
+
+        let query: Query = {
+            let mut inner = Builder::new();
+            inner
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "A")).into(),
+                            ))
+                            .into(),
+                        ),
+                        2.0,
+                    )?,
+                    Occur::Should,
+                )?
+                .add_query(
+                    ConstantScoreQuery::new(Box::new(
+                        TermQuery::new(Term::from_text("foo", "B")).into(),
+                    )),
+                    Occur::Should,
+                )?
+                .add_query(
+                    BoostQuery::new(
+                        Box::new(
+                            ConstantScoreQuery::new(Box::new(
+                                TermQuery::new(Term::from_text("foo", "D")).into(),
+                            ))
+                            .into(),
+                        ),
+                        4.0,
+                    )?,
+                    Occur::Should,
+                )?;
+            inner.set_minimum_number_should_match(2);
+
+            let inner_query =
+                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+
+            let mut outer = Builder::new();
+            outer
+                .add_query(inner_query, Occur::Must)?
+                .add_query(TermQuery::new(Term::from_text("foo", "C")), Occur::MustNot)?;
+            outer.build().into()
+        };
+
+        let weight = searcher.create_weight(
+            searcher.rewrite(query)?,
+            ScoreMode::CompleteNoScores,
+            1.0,
+            None,
+        )?;
+        let mut scorer = weight
+            .scorer(context)?
+            .expect("expected scorer to be present");
+
+        assert_eq!(0, scorer.iterator_mut().next_doc()?);
+        assert_eq!(4, scorer.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_random() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let num_docs = at_least(&mut random, 1000);
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let v = random.random_range(0..5);
+            let num_values = random.random_range(0..1 << v);
+            let start = random.random_range(0..10);
+            for j in 0..num_values {
+                doc.add(StringField::from_string(
+                    "foo",
+                    (start + j).to_string(),
+                    Store::No,
+                )?);
+            }
+            w.add_document(doc)?;
+        }
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+
+        // turn off concurrent search to avoid Random object used across threads resulting into
+        // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
+        // but will be called during searching
+        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+
+        for _ in 0..100 {
+            let start = random.random_range(0..10);
+            let v = random.random_range(0..5);
+            let num_clauses = random.random_range(0..1 << v);
+
+            let mut builder = Builder::new();
+            for i in 0..num_clauses {
+                let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
+                // TODO IMPORTANT 这里没有调用maybeWrap方法
+                builder.add_query(tq, Occur::Should)?;
+            }
+
+            let query = Query::WANDScorer(WANDScorerQuery::new(
+                builder.build(),
+                random.random_bool(0.5),
+            ));
+
+            CheckHits::check_top_scores(&mut random, &query, &searcher)?;
+
+            let filter_term = random.random_range(0..30);
+            let filtered_query: Query = {
+                let mut b = Builder::new();
+                b.add_query(query, Occur::Must)?.add_query(
+                    TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+                    Occur::Filter,
+                )?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(&mut random, &filtered_query, &searcher)?;
+        }
+
+        Ok(())
+    }
+
+    /// Degenerate case: all clauses produce a score of 0.
+    #[test]
+    fn test_random_with_zero_scores() -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let num_docs = at_least(&mut random, 1000);
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let v = random.random_range(0..5);
+            let num_values = random.random_range(0..1 << v);
+            let start = random.random_range(0..10);
+            for j in 0..num_values {
+                doc.add(StringField::from_string(
+                    "foo",
+                    (start + j).to_string(),
+                    Store::No,
+                )?);
+            }
+            w.add_document(doc)?;
+        }
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+
+        // turn off concurrent search to avoid Random object used across threads resulting into
+        // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
+        // but will be called during searching
+        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+
+        for _ in 0..100 {
+            let start = random.random_range(0..10);
+            let v = random.random_range(0..5);
+            let num_clauses = random.random_range(0..1 << v);
+
+            let mut builder = Builder::new();
+            for i in 0..num_clauses {
+                let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
+                let q: Query = BoostQuery::new(
+                    Box::new(ConstantScoreQuery::new(Box::new(tq.into())).into()),
+                    0.0,
+                )?
+                .into();
+                // TODO IMPORTANT 这里没有调用maybeWrap方法
+                builder.add_query(q, Occur::Should)?;
+            }
+
+            let query = Query::WANDScorer(WANDScorerQuery::new(
+                builder.build(),
+                random.random_bool(0.5),
+            ));
+
+            CheckHits::check_top_scores(&mut random, &query, &searcher)?;
+
+            let filter_term = random.random_range(0..30);
+            let filtered_query: Query = {
+                let mut b = Builder::new();
+                b.add_query(query, Occur::Must)?.add_query(
+                    TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+                    Occur::Filter,
+                )?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(&mut random, &filtered_query, &searcher)?;
+        }
+
+        Ok(())
+    }
+    /// Test the case when some clauses produce infinite max scores.
+    #[test]
+    fn test_random_with_infinite_max_score() -> Result<()> {
+        do_test_random_special_max_score(f32::INFINITY)
+    }
+
+    /// Test the case when some clauses produce finite max scores, but their sum overflows.
+    #[test]
+    fn test_random_with_max_score_overflow() -> Result<()> {
+        do_test_random_special_max_score(f32::MAX)
+    }
+
+    fn do_test_random_special_max_score(max_score: f32) -> Result<()> {
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+        let num_docs = at_least(&mut random, 1000);
+        for _ in 0..num_docs {
+            let mut doc = Document::new();
+            let v = random.random_range(0..5);
+            let num_values = random.random_range(0..1 << v);
+            let start = random.random_range(0..10);
+            for j in 0..num_values {
+                doc.add(StringField::from_string(
+                    "foo",
+                    (start + j).to_string(),
+                    Store::No,
+                )?);
+            }
+            w.add_document(doc)?;
+        }
+
+        let reader = directory_reader_util::open_with_writer(&w)?;
+        w.close()?;
+
+        // turn off concurrent search to avoid Random object used across threads resulting into
+        // RuntimeException, as WANDScorerQuery::create_weight has reference to this searcher,
+        // but will be called during searching
+        let searcher = new_searcher_with_threads(&reader, true, true, false)?;
+
+        for _ in 0..100 {
+            let start = random.random_range(0..10);
+            let v = random.random_range(0..5);
+            let num_clauses = random.random_range(0..1 << v);
+
+            let mut builder = Builder::new();
+            for i in 0..num_clauses {
+                let mut q: Query =
+                    TermQuery::new(Term::from_text("foo", (start + i).to_string())).into();
+
+                if random.random_bool(0.5) {
+                    let denom = random.random_range(1..=100);
+                    let max_range = (num_docs as i32) / denom;
+                    q = Query::MaxScoreWrapper(MaxScoreWrapperQuery::new(q, max_range, max_score));
+                }
+
+                builder.add_query(q, Occur::Should)?;
+            }
+
+            let query = Query::WANDScorer(WANDScorerQuery::new(
+                builder.build(),
+                random.random_bool(0.5),
+            ));
+
+            CheckHits::check_top_scores(&mut random, &query, &searcher)?;
+
+            let filter_term = random.random_range(0..30);
+            let filtered_query: Query = {
+                let mut b = Builder::new();
+                b.add_query(query, Occur::Must)?.add_query(
+                    TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+                    Occur::Filter,
+                )?;
+                b.build().into()
+            };
+
+            CheckHits::check_top_scores(&mut random, &filtered_query, &searcher)?;
+        }
 
         Ok(())
     }
@@ -1585,12 +2502,14 @@ pub(crate) mod tests {
             Self: Sized,
             <IRC as IndexReaderContext>::LeafReader: 'static,
         {
-            let m = self.query.get_minimum_number_should_match();
-            let w = self
-                .query
-                .raw_weight(searcher, score_mode, boost, per_reader_term_state)?;
+            let w = self.query.clone().raw_weight(
+                searcher,
+                score_mode,
+                boost,
+                per_reader_term_state,
+            )?;
             Ok(Box::new(WANDScorerQueryWeight::new(
-                m,
+                self.query,
                 self.do_blocks,
                 w,
                 *score_mode,
@@ -1617,6 +2536,7 @@ pub(crate) mod tests {
         LR: LeafReader + 'static,
     {
         minimum_number_should_match: i32,
+        query: Arc<Query>,
         do_blocks: bool,
         weight: Rc<BooleanWeight<LR>>,
         score_mode: ScoreMode,
@@ -1626,13 +2546,16 @@ pub(crate) mod tests {
         LR: LeafReader,
     {
         fn new(
-            minimum_number_should_match: i32,
+            query: BooleanQuery,
             do_blocks: bool,
             weight: BooleanWeight<LR>,
             score_mode: ScoreMode,
         ) -> Self {
+            let minimum_number_should_match = query.get_minimum_number_should_match();
+            let query = Arc::new(query.into());
             Self {
                 minimum_number_should_match,
+                query,
                 do_blocks,
                 weight: Rc::new(weight),
                 score_mode,
@@ -1668,7 +2591,7 @@ pub(crate) mod tests {
         }
 
         fn get_query(&self) -> Arc<Query> {
-            unreachable!("")
+            self.query.clone()
         }
 
         type ScorerSupplier = QueryWeightSs<LR>;

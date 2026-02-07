@@ -242,10 +242,10 @@ where
             "The top-reader used to create Weight is not the same as the current reader's top-reader"
         );
         let mut term_states = self.term_states.lock();
-        let supplier = term_states.get(context)?;
+        let mut supplier = term_states.get(context)?;
 
         let state = match supplier {
-            Some(s) => term_states.resolve(s)?,
+            Some(ref mut s) => term_states.resolve(s)?,
             None => None,
         };
         let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
@@ -489,8 +489,7 @@ where
 {
     top_level_scoring_clause: bool,
     term_states: Arc<Mutex<TermStates<LRTermState<LR>>>>,
-    // wrap with Option to easily take it when needed
-    prepare_state: Option<PrepareState<LR>>,
+    prepare_state: PrepareState<LR>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
     score_mode: ScoreMode,
@@ -512,7 +511,7 @@ where
         Self {
             top_level_scoring_clause,
             term_states,
-            prepare_state: Some(prepare_state),
+            prepare_state,
             term,
             sim_scorer,
             score_mode,
@@ -522,10 +521,8 @@ where
 
     pub(crate) fn get_terms_enum(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<()>> {
         if self.terms_enum.is_none() {
-            let state_opt = self
-                .term_states
-                .lock()
-                .resolve(self.prepare_state.take().unwrap())?;
+            // TODO IMPORTANT 如果state_opt为None 那么terms_enum仍然为None 如果执行cost会再次尝试resolve 是不是可以增加一个flag避免重复resolve
+            let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
             match state_opt {
                 None => return Ok(None),
                 Some(s) => match s.as_ref() {

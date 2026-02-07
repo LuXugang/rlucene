@@ -1440,19 +1440,16 @@ where
         I: 'a;
 
     fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-        let max_num_impacts_at_level0 = self.max_num_impacts_at_level0 as usize;
-        let max_num_impacts_at_level1 = self.max_num_impacts_at_level1 as usize;
-        if self.level0_serialized_impacts.is_none() || self.level1_serialized_impacts.is_none() {
-            return Err(LuceneError::illegal_state("impacts data not loaded"));
-        }
+        debug_assert!(self.needs_impacts);
+
         Ok(ImpactsImpl {
             index_has_freq: self.index_has_freq,
             level0_last_doc_id: self.level0_last_doc_id,
             level1_last_doc_id: self.level1_last_doc_id,
-            level0_serialized_impacts: self.level0_serialized_impacts.as_ref().unwrap(),
-            level1_serialized_impacts: self.level1_serialized_impacts.as_ref().unwrap(),
-            max_num_impacts_at_level0,
-            max_num_impacts_at_level1,
+            level0_serialized_impacts: self.level0_serialized_impacts.as_ref(),
+            level1_serialized_impacts: self.level1_serialized_impacts.as_ref(),
+            max_num_impacts_at_level0: self.max_num_impacts_at_level0 as usize,
+            max_num_impacts_at_level1: self.max_num_impacts_at_level1 as usize,
         })
     }
 }
@@ -1462,8 +1459,8 @@ pub struct ImpactsImpl<'a> {
     index_has_freq: bool,
     level0_last_doc_id: i32,
     level1_last_doc_id: i32,
-    level0_serialized_impacts: &'a BytesRef<Vec<u8>>,
-    level1_serialized_impacts: &'a BytesRef<Vec<u8>>,
+    level0_serialized_impacts: Option<&'a BytesRef<Vec<u8>>>,
+    level1_serialized_impacts: Option<&'a BytesRef<Vec<u8>>>,
     max_num_impacts_at_level0: usize,
     max_num_impacts_at_level1: usize,
 }
@@ -1502,13 +1499,21 @@ impl Impacts for ImpactsImpl<'_> {
             // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
             if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
                 let level0_impacts = ImpactsImpl::read_impacts(
-                    self.level0_serialized_impacts.bytes.as_slice(),
+                    self.level0_serialized_impacts
+                        .as_ref()
+                        .unwrap()
+                        .bytes
+                        .as_slice(),
                     self.max_num_impacts_at_level0,
                 )?;
                 Ok(Cow::Owned(level0_impacts.impacts))
             } else {
                 let level1_impacts = ImpactsImpl::read_impacts(
-                    self.level1_serialized_impacts.bytes.as_slice(),
+                    self.level1_serialized_impacts
+                        .as_ref()
+                        .unwrap()
+                        .bytes
+                        .as_slice(),
                     self.max_num_impacts_at_level1,
                 )?;
                 Ok(Cow::Owned(level1_impacts.impacts))
