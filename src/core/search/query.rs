@@ -46,6 +46,8 @@ use crate::core::search::wand_scorer::tests::WANDScorerQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::test::search::random_approximation_query::RandomApproximationQuery;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -90,6 +92,8 @@ macro_rules! dispatch_query {
             Query::WANDScorer($inner) => $body,
             #[cfg(test)]
             Query::MaxScoreWrapper($inner) => $body,
+            #[cfg(test)]
+            Query::RandomApproximation($inner) => $body,
         }
     }};
 }
@@ -155,6 +159,8 @@ pub enum Query {
     WANDScorer(WANDScorerQuery),
     #[cfg(test)]
     MaxScoreWrapper(MaxScoreWrapperQuery),
+    #[cfg(test)]
+    RandomApproximation(RandomApproximationQuery),
 }
 
 impl Default for Query {
