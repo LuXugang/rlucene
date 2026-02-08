@@ -19,7 +19,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::{Scorer, TwoPhaseState, scorer_util};
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
@@ -260,10 +260,7 @@ where
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
         let mut up_to = self.req_scorer.advance_shallow(target)?;
 
-        let opt_doc = {
-            let it = self.opt_scorer.iterator();
-            it.doc_id()
-        };
+        let opt_doc = self.opt_scorer.doc_id()?;
 
         if opt_doc <= target {
             let v = self.opt_scorer.advance_shallow(target)?;
@@ -283,12 +280,7 @@ where
         }
         let mut max_score = self.req_scorer.get_max_score(up_to)?;
 
-        let opt_doc = {
-            let it = self.opt_scorer.iterator();
-            it.doc_id()
-        };
-
-        if opt_doc <= up_to {
+        if self.opt_scorer.doc_id()? <= up_to {
             max_score += self.opt_scorer.get_max_score(up_to)?;
         }
 
@@ -315,11 +307,13 @@ where
     }
     fn advance_internal(&mut self, target: i32) -> Result<i32> {
         if target == NO_MORE_DOCS {
-            self.req_scorer.iterator_mut().advance(target)?;
+            scorer_util::advance(&mut self.req_scorer, target)?;
             return Ok(NO_MORE_DOCS);
         }
 
         let mut req_doc = target;
+        let _req_has_tpi = self.req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
+        let opt_has_tpi = self.opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
 
         'advance_head: loop {
             if self.min_score != 0.0 {
@@ -327,9 +321,8 @@ where
             }
 
             {
-                let mut req_it = self.req_scorer.iterator_mut();
-                if req_it.doc_id() < req_doc {
-                    req_doc = req_it.advance(req_doc)?;
+                if scorer_util::doc_id(&self.req_scorer)? < req_doc {
+                    req_doc = scorer_util::advance(&mut self.req_scorer, req_doc)?;
                 }
             }
 
@@ -347,8 +340,19 @@ where
                 continue;
             }
             // Find the next common doc within the current block
-            let mut opt_it = self.opt_scorer.iterator_mut();
-            let mut req_it = self.req_scorer.iterator_mut();
+            let tpi = self.opt_scorer.two_phase_iterator()?;
+            let mut opt_it = if opt_has_tpi {
+                tpi.as_ref().unwrap().approximation()?
+            } else {
+                self.opt_scorer.iterator()
+            };
+
+            let tpi = self.req_scorer.two_phase_iterator()?;
+            let mut req_it = if opt_has_tpi {
+                tpi.as_ref().unwrap().approximation()?
+            } else {
+                self.req_scorer.iterator()
+            };
             loop {
                 let mut opt_doc = opt_it.doc_id();
 
@@ -453,7 +457,7 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let next = self.req_scorer.iterator().doc_id() + 1;
+        let next = scorer_util::doc_id(&self.req_scorer)? + 1;
         self.advance_internal(next)
     }
 
@@ -462,7 +466,7 @@ where
     }
 
     fn cost(&self) -> Result<i64> {
-        self.req_scorer.iterator().cost()
+        scorer_util::cost(&self.req_scorer)
     }
 }
 
