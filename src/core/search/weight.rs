@@ -26,6 +26,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer::{Scorer, ScorerEnum4, TwoPhaseState};
 use crate::core::search::scorer_supplier::{ScorerSupplier, ScorerSupplierEnum4};
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
@@ -454,7 +455,23 @@ fn score_all<S>(
 where
     S: Scorer,
 {
-    if has_two_phase {
+    if !has_two_phase {
+        loop {
+            let doc = ScorerUtil::next_doc(scorer)?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            let is_accept = match accept_docs {
+                None => true,
+                Some(a) => a.get(doc as usize)?,
+            };
+            if is_accept {
+                collector.collect(doc, scorer)?;
+            }
+        }
+    } else {
+        // The scorer has an approximation, so run the approximation first, then check acceptDocs,
+        // then confirm
         loop {
             let (doc, matches) = {
                 let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
@@ -479,29 +496,6 @@ where
                 collector.collect(doc, scorer)?;
             }
         }
-    } else {
-        loop {
-            let doc = match has_two_phase {
-                true => {
-                    let mut tpi_opt = scorer.two_phase_iterator_mut();
-                    tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
-                },
-                false => {
-                    let mut iter = scorer.iterator_mut();
-                    iter.next_doc()?
-                },
-            };
-            if doc == NO_MORE_DOCS {
-                break;
-            }
-            let is_accept = match accept_docs {
-                None => true,
-                Some(a) => a.get(doc as usize)?,
-            };
-            if is_accept {
-                collector.collect(doc, scorer)?;
-            }
-        }
     }
     Ok(())
 }
@@ -523,6 +517,7 @@ where
         let mut opt = collector.competitive_iterator()?;
         if let Some(iterator) = opt.as_mut() {
             if iterator.doc_id() > min {
+                // The competitive iterator may not match any docs in the range.
                 min = iterator.doc_id().min(max);
             }
         } else {
@@ -531,21 +526,17 @@ where
             ));
         }
     }
-    let mut doc = {
-        match has_two_phase {
-            true => {
-                let mut two_phase = scorer.two_phase_iterator_mut();
-                let mut approximation = two_phase.as_mut().unwrap().approximation_mut();
-                next_doc(&mut approximation, min)?
-            },
-            false => {
-                let mut iter = scorer.iterator_mut();
-                next_doc(&mut iter, min)?
-            },
+    let mut doc = ScorerUtil::doc_id(scorer);
+    if doc < min {
+        if doc == min - 1 {
+            doc = ScorerUtil::next_doc(scorer)?;
+        } else {
+            doc = ScorerUtil::advance(scorer, min)?;
         }
-    };
+    }
 
     if !has_two_phase && !has_competitive {
+        // Optimize simple iterators with collectors that can't skip
         while doc < max {
             let is_accept = match accept_docs {
                 None => true,
@@ -554,88 +545,43 @@ where
             if is_accept {
                 collector.collect(doc, scorer)?;
             }
-            doc = {
-                match has_two_phase {
-                    true => {
-                        let mut tpi_opt = scorer.two_phase_iterator_mut();
-                        tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
-                    },
-                    false => {
-                        let mut iter = scorer.iterator_mut();
-                        iter.next_doc()?
-                    },
+            doc = ScorerUtil::next_doc(scorer)?;
+        }
+    } else {
+        while doc < max {
+            // competitive_iterator may be updated by collector.collect
+            if let Some(mut competitive_iterator) = collector.competitive_iterator()? {
+                debug_assert!(competitive_iterator.doc_id() <= doc);
+                let mut competitive_doc = competitive_iterator.doc_id();
+                if competitive_doc < doc {
+                    competitive_iterator.advance(doc)?;
                 }
-            };
-        }
-        return Ok(doc);
-    }
-
-    while doc < max {
-        // competitive_iterator may be updated by collector.collect
-        if let Some(mut competitive_iterator) = collector.competitive_iterator()? {
-            debug_assert!(competitive_iterator.doc_id() <= doc);
-            let mut competitive_doc = competitive_iterator.doc_id();
-            if competitive_doc < doc {
-                competitive_doc = competitive_iterator.advance(doc)?;
+                competitive_doc = competitive_iterator.doc_id();
+                if competitive_doc != doc {
+                    doc = ScorerUtil::advance(scorer, competitive_doc)?;
+                    continue;
+                }
             }
-            if competitive_doc != doc {
-                doc = match has_two_phase {
-                    true => {
-                        let mut tpi_opt = scorer.two_phase_iterator_mut();
-                        tpi_opt
-                            .as_mut()
-                            .unwrap()
-                            .approximation()
-                            .advance(competitive_doc)?
-                    },
-                    false => {
-                        let mut iter = scorer.iterator_mut();
-                        iter.advance(competitive_doc)?
-                    },
+            let is_accept = match accept_docs {
+                None => true,
+                Some(a) => a.get(doc as usize)?,
+            };
+            if is_accept {
+                let matches = if has_two_phase {
+                    let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
+                    two_phase.matches()?
+                } else {
+                    true
                 };
-                continue;
+                if matches {
+                    collector.collect(doc, scorer)?;
+                }
             }
+            doc = ScorerUtil::next_doc(scorer)?;
         }
-        let is_accept = match accept_docs {
-            None => true,
-            Some(a) => a.get(doc as usize)?,
-        };
-        if is_accept {
-            let matches = if has_two_phase {
-                let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
-                two_phase.matches()?
-            } else {
-                true
-            };
-            if matches {
-                collector.collect(doc, scorer)?;
-            }
-        }
-        doc = match has_two_phase {
-            true => {
-                let mut tpi_opt = scorer.two_phase_iterator_mut();
-                tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
-            },
-            false => {
-                let mut iter = scorer.iterator_mut();
-                iter.next_doc()?
-            },
-        };
     }
 
     Ok(doc)
-}
-fn next_doc(iter: &mut impl DocIdSetIterator, min: i32) -> Result<i32> {
-    let d = iter.doc_id();
-    if d < min {
-        if d == min - 1 {
-            iter.next_doc()
-        } else {
-            iter.advance(min)
-        }
-    } else {
-        Ok(d)
-    }
 }
 #[macro_export]
 macro_rules! either_weight {
