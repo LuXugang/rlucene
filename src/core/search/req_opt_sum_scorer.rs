@@ -19,7 +19,8 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
-use crate::core::search::scorer::{Scorer, TwoPhaseState, scorer_util};
+use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
@@ -215,7 +216,6 @@ where
         self.tpi_state
     }
 }
-
 pub struct DocIdSetIteratorImpl<S1, S2>
 where
     S1: Scorer,
@@ -308,7 +308,7 @@ where
     }
     fn advance_internal(&mut self, target: i32) -> Result<i32> {
         if target == NO_MORE_DOCS {
-            scorer_util::advance(&mut self.req_scorer, target)?;
+            ScorerUtil::advance(&mut self.req_scorer, target)?;
             return Ok(NO_MORE_DOCS);
         }
 
@@ -320,8 +320,8 @@ where
             }
 
             {
-                if scorer_util::doc_id(&self.req_scorer)? < req_doc {
-                    req_doc = scorer_util::advance(&mut self.req_scorer, req_doc)?;
+                if ScorerUtil::doc_id(&self.req_scorer) < req_doc {
+                    req_doc = ScorerUtil::advance(&mut self.req_scorer, req_doc)?;
                 }
             }
 
@@ -341,10 +341,10 @@ where
             // Find the next common doc within the current block
 
             loop {
-                let mut opt_doc = scorer_util::doc_id(&self.opt_scorer)?;
+                let mut opt_doc = ScorerUtil::doc_id(&self.opt_scorer);
 
                 if opt_doc < req_doc {
-                    opt_doc = scorer_util::advance(&mut self.opt_scorer, req_doc)?;
+                    opt_doc = ScorerUtil::advance(&mut self.opt_scorer, req_doc)?;
                 }
 
                 if opt_doc > upper_bound {
@@ -353,7 +353,7 @@ where
                 }
 
                 if opt_doc != req_doc {
-                    req_doc = scorer_util::advance(&mut self.req_scorer, opt_doc)?;
+                    req_doc = ScorerUtil::advance(&mut self.req_scorer, opt_doc)?;
                     if req_doc > upper_bound {
                         continue 'advance_head;
                     }
@@ -383,29 +383,12 @@ where
         Ok(())
     }
     fn score(&mut self) -> Result<f32> {
-        let (mut opt_scorer_doc, cur_doc, mut score, opt_has_tpi) = {
-            let cur_doc = self.req_scorer.doc_id()?;
-            let score = self.req_scorer.score()?;
-
-            let (opt_scorer_doc, opt_has_tpi) = match self.opt_scorer.two_phase_iterator() {
-                Some(tpi) => (tpi.approximation().doc_id(), true),
-                None => (self.opt_scorer.iterator().doc_id(), false),
-            };
-            (opt_scorer_doc, cur_doc, score, opt_has_tpi)
-        };
+        let cur_doc = self.req_scorer.doc_id()?;
+        let mut score = self.req_scorer.score()?;
+        let mut opt_scorer_doc = ScorerUtil::doc_id(&self.opt_scorer);
 
         if opt_scorer_doc < cur_doc {
-            opt_scorer_doc = if opt_has_tpi {
-                self.opt_scorer
-                    .two_phase_iterator_mut()
-                    .as_mut()
-                    .unwrap()
-                    .approximation_mut()
-                    .advance(cur_doc)?
-            } else {
-                self.opt_scorer.iterator_mut().advance(cur_doc)?
-            };
-
+            opt_scorer_doc = ScorerUtil::advance(&mut self.opt_scorer, cur_doc)?;
             let should_skip = {
                 if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator() {
                     opt_scorer_doc == cur_doc && !opt_tpi.matches()?
@@ -414,16 +397,7 @@ where
                 }
             };
             if should_skip {
-                opt_scorer_doc = if opt_has_tpi {
-                    self.opt_scorer
-                        .two_phase_iterator_mut()
-                        .as_mut()
-                        .unwrap()
-                        .approximation_mut()
-                        .next_doc()?
-                } else {
-                    self.opt_scorer.iterator_mut().next_doc()?
-                };
+                opt_scorer_doc = ScorerUtil::next_doc(&mut self.opt_scorer)?;
             }
         }
 
@@ -440,11 +414,11 @@ where
     S2: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        self.req_scorer.iterator().doc_id()
+        ScorerUtil::doc_id(&self.req_scorer)
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let next = scorer_util::doc_id(&self.req_scorer)? + 1;
+        let next = ScorerUtil::doc_id(&self.req_scorer) + 1;
         self.advance_internal(next)
     }
 
@@ -453,7 +427,7 @@ where
     }
 
     fn cost(&self) -> Result<i64> {
-        scorer_util::cost(&self.req_scorer)
+        ScorerUtil::cost(&self.req_scorer)
     }
 }
 
@@ -492,39 +466,42 @@ where
         {
             return Ok(false);
         }
-
-        // optional scorer logic
-        if let Some(mut opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
+        let opt_had_tpi = self.disi.opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
+        if opt_had_tpi {
             // The below condition is rare and can only happen if we transitioned to
             // optIsRequired=true
             // after the opt approximation was advanced and before it was confirmed.
-            let (opt_doc, req_doc) = {
-                let opt_disi = opt_tpi.approximation_mut();
-                let req_it = self.disi.req_scorer.iterator();
-                (opt_disi.doc_id(), req_it.doc_id())
-            };
-
+            let req_doc = self.disi.req_scorer.doc_id()?;
+            let opt_doc = ScorerUtil::doc_id(&self.disi.opt_scorer);
             if self.disi.opt_is_required {
                 if req_doc != opt_doc {
-                    let mut d = opt_doc;
-                    if d < req_doc {
-                        let mut opt_disi = opt_tpi.approximation_mut();
-                        d = opt_disi.advance(req_doc)?;
+                    if opt_doc < req_doc {
+                        ScorerUtil::advance(&mut self.disi.opt_scorer, req_doc)?;
                     }
-                    if d != req_doc {
+                    if req_doc != ScorerUtil::doc_id(&self.disi.opt_scorer) {
                         return Ok(false);
                     }
                 }
-
-                if !opt_tpi.matches()? {
-                    let mut opt_disi = opt_tpi.approximation_mut();
-                    opt_disi.next_doc()?;
+                let matches = {
+                    let mut tpi = self.disi.opt_scorer.two_phase_iterator_mut();
+                    tpi.as_mut().unwrap().matches()?
+                };
+                if !matches {
+                    // Advance the iterator to make it clear it doesn't match the current doc id
+                    ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
                     return Ok(false);
                 }
-            } else if opt_doc == req_doc && !opt_tpi.matches()? {
-                let mut opt_disi = opt_tpi.approximation_mut();
+            } else if opt_doc == req_doc
+                && !self
+                    .disi
+                    .opt_scorer
+                    .two_phase_iterator_mut()
+                    .as_mut()
+                    .unwrap()
+                    .matches()?
+            {
                 // Advance the iterator to make it clear it doesn't match the current doc id
-                opt_disi.next_doc()?;
+                ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
             }
         }
 
