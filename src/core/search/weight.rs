@@ -79,7 +79,7 @@ where
 
         let mut scorer = scorer_supplier.get(1, context)?;
         if let Some(mut two_phase) = scorer.two_phase_iterator_mut() {
-            if two_phase.approximation_mut()?.advance(doc)? != doc || !two_phase.matches()? {
+            if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
                 return Ok(None);
             }
         } else if scorer.iterator_mut().advance(doc)? != doc {
@@ -365,10 +365,7 @@ where
             || self.scorer.two_phase_iterator().is_some();
         let doc_id = if has_two_phase {
             let two_phase = self.scorer.two_phase_iterator_mut().unwrap();
-            two_phase
-                .approximation()
-                .expect("approximation should not fail")
-                .doc_id()
+            two_phase.approximation().doc_id()
         } else {
             self.scorer.iterator_mut().doc_id()
         };
@@ -462,7 +459,7 @@ where
             let (doc, matches) = {
                 let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
                 let doc = {
-                    let mut iter = two_phase.approximation_mut()?;
+                    let mut iter = two_phase.approximation_mut();
                     iter.next_doc()?
                 };
                 if doc == NO_MORE_DOCS {
@@ -487,7 +484,7 @@ where
             let doc = match has_two_phase {
                 true => {
                     let mut tpi_opt = scorer.two_phase_iterator_mut();
-                    tpi_opt.as_mut().unwrap().approximation_mut()?.next_doc()?
+                    tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
                 },
                 false => {
                     let mut iter = scorer.iterator_mut();
@@ -538,7 +535,7 @@ where
         match has_two_phase {
             true => {
                 let mut two_phase = scorer.two_phase_iterator_mut();
-                let mut approximation = two_phase.as_mut().unwrap().approximation_mut()?;
+                let mut approximation = two_phase.as_mut().unwrap().approximation_mut();
                 next_doc(&mut approximation, min)?
             },
             false => {
@@ -561,7 +558,7 @@ where
                 match has_two_phase {
                     true => {
                         let mut tpi_opt = scorer.two_phase_iterator_mut();
-                        tpi_opt.as_mut().unwrap().approximation_mut()?.next_doc()?
+                        tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
                     },
                     false => {
                         let mut iter = scorer.iterator_mut();
@@ -588,7 +585,7 @@ where
                         tpi_opt
                             .as_mut()
                             .unwrap()
-                            .approximation()?
+                            .approximation()
                             .advance(competitive_doc)?
                     },
                     false => {
@@ -617,7 +614,7 @@ where
         doc = match has_two_phase {
             true => {
                 let mut tpi_opt = scorer.two_phase_iterator_mut();
-                tpi_opt.as_mut().unwrap().approximation_mut()?.next_doc()?
+                tpi_opt.as_mut().unwrap().approximation_mut().next_doc()?
             },
             false => {
                 let mut iter = scorer.iterator_mut();

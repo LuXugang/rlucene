@@ -23,8 +23,8 @@ pub trait TwoPhaseIterator {
     ///
     /// The returned iterator must advance synchronously with this
     /// `TwoPhaseIterator`.
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>>;
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>>;
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
 
     /// Set the approximation to an empty iterator
     fn set_empty(&mut self) -> Result<()> {
@@ -54,12 +54,12 @@ where
     T: TwoPhaseIterator,
 {
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation_mut()
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation()
     }
 
@@ -83,12 +83,12 @@ where
     T: TwoPhaseIterator,
 {
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Err(LuceneError::unsupported_operation(""))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        unreachable!("need mutable reference to call approximation_mut")
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation()
     }
 
@@ -113,12 +113,12 @@ where
     T: TwoPhaseIterator + ?Sized,
 {
     #[inline]
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation_mut()
     }
 
     #[inline]
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         (**self).approximation()
     }
 
@@ -159,7 +159,7 @@ where
             } else if self.two_phase_iterator.matches()? {
                 return Ok(doc);
             }
-            doc = self.two_phase_iterator.approximation_mut()?.next_doc()?;
+            doc = self.two_phase_iterator.approximation_mut().next_doc()?;
         }
     }
 }
@@ -169,27 +169,24 @@ where
     TPI: TwoPhaseIterator,
 {
     fn doc_id(&self) -> i32 {
-        self.two_phase_iterator
-            .approximation()
-            .expect("approximation should not fail")
-            .doc_id()
+        self.two_phase_iterator.approximation().doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let doc = self.two_phase_iterator.approximation_mut()?.next_doc()?;
+        let doc = self.two_phase_iterator.approximation_mut().next_doc()?;
         self.do_next(doc)
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         let doc = self
             .two_phase_iterator
-            .approximation_mut()?
+            .approximation_mut()
             .advance(target)?;
         self.do_next(doc)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.two_phase_iterator.approximation()?.cost()
+        self.two_phase_iterator.approximation().cost()
     }
 }
 /// Return a DocIdSetIterator view of the provided TwoPhaseIterator.
@@ -221,14 +218,14 @@ macro_rules! either_two_phase_iterator_gat {
             $( $T: TwoPhaseIterator ),+
         {
             #[inline]
-            fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+            fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
                 match self {
                     $( Self::$Variant(inner) => inner.approximation_mut(), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+            fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
                 match self {
                     $( Self::$Variant(inner) => inner.approximation(), )+
                 }

@@ -178,12 +178,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(self.req_scorer.iterator_mut()))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(self.req_scorer.iterator_mut())
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(self.req_scorer.iterator()))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(self.req_scorer.iterator())
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -250,12 +250,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(self.req_scorer.iterator_mut()))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(self.req_scorer.iterator_mut())
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(self.req_scorer.iterator()))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(self.req_scorer.iterator())
     }
 
     fn matches(&mut self) -> Result<bool> {

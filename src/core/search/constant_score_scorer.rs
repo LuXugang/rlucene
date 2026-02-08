@@ -212,11 +212,11 @@ impl<TPI> TwoPhaseIterator for TwoPhaseIteratorImpl<TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         self.two_phase_iterator.approximation_mut()
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         self.two_phase_iterator.approximation()
     }
 

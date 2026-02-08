@@ -255,12 +255,12 @@ impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
 where
     N: NumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&mut self.singleton))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.singleton)
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&self.singleton))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.singleton)
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -294,12 +294,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator2<S>
 where
     S: SortedNumericDocValues,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&mut self.value))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.value)
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&self.value))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.value)
     }
 
     fn matches(&mut self) -> Result<bool> {

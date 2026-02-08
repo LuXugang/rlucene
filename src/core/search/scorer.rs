@@ -416,7 +416,7 @@ pub mod scorer_util {
             Ok(s.two_phase_iterator()
                 .as_ref()
                 .unwrap()
-                .approximation()?
+                .approximation()
                 .doc_id())
         } else {
             Ok(s.iterator().doc_id())
@@ -428,7 +428,7 @@ pub mod scorer_util {
             s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
-                .approximation_mut()?
+                .approximation_mut()
                 .next_doc()
         } else {
             s.iterator_mut().next_doc()
@@ -440,7 +440,7 @@ pub mod scorer_util {
             s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
-                .approximation_mut()?
+                .approximation_mut()
                 .advance(target)
         } else {
             s.iterator_mut().advance(target)
@@ -452,7 +452,7 @@ pub mod scorer_util {
             s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
-                .approximation_mut()?
+                .approximation_mut()
                 .slow_advance(target)
         } else {
             s.iterator_mut().slow_advance(target)
@@ -464,7 +464,7 @@ pub mod scorer_util {
             s.two_phase_iterator()
                 .as_ref()
                 .unwrap()
-                .approximation()?
+                .approximation()
                 .cost()
         } else {
             s.iterator().cost()

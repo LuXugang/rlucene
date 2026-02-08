@@ -21,11 +21,11 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -370,12 +370,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
     S: Scorer,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&mut self.approx))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.approx)
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&self.approx))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.approx)
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -384,7 +384,7 @@ where
         for (idx, _) in &self.has_tpi_idx {
             match self.approx.scorers[*idx].two_phase_iterator_mut() {
                 Some(ref mut tpi) => {
-                    debug_assert!(tpi.approximation()?.doc_id() == doc);
+                    debug_assert!(tpi.approximation().doc_id() == doc);
                     if !tpi.matches()? {
                         return Ok(false);
                     }

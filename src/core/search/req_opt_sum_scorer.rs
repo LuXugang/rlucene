@@ -388,7 +388,7 @@ where
             let score = self.req_scorer.score()?;
 
             let (opt_scorer_doc, opt_has_tpi) = match self.opt_scorer.two_phase_iterator() {
-                Some(tpi) => (tpi.approximation()?.doc_id(), true),
+                Some(tpi) => (tpi.approximation().doc_id(), true),
                 None => (self.opt_scorer.iterator().doc_id(), false),
             };
             (opt_scorer_doc, cur_doc, score, opt_has_tpi)
@@ -400,7 +400,7 @@ where
                     .two_phase_iterator_mut()
                     .as_mut()
                     .unwrap()
-                    .approximation_mut()?
+                    .approximation_mut()
                     .advance(cur_doc)?
             } else {
                 self.opt_scorer.iterator_mut().advance(cur_doc)?
@@ -419,7 +419,7 @@ where
                         .two_phase_iterator_mut()
                         .as_mut()
                         .unwrap()
-                        .approximation_mut()?
+                        .approximation_mut()
                         .next_doc()?
                 } else {
                     self.opt_scorer.iterator_mut().next_doc()?
@@ -478,12 +478,12 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    fn approximation_mut(&mut self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&mut self.disi))
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.disi)
     }
 
-    fn approximation(&self) -> Result<Box<dyn DocIdSetIterator + '_>> {
-        Ok(Box::new(&self.disi))
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.disi)
     }
 
     fn matches(&mut self) -> Result<bool> {
@@ -499,7 +499,7 @@ where
             // optIsRequired=true
             // after the opt approximation was advanced and before it was confirmed.
             let (opt_doc, req_doc) = {
-                let opt_disi = opt_tpi.approximation_mut()?;
+                let opt_disi = opt_tpi.approximation_mut();
                 let req_it = self.disi.req_scorer.iterator();
                 (opt_disi.doc_id(), req_it.doc_id())
             };
@@ -508,7 +508,7 @@ where
                 if req_doc != opt_doc {
                     let mut d = opt_doc;
                     if d < req_doc {
-                        let mut opt_disi = opt_tpi.approximation_mut()?;
+                        let mut opt_disi = opt_tpi.approximation_mut();
                         d = opt_disi.advance(req_doc)?;
                     }
                     if d != req_doc {
@@ -517,12 +517,12 @@ where
                 }
 
                 if !opt_tpi.matches()? {
-                    let mut opt_disi = opt_tpi.approximation_mut()?;
+                    let mut opt_disi = opt_tpi.approximation_mut();
                     opt_disi.next_doc()?;
                     return Ok(false);
                 }
             } else if opt_doc == req_doc && !opt_tpi.matches()? {
-                let mut opt_disi = opt_tpi.approximation_mut()?;
+                let mut opt_disi = opt_tpi.approximation_mut();
                 // Advance the iterator to make it clear it doesn't match the current doc id
                 opt_disi.next_doc()?;
             }
