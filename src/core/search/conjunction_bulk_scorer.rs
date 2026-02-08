@@ -164,7 +164,7 @@ where
         let mut doc = lead1_doc_id;
 
         'advance_head: while doc < max {
-            let collector_doc = {
+            {
                 let (first, rest) = self.all_scores.split_at_mut(1);
                 let lead1 = &mut first[0].iterator_mut();
                 let (second, other_scorers) = rest.split_at_mut(1);
@@ -216,12 +216,11 @@ where
                     }
                     debug_assert!(it.doc_id() == doc);
                 }
-                let collector_doc = doc;
-                doc = lead1.next_doc()?;
-                collector_doc
-            };
-
-            collector.collect(collector_doc, &mut ScorableImpl::new(self))?;
+            }
+            collector.collect(doc, &mut ScorableImpl::new(self))?;
+            let (first, _) = self.all_scores.split_at_mut(1);
+            let lead1 = &mut first[0].iterator_mut();
+            doc = lead1.next_doc()?;
         }
         let (first, _) = self.all_scores.split_at_mut(1);
         let lead1 = &mut first[0].iterator_mut();

@@ -55,18 +55,19 @@ where
         mut opt_scorer: S2,
         score_mode: ScoreMode,
     ) -> Result<Self> {
-        let req_max_score = if score_mode != TopScores {
-            f32::MAX
+        let (req_max_score, wrapper) = if score_mode != TopScores {
+            (f32::MAX, false)
         } else {
             req_scorer.advance_shallow(0)?;
             opt_scorer.advance_shallow(0)?;
-            req_scorer.get_max_score(NO_MORE_DOCS)?
+            (req_scorer.get_max_score(NO_MORE_DOCS)?, true)
         };
         let has_tpi = (req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
             || req_scorer.two_phase_iterator().is_some())
             && (opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes
                 || opt_scorer.two_phase_iterator().is_some());
-        let approximation = DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score)?;
+        let approximation =
+            DocIdSetIteratorImpl::new(req_scorer, opt_scorer, req_max_score, wrapper)?;
         match has_tpi {
             true => Ok(Self {
                 disi: DocIdSetIteratorEnum2::B(TwoPhaseIteratorAsDocIdSetIterator::new(
@@ -228,6 +229,7 @@ where
     req_scorer: S1,
     opt_scorer: S2,
     req_max_score: f32,
+    wrapper: bool,
     #[cfg(test)]
     fixed_max_score: bool,
 }
@@ -236,7 +238,7 @@ where
     S1: Scorer,
     S2: Scorer,
 {
-    fn new(req_scorer: S1, opt_scorer: S2, req_max_score: f32) -> Result<Self> {
+    fn new(req_scorer: S1, opt_scorer: S2, req_max_score: f32, wrapper: bool) -> Result<Self> {
         let disi = Self {
             upto: -1,
             max_score: 0.0,
@@ -245,6 +247,7 @@ where
             req_scorer,
             opt_scorer,
             req_max_score,
+            wrapper,
             #[cfg(test)]
             fixed_max_score: false,
         };
@@ -418,12 +421,20 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let next = ScorerUtil::doc_id(&self.req_scorer) + 1;
-        self.advance_internal(next)
+        if self.wrapper {
+            let next = ScorerUtil::doc_id(&self.req_scorer) + 1;
+            self.advance_internal(next)
+        } else {
+            ScorerUtil::next_doc(&mut self.req_scorer)
+        }
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.advance_internal(target)
+        if self.wrapper {
+            self.advance_internal(target)
+        } else {
+            ScorerUtil::advance(&mut self.req_scorer, target)
+        }
     }
 
     fn cost(&self) -> Result<i64> {
@@ -549,7 +560,7 @@ mod tests {
     use crate::core::util::error::lucene_error::Result;
     use crate::test::search::check_hits::CheckHits;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+        at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
     };
     use rand::Rng;
 
@@ -774,13 +785,6 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test() -> Result<()> {
-        for _i in 0..100 {
-            test_must_random_frequent_opt()?
-        }
-        Ok(())
-    }
-    #[test]
     fn test_must_random_frequent_opt() -> Result<()> {
         let mut random = random();
         do_test_random(&mut random, Occur::Must, 0.5)
@@ -812,17 +816,14 @@ mod tests {
         let dir = new_directory_shared(random)?;
         // TODO RandomIndexWriter 未实现：用当前 IndexWriter 路径代替
         let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
-        // let num_docs = at_least(random, 1000);
-        let num_docs = 1;
+        let num_docs = at_least(random, 1000);
 
         for _ in 0..num_docs {
-            // let num_as = 0;
             let num_as = if random.random_bool(0.5) {
                 0usize
             } else {
                 1 + random.random_range(0..5)
             };
-            // let num_bs = 0;
             let num_bs = if random.random::<f64>() < opt_freq {
                 0usize
             } else {
