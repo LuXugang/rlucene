@@ -512,12 +512,22 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::core::document::document::Document;
+    use crate::core::document::field::Store;
     use crate::core::index::multi_reader::MultiReader;
+    use crate::core::index::term::Term;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_query::Builder;
     use crate::core::search::constant_score_query::ConstantScoreQuery;
     use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
     use crate::core::search::query::Query;
+    use crate::core::search::term_query::TermQuery;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
+    use crate::test::index::random_index_writer::RandomIndexWriter;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory_shared, new_searcher_with_reader, new_string_field, random,
+    };
+    use std::collections::HashMap;
 
     #[test]
     fn test_csq() -> Result<()> {
@@ -532,9 +542,59 @@ mod tests {
 
     #[test]
     fn test_constant_score_query_and_filter() -> Result<()> {
-        // TODO BooleanQuery未实现
+        let mut random = random();
+        let dir = new_directory_shared(&mut random)?;
+
+        let w = RandomIndexWriter::new(&mut random, dir.clone());
+        let mut field_to_type = HashMap::new();
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            "field",
+            "a",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        w.add_document(doc)?;
+
+        let mut doc = Document::new();
+        doc.add(new_string_field(
+            "field",
+            "b",
+            Store::No,
+            &mut field_to_type,
+        )?);
+        w.add_document(doc)?;
+
+        let reader = w.get_reader()?;
+        w.close()?;
+
+        let searcher = new_searcher_with_reader(reader)?;
+
+        let filter_b: Query = TermQuery::new(Term::from_text("field", "b")).into();
+        let query: Query = ConstantScoreQuery::new(filter_b.clone()).into();
+
+        let mut builder = Builder::new();
+        builder
+            .add(query, Occur::Must)?
+            .add(filter_b.clone(), Occur::Filter)?;
+        let mut filtered: Query = builder.build().into();
+
+        assert_eq!(1, searcher.count(filtered)?); // Query for field:b, Filter field:b
+
+        let filter_a: Query = TermQuery::new(Term::from_text("field", "a")).into();
+        let query: Query = ConstantScoreQuery::new(filter_a).into();
+
+        builder = Builder::new();
+        builder
+            .add(query, Occur::Must)?
+            .add(filter_b, Occur::Filter)?;
+        filtered = builder.build().into();
+
+        assert_eq!(0, searcher.count(filtered)?); // Query field:b, Filter field:a
+
         Ok(())
     }
+
     #[test]
     fn test_propagates_approximations() -> Result<()> {
         // TODO PhraseQuery未实现
