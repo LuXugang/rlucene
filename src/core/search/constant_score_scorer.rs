@@ -143,48 +143,45 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
+            TwoPhaseState::No => None,
+            _ => match self.disi {
                 ConstantDISI_::A(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
                 ConstantDISI_::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
-            }),
+            },
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
+            TwoPhaseState::No => None,
+            _ => match self.disi {
                 ConstantDISI_::A(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
                 ConstantDISI_::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
-            }),
+            },
         }
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
         let ConstantScoreScorer {
             disi, tpi_state, ..
         } = *self;
         match tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match disi {
+            TwoPhaseState::No => None,
+            _ => match disi {
                 ConstantDISI_::A(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
                 ConstantDISI_::B(wrapper) => Some(Box::new(wrapper.two_phase_iterator)),
-            }),
+            },
         }
     }
 

@@ -73,7 +73,7 @@ where
             let w = &mut approximation.all_scores[idx];
             let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
             sum_approx_cost += cost_weight;
-            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator()?.is_some()
+            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator().is_some()
             {
                 has_approximation = true;
                 sum_match_cost += w.match_cost * cost_weight as f32;
@@ -180,48 +180,45 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
+            TwoPhaseState::No => None,
+            _ => match self.disi {
                 Disi::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
                 _ => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
-            }),
+            },
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match self.disi {
+            TwoPhaseState::No => None,
+            _ => match self.disi {
                 Disi::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
                 _ => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
-            }),
+            },
         }
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
         let DisjunctionScorer {
             disi, tpi_state, ..
         } = *self;
         match tpi_state {
-            TwoPhaseState::No => Ok(None),
-            _ => Ok(match disi {
+            TwoPhaseState::No => None,
+            _ => match disi {
                 Disi::B(v) => Some(Box::new(v.two_phase_iterator)),
                 _ => {
-                    return Err(LuceneError::illegal_state(
-                        "No two-phase iterator available",
-                    ));
+                    debug_assert!(false, "should not be here");
+                    None
                 },
-            }),
+            },
         }
     }
 
@@ -356,7 +353,7 @@ where
             let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
             let has_no_two_phase_view = (w.has_two_phase_iterator() == TwoPhaseState::No)
-                || w.two_phase_iterator()?.is_some();
+                || w.two_phase_iterator().is_some();
             if has_no_two_phase_view {
                 // implicitly verified, move it to verifiedMatches
                 w.next = self.verified_matches;

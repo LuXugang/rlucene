@@ -58,8 +58,8 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-        Ok(None)
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        None
     }
 
     /// Optional: Return a two-phase iterator view of this scorer.
@@ -74,18 +74,18 @@ pub trait Scorer: Scorable {
     /// # Warning
     /// The returned iterator is a *view*: calling this method several times must
     /// return iterators that share the same state.
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-        Ok(None)
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        None
     }
 
     /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
     ///
     /// By default, this returns `None`.
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
-        Ok(None)
+        None
     }
 
     /// Advance to the block of documents that contains `target` in order to get
@@ -162,15 +162,15 @@ where
         Scorer::take_iterator(inner)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         (**self).two_phase_iterator()
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         (**self).two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
@@ -217,15 +217,15 @@ impl Scorer for Box<dyn Scorer> {
         Scorer::take_iterator(inner)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         (**self).two_phase_iterator()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
-        Ok(None)
+        None
     }
 
     fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -331,17 +331,17 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+            fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
                 match self { $( Self::$Variant(inner) => inner.two_phase_iterator(), )+ }
             }
             #[inline]
-            fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+            fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
                 match self { $( Self::$Variant(inner) => inner.two_phase_iterator_mut(), )+ }
             }
 
 
             #[inline]
-            fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+            fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
                 match *self {
                     $( Self::$Variant(inner) => Box::new(inner).take_two_phase_iterator(), )+
                 }
@@ -413,7 +413,7 @@ pub mod scorer_util {
     #[inline]
     pub fn doc_id(s: &impl Scorer) -> Result<i32> {
         if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            Ok(s.two_phase_iterator()?
+            Ok(s.two_phase_iterator()
                 .as_ref()
                 .unwrap()
                 .approximation()?
@@ -425,7 +425,7 @@ pub mod scorer_util {
     #[inline]
     pub fn next_doc(s: &mut impl Scorer) -> Result<i32> {
         if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()?
+            s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
                 .approximation_mut()?
@@ -437,7 +437,7 @@ pub mod scorer_util {
     #[inline]
     pub fn advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
         if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()?
+            s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
                 .approximation_mut()?
@@ -449,7 +449,7 @@ pub mod scorer_util {
     #[inline]
     pub fn slow_advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
         if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()?
+            s.two_phase_iterator_mut()
                 .as_mut()
                 .unwrap()
                 .approximation_mut()?
@@ -461,7 +461,7 @@ pub mod scorer_util {
     #[inline]
     pub fn cost(s: &impl Scorer) -> Result<i64> {
         if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator()?
+            s.two_phase_iterator()
                 .as_ref()
                 .unwrap()
                 .approximation()?

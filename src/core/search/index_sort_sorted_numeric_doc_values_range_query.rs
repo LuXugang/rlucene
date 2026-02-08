@@ -1810,7 +1810,7 @@ mod tests {
             let mut scorer = weight.scorer(ctx)?;
             assert!(
                 scorer.as_mut().unwrap().has_two_phase_iterator() == TwoPhaseState::Yes
-                    || scorer.as_mut().unwrap().two_phase_iterator()?.is_some()
+                    || scorer.as_mut().unwrap().two_phase_iterator().is_some()
             );
         }
         Ok(())

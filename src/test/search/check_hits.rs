@@ -417,7 +417,7 @@ impl CheckHits {
     }
 
     fn advance(s: &mut QueryWeightSsScorer, target: i32) -> Result<i32> {
-        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+        if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
             let mut v = tp.approximation_mut()?;
             v.advance(target)
         } else {
@@ -427,7 +427,7 @@ impl CheckHits {
     }
 
     fn next_doc(s: &mut QueryWeightSsScorer) -> Result<i32> {
-        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+        if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
             let mut v = tp.approximation_mut()?;
             v.next_doc()
         } else {
@@ -436,7 +436,7 @@ impl CheckHits {
         }
     }
     fn matches(s: &mut QueryWeightSsScorer) -> Result<bool> {
-        if let Some(tp) = s.two_phase_iterator_mut()?.as_mut() {
+        if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
             tp.matches()
         } else {
             Ok(true)

@@ -57,7 +57,7 @@ where
 
         let mut match_cost = Vec::with_capacity(scorers.len());
         for (i, s) in scorers.iter_mut().enumerate() {
-            if let Some(tpi) = s.two_phase_iterator()? {
+            if let Some(tpi) = s.two_phase_iterator() {
                 match_cost.push((i, tpi.match_cost()));
             }
         }
@@ -136,33 +136,33 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.two_phase_state {
-            TwoPhaseState::No => Ok(None),
+            TwoPhaseState::No => None,
             _ => match self.disi {
-                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                )),
-                DocIdSetIteratorEnum2::B(ref v) => Ok(Some(Box::new(&v.two_phase_iterator))),
-            },
-        }
-    }
-
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-        match self.two_phase_state {
-            TwoPhaseState::No => Ok(None),
-            _ => match self.disi {
-                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                )),
-                DocIdSetIteratorEnum2::B(ref mut v) => {
-                    Ok(Some(Box::new(&mut v.two_phase_iterator)))
+                DocIdSetIteratorEnum2::A(_) => {
+                    debug_assert!(false, "should not be here");
+                    None
                 },
+                DocIdSetIteratorEnum2::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
             },
         }
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        match self.two_phase_state {
+            TwoPhaseState::No => None,
+            _ => match self.disi {
+                DocIdSetIteratorEnum2::A(_) => {
+                    debug_assert!(false, "should not be here");
+                    None
+                },
+                DocIdSetIteratorEnum2::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
+            },
+        }
+    }
+
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
@@ -172,12 +172,13 @@ where
             ..
         } = *self;
         match two_phase_state {
-            TwoPhaseState::No => Ok(None),
+            TwoPhaseState::No => None,
             _ => match disi {
-                DocIdSetIteratorEnum2::A(_) => Err(LuceneError::illegal_state(
-                    "No two-phase iterator available",
-                )),
-                DocIdSetIteratorEnum2::B(v) => Ok(Some(Box::new(v.two_phase_iterator))),
+                DocIdSetIteratorEnum2::A(_) => {
+                    debug_assert!(false, "should not be here");
+                    None
+                },
+                DocIdSetIteratorEnum2::B(v) => Some(Box::new(v.two_phase_iterator)),
             },
         }
     }
@@ -381,7 +382,7 @@ where
         #[cfg(debug_assertions)]
         let doc = self.approx.scorer_doc_id()?;
         for (idx, _) in &self.has_tpi_idx {
-            match self.approx.scorers[*idx].two_phase_iterator_mut()? {
+            match self.approx.scorers[*idx].two_phase_iterator_mut() {
                 Some(ref mut tpi) => {
                     debug_assert!(tpi.approximation()?.doc_id() == doc);
                     if !tpi.matches()? {

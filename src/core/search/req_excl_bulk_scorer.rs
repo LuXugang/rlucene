@@ -40,11 +40,11 @@ where
     {
         Ok(
             match excl.has_two_phase_iterator() == TwoPhaseState::Yes
-                || excl.two_phase_iterator()?.is_some()
+                || excl.two_phase_iterator().is_some()
             {
                 true => Self {
                     req,
-                    excl_two_phase: Some(Box::new(excl).take_two_phase_iterator()?.unwrap()),
+                    excl_two_phase: Some(Box::new(excl).take_two_phase_iterator().unwrap()),
                     excl_approximation: None,
                 },
                 false => Self {

@@ -45,7 +45,7 @@ where
         debug_assert!({ scorers.iter().all(|v| *v < required.len()) });
         let mut has_tpi = false;
         for v in required.iter() {
-            if v.two_phase_iterator()?.is_some() {
+            if v.two_phase_iterator().is_some() {
                 has_tpi = true;
                 break;
             }
@@ -125,28 +125,28 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.disi {
-            DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(ref v) => Ok(Some(Box::new(&v.two_phase_iterator))),
+            DocIdSetIteratorEnum2::A(_) => None,
+            DocIdSetIteratorEnum2::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
         }
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         match self.disi {
-            DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(ref mut v) => Ok(Some(Box::new(&mut v.two_phase_iterator))),
+            DocIdSetIteratorEnum2::A(_) => None,
+            DocIdSetIteratorEnum2::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
         }
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
         let ConjunctionScorer { disi, .. } = *self;
         match disi {
-            DocIdSetIteratorEnum2::A(_) => Ok(None),
-            DocIdSetIteratorEnum2::B(v) => Ok(Some(Box::new(v.two_phase_iterator))),
+            DocIdSetIteratorEnum2::A(_) => None,
+            DocIdSetIteratorEnum2::B(v) => Some(Box::new(v.two_phase_iterator)),
         }
     }
 

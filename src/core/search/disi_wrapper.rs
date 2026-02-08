@@ -43,7 +43,7 @@ where
 {
     pub fn new(mut scorer: S) -> Result<Self> {
         let cost = scorer.iterator_mut().cost()?;
-        let match_cost = match scorer.two_phase_iterator_mut()? {
+        let match_cost = match scorer.two_phase_iterator_mut() {
             Some(tpi) => tpi.match_cost(),
             None => 0.0,
         };
@@ -59,7 +59,7 @@ where
     }
 
     pub fn matches(&mut self) -> Result<bool> {
-        match self.scorer.two_phase_iterator_mut()? {
+        match self.scorer.two_phase_iterator_mut() {
             Some(mut tpi) => tpi.matches(),
             None => Err(LuceneError::illegal_state(
                 "this scorer does not support two-phase iteration",
@@ -67,7 +67,7 @@ where
         }
     }
     pub fn matches_may_none(&mut self) -> Result<bool> {
-        match self.scorer.two_phase_iterator_mut()? {
+        match self.scorer.two_phase_iterator_mut() {
             Some(mut tpi) => tpi.matches(),
             None => Ok(true),
         }
@@ -120,15 +120,15 @@ where
         Box::new(scorer).take_iterator()
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         self.scorer.two_phase_iterator()
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         self.scorer.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>> {
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
         let DisiWrapper { scorer, .. } = *self;
         Box::new(scorer).take_two_phase_iterator()
     }

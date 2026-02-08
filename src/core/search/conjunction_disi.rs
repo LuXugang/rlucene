@@ -320,7 +320,7 @@ where
             {
                 let mut has_tpi = false;
                 for x in approximation.all_disi.iter() {
-                    if x.two_phase_iterator()?.is_some() {
+                    if x.two_phase_iterator().is_some() {
                         has_tpi = true;
                         break;
                     }
@@ -333,7 +333,7 @@ where
             let mut tpis = Vec::with_capacity(approximation.all_disi.len());
             let mut two_phase_iterator_idx = Vec::with_capacity(tpis.len());
             for (idx, x) in approximation.all_disi.iter_mut().enumerate() {
-                if let Some(tpi) = x.two_phase_iterator_mut()? {
+                if let Some(tpi) = x.two_phase_iterator_mut() {
                     two_phase_iterator_idx.push(idx);
                     tpis.push(tpi);
                 }
@@ -368,7 +368,7 @@ where
 
     fn matches(&mut self) -> Result<bool> {
         for idx in self.two_phase_iterator_idx.iter() {
-            match self.approximation.all_disi[*idx].two_phase_iterator_mut()? {
+            match self.approximation.all_disi[*idx].two_phase_iterator_mut() {
                 Some(ref mut tpi) => {
                     if !tpi.matches()? {
                         return Ok(false);

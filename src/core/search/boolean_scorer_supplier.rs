@@ -565,7 +565,7 @@ where
         if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
             let mut all_no_scoring_no_two_phase = true;
             for s in required_no_scoring.iter_mut() {
-                if s.two_phase_iterator()?.is_some() {
+                if s.two_phase_iterator().is_some() {
                     all_no_scoring_no_two_phase = false;
                     break;
                 }
@@ -573,7 +573,7 @@ where
 
             let mut all_scoring_no_two_phase = true;
             for s in required_scoring.iter_mut() {
-                if s.two_phase_iterator()?.is_some() {
+                if s.two_phase_iterator().is_some() {
                     all_scoring_no_two_phase = false;
                     break;
                 }
@@ -604,7 +604,7 @@ where
         {
             let mut all_scoring_no_two_phase = true;
             for s in required_scoring.iter_mut() {
-                if s.two_phase_iterator()?.is_some() {
+                if s.two_phase_iterator().is_some() {
                     all_scoring_no_two_phase = false;
                     break;
                 }
@@ -612,7 +612,7 @@ where
 
             let mut all_no_scoring_no_two_phase = true;
             for s in required_no_scoring.iter_mut() {
-                if s.two_phase_iterator()?.is_some() {
+                if s.two_phase_iterator().is_some() {
                     all_no_scoring_no_two_phase = false;
                     break;
                 }
@@ -889,8 +889,8 @@ where
             if should_empty && must_empty {
                 // no scoring clauses but scores are needed so we wrap the scorer in
                 // a constant score in order to allow early termination
-                let v = if scorer.two_phase_iterator()?.is_some() {
-                    let tpi = Box::new(scorer).take_two_phase_iterator()?.unwrap();
+                let v = if scorer.two_phase_iterator().is_some() {
+                    let tpi = Box::new(scorer).take_two_phase_iterator().unwrap();
                     ScorerEnum2::A(ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi))
                 } else {
                     let disi = Box::new(scorer).take_iterator();
@@ -993,15 +993,15 @@ where
         Box::new(base).take_iterator()
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         self.base.two_phase_iterator()
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
         self.base.two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {

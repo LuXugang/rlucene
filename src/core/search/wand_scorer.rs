@@ -152,20 +152,20 @@ where
         Box::new(disi)
     }
 
-    fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-        Ok(Some(Box::new(&self.disi.two_phase_iterator)))
+    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        Some(Box::new(&self.disi.two_phase_iterator))
     }
 
-    fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-        Ok(Some(Box::new(&mut self.disi.two_phase_iterator)))
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        Some(Box::new(&mut self.disi.two_phase_iterator))
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
         let WANDScorer { disi, .. } = *self;
-        Ok(Some(Box::new(disi.two_phase_iterator)))
+        Some(Box::new(disi.two_phase_iterator))
     }
 
     fn get_max_score(&mut self, upto: i32) -> Result<f32> {
@@ -2222,15 +2222,15 @@ pub(crate) mod tests {
             unreachable!()
         }
 
-        fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
             self.scorer.two_phase_iterator()
         }
 
-        fn two_phase_iterator_mut(&mut self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
+        fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
             self.scorer.two_phase_iterator_mut()
         }
 
-        fn take_two_phase_iterator(self: Box<Self>) -> Result<Option<Box<dyn TwoPhaseIterator>>>
+        fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
         where
             Self: Sized,
         {

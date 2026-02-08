@@ -1472,8 +1472,8 @@ mod test {
             Box::new(disi)
         }
 
-        fn two_phase_iterator(&self) -> Result<Option<Box<dyn TwoPhaseIterator + '_>>> {
-            Ok(None)
+        fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+            None
         }
 
         fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
