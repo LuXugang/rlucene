@@ -37,7 +37,7 @@ pub struct Transition {
     pub transition_upto: i32,
 }
 /// Static estimation of bytes used by a `Transition` instance.
-// TODO: memory calculation not implemented
+// TODO: memory calculation not implement
 pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {

@@ -25,7 +25,7 @@ pub trait Selector {
     /// equal to `k`, and `(k, to)` only contains elements that are greater
     /// than or equal to `k`.
     fn select(&mut self, _from: usize, _to: usize, _k: usize) -> Result<()> {
-        Err(LuceneError::need_implemented("select() is not implemented"))
+        Err(LuceneError::need_implemented("select() not implement"))
     }
 
     /// Check the validity of the `from`, `to`, and `k` indices.
@@ -41,6 +41,6 @@ pub trait Selector {
 
     /// Swap values at positions `i` and `j`.
     fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
-        Err(LuceneError::need_implemented("swap() is not implemented"))
+        Err(LuceneError::need_implemented("swap() not implement"))
     }
 }

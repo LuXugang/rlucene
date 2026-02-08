@@ -80,7 +80,7 @@ impl SortedDocValuesWriter {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
         iw_bytes_used.add_and_get(bytes_used);
 

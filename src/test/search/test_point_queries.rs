@@ -1038,7 +1038,7 @@ fn test_wrong_num_dims() -> Result<()> {
 
 #[test]
 fn test_all_point_docs_were_deleted_and_then_merged_again() -> Result<()> {
-    // TODO force_merge not implemented
+    // TODO force_merge not implement
     // let mut random = random();
     // let dir = new_directory_shared(&mut random)?;
     //
@@ -1227,7 +1227,7 @@ fn new_multi_dim_int_set_query(
 ) -> Result<Query> {
     // TODO
     Err(LuceneError::unsupported_operation(
-        "new_multi_dim_int_set_query not implemented",
+        "new_multi_dim_int_set_query not implement",
     ))
 }
 
@@ -1484,7 +1484,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     };
     // when not all docs have a value, optimization should not apply
     w.add_document(Document::new())?;
-    // TODO force_merge not implemented
+    // TODO force_merge not implement
     // w.force_merge(1)?;
     w.commit()?;
 
@@ -1540,7 +1540,7 @@ fn test_point_range_weight_count() -> Result<()> {
     }
 
     w.commit()?;
-    // TODO: force_merge not implemented
+    // TODO: force_merge not implement
     // w.force_merge(1)?;
 
     let reader = w.get_reader()?;

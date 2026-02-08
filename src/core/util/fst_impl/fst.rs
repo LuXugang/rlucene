@@ -1849,13 +1849,13 @@ mod tests {
 
     #[test]
     fn test_real_terms() -> Result<()> {
-        // TODO: IndexWriter not implemented
+        // TODO: IndexWriter not implement
         Ok(())
     }
 
     #[test]
     fn test_single_string() -> Result<()> {
-        // TODO: NO_OUTPUTS not implemented
+        // TODO: NO_OUTPUTS not implement
         let mut random = random();
         let outputs = PositiveIntOutputs::get_singleton();
         let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
@@ -1982,7 +1982,7 @@ mod tests {
     }
     #[test]
     fn test_primary_keys() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        // TODO : IndexWriter not implement
         Ok(())
     }
     #[test]

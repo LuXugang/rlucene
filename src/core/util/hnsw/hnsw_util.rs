@@ -283,7 +283,7 @@ impl HnswUtil {
     /// This method evaluates connectivity starting from a single node,
     /// effectively checking whether the graph is a "rooted graph".
     pub fn graph_is_rooted() {
-        // TODO: IndexReader not Implemented
+        // TODO: IndexReader not implement
     }
 }
 /// A component (also called "connected component") of an undirected graph is a

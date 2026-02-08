@@ -26,7 +26,7 @@ use crate::core::util::{
 
 pub struct BytesRefBlockPool;
 
-// TODO: memory calculation not implemented
+// TODO: memory calculation not implement
 const BASE_RAM_BYTES: i32 = 0;
 impl Default for BytesRefBlockPool {
     fn default() -> Self {

@@ -278,19 +278,19 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
 
     fn next_doc(&mut self) -> Result<i32> {
         Err(LuceneError::not_implemented(
-            "next_doc() is not implemented for &T",
+            "next_doc() not implement for &T",
         ))
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::not_implemented(
-            "advance() is not implemented for &T",
+            "advance() not implement for &T",
         ))
     }
 
     fn slow_advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::not_implemented(
-            "slow_advance() is not implemented for &T",
+            "slow_advance() not implement for &T",
         ))
     }
 

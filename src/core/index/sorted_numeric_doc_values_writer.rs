@@ -76,7 +76,7 @@ impl SortedNumericDocValuesWriter {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
 
-        // TODO:  memory calculation not implemented
+        // TODO:  memory calculation not implement
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
 
         iw_bytes_used.add_and_get(bytes_used);
@@ -149,7 +149,7 @@ impl SortedNumericDocValuesWriter {
             Some(c) => c.ram_bytes_used()?,
             None => 0,
         };
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let new_bytes_used = self.pending.ram_bytes_used()?
             + pending_counts_usage
             + self.docs_with_field.ram_bytes_used()?;

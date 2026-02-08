@@ -691,7 +691,7 @@ mod tests {
             }
         }
 
-        // TODO: ByteBuffersDirectory not Implemented
+        // TODO: ByteBuffersDirectory not implement
         let d = new_directory_shared(&mut random)?;
         let end_pointer;
 
@@ -713,7 +713,7 @@ mod tests {
         // decode
         {
             let input = d.open_input("test.bin", &IOContext::read_once_io_context()?)?;
-            // TODO: VECTORIZATION_PROVIDER not Implemented
+            // TODO: VECTORIZATION_PROVIDER not implement
             let mut pdu = PostingDecodingUtil::new(input);
             let mut for_delta_util = ForDeltaUtil::new();
 

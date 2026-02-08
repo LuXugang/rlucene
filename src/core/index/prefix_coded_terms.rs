@@ -112,7 +112,7 @@ impl PartialEq for PrefixCodedTerms {
 impl Eq for PrefixCodedTerms {}
 impl Accountable for PrefixCodedTerms {
     fn ram_bytes_used(&self) -> Result<i64> {
-        //TODO: memory calculation not implemented
+        //TODO: memory calculation not implement
         Ok(0)
     }
 }

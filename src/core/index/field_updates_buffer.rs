@@ -164,7 +164,7 @@ impl FieldUpdatesBuffer {
     }
 
     fn size_of_string(_s: &str) -> i64 {
-        //TODO: memory calculation not implemented
+        //TODO: memory calculation not implement
         0
     }
 
@@ -200,7 +200,7 @@ impl FieldUpdatesBuffer {
                         self.fields[i] = self.fields[0].clone();
                     }
                 }
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.bytes_used.add_and_get(0);
             }
             if self.fields[0] != field {
@@ -218,7 +218,7 @@ impl FieldUpdatesBuffer {
                         self.docs_upto[i] = self.docs_upto[0];
                     }
                 }
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.bytes_used.add_and_get(0);
             }
             self.docs_upto[ord] = doc_upto;
@@ -233,7 +233,7 @@ impl FieldUpdatesBuffer {
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
                 bitset.ensure_capacity(ord + 1);
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.bytes_used.add_and_get(0);
             }
             if has_value {
@@ -259,7 +259,7 @@ impl FieldUpdatesBuffer {
                         numeric_values[i] = numeric_values[0];
                     }
                 }
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.bytes_used.add_and_get(0);
             }
             numeric_values[ord] = value;
@@ -301,7 +301,7 @@ impl FieldUpdatesBuffer {
         if sorted_terms {
             self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
             debug_assert!(self.assert_term_and_doc_in_order());
-            // TODO: memory calculation not implemented
+            // TODO: memory calculation not implement
             self.bytes_used.add_and_get(0);
         }
 

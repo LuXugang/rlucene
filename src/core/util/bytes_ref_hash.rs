@@ -179,7 +179,7 @@ where
         }
 
         if new_size != self.hash_size {
-            // TODO: memory calculation not implemented
+            // TODO: memory calculation not implement
             self.bytes_used.add_and_get(0);
             self.hash_size = new_size;
             self.ids = vec![-1; self.hash_size as usize];
@@ -215,7 +215,7 @@ where
     pub fn close(&mut self, byte_block_pool: &mut ByteBlockPool) {
         self.clear_with_reset_pool(true, byte_block_pool);
         self.ids.clear();
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         self.bytes_used.add_and_get(0);
     }
     /// Adds a new [`BytesRef`].
@@ -382,7 +382,7 @@ where
     /// occupied).
     fn rehash(&mut self, new_size: i32, hash_on_data: bool, byte_block_pool: &mut ByteBlockPool) {
         let new_mask = new_size - 1;
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         self.bytes_used.add_and_get(0);
         let mut new_hash = vec![-1; new_size as usize];
         for i in 0..self.hash_size as usize {
@@ -412,7 +412,7 @@ where
             }
         }
         self.hash_mask = new_mask;
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         self.bytes_used.add_and_get(0);
         self.ids = new_hash;
         self.hash_size = new_size;
@@ -428,7 +428,7 @@ where
 
         if self.ids.is_empty() {
             self.ids = vec![-1; self.hash_size as usize];
-            // TODO: memory calculation not implemented
+            // TODO: memory calculation not implement
             self.bytes_used.add_and_get(0);
         }
     }
@@ -456,7 +456,7 @@ where
     BSA: BytesStartArray,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(0)
     }
 }

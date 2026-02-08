@@ -130,7 +130,7 @@ impl FrozenBufferedUpdates {
         let field_updates = std::mem::take(&mut updates.field_updates);
         let field_updates_count = updates.num_field_updates.load(Ordering::Relaxed);
 
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let bytes_used = 0;
         if info_stream.enabled("BD") {
             let private_segment_msg = match private_segment {

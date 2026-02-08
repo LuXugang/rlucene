@@ -704,42 +704,36 @@ impl Display for Field {
 pub trait FieldBase {
     fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_bytes_value is not implemented",
+            "set_bytes_value not implement",
         ))
     }
     fn set_byte_value(&mut self, _value: u8) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "set_byte_value is not implemented",
-        ))
+        Err(LuceneError::not_implemented("set_byte_value not implement"))
     }
     fn set_short_value(&mut self, _value: i16) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_short_value is not implemented",
+            "set_short_value not implement",
         ))
     }
     fn set_int_value(&mut self, _value: i32) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "set_int_value is not implemented",
-        ))
+        Err(LuceneError::not_implemented("set_int_value not implement"))
     }
     fn set_long_value(&mut self, _value: i64) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "set_long_value is not implemented",
-        ))
+        Err(LuceneError::not_implemented("set_long_value not implement"))
     }
     fn set_float_value(&mut self, _value: f32) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_float_value is not implemented",
+            "set_float_value not implement",
         ))
     }
     fn set_double_value(&mut self, _value: f64) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_double_value is not implemented",
+            "set_double_value not implement",
         ))
     }
     fn set_token_stream(&mut self, _token_stream: Arc<TokenStreamEnum>) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_token_stream is not implemented",
+            "set_token_stream not implement",
         ))
     }
     fn set_string_value<T>(&mut self, _value: T) -> Result<()>
@@ -747,12 +741,12 @@ pub trait FieldBase {
         T: Into<String>,
     {
         Err(LuceneError::not_implemented(
-            "set_string_value is not implemented",
+            "set_string_value not implement",
         ))
     }
     fn set_reader_value(&mut self, _value: Arc<ReaderEnum>) -> Result<()> {
         Err(LuceneError::not_implemented(
-            "set_reader_value is not implemented",
+            "set_reader_value not implement",
         ))
     }
 }

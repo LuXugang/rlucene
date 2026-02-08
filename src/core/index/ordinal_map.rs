@@ -290,7 +290,7 @@ impl OrdinalMap {
             global_ord_deltas.add(global_ord_delta)?;
             global_ord += 1;
         }
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let mut ram_bytes_used = segment_map.ram_bytes_used()?;
         let value_count = global_ord;
 
@@ -312,7 +312,7 @@ impl OrdinalMap {
 
         // ordDeltas is typically the bottleneck, so let's see what we can do to make it faster
         let mut segment_to_global_ords = Vec::with_capacity(sub_len);
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         // ram_bytes_used += 0;
         for i in 0..ord_deltas.len() {
             let deltas = ord_deltas[i].build()?;
@@ -355,7 +355,7 @@ impl OrdinalMap {
                     segment_to_global_ords
                         .push(Rc::new(LongValuesEnum3::C(LongValuesImpl1::new(deltas))));
                 }
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 // ram_bytes_used += 0;
             }
         }
@@ -484,7 +484,7 @@ impl SegmentMap {
 }
 impl Accountable for SegmentMap {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(0)
     }
 }
@@ -541,7 +541,7 @@ mod tests {
 
     #[test]
     fn test_ram_bytes_used() -> Result<()> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(())
     }
 

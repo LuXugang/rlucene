@@ -321,11 +321,11 @@ pub trait DataInput: Display {
     }
     fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
         debug_assert!(self.is_index_input());
-        unimplemented!("Seek is not implemented for this DataInput")
+        unimplemented!("Seek not implement for this DataInput")
     }
     fn get_file_pointer_in_data_input(&self) -> Result<usize> {
         debug_assert!(self.is_index_input());
-        unimplemented!("get_file_pointer is not implemented for this DataInput")
+        unimplemented!("get_file_pointer not implement for this DataInput")
     }
 }
 

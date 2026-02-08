@@ -343,7 +343,7 @@ where
                 let leaf_cache = LeafCache::new(key);
                 let lc_ref = cache.insert(leaf_cache);
                 self.ram_bytes_used.fetch_add(
-                    // TODO: memory calculation not implemented
+                    // TODO: memory calculation not implement
                     0,
                     std::sync::atomic::Ordering::Relaxed,
                 );
@@ -377,7 +377,7 @@ where
         let mut inner = self.inner.write();
 
         if let Some(leaf_cache) = inner.cache.remove(core_key) {
-            // TODO: memory calculation not implemented
+            // TODO: memory calculation not implement
             self.ram_bytes_used
                 .fetch_sub(0, std::sync::atomic::Ordering::Relaxed);
 
@@ -437,7 +437,7 @@ where
         self.on_clear(&inner);
     }
     fn get_ram_bytes_used(&self, _query: &Query) -> i64 {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         0
     }
     /// Return the total number of times that a [`Query`](crate::core::search::query::Query) has been looked up in this [`QueryCache`](crate::core::search::query_cache::QueryCache).
@@ -520,7 +520,7 @@ where
             }
         }
 
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let mut recomputed_ram_bytes_used = inner.cache.len() as i64;
 
         {
@@ -532,7 +532,7 @@ where
 
         for leaf_cache in inner.cache.values() {
             recomputed_ram_bytes_used +=
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 leaf_cache.cache.len() as i64;
             for cached in leaf_cache.cache.values() {
                 recomputed_ram_bytes_used += cached.ram_bytes_used()?;
@@ -642,7 +642,7 @@ impl LeafCache {
             Entry::Vacant(e) => {
                 e.insert(Arc::new(cached));
                 self.on_doc_id_set_cache(
-                    // TODO: memory calculation not implemented
+                    // TODO: memory calculation not implement
                     0, parent,
                 );
             },
@@ -656,7 +656,7 @@ impl LeafCache {
     {
         if let Some(_removed) = self.cache.remove(query) {
             self.on_doc_id_set_eviction(
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 0, parent,
             );
         }

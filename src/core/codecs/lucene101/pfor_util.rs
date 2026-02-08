@@ -169,7 +169,7 @@ mod tests {
         let iterations = random.random_range(50..1000);
         let values = create_test_data(iterations, 31, &mut random);
 
-        // TODO: ByteBuffersDirectory not Implemented
+        // TODO: ByteBuffersDirectory not implement
         let dir = new_directory(&mut random)?;
         let end_pointer = encode_test_data(iterations, &values, &dir)?;
 

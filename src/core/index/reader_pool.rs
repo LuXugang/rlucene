@@ -673,7 +673,7 @@ mod tests {
         pool.drop(&commit_info.info.get_id_str())?;
 
         // let mut ram_bytes_used = 0_i64;
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         // assert_eq!(0, pool.ram_bytes_used());
 
         for idx in 0..segment_infos.segments_idx.len() {
@@ -686,7 +686,7 @@ mod tests {
                 Some(info),
                 &field_numbers.lock(),
             )?;
-            // TODO: memory calculation not implemented
+            // TODO: memory calculation not implement
             // assert_eq!(
             //     0,
             //     pool.ram_bytes_used(),
@@ -701,7 +701,7 @@ mod tests {
             let b = pool.get(info, false, None)?.unwrap();
             assert!(Arc::ptr_eq(&a, &b));
         }
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         // assert_ne!(0, pool.ram_bytes_used());
 
         pool.drop_all()?;
@@ -711,7 +711,7 @@ mod tests {
             assert!(pool.get(info, false, None)?.is_none());
         }
 
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         // assert_eq!(0, pool.ram_bytes_used());
 
         pool.close()?;
@@ -994,7 +994,7 @@ mod tests {
         Ok(())
     }
     fn test_get_reader_by_ram() -> Result<()> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(())
     }
 

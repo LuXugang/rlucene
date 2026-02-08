@@ -192,7 +192,7 @@ fn test_diverse_docs() -> Result<()> {
 
     Ok(())
 }
-// TODO memory calculation not implemented
+// TODO memory calculation not implement
 fn test_rotating_field_names() -> Result<()> {
     let mut random = random();
     // TODO: 未实现MockAnalyzer

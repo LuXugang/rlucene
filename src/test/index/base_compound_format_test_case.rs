@@ -132,12 +132,12 @@ pub trait BaseCompoundFormatTestCase {
     /// NRTCachingDir. It checks that IOContext is properly propagated when
     /// interacting with the `Directory`.
     fn test_pass_io_context(&self) -> Result<()> {
-        // TODO: FilterDirectory not implemented, so this test could not be
+        // TODO: FilterDirectory not implement, so this test could not be
         // implemented
         Ok(())
     }
     fn test_large_cfs(&self) -> Result<()> {
-        // TODO: NRTCachingDirectory not implemented, so this test could not be
+        // TODO: NRTCachingDirectory not implement, so this test could not be
         // implemented
         Ok(())
     }

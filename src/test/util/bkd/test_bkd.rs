@@ -392,7 +392,7 @@ fn test_big_int_n_dims() -> Result<()> {
 }
 #[test]
 fn test_with_exceptions() {
-    // TODO: MockDirectoryWrapper not Implemented
+    // TODO: MockDirectoryWrapper not implement
 }
 
 #[test]
@@ -1353,12 +1353,12 @@ where
 }
 #[test]
 fn test_bit_flipped_on_partition1() -> Result<()> {
-    // TODO: MockDirectoryWrapper not Implemented
+    // TODO: MockDirectoryWrapper not implement
     Ok(())
 }
 #[test]
 fn test_bit_flippedon_partition2() -> Result<()> {
-    // TODO: MockDirectoryWrapper not Implemented
+    // TODO: MockDirectoryWrapper not implement
     Ok(())
 }
 struct IntersectVisitorMock2 {

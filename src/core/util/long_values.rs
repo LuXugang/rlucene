@@ -22,7 +22,7 @@ use crate::core::util::packed::direct_reader::FromSlice;
 pub trait LongValues {
     fn get_mut(&mut self, _index: usize) -> Result<i64> {
         Err(LuceneError::not_implemented(
-            "mutable get method not implemented",
+            "mutable get method not implement",
         ))
     }
 
@@ -30,7 +30,7 @@ pub trait LongValues {
     /// If you need to call get in an immutable context, you can implement this method.
     fn get(&self, _index: usize) -> Result<i64> {
         Err(LuceneError::not_implemented(
-            "Immutable get method not implemented",
+            "Immutable get method not implement",
         ))
     }
 }

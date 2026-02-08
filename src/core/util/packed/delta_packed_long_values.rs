@@ -115,7 +115,7 @@ impl DeltaPackedLongValuesBuilder {
             builder.grow(new_block_count)?
         }
         ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(())
     }
     fn base_ram_bytes_used(&self) -> u64 {

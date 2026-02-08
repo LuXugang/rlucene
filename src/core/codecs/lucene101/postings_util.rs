@@ -108,7 +108,7 @@ mod tests {
         let delta = 1 << 30;
         doc_delta_buffer[0] = delta;
 
-        // TODO: ByteBuffersDirectory not Implemented
+        // TODO: ByteBuffersDirectory not implement
         let dir = new_directory_shared(random)?;
         {
             let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;

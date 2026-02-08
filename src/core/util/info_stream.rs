@@ -109,12 +109,12 @@ mod tests {
     pub struct TestInfoStream;
     #[test]
     fn test_test_points_off() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        // TODO : IndexWriter not implement
         Ok(())
     }
     #[test]
     fn test_test_pointson() -> Result<()> {
-        // TODO : IndexWriter not implemented
+        // TODO : IndexWriter not implement
         Ok(())
     }
 }

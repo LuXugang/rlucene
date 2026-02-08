@@ -93,7 +93,7 @@ impl SortedSetDocValuesWriter {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
         iw_bytes_used.add_and_get(bytes_used);
         Ok(Self {
@@ -204,7 +204,7 @@ impl SortedSetDocValuesWriter {
         } else {
             0
         };
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let new_used =
             self.pending.ram_bytes_used()? + pc_used + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used.add_and_get(new_used - self.bytes_used);

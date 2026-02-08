@@ -194,7 +194,7 @@ impl BufferedUpdates {
 
 impl Accountable for BufferedUpdates {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(0)
     }
 }
@@ -260,7 +260,7 @@ impl DeletedTerms {
     pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
         let hash = match self.delete_terms.entry(term.field.clone()) {
             Vacant(vacant) => {
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.bytes_used.add_and_get(0);
                 let new_map = BytesRefIntMap::new(self.bytes_used.clone());
                 vacant.insert(new_map)
@@ -357,7 +357,7 @@ pub trait DeletedTermConsumer {
 }
 impl Accountable for DeletedTerms {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(0)
     }
 }
@@ -426,7 +426,7 @@ impl BytesRefIntMap {
             if e as usize >= self.values.len() {
                 let origin_length = self.values.len();
                 ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
-                // TODO: memory calculation not implemented
+                // TODO: memory calculation not implement
                 self.counter.add_and_get(origin_length as i64);
             }
             self.values[e as usize] = value;
@@ -439,12 +439,12 @@ impl BytesRefIntMap {
     }
 }
 
-// TODO: memory calculation not implemented
+// TODO: memory calculation not implement
 const INIT_RAM_BYTES: i64 = 0;
 
 /// Rough logic: HashMap has an array with varying load factor.
 /// Entry consists of Query key, Integer value, int hash, and Entry next.
-// TODO: memory calculation not implemented
+// TODO: memory calculation not implement
 pub const BYTES_PER_DEL_QUERY: i32 = 0;
 pub const MAX_INT: i32 = i32::MAX;
 

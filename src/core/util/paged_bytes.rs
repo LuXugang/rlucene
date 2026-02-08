@@ -52,7 +52,7 @@ impl PagedBytes {
         let block_size = 1 << block_bits;
         let block_mask = block_size - 1;
         let upto = block_size;
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         let bytes_used_per_block = 0;
 
         PagedBytes {
@@ -161,7 +161,7 @@ impl PagedBytes {
 }
 impl Accountable for PagedBytes {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(0)
     }
 }
@@ -236,7 +236,7 @@ impl PagedBytesReader {
 }
 impl Accountable for PagedBytesReader {
     fn ram_bytes_used(&self) -> Result<i64> {
-        // TODO:  memory calculation not implemented
+        // TODO:  memory calculation not implement
         Ok(0)
     }
 }
@@ -690,7 +690,7 @@ mod tests {
     }
     #[test]
     fn test_ram_bytes_used() -> Result<()> {
-        // TODO: memory calculation not implemented
+        // TODO: memory calculation not implement
         Ok(())
     }
 }

@@ -370,7 +370,7 @@ mod tests {
         }
 
         fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
-            Err(LuceneError::unsupported_operation("Not implemented"))
+            Err(LuceneError::unsupported_operation("not implement"))
         }
 
         fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {

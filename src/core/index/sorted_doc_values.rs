@@ -54,18 +54,14 @@ pub trait SortedDocValues: DocValuesIterator {
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
     fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Err(LuceneError::need_implemented(
-            "this method is not implemented",
-        ))
+        Err(LuceneError::need_implemented("this method not implement"))
     }
 
     /// Returns the number of unique sorted values in this doc values set.
     ///
     /// This is equivalent to one plus the maximum ordinal.
     fn get_value_count(&self) -> Result<i32> {
-        Err(LuceneError::need_implemented(
-            "this method is not implemented",
-        ))
+        Err(LuceneError::need_implemented("this method not implement"))
     }
     /// If `key` exists, returns its ordinal, else returns `-insertion_point -
     /// 1`, like `Arrays.binarySearch`.
@@ -109,7 +105,7 @@ pub trait SortedDocValues: DocValuesIterator {
     }
 
     // TODO:
-    // intersect not Implemented
+    // intersect not implement
 }
 
 macro_rules! either_sorted_docvalues {

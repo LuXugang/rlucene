@@ -357,16 +357,14 @@ pub trait PointTree: TryClone {
     /// Move to the first child node and return `true` upon success.
     /// Returns `false` for leaf nodes and `true` otherwise.
     fn move_to_child(&mut self) -> Result<bool> {
-        Err(LuceneError::need_implemented(
-            "move_to_child is not implemented",
-        ))
+        Err(LuceneError::need_implemented("move_to_child not implement"))
     }
 
     /// Move to the next sibling node and return `true` upon success.
     /// Returns `false` if the current node has no more siblings.
     fn move_to_sibling(&mut self) -> Result<bool> {
         Err(LuceneError::need_implemented(
-            "move_to_sibling is not implemented",
+            "move_to_sibling not implement",
         ))
     }
 
@@ -374,27 +372,27 @@ pub trait PointTree: TryClone {
     /// Returns `false` for the root node and `true` otherwise.
     fn move_to_parent(&mut self) -> Result<bool> {
         Err(LuceneError::need_implemented(
-            "move_to_parent is not implemented",
+            "move_to_parent not implement",
         ))
     }
 
     /// Return the minimum packed value of the current node.
     fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::need_implemented(
-            "get_min_packed_value is not implemented",
+            "get_min_packed_value not implement",
         ))
     }
 
     /// Return the maximum packed value of the current node.
     fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
         Err(LuceneError::need_implemented(
-            "get_max_packed_value is not implemented",
+            "get_max_packed_value not implement",
         ))
     }
 
     /// Return the number of points below the current node.
     fn size(&self) -> Result<usize> {
-        Err(LuceneError::need_implemented("size is not implemented"))
+        Err(LuceneError::need_implemented("size not implement"))
     }
 
     /// Visit all the docs below the current node.
@@ -402,9 +400,7 @@ pub trait PointTree: TryClone {
     where
         IV: IntersectVisitor,
     {
-        Err(LuceneError::need_implemented(
-            "visit_doc_ids is not implemented",
-        ))
+        Err(LuceneError::need_implemented("visit_doc_ids not implement"))
     }
 
     /// Visit all the docs and values below the current node.
@@ -413,7 +409,7 @@ pub trait PointTree: TryClone {
         IV: IntersectVisitor,
     {
         Err(LuceneError::need_implemented(
-            "visit_doc_values is not implemented",
+            "visit_doc_values not implement",
         ))
     }
 }

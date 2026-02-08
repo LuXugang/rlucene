@@ -980,7 +980,7 @@ pub trait BaseDirectoryTestCase {
 
     fn test_no_dir(&self) -> Result<()> {
         // TODO
-        unimplemented!("DirectoryReader not Implemented")
+        unimplemented!("DirectoryReader not implement")
     }
     fn test_copy_bytes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testCopyBytes").tempdir()?;
@@ -1685,7 +1685,7 @@ pub trait BaseDirectoryTestCase {
         Ok(())
     }
     fn test_pending_deletions<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
-        // TODO: does not implemented "VirusCheckingFS" yet, so this test is not
+        // TODO: does not implement "VirusCheckingFS" yet, so this test is not
         // applicable let temp_dir =
         // Builder::new().prefix("virusChecker").tempdir()?;
         // let dir = self.get_directory(temp_dir.path().to_path_buf())?;

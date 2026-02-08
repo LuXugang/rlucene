@@ -60,9 +60,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
     fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        Err(LuceneError::need_implemented(
-            "this method is not implemented",
-        ))
+        Err(LuceneError::need_implemented("this method not implement"))
     }
     /// Returns the number of unique values.
     ///
@@ -70,9 +68,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// Number of unique values in this `SortedDocValues`. This is also
     /// equivalent to one plus the maximum ordinal.
     fn get_value_count(&self) -> Result<i64> {
-        Err(LuceneError::need_implemented(
-            "this method is not implemented",
-        ))
+        Err(LuceneError::need_implemented("this method not implement"))
     }
     /// If `key` exists, returns its ordinal, else returns `-insertion_point -
     /// 1`, like `Arrays.binarySearch`.
@@ -117,7 +113,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     }
 
     // TODO:
-    // intersect not Implemented
+    // intersect not implement
 
     fn is_single_valued(&self) -> bool {
         false

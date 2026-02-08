@@ -580,7 +580,7 @@ mod tests {
     struct TestNFARunAutomaton;
     #[test]
     fn test_ram_usage_estimation() -> Result<()> {
-        // TODO: memory calculate not implemented
+        // TODO: memory calculate not implement
         Ok(())
     }
     #[test]
