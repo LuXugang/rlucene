@@ -57,6 +57,7 @@ impl<P> ByteSliceReader<P> {
 
     /// # Note
     /// Not used in Java Lucene; kept for API completeness.
+    #[allow(dead_code)]
     pub(crate) fn write(&self, _out: &mut impl DataOutput) -> i64 {
         0
     }

@@ -244,12 +244,6 @@ where
             DocIDMergerEnum::Sorted(merger) => merger.queue.compare.subs.clear(),
         }
     }
-    pub(crate) fn take_subs(self) -> Vec<Sub<S>> {
-        match self {
-            DocIDMergerEnum::Sequential(merger) => merger.subs,
-            DocIDMergerEnum::Sorted(merger) => merger.queue.compare.subs,
-        }
-    }
 
     pub(crate) fn get_subs(&self) -> &[Sub<S>] {
         match self {

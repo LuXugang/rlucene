@@ -34,8 +34,7 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef};
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::BoxedScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
@@ -171,11 +170,6 @@ where
     }
 }
 
-pub type SNDVSQSs<LR> = DefaultScorerSupplierSs<LR>;
-pub type SNDVSQSsBulkScorer<LR> = <SNDVSQSs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type SNDVSQSsScorer<LR> = <SNDVSQSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type SNDVSQSsDisiRef<'a> = ScorerDisiRef<'a>;
-pub type SNDVSQSsDisiMut<'a> = ScorerDisiMut<'a>;
 impl<LR> Weight<LR> for SortedNumericDocValuesSetQueryWeight<LR>
 where
     LR: LeafReader,
