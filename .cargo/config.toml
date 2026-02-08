@@ -10,6 +10,3 @@ ci = "xtask ci"
 check-uncommitted = "xtask check-uncommitted"
 # Check License header
 license-check = "xtask license-check"
-
-[target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-Wl,-ld_classic"]
