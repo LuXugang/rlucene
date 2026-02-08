@@ -255,24 +255,14 @@ where
     O: IndexOutput,
 {
     fn drop(&mut self) {
-        if self.docs_out.is_some() {
-            match fs::remove_file(self.docs_out.as_ref().unwrap().get_name()) {
-                Ok(_) => {},
-                Err(_e) => {
-                    // TODO IMPORTANT
-                    // debug_assert!(false, "Failed to delete docs file: {:?}", e);
-                },
-            }
+        if let Some(docs_out) = self.docs_out.as_ref() {
+            let _ = fs::remove_file(docs_out.get_name());
         }
-        if self.file_pointers_out.is_some() {
-            match fs::remove_file(self.file_pointers_out.as_ref().unwrap().get_name()) {
-                Ok(_) => {},
-                Err(_e) => {
-                    // TODO IMPORTANT
-                    // debug_assert!(false, "Failed to delete file pointers file: {:?}", e);
-                },
-            }
+
+        if let Some(file_pointers_out) = self.file_pointers_out.as_ref() {
+            let _ = fs::remove_file(file_pointers_out.get_name());
         }
+
         let _ = self.docs_out.take();
         let _ = self.file_pointers_out.take();
     }

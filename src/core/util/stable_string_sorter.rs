@@ -146,14 +146,11 @@ where
             .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
         self.delegate
             .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
-        if self.k.is_some() {
-            self.cmp.compare_with_offset(
-                &self.scratch_bytes1,
-                &self.scratch_bytes2,
-                self.k.unwrap(),
-            )
-        } else {
-            self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2)
+        match self.k {
+            Some(k) => self
+                .cmp
+                .compare_with_offset(&self.scratch_bytes1, &self.scratch_bytes2, k),
+            None => self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2),
         }
     }
 

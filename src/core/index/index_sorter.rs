@@ -169,9 +169,10 @@ where
     {
         let mut dvs = self.values_provider.get(leaf_reader)?;
         let mut values = vec![0f64; max_doc as usize];
-        if self.missing_value.is_some() {
-            values.fill(*self.missing_value.as_ref().unwrap())
+        if let Some(missing_value) = self.missing_value.as_ref() {
+            values.fill(*missing_value);
         }
+
         loop {
             let doc_id = dvs.next_doc()?;
             if doc_id == NO_MORE_DOCS {

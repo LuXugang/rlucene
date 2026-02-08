@@ -225,17 +225,19 @@ impl FieldUpdatesBuffer {
         }
 
         if !has_value || self.has_values.is_some() {
-            if self.has_values.is_none() {
+            if let Some(bitset) = self.has_values.as_mut() {
+                if bitset.length() <= ord {
+                    bitset.ensure_capacity(ord + 1);
+                    // TODO: memory calculation not implement
+                    self.bytes_used.add_and_get(0);
+                }
+            } else {
                 let mut new_bitset = FixedBitSet::new(ord + 1);
                 new_bitset.set_with_range(0, ord);
                 self.bytes_used.add_and_get(new_bitset.ram_bytes_used()?);
                 self.has_values = Some(new_bitset);
-            } else if self.has_values.as_ref().unwrap().length() <= ord {
-                let bitset = self.has_values.as_mut().unwrap();
-                bitset.ensure_capacity(ord + 1);
-                // TODO: memory calculation not implement
-                self.bytes_used.add_and_get(0);
             }
+
             if has_value {
                 self.has_values.as_mut().unwrap().set(ord);
             }

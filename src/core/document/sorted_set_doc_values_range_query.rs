@@ -399,34 +399,32 @@ where
             Some(v) => v,
             None => DocValues::get_sorted_set(context.reader(), &self.query.field)?,
         };
-        let min_ord: i64 = if self.query.lower_value.is_none() {
-            0
-        } else {
-            let lv = self.query.lower_value.as_ref().unwrap();
-            let ord = values.lookup_term(lv)?;
-
-            if ord < 0 {
-                -1 - ord
-            } else if self.query.lower_inclusive {
-                ord
-            } else {
-                ord + 1
-            }
+        let min_ord: i64 = match self.query.lower_value.as_ref() {
+            None => 0,
+            Some(lv) => {
+                let ord = values.lookup_term(lv)?;
+                if ord < 0 {
+                    -1 - ord
+                } else if self.query.lower_inclusive {
+                    ord
+                } else {
+                    ord + 1
+                }
+            },
         };
 
-        let max_ord: i64 = if self.query.upper_value.is_none() {
-            values.get_value_count()? - 1
-        } else {
-            let uv = self.query.upper_value.as_ref().unwrap();
-            let ord = values.lookup_term(uv)?;
-
-            if ord < 0 {
-                -2 - ord
-            } else if self.query.upper_inclusive {
-                ord
-            } else {
-                ord - 1
-            }
+        let max_ord: i64 = match self.query.upper_value.as_ref() {
+            None => values.get_value_count()? - 1,
+            Some(uv) => {
+                let ord = values.lookup_term(uv)?;
+                if ord < 0 {
+                    -2 - ord
+                } else if self.query.upper_inclusive {
+                    ord
+                } else {
+                    ord - 1
+                }
+            },
         };
 
         // no terms matched

@@ -82,19 +82,21 @@ impl FstReader for ReadWriteDataOutput {
                 "Call ReadWriteDataOutput#init_byte_buffer before Call ReadWriteDataOutput#get_reverse_bytes_reader",
             ));
         }
-        if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
-            let buffers = self.byte_buffers.as_ref().unwrap().clone();
-            Ok(BytesReaderEnum2::A(BytesReaderImpl::new(
-                buffers,
-                self.block_bits,
-                self.block_size,
-                self.block_mask,
-            )))
-        } else if self.byte_buffer.is_some() && self.byte_buffers.is_none() {
-            let buffer = self.byte_buffer.as_ref().unwrap().clone();
-            Ok(BytesReaderEnum2::B(ReverseBytesReader::new(buffer)))
-        } else {
-            Err(LuceneError::illegal_state("Only one buffer is some"))
+        match (self.byte_buffers.as_ref(), self.byte_buffer.as_ref()) {
+            (Some(byte_buffers), None) => {
+                let buffers = byte_buffers.clone();
+                Ok(BytesReaderEnum2::A(BytesReaderImpl::new(
+                    buffers,
+                    self.block_bits,
+                    self.block_size,
+                    self.block_mask,
+                )))
+            },
+            (None, Some(byte_buffer)) => {
+                let buffer = byte_buffer.clone();
+                Ok(BytesReaderEnum2::B(ReverseBytesReader::new(buffer)))
+            },
+            _ => Err(LuceneError::illegal_state("Only one buffer is some")),
         }
     }
 

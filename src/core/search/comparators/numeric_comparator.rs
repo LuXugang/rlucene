@@ -264,7 +264,7 @@ where
         );
 
         let threshold = ((self.iterator_cost as u64) >> 3) as i64;
-
+        #[allow(clippy::unnecessary_unwrap)]
         if self.point_values.is_some() {
             if is_estimated_point_count_greater_than_or_equal_to(
                 &visitor,

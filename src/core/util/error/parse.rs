@@ -42,13 +42,11 @@ impl Parse {
 
 impl std::fmt::Display for Parse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.error.is_some() {
+        if let Some(error) = self.error.as_ref() {
             write!(
                 f,
                 "Parse Error at {}: {} reason: {}",
-                self.position,
-                self.message,
-                self.error.as_ref().unwrap().message
+                self.position, self.message, error.message
             )
         } else {
             write!(f, "Parse Error at {}: {}", self.position, self.message)

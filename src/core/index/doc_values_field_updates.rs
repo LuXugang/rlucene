@@ -1085,12 +1085,10 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         self.bit_set.set(doc as usize);
 
         self.has_at_least_one_value = true;
-        if self.has_no_value.is_some() {
-            self.has_no_value
-                .as_mut()
-                .unwrap()
-                .clear_with_index(doc as usize);
+        if let Some(has_no_value) = self.has_no_value.as_mut() {
+            has_no_value.clear_with_index(doc as usize);
         }
+
         Ok(())
     }
 
@@ -1098,11 +1096,8 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         debug_assert!(self.sub_update.binary_value()?.as_ref() == value);
         self.bit_set.set(doc as usize);
         self.has_at_least_one_value = true;
-        if self.has_no_value.is_some() {
-            self.has_no_value
-                .as_mut()
-                .unwrap()
-                .clear_with_index(doc as usize);
+        if let Some(has_no_value) = self.has_no_value.as_mut() {
+            has_no_value.clear_with_index(doc as usize);
         }
         Ok(())
     }
@@ -1222,12 +1217,8 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     }
 
     fn has_value(&self) -> Result<bool> {
-        if self.has_no_value.is_some() {
-            Ok(!self
-                .has_no_value
-                .as_ref()
-                .unwrap()
-                .get(self.iterator.doc_id() as usize)?)
+        if let Some(has_no_value) = self.has_no_value.as_ref() {
+            Ok(!has_no_value.get(self.iterator.doc_id() as usize)?)
         } else {
             Ok(true)
         }

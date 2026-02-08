@@ -140,14 +140,11 @@ impl PackedLongValues {
     }
 
     fn get_value(&self, block: i32, element: i32, _value: i64) -> i64 {
-        let value = if self.sub_long_values.is_some() {
-            self.sub_long_values
-                .as_ref()
-                .unwrap()
-                .get_value(block, element, 0)
-        } else {
-            0
+        let value = match self.sub_long_values.as_ref() {
+            Some(sub) => sub.get_value(block, element, 0),
+            None => 0,
         };
+
         self.values[block as usize].get(element as usize) + value
     }
     pub fn iterator(&self) -> PackedLongValuesIterator {
@@ -286,13 +283,10 @@ impl PackedLongValuesBuilder {
     }
     fn pack_impl(&mut self) -> Result<()> {
         let mut pending = self.pending.take().unwrap();
-        if self.sub_builder.is_some() {
-            self.sub_builder.as_mut().unwrap().pack(
-                &mut pending,
-                self.pending_off,
-                self.values_off,
-            );
+        if let Some(sub_builder) = self.sub_builder.as_mut() {
+            sub_builder.pack(&mut pending, self.pending_off, self.values_off);
         }
+
         self.pack(
             &mut pending,
             self.pending_off,

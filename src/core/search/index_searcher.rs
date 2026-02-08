@@ -575,13 +575,12 @@ where
         <IRC as IndexReaderContext>::LeafReader: 'static,
     {
         let mut weight = query.create_weight(self, &score_mode, boost, term_state)?;
-        if !score_mode.needs_scores() && self.query_cache.is_some() {
-            weight = self
-                .query_cache
-                .as_ref()
-                .unwrap()
-                .do_cache(weight, self.query_caching_policy.clone())
+        if !score_mode.needs_scores()
+            && let Some(query_cache) = self.query_cache.as_ref()
+        {
+            weight = query_cache.do_cache(weight, self.query_caching_policy.clone());
         }
+
         Ok(weight)
     }
 

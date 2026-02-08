@@ -225,12 +225,10 @@ impl FreqProxTermsWriterPerField {
     ) where
         D: Directory,
     {
-        if self.next_per_field.is_some() {
-            self.next_per_field
-                .as_mut()
-                .unwrap()
-                .finish(term_vectors_consumer, meta);
+        if let Some(next_per_field) = self.next_per_field.as_mut() {
+            next_per_field.finish(term_vectors_consumer, meta);
         }
+
         if self.saw_payloads {
             self.field_info
                 .set_store_payloads()
@@ -239,8 +237,8 @@ impl FreqProxTermsWriterPerField {
     }
     pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
         self.base.reset(byte_pool);
-        if self.next_per_field.is_some() {
-            self.next_per_field.as_mut().unwrap().reset(byte_pool);
+        if let Some(next_per_field) = self.next_per_field.as_mut() {
+            next_per_field.reset(byte_pool);
         }
     }
     /// Called once per inverted token. This is the primary entry point (for
@@ -692,15 +690,16 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         self.size = new_size;
         ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
-        if self.last_positions.is_some() {
-            ArrayUtil::grow_exact(self.last_positions.as_mut().unwrap(), new_size)?;
+        if let Some(last_positions) = self.last_positions.as_mut() {
+            ArrayUtil::grow_exact(last_positions, new_size)?;
         }
-        if self.last_offsets.is_some() {
-            ArrayUtil::grow_exact(self.last_offsets.as_mut().unwrap(), new_size)?;
+        if let Some(last_offsets) = self.last_offsets.as_mut() {
+            ArrayUtil::grow_exact(last_offsets, new_size)?;
         }
-        if self.term_freqs.is_some() {
-            ArrayUtil::grow_exact(self.term_freqs.as_mut().unwrap(), new_size)?;
+        if let Some(term_freqs) = self.term_freqs.as_mut() {
+            ArrayUtil::grow_exact(term_freqs, new_size)?;
         }
+
         Ok(())
     }
 }

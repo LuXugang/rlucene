@@ -94,12 +94,10 @@ impl DeltaPackedLongValuesBuilder {
         ))
     }
     pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
-        if self.sub_builder.is_some() {
-            self.sub_builder
-                .as_mut()
-                .unwrap()
-                .pack(values, num_values, block);
+        if let Some(sub_builder) = self.sub_builder.as_mut() {
+            sub_builder.pack(values, num_values, block);
         }
+
         let mut min = values[0];
         for &value in values.iter().take(num_values as usize).skip(1) {
             min = min.min(value);

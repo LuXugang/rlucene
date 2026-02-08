@@ -78,12 +78,11 @@ where
 
         let v = Arc::default();
         let mut arcs = vec![v; 1];
-        {
-            if fr.index.is_some() {
-                fr.index.as_ref().unwrap().get_first_arc(&mut arcs[0]);
-                debug_assert!(arcs[0].is_final())
-            }
+        if let Some(index) = fr.index.as_ref() {
+            index.get_first_arc(&mut arcs[0]);
+            debug_assert!(arcs[0].is_final());
         }
+
         // Create static_frame
         let static_frame = SegmentTermsEnumFrame::new(-1, &fr)?;
 

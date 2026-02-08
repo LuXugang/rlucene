@@ -161,11 +161,8 @@ where
         // Append term vectors to the real outputs:
         match self.sub {
             Some(ref mut sub) => {
-                if sub.writer.is_none() {
-                    sub.writer
-                        .as_mut()
-                        .unwrap()
-                        .start_document(self.num_vector_fields)?;
+                if let Some(writer) = sub.writer.as_mut() {
+                    writer.start_document(self.num_vector_fields)?;
                 }
             },
             None => {

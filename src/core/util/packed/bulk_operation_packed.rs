@@ -107,8 +107,8 @@ where
         mut values_offset: usize,
         iterations: i32,
     ) {
-        if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_u64_to_i64(
+        if let Some(sub_operation) = self.sub_operation.as_ref() {
+            sub_operation.decode_u64_to_i64(
                 blocks,
                 blocks_offset,
                 values,
@@ -117,6 +117,7 @@ where
             );
             return;
         }
+
         let mut bits_left: i32 = 64;
         for _ in 0..(self.long_value_count * iterations) {
             bits_left -= self.bits_per_value;
@@ -146,8 +147,8 @@ where
         mut values_offset: usize,
         iterations: i32,
     ) {
-        if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_u8_to_i64(
+        if let Some(sub_operation) = self.sub_operation.as_ref() {
+            sub_operation.decode_u8_to_i64(
                 blocks,
                 blocks_offset,
                 values,
@@ -195,8 +196,8 @@ where
         mut values_offset: usize,
         iterations: i32,
     ) {
-        if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_u64_to_i32(
+        if let Some(sub_operation) = self.sub_operation.as_ref() {
+            sub_operation.decode_u64_to_i32(
                 blocks,
                 blocks_offset,
                 values,
@@ -205,6 +206,7 @@ where
             );
             return;
         }
+
         debug_assert!(
             self.bits_per_value <= 32,
             "Cannot decode {}-bits values into an int[]",
@@ -244,8 +246,8 @@ where
         mut values_offset: usize,
         iterations: i32,
     ) {
-        if self.sub_operation.is_some() {
-            self.sub_operation.as_ref().unwrap().decode_u8_to_i32(
+        if let Some(sub_operation) = self.sub_operation.as_ref() {
+            sub_operation.decode_u8_to_i32(
                 blocks,
                 blocks_offset,
                 values,
@@ -254,6 +256,7 @@ where
             );
             return;
         }
+
         let mut next_value: i32 = 0;
         let mut bits_left: i32 = self.bits_per_value;
 

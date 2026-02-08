@@ -126,12 +126,8 @@ where
                 read_len = self.max_point_on_heap * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
-                        if self.check_sum_input.is_some() {
-                            self.check_sum_input.as_mut().unwrap().read_bytes(
-                                &mut offline.value[0..read_len],
-                                0,
-                                read_len,
-                            )?;
+                        if let Some(input) = self.check_sum_input.as_mut() {
+                            input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
                         } else {
                             self.input.as_mut().unwrap().read_bytes(
                                 &mut offline.value[0..read_len],
@@ -151,8 +147,8 @@ where
                 read_len = self.count_left * bytes_per_doc;
                 match &mut self.point_value {
                     PointValueEnum::Offline(offline) => {
-                        if self.check_sum_input.is_some() {
-                            self.check_sum_input.as_mut().unwrap().read_bytes(
+                        if let Some(check_sum_input) = self.check_sum_input.as_mut() {
+                            check_sum_input.read_bytes(
                                 &mut offline.value[0..read_len],
                                 0,
                                 read_len,
@@ -197,13 +193,13 @@ where
     I: IndexInput,
 {
     fn drop(&mut self) {
-        if self.count_left == 0 && self.check_sum_input.is_some() && !self.checked {
+        if self.count_left == 0
+            && let Some(check_sum_input) = self.check_sum_input.as_mut()
+            && !self.checked
+        {
             self.checked = true;
-            match CodecUtil::check_footer(self.check_sum_input.as_mut().unwrap()) {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Failed to check footer: {e:?}");
-                },
+            if let Err(e) = CodecUtil::check_footer(check_sum_input) {
+                eprintln!("Failed to check footer: {e:?}");
             }
         }
     }

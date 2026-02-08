@@ -2430,10 +2430,9 @@ where
             self.doc_block_upto += 1;
             let old_doc_id = self.merge_intersects_visitor.doc_ids[index];
 
-            let mapped_doc_id = if self.doc_map.is_none() {
-                old_doc_id
-            } else {
-                self.doc_map.as_ref().unwrap().get(old_doc_id)?
+            let mapped_doc_id = match self.doc_map.as_ref() {
+                None => old_doc_id,
+                Some(doc_map) => doc_map.get(old_doc_id)?,
             };
 
             if mapped_doc_id != -1 {

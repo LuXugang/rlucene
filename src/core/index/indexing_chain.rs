@@ -465,7 +465,7 @@ where
             let mut per_field_index = self.field_hash[bucket];
             while per_field_index >= 0 {
                 let per_field = &mut self.per_fields[per_field_index as usize];
-                if per_field.point_values_writer.is_some() {
+                if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
                     let field_info = per_field.field_info.as_ref().unwrap();
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
                     if field_info.get_point_dimension_count() > 0 {
@@ -474,7 +474,7 @@ where
                             let fmt = index_writer_config.get_codec().points_format();
                             points_writer = Some(fmt.fields_writer(state, info)?);
                         }
-                        per_field.point_values_writer.as_mut().unwrap().flush(
+                        point_values_writer.flush(
                             state.directory,
                             sort_map.clone(),
                             points_writer.as_mut().unwrap(),
@@ -482,6 +482,7 @@ where
                         )?;
                     }
                 }
+
                 per_field.point_values_writer = None;
                 per_field_index = per_field.next;
             }
@@ -739,11 +740,10 @@ where
             for i in 0..field_count {
                 let idx = self.fields[i];
                 let pf = &mut self.per_fields[idx];
-                if pf.field_info.is_none() {
-                    self.initialize_field_info(idx, field_infos, index_writer_config)?;
+                if let Some(field_info) = pf.field_info.as_ref() {
+                    pf.schema.assert_same_schema(field_info)?;
                 } else {
-                    pf.schema
-                        .assert_same_schema(pf.field_info.as_ref().unwrap())?;
+                    self.initialize_field_info(idx, field_infos, index_writer_config)?;
                 }
             }
 

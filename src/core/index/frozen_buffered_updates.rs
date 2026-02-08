@@ -384,6 +384,7 @@ impl FrozenBufferedUpdates {
                         binary_value,
                         is_numeric,
                     );
+                    #[allow(clippy::unnecessary_unwrap)]
                     if seg_state.rld.sort_map.is_some() && segment_private_deletes {
                         // This segment was sorted on flush; we must apply seg-private deletes carefully in this
                         // case:

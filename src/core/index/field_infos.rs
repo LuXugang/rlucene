@@ -538,16 +538,19 @@ impl FieldNumbers {
         is_soft_deletes_field: bool,
     ) -> Result<()> {
         if is_soft_deletes_field {
-            if self.soft_deletes_field_name.is_none() {
-                return Err(LuceneError::illegal_argument(format!(
-                    "this index has [{field_name}] as soft-deletes already but soft-deletes field is not configured in IWC"
-                )));
-            } else if self.soft_deletes_field_name.as_ref().unwrap() != field_name {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot configure [{}] as soft-deletes; this index uses [{}] as soft-deletes already",
-                    self.soft_deletes_field_name.as_ref().unwrap(),
-                    field_name
-                )));
+            match self.soft_deletes_field_name.as_ref() {
+                None => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "this index has [{field_name}] as soft-deletes already but soft-deletes field is not configured in IWC"
+                    )));
+                },
+                Some(existing) if existing != field_name => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "cannot configure [{}] as soft-deletes; this index uses [{}] as soft-deletes already",
+                        existing, field_name
+                    )));
+                },
+                _ => {},
             }
         } else if let Some(ref soft_name) = self.soft_deletes_field_name
             && soft_name == field_name
@@ -561,16 +564,19 @@ impl FieldNumbers {
 
     fn verify_parent_field_name(&self, field_name: &str, is_parent_field: bool) -> Result<()> {
         if is_parent_field {
-            if self.parent_field_name.is_none() {
-                return Err(LuceneError::illegal_argument(format!(
-                    "can't add field [{field_name}] as parent document field; this IndexWriter has no parent document field configured"
-                )));
-            } else if self.parent_field_name.as_ref().unwrap() != field_name {
-                return Err(LuceneError::illegal_argument(format!(
-                    "can't add field [{}] as parent document field; this IndexWriter is configured with [{}] as parent document field",
-                    field_name,
-                    self.parent_field_name.as_ref().unwrap()
-                )));
+            match self.parent_field_name.as_ref() {
+                None => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "can't add field [{field_name}] as parent document field; this IndexWriter has no parent document field configured"
+                    )));
+                },
+                Some(existing) if existing != field_name => {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "can't add field [{}] as parent document field; this IndexWriter is configured with [{}] as parent document field",
+                        field_name, existing
+                    )));
+                },
+                _ => {},
             }
         } else if let Some(ref parent) = self.parent_field_name {
             // this would be the case if the current index has a parent field

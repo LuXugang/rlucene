@@ -433,12 +433,10 @@ impl BytesStartArray for PostingsBytesStartArray {
     }
 
     fn clear(&mut self) {
-        if self.per_field.postings_array.is_some() {
-            let postings_array = self.per_field.postings_array.as_ref().unwrap();
+        if let Some(postings_array) = self.per_field.postings_array.take() {
             let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
             debug_assert!(byte_used <= i64::MAX as usize);
             let _ = self.bytes_used.add_and_get(-(byte_used as i64));
-            self.per_field.postings_array = None;
         }
     }
 

@@ -1535,12 +1535,12 @@ impl TVPostingsEnum {
     }
     fn check_position(&self) -> Result<()> {
         self.check_doc()?;
-        if self.i.is_none() {
-            Err(LuceneError::illegal_state("Position enum not started"))
-        } else if self.i.unwrap() >= self.term_freq {
-            Err(LuceneError::illegal_state("Read past last position"))
-        } else {
-            Ok(())
+        match self.i {
+            None => Err(LuceneError::illegal_state("Position enum not started")),
+            Some(i) if i >= self.term_freq => {
+                Err(LuceneError::illegal_state("Read past last position"))
+            },
+            Some(_) => Ok(()),
         }
     }
 }

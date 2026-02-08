@@ -296,11 +296,11 @@ impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
         };
         let pos = *self.pos.as_ref().unwrap();
         if pos < self.size {
-            self.ord = if self.sort_state.indices.is_none() {
-                self.pos
-            } else {
-                Option::from(self.sort_state.indices.as_ref().unwrap()[pos])
+            self.ord = match self.sort_state.indices.as_ref() {
+                None => self.pos,
+                Some(indices) => Some(indices[pos]),
             };
+
             self.bytes_ref_array.set_bytes_ref(
                 &mut self.spare,
                 &mut self.result,

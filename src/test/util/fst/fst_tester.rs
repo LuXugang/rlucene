@@ -713,8 +713,8 @@ where
         Ok(())
     }
     fn outputs_equal(&self, a: &O::V, b: &O::V) -> bool {
-        if self.sub.is_some() {
-            self.sub.as_ref().unwrap().outputs_equal_impl(a, b)
+        if let Some(sub) = self.sub.as_ref() {
+            sub.outputs_equal_impl(a, b)
         } else {
             *a == *b
         }

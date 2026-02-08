@@ -65,8 +65,7 @@ impl DocsWithFieldSet {
                 "DocsWithFieldSet must not be changed after finish() is called".to_string(),
             ));
         }
-        if self.set.is_some() {
-            let set = self.set.as_mut().unwrap();
+        if let Some(set) = self.set.as_mut() {
             set.ensure_capacity(doc_id as usize);
             set.set(doc_id as usize);
         } else if doc_id != self.cardinality {
@@ -75,6 +74,7 @@ impl DocsWithFieldSet {
             set.set(doc_id as usize);
             self.set = Some(set);
         }
+
         self.last_doc_id = doc_id;
         self.cardinality += 1;
         Ok(())
@@ -103,11 +103,11 @@ impl DocIdSet for DocsWithFieldSet {
                 "DocsWithFieldSet must be call finish() before creating an iterator",
             ));
         }
-        if self.set_iter.is_some() {
+        if let Some(set_iter) = self.set_iter.as_ref() {
             debug_assert!(self.set.is_none());
             debug_assert!(self.cardinality > 0);
             Ok(Some(DocIdSetIteratorEnum2::B(BitSetIterator::new(
-                self.set_iter.as_ref().unwrap().clone(),
+                set_iter.clone(),
                 self.cardinality as i64,
             )?)))
         } else {
