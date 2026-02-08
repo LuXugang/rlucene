@@ -151,6 +151,13 @@ where
         self.reader_context.reader().stored_fields()
     }
 
+    pub fn set_similarity<T>(&mut self, similarity: T)
+    where
+        T: Into<SimilarityEnum>,
+    {
+        self.similarity = Arc::new(similarity.into());
+    }
+
     pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
         let mut inner = self.inner.lock();
         if inner.leaf_slices.is_none() {
