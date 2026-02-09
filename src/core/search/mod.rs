@@ -109,6 +109,8 @@ pub mod filter_scorable;
 pub mod filter_scorer;
 pub mod index_sort_sorted_numeric_doc_values_range_query;
 mod max_score_bulk_scorer;
+pub mod phrase_matcher;
+mod phrase_positions;
 pub mod phrase_query;
 pub mod point_range_query;
 pub(crate) mod req_excl_bulk_scorer;
