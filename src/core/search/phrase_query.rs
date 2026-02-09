@@ -221,11 +221,11 @@ impl QueryBase for PhraseQuery {
             }
         }
 
-        for i in 0..pieces.len() {
+        for (i, piece) in pieces.iter().enumerate() {
             if i > 0 {
                 buffer.push(' ');
             }
-            match &pieces[i] {
+            match piece {
                 None => buffer.push('?'),
                 Some(s) => buffer.push_str(s),
             }
