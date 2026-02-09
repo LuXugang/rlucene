@@ -247,10 +247,10 @@ where
     ///
     /// * `query` — The query to search for
     /// * `n` — Return only the top `n` results
-    /// * `sort` — The [`Sort`] object
+    /// * `sort` — The `Sort` object
     ///
     /// # Returns
-    /// The top docs, sorted according to the supplied [`Sort`] instance.
+    /// The top docs, sorted according to the supplied `Sort` instance.
     ///
     /// # Errors
     /// Returns an error if a low-level I/O error occurs.
@@ -800,7 +800,7 @@ where
 /// Expert: Creates an array of [`LeafSlice`] each holding a subset of the given leaves.
 /// Each [`LeafSlice`] is executed in a single thread.
 ///
-/// By default, segments with more than [`MAX_DOCS_PER_SLICE`] will get their own thread.
+/// By default, segments with more than `MAX_DOCS_PER_SLICE` will get their own thread.
 ///
 ///
 /// It is possible to leverage intra-segment concurrency by splitting segments into multiple
@@ -833,8 +833,8 @@ fn enforce_distinct_leaves(leaf_slice: &LeafSlice) -> Result<()> {
 }
 /// Thrown when an attempt is made to add more than [`get_max_clause_count()`] clauses.
 ///
-/// This typically happens if a [`PrefixQuery`], [`FuzzyQuery`], [`WildcardQuery`],
-/// or [`TermRangeQuery`] is expanded to many terms during search.
+/// This typically happens if a `PrefixQuery`, `FuzzyQuery`, `WildcardQuery`,
+/// or `TermRangeQuery` is expanded to many terms during search.
 pub struct TooManyClauses;
 impl TooManyClauses {
     #[allow(clippy::new_ret_no_self)]

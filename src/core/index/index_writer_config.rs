@@ -195,7 +195,7 @@ pub const DEFAULT_MAX_BUFFERED_DOCS: i32 = DISABLE_AUTO_FLUSH;
 /// Default value is 16 MB (which means flush when buffered docs consume approximately 16 MB RAM).
 pub const DEFAULT_RAM_BUFFER_SIZE_MB: f64 = 16.0;
 
-/// Default setting (true) for [`set_reader_pooling`](Self::set_reader_pooling).
+/// Default setting (true) for `set_reader_pooling`.
 ///
 /// We changed this default to true with concurrent deletes/updates (LUCENE-7868),
 /// because we will otherwise need to open and close segment readers more frequently.
@@ -203,14 +203,14 @@ pub const DEFAULT_RAM_BUFFER_SIZE_MB: f64 = 16.0;
 /// be forced to aggressively move all state to disk.
 pub const DEFAULT_READER_POOLING: bool = true;
 
-/// Default value is 1945. Change using [`set_ram_per_thread_hard_limit_mb`].
+/// Default value is 1945. Change using `set_ram_per_thread_hard_limit_mb`.
 pub const DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB: i32 = 1945;
 
 /// Default value for compound file system for newly written segments (set to `true`).
 /// For batch indexing with very large ram buffers use `false`.
 pub const DEFAULT_USE_COMPOUND_FILE_SYSTEM: bool = true;
 
-/// Default value for whether calls to [`IndexWriter::close`] include a commit.
+/// Default value for whether calls to `IndexWriter::close` include a commit.
 pub const DEFAULT_COMMIT_ON_CLOSE: bool = true;
 
 /// Default value for time to wait for merges on commit or getReader (when using a

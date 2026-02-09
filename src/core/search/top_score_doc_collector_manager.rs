@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 /// Create a [`TopScoreDocCollectorManager`] which uses:
 /// - a shared hit counter to maintain the number of hits, and
-/// - a shared [`MaxScoreAccumulator`] to propagate the minimum score across segments.
+/// - a shared `MaxScoreAccumulator` to propagate the minimum score across segments.
 ///
 ///
 /// # Notes

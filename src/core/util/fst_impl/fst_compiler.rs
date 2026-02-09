@@ -52,7 +52,7 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 ///
 ///
 /// The parameterized type `T` is the output type. See the SubStruct of
-/// [`Outputs`].
+/// `Outputs`.
 ///
 ///
 /// FSTs larger than 2.1GB are now possible (as of Lucene 4.2). FSTs containing
@@ -243,7 +243,7 @@ where
     /// Add the next input/output pair. The provided input must be sorted after
     /// the previous one according to [`IntsRef::cmp`]. It's also OK to add
     /// the same input twice in a row with different outputs, as long as
-    /// [`Outputs`] implements the [`Outputs::merge`] method. Note
+    /// `Outputs` implements the [`Outputs::merge`] method. Note
     /// that input is fully consumed after this method returns (so the caller is
     /// free to reuse), but output is not. So if your outputs are changeable
     /// (e.g. [`ByteSequenceOutputs`](crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
@@ -1076,7 +1076,7 @@ where
     /// - `outputs`: The output type for each input sequence. Applies only when
     ///   building an FST. For FSA, use
     ///   [`NoOutputs::singleton()`](crate::core::util::fst_impl::no_outputs::NoOutputs::get_singleton)
-    ///   and [`NoOutputs::no_output()`](crate::core::util::fst_impl::no_outputs::NoOutputs::get_no_output)
+    ///   and `NoOutputs::no_output()`
     ///   as the singleton output.
     pub fn new(input_type: InputType, outputs: O) -> Self {
         Self {

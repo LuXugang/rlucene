@@ -23,7 +23,7 @@ use crate::core::search::two_phase_iterator::{
 };
 use crate::core::util::error::lucene_error::Result;
 
-/// A Scorer for queries with a required subscorer and an excluding (prohibited) sub [`Scorer`].
+/// A Scorer for queries with a required subscorer and an excluding (prohibited) sub `Scorer`.
 pub struct ReqExclScorer<S1, S2>
 where
     S1: Scorer,

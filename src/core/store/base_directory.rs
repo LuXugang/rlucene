@@ -31,7 +31,7 @@ use std::sync::atomic::Ordering::SeqCst;
 /// # Special Note
 /// This trait could actually be removed because `LockFactory` has been moved to
 /// the implementation of `Directory`,
-/// such as [`FSDirectory`](crate::core::store::fs_directory::FSDirectory). However,
+/// such as `FSDirectory`. However,
 /// it is temporarily retained to maintain consistency with the structure of
 /// Java Lucene.
 pub trait BaseDirectory: Directory {

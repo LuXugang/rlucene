@@ -250,7 +250,7 @@ pub mod directory_reader_util {
         writer.get_reader(apply_all_deletes, write_all_deletes)
     }
 
-    /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given [`IndexCommit`].
+    /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
     ///
     /// # Parameters
     ///
@@ -294,7 +294,7 @@ pub mod directory_reader_util {
         }
         Ok(false)
     }
-    /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given [`IndexCommit`].
+    /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
     ///
     /// This method allows opening indices that were created with a Lucene version older than N-1,
     /// provided that all codecs for this index are available in the classpath and the segment file

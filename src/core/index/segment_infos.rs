@@ -104,7 +104,7 @@ static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| M
 /// - `SegID` is the identifier of the Codec that encoded this segment.
 /// - `CommitUserData` stores an optional user-supplied opaque
 ///   `Map<String,String>` that was passed to
-///   [`IndexWriter::setLiveCommitData`](IndexWriter::set_live_commit_data).
+///   `IndexWriter::setLiveCommitData`.
 /// - `FieldInfosGen` is the generation count of the fieldInfos file. If this is
 ///   `-1`, there are no updates to the fieldInfos in that segment. Anything
 ///   above zero means there are updates to fieldInfos stored by

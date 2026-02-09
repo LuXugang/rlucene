@@ -29,7 +29,7 @@ thread_local! {
 }
 
 pub static SINGLETON: Lazy<PositiveIntOutputs> = Lazy::new(|| PositiveIntOutputs);
-/// An FST [`Outputs`] implementation where each output is a non-negative long
+/// An FST `Outputs` implementation where each output is a non-negative long
 /// value.
 #[derive(Clone, Default)]
 pub struct PositiveIntOutputs;

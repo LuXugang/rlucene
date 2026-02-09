@@ -67,7 +67,7 @@ impl<TPI> ConstantScoreScorer<DummyDISI, TPI>
 where
     TPI: TwoPhaseIterator,
 {
-    /// Constructor based on a [`TwoPhaseIterator`]. In this case the [`Scorer`] will
+    /// Constructor based on a [`TwoPhaseIterator`]. In this case the `Scorer` will
     /// support two-phase iteration.
     ///
     /// # Parameters

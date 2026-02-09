@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 /// Base struct for file-system-based locking implementation.
 /// This struct is explicitly checking that
 /// the passed [`Directory`](crate::core::store::directory::Directory)
-/// is an [`FSDirectory`](crate::core::store::fs_directory::FSDirectory).
+/// is an `FSDirectory`.
 pub trait FSLockFactory: LockFactory {
     /// Returns the default locking implementation for this platform.
     ///

@@ -231,7 +231,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     /// far.
     ///
     /// # Parameters
-    /// - `comp`: An optional [`Comparator`] to specify the order of iteration.
+    /// - `comp`: An optional `Comparator` to specify the order of iteration.
     ///   the iterator will iterate the byte values in the order specified by
     ///   the comparator.
     ///

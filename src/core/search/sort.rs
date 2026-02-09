@@ -22,7 +22,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 /// Encapsulates sort criteria for returned hits.
 ///
-/// A [`Sort`] can be created with an empty constructor, yielding an object
+/// A `Sort` can be created with an empty constructor, yielding an object
 /// that instructs searches to return hits sorted by relevance; or it can be
 /// created with one or more [`SortField`]s.
 ///

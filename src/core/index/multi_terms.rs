@@ -46,7 +46,7 @@ impl<T> MultiTerms<T>
 where
     T: Terms,
 {
-    /// Sole constructor. Use [`Self::get_terms`] instead if possible.
+    /// Sole constructor. Use `Self::get_terms` instead if possible.
     ///
     /// # Parameters
     /// * `subs` – The [`Terms`] instances of all sub-readers.

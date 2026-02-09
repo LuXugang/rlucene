@@ -61,7 +61,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///   block is full. In that case doc IDs do not need to be stored explicitly. This is typically
 ///   faster than both SPARSE and DENSE which is a reason why it is preferable to have all
 ///   documents that have a value for a field using contiguous doc IDs, for instance by using
-///   [`set_index_sort`](crate::core::index::index_writer_config::IndexWriterConfig::set_index_sort) with a sort.
+///   `set_index_sort` with a sort.
 ///
 /// Skipping blocks to arrive at a wanted document is either done on an
 /// iterative basis or by using the jump-table stored at the end of the chain of

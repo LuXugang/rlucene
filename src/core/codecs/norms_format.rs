@@ -26,7 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 /// Encodes/decodes per-document score normalization values.
 pub trait NormsFormat {
     type NormsConsumer<T: IndexOutput>: NormsConsumer;
-    /// Returns a [`NormsConsumer`](crate::core::codecs::norms_consumer::NormsConsumer) to write norms to the index.
+    /// Returns a [`NormsConsumer`] to write norms to the index.
     ///
     /// # Arguments
     /// * `state` - The write state containing segment info, directory, etc.
@@ -40,7 +40,7 @@ pub trait NormsFormat {
         D2: Directory;
 
     type NormsProducer<T: IndexInput>: NormsProducer;
-    /// Returns a [`NormsProducer`](crate::core::codecs::norms_producer::NormsProducer) to read norms from the index.
+    /// Returns a [`NormsProducer`] to read norms from the index.
     ///
     /// # Notes
     /// - By the time this call returns, it **must hold open** any files it will

@@ -1486,7 +1486,7 @@ where
     let doc_map = sorter.sort_with_reader(&reader)?.map(Arc::new);
     wrap_with_doc_map(reader, doc_map, Some(Arc::new(sorter.sort)))
 }
-/// Expert: same as [`wrap_with`] but operates directly on a [`DocMap`].
+/// Expert: same as `wrap_with` but operates directly on a [`DocMap`].
 pub fn wrap_with_doc_map<CR, DM>(
     reader: CR,
     doc_map: Option<DM>,

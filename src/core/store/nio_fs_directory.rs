@@ -24,7 +24,7 @@ use crate::core::store::{BufferedIndexInput, IOContext};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// An implementation of
-/// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)that uses
+/// `FSDirectory` that uses
 /// `std::fs::File` for positional reads, allowing multiple threads to read from
 /// the same file without synchronization.
 ///

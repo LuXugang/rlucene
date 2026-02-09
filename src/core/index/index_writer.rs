@@ -760,13 +760,13 @@ where
     /// Existing documents can be updated to reflect they are no longer current,
     /// while atomically adding new documents at the same time.
     ///
-    /// In contrast to [`update_documents`](Self::update_documents),
+    /// In contrast to `update_documents`,
     /// this method does **not delete** documents in the index matching the given term,
     /// but instead updates them with the specified DocValues fields —
     /// which can be used as a **soft-delete mechanism**.
     ///
     /// See also [`add_documents`](Self::add_documents)
-    /// and [`update_documents`](Self::update_documents).
+    /// and `update_documents`.
     ///
     /// # Returns
     /// The `sequence number` for this operation.
@@ -840,12 +840,12 @@ where
     /// Existing documents can be updated to reflect they are no longer current,
     /// while atomically adding new documents at the same time.
     ///
-    /// In contrast to [`update_document`](Self::update_document),
+    /// In contrast to `update_document`,
     /// this method does **not delete** documents in the index matching the given term,
     /// but instead updates them with the specified DocValues fields —
     /// which can be used as a **soft-delete mechanism**.
     ///
-    /// See also [`add_documents`](Self::add_documents) and [`update_documents`](Self::update_documents).
+    /// See also [`add_documents`](Self::add_documents) and `update_documents`.
     ///
     /// # Returns
     /// The `sequence number` for this operation.
@@ -1593,7 +1593,7 @@ where
     pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
         self.force_merge_with_wait(max_num_segments, true)
     }
-    /// Just like [`IndexWriter::force_merge`], except you can specify whether the call
+    /// Just like `IndexWriter::force_merge`, except you can specify whether the call
     /// should block until all merging completes.
     ///
     /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
@@ -2384,7 +2384,7 @@ where
     ///
     /// Calling this method is considered a **committable change** and will be
     /// [`commit`](Self::commit) committed even if there are no other changes in this writer.
-    /// Note that you must call this method **before** [`prepare_commit`](Self::prepare_commit).
+    /// Note that you must call this method **before** `prepare_commit`.
     /// Otherwise it will not be included in the subsequent [`co,mmit`](Self::commit).
     ///
     ///
@@ -2557,7 +2557,7 @@ where
     /// included in the commit point, and all other operations will not.
     ///
     /// # See also
-    /// [`prepare_commit`](Self::prepare_commit)
+    /// `prepare_commit`
     ///
     /// # Returns
     /// The `sequence number` of the last operation in the commit.

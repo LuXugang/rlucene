@@ -34,7 +34,7 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
-/// [`TermQuery`](crate::core::search::term_query::TermQuery)s, [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)s or other [`BooleanQuery`]s.
+/// [`TermQuery`](crate::core::search::term_query::TermQuery)s, `PhraseQuery`s or other [`BooleanQuery`]s.
 #[derive(Debug, Clone)]
 pub struct BooleanQuery {
     id: Identity,
@@ -916,7 +916,7 @@ impl Builder {
     ///
     /// # Errors
     ///
-    /// Returns [`IndexSearcherError::TooManyClauses`] if the new number of clauses exceeds
+    /// Returns `IndexSearcherError::TooManyClauses` if the new number of clauses exceeds
     /// the maximum clause count.
     pub fn add_clause(&mut self, clause: BooleanClause) -> Result<&mut Self> {
         // We do the final deep check for max clauses count limit during

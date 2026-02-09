@@ -63,9 +63,9 @@ pub mod top_docs_util {
     use crate::core::util::error::lucene_error::Result;
     use crate::core::util::priority_queue::PriorityQueue;
 
-    /// Returns a new [`TopFieldDocs`], containing topN results across the provided [`TopFieldDocs`],
-    /// sorting by the specified [`Sort`]. Each of the [`TopDocs`] must have been sorted by the same
-    /// [`Sort`], and sort field values must have been filled.
+    /// Returns a new `TopFieldDocs`, containing topN results across the provided `TopFieldDocs`,
+    /// sorting by the specified `Sort`. Each of the [`TopDocs`] must have been sorted by the same
+    /// `Sort`, and sort field values must have been filled.
     ///
     /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
     ///

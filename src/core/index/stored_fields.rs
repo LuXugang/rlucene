@@ -41,7 +41,7 @@ pub trait StoredFields: RawStoredFieldsReader {
     /// Optional method: Give a hint to this [`StoredFields`] instance that the
     /// given document will be read in the near future. This typically
     /// delegates to
-    /// [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput::prefetch)
+    /// [`IndexInput::prefetch`]
     /// and is useful to parallelize I/O across multiple documents.
     ///
     /// NOTE: This API is expected to be called on a small enough set of doc IDs

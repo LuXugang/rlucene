@@ -29,16 +29,16 @@ pub type FieldsValue = FieldComparatorValue;
 ///
 /// See also:
 /// - [`ScoreDoc`]
-/// - [`TopFieldDocs`](crate::core::search::top_field_docs::TopFieldDocs)
+/// - `TopFieldDocs`
 #[derive(Clone, Default, Debug)]
 pub struct FieldDoc {
     pub base: ScoreDoc,
     /// Expert: The values which are used to sort the referenced document. The order of these will
-    /// match the original sort criteria given by a [`Sort`] object. Each Object will have been returned
+    /// match the original sort criteria given by a `Sort` object. Each Object will have been returned
     /// from the `value` method corresponding `FieldComparator` used to sort this field.
     ///
     /// See also:
-    /// - [`Sort`]
+    /// - `Sort`
     /// - [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search)
     pub fields: Vec<FieldsValue>,
 }

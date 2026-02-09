@@ -51,7 +51,7 @@ use std::sync::Arc;
 /// Instead, use your own synchronization primitives.
 ///
 /// # See Also
-/// [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)
+/// [`FSDirectory`]
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
 pub trait Directory: Display + Closeable + HasIdentity {

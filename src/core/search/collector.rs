@@ -28,13 +28,13 @@ use crate::core::search::weight::Weight;
 ///
 /// - [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) is an abstract base class that assumes you will retrieve the top N
 ///   docs, according to some criteria, after collection is done.
-/// - [`TopScoreDocCollector`](crate::core::search::top_score_doc_collector::TopScoreDocCollector) is a concrete subclass [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts
+/// - `TopScoreDocCollector` is a concrete subclass [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts
 ///   according to score + docID. This is used internally by the [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search
-///   methods that do not take an explicit [`Sort`](crate::core::index::sort::Sort). It is likely the most frequently used
+///   methods that do not take an explicit `Sort`(crate::core::index::sort::Sort). It is likely the most frequently used
 ///   collector.
 /// - [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) subclasses [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts according to a
-///   specified [`Sort`](crate::core::index::sort::Sort) object (sort by field). This is used internally by the
-///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take an explicit [`Sort`](crate::core::index::sort::Sort).
+///   specified `Sort`(crate::core::index::sort::Sort) object (sort by field). This is used internally by the
+///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take an explicit `Sort`(crate::core::index::sort::Sort).
 /// - [`PositiveScoresOnlyCollector`](crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector) wraps any other Collector and prevents collection of
 ///   hits whose score is <= 0.0
 ///

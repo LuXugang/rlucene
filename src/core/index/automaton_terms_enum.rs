@@ -31,7 +31,7 @@ use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::{SliceCopyOps, StringHelper, ToInt};
 use std::rc::Rc;
 
-/// A [`FilteredTermsEnum`](crate::core::index::filtered_terms_enum::FilteredTermsEnum) that enumerates terms based on what is accepted by a
+/// A [`FilteredTermsEnum`] that enumerates terms based on what is accepted by a
 /// DFA.
 ///
 /// The algorithm works as follows:

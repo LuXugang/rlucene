@@ -34,7 +34,7 @@ pub trait RawTermVectors {
 /// was acquired.
 pub trait TermVectors: RawTermVectors {
     /// Optional method: Give a hint to this [`TermVectors`] instance that the given document will
-    /// be read in the near future. This typically delegates to [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput::prefetch) and is
+    /// be read in the near future. This typically delegates to [`IndexInput::prefetch`] and is
     /// useful to parallelize I/O across multiple documents.
     ///
     /// NOTE: This API is expected to be called on a small enough set of doc IDs that they could all

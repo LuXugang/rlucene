@@ -33,7 +33,7 @@ pub trait IndexReaderContext: IndexReaderContextSealed {
     /// # Error
     ///
     /// Error with `UnsupportedOperationException` if this is not a top-level context.
-    /// [`IndexReaderContext::children`]
+    /// `IndexReaderContext::children`
     fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]>;
 
     fn base(&self) -> &IndexReaderContextBase;

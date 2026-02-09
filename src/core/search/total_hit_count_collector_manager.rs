@@ -19,10 +19,10 @@ use crate::core::search::index_searcher::LeafSlice;
 use crate::core::search::total_hit_count_collector::TotalHitCountCollector;
 
 /// Collector manager based on [`TotalHitCountCollector`] that allows users to parallelize
-/// counting the number of hits, expected to be used mostly wrapped in [`MultiCollectorManager`](crate::core::search::multi_collector_manager::MultiCollectorManager).
+/// counting the number of hits, expected to be used mostly wrapped in `MultiCollectorManager`.
 ///
 /// For cases when this is the only collector manager used, [`IndexSearcher::count(query)`](crate::core::search::index_searcher::IndexSearcher::count)
-/// should be called instead of [`IndexSearcher::search(query, CollectorManager)`](crate::core::search::index_searcher::search) as the former is
+/// should be called instead of `IndexSearcher::search(query, CollectorManager)` as the former is
 /// faster whenever the count can be returned directly from the index statistics.
 pub struct TotalHitCountCollectorManager {
     has_segment_partitions: bool,

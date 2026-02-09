@@ -60,7 +60,7 @@ where
             doc: -1,
         }
     }
-    /// Returns `true` if this instance can be reused by the provided [`MultiTermsEnum`](crate::core::index::multi_terms_enum::MultiTermsEnum).
+    /// Returns `true` if this instance can be reused by the provided `MultiTermsEnum`.
     pub fn can_reuse(&self, other: &Identity) -> bool {
         self.parent == *other
     }

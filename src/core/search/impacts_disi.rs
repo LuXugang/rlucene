@@ -59,7 +59,7 @@ where
 
     /// Set the minimum competitive score.
     ///
-    /// See also [`Scorer::set_min_competitive_score`](crate::core::search::scorer::Scorer::set_min_competitive_score).
+    /// See also `Scorer::set_min_competitive_score`(crate::core::search::scorer::Scorer::set_min_competitive_score).
     pub fn set_min_competitive_score(&mut self, min_competitive_score: f32) {
         debug_assert!(min_competitive_score >= self.min_competitive_score);
         if min_competitive_score > self.min_competitive_score {

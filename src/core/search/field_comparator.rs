@@ -59,7 +59,7 @@ use std::cmp::Ordering;
 /// - `compare` Compare a hit at 'slot a' with hit 'slot b'.
 /// - [`Self::set_top_value`] Called by [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) to notify the comparator of the top most
 ///   value, which is used by future calls to [`LeafFieldComparator::compare_top`].
-/// - [`get_leaf_comparator`] Invoked when the search is switching to the next segment. You may need
+/// - `get_leaf_comparator` Invoked when the search is switching to the next segment. You may need
 ///   to update internal state of the comparator, e.g. retrieving new values from DocValues.
 /// - `value` Return the sort value stored in the specified slot. This is only called at the end of
 ///   the search, in order to populate [`FieldDoc::fields`](crate::core::search::field_doc::FieldDoc) when returning the top results.
@@ -157,8 +157,8 @@ pub trait FieldComparator {
 ///
 /// NOTE: if you are sorting only by descending relevance and then
 /// secondarily by ascending docID, performance is faster using
-/// [`TopScoreDocCollector`](crate::core::search::top_score_doc_collector::TopScoreDocCollector) directly (which [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher) uses
-/// when no [`Sort`] is specified).
+/// `TopScoreDocCollector` directly (which [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher) uses
+/// when no `Sort` is specified).
 pub struct RelevanceComparator {
     pub(crate) scores: Vec<f32>,
     pub(crate) bottom: f32,
@@ -907,7 +907,7 @@ impl FieldComparator for FieldComparatorEnum {
 }
 /// Sorts by field's natural Term sort order.
 ///
-/// All comparisons are done using [`BytesRef::compareTo`],
+/// All comparisons are done using `BytesRef::compareTo`,
 /// which is slow for medium to large result sets but possibly
 /// very fast for very small result sets.
 pub struct TermValComparator {

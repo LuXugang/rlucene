@@ -72,7 +72,7 @@ impl PackedLongValues {
         )
     }
 
-    /// See [`delta_packed_long_values_builder`](DeltaPackedLongValuesBuilder).
+    /// See `delta_packed_long_values_builder`.
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder> {

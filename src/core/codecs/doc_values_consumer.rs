@@ -1135,7 +1135,7 @@ where
 }
 /// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls
 /// [`SortedDocValues::lookup_ord`] or [`SortedSetDocValues::lookup_ord`] on every call to
-/// [`TermsEnum::next`].
+/// `TermsEnum::next`.
 pub struct MergedTermsEnum<TE>
 where
     TE: TermsEnum,

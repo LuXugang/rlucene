@@ -19,9 +19,9 @@ use std::fmt::{Display, Formatter};
 
 /// Query timeout abstraction that controls whether a query should continue or be stopped.
 ///
-/// Can be set to the searcher through [`IndexSearcher::set_timeout`](crate::core::search::index_searcher::IndexSearcher::set_timeout),
+/// Can be set to the searcher through `IndexSearcher::set_timeout`,
 /// in which case bulk scoring will be time-bound.
-/// Can also be used in combination with [`ExitableDirectoryReader`](crate::core::index::exitable_directory_reader::ExitableDirectoryReader).
+/// Can also be used in combination with `ExitableDirectoryReader`.
 pub trait QueryTimeout {
     /// Called to determine whether to stop processing a query.
     ///

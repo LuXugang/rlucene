@@ -25,7 +25,7 @@ pub(crate) const INTERVAL: i32 = 10;
 /// maximum allowed search time limit. After this time is exceeded, the search thread is stopped by
 /// return a [`TimeLimitingBulkError`](crate::core::util::error::TimeExceededError).
 ///
-/// See also [`ExitableDirectoryReader`](crate::core::index::exitable_directory_reader::ExitableDirectoryReader).
+/// See also `ExitableDirectoryReader`.
 pub struct TimeLimitingBulkScorer<'a, BS, QT>
 where
     BS: BulkScorer,

@@ -31,7 +31,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// Creates a [`TopFieldCollectorManager`] which uses a shared hit counter to maintain
-/// the number of hits, and a shared [`MaxScoreAccumulator`] to propagate the minimum
+/// the number of hits, and a shared `MaxScoreAccumulator` to propagate the minimum
 /// score across segments when the primary sort is by relevancy.
 ///
 ///

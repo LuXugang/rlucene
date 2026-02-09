@@ -61,13 +61,13 @@ pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
 /// This method returns a [`MergeSpecification`] describing the set of merges
 /// that should be executed, or `None` if no merges are necessary.
 ///
-/// When [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) is called, it invokes
+/// When `IndexWriter::force_merge`(crate::core::index::index_writer::IndexWriter::force_merge) is called, it invokes
 /// [`Self::find_forced_merges`] and the `MergePolicy` should then return the merges
 /// required to satisfy that request.
 ///
 /// Note that a policy may return more than one merge at a time.
 /// - When using [`SerialMergeScheduler`](crate::core::index::serial_merge_scheduler::SerialMergeScheduler), these merges are run sequentially.
-/// - When using [`ConcurrentMergeScheduler`], they may run concurrently.
+/// - When using `ConcurrentMergeScheduler`, they may run concurrently.
 ///
 /// The default merge policy is [`TieredMergePolicy`].
 pub trait MergePolicy: Display {
@@ -150,17 +150,17 @@ pub trait MergePolicy: Display {
         MC: MergeContext<D>,
         D: Directory;
     /// Identifies merges that we want to execute **synchronously** on commit.
-    /// By default, this will return the same merges as [`find_merges`]
+    /// By default, this will return the same merges as `find_merges`
     /// (“natural merges”) whose segments are all less than the
-    /// [`max_full_flush_merge_size`] (the max segment size for full flushes).
+    /// `max_full_flush_merge_size` (the max segment size for full flushes).
     ///
     /// Any merges returned here will make:
     /// - [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit),
-    /// - [`IndexWriter::prepare_commit`](crate::core::index::index_writer::IndexWriter::prepare_commit) or
-    /// - [`IndexWriter::get_reader`](crate::core::index::index_writer::IndexWriter::get_reader)
+    /// - `IndexWriter::prepare_commit` or
+    /// - `IndexWriter::get_reader`
     ///
     /// block until the merges complete, or until
-    /// [`IndexWriterConfig::get_max_full_flush_merge_wait_millis`](crate::core::index::index_writer_config::IndexWriterConfig::get_max_full_flush_merge_wait_millis) has elapsed.
+    /// `IndexWriterConfig::get_max_full_flush_merge_wait_millis` has elapsed.
     ///
     /// This may be used to merge small segments that have just been flushed,
     /// reducing the number of segments in the point-in-time snapshot. If a merge
@@ -170,7 +170,7 @@ pub trait MergePolicy: Display {
     ///
     /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
     /// that is already included in a registered merge, then
-    /// [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit) or [`IndexWriter::prepare_commit`](crate::core::index::index_writer::IndexWriter::prepare_commit) will throw an
+    /// [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit) or `IndexWriter::prepare_commit` will throw an
     /// error. Use [`MergeContext::get_merging_segments`] to determine which
     /// segments are currently registered to merge.
     ///
@@ -306,7 +306,7 @@ pub trait MergePolicy: Display {
         }
     }
     /// Return the maximum size of segments to be included in full-flush merges
-    /// by the default implementation of [`find_full_flush_merges`].
+    /// by the default implementation of `find_full_flush_merges`.
     fn max_full_flush_merge_size(&self) -> i64 {
         0
     }
@@ -416,7 +416,7 @@ pub trait MergePolicy: Display {
 
     /// Returns `true` if the info-stream is in verbose mode.
     ///
-    /// See [`message`].
+    /// See `message`.
     fn verbose<MC, D>(&self, merge_context: &MC) -> bool
     where
         MC: MergeContext<D>,
@@ -695,7 +695,7 @@ impl MergePolicyBase {
     }
     /// Returns current `noCFSRatio`.
     ///
-    /// See [`set_no_cfs_ratio`].
+    /// See `set_no_cfs_ratio`.
     pub fn get_no_cfs_ratio(&self) -> f64 {
         self.no_cfs_ratio
     }
