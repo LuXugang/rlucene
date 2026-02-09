@@ -167,11 +167,11 @@ impl SegmentTermsEnumFrame {
         self.next_floor_label = self.floor_data_reader.read_byte()? as i32;
         Ok(())
     }
-    pub(crate) fn get_term_block_ord(&mut self) -> i32 {
+    pub(crate) fn get_term_block_ord(&self) -> i32 {
         if self.is_leaf_block {
             self.next_ent
         } else {
-            self.state.get_block_term_state_mut().term_block_ord
+            self.state.get_block_term_state().term_block_ord
         }
     }
     pub(crate) fn load_next_floor_block<I, P>(

@@ -843,12 +843,12 @@ where
 
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
-            &mut self.static_frame
+            &self.static_frame
         } else {
-            &mut self.stack[self.current_frame_idx]
+            &self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame.state.get_block_term_state_mut().doc_freq)
+        Ok(current_frame.state.get_block_term_state().doc_freq)
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
@@ -856,15 +856,12 @@ where
 
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
-            &mut self.static_frame
+            &self.static_frame
         } else {
-            &mut self.stack[self.current_frame_idx]
+            &self.stack[self.current_frame_idx]
         };
 
-        Ok(current_frame
-            .state
-            .get_block_term_state_mut()
-            .total_term_freq)
+        Ok(current_frame.state.get_block_term_state().total_term_freq)
     }
 
     type PostingsEnum = P::PostingsEnum;
