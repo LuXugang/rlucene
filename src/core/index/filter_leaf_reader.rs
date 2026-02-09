@@ -70,6 +70,7 @@ where
 
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterTerms<T>
 where
     T: Terms,

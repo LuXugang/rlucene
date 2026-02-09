@@ -16,7 +16,6 @@
  */
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::filter_numeric_doc_values::FilterNumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum3;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -236,16 +235,14 @@ pub struct FilterNumericDocValuesImpl1<N>
 where
     N: NumericDocValues,
 {
-    base: FilterNumericDocValues<N>,
+    inner: N,
 }
 impl<N> FilterNumericDocValuesImpl1<N>
 where
     N: NumericDocValues,
 {
     pub fn new(inner: N) -> Self {
-        FilterNumericDocValuesImpl1 {
-            base: FilterNumericDocValues::new(inner),
-        }
+        FilterNumericDocValuesImpl1 { inner }
     }
 }
 
@@ -254,7 +251,7 @@ where
     N: NumericDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.base.advance_exact(target)
+        self.inner.advance_exact(target)
     }
 }
 
@@ -263,23 +260,23 @@ where
     N: NumericDocValues,
 {
     fn doc_id(&self) -> i32 {
-        self.base.doc_id()
+        self.inner.doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.base.next_doc()
+        self.inner.next_doc()
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.base.advance(target)
+        self.inner.advance(target)
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.base.advance(target)
+        self.inner.advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.base.cost()
+        self.inner.cost()
     }
 }
 
@@ -288,7 +285,7 @@ where
     N: NumericDocValues,
 {
     fn long_value(&mut self) -> Result<i64> {
-        let v = self.base.long_value()? as i32;
+        let v = self.inner.long_value()? as i32;
         Ok(NumericUtils::sortable_float_bits(v) as i64)
     }
 }
@@ -296,16 +293,14 @@ pub struct FilterNumericDocValuesImpl2<N>
 where
     N: NumericDocValues,
 {
-    base: FilterNumericDocValues<N>,
+    inner: N,
 }
 impl<N> FilterNumericDocValuesImpl2<N>
 where
     N: NumericDocValues,
 {
     pub fn new(inner: N) -> Self {
-        FilterNumericDocValuesImpl2 {
-            base: FilterNumericDocValues::new(inner),
-        }
+        FilterNumericDocValuesImpl2 { inner }
     }
 }
 
@@ -314,7 +309,7 @@ where
     N: NumericDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        self.base.advance_exact(target)
+        self.inner.advance_exact(target)
     }
 }
 
@@ -323,23 +318,23 @@ where
     N: NumericDocValues,
 {
     fn doc_id(&self) -> i32 {
-        self.base.doc_id()
+        self.inner.doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.base.next_doc()
+        self.inner.next_doc()
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
-        self.base.advance(target)
+        self.inner.advance(target)
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.base.advance(target)
+        self.inner.advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.base.cost()
+        self.inner.cost()
     }
 }
 
@@ -348,7 +343,7 @@ where
     N: NumericDocValues,
 {
     fn long_value(&mut self) -> Result<i64> {
-        let v = self.base.long_value()?;
+        let v = self.inner.long_value()?;
         Ok(NumericUtils::sortable_double_bits(v))
     }
 }

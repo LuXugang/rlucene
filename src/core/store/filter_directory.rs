@@ -25,6 +25,7 @@ use std::fmt::{Display, Formatter};
 
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterDirectory<D>
 where
     D: Directory,

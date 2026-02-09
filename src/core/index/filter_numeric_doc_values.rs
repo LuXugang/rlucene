@@ -18,7 +18,9 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-/// Delegates all methods to a wrapped [`NumericDocValues`].
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterNumericDocValues<N> {
     inner: N,
 }

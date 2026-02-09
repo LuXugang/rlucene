@@ -21,6 +21,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterScorer<S> {
     inner: S,
 }
