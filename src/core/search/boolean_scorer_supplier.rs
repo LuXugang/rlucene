@@ -32,7 +32,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
-use crate::core::search::filter_scorer::FilterScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
 use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
@@ -950,16 +949,14 @@ pub struct FilterScorerImpl<S>
 where
     S: Scorer,
 {
-    base: FilterScorer<S>,
+    inner: S,
 }
 impl<S> FilterScorerImpl<S>
 where
     S: Scorer,
 {
     fn new(inner: S) -> Self {
-        Self {
-            base: FilterScorer::new(inner),
-        }
+        Self { inner }
     }
 }
 
@@ -977,44 +974,44 @@ where
     S: Scorer,
 {
     fn doc_id(&mut self) -> Result<i32> {
-        self.base.doc_id()
+        self.inner.doc_id()
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        self.base.iterator()
+        self.inner.iterator()
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        self.base.iterator_mut()
+        self.inner.iterator_mut()
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        let FilterScorerImpl { base } = *self;
+        let FilterScorerImpl { inner: base } = *self;
         Box::new(base).take_iterator()
     }
 
     fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.base.two_phase_iterator()
+        self.inner.two_phase_iterator()
     }
 
     fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.base.two_phase_iterator_mut()
+        self.inner.two_phase_iterator_mut()
     }
 
     fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
     where
         Self: Sized,
     {
-        let FilterScorerImpl { base } = *self;
+        let FilterScorerImpl { inner: base } = *self;
         Box::new(base).take_two_phase_iterator()
     }
 
     fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        self.base.advance_shallow(target)
+        self.inner.advance_shallow(target)
     }
 
     fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
-        self.base.default_advance_shallow(target)
+        self.inner.default_advance_shallow(target)
     }
 
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -1022,11 +1019,11 @@ where
     }
 
     fn default_cost(&mut self) -> Result<i64> {
-        self.base.default_cost()
+        self.inner.default_cost()
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        self.base.has_two_phase_iterator()
+        self.inner.has_two_phase_iterator()
     }
 }
 

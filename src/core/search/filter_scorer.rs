@@ -19,14 +19,8 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
-/// A `FilterScorer` contains another [`Scorer`], which it uses as its basic source of
-/// data, possibly transforming the data along the way or providing additional functionality.
-///
-/// The `FilterScorer` itself simply implements all abstract methods of [`Scorer`] with
-/// versions that forward all calls to the wrapped scorer.
-///
-/// Subclasses of `FilterScorer` may further override some of these methods and may also
-/// provide additional methods and fields.
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub struct FilterScorer<S> {
     inner: S,
 }
