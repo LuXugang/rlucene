@@ -43,7 +43,7 @@ where
     CR: CodecReader,
 {
     merge_state_meta: MergeStateMeta<CR>,
-    base: FilterFields<&'a MultiFields<F>>,
+    inner: &'a MultiFields<F>,
 }
 
 impl<'a, F, CR> MappedMultiFields<'a, F, CR>
@@ -57,10 +57,9 @@ where
         CR: CodecReader,
     {
         let merge_state_meta = merge_state.get_meta();
-        let base = FilterFields::new(multi_fields);
         MappedMultiFields {
             merge_state_meta,
-            base,
+            inner: multi_fields,
         }
     }
 }
@@ -75,13 +74,13 @@ where
         Self: 'a;
 
     fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        self.base.iterator()
+        self.inner.iterator()
     }
 
     type Terms = MappedMultiTerms<<F as Fields>::Terms, CR>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        let terms = self.base.in_.terms(field)?;
+        let terms = self.inner.terms(field)?;
         match terms {
             Some(v) => Ok(Some(MappedMultiTerms::new(
                 field.to_string(),
@@ -93,7 +92,7 @@ where
     }
 
     fn size(&self) -> Result<i32> {
-        self.base.size()
+        self.inner.size()
     }
 }
 

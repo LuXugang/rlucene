@@ -23,7 +23,7 @@ use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::{FilterFields, FilterTermsEnum};
+use crate::core::index::filter_leaf_reader::FilterTermsEnum;
 use crate::core::index::freq_prox_fields::FreqProxFields;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
@@ -170,11 +170,8 @@ where
             .postings_format()
             .fields_consumer(state, info)?;
         if let Some(doc_map) = &sort_map {
-            let mut filter_fields = FilterFieldsImpl::new(
-                FilterFields::new(fields),
-                state.field_infos.clone(),
-                doc_map.clone(),
-            );
+            let mut filter_fields =
+                FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
             consumer.write(&mut filter_fields, &norms)?;
         } else {
             consumer.write(&mut fields, &norms)?;
@@ -211,7 +208,7 @@ where
     F: Fields,
     DM: DocMap + Clone,
 {
-    base: FilterFields<F>,
+    inner: F,
     field_infos: Arc<FieldInfos>,
     doc_map: DM,
 }
@@ -220,9 +217,9 @@ where
     F: Fields,
     DM: DocMap + Clone,
 {
-    pub(crate) fn new(base: FilterFields<F>, field_infos: Arc<FieldInfos>, doc_map: DM) -> Self {
+    pub(crate) fn new(base: F, field_infos: Arc<FieldInfos>, doc_map: DM) -> Self {
         Self {
-            base,
+            inner: base,
             field_infos,
             doc_map,
         }
@@ -240,13 +237,13 @@ where
         DM: 'a;
 
     fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-        self.base.iterator()
+        self.inner.iterator()
     }
 
     type Terms = SortingTerms<F::Terms, DM>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        match self.base.terms(field)? {
+        match self.inner.terms(field)? {
             Some(terms) => {
                 let index_options = self.field_infos.field_info_by_name(field);
                 if index_options.is_none() {
@@ -265,7 +262,7 @@ where
     }
 
     fn size(&self) -> Result<i32> {
-        self.base.size()
+        self.inner.size()
     }
 }
 

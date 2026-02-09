@@ -26,7 +26,9 @@ use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 pub trait FilterLeafReader {}
-/// Base struct for filtering [`Fields`] implementations.
+
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub struct FilterFields<F>
 where
     F: Fields,
