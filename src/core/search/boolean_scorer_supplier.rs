@@ -20,18 +20,13 @@ use crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionB
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_scorer::BooleanScorer;
-use crate::core::search::bulk_scorer::{
-    BulkScorer, BulkScorerEnum2, BulkScorerEnum3, BulkScorerEnum4,
-};
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer;
 use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_scorer::DummyScorer;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
 use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
@@ -42,9 +37,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
-use crate::core::search::scorer::{
-    Scorer, ScorerDisi, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState,
-};
+use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -182,7 +175,7 @@ where
         &mut self,
         mut lead_cost: i64,
         context: &LeafReaderContext<LR>,
-    ) -> Result<GetInternal<SsScorer>> {
+    ) -> Result<QueryWeightSsScorer> {
         // three cases: conjunction, disjunction, or mix
         lead_cost = std::cmp::min(lead_cost, self.cost(context)?);
         let should_empty = self
@@ -226,7 +219,7 @@ where
                 lead_cost,
                 context,
             )?;
-            return Ok(GetInternal::A(v));
+            return Ok(v);
         }
 
         // pure disjunction
@@ -251,7 +244,7 @@ where
                 lead_cost,
                 context,
             )?;
-            return Ok(GetInternal::B(v));
+            return Ok(Box::new(v));
         }
         //
         // // conjunction-disjunction mix:
@@ -291,9 +284,8 @@ where
                 false,
                 context,
             )?;
-            let v =
-                ConjunctionScorer::new(vec![ScorerEnum2::A(req), ScorerEnum2::B(opt)], vec![0, 1])?;
-            Ok(GetInternal::C(v))
+            let v = ConjunctionScorer::new(vec![req, opt], vec![0, 1])?;
+            Ok(Box::new(v))
         } else {
             debug_assert!(self.score_mode.needs_scores());
             let req = Self::excl(
@@ -320,14 +312,14 @@ where
             )?;
 
             let v = ReqOptSumScorer::new(req, opt, self.score_mode)?;
-            Ok(GetInternal::D(v))
+            Ok(Box::new(v))
         }
     }
     #[allow(clippy::type_complexity)]
     fn boolean_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<BooleanScorerType<SsBulkScorer, SsScorer>>> {
+    ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
         let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let num_required = num_must + self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -350,17 +342,17 @@ where
                 return Ok(None);
             }
             match self.optional_bulk_scorer(context)? {
-                Some(v) => BulkScorerEnum3::A(v),
+                Some(v) => v,
                 None => return Ok(None),
             }
         } else if num_must == 0 && num_optional > 1 && self.min_should_match >= 1 {
             match self.filtered_optional_bulk_scorer(context)? {
-                Some(v) => BulkScorerEnum3::B(v),
+                Some(v) => v,
                 None => return Ok(None),
             }
         } else if num_required > 0 && num_optional == 0 && self.min_should_match == 0 {
             match self.required_bulk_scorer(context)? {
-                Some(v) => BulkScorerEnum3::C(v),
+                Some(v) => v,
                 None => return Ok(None),
             }
         } else {
@@ -375,7 +367,7 @@ where
             .map(|v| v.as_mut_slice())
             .unwrap_or(&mut []);
         if prohibited_suppliers.is_empty() {
-            return Ok(Some(BooleanScorerType::A(positive)));
+            return Ok(Some(positive));
         }
 
         let mut prohibited = Vec::with_capacity(prohibited_suppliers.len());
@@ -393,13 +385,13 @@ where
             )?)
         };
         let v = ReqExclBulkScorer::from_scorer(positive, prohibited_scorer)?;
-        Ok(Some(BooleanScorerType::B(v)))
+        Ok(Some(Box::new(v)))
     }
     #[allow(clippy::type_complexity)]
     fn optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<OptionalBulkScorer<SsBulkScorer, SsScorer>>> {
+    ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
         if should_len == 0 {
@@ -407,7 +399,7 @@ where
         } else if should_len == 1 && self.min_should_match <= 1 {
             return match self.subs.get_mut(&Occur::Should).unwrap()[0].bulk_scorer(context)? {
                 None => Ok(None),
-                Some(bs) => return Ok(Some(BulkScorerEnum3::A(bs))),
+                Some(bs) => return Ok(Some(bs)),
             };
         }
 
@@ -416,7 +408,7 @@ where
             for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
                 optional_scorers.push(ss.get(i64::MAX, context)?);
             }
-            let v = BulkScorerEnum3::B(MaxScoreBulkScorer::with_no_filter(
+            let v = Box::new(MaxScoreBulkScorer::with_no_filter(
                 self.max_doc,
                 optional_scorers,
             )?);
@@ -429,7 +421,7 @@ where
         }
 
         let msm = std::cmp::max(1, self.min_should_match);
-        let v = BulkScorerEnum3::C(BooleanScorer::new(
+        let v = Box::new(BooleanScorer::new(
             optional,
             msm as usize,
             self.score_mode.needs_scores(),
@@ -439,7 +431,7 @@ where
     fn filtered_optional_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<FilteredOptionalBulkScorer<SsScorer>>> {
+    ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
         let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
         let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
@@ -475,14 +467,18 @@ where
             ScorerEnum2::B(ConjunctionScorer::new(filters, vec![])?)
         };
 
-        let v = MaxScoreBulkScorer::new(self.max_doc, optional_scorers, Some(filter_scorer))?;
+        let v = Box::new(MaxScoreBulkScorer::new(
+            self.max_doc,
+            optional_scorers,
+            Some(filter_scorer),
+        )?);
         Ok(Some(v))
     }
     #[allow(clippy::type_complexity)]
     fn required_bulk_scorer(
         &mut self,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Option<RequiredBulkScorer<SsBulkScorer, SsScorer>>> {
+    ) -> Result<Option<QueryWeightSsBulkScorer>> {
         let must_len = {
             self.subs
                 .get_mut(&Occur::Must)
@@ -503,26 +499,22 @@ where
         }
 
         if required_cnt == 1 {
-            let scorer = if must_len != 0 {
+            return if must_len != 0 {
                 let must = self.subs.get_mut(&Occur::Must).unwrap();
-                must[0].bulk_scorer(context)?.map(BulkScorerEnum2::A)
+                must[0].bulk_scorer(context)
             } else {
                 let filter = self.subs.get_mut(&Occur::Filter).unwrap();
                 if self.score_mode.needs_scores() {
                     match filter[0].bulk_scorer(context)? {
-                        None => return Err(LuceneError::illegal_state("bulk_scorer is None"))?,
+                        None => Err(LuceneError::illegal_state("bulk_scorer is None"))?,
                         Some(s) => {
                             let v = disable_scoring(s);
-                            Some(BulkScorerEnum2::B(v))
+                            Ok(Some(Box::new(v)))
                         },
                     }
                 } else {
-                    filter[0].bulk_scorer(context)?.map(BulkScorerEnum2::A)
+                    filter[0].bulk_scorer(context)
                 }
-            };
-            return match scorer {
-                Some(v) => Ok(Some(RequiredBulkScorer::A(v))),
-                None => Ok(None),
             };
         }
 
@@ -592,9 +584,10 @@ where
                         Box::new(filter_scorer).take_iterator(),
                     )));
                 }
-                return Ok(Some(RequiredBulkScorer::B(
-                    BlockMaxConjunctionBulkScorer::new(self.max_doc, wrap_required_scoring)?,
-                )));
+                return Ok(Some(Box::new(BlockMaxConjunctionBulkScorer::new(
+                    self.max_doc,
+                    wrap_required_scoring,
+                )?)));
             }
         }
 
@@ -618,14 +611,13 @@ where
             }
 
             if all_scoring_no_two_phase && all_no_scoring_no_two_phase {
-                return Ok(Some(RequiredBulkScorer::C(ConjunctionBulkScorer::new(
+                return Ok(Some(Box::new(ConjunctionBulkScorer::new(
                     required_scoring,
                     required_no_scoring,
                 )?)));
             }
         }
 
-        // fallback to scorer-based bulk scorer
         let mut required_scoring =
             if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
                 let v = BlockMaxConjunctionScorer::new(required_scoring)?;
@@ -633,9 +625,8 @@ where
             } else {
                 required_scoring.into_iter().map(ScorerEnum2::A).collect()
             };
-        #[allow(clippy::type_complexity)]
         let mut required_no_scoring: Vec<
-            ScorerEnum2<SsScorer, BlockMaxConjunctionScorer<SsScorer>>,
+            ScorerEnum2<QueryWeightSsScorer, BlockMaxConjunctionScorer<QueryWeightSsScorer>>,
         > = required_no_scoring
             .into_iter()
             .map(ScorerEnum2::A)
@@ -670,24 +661,18 @@ where
             ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
         };
 
-        Ok(Some(RequiredBulkScorer::D(DefaultBulkScorer::new(
-            conjunction_scorer,
-        ))))
+        Ok(Some(Box::new(DefaultBulkScorer::new(conjunction_scorer))))
     }
     /// Create a new scorer for the given required clauses.
     /// Note that requiredScoring is a subset of required containing required clauses that should participate in scoring.
-    fn req<SS>(
-        required_no_scoring: &mut [SS],
-        required_scoring: &mut [SS],
+    fn req(
+        required_no_scoring: &mut [QueryWeightSs<LR>],
+        required_scoring: &mut [QueryWeightSs<LR>],
         lead_cost: i64,
         top_level_scoring_clause: bool,
         context: &LeafReaderContext<LR>,
         score_mode: &ScoreMode,
-    ) -> Result<Req<<SS as ScorerSupplier<LR>>::Scorer>>
-    where
-        SS: ScorerSupplier<LR>,
-        <SS as ScorerSupplier<LR>>::Scorer: 'static,
-    {
+    ) -> Result<QueryWeightSsScorer> {
         if required_no_scoring.len() + required_scoring.len() == 1 {
             let req = if required_no_scoring.is_empty() {
                 required_scoring[0].get(lead_cost, context)?
@@ -696,17 +681,17 @@ where
             };
 
             if !score_mode.needs_scores() {
-                return Ok(Req::A(req));
+                return Ok(req);
             }
 
             if required_scoring.is_empty() {
                 // Scores are needed but we only have a filter clause
                 // BooleanWeight expects that calling score() is ok so we need to wrap
                 // to prevent score() from being propagated
-                return Ok(Req::B(FilterScorerImpl::new(req)));
+                return Ok(Box::new(FilterScorerImpl::new(req)));
             }
 
-            return Ok(Req::A(req));
+            return Ok(req);
         }
 
         let mut required_scorers =
@@ -727,7 +712,7 @@ where
         {
             let block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
             if required_scorers.is_empty() {
-                return Ok(Req::C(block_max_scorer));
+                return Ok(Box::new(block_max_scorer));
             } else {
                 required_scorers.push(ScorerEnum2::B(block_max_scorer));
             }
@@ -741,41 +726,32 @@ where
             scoring_scorers_idx
         };
         let v = ConjunctionScorer::new(required_scorers, scoring_scorers_idx)?;
-        Ok(Req::D(v))
+        Ok(Box::new(v))
     }
-    fn excl<S, SS>(
-        main: S,
-        prohibited: &mut [SS],
+    fn excl(
+        main: QueryWeightSsScorer,
+        prohibited: &mut [QueryWeightSs<LR>],
         lead_cost: i64,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Excl<S, Opt<<SS as ScorerSupplier<LR>>::Scorer>>>
-    where
-        S: Scorer,
-        SS: ScorerSupplier<LR>,
-        <SS as ScorerSupplier<LR>>::Scorer: 'static,
-    {
+    ) -> Result<QueryWeightSsScorer> {
         if prohibited.is_empty() {
-            Ok(Excl::A(main))
+            Ok(main)
         } else {
             let opt = Self::opt(prohibited, 1, CompleteNoScores, lead_cost, false, context)?;
-            Ok(Excl::B(ReqExclScorer::new(main, opt)?))
+            Ok(Box::new(ReqExclScorer::new(main, opt)?))
         }
     }
 
-    fn opt<SS>(
-        optional: &mut [SS],
+    fn opt(
+        optional: &mut [QueryWeightSs<LR>],
         min_should_match: i32,
         score_mode: ScoreMode,
         lead_cost: i64,
         top_level_scoring_clause: bool,
         context: &LeafReaderContext<LR>,
-    ) -> Result<Opt<<SS as ScorerSupplier<LR>>::Scorer>>
-    where
-        SS: ScorerSupplier<LR>,
-        <SS as ScorerSupplier<LR>>::Scorer: 'static,
-    {
+    ) -> Result<QueryWeightSsScorer> {
         if optional.len() == 1 {
-            return Ok(Opt::A(optional[0].get(lead_cost, context)?));
+            return optional[0].get(lead_cost, context);
         }
 
         let mut optional_scorers = Vec::with_capacity(optional.len());
@@ -789,78 +765,26 @@ where
         //
         // However, as WANDScorer uses more complex algorithm and data structure, we would like to
         // still use DisjunctionSumScorer to handle exhaustive pure disjunctions, which may be faster
-        let v = if (score_mode == ScoreMode::TopScores && top_level_scoring_clause)
-            || min_should_match > 1
+        if (score_mode == ScoreMode::TopScores && top_level_scoring_clause) || min_should_match > 1
         {
-            Opt::B(WANDScorer::new(
+            Ok(Box::new(WANDScorer::new(
                 optional_scorers,
                 min_should_match,
                 score_mode,
                 lead_cost,
-            )?)
+            )?))
         } else {
-            Opt::C(DisjunctionScorer::new(
+            Ok(Box::new(DisjunctionScorer::new(
                 optional_scorers,
                 score_mode,
                 DisjunctionSumScorer,
-            )?)
-        };
-        Ok(v)
+            )?))
+        }
     }
 }
-pub type SsScorer = QueryWeightSsScorer;
-pub type SsBulkScorer = QueryWeightSsBulkScorer;
-pub type Excl<S1, S2> = ScorerEnum2<S1, ReqExclScorer<S1, S2>>;
-pub type Opt<S> = ScorerEnum3<S, WANDScorer<S>, DisjunctionScorer<S, DisjunctionSumScorer>>;
-pub type Req<S> = ScorerEnum4<
-    S,
-    FilterScorerImpl<S>,
-    BlockMaxConjunctionScorer<S>,
-    ConjunctionScorer<ScorerEnum2<S, BlockMaxConjunctionScorer<S>>>,
->;
 
-pub type OptionalBulkScorer<BS, S> =
-    BulkScorerEnum3<BS, MaxScoreBulkScorer<S, DummyScorer>, BooleanScorer<S>>;
 pub type FilteredOptionalBulkScorer<S> =
     MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
-pub type RequiredBulkScorer<BS, S> = BulkScorerEnum4<
-    BulkScorerEnum2<BS, BulkScorerImpl<BS>>,
-    BlockMaxConjunctionBulkScorer<
-        ScorerEnum2<S, ConstantScoreScorer<ScorerDisi, DummyTwoPhaseIterator>>,
-    >,
-    ConjunctionBulkScorer<S>,
-    DefaultBulkScorer<
-        ScorerEnum3<
-            S,
-            FilterScorerImpl<S>,
-            ConjunctionScorer<ScorerEnum2<S, BlockMaxConjunctionScorer<S>>>,
-        >,
-    >,
->;
-
-pub type GetInternal<S> = ScorerEnum4<
-    Excl<Req<S>, Opt<S>>,
-    Excl<Opt<S>, Opt<S>>,
-    ConjunctionScorer<ScorerEnum2<Excl<Req<S>, Opt<S>>, Opt<S>>>,
-    ReqOptSumScorer<Excl<Req<S>, Opt<S>>, Opt<S>>,
->;
-pub type GetInternalDisi = ScorerDisi;
-pub type GetInternalTpi = Box<dyn TwoPhaseIterator>;
-pub type GetType<S> = ScorerEnum2<
-    GetInternal<S>,
-    ScorerEnum2<
-        ConstantScoreScorer<DummyDISI, GetInternalTpi>,
-        ConstantScoreScorer<GetInternalDisi, DummyTwoPhaseIterator>,
-    >,
->;
-pub type BooleanScorerPositive<BS, S> = BulkScorerEnum3<
-    OptionalBulkScorer<BS, S>,
-    FilteredOptionalBulkScorer<S>,
-    RequiredBulkScorer<BS, S>,
->;
-pub type BooleanScorerProhibited<S> = ScorerEnum2<S, DisjunctionScorer<S, DisjunctionSumScorer>>;
-pub type BooleanScorerType<BS, S> =
-    BulkScorerEnum2<BooleanScorerPositive<BS, S>, ReqExclBulkScorer<BooleanScorerPositive<BS, S>>>;
 
 impl<LR> ScorerSupplier<LR> for BooleanScorerSupplier<LR>
 where
@@ -888,19 +812,27 @@ where
             if should_empty && must_empty {
                 // no scoring clauses but scores are needed so we wrap the scorer in
                 // a constant score in order to allow early termination
-                let v = if scorer.two_phase_iterator().is_some() {
-                    let tpi = Box::new(scorer).take_two_phase_iterator().unwrap();
-                    ScorerEnum2::A(ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi))
+                if scorer.two_phase_iterator().is_some() {
+                    let tpi = match Box::new(scorer).take_two_phase_iterator() {
+                        Some(v) => v,
+                        None => return Err(LuceneError::illegal_state("already taken?")),
+                    };
+                    return Ok(Box::new(ConstantScoreScorer::from_tpi(
+                        0.0,
+                        self.score_mode,
+                        tpi,
+                    )));
                 } else {
                     let disi = Box::new(scorer).take_iterator();
-                    ScorerEnum2::B(ConstantScoreScorer::from_disi(0.0, self.score_mode, disi))
+                    return Ok(Box::new(ConstantScoreScorer::from_disi(
+                        0.0,
+                        self.score_mode,
+                        disi,
+                    )));
                 };
-                let v: QueryWeightSsScorer = Box::new(GetType::<SsScorer>::B(v));
-                return Ok(v);
             }
         }
-        let v: QueryWeightSsScorer = Box::new(GetType::<SsScorer>::A(scorer));
-        Ok(v)
+        Ok(scorer)
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
@@ -1118,822 +1050,880 @@ where
 }
 #[cfg(test)]
 mod tests {
-    // use std::collections::HashMap;
-    //
-    // use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-    // use rand::Rng;
-    // use rand::prelude::IndexedRandom;
-    //
-    // use crate::core::index::leaf_reader_context::LeafReaderContext;
-    // use crate::core::search::boolean_clause::Occur;
-    // use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
-    // use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    // use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
-    // use crate::core::search::dummy::dummy_scorable::DummyScorable;
-    // use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
-    // use crate::core::search::scorable::Scorable;
-    // use crate::core::search::score_mode::ScoreMode;
-    // use crate::core::search::scorer::{Scorer, TwoPhaseState};
-    // use crate::core::search::scorer_supplier::ScorerSupplier;
-    // use crate::core::search::weight::DefaultBulkScorer;
-    // use crate::core::util::error::lucene_error::{LuceneError, Result};
-    // use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use std::any::Any;
+    use std::collections::HashMap;
 
-    // #[allow(dead_code)] // for quick search
-    // struct TestBoolean2ScorerSupplier;
-    //
-    // struct FakeScorer {
-    //     it: AllDISI,
-    // }
-    // impl FakeScorer {
-    //     fn new(cost: i64) -> Self {
-    //         let it = AllDISI::new(cost as i32);
-    //         Self { it }
-    //     }
-    // }
-    //
-    // impl Scorable for FakeScorer {
-    //     fn score(&mut self) -> Result<f32> {
-    //         Ok(1f32)
-    //     }
-    //
-    //     type Scorable = DummyScorable;
-    // }
-    //
-    // impl Scorer for FakeScorer {
-    //     type DocIdSetIterator = AllDISI;
-    //     type DocIdSetIteratorRef<'a>
-    //         = &'a AllDISI
-    //     where
-    //         Self: 'a;
-    //     type DocIdSetIteratorMut<'a>
-    //         = &'a mut AllDISI
-    //     where
-    //         Self: 'a;
-    //     type TwoPhaseIter = DummyTwoPhaseIterator;
-    //     type TwoPhaseIterRef<'a>
-    //         = DummyTwoPhaseIterator
-    //     where
-    //         Self: 'a;
-    //     type TwoPhaseIterMut<'a>
-    //         = DummyTwoPhaseIterator
-    //     where
-    //         Self: 'a;
-    //
-    //     fn doc_id(&mut self) -> Result<i32> {
-    //         Ok(self.it.doc_id())
-    //     }
-    //
-    //     fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    //         &self.it
-    //     }
-    //
-    //     fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    //         &mut self.it
-    //     }
-    //
-    //     fn take_iterator(self) -> Self::DocIdSetIterator {
-    //         self.it
-    //     }
-    //
-    //     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
-    //         Ok(1f32)
-    //     }
-    //
-    //     fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    //         TwoPhaseState::No
-    //     }
-    // }
-    // #[derive(Clone)]
-    // struct FakeScorerSupplier {
-    //     cost: i64,
-    //     lead_cost: Option<i64>,
-    //     top_level_scoring_clause: bool,
-    // }
-    // impl FakeScorerSupplier {
-    //     fn new(cost: i64) -> Self {
-    //         Self {
-    //             cost,
-    //             lead_cost: None,
-    //             top_level_scoring_clause: false,
-    //         }
-    //     }
-    //     fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> Self {
-    //         Self {
-    //             cost,
-    //             lead_cost,
-    //             top_level_scoring_clause: false,
-    //         }
-    //     }
-    // }
-    // impl ScorerSupplier<DummyLeafReader> for FakeScorerSupplier {
-    //     type Scorer = FakeScorer;
-    //     type BulkScorer = DefaultBulkScorer<Self::Scorer>;
-    //
-    //     fn get(
-    //         &mut self,
-    //         lead_cost: i64,
-    //         _context: &LeafReaderContext<DummyLeafReader>,
-    //     ) -> Result<Self::Scorer> {
-    //         if let Some(v) = self.lead_cost
-    //             && v != lead_cost
-    //         {
-    //             return Err(LuceneError::illegal_state("triggers assert"));
-    //         }
-    //         Ok(FakeScorer::new(self.cost))
-    //     }
-    //
-    //     fn bulk_scorer(
-    //         &mut self,
-    //         context: &LeafReaderContext<DummyLeafReader>,
-    //     ) -> Result<Option<Self::BulkScorer>> {
-    //         Ok(Some(self.default_bulk_scorer(context)?))
-    //     }
-    //
-    //     fn cost(&mut self, _context: &LeafReaderContext<DummyLeafReader>) -> Result<i64> {
-    //         Ok(self.cost)
-    //     }
-    //
-    //     fn set_top_level_scoring_clause(&mut self) -> Result<()> {
-    //         self.top_level_scoring_clause = true;
-    //         Ok(())
-    //     }
-    // }
-    // #[test]
-    // fn test_conjunction_cost() -> Result<()> {
-    //     let mut random = random();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //     {
-    //         let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
-    //         subs.get_mut(&occur)
-    //             .unwrap()
-    //             .push(FakeScorerSupplier::new(42));
-    //
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         assert_eq!(42, supplier.cost(&dummy_lrc)?);
-    //     }
-    //
-    //     {
-    //         let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
-    //         subs.get_mut(&occur)
-    //             .unwrap()
-    //             .push(FakeScorerSupplier::new(12));
-    //
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         assert_eq!(12, supplier.cost(&dummy_lrc)?);
-    //     }
-    //
-    //     {
-    //         let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
-    //         subs.get_mut(&occur)
-    //             .unwrap()
-    //             .push(FakeScorerSupplier::new(20));
-    //
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         assert_eq!(12, supplier.cost(&dummy_lrc)?);
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_disjunction_cost() -> Result<()> {
-    //     let mut random = random();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(42));
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         assert_eq!(42, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42, scorer.iterator().cost()?);
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(12));
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42 + 12, scorer.iterator().cost()?);
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(20));
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_disjunction_with_min_should_match_cost() -> Result<()> {
-    //     let mut random = random();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(42));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(12));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 1, 100)?;
-    //         assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42 + 12, scorer.iterator().cost()?);
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(20));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 1, 100)?;
-    //         assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
-    //     }
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 2, 100)?;
-    //         assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(12 + 20, scorer.iterator().cost()?);
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::new(30));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 1, 100)?;
-    //         assert_eq!(42 + 12 + 20 + 30, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(42 + 12 + 20 + 30, scorer.iterator().cost()?);
-    //     }
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 2, 100)?;
-    //         assert_eq!(12 + 20 + 30, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(12 + 20 + 30, scorer.iterator().cost()?);
-    //     }
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
-    //         assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
-    //
-    //         let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
-    //         assert_eq!(12 + 20, scorer.iterator().cost()?);
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_duel_cost() -> Result<()> {
-    //     let mut random = random();
-    //     let iters = at_least(&mut random, 1000);
-    //
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     for _ in 0..iters {
-    //         let mut subs = HashMap::new();
-    //         for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //             subs.insert(occur, Vec::new());
-    //         }
-    //
-    //         let mut num_shoulds = 0;
-    //         let mut num_required = 0;
-    //
-    //         let num_clauses = random.random_range(1..=10);
-    //         for _ in 0..num_clauses {
-    //             let occur = *Occur::values().choose(&mut random).unwrap();
-    //             subs.get_mut(&occur)
-    //                 .unwrap()
-    //                 .push(FakeScorerSupplier::new(random.random_range(0..100)));
-    //
-    //             if occur == Occur::Should {
-    //                 num_shoulds += 1;
-    //             } else if occur == Occur::Filter || occur == Occur::Must {
-    //                 num_required += 1;
-    //             }
-    //         }
-    //
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         if !score_mode.needs_scores() && num_required > 0 {
-    //             num_shoulds = 0;
-    //             subs.get_mut(&Occur::Should).unwrap().clear();
-    //         }
-    //
-    //         if num_shoulds + num_required == 0 {
-    //             continue;
-    //         }
-    //
-    //         let min_should_match = if num_shoulds == 0 {
-    //             0
-    //         } else {
-    //             random.random_range(0..num_shoulds)
-    //         };
-    //
-    //         let mut supplier =
-    //             BooleanScorerSupplier::new(subs, score_mode, min_should_match as i32, 100)?;
-    //
-    //         let cost1 = supplier.cost(&dummy_lrc)?;
-    //         let scorer = supplier.get(i64::MAX, &dummy_lrc)?;
-    //         let cost2 = scorer.iterator().cost()?;
-    //
-    //         assert_eq!(cost1, cost2);
-    //     }
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_fake_scorer_supplier() {
-    //     let mut random = random();
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut random_access_supplier =
-    //         FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(30));
-    //     assert!(random_access_supplier.get(70, &dummy_lrc).is_err());
-    //
-    //     let mut sequential_supplier =
-    //         FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(70));
-    //     assert!(sequential_supplier.get(30, &dummy_lrc).is_err());
-    // }
-    // #[test]
-    // fn test_conjunction_lead_cost() -> Result<()> {
-    //     let mut random = random();
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(12)));
-    //     subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(12)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         let _ = supplier.get(i64::MAX, &dummy_lrc)?;
-    //     }
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(7)));
-    //     subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(7)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         let _ = supplier.get(7, &dummy_lrc)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_disjunction_lead_cost() -> Result<()> {
-    //     let mut random = random();
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(54)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(54)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should).unwrap().clear();
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(20)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         let _ = supplier.get(20, &dummy_lrc)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_disjunction_with_min_should_match_lead_cost() -> Result<()> {
-    //     let mut random = random();
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     // minShouldMatch is 2 so the 2 least costly clauses will lead iteration
-    //     // and their cost will be 30+12=42
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(50, Some(42)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(42)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     // If the leadCost is less than the msm cost, then it wins
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(20)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(20)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-    //         let _ = supplier.get(20, &dummy_lrc)?;
-    //     }
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(62)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(62)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(62)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(20, Some(62)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(32)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(12, Some(32)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(32)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(20, Some(32)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_prohibited_lead_cost() -> Result<()> {
-    //     let mut random = random();
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
-    //         subs.insert(occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
-    //     subs.get_mut(&Occur::MustNot)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must).unwrap().clear();
-    //     subs.get_mut(&Occur::MustNot).unwrap().clear();
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
-    //     subs.get_mut(&Occur::MustNot)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(80, Some(42)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs.clone(), score_mode, 0, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must).unwrap().clear();
-    //     subs.get_mut(&Occur::MustNot).unwrap().clear();
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
-    //     subs.get_mut(&Occur::MustNot)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(20)));
-    //
-    //     {
-    //         let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
-    //         let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
-    //         let _ = supplier.get(20, &dummy_lrc)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    // #[test]
-    // fn test_mixed_lead_cost() -> Result<()> {
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
-    //
-    //     {
-    //         let mut supplier =
-    //             BooleanScorerSupplier::new(subs.clone(), ScoreMode::Complete, 0, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must).unwrap().clear();
-    //     subs.get_mut(&Occur::Should).unwrap().clear();
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(80, Some(42)));
-    //
-    //     {
-    //         let mut supplier =
-    //             BooleanScorerSupplier::new(subs.clone(), ScoreMode::Complete, 0, 100)?;
-    //         let _ = supplier.get(100, &dummy_lrc)?;
-    //     }
-    //
-    //     subs.get_mut(&Occur::Must).unwrap().clear();
-    //     subs.get_mut(&Occur::Should).unwrap().clear();
-    //     subs.get_mut(&Occur::Must)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
-    //     subs.get_mut(&Occur::Should)
-    //         .unwrap()
-    //         .push(FakeScorerSupplier::with_lead_cost(80, Some(20)));
-    //
-    //     {
-    //         let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
-    //         let _ = supplier.get(20, &dummy_lrc)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_disjunction_top_level_scoring_clause() -> Result<()> {
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Should).unwrap().push(clause1);
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Should).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     supplier.set_top_level_scoring_clause()?;
-    //
-    //     assert!(!supplier.subs.get(&Occur::Should).unwrap()[0].top_level_scoring_clause);
-    //     assert!(!supplier.subs.get(&Occur::Should).unwrap()[1].top_level_scoring_clause);
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_conjunction_top_level_scoring_clause() -> Result<()> {
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Must).unwrap().push(clause1);
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Must).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     supplier.set_top_level_scoring_clause()?;
-    //
-    //     assert!(!supplier.subs.get(&Occur::Must).unwrap()[0].top_level_scoring_clause);
-    //     assert!(!supplier.subs.get(&Occur::Must).unwrap()[1].top_level_scoring_clause);
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_filter_top_level_scoring_clause() -> Result<()> {
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Filter).unwrap().push(clause1);
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Filter).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     supplier.set_top_level_scoring_clause()?;
-    //
-    //     assert!(!supplier.subs.get(&Occur::Filter).unwrap()[0].top_level_scoring_clause);
-    //     assert!(!supplier.subs.get(&Occur::Filter).unwrap()[1].top_level_scoring_clause);
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_single_must_scoring_clause() -> Result<()> {
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Must).unwrap().push(clause1);
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Filter).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     supplier.set_top_level_scoring_clause()?;
-    //
-    //     assert!(supplier.subs.get(&Occur::Must).unwrap()[0].top_level_scoring_clause);
-    //     assert!(!supplier.subs.get(&Occur::Filter).unwrap()[0].top_level_scoring_clause);
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_single_should_scoring_clause() -> Result<()> {
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Should).unwrap().push(clause1);
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::MustNot).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     supplier.set_top_level_scoring_clause()?;
-    //
-    //     assert!(supplier.subs.get(&Occur::Should).unwrap()[0].top_level_scoring_clause);
-    //     assert!(!supplier.subs.get(&Occur::MustNot).unwrap()[0].top_level_scoring_clause);
-    //
-    //     Ok(())
-    // }
-    //
-    // #[test]
-    // fn test_max_score_non_top_level_scoring_clause() -> Result<()> {
-    //     let dummy_lrc = LeafReaderContext::dummy_lrc();
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Must).unwrap().push(clause1);
-    //     subs.get_mut(&Occur::Must).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs.clone(), ScoreMode::TopScores, 0, 100)?;
-    //     let mut scorer = supplier.get(10, &dummy_lrc)?;
-    //     assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
-    //
-    //     let mut subs = HashMap::new();
-    //     for occur in Occur::values() {
-    //         subs.insert(*occur, Vec::new());
-    //     }
-    //
-    //     let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
-    //     subs.get_mut(&Occur::Should).unwrap().push(clause1);
-    //     subs.get_mut(&Occur::Should).unwrap().push(clause2);
-    //
-    //     let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
-    //     let mut scorer = supplier.get(10, &dummy_lrc)?;
-    //     assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
-    //
-    //     Ok(())
-    // }
+    use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
+    use rand::Rng;
+    use rand::prelude::IndexedRandom;
+
+    use crate::core::index::leaf_reader_context::LeafReaderContext;
+    use crate::core::search::boolean_clause::Occur;
+    use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
+    use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+    use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
+    use crate::core::search::scorable::Scorable;
+    use crate::core::search::score_mode::ScoreMode;
+    use crate::core::search::scorer::{Scorer, TwoPhaseState};
+    use crate::core::search::scorer_supplier::ScorerSupplier;
+
+    use crate::core::util::error::lucene_error::{LuceneError, Result};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+
+    #[allow(dead_code)] // for quick search
+    struct TestBoolean2ScorerSupplier;
+
+    struct FakeScorer {
+        it: AllDISI,
+    }
+    impl FakeScorer {
+        fn new(cost: i64) -> Self {
+            let it = AllDISI::new(cost as i32);
+            Self { it }
+        }
+    }
+
+    impl Scorable for FakeScorer {
+        fn score(&mut self) -> Result<f32> {
+            Ok(1f32)
+        }
+    }
+
+    impl Scorer for FakeScorer {
+        fn doc_id(&mut self) -> Result<i32> {
+            Ok(self.it.doc_id())
+        }
+
+        fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&self.it)
+        }
+
+        fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&mut self.it)
+        }
+
+        fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+            let FakeScorer { it, .. } = *self;
+            Box::new(it)
+        }
+
+        fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
+            Ok(1f32)
+        }
+
+        fn has_two_phase_iterator(&self) -> TwoPhaseState {
+            TwoPhaseState::No
+        }
+    }
+    #[derive(Clone)]
+    struct FakeScorerSupplier {
+        cost: i64,
+        lead_cost: Option<i64>,
+        top_level_scoring_clause: bool,
+    }
+    impl FakeScorerSupplier {
+        #[allow(clippy::new_ret_no_self)]
+        fn new(cost: i64) -> QueryWeightSs<DummyLeafReader> {
+            let v = Self {
+                cost,
+                lead_cost: None,
+                top_level_scoring_clause: false,
+            };
+            Box::new(v)
+        }
+        fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> QueryWeightSs<DummyLeafReader> {
+            let v = Self {
+                cost,
+                lead_cost,
+                top_level_scoring_clause: false,
+            };
+            Box::new(v)
+        }
+    }
+    impl ScorerSupplier<DummyLeafReader> for FakeScorerSupplier {
+        type Scorer = QueryWeightSsScorer;
+        type BulkScorer = QueryWeightSsBulkScorer;
+
+        fn get(
+            &mut self,
+            lead_cost: i64,
+            _context: &LeafReaderContext<DummyLeafReader>,
+        ) -> Result<Self::Scorer> {
+            if let Some(v) = self.lead_cost
+                && v != lead_cost
+            {
+                return Err(LuceneError::illegal_state("triggers assert"));
+            }
+            Ok(Box::new(FakeScorer::new(self.cost)))
+        }
+
+        fn bulk_scorer(
+            &mut self,
+            context: &LeafReaderContext<DummyLeafReader>,
+        ) -> Result<Option<Self::BulkScorer>> {
+            Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
+        }
+
+        fn cost(&mut self, _context: &LeafReaderContext<DummyLeafReader>) -> Result<i64> {
+            Ok(self.cost)
+        }
+
+        fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+            self.top_level_scoring_clause = true;
+            Ok(())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+    #[test]
+    fn test_conjunction_cost() -> Result<()> {
+        let mut random = random();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+        subs = {
+            let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
+            subs.get_mut(&occur)
+                .unwrap()
+                .push(FakeScorerSupplier::new(42));
+
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(42, supplier.cost(&dummy_lrc)?);
+            supplier.subs
+        };
+
+        subs = {
+            let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
+            subs.get_mut(&occur)
+                .unwrap()
+                .push(FakeScorerSupplier::new(12));
+
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(12, supplier.cost(&dummy_lrc)?);
+            supplier.subs
+        };
+
+        {
+            let occur = *[Occur::Filter, Occur::Must].choose(&mut random).unwrap();
+            subs.get_mut(&occur)
+                .unwrap()
+                .push(FakeScorerSupplier::new(20));
+
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(12, supplier.cost(&dummy_lrc)?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_cost() -> Result<()> {
+        let mut random = random();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(42));
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(42, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(12));
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42 + 12, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(20));
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_with_min_should_match_cost() -> Result<()> {
+        let mut random = random();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(42));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(12));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
+            assert_eq!(42 + 12, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42 + 12, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(20));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
+            assert_eq!(42 + 12 + 20, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42 + 12 + 20, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
+            assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(12 + 20, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::new(30));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 1, 100)?;
+            assert_eq!(42 + 12 + 20 + 30, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(42 + 12 + 20 + 30, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
+            assert_eq!(12 + 20 + 30, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(12 + 20 + 30, scorer.iterator().cost()?);
+            supplier.subs
+        };
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
+            assert_eq!(12 + 20, supplier.cost(&dummy_lrc)?);
+
+            let scorer = supplier.get(random.random_range(0..100) as i64, &dummy_lrc)?;
+            assert_eq!(12 + 20, scorer.iterator().cost()?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_duel_cost() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 1000);
+
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        for _i in 0..iters {
+            let mut subs = HashMap::new();
+            for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+                subs.insert(occur, Vec::new());
+            }
+
+            let mut num_shoulds = 0;
+            let mut num_required = 0;
+
+            let num_clauses = random.random_range(1..=10);
+            for _ in 0..num_clauses {
+                let occur = *Occur::values().choose(&mut random).unwrap();
+                subs.get_mut(&occur)
+                    .unwrap()
+                    .push(FakeScorerSupplier::new(random.random_range(0..100)));
+
+                if occur == Occur::Should {
+                    num_shoulds += 1;
+                } else if occur == Occur::Filter || occur == Occur::Must {
+                    num_required += 1;
+                }
+            }
+
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            if !score_mode.needs_scores() && num_required > 0 {
+                num_shoulds = 0;
+                subs.get_mut(&Occur::Should).unwrap().clear();
+            }
+
+            if num_shoulds + num_required == 0 {
+                continue;
+            }
+
+            let min_should_match = if num_shoulds == 0 {
+                0
+            } else {
+                random.random_range(0..num_shoulds)
+            };
+
+            let mut supplier =
+                BooleanScorerSupplier::new(subs, score_mode, min_should_match as i32, 100)?;
+
+            let cost1 = supplier.cost(&dummy_lrc)?;
+            let scorer = supplier.get(i64::MAX, &dummy_lrc)?;
+            let cost2 = scorer.iterator().cost()?;
+
+            assert_eq!(cost1, cost2);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fake_scorer_supplier() {
+        let mut random = random();
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut random_access_supplier =
+            FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(30));
+        assert!(random_access_supplier.get(70, &dummy_lrc).is_err());
+
+        let mut sequential_supplier =
+            FakeScorerSupplier::with_lead_cost(random.random_range(0..100), Some(70));
+        assert!(sequential_supplier.get(30, &dummy_lrc).is_err());
+    }
+    #[test]
+    fn test_conjunction_lead_cost() -> Result<()> {
+        let mut random = random();
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(12)));
+        subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(12)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(i64::MAX, &dummy_lrc)?;
+        }
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(7)));
+        subs.get_mut([Occur::Filter, Occur::Must].choose(&mut random).unwrap())
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(7)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(7, &dummy_lrc)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_lead_cost() -> Result<()> {
+        let mut random = random();
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(54)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(54)));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Should).unwrap().clear();
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(20)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(20, &dummy_lrc)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_disjunction_with_min_should_match_lead_cost() -> Result<()> {
+        let mut random = random();
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        // minShouldMatch is 2 so the 2 least costly clauses will lead iteration
+        // and their cost will be 30+12=42
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(50, Some(42)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(42)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+        }
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        // If the leadCost is less than the msm cost, then it wins
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(20)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(20)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
+            let _ = supplier.get(20, &dummy_lrc)?;
+        }
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(62)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(62)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(62)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(20, Some(62)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 2, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+        }
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(32)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(12, Some(32)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(32)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(20, Some(32)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 3, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_prohibited_lead_cost() -> Result<()> {
+        let mut random = random();
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in [Occur::Should, Occur::Must, Occur::Filter, Occur::MustNot] {
+            subs.insert(occur, Vec::new());
+        }
+
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
+        subs.get_mut(&Occur::MustNot)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Must).unwrap().clear();
+        subs.get_mut(&Occur::MustNot).unwrap().clear();
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
+        subs.get_mut(&Occur::MustNot)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(80, Some(42)));
+
+        subs = {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Must).unwrap().clear();
+        subs.get_mut(&Occur::MustNot).unwrap().clear();
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
+        subs.get_mut(&Occur::MustNot)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(20)));
+
+        {
+            let score_mode = *ScoreMode::values().choose(&mut random).unwrap();
+            let mut supplier = BooleanScorerSupplier::new(subs, score_mode, 0, 100)?;
+            let _ = supplier.get(20, &dummy_lrc)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_mixed_lead_cost() -> Result<()> {
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(30, Some(42)));
+
+        subs = {
+            let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Must).unwrap().clear();
+        subs.get_mut(&Occur::Should).unwrap().clear();
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(42)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(80, Some(42)));
+
+        subs = {
+            let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
+            let _ = supplier.get(100, &dummy_lrc)?;
+            supplier.subs
+        };
+
+        subs.get_mut(&Occur::Must).unwrap().clear();
+        subs.get_mut(&Occur::Should).unwrap().clear();
+        subs.get_mut(&Occur::Must)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(42, Some(20)));
+        subs.get_mut(&Occur::Should)
+            .unwrap()
+            .push(FakeScorerSupplier::with_lead_cost(80, Some(20)));
+
+        {
+            let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::Complete, 0, 100)?;
+            let _ = supplier.get(20, &dummy_lrc)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_disjunction_top_level_scoring_clause() -> Result<()> {
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Should).unwrap().push(clause1);
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Should).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        supplier.set_top_level_scoring_clause()?;
+
+        assert!(
+            !supplier.subs.get(&Occur::Should).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        assert!(
+            !supplier.subs.get(&Occur::Should).unwrap()[1]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        // assert!(!supplier.subs.get(&Occur::Should).unwrap()[0].top_level_scoring_clause);
+        // assert!(!supplier.subs.get(&Occur::Should).unwrap()[1].top_level_scoring_clause);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_conjunction_top_level_scoring_clause() -> Result<()> {
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Must).unwrap().push(clause1);
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Must).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        supplier.set_top_level_scoring_clause()?;
+
+        assert!(
+            !supplier.subs.get(&Occur::Must).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        assert!(
+            !supplier.subs.get(&Occur::Must).unwrap()[1]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_top_level_scoring_clause() -> Result<()> {
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Filter).unwrap().push(clause1);
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Filter).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        supplier.set_top_level_scoring_clause()?;
+        assert!(
+            !supplier.subs.get(&Occur::Filter).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        assert!(
+            !supplier.subs.get(&Occur::Filter).unwrap()[1]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_must_scoring_clause() -> Result<()> {
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Must).unwrap().push(clause1);
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Filter).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        supplier.set_top_level_scoring_clause()?;
+        assert!(
+            supplier.subs.get(&Occur::Must).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        assert!(
+            !supplier.subs.get(&Occur::Filter).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_should_scoring_clause() -> Result<()> {
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Should).unwrap().push(clause1);
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::MustNot).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        supplier.set_top_level_scoring_clause()?;
+        assert!(
+            supplier.subs.get(&Occur::Should).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+        assert!(
+            !supplier.subs.get(&Occur::MustNot).unwrap()[0]
+                .as_any()
+                .downcast_ref::<FakeScorerSupplier>()
+                .unwrap()
+                .top_level_scoring_clause
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_max_score_non_top_level_scoring_clause() -> Result<()> {
+        let dummy_lrc = LeafReaderContext::dummy_lrc();
+
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Must).unwrap().push(clause1);
+        subs.get_mut(&Occur::Must).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        let mut scorer = supplier.get(10, &dummy_lrc)?;
+        assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
+
+        let mut subs = HashMap::new();
+        for occur in Occur::values() {
+            subs.insert(*occur, Vec::new());
+        }
+
+        let clause1 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        let clause2 = FakeScorerSupplier::with_lead_cost(10, Some(10));
+        subs.get_mut(&Occur::Should).unwrap().push(clause1);
+        subs.get_mut(&Occur::Should).unwrap().push(clause2);
+
+        let mut supplier = BooleanScorerSupplier::new(subs, ScoreMode::TopScores, 0, 100)?;
+        let mut scorer = supplier.get(10, &dummy_lrc)?;
+        assert_eq!(2.0, scorer.get_max_score(NO_MORE_DOCS)?,);
+
+        Ok(())
+    }
 }
