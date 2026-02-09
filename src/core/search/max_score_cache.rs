@@ -20,7 +20,6 @@ use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 /// Compute maximum scores based on [`Impacts`] and keep them in a cache
 /// in order not to run expensive similarity score computations multiple times
 /// on the same data.
@@ -32,7 +31,7 @@ where
     SS: SimScorer,
 {
     pub(crate) impacts_source: Option<IS>,
-    pub(crate) scorer: Arc<SS>,
+    pub(crate) scorer: SS,
     global_max_score: f32,
     max_score_cache: Vec<f32>,
     max_score_cache_upto: Vec<i32>,
@@ -43,7 +42,7 @@ where
     IS: ImpactsSource,
     SS: SimScorer,
 {
-    pub fn new(impacts_source: Option<IS>, scorer: Arc<SS>) -> Self {
+    pub fn new(impacts_source: Option<IS>, scorer: SS) -> Self {
         let global_max_score = scorer.score(f32::MAX, 1);
 
         Self {

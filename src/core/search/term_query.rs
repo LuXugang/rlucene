@@ -629,6 +629,11 @@ impl SimScorer for SimScorerImpl {
 pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
 
 pub type TermScorerEnum<LR, DISI, TPI> = ScorerEnum2<
-    TermScorer<LRPosting<LR>, TermQuerySimScorer, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
+    TermScorer<
+        LRPosting<LR>,
+        Arc<TermQuerySimScorer>,
+        LRNormNumericDocValues<LR>,
+        LRImpactsEnum<LR>,
+    >,
     ConstantScoreScorer<DISI, TPI>,
 >;

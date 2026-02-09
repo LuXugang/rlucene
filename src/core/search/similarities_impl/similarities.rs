@@ -311,6 +311,30 @@ pub trait SimScorer {
         Explanation::match_(value, description, vec![freq])
     }
 }
+impl<T> SimScorer for Arc<T>
+where
+    T: SimScorer,
+{
+    fn score(&self, freq: f32, norm: i64) -> f32 {
+        (**self).score(freq, norm)
+    }
+
+    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+        (**self).explain(freq, norm)
+    }
+}
+impl<T> SimScorer for &T
+where
+    T: SimScorer,
+{
+    fn score(&self, freq: f32, norm: i64) -> f32 {
+        (**self).score(freq, norm)
+    }
+
+    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
+        (**self).explain(freq, norm)
+    }
+}
 
 macro_rules! either_similarity {
     (
