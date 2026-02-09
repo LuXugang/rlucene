@@ -947,7 +947,7 @@ pub(crate) mod tests {
     use crate::core::search::scorable::Scorable;
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::{Scorer, ScorerEnum2, TwoPhaseState};
-    use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+    use crate::core::search::scorer_supplier::ScorerSupplier;
     use crate::core::search::segment_cacheable::SegmentCacheable;
     use crate::core::search::term_query::TermQuery;
     use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -2624,7 +2624,7 @@ pub(crate) mod tests {
                 }
             };
             let v = DefaultScorerSupplier::new(scorer);
-            Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
+            Ok(Some(Box::new(v)))
         }
     }
 }

@@ -317,7 +317,7 @@ pub mod tests {
     use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
     use crate::core::search::explanation::Explanation;
     use crate::core::search::matches_utils::MatchWithNoTerms;
-    use crate::core::search::query::Query;
+    use crate::core::search::query::{Query, QueryWeightSsScorer};
     use crate::core::search::score_mode::ScoreMode;
     use crate::core::search::scorer::Scorer;
     use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -386,9 +386,7 @@ pub mod tests {
         Ok(())
     }
 
-    pub fn wrapper(
-        iterator: DocIdSetIteratorImpl,
-    ) -> Result<DisiWrapper<ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>>>
+    pub fn wrapper(iterator: DocIdSetIteratorImpl) -> Result<DisiWrapper<QueryWeightSsScorer>>
 where {
         let q = DummyQueryImpl::new(iterator);
         let weight = q.weight();

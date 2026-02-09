@@ -38,7 +38,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef};
-use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
+use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
@@ -330,12 +330,8 @@ where
             ));
         };
         match disi_opt {
-            Some(disi) => Ok(Some(Box::new(BoxedScorerSupplier::new(
-                DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
-                    self.score,
-                    self.score_mode,
-                    disi,
-                )),
+            Some(disi) => Ok(Some(Box::new(DefaultScorerSupplier::new(
+                ConstantScoreScorer::from_disi(self.score, self.score_mode, disi),
             )))),
             None => Ok(None),
         }

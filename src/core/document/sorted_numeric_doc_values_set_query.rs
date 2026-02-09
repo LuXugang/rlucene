@@ -34,7 +34,6 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::BoxedScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
@@ -216,9 +215,7 @@ where
             TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
         };
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-        Ok(Some(Box::new(BoxedScorerSupplier::new(
-            DefaultScorerSupplier::new(scorer),
-        ))))
+        Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
     }
 }
 pub type DefaultScorerSupplierSs<LR> = DefaultScorerSupplier<

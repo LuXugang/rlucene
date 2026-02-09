@@ -38,7 +38,6 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer_supplier::BoxedScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
@@ -330,9 +329,7 @@ where
                 let iter = AllDISI::new(skipper.doc_count());
                 let scorer =
                     ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
-                return Ok(Some(Box::new(BoxedScorerSupplier::new(
-                    DefaultScorerSupplier::new(scorer),
-                ))));
+                return Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))));
             }
         }
         let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
@@ -351,7 +348,7 @@ where
                             self.score_mode,
                             ps_iterator,
                         ));
-                        return Ok(Some(Box::new(BoxedScorerSupplier::new(v))));
+                        return Ok(Some(Box::new(v)));
                     } else {
                         TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(
                             singleton,
@@ -377,13 +374,13 @@ where
                 );
                 let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
+                Ok(Some(Box::new(v)))
             },
             None => {
                 let scorer =
                     ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
                 let v = DefaultScorerSupplier::new(scorer);
-                Ok(Some(Box::new(BoxedScorerSupplier::new(v))))
+                Ok(Some(Box::new(v)))
             },
         }
     }

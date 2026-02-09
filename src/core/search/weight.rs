@@ -420,19 +420,21 @@ where
 impl<S, LR> ScorerSupplier<LR> for DefaultScorerSupplier<S>
 where
     LR: LeafReader,
-    S: Scorer,
+    S: Scorer + 'static,
 {
-    type Scorer = S;
-    type BulkScorer = DefaultBulkScorer<S>;
+    type Scorer = QueryWeightSsScorer;
+    type BulkScorer = QueryWeightSsBulkScorer;
 
     fn get(&mut self, _lead_cost: i64, _context: &LeafReaderContext<LR>) -> Result<Self::Scorer> {
-        self.scorer
+        let v = self
+            .scorer
             .take()
-            .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))
+            .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))?;
+        Ok(Box::new(v))
     }
 
     fn bulk_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<Self::BulkScorer>> {
-        Ok(Some(self.default_bulk_scorer(context)?))
+        Ok(Some(Box::new(self.default_bulk_scorer(context)?)))
     }
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
