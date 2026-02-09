@@ -136,16 +136,25 @@ where
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.disi)
+        match &self.disi {
+            DocIdSetIteratorEnum2::A(v) => Box::new(v),
+            DocIdSetIteratorEnum2::B(v) => Box::new(v),
+        }
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.disi)
+        match &mut self.disi {
+            DocIdSetIteratorEnum2::A(v) => Box::new(v),
+            DocIdSetIteratorEnum2::B(v) => Box::new(v),
+        }
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         let ReqOptSumScorer { disi, .. } = *self;
-        Box::new(disi)
+        match disi {
+            DocIdSetIteratorEnum2::A(v) => Box::new(v),
+            DocIdSetIteratorEnum2::B(v) => Box::new(v),
+        }
     }
 
     fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {

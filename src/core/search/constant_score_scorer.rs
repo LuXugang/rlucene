@@ -131,16 +131,34 @@ where
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.disi)
+        match &self.disi {
+            ConstantDISI_::A(v) => match v {
+                DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
+                DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
+            },
+            ConstantDISI_::B(v) => Box::new(v),
+        }
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.disi)
+        match &mut self.disi {
+            ConstantDISI_::A(v) => match v {
+                DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
+                DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
+            },
+            ConstantDISI_::B(v) => Box::new(v),
+        }
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         let ConstantScoreScorer { disi, .. } = *self;
-        Box::new(disi)
+        match disi {
+            ConstantDISI_::A(v) => match v {
+                DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
+                DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
+            },
+            ConstantDISI_::B(v) => Box::new(v),
+        }
     }
 
     fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {

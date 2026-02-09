@@ -168,16 +168,25 @@ where
     }
 
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&self.disi)
+        match &self.disi {
+            Disi::A(v) => Box::new(v),
+            Disi::B(v) => Box::new(v),
+        }
     }
 
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(&mut self.disi)
+        match &mut self.disi {
+            Disi::A(v) => Box::new(v),
+            Disi::B(v) => Box::new(v),
+        }
     }
 
     fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
         let DisjunctionScorer { disi, .. } = *self;
-        Box::new(disi)
+        match disi {
+            Disi::A(v) => Box::new(v),
+            Disi::B(v) => Box::new(v),
+        }
     }
 
     fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
