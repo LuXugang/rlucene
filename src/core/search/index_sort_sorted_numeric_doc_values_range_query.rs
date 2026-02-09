@@ -16,9 +16,6 @@
  */
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
-use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQueryWeight;
-use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQueryWeight;
-use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQueryWeight;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -42,7 +39,6 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::point_range_query::PointRangeWeight;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -51,7 +47,7 @@ use crate::core::search::scorer_supplier::{BoxedScorerSupplier, ScorerSupplier};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::sort_field::{MissingValueEnum, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::weight::{DefaultBulkScorer, Weight, WeightEnum4};
+use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_util::BitUtil;
@@ -1230,12 +1226,6 @@ where
         DocIdSetIteratorEnum4::A(EmptyDISI::default())
     }
 }
-pub type FallbackQueryWeight<LR> = WeightEnum4<
-    PointRangeWeight<LR>,
-    SortedNumericDocValuesSetQueryWeight<LR>,
-    SortedNumericDocValuesRangeQueryWeight<LR>,
-    SortedSetDocValuesRangeQueryWeight<LR>,
->;
 
 #[cfg(test)]
 mod tests {

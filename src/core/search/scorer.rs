@@ -81,10 +81,7 @@ pub trait Scorer: Scorable {
     /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
     ///
     /// By default, this returns `None`.
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
-    where
-        Self: Sized,
-    {
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
         None
     }
 
@@ -170,10 +167,7 @@ where
         (**self).two_phase_iterator_mut()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
-    where
-        Self: Sized,
-    {
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
         let inner: Box<T> = *self;
         Scorer::take_two_phase_iterator(inner)
     }
@@ -221,11 +215,13 @@ impl Scorer for Box<dyn Scorer> {
         (**self).two_phase_iterator()
     }
 
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
-    where
-        Self: Sized,
-    {
-        None
+    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+        (**self).two_phase_iterator_mut()
+    }
+
+    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+        let inner: Box<dyn Scorer> = *self;
+        Scorer::take_two_phase_iterator(inner)
     }
 
     fn advance_shallow(&mut self, _target: i32) -> Result<i32> {

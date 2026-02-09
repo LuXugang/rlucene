@@ -16,10 +16,12 @@
  */
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum4};
-use crate::core::search::scorer::{Scorer, ScorerEnum4};
+use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use std::any::Any;
 /// A supplier of `Scorer`.
 ///
 /// This allows to get an estimate of the cost before building the `Scorer`.
@@ -72,6 +74,10 @@ where
     /// for reacting to `Scorer::set_min_competitive_score` calls.
     fn set_top_level_scoring_clause(&mut self) -> Result<()> {
         Ok(())
+    }
+    #[cfg(test)]
+    fn as_any(&self) -> &dyn std::any::Any {
+        unreachable!("")
     }
 }
 
@@ -189,11 +195,6 @@ macro_rules! either_scorer_supplier {
         }
     };
 }
-either_scorer_supplier!(
-    pub ScorerSupplierEnum4
-    => { bulk: BulkScorerEnum4, scorer: ScorerEnum4 }
-    { A: A, B: B ,C:C, D:D}
-);
 
 impl<LR, T> ScorerSupplier<LR> for Box<T>
 where
@@ -224,5 +225,9 @@ where
 
     fn set_top_level_scoring_clause(&mut self) -> Result<()> {
         (**self).set_top_level_scoring_clause()
+    }
+    #[cfg(test)]
+    fn as_any(&self) -> &dyn Any {
+        (**self).as_any()
     }
 }

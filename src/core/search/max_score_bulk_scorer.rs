@@ -840,7 +840,7 @@ mod test {
     use crate::core::search::scorer::TwoPhaseState::No;
     use crate::core::search::scorer::{Scorer, TwoPhaseState};
     use crate::core::search::term_query::TermQuery;
-    use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+
     use crate::core::store::directory::Directory;
     use crate::core::util::HasIdentity;
     use crate::core::util::bits::Bits;
@@ -1470,10 +1470,6 @@ mod test {
         fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
             let FakeScorer { disi, .. } = *self;
             Box::new(disi)
-        }
-
-        fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-            None
         }
 
         fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
