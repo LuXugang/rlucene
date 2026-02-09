@@ -37,7 +37,6 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filter_codec_reader::FilterCodecReader;
-use crate::core::index::filter_leaf_reader::FilterTerms;
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
 use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_metadata::LeafMetaData;
@@ -1245,13 +1244,12 @@ where
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         match self.postings_reader.terms(field)? {
             Some(terms) => {
-                let filter = FilterTerms::new(terms);
                 let field_info = self
                     .field_infos
                     .field_info_by_name(field)
                     .ok_or_else(|| LuceneError::illegal_state(format!("{}'s field info", field)))?;
                 Ok(Some(SortingTerms::new(
-                    filter,
+                    terms,
                     *field_info.get_index_options(),
                     self.doc_map.clone(),
                 )))

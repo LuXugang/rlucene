@@ -336,7 +336,7 @@ impl BitsFilteredTermsEnum {
         TE: TermsEnum,
     {
         let sub = Self { live_terms };
-        FilteredTermsEnum::new(in_, sub)
+        FilteredTermsEnum::with_seek(in_, false, sub)
     }
 }
 impl FilteredTermsEnumBase for BitsFilteredTermsEnum {

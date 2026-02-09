@@ -148,7 +148,9 @@ where
     }
 }
 
-/// Base struct for filtering `TermsEnum` implementations.
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterTermsEnum<T>
 where
     T: TermsEnum,

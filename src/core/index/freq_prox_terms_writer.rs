@@ -19,13 +19,11 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::{Codec, get_default_code};
 use crate::core::index::BytesRef;
-use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
-use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::filter_leaf_reader::{FilterFields, FilterTermsEnum};
 use crate::core::index::freq_prox_fields::FreqProxFields;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
@@ -256,9 +254,8 @@ where
                         "Field '{field}' not found in field infos"
                     )));
                 }
-                let base = FilterTerms::new(terms);
                 Ok(Some(SortingTerms::new(
-                    base,
+                    terms,
                     *index_options.as_ref().unwrap().get_index_options(),
                     self.doc_map.clone(),
                 )))
@@ -278,7 +275,7 @@ where
     T: Terms,
     DM: DocMap + Clone,
 {
-    base: FilterTerms<T>,
+    in_: T,
     index_options: IndexOptions,
     doc_map: DM,
 }
@@ -287,9 +284,9 @@ where
     T: Terms,
     DM: DocMap + Clone,
 {
-    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: DM) -> Self {
+    pub(crate) fn new(base: T, index_options: IndexOptions, doc_map: DM) -> Self {
         Self {
-            base,
+            in_: base,
             index_options,
             doc_map,
         }
@@ -303,71 +300,70 @@ where
     type TermsEnum = SortingTermsEnum<T::TermsEnum, DM>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        let base = FilterTermsEnum::new(self.base.iterator()?);
         Ok(SortingTermsEnum::new(
-            base,
+            self.in_.iterator()?,
             self.index_options,
             self.doc_map.clone(),
         ))
     }
 
-    type IntersectIter = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum, AutomatonTermsEnum>, DM>;
+    type IntersectIter = SortingTermsEnum<T::IntersectIter, DM>;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        let base = FilterTermsEnum::new(self.base.intersect(compiled, start_term)?);
+        let v = self.in_.intersect(compiled, start_term)?;
         Ok(SortingTermsEnum::new(
-            base,
+            v,
             self.index_options,
             self.doc_map.clone(),
         ))
     }
 
     fn size(&self) -> Result<i64> {
-        self.base.size()
+        self.in_.size()
     }
 
     fn get_sum_total_term_freq(&self) -> Result<i64> {
-        self.base.get_sum_total_term_freq()
+        self.in_.get_sum_total_term_freq()
     }
 
     fn get_sum_doc_freq(&self) -> Result<i64> {
-        self.base.get_sum_doc_freq()
+        self.in_.get_sum_doc_freq()
     }
 
     fn get_doc_count(&self) -> Result<i32> {
-        self.base.get_doc_count()
+        self.in_.get_doc_count()
     }
 
     fn has_freqs(&self) -> bool {
-        self.base.has_freqs()
+        self.in_.has_freqs()
     }
 
     fn has_offsets(&self) -> bool {
-        self.base.has_offsets()
+        self.in_.has_offsets()
     }
 
     fn has_positions(&self) -> bool {
-        self.base.has_positions()
+        self.in_.has_positions()
     }
 
     fn has_payloads(&self) -> bool {
-        self.base.has_payloads()
+        self.in_.has_payloads()
     }
 
     fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.get_min()
+        self.in_.get_min()
     }
 
     fn get_max(&'_ self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.get_max()
+        self.in_.get_max()
     }
 
     fn get_stats(&self) -> Result<String> {
-        self.base.get_stats()
+        self.in_.get_stats()
     }
 }
 
@@ -377,7 +373,7 @@ where
     T: TermsEnum,
     DM: DocMap + Clone,
 {
-    base: FilterTermsEnum<T>,
+    in_: T,
     index_options: IndexOptions,
     doc_map: DM,
 }
@@ -386,9 +382,9 @@ where
     T: TermsEnum,
     DM: DocMap + Clone,
 {
-    pub(crate) fn new(base: FilterTermsEnum<T>, index_options: IndexOptions, doc_map: DM) -> Self {
+    pub(crate) fn new(in_: T, index_options: IndexOptions, doc_map: DM) -> Self {
         Self {
-            base,
+            in_,
             index_options,
             doc_map,
         }
@@ -401,7 +397,7 @@ where
     T: TermsEnum,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.next()
+        self.in_.next()
     }
 }
 
@@ -413,23 +409,23 @@ where
     type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
-        self.base.attributes()
+        self.in_.attributes()
     }
 
     fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.base.seek_exact(term)
+        self.in_.seek_exact(term)
     }
 
     fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        self.base.prepare_seek_exact(text)
+        self.in_.prepare_seek_exact(text)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        self.base.seek_ceil(term)
+        self.in_.seek_ceil(term)
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.base.seek_exact_with_ord(ord)
+        self.in_.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(
@@ -437,23 +433,23 @@ where
         term: &BytesRef<Vec<u8>>,
         state: &Self::TermState,
     ) -> Result<()> {
-        self.base.seek_exact_with_state(term, state)
+        self.in_.seek_exact_with_state(term, state)
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.base.term()
+        self.in_.term()
     }
 
     fn ord(&self) -> Result<i64> {
-        self.base.ord()
+        self.in_.ord()
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
-        self.base.doc_freq()
+        self.in_.doc_freq()
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
-        self.base.total_term_freq()
+        self.in_.total_term_freq()
     }
 
     type PostingsEnum =
@@ -473,7 +469,7 @@ where
             };
             let in_reuse = wrap_reuse.postings_enum.take();
 
-            let in_docs_and_positions = self.base.postings_with_flags(in_reuse, flags)?;
+            let in_docs_and_positions = self.in_.postings_with_flags(in_reuse, flags)?;
             // we ignore the fact that positions/offsets may be stored but not asked for,
             // since this code is expected to be used during addIndexes which will
             // ask for everything. if that assumption changes in the future, we can
@@ -503,7 +499,7 @@ where
             _ => SortingDocsEnum::new(),
         };
         let in_reuse = wrap_reuse.postings_enum.take();
-        let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
+        let in_docs = self.in_.postings_with_flags(in_reuse, flags)?;
         wrap_reuse.reset(&self.doc_map, in_docs)?;
         Ok(PostingsEnumEnum2::B(wrap_reuse))
     }
@@ -511,13 +507,13 @@ where
     type ImpactsEnum = T::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.base.impacts(flags)
+        self.in_.impacts(flags)
     }
 
     type TermState = T::TermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        self.base.term_state()
+        self.in_.term_state()
     }
 }
 // SortingDocsEnum

@@ -214,7 +214,7 @@ where
 {
     field: String,
     merge_state_meta: MergeStateMeta<CR>,
-    base: FilterTermsEnum<MultiTermsEnum<TE>>,
+    in_: MultiTermsEnum<TE>,
 }
 impl<TE, CR> MappedMultiTermsEnum<TE, CR>
 where
@@ -226,11 +226,10 @@ where
         merge_state: MergeStateMeta<CR>,
         multi_terms_enum: MultiTermsEnum<TE>,
     ) -> Self {
-        let base = FilterTermsEnum::new(multi_terms_enum);
         Self {
             field,
             merge_state_meta: merge_state,
-            base,
+            in_: multi_terms_enum,
         }
     }
 }
@@ -241,7 +240,7 @@ where
     CR: CodecReader,
 {
     fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.next()
+        self.in_.next()
     }
 }
 
@@ -253,27 +252,27 @@ where
     type AttributeSource = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::AttributeSource;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
-        self.base.attributes()
+        self.in_.attributes()
     }
 
     fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.base.seek_exact(term)
+        self.in_.seek_exact(term)
     }
 
     fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-        self.base.prepare_seek_exact(text)
+        self.in_.prepare_seek_exact(text)
     }
 
     fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
-        self.base.get_prepare_seek_exact_status(target)
+        self.in_.get_prepare_seek_exact_status(target)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        self.base.seek_ceil(term)
+        self.in_.seek_ceil(term)
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        self.base.seek_exact_with_ord(ord)
+        self.in_.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(
@@ -281,15 +280,15 @@ where
         term: &BytesRef<Vec<u8>>,
         state: &Self::TermState,
     ) -> Result<()> {
-        self.base.seek_exact_with_state(term, state)
+        self.in_.seek_exact_with_state(term, state)
     }
 
     fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.base.term()
+        self.in_.term()
     }
 
     fn ord(&self) -> Result<i64> {
-        self.base.ord()
+        self.in_.ord()
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
@@ -318,7 +317,7 @@ where
             None => MappingMultiPostingsEnum::new(self.field.clone(), &self.merge_state_meta)?,
         };
         let v = mapping_docs_and_positions_enum.take_multi_docs_and_positions_enum();
-        let docs_and_positions_enum = self.base.in_.postings_with_flags(v, flags)?;
+        let docs_and_positions_enum = self.in_.postings_with_flags(v, flags)?;
         mapping_docs_and_positions_enum.reset(docs_and_positions_enum)?;
         Ok(mapping_docs_and_positions_enum)
     }
@@ -326,12 +325,12 @@ where
     type ImpactsEnum = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        self.base.impacts(flags)
+        self.in_.impacts(flags)
     }
 
     type TermState = <FilterTermsEnum<MultiTermsEnum<TE>> as TermsEnum>::TermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        self.base.term_state()
+        self.in_.term_state()
     }
 }
