@@ -29,6 +29,7 @@ pub trait FilterLeafReader {}
 
 /// # Note
 /// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterFields<F>
 where
     F: Fields,

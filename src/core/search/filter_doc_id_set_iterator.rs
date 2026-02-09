@@ -16,7 +16,9 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-/// Wrapper around a [`DocIdSetIterator`].
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterDocIdSetIterator<D>
 where
     D: DocIdSetIterator,
