@@ -30,7 +30,7 @@ pub struct TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub(crate) base: FilterDirectory<D>,
+    pub(crate) in_: D,
     inner: Mutex<Inner>,
     id: Identity,
 }
@@ -46,7 +46,7 @@ where
             created_filenames: HashSet::new(),
         });
         TrackingDirectoryWrapper {
-            base: FilterDirectory::new(input),
+            in_: input,
             inner: lock,
             id: Identity::new(),
         }
@@ -69,7 +69,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TrackingDirectoryWrapper({})", self.base)
+        write!(f, "TrackingDirectoryWrapper({})", self.in_)
     }
 }
 
@@ -97,21 +97,21 @@ where
     D: Directory,
 {
     fn list_all(&self) -> Result<Vec<String>> {
-        self.base.list_all()
+        self.in_.list_all()
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
-        self.base.delete_file(name)?;
+        self.in_.delete_file(name)?;
         self.inner.lock().created_filenames.remove(name);
         Ok(())
     }
 
     fn file_length(&self, name: &str) -> Result<usize> {
-        self.base.file_length(name)
+        self.in_.file_length(name)
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        let output = self.base.create_output(name, context)?;
+        let output = self.in_.create_output(name, context)?;
         self.inner.lock().created_filenames.insert(name.to_string());
         Ok(output)
     }
@@ -124,19 +124,19 @@ where
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
-        self.base.create_temp_output(prefix, suffix, context)
+        self.in_.create_temp_output(prefix, suffix, context)
     }
 
     fn sync(&self, names: &[String]) -> Result<()> {
-        self.base.sync(names)
+        self.in_.sync(names)
     }
 
     fn sync_metadata(&self) -> Result<()> {
-        self.base.sync_metadata()
+        self.in_.sync_metadata()
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.base.rename(source, dest)?;
+        self.in_.rename(source, dest)?;
         let mut inner = self.inner.lock();
         inner.created_filenames.insert(dest.to_string());
         inner.created_filenames.remove(source);
@@ -147,13 +147,13 @@ where
     type IndexInput = <FilterDirectory<D> as Directory>::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        self.base.open_input(name, context)
+        self.in_.open_input(name, context)
     }
 
     type Lock = <FilterDirectory<D> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.base.obtain_lock(name)
+        self.in_.obtain_lock(name)
     }
 
     fn copy_from(
@@ -163,21 +163,21 @@ where
         dest: &str,
         context: &IOContext,
     ) -> Result<()> {
-        self.base.copy_from(from, src, dest, context)?;
+        self.in_.copy_from(from, src, dest, context)?;
         self.inner.lock().created_filenames.insert(dest.to_string());
         Ok(())
     }
 
     fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-        self.base.delete_files_ignoring_exceptions(files);
+        self.in_.delete_files_ignoring_exceptions(files);
     }
 
     fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-        self.base.get_pending_deletions()
+        self.in_.get_pending_deletions()
     }
 
     fn is_fs_directory(&self) -> bool {
-        self.base.is_fs_directory()
+        self.in_.is_fs_directory()
     }
 }
 

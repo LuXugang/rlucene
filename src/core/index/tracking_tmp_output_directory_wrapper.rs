@@ -16,7 +16,6 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
-use crate::core::store::filter_directory::FilterDirectory;
 use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
@@ -30,7 +29,7 @@ where
     D: Directory,
 {
     pub(crate) inner: RefCell<Inner>,
-    base: FilterDirectory<D>,
+    in_: D,
     id: Identity,
 }
 pub(crate) struct Inner {
@@ -46,7 +45,7 @@ where
         });
         TrackingTmpOutputDirectoryWrapper {
             inner,
-            base: FilterDirectory::new(input),
+            in_: input,
             id: Identity::new(),
         }
     }
@@ -60,7 +59,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", std::any::type_name::<Self>(), self.base)
+        write!(f, "{}({})", std::any::type_name::<Self>(), self.in_)
     }
 }
 
@@ -88,19 +87,19 @@ where
     D: Directory,
 {
     fn list_all(&self) -> Result<Vec<String>> {
-        self.base.list_all()
+        self.in_.list_all()
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
-        self.base.delete_file(name)
+        self.in_.delete_file(name)
     }
 
     fn file_length(&self, name: &str) -> Result<usize> {
-        self.base.file_length(name)
+        self.in_.file_length(name)
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        let output = self.base.create_temp_output(name, "", context)?;
+        let output = self.in_.create_temp_output(name, "", context)?;
         self.inner
             .borrow_mut()
             .file_names
@@ -116,19 +115,19 @@ where
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
-        self.base.create_temp_output(prefix, suffix, context)
+        self.in_.create_temp_output(prefix, suffix, context)
     }
 
     fn sync(&self, names: &[String]) -> Result<()> {
-        self.base.sync(names)
+        self.in_.sync(names)
     }
 
     fn sync_metadata(&self) -> Result<()> {
-        self.base.sync_metadata()
+        self.in_.sync_metadata()
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.base.rename(source, dest)
+        self.in_.rename(source, dest)
     }
 
     type IndexInput = D::IndexInput;
@@ -140,13 +139,13 @@ where
             .get(name)
             .map(|s| s.as_str())
             .unwrap_or(name);
-        self.base.open_input(tmp_name, context)
+        self.in_.open_input(tmp_name, context)
     }
 
     type Lock = D::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
-        self.base.obtain_lock(name)
+        self.in_.obtain_lock(name)
     }
 
     fn copy_from(
@@ -156,14 +155,14 @@ where
         dest: &str,
         context: &IOContext,
     ) -> Result<()> {
-        self.base.copy_from(from, src, dest, context)
+        self.in_.copy_from(from, src, dest, context)
     }
 
     fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-        self.base.delete_files_ignoring_exceptions(files)
+        self.in_.delete_files_ignoring_exceptions(files)
     }
 
     fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-        self.base.get_pending_deletions()
+        self.in_.get_pending_deletions()
     }
 }
