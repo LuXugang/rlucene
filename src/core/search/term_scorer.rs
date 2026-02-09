@@ -18,9 +18,7 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
-use crate::core::search::doc_id_set_iterator::{
-    DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3,
-};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
@@ -221,18 +219,8 @@ where
     fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
         if let Some(impacts_disi) = &self.impacts_disi {
             debug_assert!(self.max_score_cache.is_none());
-            Box::<DocIdSetIteratorEnum3<&IE, &PE, &ImpactsDISI<IE, IE, SS>>>::new(
-                TermScorerDisiRef::C(impacts_disi),
-            ) as Box<dyn DocIdSetIterator>
+            Box::new(impacts_disi)
         } else {
-            debug_assert!(self.impacts_disi.is_none());
-            debug_assert!(
-                self.max_score_cache
-                    .as_ref()
-                    .unwrap()
-                    .impacts_source
-                    .is_some()
-            );
             match self
                 .max_score_cache
                 .as_ref()
@@ -241,14 +229,8 @@ where
                 .as_ref()
                 .unwrap()
             {
-                ImpactsEnumEnum2::A(t) => Box::<
-                    DocIdSetIteratorEnum3<&IE, &PE, &ImpactsDISI<IE, IE, SS>>,
-                >::new(TermScorerDisiRef::A(t))
-                    as Box<dyn DocIdSetIterator>,
-                ImpactsEnumEnum2::B(s) => Box::<
-                    DocIdSetIteratorEnum3<&IE, &PE, &ImpactsDISI<IE, IE, SS>>,
-                >::new(TermScorerDisiRef::B(&s.delegate))
-                    as Box<dyn DocIdSetIterator>,
+                ImpactsEnumEnum2::A(t) => Box::new(t),
+                ImpactsEnumEnum2::B(s) => Box::new(&s.delegate),
             }
         }
     }
@@ -256,17 +238,8 @@ where
     fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
         if let Some(impacts_disi) = &mut self.impacts_disi {
             debug_assert!(self.max_score_cache.is_none());
-            Box::<DocIdSetIteratorEnum3<&mut IE, &mut PE, &mut ImpactsDISI<IE, IE, SS>>>::new(
-                TermScorerDisiMut::C(impacts_disi),
-            ) as Box<dyn DocIdSetIterator>
+            Box::new(impacts_disi)
         } else {
-            debug_assert!(
-                self.max_score_cache
-                    .as_mut()
-                    .unwrap()
-                    .impacts_source
-                    .is_some()
-            );
             match self
                 .max_score_cache
                 .as_mut()
@@ -275,15 +248,8 @@ where
                 .as_mut()
                 .unwrap()
             {
-                ImpactsEnumEnum2::A(t) => Box::<
-                    DocIdSetIteratorEnum3<&mut IE, &mut PE, &mut ImpactsDISI<IE, IE, SS>>,
-                >::new(TermScorerDisiMut::A(t))
-                    as Box<dyn DocIdSetIterator>,
-                ImpactsEnumEnum2::B(s) => Box::<
-                    DocIdSetIteratorEnum3<&mut IE, &mut PE, &mut ImpactsDISI<IE, IE, SS>>,
-                >::new(TermScorerDisiMut::B(
-                    &mut s.delegate,
-                )) as Box<dyn DocIdSetIterator>,
+                ImpactsEnumEnum2::A(t) => Box::new(t),
+                ImpactsEnumEnum2::B(s) => Box::new(&mut s.delegate),
             }
         }
     }
@@ -293,22 +259,15 @@ where
         #[allow(clippy::redundant_pattern_matching)]
         if let Some(_) = scorer.impacts_disi {
             debug_assert!(scorer.max_score_cache.is_none());
-            let disi: TermScorerDisi<IE, PE, SS> =
-                TermScorerDisi::C(scorer.impacts_disi.take().unwrap());
-            Box::new(disi) as Box<dyn DocIdSetIterator>
+            Box::new(scorer.impacts_disi.take().unwrap()) as Box<dyn DocIdSetIterator>
         } else {
-            debug_assert!(scorer.impacts_disi.is_none());
             let mut max_score_cache = scorer.max_score_cache.take().unwrap();
             let impacts_source = max_score_cache.impacts_source.take().unwrap();
             match impacts_source {
-                ImpactsEnumEnum2::A(impacts_enum) => {
-                    let disi: TermScorerDisi<IE, PE, SS> = TermScorerDisi::A(impacts_enum);
-                    Box::new(disi) as Box<dyn DocIdSetIterator>
-                },
+                ImpactsEnumEnum2::A(impacts_enum) => Box::new(impacts_enum),
                 ImpactsEnumEnum2::B(slow_impacts) => {
                     let SlowImpactsEnum { delegate } = slow_impacts;
-                    let disi: TermScorerDisi<IE, PE, SS> = TermScorerDisi::B(delegate);
-                    Box::new(disi) as Box<dyn DocIdSetIterator>
+                    Box::new(delegate)
                 },
             }
         }
@@ -367,9 +326,3 @@ where
     }
 }
 pub type ImpactsEnums<IE, PE> = ImpactsEnumEnum2<IE, SlowImpactsEnum<PE>>;
-
-pub type TermScorerDisi<IE, PE, SS> = DocIdSetIteratorEnum3<IE, PE, ImpactsDISI<IE, IE, SS>>;
-pub type TermScorerDisiMut<'a, IE, PE, SS> =
-    DocIdSetIteratorEnum3<&'a mut IE, &'a mut PE, &'a mut ImpactsDISI<IE, IE, SS>>;
-pub type TermScorerDisiRef<'a, IE, PE, SS> =
-    DocIdSetIteratorEnum3<&'a IE, &'a PE, &'a ImpactsDISI<IE, IE, SS>>;
