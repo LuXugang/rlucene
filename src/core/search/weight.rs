@@ -437,7 +437,7 @@ where
 
     fn cost(&mut self, _context: &LeafReaderContext<LR>) -> Result<i64> {
         match self.scorer {
-            Some(ref mut scorer) => scorer.cost(),
+            Some(ref mut scorer) => scorer.iterator().cost(),
             None => Err(LuceneError::illegal_state(
                 "DefaultScorer::get returned None",
             )),
