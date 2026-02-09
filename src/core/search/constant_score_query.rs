@@ -25,7 +25,6 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -333,7 +332,7 @@ pub struct FilterLeafCollectorImpl<LC>
 where
     LC: LeafCollector,
 {
-    in_: FilterLeafCollector<LC>,
+    in_: LC,
     the_score: f32,
 }
 
@@ -342,11 +341,7 @@ where
     LC: LeafCollector,
 {
     pub fn new(in_: LC, the_score: f32) -> Self {
-        let base = FilterLeafCollector::new(in_);
-        Self {
-            in_: base,
-            the_score,
-        }
+        Self { in_, the_score }
     }
 }
 

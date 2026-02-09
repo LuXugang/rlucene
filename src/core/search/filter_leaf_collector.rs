@@ -19,8 +19,9 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-
-/// `LeafCollector` delegator.
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterLeafCollector<L>
 where
     L: LeafCollector,

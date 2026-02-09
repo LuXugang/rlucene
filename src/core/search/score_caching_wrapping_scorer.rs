@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::filter_leaf_collector::FilterLeafCollector;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::Result;
@@ -78,16 +77,14 @@ pub struct ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
-    scorer: FilterLeafCollector<LC>,
+    inner: LC,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
     LC: LeafCollector,
 {
     pub(crate) fn new(base: LC) -> Self {
-        Self {
-            scorer: FilterLeafCollector::new(base),
-        }
+        Self { inner: base }
     }
 }
 
@@ -96,7 +93,7 @@ where
     LC: LeafCollector,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.scorer.fmt(f)
+        self.inner.fmt(f)
     }
 }
 
@@ -105,18 +102,18 @@ where
     LC: LeafCollector,
 {
     fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-        self.scorer.set_scorer(scorer)
+        self.inner.set_scorer(scorer)
     }
 
     fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
         let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
-        self.scorer.collect(doc, &mut wrapper)
+        self.inner.collect(doc, &mut wrapper)
     }
     fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-        self.scorer.competitive_iterator()
+        self.inner.competitive_iterator()
     }
 
     fn finish(&mut self) -> Result<()> {
-        self.scorer.finish()
+        self.inner.finish()
     }
 }
