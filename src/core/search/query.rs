@@ -33,6 +33,7 @@ use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::Index
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -87,6 +88,7 @@ macro_rules! dispatch_query {
             Query::SortedNumericDocValuesRange($inner) => $body,
             Query::SortedNumericDocValuesSet($inner) => $body,
             Query::SortedSetDocValuesRange($inner) => $body,
+            Query::Phrase($inner) => $body,
             Query::Term($inner) => $body,
             #[cfg(test)]
             Query::WANDScorer($inner) => $body,
@@ -113,6 +115,7 @@ impl_from_for_query! {
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
     TermQuery => Term,
+    PhraseQuery=> Phrase,
 }
 
 pub trait QueryBase: Debug + HasIdentity {
@@ -154,6 +157,7 @@ pub enum Query {
     SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
     SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
     SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
+    Phrase(PhraseQuery),
     Term(TermQuery),
     #[cfg(test)]
     WANDScorer(WANDScorerQuery),
