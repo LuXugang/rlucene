@@ -29,15 +29,9 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-/// A `FilterCodecReader` contains another `CodecReader`, which it uses as its basic
-/// source of data, possibly transforming the data along the way or providing additional
-/// functionality.
-///
-///
-/// **NOTE**: If this [`FilterCodecReader`] does not change the content of the
-/// contained reader, you could consider delegating calls to
-/// [`get_core_cache_helper`](Self::get_core_cache_helper) and
-/// [`get_reader_cache_helper`](Self::get_reader_cache_helper).
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
 pub struct FilterCodecReader<CR>
 where
     CR: CodecReader,
@@ -271,7 +265,7 @@ where
     CR: CodecReader,
     B: Bits + Clone,
 {
-    base: FilterCodecReader<CR>,
+    in_: CR,
     live_docs: Option<B>,
     num_docs: i32,
     index_base: IndexReaderBase,
@@ -282,9 +276,8 @@ where
     B: Bits + Clone,
 {
     pub fn new(reader: CR, live_docs: Option<B>, num_docs: i32) -> Self {
-        let base = FilterCodecReader::new(reader);
         Self {
-            base,
+            in_: reader,
             live_docs,
             num_docs,
             index_base: IndexReaderBase::new(),
@@ -300,66 +293,66 @@ where
     type CacheHelper = CR::CacheHelper;
 
     fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-        self.base.in_.get_core_cache_helper_ref()
+        self.in_.get_core_cache_helper_ref()
     }
 
     fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-        self.base.in_.get_core_cache_helper()
+        self.in_.get_core_cache_helper()
     }
 
-    type Terms = <FilterCodecReader<CR> as LeafReader>::Terms;
+    type Terms = <CR as LeafReader>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        LeafReader::terms(&self.base, field)
+        LeafReader::terms(&self.in_, field)
     }
 
-    type NumericDocValues = <FilterCodecReader<CR> as LeafReader>::NumericDocValues;
+    type NumericDocValues = <CR as LeafReader>::NumericDocValues;
 
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-        LeafReader::get_numeric_doc_values(&self.base, field)
+        LeafReader::get_numeric_doc_values(&self.in_, field)
     }
 
-    type BinaryDocValues = <FilterCodecReader<CR> as LeafReader>::BinaryDocValues;
+    type BinaryDocValues = <CR as LeafReader>::BinaryDocValues;
 
     fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-        LeafReader::get_binary_doc_values(&self.base, field)
+        LeafReader::get_binary_doc_values(&self.in_, field)
     }
 
-    type SortedDocValues = <FilterCodecReader<CR> as LeafReader>::SortedDocValues;
+    type SortedDocValues = <CR as LeafReader>::SortedDocValues;
 
     fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-        LeafReader::get_sorted_doc_values(&self.base, field)
+        LeafReader::get_sorted_doc_values(&self.in_, field)
     }
 
-    type SortedNumericDocValues = <FilterCodecReader<CR> as LeafReader>::SortedNumericDocValues;
+    type SortedNumericDocValues = <CR as LeafReader>::SortedNumericDocValues;
 
     fn get_sorted_numeric_doc_values(
         &self,
         field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
-        LeafReader::get_sorted_numeric_doc_values(&self.base, field)
+        LeafReader::get_sorted_numeric_doc_values(&self.in_, field)
     }
 
-    type SortedSetDocValues = <FilterCodecReader<CR> as LeafReader>::SortedSetDocValues;
+    type SortedSetDocValues = <CR as LeafReader>::SortedSetDocValues;
 
     fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-        LeafReader::get_sorted_set_doc_values(&self.base, field)
+        LeafReader::get_sorted_set_doc_values(&self.in_, field)
     }
 
-    type NormNumericDocValues = <FilterCodecReader<CR> as LeafReader>::NormNumericDocValues;
+    type NormNumericDocValues = <CR as LeafReader>::NormNumericDocValues;
 
     fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-        LeafReader::get_norm_values(&self.base, field)
+        LeafReader::get_norm_values(&self.in_, field)
     }
 
-    type DocValuesSkipper = <FilterCodecReader<CR> as LeafReader>::DocValuesSkipper;
+    type DocValuesSkipper = <CR as LeafReader>::DocValuesSkipper;
 
     fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-        LeafReader::get_doc_values_skipper(&self.base, field)
+        LeafReader::get_doc_values_skipper(&self.in_, field)
     }
 
     fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-        self.base.get_field_infos()
+        self.in_.get_field_infos()
     }
 
     type Bits = B;
@@ -368,14 +361,14 @@ where
         Ok(self.live_docs.clone())
     }
 
-    type PointValues = <FilterCodecReader<CR> as LeafReader>::PointValues;
+    type PointValues = <CR as LeafReader>::PointValues;
 
     fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
-        LeafReader::get_point_values(&self.base, field)
+        LeafReader::get_point_values(&self.in_, field)
     }
 
     fn get_metadata(&self) -> Result<&LeafMetaData> {
-        self.base.get_metadata()
+        self.in_.get_metadata()
     }
 }
 
@@ -384,28 +377,28 @@ where
     B: Bits + Clone,
     CR: CodecReader,
 {
-    type TermVectors = <FilterCodecReader<CR> as IndexReader>::TermVectors;
+    type TermVectors = <CR as IndexReader>::TermVectors;
 
     fn term_vectors(&self) -> Result<Self::TermVectors> {
-        IndexReader::term_vectors(&self.base)
+        IndexReader::term_vectors(&self.in_)
     }
 
     fn max_doc(&self) -> Result<i32> {
-        self.base.max_doc()
+        self.in_.max_doc()
     }
 
     fn num_docs(&self) -> Result<i32> {
         Ok(self.num_docs)
     }
 
-    type StoredFields = <FilterCodecReader<CR> as IndexReader>::StoredFields;
+    type StoredFields = <CR as IndexReader>::StoredFields;
 
     fn stored_fields(&self) -> Result<Self::StoredFields> {
-        IndexReader::stored_fields(&self.base)
+        IndexReader::stored_fields(&self.in_)
     }
 
     fn do_close(&self) -> Result<()> {
-        self.base.do_close()
+        self.in_.do_close()
     }
 
     type ReaderCacheHelper = DummyCacheHelper;
@@ -415,23 +408,23 @@ where
     }
 
     fn doc_freq(&self, term: &Term) -> Result<i32> {
-        IndexReader::doc_freq(&self.base, term)
+        IndexReader::doc_freq(&self.in_, term)
     }
 
     fn total_term_freq(&self, term: &Term) -> Result<i64> {
-        IndexReader::total_term_freq(&self.base, term)
+        IndexReader::total_term_freq(&self.in_, term)
     }
 
     fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-        IndexReader::get_sum_doc_freq(&self.base, field)
+        IndexReader::get_sum_doc_freq(&self.in_, field)
     }
 
     fn get_doc_count(&self, field: &str) -> Result<i32> {
-        IndexReader::get_doc_count(&self.base, field)
+        IndexReader::get_doc_count(&self.in_, field)
     }
 
     fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-        IndexReader::get_sum_total_term_freq(&self.base, field)
+        IndexReader::get_sum_total_term_freq(&self.in_, field)
     }
 
     fn index_base(&self) -> &IndexReaderBase {
@@ -445,7 +438,7 @@ where
     CR: CodecReader,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FilterCodecReaderImpl({})", self.base)
+        write!(f, "FilterCodecReaderImpl({})", self.in_)
     }
 }
 
@@ -454,34 +447,34 @@ where
     CR: CodecReader,
     B: Bits + Clone,
 {
-    type StoredFieldsReader = <FilterCodecReader<CR> as CodecReader>::StoredFieldsReader;
-    type TermVectorsReader = <FilterCodecReader<CR> as CodecReader>::TermVectorsReader;
-    type NormsProducer = <FilterCodecReader<CR> as CodecReader>::NormsProducer;
-    type DocValuesProducer = <FilterCodecReader<CR> as CodecReader>::DocValuesProducer;
-    type FieldsProducer = <FilterCodecReader<CR> as CodecReader>::FieldsProducer;
-    type PointsReader = <FilterCodecReader<CR> as CodecReader>::PointsReader;
+    type StoredFieldsReader = <CR as CodecReader>::StoredFieldsReader;
+    type TermVectorsReader = <CR as CodecReader>::TermVectorsReader;
+    type NormsProducer = <CR as CodecReader>::NormsProducer;
+    type DocValuesProducer = <CR as CodecReader>::DocValuesProducer;
+    type FieldsProducer = <CR as CodecReader>::FieldsProducer;
+    type PointsReader = <CR as CodecReader>::PointsReader;
 
     fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
-        self.base.get_fields_reader()
+        self.in_.get_fields_reader()
     }
 
     fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
-        self.base.get_term_vectors_reader()
+        self.in_.get_term_vectors_reader()
     }
 
     fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
-        self.base.get_norms_reader()
+        self.in_.get_norms_reader()
     }
 
     fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
-        self.base.get_doc_values_reader()
+        self.in_.get_doc_values_reader()
     }
 
     fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
-        self.base.get_postings_reader()
+        self.in_.get_postings_reader()
     }
 
     fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
-        self.base.get_points_reader()
+        self.in_.get_points_reader()
     }
 }
