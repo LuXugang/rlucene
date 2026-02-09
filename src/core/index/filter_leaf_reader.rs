@@ -66,11 +66,8 @@ where
     }
 }
 
-/// Base struct for filtering [`Terms`] implementations.
-///
-/// **NOTE**: If the order of terms and documents is not changed, and if these terms are
-/// going to be intersected with automata, you could consider overriding [`Self::intersect`](Terms::intersect) for
-/// better performance.
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub struct FilterTerms<T>
 where
     T: Terms,

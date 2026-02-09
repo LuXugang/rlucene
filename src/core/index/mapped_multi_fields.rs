@@ -18,7 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
-use crate::core::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
+use crate::core::index::filter_leaf_reader::{FilterFields, FilterTermsEnum};
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
 use crate::core::index::merge_state::{MergeState, MergeStateMeta};
@@ -104,7 +104,7 @@ where
 {
     merge_state: MergeStateMeta<CR>,
     field: String,
-    base: FilterTerms<MultiFieldsTerms<T>>,
+    inner: MultiFieldsTerms<T>,
 }
 impl<T, CR> MappedMultiTerms<T, CR>
 where
@@ -116,11 +116,10 @@ where
         merge_state: MergeStateMeta<CR>,
         multi_terms: MultiFieldsTerms<T>,
     ) -> Self {
-        let base = FilterTerms::new(multi_terms);
         MappedMultiTerms {
             merge_state,
             field,
-            base,
+            inner: multi_terms,
         }
     }
 }
@@ -134,7 +133,7 @@ where
     type TermsEnum = MappedMultiTermsTE<T, CR>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        let iterator = self.base.in_.iterator()?;
+        let iterator = self.inner.iterator()?;
         match iterator {
             IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T, CR>::A(empty)),
             IteratorType::<T>::A(v) => match v {
@@ -179,31 +178,31 @@ where
     }
 
     fn has_freqs(&self) -> bool {
-        self.base.has_freqs()
+        self.inner.has_freqs()
     }
 
     fn has_offsets(&self) -> bool {
-        self.base.has_offsets()
+        self.inner.has_offsets()
     }
 
     fn has_positions(&self) -> bool {
-        self.base.has_positions()
+        self.inner.has_positions()
     }
 
     fn has_payloads(&self) -> bool {
-        self.base.has_payloads()
+        self.inner.has_payloads()
     }
 
     fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.get_min()
+        self.inner.get_min()
     }
 
     fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-        self.base.get_max()
+        self.inner.get_max()
     }
 
     fn get_stats(&self) -> Result<String> {
-        self.base.get_stats()
+        self.inner.get_stats()
     }
 }
 
