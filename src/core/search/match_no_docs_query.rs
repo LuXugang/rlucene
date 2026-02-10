@@ -19,15 +19,12 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term_states::TermStates;
-use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef};
-use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
@@ -162,11 +159,6 @@ where
     }
 }
 
-pub type MatchNoDocsSs = DummyScorerSupplier;
-pub type MatchNoDocsSsBulkScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::BulkScorer;
-pub type MatchNoDocsSsScorer<LR> = <MatchNoDocsSs as ScorerSupplier<LR>>::Scorer;
-pub type MatchNoDocsSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type MatchNoDocsSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
 impl<LR> Weight<LR> for MatchNoDocsWeight<LR>
 where
     LR: LeafReader + 'static,

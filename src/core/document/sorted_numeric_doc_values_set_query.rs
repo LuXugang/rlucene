@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::doc_values_long_hash_set::DocValuesLongHashSet;
-use crate::core::index::doc_values::{DocValues, SortedNumeric};
+use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRTermState, LeafReader};
@@ -26,7 +26,6 @@ use crate::core::index::term_states::TermStates;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -218,15 +217,7 @@ where
         Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
     }
 }
-pub type DefaultScorerSupplierSs<LR> = DefaultScorerSupplier<
-    ConstantScoreScorer<
-        DummyDISI,
-        TwoPhaseIteratorEnum2<
-            TwoPhaseIterator1<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
-            TwoPhaseIterator2<SortedNumeric<LR>>,
-        >,
-    >,
->;
+
 pub struct TwoPhaseIterator1<N>
 where
     N: NumericDocValues,

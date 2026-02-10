@@ -29,7 +29,6 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -37,8 +36,6 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisiMut, ScorerDisiRef};
-use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
@@ -253,13 +250,6 @@ where
         Ok(true)
     }
 }
-pub type FieldExistsESs<LR> =
-    DefaultScorerSupplier<ConstantScoreScorer<Disi<LR>, DummyTwoPhaseIterator>>;
-pub type FieldExistsSsBulkScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type FieldExistsSsScorer<LR> = <FieldExistsESs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type FieldExistsSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type FieldExistsSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
-
 pub type Disi<LR> = DocIdSetIteratorEnum3<LRNormNumericDocValues<LR>, DummyDISI, LRDisis<LR>>;
 impl<LR> Weight<LR> for FieldExistsWeight<LR>
 where

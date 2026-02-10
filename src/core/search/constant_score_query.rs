@@ -424,7 +424,6 @@ pub struct ConstantScoreQueryWeight<LR>
 where
     LR: LeafReader + 'static,
 {
-    // inner: CSQWType<LR>,
     inner: QueryWeight<LR>,
 }
 impl<LR> ConstantScoreQueryWeight<LR>

@@ -24,7 +24,6 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -35,7 +34,6 @@ use crate::core::search::query::{
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{ScorerDisi, ScorerDisiMut, ScorerDisiRef};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -199,13 +197,6 @@ where
         write!(f, "weight({:?})", MatchAllDocsQuery::new())
     }
 }
-pub type MatchAllSs = MatchAllDocsScorerSupplier;
-pub type MatchAllSsBulkScorer<LR> = <MatchAllSs as ScorerSupplier<LR>>::BulkScorer;
-pub type MatchAllSsScorer = ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>;
-pub type MatchAllSsScorerDisi = ScorerDisi;
-pub type MatchAllSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type MatchAllSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
-
 pub struct MatchAllDocsScorerSupplier {
     score_mode: ScoreMode,
     weight: ConstantScoreWeight,

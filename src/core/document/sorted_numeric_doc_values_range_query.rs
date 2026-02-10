@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::doc_values::{DocValues, SortedNumeric};
+use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -386,10 +386,6 @@ where
     }
 }
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, RangeDISI>;
-pub type TPI<LR> = TwoPhaseIteratorEnum2<
-    TwoPhaseIterator3<<SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues>,
-    TwoPhaseIterator4<SortedNumeric<LR>>,
->;
 pub struct TwoPhaseIterator3<N>
 where
     N: NumericDocValues,

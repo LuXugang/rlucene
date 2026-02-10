@@ -40,7 +40,7 @@ use crate::core::search::query::{
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerDisiMut, ScorerDisiRef, ScorerEnum2};
+use crate::core::search::scorer::{Scorer, ScorerEnum2};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -477,12 +477,6 @@ where
         }
     }
 }
-pub type TermSs<LR> = TermScorerSupplier<LR>;
-pub type TermBulkScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::BulkScorer;
-pub type TermSsScorer<LR> = <TermSs<LR> as ScorerSupplier<LR>>::Scorer;
-pub type TermSsScorerDisiRef<'a> = ScorerDisiRef<'a>;
-pub type TermSsScorerDisiMut<'a> = ScorerDisiMut<'a>;
-
 pub struct TermScorerSupplier<LR>
 where
     LR: LeafReader,
