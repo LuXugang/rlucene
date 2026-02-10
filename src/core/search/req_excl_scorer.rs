@@ -18,6 +18,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::TwoPhaseState::Yes;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
     TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
@@ -149,6 +150,14 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         Yes
     }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        self.disi.two_phase_iterator.approximation_mut()
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        self.disi.two_phase_iterator.approximation()
+    }
 }
 
 pub struct TwoPhaseIteratorImpl1<S1, S2>
@@ -179,21 +188,20 @@ where
     S2: Scorer,
 {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(self.req_scorer.iterator_mut())
+        self.req_scorer.approximation_mut()
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(self.req_scorer.iterator())
+        self.req_scorer.approximation()
     }
 
     fn matches(&mut self) -> Result<bool> {
-        let doc = self.req_scorer.iterator().doc_id();
+        let doc = ScorerUtil::doc_id(&self.req_scorer);
         // check if the doc is not excluded
         {
-            let mut excl_iter = self.excl_scorer.iterator_mut();
-            let mut excl_doc = excl_iter.doc_id();
+            let mut excl_doc = ScorerUtil::doc_id(&self.excl_scorer);
             if excl_doc < doc {
-                excl_doc = excl_iter.advance(doc)?;
+                excl_doc = ScorerUtil::advance(&mut self.excl_scorer, doc)?;
             }
             if excl_doc != doc {
                 return match self.req_scorer.two_phase_iterator_mut() {
@@ -251,23 +259,21 @@ where
     S2: Scorer,
 {
     fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(self.req_scorer.iterator_mut())
+        self.req_scorer.approximation_mut()
     }
 
     fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-        Box::new(self.req_scorer.iterator())
+        self.req_scorer.approximation()
     }
 
     fn matches(&mut self) -> Result<bool> {
-        let doc = self.req_scorer.iterator().doc_id();
+        let doc = ScorerUtil::doc_id(&self.req_scorer);
 
         // check if doc is excluded
         {
-            let mut excl_iter = self.excl_scorer.iterator_mut();
-            let mut excl_doc = excl_iter.doc_id();
-
+            let mut excl_doc = ScorerUtil::doc_id(&self.excl_scorer);
             if excl_doc < doc {
-                excl_doc = excl_iter.advance(doc)?;
+                excl_doc = ScorerUtil::advance(&mut self.excl_scorer, doc)?;
             }
 
             if excl_doc != doc {
@@ -328,8 +334,8 @@ where
     };
     // upper value for the ratio of documents that reqApproximation matches that
     // exclApproximation also matches
-    let req_cost = req_scorer.iterator().cost()?;
-    let excl_cost = excl_scorer.iterator().cost()?;
+    let req_cost = ScorerUtil::cost(req_scorer)?;
+    let excl_cost = ScorerUtil::cost(excl_scorer)?;
 
     let ratio = if req_cost <= 0 {
         1.0

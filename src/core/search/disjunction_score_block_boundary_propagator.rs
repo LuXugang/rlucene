@@ -231,5 +231,13 @@ mod tests {
         fn has_two_phase_iterator(&self) -> TwoPhaseState {
             TwoPhaseState::No
         }
+
+        fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&self.disi)
+        }
+
+        fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&mut self.disi)
+        }
     }
 }

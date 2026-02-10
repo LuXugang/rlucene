@@ -22,7 +22,6 @@ use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bits::Bits;
@@ -124,26 +123,19 @@ impl Scorer for ScorerImpl {
         Box::new(it)
     }
 
-    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        None
-    }
-
-    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        None
-    }
-
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
-    where
-        Self: Sized,
-    {
-        None
-    }
-
     fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
         Ok(f32::MAX)
     }
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         TwoPhaseState::No
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&self.it)
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        Box::new(&mut self.it)
     }
 }

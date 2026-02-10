@@ -324,5 +324,13 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         TwoPhaseState::No
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        self.iterator()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        self.iterator_mut()
+    }
 }
 pub type ImpactsEnums<IE, PE> = ImpactsEnumEnum2<IE, SlowImpactsEnum<PE>>;

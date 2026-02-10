@@ -191,6 +191,14 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         TwoPhaseState::Yes
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        self.disi.two_phase_iterator.approximation()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        self.disi.two_phase_iterator.approximation_mut()
+    }
 }
 
 pub struct DocIdSetIteratorImpl<S>
@@ -1615,9 +1623,8 @@ pub(crate) mod tests {
                     Occur::Should,
                 )?;
             inner.set_minimum_number_should_match(2);
-
-            let inner_query =
-                Query::WANDScorer(WANDScorerQuery::new(inner.build(), random.random_bool(0.5)));
+            let v = inner.build();
+            let inner_query = Query::WANDScorer(WANDScorerQuery::new(v, random.random_bool(0.5)));
 
             let mut outer = Builder::new();
             outer
@@ -2252,6 +2259,14 @@ pub(crate) mod tests {
 
         fn has_two_phase_iterator(&self) -> TwoPhaseState {
             self.scorer.has_two_phase_iterator()
+        }
+
+        fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            self.scorer.approximation()
+        }
+
+        fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            self.scorer.approximation_mut()
         }
     }
 

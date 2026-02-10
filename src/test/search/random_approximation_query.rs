@@ -229,6 +229,14 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         todo!()
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        todo!()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        todo!()
+    }
 }
 
 pub struct RandomTwoPhaseView<DISI>

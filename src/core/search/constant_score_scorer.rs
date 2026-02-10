@@ -210,6 +210,32 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         self.tpi_state
     }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.tpi_state {
+            TwoPhaseState::No => self.iterator_mut(),
+            _ => match self.disi {
+                ConstantDISI_::A(_) => {
+                    debug_assert!(false, "should not be here");
+                    self.iterator_mut()
+                },
+                ConstantDISI_::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+            },
+        }
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.tpi_state {
+            TwoPhaseState::No => self.iterator(),
+            _ => match self.disi {
+                ConstantDISI_::A(_) => {
+                    debug_assert!(false, "should not be here");
+                    self.iterator()
+                },
+                ConstantDISI_::B(ref v) => v.two_phase_iterator.approximation(),
+            },
+        }
+    }
 }
 
 pub struct TwoPhaseIteratorImpl<TPI>

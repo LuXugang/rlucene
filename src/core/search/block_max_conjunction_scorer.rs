@@ -213,6 +213,26 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         self.two_phase_state
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.two_phase_state {
+            TwoPhaseState::No => self.iterator(),
+            _ => match self.disi {
+                DocIdSetIteratorEnum2::A(_) => self.iterator(),
+                DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
+            },
+        }
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.two_phase_state {
+            TwoPhaseState::No => self.iterator_mut(),
+            _ => match self.disi {
+                DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
+                DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+            },
+        }
+    }
 }
 
 pub struct DocIdSetIteratorImpl<S>

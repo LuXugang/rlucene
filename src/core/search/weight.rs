@@ -528,14 +528,18 @@ where
             ));
         }
     }
-    let mut doc = ScorerUtil::doc_id(scorer);
-    if doc < min {
-        if doc == min - 1 {
-            doc = ScorerUtil::next_doc(scorer)?;
-        } else {
-            doc = ScorerUtil::advance(scorer, min)?;
+    let mut doc = {
+        let mut iterator = scorer.approximation_mut();
+        let mut doc = iterator.doc_id();
+        if doc < min {
+            if doc == min - 1 {
+                doc = iterator.next_doc()?;
+            } else {
+                doc = iterator.advance(min)?
+            }
         }
-    }
+        doc
+    };
 
     if !has_two_phase && !has_competitive {
         // Optimize simple iterators with collectors that can't skip

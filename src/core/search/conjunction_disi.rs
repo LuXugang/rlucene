@@ -17,6 +17,7 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
@@ -61,32 +62,29 @@ where
     }
     fn do_next(&mut self, mut doc: i32) -> Result<i32> {
         'advance_head: loop {
-            debug_assert_eq!(doc, self.all_disi[self.lead1].iterator().doc_id());
+            debug_assert_eq!(doc, ScorerUtil::doc_id(&self.all_disi[self.lead1]));
             // find agreement between the two iterators with the lower costs
             // we special case them because they do not need the
             // 'other.docID() < doc' check that the 'others' iterators need
-            let next2 = self.all_disi[self.lead2].iterator_mut().advance(doc)?;
+            let next2 = ScorerUtil::advance(&mut self.all_disi[self.lead2], doc)?;
             if next2 != doc {
-                doc = self.all_disi[self.lead1].iterator_mut().advance(next2)?;
+                doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], next2)?;
                 if doc != next2 {
                     continue;
                 }
             }
             // then find agreement with other iterators
             for other_idx in self.others.iter() {
-                let other_doc = {
-                    let other = self.all_disi[*other_idx].iterator();
-                    other.doc_id()
-                };
+                let other_doc = ScorerUtil::doc_id(&self.all_disi[*other_idx]);
 
                 // other.doc may already be equal to doc if we "continued advanceHead"
                 // on the previous iteration and the advance on the lead scorer exactly matched.
                 if other_doc < doc {
-                    let next = self.all_disi[*other_idx].iterator_mut().advance(doc)?;
+                    let next = ScorerUtil::advance(&mut self.all_disi[*other_idx], doc)?;
 
                     if next > doc {
                         // iterator beyond the current doc - advance lead and continue to the new highest doc.
-                        doc = self.all_disi[self.lead1].iterator_mut().advance(next)?;
+                        doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], next)?;
                         continue 'advance_head;
                     }
                 }
@@ -96,13 +94,13 @@ where
     }
     // Returns {@code true} if all sub-iterators are on the same doc ID, {@code false} otherwise
     fn assert_iters_on_same_doc(&self) -> bool {
-        let cur_doc = self.all_disi[self.lead1].iterator().doc_id();
+        let cur_doc = ScorerUtil::doc_id(&self.all_disi[self.lead1]);
         let mut iterators_on_the_same_doc =
-            self.all_disi[self.lead2].iterator().doc_id() == cur_doc;
+            ScorerUtil::doc_id(&self.all_disi[self.lead2]) == cur_doc;
         let mut i = 0;
         while i < self.others.len() && iterators_on_the_same_doc {
             iterators_on_the_same_doc = iterators_on_the_same_doc
-                && (self.all_disi[self.others[i]].iterator().doc_id() == cur_doc);
+                && (ScorerUtil::doc_id(&self.all_disi[self.others[i]]) == cur_doc);
             i += 1;
         }
         iterators_on_the_same_doc
@@ -113,7 +111,7 @@ where
     S: Scorer,
 {
     fn doc_id(&self) -> i32 {
-        self.all_disi[self.lead1].iterator().doc_id()
+        ScorerUtil::doc_id(&self.all_disi[self.lead1])
     }
 
     fn next_doc(&mut self) -> Result<i32> {
@@ -121,7 +119,7 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].iterator_mut().next_doc()?;
+        let doc = ScorerUtil::next_doc(&mut self.all_disi[self.lead1])?;
         self.do_next(doc)
     }
 
@@ -130,12 +128,12 @@ where
             self.assert_iters_on_same_doc(),
             "Sub-iterators of ConjunctionDISI are not on the same document!"
         );
-        let doc = self.all_disi[self.lead1].iterator_mut().advance(target)?;
+        let doc = ScorerUtil::advance(&mut self.all_disi[self.lead1], target)?;
         self.do_next(doc)
     }
 
     fn cost(&self) -> Result<i64> {
-        self.all_disi[self.lead1].iterator().cost()
+        ScorerUtil::cost(&self.all_disi[self.lead1])
     }
 }
 struct DisiCmp<'a, S>
@@ -159,11 +157,9 @@ where
     const TYPE: &'static str = "DisiCmp";
 
     fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-        Ok(self.disi[*a]
-            .iterator()
-            .cost()?
-            .cmp(&self.disi[*b].iterator().cost()?)
-            .to_int())
+        let lf = ScorerUtil::cost(&self.disi[*a])?;
+        let rg = ScorerUtil::cost(&self.disi[*b])?;
+        Ok(lf.cmp(&rg).to_int())
     }
 }
 /// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.

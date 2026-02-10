@@ -957,6 +957,14 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         self.inner.has_two_phase_iterator()
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        self.inner.approximation()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        self.inner.approximation_mut()
+    }
 }
 
 pub(crate) fn disable_scoring<BS>(scorer: BS) -> BulkScorerImpl<BS>
@@ -1114,6 +1122,14 @@ mod tests {
 
         fn has_two_phase_iterator(&self) -> TwoPhaseState {
             TwoPhaseState::No
+        }
+
+        fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&self.it)
+        }
+
+        fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            Box::new(&mut self.it)
         }
     }
     #[derive(Clone)]

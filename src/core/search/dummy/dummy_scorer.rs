@@ -84,4 +84,12 @@ impl Scorer for DummyScorer {
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

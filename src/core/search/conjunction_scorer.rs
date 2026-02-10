@@ -214,4 +214,18 @@ where
             DocIdSetIteratorEnum2::B(_) => TwoPhaseState::Yes,
         }
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.disi {
+            DocIdSetIteratorEnum2::A(_) => self.iterator(),
+            DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
+        }
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        match self.disi {
+            DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
+            DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+        }
+    }
 }

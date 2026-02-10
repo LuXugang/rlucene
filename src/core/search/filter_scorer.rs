@@ -99,4 +99,12 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         self.inner.has_two_phase_iterator()
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        self.inner.approximation()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        self.inner.approximation_mut()
+    }
 }

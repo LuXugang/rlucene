@@ -111,6 +111,32 @@ pub trait Scorer: Scorable {
         self.iterator_mut().cost()
     }
     fn has_two_phase_iterator(&self) -> TwoPhaseState;
+
+    /// Return an approximation [`DocIdSetIterator`] for this scorer.
+    ///
+    /// If this scorer supports two-phase iteration (i.e. [`two_phase_iterator`](TwoPhaseIterator)
+    /// returns `Some`), then this method must return the approximation of the
+    /// two-phase iterator.
+    ///
+    /// Otherwise, this method must return the same iterator as [`iterator`].
+    ///
+    /// # Warning
+    /// The returned iterator is a *view*: calling this method several times must
+    /// return iterators that share the same state.
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
+
+    /// Return a mutable approximation [`DocIdSetIterator`] for this scorer.
+    ///
+    /// If this scorer supports two-phase iteration (i.e. [`two_phase_iterator_mut`](TwoPhaseIterator)
+    /// returns `Some`), then this method must return the mutable approximation of the
+    /// two-phase iterator.
+    ///
+    /// Otherwise, this method must return the same iterator as [`iterator_mut`].
+    ///
+    /// # Warning
+    /// The returned iterator is a *view*: calling this method several times must
+    /// return iterators that share the same state.
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
 }
 
 impl<T> Scorable for Box<T>
@@ -191,6 +217,14 @@ where
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         (**self).has_two_phase_iterator()
     }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        (**self).approximation()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        (**self).approximation_mut()
+    }
 }
 
 impl Scorer for Box<dyn Scorer> {
@@ -242,6 +276,14 @@ impl Scorer for Box<dyn Scorer> {
 
     fn has_two_phase_iterator(&self) -> TwoPhaseState {
         (**self).has_two_phase_iterator()
+    }
+
+    fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+        (**self).approximation()
+    }
+
+    fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+        (**self).approximation_mut()
     }
 }
 pub type ScorerDisi = Box<dyn DocIdSetIterator>;
@@ -364,6 +406,14 @@ macro_rules! either_scorer {
              #[inline]
             fn has_two_phase_iterator(&self) -> TwoPhaseState{
                 match self { $( Self::$Variant(inner) => inner.has_two_phase_iterator(), )+ }
+            }
+           #[inline]
+            fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+                match self { $( Self::$Variant(inner) => inner.approximation(), )+ }
+            }
+            #[inline]
+            fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+                match self { $( Self::$Variant(inner) => inner.approximation_mut(), )+ }
             }
         }
     };

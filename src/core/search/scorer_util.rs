@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
@@ -54,63 +54,23 @@ impl ScorerUtil {
 
     #[inline]
     pub fn doc_id(s: &impl Scorer) -> i32 {
-        if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator()
-                .as_ref()
-                .unwrap()
-                .approximation()
-                .doc_id()
-        } else {
-            s.iterator().doc_id()
-        }
+        s.approximation().doc_id()
     }
     #[inline]
     pub fn next_doc(s: &mut impl Scorer) -> Result<i32> {
-        if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()
-                .as_mut()
-                .unwrap()
-                .approximation_mut()
-                .next_doc()
-        } else {
-            s.iterator_mut().next_doc()
-        }
+        s.approximation_mut().next_doc()
     }
     #[inline]
     pub fn advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
-        if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()
-                .as_mut()
-                .unwrap()
-                .approximation_mut()
-                .advance(target)
-        } else {
-            s.iterator_mut().advance(target)
-        }
+        s.approximation_mut().advance(target)
     }
     #[inline]
     pub fn slow_advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
-        if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator_mut()
-                .as_mut()
-                .unwrap()
-                .approximation_mut()
-                .slow_advance(target)
-        } else {
-            s.iterator_mut().slow_advance(target)
-        }
+        s.approximation_mut().slow_advance(target)
     }
     #[inline]
     pub fn cost(s: &impl Scorer) -> Result<i64> {
-        if s.has_two_phase_iterator() == TwoPhaseState::Yes {
-            s.two_phase_iterator()
-                .as_ref()
-                .unwrap()
-                .approximation()
-                .cost()
-        } else {
-            s.iterator().cost()
-        }
+        s.approximation().cost()
     }
 }
 struct MaxCostCmp;
