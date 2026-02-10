@@ -21,10 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Position of a term in a document that takes into account the term offset
 /// within the phrase.
-pub struct PhrasePositions<PE>
-where
-    PE: PostingsEnum,
-{
+pub struct PhrasePositions {
     /// Position in the document.
     pub(crate) position: usize,
     /// Remaining positions in this document.
@@ -34,7 +31,7 @@ where
     /// Unique ordinal across all `PhrasePositions` instances.
     pub(crate) ord: usize,
     /// Stream of documents and positions.
-    pub(crate) postings: PE,
+    pub(crate) postings_idx: usize,
     /// Repetition group identifier.
     /// A value >= 0 indicates that this is a repeating `PhrasePositions`.
     pub(crate) rpt_group: i32,
@@ -43,13 +40,10 @@ where
     /// Terms associated with this position, used for repetition initialization.
     pub(crate) terms: Vec<Term>,
 }
-impl<PE> PhrasePositions<PE>
-where
-    PE: PostingsEnum,
-{
-    pub fn new(postings: PE, offset: usize, ord: usize, terms: Vec<Term>) -> Self {
+impl PhrasePositions {
+    pub fn new(postings: usize, offset: usize, ord: usize, terms: Vec<Term>) -> Self {
         Self {
-            postings,
+            postings_idx: postings,
             offset,
             ord,
             terms,
@@ -60,10 +54,13 @@ where
         }
     }
 
-    pub fn first_position(&mut self) -> Result<()> {
+    pub fn first_position<PE>(&mut self, postings: &mut [PE]) -> Result<()>
+    where
+        PE: PostingsEnum,
+    {
         // read first position
-        self.count = self.postings.freq()?;
-        self.next_position()?;
+        self.count = postings[self.postings_idx].freq()?;
+        self.next_position(postings)?;
         Ok(())
     }
 
@@ -71,10 +68,13 @@ where
     /// `position` as `location - offset`, so that a matching exact phrase is
     /// easily identified when all `PhrasePositions` have exactly the same
     /// `position`.
-    pub fn next_position(&mut self) -> Result<bool> {
+    pub fn next_position<PE>(&mut self, postings: &mut [PE]) -> Result<bool>
+    where
+        PE: PostingsEnum,
+    {
         if self.count > 0 {
             self.count -= 1;
-            let pos = self.postings.next_position()?.try_convert()?;
+            let pos = postings[self.postings_idx].next_position()?.try_convert()?;
             self.position = pos.saturating_sub(self.offset);
             Ok(true)
         } else {
