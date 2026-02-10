@@ -73,7 +73,8 @@ where
             let w = &mut approximation.all_scores[idx];
             let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
             sum_approx_cost += cost_weight;
-            if w.has_two_phase_iterator() == TwoPhaseState::Yes || w.two_phase_iterator().is_some()
+            if w.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
+                || w.scorer.two_phase_iterator().is_some()
             {
                 has_approximation = true;
                 sum_match_cost += w.match_cost * cost_weight as f32;
@@ -361,8 +362,8 @@ where
             let w_idx = w_idx_opt.unwrap();
             let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
             let next = w.next;
-            let has_no_two_phase_view = (w.has_two_phase_iterator() == TwoPhaseState::No)
-                || w.two_phase_iterator().is_some();
+            let has_no_two_phase_view = (w.scorer.has_two_phase_iterator() == TwoPhaseState::No)
+                || w.scorer.two_phase_iterator().is_some();
             if has_no_two_phase_view {
                 // implicitly verified, move it to verifiedMatches
                 w.next = self.verified_matches;

@@ -71,23 +71,26 @@ impl DisjunctionScoreBlockBoundaryPropagator {
         // For scorers above the lead index, we take the minimum boundary.
         let lead_idx = self.lead_index as usize;
         let lead_scorer = &mut scorers[self.cost[lead_idx].idx];
-        let doc_id = lead_scorer.doc_id()?;
-        let mut up_to = lead_scorer.advance_shallow(std::cmp::max(doc_id, target))?;
+        let doc_id = lead_scorer.scorer.doc_id()?;
+        let mut up_to = lead_scorer
+            .scorer
+            .advance_shallow(std::cmp::max(doc_id, target))?;
 
         for i in (lead_idx + 1)..self.cost.len() {
             let scorer = &mut scorers[self.cost[i].idx];
-            if scorer.doc_id()? <= target {
-                let v = scorer.advance_shallow(target)?;
+            if scorer.scorer.doc_id()? <= target {
+                let v = scorer.scorer.advance_shallow(target)?;
                 up_to = std::cmp::min(v, up_to);
             }
         }
 
-        // If the maximum scoring clauses are beyond `target`,
-        // use their docID as a boundary.
+        // If the maximum scoring clauses are beyond `target`, then we use their
+        // docID as a boundary. It helps not consider them when computing the
+        // maximum score and get a lower score upper bound.
         let mut i = self.cost.len() - 1;
         while i > self.lead_index as usize {
             let scorer = &mut scorers[self.cost[i].idx];
-            let doc = scorer.doc_id()?;
+            let doc = scorer.scorer.doc_id()?;
             if doc > target {
                 up_to = std::cmp::min(up_to, doc - 1);
             } else {

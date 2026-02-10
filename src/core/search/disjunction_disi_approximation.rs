@@ -18,6 +18,7 @@ use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::error::lucene_error::Result;
 
 #[derive(Default)]
@@ -60,7 +61,7 @@ where
 
         loop {
             let top = &mut self.all_scores[top_idx];
-            let v = top.iterator_mut().next_doc()?;
+            let v = ScorerUtil::next_doc(&mut top.scorer)?;
             top.doc = v;
             top_idx = self.sub_iterators.update_top(&self.all_scores);
             if self.all_scores[top_idx].doc != old_doc {
@@ -74,7 +75,7 @@ where
         let mut top_idx = self.sub_iterators.top().expect("top ie empty");
         loop {
             let top = &mut self.all_scores[top_idx];
-            let v = top.iterator_mut().advance(target)?;
+            let v = ScorerUtil::next_doc(&mut top.scorer)?;
             top.doc = v;
             top_idx = self.sub_iterators.update_top(&self.all_scores);
             if self.all_scores[top_idx].doc >= target {

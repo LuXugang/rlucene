@@ -23,6 +23,7 @@ use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
@@ -181,7 +182,7 @@ where
         {
             let top = &mut self.all_scorers[top_index];
             if top.doc < filter_doc {
-                let v = top.iterator_mut().advance(filter_doc)?;
+                let v = ScorerUtil::advance(&mut top.scorer, filter_doc)?;
                 top.doc = v;
             }
         }
@@ -193,7 +194,7 @@ where
             debug_assert!(filter.doc <= top_doc);
 
             if filter.doc < top_doc {
-                let v = filter.iterator_mut().advance(top_doc)?;
+                let v = ScorerUtil::advance(&mut filter.scorer, top_doc)?;
                 filter.doc = v;
             }
 
@@ -202,7 +203,7 @@ where
                     let fdoc = filter.doc;
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator_mut().advance(fdoc)?;
+                        let v = top.scorer.iterator_mut().advance(fdoc)?;
                         top.doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -225,14 +226,14 @@ where
                     if m {
                         let s = {
                             let top = &mut self.all_scorers[top_index];
-                            top.score()? as f64
+                            top.scorer.score()? as f64
                         };
                         score += s;
                     }
 
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator_mut().next_doc()?;
+                        let v = top.scorer.iterator_mut().next_doc()?;
                         top.doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -266,7 +267,7 @@ where
             let top = &mut self.all_scorers[top_index];
             // single essential clause in this window, we can iterate it directly and skip the bitset.
             // this is a common case for 2-clauses queries
-            (top.doc, top.score()? as f64)
+            (top.doc, top.scorer.score()? as f64)
         };
 
         while doc < up_to {
@@ -283,11 +284,11 @@ where
                 )?;
             }
             let top = &mut self.all_scorers[top_index];
-            doc = top.iterator_mut().next_doc()?;
-            score = top.score()? as f64;
+            doc = top.scorer.iterator_mut().next_doc()?;
+            score = top.scorer.score()? as f64;
         }
         let top = &mut self.all_scorers[top_index];
-        let v = top.iterator_mut().doc_id();
+        let v = top.scorer.iterator_mut().doc_id();
         top.doc = v;
         self.essential_queue.update_top(&self.all_scorers);
 
@@ -318,6 +319,7 @@ where
             if self.all_scorers[leader1_idx].doc < self.all_scorers[leader2_idx].doc {
                 let target = self.all_scorers[leader2_idx].doc.min(max);
                 let v = self.all_scorers[leader1_idx]
+                    .scorer
                     .iterator_mut()
                     .advance(target)?;
                 self.all_scorers[leader1_idx].doc = v;
@@ -336,13 +338,16 @@ where
                 };
 
                 if !accepted {
-                    let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                    let v = self.all_scorers[leader1_idx]
+                        .scorer
+                        .iterator_mut()
+                        .next_doc()?;
                     self.all_scorers[leader1_idx].doc = v;
                     doc = v;
                     continue;
                 }
 
-                let mut score = self.all_scorers[leader1_idx].score()? as f64;
+                let mut score = self.all_scorers[leader1_idx].scorer.score()? as f64;
 
                 if (MathUtil::sum_upper_bound(
                     score + max_score_sum_at_lead2,
@@ -350,7 +355,10 @@ where
                 ) as f32)
                     < self.scorable.min_competitive_score
                 {
-                    let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                    let v = self.all_scorers[leader1_idx]
+                        .scorer
+                        .iterator_mut()
+                        .next_doc()?;
                     self.all_scorers[leader1_idx].doc = v;
                     doc = v;
                     continue;
@@ -359,6 +367,7 @@ where
                 if self.all_scorers[leader2_idx].doc < self.all_scorers[leader1_idx].doc {
                     let target = self.all_scorers[leader1_idx].doc;
                     let v = self.all_scorers[leader2_idx]
+                        .scorer
                         .iterator_mut()
                         .advance(target)?;
                     self.all_scorers[leader2_idx].doc = v;
@@ -366,6 +375,7 @@ where
                 if self.all_scorers[leader2_idx].doc != self.all_scorers[leader1_idx].doc {
                     let target = self.all_scorers[leader2_idx].doc.min(max);
                     let v = self.all_scorers[leader1_idx]
+                        .scorer
                         .iterator_mut()
                         .advance(target)?;
                     self.all_scorers[leader1_idx].doc = v;
@@ -373,7 +383,7 @@ where
                     continue;
                 }
 
-                score += self.all_scorers[leader2_idx].score()? as f64;
+                score += self.all_scorers[leader2_idx].scorer.score()? as f64;
 
                 if self.all_scorers_idx.len() >= 3 {
                     for j in (self.first_required_scorer..=self.all_scorers_idx.len() - 3).rev() {
@@ -383,7 +393,10 @@ where
                         ) as f32)
                             < self.scorable.min_competitive_score
                         {
-                            let v = self.all_scorers[leader1_idx].iterator_mut().next_doc()?;
+                            let v = self.all_scorers[leader1_idx]
+                                .scorer
+                                .iterator_mut()
+                                .next_doc()?;
                             self.all_scorers[leader1_idx].doc = v;
                             doc = v;
                             continue 'outer;
@@ -392,12 +405,13 @@ where
                         let leader_1_doc = self.all_scorers[leader1_idx].doc;
                         let w = &mut self.all_scorers[j];
                         if w.doc < leader_1_doc {
-                            let v = w.iterator_mut().advance(leader_1_doc)?;
+                            let v = w.scorer.iterator_mut().advance(leader_1_doc)?;
                             w.doc = v;
                         }
                         let w_doc = w.doc;
                         if w_doc != leader_1_doc {
                             let v = self.all_scorers[leader1_idx]
+                                .scorer
                                 .iterator_mut()
                                 .advance(w_doc.min(max))?;
                             self.all_scorers[leader1_idx].doc = v;
@@ -405,7 +419,7 @@ where
                             continue 'outer;
                         }
 
-                        score += self.all_scorers[j].score()? as f64;
+                        score += self.all_scorers[j].scorer.score()? as f64;
                     }
                 }
 
@@ -414,7 +428,7 @@ where
 
             self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
             let lead1 = &mut self.all_scorers[leader1_idx];
-            let v = lead1.iterator_mut().next_doc()?;
+            let v = lead1.scorer.iterator_mut().next_doc()?;
             doc = v;
             lead1.doc = v;
         }
@@ -445,12 +459,12 @@ where
                 if accepted {
                     let i = (doc - inner_window_min) as usize;
                     self.window_matches[i >> 6] |= 1u64 << i;
-                    self.window_scores[i] += top.score()? as f64;
+                    self.window_scores[i] += top.scorer.score()? as f64;
                 }
-                doc = top.iterator_mut().next_doc()?;
+                doc = top.scorer.iterator_mut().next_doc()?;
             }
 
-            let doc_id = top.iterator_mut().doc_id();
+            let doc_id = top.scorer.iterator_mut().doc_id();
             top.doc = doc_id;
             let next_index = self.essential_queue.update_top(&self.all_scorers);
             top = &mut self.all_scorers[next_index];
@@ -500,7 +514,7 @@ where
             let scorer = &mut self.all_scorers[index];
 
             if self.filter.is_none() || scorer.cost >= self.filter.as_ref().unwrap().cost {
-                let up_to = scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
+                let up_to = scorer.scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
                 window_max = (window_max as i64).min(up_to + 1) as i32; // upTo is inclusive
             }
         }
@@ -525,18 +539,18 @@ where
     }
     fn update_max_window_scores(&mut self, window_min: i32, window_max: i32) -> Result<()> {
         for &idx in &self.all_scorers_idx {
-            let w = &mut self.all_scorers[idx];
+            let scorer = &mut self.all_scorers[idx];
 
-            if w.doc < window_max {
-                if w.doc < window_min {
+            if scorer.doc < window_max {
+                if scorer.doc < window_min {
                     // Make sure to advance shallow if necessary to get as good score upper bounds as
                     // possible.
-                    w.advance_shallow(window_min)?;
+                    scorer.scorer.advance_shallow(window_min)?;
                 }
-                w.max_window_score = w.get_max_score(window_max - 1)?;
+                scorer.max_window_score = scorer.scorer.get_max_score(window_max - 1)?;
             } else {
                 // This scorer has no documents in the considered window.
-                w.max_window_score = 0.0;
+                scorer.max_window_score = 0.0;
             }
         }
         Ok(())
@@ -566,11 +580,11 @@ where
             let scorer = &mut self.all_scorers[index];
 
             if scorer.doc < doc {
-                let v = scorer.iterator_mut().advance(doc)?;
+                let v = scorer.scorer.iterator_mut().advance(doc)?;
                 scorer.doc = v;
             }
             if scorer.doc == doc {
-                score += scorer.score()? as f64;
+                score += scorer.scorer.score()? as f64;
             }
         }
 
@@ -757,7 +771,7 @@ where
                 while doc < outer_window_min {
                     {
                         let top = &mut self.all_scorers[top_index];
-                        let v = top.iterator_mut().advance(outer_window_min)?;
+                        let v = top.scorer.iterator_mut().advance(outer_window_min)?;
                         top.doc = v;
                     }
                     top_index = self.essential_queue.update_top(&self.all_scorers);

@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
@@ -71,81 +70,5 @@ where
             Some(mut tpi) => tpi.matches(),
             None => Ok(true),
         }
-    }
-}
-
-impl<S> Scorable for DisiWrapper<S>
-where
-    S: Scorer,
-{
-    fn score(&mut self) -> Result<f32> {
-        self.scorer.score()
-    }
-
-    fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
-        self.scorer.smoothing_score(doc_id)
-    }
-
-    fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-        self.scorer.set_min_competitive_score(min_score)
-    }
-
-    fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
-        self.scorer.get_children()
-    }
-
-    fn cost(&mut self) -> Result<i64> {
-        self.scorer.cost()
-    }
-}
-
-impl<S> Scorer for DisiWrapper<S>
-where
-    S: Scorer,
-{
-    fn doc_id(&mut self) -> Result<i32> {
-        self.scorer.doc_id()
-    }
-
-    fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-        self.scorer.iterator()
-    }
-
-    fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-        self.scorer.iterator_mut()
-    }
-
-    fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-        let DisiWrapper { scorer, .. } = *self;
-        Box::new(scorer).take_iterator()
-    }
-
-    fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.scorer.two_phase_iterator()
-    }
-
-    fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-        self.scorer.two_phase_iterator_mut()
-    }
-
-    fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-        let DisiWrapper { scorer, .. } = *self;
-        Box::new(scorer).take_two_phase_iterator()
-    }
-
-    fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-        self.scorer.advance_shallow(target)
-    }
-
-    fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-        self.scorer.get_max_score(up_to)
-    }
-
-    fn default_cost(&mut self) -> Result<i64> {
-        self.scorer.default_cost()
-    }
-
-    fn has_two_phase_iterator(&self) -> TwoPhaseState {
-        self.scorer.has_two_phase_iterator()
     }
 }
