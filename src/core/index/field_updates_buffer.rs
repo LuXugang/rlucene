@@ -82,15 +82,14 @@ impl FieldUpdatesBuffer {
         doc_upto: i32,
         is_numeric: bool,
     ) -> Result<Self> {
-        let has_values = if !initial_value.has_value {
-            Some(FixedBitSet::new(1))
-        } else {
-            None
-        };
-        bytes_used.add_and_get(Self::size_of_string(&initial_value.term.field));
+        let mut has_values = None;
         if !initial_value.has_value {
-            bytes_used.add_and_get(has_values.as_ref().unwrap().ram_bytes_used()?);
+            let bs = FixedBitSet::new(1);
+            bytes_used.add_and_get(bs.ram_bytes_used()?);
+            has_values = Some(bs);
         }
+        bytes_used.add_and_get(Self::size_of_string(&initial_value.term.field));
+
         let mut buffer = FieldUpdatesBuffer {
             bytes_used: bytes_used.clone(),
             num_updates: 1,
@@ -280,9 +279,11 @@ impl FieldUpdatesBuffer {
         doc_upto: i32,
     ) -> Result<()> {
         debug_assert!(!self.is_numeric);
-        debug_assert!(self.byte_values.is_some());
         let ord = self.append(term)?;
-        self.byte_values.as_mut().unwrap().append(value)?;
+        self.byte_values
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("byte_values is None"))?
+            .append(value)?;
         self.add(term.field.clone(), doc_upto, ord, true)?;
         Ok(())
     }

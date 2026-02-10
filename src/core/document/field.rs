@@ -531,16 +531,17 @@ impl IndexableField for Field {
                         )
                     })?
                     .into_owned();
-                if self.ts.is_none() {
-                    self.ts = Some(TokenStreamEnum2::B(StringTokenStream::new()))
-                }
-                match self.ts.as_mut().unwrap() {
+                let ts = self
+                    .ts
+                    .get_or_insert_with(|| TokenStreamEnum2::B(StringTokenStream::new()));
+
+                match ts {
                     TokenStreamEnum2::B(v) => v.set_value(string_value),
                     TokenStreamEnum2::A(_) => {
                         return Err(LuceneError::illegal_argument("should not be here"));
                     },
                 }
-                return Ok(Some(TokenStreamEnum2::B(self.ts.as_mut().unwrap())));
+                return Ok(Some(TokenStreamEnum2::B(ts)));
             }
             if self.binary_value()?.is_some() {
                 // TODO IMPORTANT avoid copy here?
@@ -552,16 +553,17 @@ impl IndexableField for Field {
                         )
                     })?
                     .into_owned();
-                if self.ts.is_none() {
-                    self.ts = Some(TokenStreamEnum2::A(BinaryTokenStream::new()))
-                }
-                match self.ts.as_mut().unwrap() {
+                let ts = self
+                    .ts
+                    .get_or_insert_with(|| TokenStreamEnum2::A(BinaryTokenStream::new()));
+
+                match ts {
                     TokenStreamEnum2::A(v) => v.set_value(binary_value),
                     TokenStreamEnum2::B(_) => {
                         return Err(LuceneError::illegal_argument("should not be here"));
                     },
                 }
-                return Ok(Some(TokenStreamEnum2::B(self.ts.as_mut().unwrap())));
+                return Ok(Some(TokenStreamEnum2::B(ts)));
             }
         }
         if let Some(token_stream) = token_stream {
@@ -949,7 +951,10 @@ impl TokenStream for StringTokenStream {
             return Ok(false);
         }
         self.token_stream_base.att.clear_attributes();
-        let value = self.value.as_ref().unwrap();
+        let value = self
+            .value
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_argument("set_value() not call?"))?;
         self.token_stream_base.att.append_str(Some(value));
         debug_assert!(value.len() <= i32::MAX as usize);
         self.token_stream_base

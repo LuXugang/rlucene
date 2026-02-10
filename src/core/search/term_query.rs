@@ -254,15 +254,13 @@ where
             return Err(LuceneError::illegal_state(""));
         };
 
-        if state.is_none() {
+        let Some(state) = state else {
             debug_assert!(
                 self.term_not_in_reader(context.reader(), parent_query.term.as_ref())?,
                 "no termstate found but term exists in reader"
             );
             return Ok(None);
-        }
-
-        let state = state.unwrap();
+        };
         let mut terms_enum = context
             .reader()
             .terms(parent_query.term.field())?

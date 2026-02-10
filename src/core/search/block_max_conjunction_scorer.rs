@@ -41,16 +41,15 @@ where
     S: Scorer,
 {
     pub(crate) fn new(scorers_list: Vec<S>) -> Result<Self> {
-        let mut temp_scorers_list = Vec::with_capacity(scorers_list.len());
-        let mut iter_cost = Vec::with_capacity(scorers_list.len());
-        for (idx, mut v) in scorers_list.into_iter().enumerate() {
-            iter_cost.push((idx, v.iterator_mut().cost()?));
-            temp_scorers_list.push(Some(v));
+        let mut scorers_with_cost = Vec::with_capacity(scorers_list.len());
+        for mut v in scorers_list {
+            let cost = v.iterator_mut().cost()?;
+            scorers_with_cost.push((cost, v));
         }
-        iter_cost.sort_by(|a, b| b.1.cmp(&a.1));
-        let mut scorers = Vec::with_capacity(iter_cost.len());
-        for (idx, _) in iter_cost {
-            let mut v = temp_scorers_list[idx].take().unwrap();
+        scorers_with_cost.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let mut scorers = Vec::with_capacity(scorers_with_cost.len());
+        for (_, mut v) in scorers_with_cost {
             v.advance_shallow(0)?;
             scorers.push(v);
         }

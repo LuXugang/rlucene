@@ -187,11 +187,10 @@ where
         }
 
         let index_sort = reader.get_metadata()?.get_sort();
-        if index_sort.is_none() {
-            return Ok(None);
-        }
-        let index_sort = index_sort.as_ref().unwrap();
-
+        let index_sort = match index_sort {
+            Some(index_sort) => index_sort,
+            None => return Ok(None),
+        };
         let sort_fields = index_sort.get_sort();
         let Some(first) = sort_fields.first() else {
             return Ok(None);
